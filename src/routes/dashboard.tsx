@@ -25,6 +25,7 @@ import {
   Lock,
   Globe,
   LogOut,
+  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -51,7 +52,7 @@ function Dashboard() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
@@ -63,6 +64,7 @@ function Dashboard() {
           variant="ghost"
           size="sm"
           onClick={() => void signOut()}
+          className="text-muted-foreground"
         >
           <LogOut className="h-4 w-4 mr-1" />
           Sign out
@@ -92,6 +94,30 @@ function Dashboard() {
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Copy URL"
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-emerald-500" />
+      ) : (
+        <Copy className="h-3.5 w-3.5" />
+      )}
+    </Button>
+  );
+}
+
 function PublicationsTab() {
   const publications = useQuery(api.publications.listByUser);
   const toggleVisibility = useMutation(api.publications.toggleVisibility);
@@ -103,114 +129,109 @@ function PublicationsTab() {
 
   if (publications.length === 0) {
     return (
-      <Card className="mt-4">
-        <CardContent className="flex flex-col items-center py-12">
-          <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
-          <p className="text-muted-foreground mb-2">No publications yet</p>
-          <p className="text-sm text-muted-foreground">
+      <Card className="mt-4 border-border/50 border-dashed">
+        <CardContent className="flex flex-col items-center py-16">
+          <div className="rounded-full bg-muted p-4 mb-4">
+            <FileText className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="font-medium mb-1">No publications yet</p>
+          <p className="text-sm text-muted-foreground mb-6">
             Use the CLI or API to publish your first file.
           </p>
+          <div className="rounded-lg bg-navy text-white px-4 py-3 font-mono text-sm">
+            <span className="text-primary">$</span> publish upload index.html
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-3 mt-4">
+    <div className="space-y-2 mt-4">
       {publications.map((pub) => (
-        <Card key={pub._id}>
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <a
-                  href={`/p/${pub.slug}`}
-                  className="font-medium text-sm hover:underline truncate"
+        <div
+          key={pub._id}
+          className="group flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:border-primary/20"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <a
+                href={`/p/${pub.slug}`}
+                className="font-medium text-sm hover:text-primary transition-colors truncate"
+              >
+                {pub.title || pub.filename}
+              </a>
+              <Badge variant="secondary" className="text-xs">
+                {pub.contentType}
+              </Badge>
+              {pub.isPublic ? (
+                <Badge
+                  variant="outline"
+                  className="text-xs gap-1 text-emerald-600 border-emerald-600/20"
                 >
-                  {pub.title || pub.filename}
-                </a>
-                <Badge variant="secondary" className="text-xs">
-                  {pub.contentType}
+                  <Globe className="h-3 w-3" />
+                  public
                 </Badge>
-                {pub.isPublic ? (
-                  <Badge
-                    variant="outline"
-                    className="text-xs gap-1 text-emerald-600 border-emerald-200"
-                  >
-                    <Globe className="h-3 w-3" />
-                    public
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className="text-xs gap-1 text-amber-600 border-amber-200"
-                  >
-                    <Lock className="h-3 w-3" />
-                    private
-                  </Badge>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                /{pub.slug} &middot;{" "}
-                {new Date(pub.createdAt).toLocaleDateString()}
-              </div>
-            </div>
-            <div className="flex items-center gap-1 ml-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  const url = `${window.location.origin}/p/${pub.slug}`;
-                  navigator.clipboard.writeText(url);
-                }}
-                title="Copy URL"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                asChild
-              >
-                <a
-                  href={`/p/${pub.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open"
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="text-xs gap-1 text-amber-600 border-amber-600/20"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => toggleVisibility({ id: pub._id })}
-                title={pub.isPublic ? "Make private" : "Make public"}
-              >
-                {pub.isPublic ? (
-                  <Lock className="h-3.5 w-3.5" />
-                ) : (
-                  <Globe className="h-3.5 w-3.5" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => {
-                  if (confirm("Delete this publication?")) {
-                    deletePub({ id: pub._id });
-                  }
-                }}
-                title="Delete"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+                  <Lock className="h-3 w-3" />
+                  private
+                </Badge>
+              )}
             </div>
-          </CardContent>
-        </Card>
+            <div className="text-xs text-muted-foreground mt-1">
+              /{pub.slug} &middot;{" "}
+              {new Date(pub.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <CopyButton text={`${window.location.origin}/p/${pub.slug}`} />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              asChild
+            >
+              <a
+                href={`/p/${pub.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => toggleVisibility({ id: pub._id })}
+              title={pub.isPublic ? "Make private" : "Make public"}
+            >
+              {pub.isPublic ? (
+                <Lock className="h-3.5 w-3.5" />
+              ) : (
+                <Globe className="h-3.5 w-3.5" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => {
+                if (confirm("Delete this publication?")) {
+                  deletePub({ id: pub._id });
+                }
+              }}
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -258,7 +279,7 @@ function ApiKeysTab() {
       </form>
 
       {createdKey && (
-        <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20">
+        <Card className="border-emerald-600/20 bg-emerald-50 dark:bg-emerald-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-emerald-800 dark:text-emerald-200">
               API key created! Copy it now — you won't see it again.
@@ -269,14 +290,7 @@ function ApiKeysTab() {
               <code className="text-sm bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1.5 rounded flex-1 break-all font-mono">
                 {createdKey}
               </code>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => navigator.clipboard.writeText(createdKey)}
-              >
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                Copy
-              </Button>
+              <CopyButton text={createdKey} />
             </div>
             <Button
               variant="link"
@@ -293,40 +307,43 @@ function ApiKeysTab() {
       {!keys ? (
         <div className="text-muted-foreground">Loading...</div>
       ) : keys.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center py-12">
-            <Key className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">No API keys yet</p>
+        <Card className="border-border/50 border-dashed">
+          <CardContent className="flex flex-col items-center py-16">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <Key className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="font-medium mb-1">No API keys yet</p>
             <p className="text-sm text-muted-foreground">
               Create one to start publishing via CLI or API.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {keys.map((k) => (
-            <Card key={k._id}>
-              <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <div className="font-medium text-sm">{k.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    <code className="font-mono">{k.keyPreview}</code> &middot;
-                    Created {new Date(k.createdAt).toLocaleDateString()}
-                    {k.lastUsedAt &&
-                      ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
-                  </div>
+            <div
+              key={k._id}
+              className="group flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:border-primary/20"
+            >
+              <div>
+                <div className="font-medium text-sm">{k.name}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  <code className="font-mono">{k.keyPreview}</code> &middot;
+                  Created {new Date(k.createdAt).toLocaleDateString()}
+                  {k.lastUsedAt &&
+                    ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(k._id)}
-                  title="Delete key"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleDelete(k._id)}
+                title="Delete key"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           ))}
         </div>
       )}

@@ -10,8 +10,8 @@ import * as React from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { useConvexAuth } from "convex/react";
 import { Button } from "~/components/ui/button";
-import { Separator } from "~/components/ui/separator";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { PubWordmark } from "~/components/pub-logo";
 import appCss from "~/styles/app.css?url";
 
 export const Route = createRootRouteWithContext<{
@@ -31,6 +31,19 @@ export const Route = createRootRouteWithContext<{
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+      },
     ],
   }),
   component: RootComponent,
@@ -55,32 +68,41 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             <Link
               to="/"
-              className="text-xl font-bold tracking-tight hover:opacity-80 transition-opacity"
+              className="hover:opacity-80 transition-opacity"
             >
-              Pub
+              <PubWordmark iconSize={22} className="text-foreground" />
             </Link>
-            <nav className="flex items-center gap-2">
+            <nav className="flex items-center gap-3">
               {isLoading ? null : isAuthenticated ? (
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/dashboard">Dashboard</Link>
                 </Button>
               ) : (
-                <Button size="sm" asChild>
-                  <Link to="/login">Sign in</Link>
-                </Button>
+                <>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/login">Sign in</Link>
+                  </Button>
+                  <Button size="sm" asChild>
+                    <Link to="/login">Get started</Link>
+                  </Button>
+                </>
               )}
             </nav>
           </div>
         </header>
-        <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
-        <Separator />
-        <footer className="py-6 text-center text-sm text-muted-foreground">
-          <div className="max-w-5xl mx-auto px-4">
-            Built with TanStack Start, Convex, and Vercel.
+        <main>{children}</main>
+        <footer className="border-t border-border/50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <PubWordmark iconSize={18} className="text-muted-foreground text-sm" />
+              <p className="text-sm text-muted-foreground">
+                Built with Convex, TanStack Start, and Tailwind CSS.
+              </p>
+            </div>
           </div>
         </footer>
         <Scripts />

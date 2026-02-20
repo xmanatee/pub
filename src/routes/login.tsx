@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Separator } from "~/components/ui/separator";
+import { PubLogo } from "~/components/pub-logo";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -29,25 +29,28 @@ function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
+      <Card className="w-full max-w-sm border-border/50">
+        <CardHeader className="text-center pb-2">
+          <div className="flex justify-center mb-4">
+            <PubLogo size={40} />
+          </div>
           <CardTitle className="text-2xl">Sign in to Pub</CardTitle>
           <CardDescription>
-            Choose your preferred sign-in method
+            Authenticate to manage publications and API keys
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 pt-4">
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full h-11"
             onClick={() => void signIn("github")}
           >
             <GitHubIcon />
             Continue with GitHub
           </Button>
-          <div className="relative">
+          <div className="relative my-1">
             <div className="absolute inset-0 flex items-center">
-              <Separator />
+              <div className="w-full border-t border-border/50" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">or</span>
@@ -55,12 +58,15 @@ function LoginPage() {
           </div>
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full h-11"
             onClick={() => void signIn("google")}
           >
             <GoogleIcon />
             Continue with Google
           </Button>
+          <p className="text-center text-xs text-muted-foreground pt-2">
+            By continuing, you agree to our terms of service.
+          </p>
         </CardContent>
       </Card>
     </div>

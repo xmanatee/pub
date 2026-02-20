@@ -25,8 +25,10 @@ function PublicationPage() {
 
   if (publication === null) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-2">
-        <FileText className="h-12 w-12 text-muted-foreground/50" />
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
+        <div className="rounded-full bg-muted p-4">
+          <FileText className="h-8 w-8 text-muted-foreground" />
+        </div>
         <h1 className="text-xl font-bold">Not found</h1>
         <p className="text-muted-foreground">
           This publication doesn't exist or is not public.
@@ -36,7 +38,7 @@ function PublicationPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <h1 className="text-lg font-semibold">
@@ -46,14 +48,14 @@ function PublicationPage() {
           {publication.isPublic ? (
             <Badge
               variant="outline"
-              className="gap-1 text-emerald-600 border-emerald-200"
+              className="gap-1 text-emerald-600 border-emerald-600/20"
             >
               <Globe className="h-3 w-3" /> public
             </Badge>
           ) : (
             <Badge
               variant="outline"
-              className="gap-1 text-amber-600 border-amber-200"
+              className="gap-1 text-amber-600 border-amber-600/20"
             >
               <Lock className="h-3 w-3" /> private
             </Badge>
@@ -99,7 +101,7 @@ function ContentRenderer({
       return <CodeRenderer content={content} language={contentType} />;
     default:
       return (
-        <Card>
+        <Card className="border-border/50">
           <CardContent className="p-6">
             <pre className="overflow-auto text-sm whitespace-pre-wrap font-mono">
               {content}
@@ -125,10 +127,10 @@ function HtmlRenderer({ content }: { content: string }) {
   }, [content]);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border-border/50">
       <iframe
         ref={iframeRef}
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts"
         className="w-full min-h-[600px] bg-white"
         title="Published HTML content"
       />
@@ -151,7 +153,7 @@ function MarkdownRenderer({ content }: { content: string }) {
   }, [content]);
 
   return (
-    <Card>
+    <Card className="border-border/50">
       <CardContent className="p-6">
         <div
           className="prose prose-sm max-w-none dark:prose-invert"
@@ -170,13 +172,13 @@ function CodeRenderer({
   language: string;
 }) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="bg-zinc-950 py-2 px-4">
+    <Card className="overflow-hidden border-border/50">
+      <CardHeader className="bg-navy py-2 px-4">
         <Badge variant="secondary" className="w-fit text-xs">
           {language}
         </Badge>
       </CardHeader>
-      <CardContent className="bg-zinc-950 text-zinc-100 p-6 pt-0">
+      <CardContent className="bg-navy text-white/90 p-6 pt-0">
         <pre className="overflow-auto text-sm">
           <code>{content}</code>
         </pre>
