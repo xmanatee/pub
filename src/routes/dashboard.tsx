@@ -27,6 +27,17 @@ import {
   LogOut,
   Check,
 } from "lucide-react";
+import {
+  trackSignOut,
+  trackDashboardTabChanged,
+  trackPublicationLinkCopied,
+  trackVisibilityToggled,
+  trackPublicationDeleted,
+  trackApiKeyCreated,
+  trackApiKeyDeleted,
+  trackApiKeyCopied,
+  resetIdentity,
+} from "~/lib/analytics";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -63,7 +74,11 @@ function Dashboard() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => void signOut()}
+          onClick={() => {
+            trackSignOut();
+            resetIdentity();
+            void signOut();
+          }}
           className="text-muted-foreground"
         >
           <LogOut className="h-4 w-4 mr-1" />
@@ -71,7 +86,12 @@ function Dashboard() {
         </Button>
       </div>
 
-      <Tabs defaultValue="publications">
+      <Tabs
+        defaultValue="publications"
+        onValueChange={(tab) =>
+          trackDashboardTabChanged({ tab: tab as "publications" | "keys" })
+        }
+      >
         <TabsList>
           <TabsTrigger value="publications">
             <FileText className="h-4 w-4 mr-1.5" />
@@ -94,7 +114,7 @@ function Dashboard() {
   );
 }
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, onCopy }: { text: string; onCopy?: () => void }) {
   const [copied, setCopied] = React.useState(false);
 
   return (
@@ -104,6 +124,7 @@ function CopyButton({ text }: { text: string }) {
       className="h-8 w-8"
       onClick={() => {
         navigator.clipboard.writeText(text);
+        onCopy?.();
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
@@ -188,7 +209,10 @@ function PublicationsTab() {
             </div>
           </div>
           <div className="flex items-center gap-0.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <CopyButton text={`${window.location.origin}/p/${pub.slug}`} />
+            <CopyButton
+              text={`${window.location.origin}/p/${pub.slug}`}
+              onCopy={() => trackPublicationLinkCopied({ slug: pub.slug })}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -208,7 +232,13 @@ function PublicationsTab() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => toggleVisibility({ id: pub._id })}
+              onClick={() => {
+                trackVisibilityToggled({
+                  slug: pub.slug,
+                  newVisibility: pub.isPublic ? "private" : "public",
+                });
+                toggleVisibility({ id: pub._id });
+              }}
               title={pub.isPublic ? "Make private" : "Make public"}
             >
               {pub.isPublic ? (
@@ -223,6 +253,10 @@ function PublicationsTab() {
               className="h-8 w-8 text-destructive hover:text-destructive"
               onClick={() => {
                 if (confirm("Delete this publication?")) {
+                  trackPublicationDeleted({
+                    slug: pub.slug,
+                    contentType: pub.contentType,
+                  });
                   deletePub({ id: pub._id });
                 }
               }}
@@ -251,6 +285,7 @@ function ApiKeysTab() {
     setLoading(true);
     try {
       const result = await createKey({ name: newKeyName.trim() });
+      trackApiKeyCreated({ name: newKeyName.trim() });
       setCreatedKey(result.key);
       setNewKeyName("");
     } finally {
@@ -260,6 +295,8 @@ function ApiKeysTab() {
 
   async function handleDelete(id: Id<"apiKeys">) {
     if (!confirm("Delete this API key? This cannot be undone.")) return;
+    const key = keys?.find((k) => k._id === id);
+    if (key) trackApiKeyDeleted({ name: key.name });
     await removeKey({ id });
   }
 
@@ -290,7 +327,7 @@ function ApiKeysTab() {
               <code className="text-sm bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1.5 rounded flex-1 break-all font-mono">
                 {createdKey}
               </code>
-              <CopyButton text={createdKey} />
+              <CopyButton text={createdKey} onCopy={() => trackApiKeyCopied()} />
             </div>
             <Button
               variant="link"

@@ -12,6 +12,7 @@ import {
   Shield,
   Link2,
 } from "lucide-react";
+import { trackCtaClicked } from "~/lib/analytics";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -65,7 +66,14 @@ function HeroSection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button size="lg" className="h-12 px-8 text-base" asChild>
+            <Button
+              size="lg"
+              className="h-12 px-8 text-base"
+              asChild
+              onClick={() =>
+                trackCtaClicked({ cta: "start_publishing", location: "hero" })
+              }
+            >
               <Link to="/login">
                 Start publishing
                 <ArrowRight className="ml-1 h-4 w-4" />
@@ -76,6 +84,9 @@ function HeroSection() {
               size="lg"
               className="h-12 px-8 text-base"
               asChild
+              onClick={() =>
+                trackCtaClicked({ cta: "see_how_it_works", location: "hero" })
+              }
             >
               <a href="#how-it-works">See how it works</a>
             </Button>
@@ -348,7 +359,14 @@ function CtaSection() {
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
           Sign up in seconds. Get your API key. Start publishing.
         </p>
-        <Button size="lg" className="h-12 px-8 text-base" asChild>
+        <Button
+          size="lg"
+          className="h-12 px-8 text-base"
+          asChild
+          onClick={() =>
+            trackCtaClicked({ cta: "get_started_free", location: "bottom_cta" })
+          }
+        >
           <Link to="/login">
             Get started free
             <ArrowRight className="ml-1 h-4 w-4" />

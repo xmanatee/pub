@@ -9,10 +9,21 @@ import {
 import * as React from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { useConvexAuth } from "convex/react";
+import * as Sentry from "@sentry/react";
+import { PostHogProvider } from "posthog-js/react";
+import posthog from "posthog-js";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { PubWordmark } from "~/components/pub-logo";
+import { initSentry } from "~/lib/sentry";
+import { initPostHog } from "~/lib/posthog";
 import appCss from "~/styles/app.css?url";
+
+// Initialize Sentry and PostHog as early as possible (client-side only)
+if (typeof window !== "undefined") {
+  initSentry();
+  initPostHog();
+}
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -47,15 +58,39 @@ export const Route = createRootRouteWithContext<{
     ],
   }),
   component: RootComponent,
+  errorComponent: SentryErrorComponent,
 });
+
+function SentryErrorComponent({ error }: { error: Error }) {
+  React.useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 px-4">
+      <h1 className="text-xl font-bold">Something went wrong</h1>
+      <p className="text-muted-foreground text-center max-w-md">
+        An unexpected error occurred. The issue has been reported and we're
+        looking into it.
+      </p>
+      <Button onClick={() => window.location.reload()}>Reload page</Button>
+    </div>
+  );
+}
 
 function RootComponent() {
   return (
-    <TooltipProvider>
-      <RootDocument>
-        <Outlet />
-      </RootDocument>
-    </TooltipProvider>
+    <PostHogProvider client={posthog}>
+      <Sentry.ErrorBoundary
+        fallback={({ error }) => <SentryErrorComponent error={error as Error} />}
+      >
+        <TooltipProvider>
+          <RootDocument>
+            <Outlet />
+          </RootDocument>
+        </TooltipProvider>
+      </Sentry.ErrorBoundary>
+    </PostHogProvider>
   );
 }
 

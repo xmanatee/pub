@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { ExternalLink, Lock, Globe, FileText } from "lucide-react";
+import { trackPublicationViewed, trackPublicationRawViewed } from "~/lib/analytics";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PublicationPage,
@@ -14,6 +15,20 @@ export const Route = createFileRoute("/p/$slug")({
 function PublicationPage() {
   const { slug } = Route.useParams();
   const publication = useQuery(api.publications.getBySlug, { slug });
+  const { isAuthenticated } = useConvexAuth();
+  const tracked = React.useRef(false);
+
+  React.useEffect(() => {
+    if (publication && !tracked.current) {
+      tracked.current = true;
+      trackPublicationViewed({
+        slug: publication.slug,
+        contentType: publication.contentType,
+        isPublic: publication.isPublic,
+        isOwner: isAuthenticated,
+      });
+    }
+  }, [publication, isAuthenticated]);
 
   if (publication === undefined) {
     return (
@@ -64,7 +79,12 @@ function PublicationPage() {
             {new Date(publication.createdAt).toLocaleDateString()}
           </span>
         </div>
-        <Button variant="outline" size="sm" asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          asChild
+          onClick={() => trackPublicationRawViewed({ slug })}
+        >
           <a
             href={`${(import.meta as any).env.VITE_CONVEX_SITE_URL}/serve/${slug}`}
             target="_blank"

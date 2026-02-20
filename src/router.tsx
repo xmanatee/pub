@@ -7,6 +7,8 @@ import {
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import * as Sentry from "@sentry/react";
+import posthog from "posthog-js";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -28,7 +30,13 @@ export function getRouter() {
       },
     },
     mutationCache: new MutationCache({
-      onError: (error) => {
+      onError: (error, _variables, _context, mutation) => {
+        const mutationKey = mutation.options.mutationKey
+          ? String(mutation.options.mutationKey)
+          : "unknown";
+        Sentry.captureException(error, {
+          tags: { type: "mutation_error", mutation: mutationKey },
+        });
         console.error("Mutation error:", error.message);
       },
     }),
@@ -50,6 +58,16 @@ export function getRouter() {
     router,
     queryClient,
   });
+
+  // Track page views on route changes (client-side only)
+  if (typeof document !== "undefined") {
+    router.subscribe("onResolved", ({ toLocation }) => {
+      posthog.capture("$pageview", {
+        $current_url: toLocation.href,
+        path: toLocation.pathname,
+      });
+    });
+  }
 
   return router;
 }

@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { PubLogo } from "~/components/pub-logo";
+import { trackSignInStarted, trackSignIn } from "~/lib/analytics";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -20,9 +21,12 @@ function LoginPage() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
+  const wasAuthenticated = React.useRef(false);
 
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !wasAuthenticated.current) {
+      wasAuthenticated.current = true;
+      trackSignIn("oauth");
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
@@ -43,7 +47,10 @@ function LoginPage() {
           <Button
             variant="outline"
             className="w-full h-11"
-            onClick={() => void signIn("github")}
+            onClick={() => {
+              trackSignInStarted("github");
+              void signIn("github");
+            }}
           >
             <GitHubIcon />
             Continue with GitHub
@@ -59,7 +66,10 @@ function LoginPage() {
           <Button
             variant="outline"
             className="w-full h-11"
-            onClick={() => void signIn("google")}
+            onClick={() => {
+              trackSignInStarted("google");
+              void signIn("google");
+            }}
           >
             <GoogleIcon />
             Continue with Google
