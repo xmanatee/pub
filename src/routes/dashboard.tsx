@@ -1,0 +1,335 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import * as React from "react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import { Badge } from "~/components/ui/badge";
+import { Input } from "~/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  Copy,
+  ExternalLink,
+  Key,
+  FileText,
+  Trash2,
+  Plus,
+  Lock,
+  Globe,
+  LogOut,
+} from "lucide-react";
+
+export const Route = createFileRoute("/dashboard")({
+  component: Dashboard,
+});
+
+function Dashboard() {
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
+
+  React.useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate({ to: "/login" });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Manage your publications and API keys
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void signOut()}
+        >
+          <LogOut className="h-4 w-4 mr-1" />
+          Sign out
+        </Button>
+      </div>
+
+      <Tabs defaultValue="publications">
+        <TabsList>
+          <TabsTrigger value="publications">
+            <FileText className="h-4 w-4 mr-1.5" />
+            Publications
+          </TabsTrigger>
+          <TabsTrigger value="keys">
+            <Key className="h-4 w-4 mr-1.5" />
+            API Keys
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="publications">
+          <PublicationsTab />
+        </TabsContent>
+        <TabsContent value="keys">
+          <ApiKeysTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function PublicationsTab() {
+  const publications = useQuery(api.publications.listByUser);
+  const toggleVisibility = useMutation(api.publications.toggleVisibility);
+  const deletePub = useMutation(api.publications.deleteByUser);
+
+  if (!publications) {
+    return <div className="text-muted-foreground py-8">Loading...</div>;
+  }
+
+  if (publications.length === 0) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="flex flex-col items-center py-12">
+          <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+          <p className="text-muted-foreground mb-2">No publications yet</p>
+          <p className="text-sm text-muted-foreground">
+            Use the CLI or API to publish your first file.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3 mt-4">
+      {publications.map((pub) => (
+        <Card key={pub._id}>
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href={`/p/${pub.slug}`}
+                  className="font-medium text-sm hover:underline truncate"
+                >
+                  {pub.title || pub.filename}
+                </a>
+                <Badge variant="secondary" className="text-xs">
+                  {pub.contentType}
+                </Badge>
+                {pub.isPublic ? (
+                  <Badge
+                    variant="outline"
+                    className="text-xs gap-1 text-emerald-600 border-emerald-200"
+                  >
+                    <Globe className="h-3 w-3" />
+                    public
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="text-xs gap-1 text-amber-600 border-amber-200"
+                  >
+                    <Lock className="h-3 w-3" />
+                    private
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                /{pub.slug} &middot;{" "}
+                {new Date(pub.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 ml-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => {
+                  const url = `${window.location.origin}/p/${pub.slug}`;
+                  navigator.clipboard.writeText(url);
+                }}
+                title="Copy URL"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                asChild
+              >
+                <a
+                  href={`/p/${pub.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => toggleVisibility({ id: pub._id })}
+                title={pub.isPublic ? "Make private" : "Make public"}
+              >
+                {pub.isPublic ? (
+                  <Lock className="h-3.5 w-3.5" />
+                ) : (
+                  <Globe className="h-3.5 w-3.5" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (confirm("Delete this publication?")) {
+                    deletePub({ id: pub._id });
+                  }
+                }}
+                title="Delete"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function ApiKeysTab() {
+  const keys = useQuery(api.apiKeys.list);
+  const createKey = useMutation(api.apiKeys.create);
+  const removeKey = useMutation(api.apiKeys.remove);
+  const [newKeyName, setNewKeyName] = React.useState("");
+  const [createdKey, setCreatedKey] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newKeyName.trim()) return;
+    setLoading(true);
+    try {
+      const result = await createKey({ name: newKeyName.trim() });
+      setCreatedKey(result.key);
+      setNewKeyName("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: Id<"apiKeys">) {
+    if (!confirm("Delete this API key? This cannot be undone.")) return;
+    await removeKey({ id });
+  }
+
+  return (
+    <div className="mt-4 space-y-4">
+      <form onSubmit={handleCreate} className="flex gap-2">
+        <Input
+          placeholder="Key name (e.g. my-agent)"
+          value={newKeyName}
+          onChange={(e) => setNewKeyName(e.target.value)}
+          className="flex-1"
+        />
+        <Button type="submit" disabled={loading || !newKeyName.trim()} size="sm">
+          <Plus className="h-4 w-4 mr-1" />
+          Create key
+        </Button>
+      </form>
+
+      {createdKey && (
+        <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-emerald-800 dark:text-emerald-200">
+              API key created! Copy it now — you won't see it again.
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <code className="text-sm bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1.5 rounded flex-1 break-all font-mono">
+                {createdKey}
+              </code>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => navigator.clipboard.writeText(createdKey)}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                Copy
+              </Button>
+            </div>
+            <Button
+              variant="link"
+              size="sm"
+              className="mt-1 h-auto p-0 text-xs"
+              onClick={() => setCreatedKey(null)}
+            >
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!keys ? (
+        <div className="text-muted-foreground">Loading...</div>
+      ) : keys.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center py-12">
+            <Key className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <p className="text-muted-foreground">No API keys yet</p>
+            <p className="text-sm text-muted-foreground">
+              Create one to start publishing via CLI or API.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {keys.map((k) => (
+            <Card key={k._id}>
+              <CardContent className="flex items-center justify-between py-4">
+                <div>
+                  <div className="font-medium text-sm">{k.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    <code className="font-mono">{k.keyPreview}</code> &middot;
+                    Created {new Date(k.createdAt).toLocaleDateString()}
+                    {k.lastUsedAt &&
+                      ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(k._id)}
+                  title="Delete key"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
