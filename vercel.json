@@ -1,4 +1,4 @@
 {
-  "buildCommand": "npx convex deploy --cmd 'npm run build'",
+  "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'npm run build'",
   "framework": "vite"
 }
