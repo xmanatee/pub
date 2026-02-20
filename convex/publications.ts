@@ -266,7 +266,19 @@ export const unpublish = action({
 
 export const getViaApi = action({
   args: { apiKey: v.string(), slug: v.string() },
-  handler: async (ctx, { apiKey, slug }) => {
+  handler: async (
+    ctx,
+    { apiKey, slug },
+  ): Promise<{
+    slug: string;
+    filename: string;
+    contentType: string;
+    content: string;
+    title?: string;
+    isPublic: boolean;
+    createdAt: number;
+    updatedAt: number;
+  }> => {
     const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
       key: apiKey,
     });
@@ -294,7 +306,20 @@ export const getViaApi = action({
 
 export const listViaApi = action({
   args: { apiKey: v.string() },
-  handler: async (ctx, { apiKey }) => {
+  handler: async (
+    ctx,
+    { apiKey },
+  ): Promise<
+    {
+      slug: string;
+      filename: string;
+      contentType: string;
+      title?: string;
+      isPublic: boolean;
+      createdAt: number;
+      updatedAt: number;
+    }[]
+  > => {
     const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
       key: apiKey,
     });
@@ -323,7 +348,10 @@ export const updateViaApi = action({
     title: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
   },
-  handler: async (ctx, { apiKey, slug, title, isPublic }) => {
+  handler: async (
+    ctx,
+    { apiKey, slug, title, isPublic },
+  ): Promise<{ slug: string; title?: string; isPublic: boolean }> => {
     const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
       key: apiKey,
     });

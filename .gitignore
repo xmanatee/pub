@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.output/
+.vinxi/
+
+.env.local
+.vercel
+
+convex/_generated/
+src/routeTree.gen.ts

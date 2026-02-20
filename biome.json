@@ -12,7 +12,10 @@
       "!**/.output",
       "!**/convex/_generated",
       "!**/cli/dist",
-      "!**/cli/node_modules"
+      "!**/cli/node_modules",
+      "!src/routeTree.gen.ts",
+      "!**/.vercel",
+      "!**/.claude"
     ]
   },
   "linter": {

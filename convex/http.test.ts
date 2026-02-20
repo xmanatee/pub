@@ -275,13 +275,13 @@ describe("error message extraction", () => {
   });
 
   it("falls back for non-Error throws", () => {
-    const e = "string error";
+    const e: unknown = "string error";
     const message = e instanceof Error ? e.message : "Internal error";
     expect(message).toBe("Internal error");
   });
 
   it("falls back for null", () => {
-    const e = null;
+    const e: unknown = null;
     const message = e instanceof Error ? e.message : "Internal error";
     expect(message).toBe("Internal error");
   });
