@@ -1,22 +1,23 @@
 /// <reference types="vite/client" />
+
+import * as Sentry from "@sentry/react";
+import type { QueryClient } from "@tanstack/react-query";
 import {
+  createRootRouteWithContext,
   HeadContent,
   Link,
   Outlet,
   Scripts,
-  createRootRouteWithContext,
 } from "@tanstack/react-router";
-import * as React from "react";
-import type { QueryClient } from "@tanstack/react-query";
 import { useConvexAuth } from "convex/react";
-import * as Sentry from "@sentry/react";
-import { PostHogProvider } from "posthog-js/react";
 import posthog from "posthog-js";
+import { PostHogProvider } from "posthog-js/react";
+import * as React from "react";
+import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
-import { PubWordmark } from "~/components/pub-logo";
-import { initSentry } from "~/lib/sentry";
 import { initPostHog } from "~/lib/posthog";
+import { initSentry } from "~/lib/sentry";
 import appCss from "~/styles/app.css?url";
 
 // Initialize Sentry and PostHog as early as possible (client-side only)
@@ -70,8 +71,7 @@ function SentryErrorComponent({ error }: { error: Error }) {
     <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 px-4">
       <h1 className="text-xl font-bold">Something went wrong</h1>
       <p className="text-muted-foreground text-center max-w-md">
-        An unexpected error occurred. The issue has been reported and we're
-        looking into it.
+        An unexpected error occurred. The issue has been reported and we're looking into it.
       </p>
       <Button onClick={() => window.location.reload()}>Reload page</Button>
     </div>
@@ -105,10 +105,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="min-h-screen bg-background text-foreground antialiased">
         <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            <Link
-              to="/"
-              className="hover:opacity-80 transition-opacity"
-            >
+            <Link to="/" className="hover:opacity-80 transition-opacity">
               <PubWordmark iconSize={22} className="text-foreground" />
             </Link>
             <nav className="flex items-center gap-3">

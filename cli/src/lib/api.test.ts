@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PublishApiClient } from "./api.js";
 
 describe("PublishApiClient", () => {
@@ -53,9 +53,9 @@ describe("PublishApiClient", () => {
         }),
       );
 
-      await expect(
-        client.publish({ filename: "test.html", content: "test" }),
-      ).rejects.toThrow("Invalid API key");
+      await expect(client.publish({ filename: "test.html", content: "test" })).rejects.toThrow(
+        "Invalid API key",
+      );
     });
   });
 

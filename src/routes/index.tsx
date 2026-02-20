@@ -1,17 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
+import { ArrowRight, Bot, FileCode2, Globe, Link2, Shield, Terminal, Zap } from "lucide-react";
 import { PubLogo } from "~/components/pub-logo";
-import {
-  Globe,
-  Zap,
-  Bot,
-  ArrowRight,
-  Terminal,
-  FileCode2,
-  Shield,
-  Link2,
-} from "lucide-react";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { trackCtaClicked } from "~/lib/analytics";
 
 export const Route = createFileRoute("/")({
@@ -44,10 +35,7 @@ function HeroSection() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
-          <Badge
-            variant="secondary"
-            className="mb-6 px-3 py-1 text-xs font-medium gap-1.5"
-          >
+          <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs font-medium gap-1.5">
             <Zap className="h-3 w-3" />
             Built for developers and AI agents
           </Badge>
@@ -61,8 +49,8 @@ function HeroSection() {
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Push HTML, Markdown, CSS, or JS to the web in one command.
-            Built for quick demos, previews, and agent-generated content.
+            Push HTML, Markdown, CSS, or JS to the web in one command. Built for quick demos,
+            previews, and agent-generated content.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -70,9 +58,7 @@ function HeroSection() {
               size="lg"
               className="h-12 px-8 text-base"
               asChild
-              onClick={() =>
-                trackCtaClicked({ cta: "start_publishing", location: "hero" })
-              }
+              onClick={() => trackCtaClicked({ cta: "start_publishing", location: "hero" })}
             >
               <Link to="/login">
                 Start publishing
@@ -84,9 +70,7 @@ function HeroSection() {
               size="lg"
               className="h-12 px-8 text-base"
               asChild
-              onClick={() =>
-                trackCtaClicked({ cta: "see_how_it_works", location: "hero" })
-              }
+              onClick={() => trackCtaClicked({ cta: "see_how_it_works", location: "hero" })}
             >
               <a href="#how-it-works">See how it works</a>
             </Button>
@@ -99,9 +83,7 @@ function HeroSection() {
                 <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
                 <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
                 <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                <span className="ml-2 text-xs text-white/40 font-mono">
-                  terminal
-                </span>
+                <span className="ml-2 text-xs text-white/40 font-mono">terminal</span>
               </div>
               <div className="p-5 font-mono text-sm leading-relaxed">
                 <div className="text-white/40">$ publish upload index.html</div>
@@ -201,9 +183,7 @@ function FeaturesSection() {
                 <feature.icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="text-base font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {feature.description}
-              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -219,8 +199,7 @@ function HowItWorksSection() {
     {
       number: "01",
       title: "Sign in & get a key",
-      description:
-        "Authenticate with GitHub or Google. Generate an API key from your dashboard.",
+      description: "Authenticate with GitHub or Google. Generate an API key from your dashboard.",
     },
     {
       number: "02",
@@ -231,36 +210,26 @@ function HowItWorksSection() {
     {
       number: "03",
       title: "Publish & share",
-      description:
-        "Upload any file. Get back a URL. Share it with anyone, anywhere.",
+      description: "Upload any file. Get back a URL. Share it with anyone, anywhere.",
     },
   ];
 
   return (
-    <section
-      id="how-it-works"
-      className="py-24 bg-muted/30 border-y border-border/50"
-    >
+    <section id="how-it-works" className="py-24 bg-muted/30 border-y border-border/50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Three steps. That's it.
           </h2>
-          <p className="text-muted-foreground text-lg">
-            From zero to published in under a minute.
-          </p>
+          <p className="text-muted-foreground text-lg">From zero to published in under a minute.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
           {steps.map((step) => (
             <div key={step.number} className="text-center">
-              <div className="text-4xl font-bold text-primary/20 mb-3">
-                {step.number}
-              </div>
+              <div className="text-4xl font-bold text-primary/20 mb-3">{step.number}</div>
               <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {step.description}
-              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
             </div>
           ))}
         </div>
@@ -298,12 +267,9 @@ function CodeSection() {
             <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
               {/* Example 1 */}
               <div>
-                <div className="text-white/40 text-xs mb-1">
-                  # Publish a file
-                </div>
+                <div className="text-white/40 text-xs mb-1"># Publish a file</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> publish upload
-                  index.html
+                  <span className="text-primary">$</span> publish upload index.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">
                   Published: https://pub.blue/serve/k8f2m9
@@ -312,12 +278,10 @@ function CodeSection() {
 
               {/* Example 2 */}
               <div>
-                <div className="text-white/40 text-xs mb-1">
-                  # Custom slug + title
-                </div>
+                <div className="text-white/40 text-xs mb-1"># Custom slug + title</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> publish upload --slug
-                  my-demo --title "Demo Page" report.md
+                  <span className="text-primary">$</span> publish upload --slug my-demo --title
+                  "Demo Page" report.md
                 </div>
                 <div className="text-emerald-400 mt-0.5">
                   Published: https://pub.blue/serve/my-demo
@@ -326,13 +290,10 @@ function CodeSection() {
 
               {/* Example 3 */}
               <div>
-                <div className="text-white/40 text-xs mb-1">
-                  # Pipe from stdin
-                </div>
+                <div className="text-white/40 text-xs mb-1"># Pipe from stdin</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> echo
-                  "&lt;h1&gt;Hello&lt;/h1&gt;" | publish upload-content
-                  --filename page.html
+                  <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" |
+                  publish upload-content --filename page.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">
                   Published: https://pub.blue/serve/w3n7q1
@@ -353,9 +314,7 @@ function CtaSection() {
     <section className="py-24 border-t border-border/50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
         <PubLogo size={48} className="mx-auto mb-6" />
-        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-          Ready to publish?
-        </h2>
+        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">Ready to publish?</h2>
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
           Sign up in seconds. Get your API key. Start publishing.
         </p>
@@ -363,9 +322,7 @@ function CtaSection() {
           size="lg"
           className="h-12 px-8 text-base"
           asChild
-          onClick={() =>
-            trackCtaClicked({ cta: "get_started_free", location: "bottom_cta" })
-          }
+          onClick={() => trackCtaClicked({ cta: "get_started_free", location: "bottom_cta" })}
         >
           <Link to="/login">
             Get started free

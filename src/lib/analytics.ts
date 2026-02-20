@@ -4,8 +4,9 @@
  * All custom PostHog events are defined here as a single source of truth.
  * Components call these typed functions instead of raw posthog.capture().
  */
-import posthog from "posthog-js";
+
 import * as Sentry from "@sentry/react";
+import posthog from "posthog-js";
 
 // ---------------------------------------------------------------------------
 // User identity
@@ -59,10 +60,7 @@ export function trackPublicationCreated(props: {
   posthog.capture("publication_created", props);
 }
 
-export function trackPublicationDeleted(props: {
-  slug: string;
-  contentType: string;
-}) {
+export function trackPublicationDeleted(props: { slug: string; contentType: string }) {
   posthog.capture("publication_deleted", props);
 }
 
@@ -101,9 +99,7 @@ export function trackApiKeyCopied() {
 // Dashboard events
 // ---------------------------------------------------------------------------
 
-export function trackDashboardTabChanged(props: {
-  tab: "publications" | "keys";
-}) {
+export function trackDashboardTabChanged(props: { tab: "publications" | "keys" }) {
   posthog.capture("dashboard_tab_changed", props);
 }
 
@@ -111,10 +107,7 @@ export function trackDashboardTabChanged(props: {
 // Landing page events
 // ---------------------------------------------------------------------------
 
-export function trackCtaClicked(props: {
-  cta: string;
-  location: string;
-}) {
+export function trackCtaClicked(props: { cta: string; location: string }) {
   posthog.capture("cta_clicked", props);
 }
 
@@ -122,10 +115,7 @@ export function trackCtaClicked(props: {
 // Error tracking (reported to both PostHog and Sentry)
 // ---------------------------------------------------------------------------
 
-export function trackError(
-  error: Error,
-  context?: Record<string, unknown>,
-) {
+export function trackError(error: Error, context?: Record<string, unknown>) {
   posthog.capture("client_error", {
     error_message: error.message,
     error_name: error.name,
@@ -134,10 +124,7 @@ export function trackError(
   Sentry.captureException(error, { extra: context });
 }
 
-export function trackMutationError(
-  mutationName: string,
-  error: Error,
-) {
+export function trackMutationError(mutationName: string, error: Error) {
   posthog.capture("mutation_error", {
     mutation: mutationName,
     error_message: error.message,

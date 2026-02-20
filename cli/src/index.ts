@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { Command } from "commander";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { Command } from "commander";
 import { PublishApiClient } from "./lib/api.js";
 import { getConfig, saveConfig } from "./lib/config.js";
 
@@ -29,38 +29,33 @@ program
   .option("--slug <slug>", "Custom slug for the URL")
   .option("--title <title>", "Title for the publication")
   .option("--private", "Make the publication private")
-  .action(
-    async (
-      file: string,
-      opts: { slug?: string; title?: string; private?: boolean },
-    ) => {
-      const config = getConfig();
-      const client = new PublishApiClient(config.baseUrl, config.apiKey);
+  .action(async (file: string, opts: { slug?: string; title?: string; private?: boolean }) => {
+    const config = getConfig();
+    const client = new PublishApiClient(config.baseUrl, config.apiKey);
 
-      const filePath = path.resolve(file);
-      if (!fs.existsSync(filePath)) {
-        console.error(`File not found: ${filePath}`);
-        process.exit(1);
-      }
+    const filePath = path.resolve(file);
+    if (!fs.existsSync(filePath)) {
+      console.error(`File not found: ${filePath}`);
+      process.exit(1);
+    }
 
-      const content = fs.readFileSync(filePath, "utf-8");
-      const filename = path.basename(filePath);
+    const content = fs.readFileSync(filePath, "utf-8");
+    const filename = path.basename(filePath);
 
-      const result = await client.publish({
-        filename,
-        content,
-        title: opts.title,
-        slug: opts.slug,
-        isPublic: !opts.private,
-      });
+    const result = await client.publish({
+      filename,
+      content,
+      title: opts.title,
+      slug: opts.slug,
+      isPublic: !opts.private,
+    });
 
-      if (result.updated) {
-        console.log(`Updated: ${result.url}`);
-      } else {
-        console.log(`Published: ${result.url}`);
-      }
-    },
-  );
+    if (result.updated) {
+      console.log(`Updated: ${result.url}`);
+    } else {
+      console.log(`Published: ${result.url}`);
+    }
+  });
 
 program
   .command("upload-content")
@@ -133,29 +128,24 @@ program
   .option("--title <title>", "New title")
   .option("--public", "Make the publication public")
   .option("--private", "Make the publication private")
-  .action(
-    async (
-      slug: string,
-      opts: { title?: string; public?: boolean; private?: boolean },
-    ) => {
-      const config = getConfig();
-      const client = new PublishApiClient(config.baseUrl, config.apiKey);
+  .action(async (slug: string, opts: { title?: string; public?: boolean; private?: boolean }) => {
+    const config = getConfig();
+    const client = new PublishApiClient(config.baseUrl, config.apiKey);
 
-      let isPublic: boolean | undefined;
-      if (opts.public) isPublic = true;
-      else if (opts.private) isPublic = false;
+    let isPublic: boolean | undefined;
+    if (opts.public) isPublic = true;
+    else if (opts.private) isPublic = false;
 
-      const result = await client.update({
-        slug,
-        title: opts.title,
-        isPublic,
-      });
+    const result = await client.update({
+      slug,
+      title: opts.title,
+      isPublic,
+    });
 
-      console.log(`Updated: ${result.slug}`);
-      if (result.title) console.log(`  Title:  ${result.title}`);
-      console.log(`  Status: ${result.isPublic ? "public" : "private"}`);
-    },
-  );
+    console.log(`Updated: ${result.slug}`);
+    if (result.title) console.log(`  Title:  ${result.title}`);
+    console.log(`  Status: ${result.isPublic ? "public" : "private"}`);
+  });
 
 program
   .command("list")
@@ -173,9 +163,7 @@ program
     for (const pub of pubs) {
       const status = pub.isPublic ? "public" : "private";
       const date = new Date(pub.createdAt).toLocaleDateString();
-      console.log(
-        `  ${pub.slug}  ${pub.filename}  [${pub.contentType}]  ${status}  ${date}`,
-      );
+      console.log(`  ${pub.slug}  ${pub.filename}  [${pub.contentType}]  ${status}  ${date}`);
     }
   });
 

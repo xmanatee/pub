@@ -1,43 +1,37 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import * as React from "react";
-import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import { Button } from "~/components/ui/button";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+  Check,
+  Copy,
+  ExternalLink,
+  FileText,
+  Globe,
+  Key,
+  Lock,
+  LogOut,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import * as React from "react";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
-  Copy,
-  ExternalLink,
-  Key,
-  FileText,
-  Trash2,
-  Plus,
-  Lock,
-  Globe,
-  LogOut,
-  Check,
-} from "lucide-react";
-import {
-  trackSignOut,
-  trackDashboardTabChanged,
-  trackPublicationLinkCopied,
-  trackVisibilityToggled,
-  trackPublicationDeleted,
+  resetIdentity,
+  trackApiKeyCopied,
   trackApiKeyCreated,
   trackApiKeyDeleted,
-  trackApiKeyCopied,
-  resetIdentity,
+  trackDashboardTabChanged,
+  trackPublicationDeleted,
+  trackPublicationLinkCopied,
+  trackSignOut,
+  trackVisibilityToggled,
 } from "~/lib/analytics";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -88,9 +82,7 @@ function Dashboard() {
 
       <Tabs
         defaultValue="publications"
-        onValueChange={(tab) =>
-          trackDashboardTabChanged({ tab: tab as "publications" | "keys" })
-        }
+        onValueChange={(tab) => trackDashboardTabChanged({ tab: tab as "publications" | "keys" })}
       >
         <TabsList>
           <TabsTrigger value="publications">
@@ -204,8 +196,7 @@ function PublicationsTab() {
               )}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              /{pub.slug} &middot;{" "}
-              {new Date(pub.createdAt).toLocaleDateString()}
+              /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
             </div>
           </div>
           <div className="flex items-center gap-0.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -213,18 +204,8 @@ function PublicationsTab() {
               text={`${window.location.origin}/p/${pub.slug}`}
               onCopy={() => trackPublicationLinkCopied({ slug: pub.slug })}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              asChild
-            >
-              <a
-                href={`/p/${pub.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open"
-              >
+            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+              <a href={`/p/${pub.slug}`} target="_blank" rel="noopener noreferrer" title="Open">
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </Button>
@@ -241,11 +222,7 @@ function PublicationsTab() {
               }}
               title={pub.isPublic ? "Make private" : "Make public"}
             >
-              {pub.isPublic ? (
-                <Lock className="h-3.5 w-3.5" />
-              ) : (
-                <Globe className="h-3.5 w-3.5" />
-              )}
+              {pub.isPublic ? <Lock className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
             </Button>
             <Button
               variant="ghost"
@@ -365,10 +342,9 @@ function ApiKeysTab() {
               <div>
                 <div className="font-medium text-sm">{k.name}</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  <code className="font-mono">{k.keyPreview}</code> &middot;
-                  Created {new Date(k.createdAt).toLocaleDateString()}
-                  {k.lastUsedAt &&
-                    ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
+                  <code className="font-mono">{k.keyPreview}</code> &middot; Created{" "}
+                  {new Date(k.createdAt).toLocaleDateString()}
+                  {k.lastUsedAt && ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
                 </div>
               </div>
               <Button

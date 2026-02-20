@@ -1,13 +1,9 @@
-import { createRouter } from "@tanstack/react-router";
-import {
-  MutationCache,
-  QueryClient,
-  notifyManager,
-} from "@tanstack/react-query";
-import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
-import { ConvexQueryClient } from "@convex-dev/react-query";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { ConvexQueryClient } from "@convex-dev/react-query";
 import * as Sentry from "@sentry/react";
+import { MutationCache, notifyManager, QueryClient } from "@tanstack/react-query";
+import { createRouter } from "@tanstack/react-router";
+import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import posthog from "posthog-js";
 import { routeTree } from "./routeTree.gen";
 
@@ -16,7 +12,7 @@ export function getRouter() {
     notifyManager.setScheduler(window.requestAnimationFrame);
   }
 
-  const CONVEX_URL = (import.meta as any).env.VITE_CONVEX_URL!;
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL;
   if (!CONVEX_URL) {
     console.error("missing envar VITE_CONVEX_URL");
   }
@@ -48,9 +44,7 @@ export function getRouter() {
     defaultPreload: "intent",
     context: { queryClient },
     Wrap: ({ children }) => (
-      <ConvexAuthProvider client={convexQueryClient.convexClient}>
-        {children}
-      </ConvexAuthProvider>
+      <ConvexAuthProvider client={convexQueryClient.convexClient}>{children}</ConvexAuthProvider>
     ),
     scrollRestoration: true,
   });

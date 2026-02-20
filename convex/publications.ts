@@ -1,12 +1,6 @@
 import { v } from "convex/values";
-import {
-  action,
-  mutation,
-  internalMutation,
-  internalQuery,
-  query,
-} from "./_generated/server";
 import { internal } from "./_generated/api";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 
 const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
@@ -217,10 +211,9 @@ export const publish = action({
     const contentType = inferContentType(filename);
     const finalSlug = slug || generateSlug();
 
-    const existing = await ctx.runQuery(
-      internal.publications.getBySlugInternal,
-      { slug: finalSlug },
-    );
+    const existing = await ctx.runQuery(internal.publications.getBySlugInternal, {
+      slug: finalSlug,
+    });
 
     if (existing) {
       if (existing.userId !== user.userId) {

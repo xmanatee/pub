@@ -26,10 +26,7 @@ export class PublishApiClient {
     private apiKey: string,
   ) {}
 
-  private async request<T>(
-    path: string,
-    options: RequestInit = {},
-  ): Promise<T> {
+  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = new URL(path, this.baseUrl);
     const res = await fetch(url, {
       ...options,
@@ -68,17 +65,11 @@ export class PublishApiClient {
   }
 
   async list(): Promise<Publication[]> {
-    const data = await this.request<{ publications: Publication[] }>(
-      "/api/v1/publications",
-    );
+    const data = await this.request<{ publications: Publication[] }>("/api/v1/publications");
     return data.publications;
   }
 
-  async update(opts: {
-    slug: string;
-    title?: string;
-    isPublic?: boolean;
-  }): Promise<UpdateResult> {
+  async update(opts: { slug: string; title?: string; isPublic?: boolean }): Promise<UpdateResult> {
     return this.request<UpdateResult>("/api/v1/publications", {
       method: "PATCH",
       body: JSON.stringify(opts),

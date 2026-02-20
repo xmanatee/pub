@@ -1,18 +1,11 @@
 import { v } from "convex/values";
-import {
-  mutation,
-  internalMutation,
-  internalQuery,
-  query,
-} from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 
 function generateApiKey(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(
-    "",
-  );
+  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   return `pub_${key}`;
 }
 

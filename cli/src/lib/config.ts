@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
+import * as path from "node:path";
 
 export interface Config {
   apiKey: string;
@@ -27,7 +27,7 @@ export function loadConfig(homeDir?: string): Config | null {
 
 export function saveConfig(config: Config, homeDir?: string): void {
   const configPath = getConfigPath(homeDir);
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 export function getConfig(homeDir?: string): Config {

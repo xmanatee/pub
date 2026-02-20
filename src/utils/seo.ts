@@ -1,10 +1,4 @@
-export function seo({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function seo({ title, description }: { title: string; description: string }) {
   return [
     { title },
     { name: "description", content: description },

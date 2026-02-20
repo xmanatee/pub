@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useConvexAuth, useQuery } from "convex/react";
+import { ExternalLink, FileText, Globe, Lock } from "lucide-react";
 import * as React from "react";
-import { useQuery, useConvexAuth } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { ExternalLink, Lock, Globe, FileText } from "lucide-react";
-import { trackPublicationViewed, trackPublicationRawViewed } from "~/lib/analytics";
+import { trackPublicationRawViewed, trackPublicationViewed } from "~/lib/analytics";
+import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PublicationPage,
@@ -45,9 +45,7 @@ function PublicationPage() {
           <FileText className="h-8 w-8 text-muted-foreground" />
         </div>
         <h1 className="text-xl font-bold">Not found</h1>
-        <p className="text-muted-foreground">
-          This publication doesn't exist or is not public.
-        </p>
+        <p className="text-muted-foreground">This publication doesn't exist or is not public.</p>
       </div>
     );
   }
@@ -56,22 +54,14 @@ function PublicationPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-lg font-semibold">
-            {publication.title || publication.filename}
-          </h1>
+          <h1 className="text-lg font-semibold">{publication.title || publication.filename}</h1>
           <Badge variant="secondary">{publication.contentType}</Badge>
           {publication.isPublic ? (
-            <Badge
-              variant="outline"
-              className="gap-1 text-emerald-600 border-emerald-600/20"
-            >
+            <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-600/20">
               <Globe className="h-3 w-3" /> public
             </Badge>
           ) : (
-            <Badge
-              variant="outline"
-              className="gap-1 text-amber-600 border-amber-600/20"
-            >
+            <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600/20">
               <Lock className="h-3 w-3" /> private
             </Badge>
           )}
@@ -86,7 +76,7 @@ function PublicationPage() {
           onClick={() => trackPublicationRawViewed({ slug })}
         >
           <a
-            href={`${(import.meta as any).env.VITE_CONVEX_SITE_URL}/serve/${slug}`}
+            href={`${import.meta.env.VITE_CONVEX_SITE_URL}/serve/${slug}`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -96,21 +86,12 @@ function PublicationPage() {
         </Button>
       </div>
 
-      <ContentRenderer
-        content={publication.content}
-        contentType={publication.contentType}
-      />
+      <ContentRenderer content={publication.content} contentType={publication.contentType} />
     </div>
   );
 }
 
-function ContentRenderer({
-  content,
-  contentType,
-}: {
-  content: string;
-  contentType: string;
-}) {
+function ContentRenderer({ content, contentType }: { content: string; contentType: string }) {
   switch (contentType) {
     case "html":
       return <HtmlRenderer content={content} />;
@@ -123,9 +104,7 @@ function ContentRenderer({
       return (
         <Card className="border-border/50">
           <CardContent className="p-6">
-            <pre className="overflow-auto text-sm whitespace-pre-wrap font-mono">
-              {content}
-            </pre>
+            <pre className="overflow-auto text-sm whitespace-pre-wrap font-mono">{content}</pre>
           </CardContent>
         </Card>
       );
@@ -184,13 +163,7 @@ function MarkdownRenderer({ content }: { content: string }) {
   );
 }
 
-function CodeRenderer({
-  content,
-  language,
-}: {
-  content: string;
-  language: string;
-}) {
+function CodeRenderer({ content, language }: { content: string; language: string }) {
   return (
     <Card className="overflow-hidden border-border/50">
       <CardHeader className="bg-navy py-2 px-4">

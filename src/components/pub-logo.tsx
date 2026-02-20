@@ -5,13 +5,7 @@ import { cn } from "~/lib/utils";
  * Works at all sizes: favicon (16px), nav (24px), hero (48px+).
  * The "P" bowl opens rightward, suggesting content flowing out (publishing).
  */
-export function PubLogo({
-  className,
-  size = 32,
-}: {
-  className?: string;
-  size?: number;
-}) {
+export function PubLogo({ className, size = 32 }: { className?: string; size?: number }) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -28,11 +22,7 @@ export function PubLogo({
         fill="white"
         className="text-primary-foreground"
       />
-      <path
-        d="M14 11h2.5a3 3 0 0 1 0 6H14v-6z"
-        fill="currentColor"
-        className="text-primary"
-      />
+      <path d="M14 11h2.5a3 3 0 0 1 0 6H14v-6z" fill="currentColor" className="text-primary" />
     </svg>
   );
 }

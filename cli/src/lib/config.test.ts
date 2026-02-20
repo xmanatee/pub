@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadConfig, saveConfig, getConfig } from "./config.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getConfig, loadConfig, saveConfig } from "./config.js";
 
 describe("config", () => {
   let tmpDir: string;
@@ -30,10 +30,7 @@ describe("config", () => {
   });
 
   it("prefers environment variables over saved config", () => {
-    saveConfig(
-      { apiKey: "pub_saved", baseUrl: "https://saved.convex.site" },
-      tmpDir,
-    );
+    saveConfig({ apiKey: "pub_saved", baseUrl: "https://saved.convex.site" }, tmpDir);
     process.env.PUBLISH_API_KEY = "pub_env";
     process.env.PUBLISH_URL = "https://env.convex.site";
 
@@ -47,10 +44,7 @@ describe("config", () => {
   });
 
   it("uses env key with saved URL", () => {
-    saveConfig(
-      { apiKey: "pub_saved", baseUrl: "https://saved.convex.site" },
-      tmpDir,
-    );
+    saveConfig({ apiKey: "pub_saved", baseUrl: "https://saved.convex.site" }, tmpDir);
     process.env.PUBLISH_API_KEY = "pub_env";
 
     const config = getConfig(tmpDir);

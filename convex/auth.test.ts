@@ -1,18 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-// Auth is now handled by @convex-dev/auth with GitHub and Google providers.
-// These tests cover the API key generation logic which is still custom.
+// --- Extracted logic from apiKeys.ts ---
+
+function generateApiKey(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `pub_${key}`;
+}
+
+// --- Tests ---
 
 describe("API key generation", () => {
-  function generateApiKey(): string {
-    const bytes = new Uint8Array(24);
-    crypto.getRandomValues(bytes);
-    const key = Array.from(bytes, (b) =>
-      b.toString(16).padStart(2, "0"),
-    ).join("");
-    return `pub_${key}`;
-  }
-
   it("generates keys with pub_ prefix", () => {
     const key = generateApiKey();
     expect(key).toMatch(/^pub_/);
@@ -25,9 +24,11 @@ describe("API key generation", () => {
   });
 
   it("generates unique keys", () => {
-    const key1 = generateApiKey();
-    const key2 = generateApiKey();
-    expect(key1).not.toBe(key2);
+    const keys = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      keys.add(generateApiKey());
+    }
+    expect(keys.size).toBe(100);
   });
 
   it("generates hex characters only after prefix", () => {
@@ -35,16 +36,47 @@ describe("API key generation", () => {
     const hexPart = key.slice(4);
     expect(hexPart).toMatch(/^[0-9a-f]+$/);
   });
+
+  it("uses crypto.getRandomValues", () => {
+    const spy = vi.spyOn(crypto, "getRandomValues");
+    generateApiKey();
+    expect(spy).toHaveBeenCalledWith(expect.any(Uint8Array));
+    spy.mockRestore();
+  });
+});
+
+describe("API key preview format", () => {
+  it("shows first 8 and last 4 chars", () => {
+    const key = "pub_aabbccdd11223344556677889900aabbccddee1122";
+    const preview = `${key.slice(0, 8)}...${key.slice(-4)}`;
+    expect(preview).toBe("pub_aabb...1122");
+    expect(preview).toHaveLength(15);
+  });
+
+  it("masks the middle of the key", () => {
+    const key = generateApiKey();
+    const preview = `${key.slice(0, 8)}...${key.slice(-4)}`;
+    expect(preview).toContain("...");
+    expect(preview.length).toBeLessThan(key.length);
+  });
 });
 
 describe("token generation", () => {
   it("generates 64-char hex token", () => {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
-    const token = Array.from(bytes, (b) =>
-      b.toString(16).padStart(2, "0"),
-    ).join("");
+    const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
     expect(token).toHaveLength(64);
     expect(token).toMatch(/^[0-9a-f]+$/);
+  });
+
+  it("generates unique tokens", () => {
+    const tokens = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      tokens.add(Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(""));
+    }
+    expect(tokens.size).toBe(50);
   });
 });
