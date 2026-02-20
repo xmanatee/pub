@@ -51,10 +51,12 @@ function HeroSection() {
             Built for developers and AI agents
           </Badge>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.05] mb-6">
             Publish content.
             <br />
-            <span className="text-primary">Get a URL instantly.</span>
+            <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Get a URL instantly.
+            </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -170,7 +172,7 @@ function FeaturesSection() {
     <section className="py-24">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Everything you need to publish
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -230,7 +232,7 @@ function HowItWorksSection() {
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Three steps. That's it.
           </h2>
           <p className="text-muted-foreground text-lg">
@@ -263,7 +265,7 @@ function CodeSection() {
     <section className="py-24">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Simple as one command
           </h2>
           <p className="text-muted-foreground text-lg">
@@ -340,7 +342,7 @@ function CtaSection() {
     <section className="py-24 border-t border-border/50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
         <PubLogo size={48} className="mx-auto mb-6" />
-        <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
           Ready to publish?
         </h2>
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
