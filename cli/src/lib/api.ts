@@ -4,6 +4,12 @@ export interface PublishResult {
   url: string;
 }
 
+export interface UpdateResult {
+  slug: string;
+  title?: string;
+  isPublic: boolean;
+}
+
 export interface Publication {
   slug: string;
   filename: string;
@@ -54,11 +60,29 @@ export class PublishApiClient {
     });
   }
 
+  async get(slug: string): Promise<Publication & { content: string }> {
+    const data = await this.request<{
+      publication: Publication & { content: string };
+    }>(`/api/v1/publications?slug=${encodeURIComponent(slug)}`);
+    return data.publication;
+  }
+
   async list(): Promise<Publication[]> {
     const data = await this.request<{ publications: Publication[] }>(
       "/api/v1/publications",
     );
     return data.publications;
+  }
+
+  async update(opts: {
+    slug: string;
+    title?: string;
+    isPublic?: boolean;
+  }): Promise<UpdateResult> {
+    return this.request<UpdateResult>("/api/v1/publications", {
+      method: "PATCH",
+      body: JSON.stringify(opts),
+    });
   }
 
   async remove(slug: string): Promise<void> {

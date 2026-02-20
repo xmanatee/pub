@@ -108,6 +108,56 @@ program
   );
 
 program
+  .command("get")
+  .description("Get details of a publication")
+  .argument("<slug>", "Slug of the publication")
+  .action(async (slug: string) => {
+    const config = getConfig();
+    const client = new PublishApiClient(config.baseUrl, config.apiKey);
+    const pub = await client.get(slug);
+    const status = pub.isPublic ? "public" : "private";
+    console.log(`  Slug:    ${pub.slug}`);
+    console.log(`  File:    ${pub.filename}`);
+    console.log(`  Type:    ${pub.contentType}`);
+    if (pub.title) console.log(`  Title:   ${pub.title}`);
+    console.log(`  Status:  ${status}`);
+    console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
+    console.log(`  Updated: ${new Date(pub.updatedAt).toLocaleDateString()}`);
+    console.log(`  Size:    ${pub.content.length} bytes`);
+  });
+
+program
+  .command("update")
+  .description("Update publication metadata")
+  .argument("<slug>", "Slug of the publication to update")
+  .option("--title <title>", "New title")
+  .option("--public", "Make the publication public")
+  .option("--private", "Make the publication private")
+  .action(
+    async (
+      slug: string,
+      opts: { title?: string; public?: boolean; private?: boolean },
+    ) => {
+      const config = getConfig();
+      const client = new PublishApiClient(config.baseUrl, config.apiKey);
+
+      let isPublic: boolean | undefined;
+      if (opts.public) isPublic = true;
+      else if (opts.private) isPublic = false;
+
+      const result = await client.update({
+        slug,
+        title: opts.title,
+        isPublic,
+      });
+
+      console.log(`Updated: ${result.slug}`);
+      if (result.title) console.log(`  Title:  ${result.title}`);
+      console.log(`  Status: ${result.isPublic ? "public" : "private"}`);
+    },
+  );
+
+program
   .command("list")
   .description("List your publications")
   .action(async () => {

@@ -6,7 +6,7 @@ describe("CORS headers", () => {
   function corsHeaders() {
     return {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
   }
@@ -16,6 +16,7 @@ describe("CORS headers", () => {
     expect(headers["Access-Control-Allow-Origin"]).toBe("*");
     expect(headers["Access-Control-Allow-Methods"]).toContain("POST");
     expect(headers["Access-Control-Allow-Methods"]).toContain("GET");
+    expect(headers["Access-Control-Allow-Methods"]).toContain("PATCH");
     expect(headers["Access-Control-Allow-Methods"]).toContain("DELETE");
     expect(headers["Access-Control-Allow-Headers"]).toContain("Authorization");
   });

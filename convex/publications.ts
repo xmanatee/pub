@@ -146,15 +146,16 @@ export const createPublication = internalMutation({
 export const updatePublication = internalMutation({
   args: {
     id: v.id("publications"),
-    content: v.string(),
+    content: v.optional(v.string()),
     title: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()),
   },
-  handler: async (ctx, { id, content, title }) => {
-    await ctx.db.patch(id, {
-      content,
-      title,
-      updatedAt: Date.now(),
-    });
+  handler: async (ctx, { id, content, title, isPublic }) => {
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (content !== undefined) patch.content = content;
+    if (title !== undefined) patch.title = title;
+    if (isPublic !== undefined) patch.isPublic = isPublic;
+    await ctx.db.patch(id, patch);
   },
 });
 
@@ -229,6 +230,7 @@ export const publish = action({
         id: existing._id,
         content,
         title,
+        isPublic,
       });
       return { slug: finalSlug, updated: true };
     }
@@ -269,6 +271,34 @@ export const unpublish = action({
   },
 });
 
+export const getViaApi = action({
+  args: { apiKey: v.string(), slug: v.string() },
+  handler: async (ctx, { apiKey, slug }) => {
+    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
+      key: apiKey,
+    });
+    if (!user) throw new Error("Invalid API key");
+
+    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
+      slug,
+    });
+    if (!pub || pub.userId !== user.userId) {
+      throw new Error("Publication not found");
+    }
+
+    return {
+      slug: pub.slug,
+      filename: pub.filename,
+      contentType: pub.contentType,
+      content: pub.content,
+      title: pub.title,
+      isPublic: pub.isPublic,
+      createdAt: pub.createdAt,
+      updatedAt: pub.updatedAt,
+    };
+  },
+});
+
 export const listViaApi = action({
   args: { apiKey: v.string() },
   handler: async (ctx, { apiKey }) => {
@@ -290,5 +320,39 @@ export const listViaApi = action({
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     }));
+  },
+});
+
+export const updateViaApi = action({
+  args: {
+    apiKey: v.string(),
+    slug: v.string(),
+    title: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { apiKey, slug, title, isPublic }) => {
+    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
+      key: apiKey,
+    });
+    if (!user) throw new Error("Invalid API key");
+
+    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
+      slug,
+    });
+    if (!pub || pub.userId !== user.userId) {
+      throw new Error("Publication not found");
+    }
+
+    await ctx.runMutation(internal.publications.updatePublication, {
+      id: pub._id,
+      title,
+      isPublic,
+    });
+
+    return {
+      slug: pub.slug,
+      title: title !== undefined ? title : pub.title,
+      isPublic: isPublic !== undefined ? isPublic : pub.isPublic,
+    };
   },
 });

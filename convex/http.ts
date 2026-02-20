@@ -11,7 +11,7 @@ auth.addHttpRoutes(http);
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
@@ -112,7 +112,7 @@ http.route({
   }),
 });
 
-// GET /api/v1/publications — list publications
+// GET /api/v1/publications — list publications, or get single if ?slug= is set
 http.route({
   path: "/api/v1/publications",
   method: "GET",
@@ -120,9 +120,53 @@ http.route({
     const apiKey = getApiKey(request);
     if (!apiKey) return errorResponse("Missing API key", 401);
 
+    const url = new URL(request.url);
+    const slug = url.searchParams.get("slug");
+
     try {
+      if (slug) {
+        const pub = await ctx.runAction(api.publications.getViaApi, {
+          apiKey,
+          slug,
+        });
+        return jsonResponse({ publication: pub });
+      }
       const pubs = await ctx.runAction(api.publications.listViaApi, { apiKey });
       return jsonResponse({ publications: pubs });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Internal error";
+      return errorResponse(message, 400);
+    }
+  }),
+});
+
+// PATCH /api/v1/publications — update publication metadata
+http.route({
+  path: "/api/v1/publications",
+  method: "PATCH",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = getApiKey(request);
+    if (!apiKey) return errorResponse("Missing API key", 401);
+
+    let body: { slug: string; title?: string; isPublic?: boolean };
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400);
+    }
+
+    if (!body.slug) {
+      return errorResponse("Missing required field: slug", 400);
+    }
+
+    try {
+      const result = await ctx.runAction(api.publications.updateViaApi, {
+        apiKey,
+        slug: body.slug,
+        title: body.title,
+        isPublic: body.isPublic,
+      });
+      return jsonResponse(result);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Internal error";
       return errorResponse(message, 400);
