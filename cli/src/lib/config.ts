@@ -9,7 +9,7 @@ export interface Config {
 
 export function getConfigDir(homeDir?: string): string {
   const home = homeDir || os.homedir();
-  return path.join(home, ".config", "pubcli");
+  return path.join(home, ".config", "pubblue");
 }
 
 function getConfigPath(homeDir?: string): string {
@@ -31,8 +31,8 @@ export function saveConfig(config: Config, homeDir?: string): void {
 }
 
 export function getConfig(homeDir?: string): Config {
-  const envKey = process.env.PUBCLI_API_KEY;
-  const envUrl = process.env.PUBCLI_URL;
+  const envKey = process.env.PUBBLUE_API_KEY;
+  const envUrl = process.env.PUBBLUE_URL;
 
   if (envKey && envUrl) {
     return { apiKey: envKey, baseUrl: envUrl };
@@ -41,7 +41,7 @@ export function getConfig(homeDir?: string): Config {
   const saved = loadConfig(homeDir);
   if (!saved) {
     throw new Error(
-      "Not configured. Run `pubcli configure` or set PUBCLI_API_KEY and PUBCLI_URL environment variables.",
+      "Not configured. Run `pubblue configure` or set PUBBLUE_API_KEY and PUBBLUE_URL environment variables.",
     );
   }
 

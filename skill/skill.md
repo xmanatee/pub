@@ -4,48 +4,48 @@ Use this skill when the user asks you to publish, share, or make content availab
 
 ## Prerequisites
 
-The `pubcli` CLI must be built and configured:
+The `pubblue` CLI must be installed and configured:
 
 ```bash
-# Build from source (in the cli/ directory)
-cd cli && npm install && npm run build && npm link
+# Install from npm
+npm install -g pubblue
 
 # Configure with API key and Convex site URL
-pubcli configure --api-key YOUR_API_KEY --url https://YOUR_DEPLOYMENT.convex.site
+pubblue configure --api-key YOUR_API_KEY --url https://YOUR_DEPLOYMENT.convex.site
 ```
 
 Alternatively, set environment variables:
 ```bash
-export PUBCLI_API_KEY=pub_your_key_here
-export PUBCLI_URL=https://your-deployment.convex.site
+export PUBBLUE_API_KEY=pub_your_key_here
+export PUBBLUE_URL=https://your-deployment.convex.site
 ```
 
 ## Usage
 
 ### Publish a file from disk
 ```bash
-pubcli publish path/to/file.html
-pubcli publish --slug my-demo --title "My Demo" page.html
+pubblue publish path/to/file.html
+pubblue publish --slug my-demo --title "My Demo" page.html
 ```
 
 ### Publish content directly (useful for agent-generated content)
 ```bash
-pubcli publish-content --filename page.html --content '<html><body><h1>Hello</h1></body></html>'
+pubblue publish-content --filename page.html --content '<html><body><h1>Hello</h1></body></html>'
 ```
 
 ### Publish from stdin
 ```bash
-echo '<h1>Hello</h1>' | pubcli publish-content --filename page.html
+echo '<h1>Hello</h1>' | pubblue publish-content --filename page.html
 ```
 
 ### List publications
 ```bash
-pubcli list
+pubblue list
 ```
 
 ### Delete a publication
 ```bash
-pubcli delete <slug>
+pubblue delete <slug>
 ```
 
 ## Workflow for AI Agents
@@ -54,7 +54,7 @@ When the user asks to "publish this", "share this online", "make this visible", 
 
 1. Generate or gather the content to publish
 2. Determine the appropriate filename extension (`.html`, `.md`, `.css`, `.js`, `.txt`)
-3. Use `pubcli publish` for files or `pubcli publish-content` for generated content
+3. Use `pubblue publish` for files or `pubblue publish-content` for generated content
 4. Return the URL to the user
 
 ### Content type inference
@@ -66,7 +66,7 @@ When the user asks to "publish this", "share this online", "make this visible", 
 
 ### Example: Publishing a quick HTML page
 ```bash
-pubcli publish-content \
+pubblue publish-content \
   --filename demo.html \
   --title "Quick Demo" \
   --content '<!DOCTYPE html><html><head><title>Demo</title></head><body><h1>It works!</h1></body></html>'
@@ -74,7 +74,7 @@ pubcli publish-content \
 
 ### Example: Publishing a Markdown document
 ```bash
-pubcli publish-content \
+pubblue publish-content \
   --filename notes.md \
   --title "Meeting Notes" \
   --slug meeting-2025-01-15 \

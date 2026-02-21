@@ -81,13 +81,13 @@ Define a simple protocol for inter-agent communication:
 
 ```bash
 # Search for a contact
-publish contacts search "Zhenya"
+pubblue contacts search "Zhenya"
 
 # Get agent endpoint for a user
-publish contacts resolve --telegram @zhenya
+pubblue contacts resolve --telegram @zhenya
 
 # Send a message to another user's agent
-publish agent message USER_ID --type scheduling_request --payload '...'
+pubblue agent message USER_ID --type scheduling_request --payload '...'
 ```
 
 ### Privacy Considerations

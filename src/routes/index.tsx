@@ -86,7 +86,7 @@ function HeroSection() {
                 <span className="ml-2 text-xs text-white/40 font-mono">terminal</span>
               </div>
               <div className="p-5 font-mono text-sm leading-relaxed">
-                <div className="text-white/40">$ pubcli publish index.html</div>
+                <div className="text-white/40">$ pubblue publish index.html</div>
                 <div className="text-emerald-400 mt-1">
                   Published: https://pub.blue/serve/k8f2m9
                 </div>
@@ -269,7 +269,7 @@ function CodeSection() {
               <div>
                 <div className="text-white/40 text-xs mb-1"># Publish a file</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubcli publish index.html
+                  <span className="text-primary">$</span> pubblue publish index.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">
                   Published: https://pub.blue/serve/k8f2m9
@@ -280,7 +280,7 @@ function CodeSection() {
               <div>
                 <div className="text-white/40 text-xs mb-1"># Custom slug + title</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubcli publish --slug my-demo --title
+                  <span className="text-primary">$</span> pubblue publish --slug my-demo --title
                   "Demo Page" report.md
                 </div>
                 <div className="text-emerald-400 mt-0.5">
@@ -292,8 +292,8 @@ function CodeSection() {
               <div>
                 <div className="text-white/40 text-xs mb-1"># Pipe from stdin</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" | pubcli
-                  publish-content --filename page.html
+                  <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" |
+                  pubblue publish-content --filename page.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">
                   Published: https://pub.blue/serve/w3n7q1

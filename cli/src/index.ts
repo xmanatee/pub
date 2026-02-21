@@ -8,7 +8,7 @@ import { getConfig, saveConfig } from "./lib/config.js";
 const program = new Command();
 
 program
-  .name("pubcli")
+  .name("pubblue")
   .description("Publish static content and get shareable URLs")
   .version("0.1.0");
 

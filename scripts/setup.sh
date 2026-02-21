@@ -215,7 +215,7 @@ build_cli() {
   echo "  cd $CLI_DIR && npm link"
   echo ""
   echo "Then configure it:"
-  echo "  publish configure --api-key YOUR_KEY --url YOUR_CONVEX_SITE_URL"
+  echo "  pubblue configure --api-key YOUR_KEY --url YOUR_CONVEX_SITE_URL"
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -249,8 +249,8 @@ main() {
   echo "  1. Start the dev server:  cd apps/pub && npm run dev"
   echo "  2. Sign up at http://localhost:3000"
   echo "  3. Get an API key from the dashboard"
-  echo "  4. Configure CLI: publish configure --api-key KEY --url URL"
-  echo "  5. Publish something: publish upload my-file.html"
+  echo "  4. Configure CLI: pubblue configure --api-key KEY --url URL"
+  echo "  5. Publish something: pubblue publish my-file.html"
   echo ""
 }
 
