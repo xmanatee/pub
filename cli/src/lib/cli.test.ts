@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 // Tests for CLI command logic from index.ts
 
-describe("upload command", () => {
+describe("publish command", () => {
   it("resolves file path correctly", () => {
     // path.resolve behavior
     const file = "test.html";
@@ -114,7 +114,7 @@ describe("list command output", () => {
   });
 });
 
-describe("upload-content command", () => {
+describe("publish-content command", () => {
   it("uses --content arg when provided", () => {
     const opts = { content: "<h1>Hello</h1>", filename: "test.html" };
     const content = opts.content;

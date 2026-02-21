@@ -1,10 +1,10 @@
 {
-  "name": "@xmanatee/publish-cli",
+  "name": "pubcli",
   "version": "0.1.0",
-  "description": "CLI tool for publishing static content via the Publish platform",
+  "description": "CLI tool for publishing static content via pubcli",
   "type": "module",
   "bin": {
-    "publish": "./dist/index.js"
+    "pubcli": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",

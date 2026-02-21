@@ -56,8 +56,9 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && npm run buil
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 
 ### CLI (`cli/`)
-- Commander.js CLI with commands: `configure`, `upload`, `list`, `get`, `update`, `delete`
-- Config persisted at `~/.pub-cli.json`
+- `pubcli` — Commander.js CLI with commands: `configure`, `publish`, `publish-content`, `list`, `get`, `update`, `delete`
+- Config persisted at `~/.config/pubcli/config.json`
+- Env vars: `PUBCLI_API_KEY`, `PUBCLI_URL`
 - API client in `cli/src/lib/api.ts`
 
 ### Integrations

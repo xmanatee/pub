@@ -9,14 +9,14 @@ describe("config", () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-test-"));
-    delete process.env.PUBLISH_API_KEY;
-    delete process.env.PUBLISH_URL;
+    delete process.env.PUBCLI_API_KEY;
+    delete process.env.PUBCLI_URL;
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    delete process.env.PUBLISH_API_KEY;
-    delete process.env.PUBLISH_URL;
+    delete process.env.PUBCLI_API_KEY;
+    delete process.env.PUBCLI_URL;
   });
 
   it("returns null when no config file exists", () => {
@@ -31,8 +31,8 @@ describe("config", () => {
 
   it("prefers environment variables over saved config", () => {
     saveConfig({ apiKey: "pub_saved", baseUrl: "https://saved.convex.site" }, tmpDir);
-    process.env.PUBLISH_API_KEY = "pub_env";
-    process.env.PUBLISH_URL = "https://env.convex.site";
+    process.env.PUBCLI_API_KEY = "pub_env";
+    process.env.PUBCLI_URL = "https://env.convex.site";
 
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_env");
@@ -45,7 +45,7 @@ describe("config", () => {
 
   it("uses env key with saved URL", () => {
     saveConfig({ apiKey: "pub_saved", baseUrl: "https://saved.convex.site" }, tmpDir);
-    process.env.PUBLISH_API_KEY = "pub_env";
+    process.env.PUBCLI_API_KEY = "pub_env";
 
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_env");

@@ -8,7 +8,7 @@ import { getConfig, saveConfig } from "./lib/config.js";
 const program = new Command();
 
 program
-  .name("publish")
+  .name("pubcli")
   .description("Publish static content and get shareable URLs")
   .version("0.1.0");
 
@@ -23,7 +23,7 @@ program
   });
 
 program
-  .command("upload")
+  .command("publish")
   .description("Publish a file")
   .argument("<file>", "Path to the file to publish")
   .option("--slug <slug>", "Custom slug for the URL")
@@ -58,7 +58,7 @@ program
   });
 
 program
-  .command("upload-content")
+  .command("publish-content")
   .description("Publish content directly from stdin or argument")
   .requiredOption("--filename <name>", "Filename (determines content type, e.g. page.html)")
   .option("--content <content>", "Content string (if not provided, reads from stdin)")

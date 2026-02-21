@@ -152,7 +152,7 @@ function PublicationsTab() {
             Use the CLI or API to publish your first file.
           </p>
           <div className="rounded-lg bg-navy text-white px-4 py-3 font-mono text-sm">
-            <span className="text-primary">$</span> publish upload index.html
+            <span className="text-primary">$</span> pubcli publish index.html
           </div>
         </CardContent>
       </Card>
