@@ -44,6 +44,7 @@
     "lucide-react": "^0.469.0",
     "marked": "^15.0.0",
     "nanoid": "^5.0.9",
+    "nitro": "^3.0.1-alpha.2",
     "posthog-js": "^1.352.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
