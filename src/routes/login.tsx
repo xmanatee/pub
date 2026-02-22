@@ -14,7 +14,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
-  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { isAuthenticated } = useConvexAuth();
   const wasAuthenticated = React.useRef(false);
 
   React.useEffect(() => {
@@ -26,17 +26,6 @@ function LoginPage() {
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
-
-  // While auth is loading (initial check or OAuth code exchange), show a
-  // loading indicator instead of the sign-in buttons. This prevents users
-  // from clicking sign-in again during the two-phase auth handshake.
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-        <div className="text-muted-foreground">Signing in...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">

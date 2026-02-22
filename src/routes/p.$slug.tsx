@@ -76,7 +76,7 @@ function PublicationPage() {
           onClick={() => trackPublicationRawViewed({ slug })}
         >
           <a
-            href={`${import.meta.env.VITE_CONVEX_SITE_URL}/serve/${slug}`}
+            href={`${import.meta.env.VITE_CONVEX_SITE_URL}/serve/${encodeURIComponent(slug)}`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -141,14 +141,23 @@ function MarkdownRenderer({ content }: { content: string }) {
   const [html, setHtml] = React.useState("");
 
   React.useEffect(() => {
-    import("marked").then(({ marked }) => {
-      const result = marked(content);
-      if (typeof result === "string") {
-        setHtml(result);
-      } else {
-        result.then(setHtml);
-      }
-    });
+    let cancelled = false;
+
+    void Promise.all([import("marked"), import("dompurify")]).then(
+      ([{ marked }, { default: DOMPurify }]) => {
+        void Promise.resolve(marked.parse(content)).then((unsafeHtml) => {
+          if (cancelled) return;
+          const safeHtml = DOMPurify.sanitize(unsafeHtml, {
+            USE_PROFILES: { html: true },
+          });
+          setHtml(safeHtml);
+        });
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
   }, [content]);
 
   return (

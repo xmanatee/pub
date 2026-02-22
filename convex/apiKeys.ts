@@ -9,13 +9,34 @@ function generateApiKey(): string {
   return `pub_${key}`;
 }
 
+function keyPreviewFromKey(key: string): string {
+  return `${key.slice(0, 8)}...${key.slice(-4)}`;
+}
+
+async function hashApiKey(key: string): Promise<string> {
+  const encoded = new TextEncoder().encode(key);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export const getUserByApiKey = internalQuery({
   args: { key: v.string() },
   handler: async (ctx, { key }) => {
-    const apiKey = await ctx.db
+    const keyHash = await hashApiKey(key);
+
+    let apiKey = await ctx.db
       .query("apiKeys")
-      .withIndex("by_key", (q) => q.eq("key", key))
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
       .unique();
+
+    // Backward compatibility: support older records that still contain plaintext keys.
+    if (!apiKey) {
+      apiKey = await ctx.db
+        .query("apiKeys")
+        .withIndex("by_key", (q) => q.eq("key", key))
+        .unique();
+    }
+
     if (!apiKey) return null;
     const user = await ctx.db.get(apiKey.userId);
     if (!user) return null;
@@ -24,21 +45,24 @@ export const getUserByApiKey = internalQuery({
 });
 
 export const touchApiKey = internalMutation({
-  args: { apiKeyId: v.id("apiKeys") },
-  handler: async (ctx, { apiKeyId }) => {
-    await ctx.db.patch(apiKeyId, { lastUsedAt: Date.now() });
-  },
-});
+  args: { apiKeyId: v.id("apiKeys"), key: v.optional(v.string()) },
+  handler: async (ctx, { apiKeyId, key }) => {
+    const patch: {
+      lastUsedAt: number;
+      keyHash?: string;
+      keyPreview?: string;
+      key?: undefined;
+    } = { lastUsedAt: Date.now() };
 
-export const createApiKeyInternal = internalMutation({
-  args: { userId: v.id("users"), key: v.string(), name: v.string() },
-  handler: async (ctx, { userId, key, name }) => {
-    return ctx.db.insert("apiKeys", {
-      userId,
-      key,
-      name,
-      createdAt: Date.now(),
-    });
+    // Opportunistically migrate legacy plaintext keys during normal key usage.
+    const current = await ctx.db.get(apiKeyId);
+    if (current && !current.keyHash && key) {
+      patch.keyHash = await hashApiKey(key);
+      patch.keyPreview = keyPreviewFromKey(key);
+      patch.key = undefined;
+    }
+
+    await ctx.db.patch(apiKeyId, patch);
   },
 });
 
@@ -49,9 +73,12 @@ export const create = mutation({
     if (!userId) throw new Error("Unauthorized");
 
     const key = generateApiKey();
+    const keyHash = await hashApiKey(key);
+    const keyPreview = keyPreviewFromKey(key);
     await ctx.db.insert("apiKeys", {
       userId,
-      key,
+      keyHash,
+      keyPreview,
       name,
       createdAt: Date.now(),
     });
@@ -74,7 +101,7 @@ export const list = query({
     return keys.map((k) => ({
       _id: k._id,
       name: k.name,
-      keyPreview: `${k.key.slice(0, 8)}...${k.key.slice(-4)}`,
+      keyPreview: k.keyPreview ?? (k.key ? keyPreviewFromKey(k.key) : "pub_****...****"),
       createdAt: k.createdAt,
       lastUsedAt: k.lastUsedAt,
     }));

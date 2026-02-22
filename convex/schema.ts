@@ -7,11 +7,16 @@ export default defineSchema({
 
   apiKeys: defineTable({
     userId: v.id("users"),
-    key: v.string(),
+    // New records store only a one-way hash of the API key.
+    keyHash: v.optional(v.string()),
+    keyPreview: v.optional(v.string()),
+    // Legacy plaintext key retained only for backward compatibility.
+    key: v.optional(v.string()),
     name: v.string(),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
   })
+    .index("by_key_hash", ["keyHash"])
     .index("by_key", ["key"])
     .index("by_user", ["userId"]),
 

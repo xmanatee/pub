@@ -23,11 +23,9 @@ function errorResponse(message: string, status: number) {
 
 function getApiKey(request: Request): string | null {
   const authHeader = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
-  }
-  const url = new URL(request.url);
-  return url.searchParams.get("key");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const token = authHeader.slice(7).trim();
+  return token.length > 0 ? token : null;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -108,12 +106,12 @@ describe("getApiKey", () => {
     expect(getApiKey(req)).toBe("pub_abc123");
   });
 
-  it("extracts from query parameter", () => {
+  it("does not extract from query parameter", () => {
     const req = new Request("https://example.com/api?key=pub_abc123");
-    expect(getApiKey(req)).toBe("pub_abc123");
+    expect(getApiKey(req)).toBeNull();
   });
 
-  it("prefers header over query param", () => {
+  it("still uses Bearer header when query param is present", () => {
     const req = new Request("https://example.com/api?key=pub_query", {
       headers: { Authorization: "Bearer pub_header" },
     });
@@ -132,17 +130,18 @@ describe("getApiKey", () => {
     expect(getApiKey(req)).toBeNull();
   });
 
-  it("returns empty string for empty Bearer value", () => {
+  it("returns null for empty Bearer value", () => {
     const req = new Request("https://example.com/api", {
-      headers: { Authorization: "Bearer test" },
+      headers: { Authorization: "Bearer   " },
     });
-    // Bearer with valid token extracts correctly
-    expect(getApiKey(req)).toBe("test");
+    expect(getApiKey(req)).toBeNull();
   });
 
-  it("handles key with special characters in query", () => {
-    const req = new Request("https://example.com/api?key=pub_abc%2B123");
-    expect(getApiKey(req)).toBe("pub_abc+123");
+  it("trims whitespace from Bearer value", () => {
+    const req = new Request("https://example.com/api", {
+      headers: { Authorization: "Bearer   pub_abc123  " },
+    });
+    expect(getApiKey(req)).toBe("pub_abc123");
   });
 });
 

@@ -1,11 +1,59 @@
 #!/usr/bin/env node
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
 import { PublishApiClient } from "./lib/api.js";
 import { getConfig, saveConfig } from "./lib/config.js";
 
 const program = new Command();
+
+async function readApiKeyFromPrompt(): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  try {
+    const answer = await rl.question("Enter API key: ");
+    return answer.trim();
+  } finally {
+    rl.close();
+  }
+}
+
+async function readApiKeyFromStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks).toString("utf-8").trim();
+}
+
+async function resolveConfigureApiKey(opts: {
+  apiKey?: string;
+  apiKeyStdin?: boolean;
+}): Promise<string> {
+  if (opts.apiKey && opts.apiKeyStdin) {
+    throw new Error("Use only one of --api-key or --api-key-stdin.");
+  }
+  if (opts.apiKey) {
+    return opts.apiKey.trim();
+  }
+  if (opts.apiKeyStdin) {
+    return readApiKeyFromStdin();
+  }
+
+  const envKey = process.env.PUBBLUE_API_KEY?.trim();
+  if (envKey) return envKey;
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(
+      "No TTY available. Provide --api-key, --api-key-stdin, or PUBBLUE_API_KEY for configure.",
+    );
+  }
+
+  return readApiKeyFromPrompt();
+}
 
 program
   .name("pubblue")
@@ -15,11 +63,22 @@ program
 program
   .command("configure")
   .description("Configure the CLI with your API key and server URL")
-  .requiredOption("--api-key <key>", "Your API key")
+  .option("--api-key <key>", "Your API key (less secure: appears in shell history)")
+  .option("--api-key-stdin", "Read API key from stdin")
   .requiredOption("--url <url>", "Convex site URL (e.g. https://your-deployment.convex.site)")
-  .action((opts: { apiKey: string; url: string }) => {
-    saveConfig({ apiKey: opts.apiKey, baseUrl: opts.url });
-    console.log("Configuration saved.");
+  .action(async (opts: { apiKey?: string; apiKeyStdin?: boolean; url: string }) => {
+    try {
+      const apiKey = await resolveConfigureApiKey(opts);
+      if (!apiKey) {
+        throw new Error("API key is empty.");
+      }
+      saveConfig({ apiKey, baseUrl: opts.url });
+      console.log("Configuration saved.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to configure CLI.";
+      console.error(message);
+      process.exit(1);
+    }
   });
 
 program

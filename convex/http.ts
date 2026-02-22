@@ -7,6 +7,21 @@ const http = httpRouter();
 
 // Register OAuth callback routes for @convex-dev/auth (GitHub, Google)
 auth.addHttpRoutes(http);
+const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const HTML_CSP = [
+  "default-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+  "img-src https: http: data:",
+  "font-src https: http: data:",
+  "media-src https: http: data:",
+  "style-src 'unsafe-inline' https: http:",
+  "script-src 'unsafe-inline' 'unsafe-eval' https: http:",
+  "connect-src https: http: wss:",
+  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads",
+].join("; ");
+const DEFAULT_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox";
 
 function corsHeaders() {
   return {
@@ -16,10 +31,25 @@ function corsHeaders() {
   };
 }
 
+function baseSecurityHeaders() {
+  return {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+  };
+}
+
+function publicationSecurityHeaders(mimeType: string) {
+  return {
+    ...baseSecurityHeaders(),
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "Content-Security-Policy": mimeType.startsWith("text/html") ? HTML_CSP : DEFAULT_CSP,
+  };
+}
+
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders() },
+    headers: { "Content-Type": "application/json", ...corsHeaders(), ...baseSecurityHeaders() },
   });
 }
 
@@ -28,12 +58,14 @@ function errorResponse(message: string, status: number) {
 }
 
 function getApiKey(request: Request): string | null {
-  const auth = request.headers.get("Authorization");
-  if (auth?.startsWith("Bearer ")) {
-    return auth.slice(7);
-  }
-  const url = new URL(request.url);
-  return url.searchParams.get("key");
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const token = authHeader.slice(7).trim();
+  return token.length > 0 ? token : null;
+}
+
+function isValidSlug(slug: string): boolean {
+  return SLUG_PATTERN.test(slug);
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -86,6 +118,12 @@ http.route({
     if (!body.filename || !body.content) {
       return errorResponse("Missing required fields: filename, content", 400);
     }
+    if (body.slug && !isValidSlug(body.slug)) {
+      return errorResponse(
+        "Invalid slug format. Use 1-64 chars: letters, numbers, dot, dash, or underscore.",
+        400,
+      );
+    }
 
     try {
       const result = await ctx.runAction(api.publications.publish, {
@@ -103,7 +141,7 @@ http.route({
       return jsonResponse({
         slug: result.slug,
         updated: result.updated,
-        url: `${baseUrl}/serve/${result.slug}`,
+        url: `${baseUrl}/serve/${encodeURIComponent(result.slug)}`,
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Internal error";
@@ -122,6 +160,9 @@ http.route({
 
     const url = new URL(request.url);
     const slug = url.searchParams.get("slug");
+    if (slug && !isValidSlug(slug)) {
+      return errorResponse("Invalid slug format", 400);
+    }
 
     try {
       if (slug) {
@@ -158,6 +199,9 @@ http.route({
     if (!body.slug) {
       return errorResponse("Missing required field: slug", 400);
     }
+    if (!isValidSlug(body.slug)) {
+      return errorResponse("Invalid slug format", 400);
+    }
 
     try {
       const result = await ctx.runAction(api.publications.updateViaApi, {
@@ -185,6 +229,7 @@ http.route({
     const url = new URL(request.url);
     const slug = url.searchParams.get("slug");
     if (!slug) return errorResponse("Missing slug parameter", 400);
+    if (!isValidSlug(slug)) return errorResponse("Invalid slug format", 400);
 
     try {
       await ctx.runAction(api.publications.unpublish, { apiKey, slug });
@@ -202,9 +247,19 @@ http.route({
   method: "GET",
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
-    const slug = url.pathname.replace("/serve/", "").replace(/\/$/, "");
-    if (!slug) {
+    const rawSlug = url.pathname.replace("/serve/", "").replace(/\/$/, "");
+    if (!rawSlug) {
       return errorResponse("Missing slug", 400);
+    }
+
+    let slug: string;
+    try {
+      slug = decodeURIComponent(rawSlug);
+    } catch {
+      return errorResponse("Invalid slug encoding", 400);
+    }
+    if (!isValidSlug(slug)) {
+      return errorResponse("Invalid slug format", 400);
     }
 
     const pub = await ctx.runQuery(api.publications.getBySlug, { slug });
@@ -219,6 +274,7 @@ http.route({
       headers: {
         "Content-Type": mimeType,
         "Cache-Control": "public, max-age=60",
+        ...publicationSecurityHeaders(mimeType),
         ...corsHeaders(),
       },
     });

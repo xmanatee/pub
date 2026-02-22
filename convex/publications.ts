@@ -7,6 +7,7 @@ const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
 type ContentType = (typeof CONTENT_TYPES)[number];
 
 const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
+const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 function generateSlug(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -32,6 +33,10 @@ function inferContentType(filename: string): ContentType {
     default:
       return "text";
   }
+}
+
+function isValidSlug(slug: string): boolean {
+  return SLUG_PATTERN.test(slug);
 }
 
 export const getBySlug = query({
@@ -202,6 +207,7 @@ export const publish = action({
 
     await ctx.runMutation(internal.apiKeys.touchApiKey, {
       apiKeyId: user.apiKeyId,
+      key: apiKey,
     });
 
     if (content.length > MAX_CONTENT_SIZE) {
@@ -209,6 +215,11 @@ export const publish = action({
     }
 
     const contentType = inferContentType(filename);
+    if (slug && !isValidSlug(slug)) {
+      throw new Error(
+        "Invalid slug format. Use 1-64 chars: letters, numbers, dot, dash, or underscore.",
+      );
+    }
     const finalSlug = slug || generateSlug();
 
     const existing = await ctx.runQuery(internal.publications.getBySlugInternal, {
@@ -250,6 +261,11 @@ export const unpublish = action({
     });
     if (!user) throw new Error("Invalid API key");
 
+    await ctx.runMutation(internal.apiKeys.touchApiKey, {
+      apiKeyId: user.apiKeyId,
+      key: apiKey,
+    });
+
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
       slug,
     });
@@ -283,6 +299,11 @@ export const getViaApi = action({
       key: apiKey,
     });
     if (!user) throw new Error("Invalid API key");
+
+    await ctx.runMutation(internal.apiKeys.touchApiKey, {
+      apiKeyId: user.apiKeyId,
+      key: apiKey,
+    });
 
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
       slug,
@@ -325,6 +346,11 @@ export const listViaApi = action({
     });
     if (!user) throw new Error("Invalid API key");
 
+    await ctx.runMutation(internal.apiKeys.touchApiKey, {
+      apiKeyId: user.apiKeyId,
+      key: apiKey,
+    });
+
     const pubs = await ctx.runQuery(internal.publications.listByUserInternal, {
       userId: user.userId,
     });
@@ -356,6 +382,11 @@ export const updateViaApi = action({
       key: apiKey,
     });
     if (!user) throw new Error("Invalid API key");
+
+    await ctx.runMutation(internal.apiKeys.touchApiKey, {
+      apiKeyId: user.apiKeyId,
+      key: apiKey,
+    });
 
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
       slug,

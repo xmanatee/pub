@@ -215,11 +215,16 @@ function PublicationsTab() {
           </div>
           <div className="flex items-center gap-0.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <CopyButton
-              text={`${window.location.origin}/p/${pub.slug}`}
+              text={`${window.location.origin}/p/${encodeURIComponent(pub.slug)}`}
               onCopy={() => trackPublicationLinkCopied({ slug: pub.slug })}
             />
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-              <a href={`/p/${pub.slug}`} target="_blank" rel="noopener noreferrer" title="Open">
+              <a
+                href={`/p/${encodeURIComponent(pub.slug)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open"
+              >
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </Button>
