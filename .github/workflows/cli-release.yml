@@ -1,0 +1,43 @@
+name: Pub CLI Release
+
+on:
+  push:
+    tags:
+      - "pub-cli-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release CLI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+
+      # Create tarball for GitHub release
+      - run: npm pack
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/pub-cli-v}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cli/*.tgz
+          generate_release_notes: true
+
+      # Publish to npm
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
