@@ -89,31 +89,58 @@ describe("getRouter", () => {
     expect(propsOf(renderWrap()).replaceURL).toBeTypeOf("function");
   });
 
-  it("replaceURL calls router.navigate with replace: true", () => {
-    getRouter();
-    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
-
-    replaceURL("/login");
-
-    expect(router().navigate).toHaveBeenCalledWith({
-      to: "/login",
-      replace: true,
-    });
-  });
-
-  it("replaceURL does NOT call window.history.replaceState", () => {
+  it("replaceURL uses history.replaceState (not router.navigate)", () => {
     const mockReplaceState = vi.fn();
-    vi.stubGlobal("history", { replaceState: mockReplaceState });
+    const mockHistory = {
+      replaceState: mockReplaceState,
+      state: { __TSR_key: "k", __TSR_index: 0 },
+    };
+    vi.stubGlobal("window", { history: mockHistory });
 
     getRouter();
     const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
     replaceURL("/login");
 
-    expect(mockReplaceState).not.toHaveBeenCalled();
+    expect(mockReplaceState).toHaveBeenCalledWith({ __TSR_key: "k", __TSR_index: 0 }, "", "/login");
+    // Must NOT use router.navigate — it triggers a full async navigation cycle
+    // that races with the token exchange
+    expect(router().navigate).not.toHaveBeenCalled();
+
     vi.unstubAllGlobals();
   });
 
-  it("Wrap uses router from closure — does not throw outside RouterProvider", () => {
+  it("replaceURL preserves TanStack Router state keys", () => {
+    const mockReplaceState = vi.fn();
+    const existingState = { __TSR_key: "abc", __TSR_index: 3, extra: true };
+    vi.stubGlobal("window", { history: { replaceState: mockReplaceState, state: existingState } });
+
+    getRouter();
+    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
+    replaceURL("/login");
+
+    const passedState = mockReplaceState.mock.calls[0][0];
+    expect(passedState.__TSR_key).toBe("abc");
+    expect(passedState.__TSR_index).toBe(3);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("replaceURL is synchronous (returns void, not a Promise)", () => {
+    const mockReplaceState = vi.fn();
+    vi.stubGlobal("window", { history: { replaceState: mockReplaceState, state: {} } });
+
+    getRouter();
+    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
+    const result = replaceURL("/login");
+
+    // Must be synchronous so `await replaceURL(...)` in the library resolves
+    // immediately, allowing the token exchange to proceed without a race.
+    expect(result).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("Wrap does not throw outside RouterProvider", () => {
     getRouter();
     expect(() => renderWrap()).not.toThrow();
   });
