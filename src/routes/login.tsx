@@ -18,9 +18,11 @@ function LoginPage() {
   const wasAuthenticated = React.useRef(false);
 
   React.useEffect(() => {
-    if (isAuthenticated && !wasAuthenticated.current) {
-      wasAuthenticated.current = true;
-      trackSignIn("oauth");
+    if (isAuthenticated) {
+      if (!wasAuthenticated.current) {
+        wasAuthenticated.current = true;
+        trackSignIn("oauth");
+      }
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
@@ -41,7 +43,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("github");
-              void signIn("github");
+              void signIn("github", { redirectTo: "/dashboard" });
             }}
           >
             <GitHubIcon />
@@ -60,7 +62,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("google");
-              void signIn("google");
+              void signIn("google", { redirectTo: "/dashboard" });
             }}
           >
             <GoogleIcon />
