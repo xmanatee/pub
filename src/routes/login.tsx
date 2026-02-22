@@ -43,7 +43,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("github");
-              void signIn("github", { redirectTo: "/dashboard" });
+              void signIn("github", { redirectTo: "/login" });
             }}
           >
             <GitHubIcon />
@@ -62,7 +62,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("google");
-              void signIn("google", { redirectTo: "/dashboard" });
+              void signIn("google", { redirectTo: "/login" });
             }}
           >
             <GoogleIcon />
