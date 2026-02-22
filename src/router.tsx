@@ -2,7 +2,7 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import * as Sentry from "@sentry/react";
 import { MutationCache, notifyManager, QueryClient } from "@tanstack/react-query";
-import { createRouter } from "@tanstack/react-router";
+import { createRouter, useRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import posthog from "posthog-js";
 import { routeTree } from "./routeTree.gen";
@@ -43,20 +43,22 @@ export function getRouter() {
     routeTree,
     defaultPreload: "intent",
     context: { queryClient },
-    Wrap: ({ children }) => (
-      <ConvexAuthProvider
-        client={convexQueryClient.convexClient}
-        replaceURL={(url) => {
-          // Preserve TanStack Router's history state (__TSR_key, __TSR_index)
-          // when ConvexAuthProvider strips the OAuth code from the URL.
-          // The default replaceState({}, ...) wipes the state and triggers
-          // a spurious navigation event in the patched history.
-          window.history.replaceState(window.history.state, "", url);
-        }}
-      >
-        {children}
-      </ConvexAuthProvider>
-    ),
+    Wrap: function AuthWrap({ children }) {
+      const router = useRouter();
+      return (
+        <ConvexAuthProvider
+          client={convexQueryClient.convexClient}
+          replaceURL={(url) => {
+            // Use TanStack Router's navigate to strip the OAuth code param.
+            // The default window.history.replaceState({}, ...) bypasses
+            // TanStack Router and corrupts its internal state.
+            router.navigate({ to: url, replace: true });
+          }}
+        >
+          {children}
+        </ConvexAuthProvider>
+      );
+    },
     scrollRestoration: true,
   });
   setupRouterSsrQueryIntegration({

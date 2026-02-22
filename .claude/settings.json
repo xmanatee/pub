@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Bash(npx vercel:*)",
+      "Bash(npx convex:*)",
+      "Bash(npm install:*)",
+      "Bash(yes:*)",
+      "Bash(npm run lint:fix:*)",
+      "Bash(npm run check:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run build)",
+      "Bash(gh run list:*)",
+      "Bash(vercel ls --limit 5)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel logs:*)",
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(node --input-type=module -e:*)",
+      "Bash(node:*)",
+      "Bash(npx biome check:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh search:*)",
+      "Bash(gh api:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "google-sheets"
+  ]
+}
