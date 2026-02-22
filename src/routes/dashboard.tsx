@@ -47,17 +47,26 @@ function Dashboard() {
   // callback code in the URL, so we delay the "not authenticated" decision.
   const [authSettled, setAuthSettled] = React.useState(false);
 
+  // Debug: trace auth state on every render
+  console.debug("[dashboard] render", { isAuthenticated, isLoading, authSettled });
+
   React.useEffect(() => {
+    console.debug("[dashboard] loading effect", { isLoading });
     if (isLoading) {
       setAuthSettled(false);
       return;
     }
-    const timer = setTimeout(() => setAuthSettled(true), 300);
+    const timer = setTimeout(() => {
+      console.debug("[dashboard] authSettled timer fired");
+      setAuthSettled(true);
+    }, 300);
     return () => clearTimeout(timer);
   }, [isLoading]);
 
   React.useEffect(() => {
+    console.debug("[dashboard] redirect effect", { authSettled, isAuthenticated });
     if (authSettled && !isAuthenticated) {
+      console.debug("[dashboard] redirecting to /login!");
       navigate({ to: "/login" });
     }
   }, [authSettled, isAuthenticated, navigate]);

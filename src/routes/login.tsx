@@ -14,15 +14,20 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const wasAuthenticated = React.useRef(false);
 
+  // Debug: trace auth state on every render
+  console.debug("[login] render", { isAuthenticated, isLoading, url: typeof window !== "undefined" ? window.location.href : "ssr" });
+
   React.useEffect(() => {
+    console.debug("[login] effect", { isAuthenticated });
     if (isAuthenticated) {
       if (!wasAuthenticated.current) {
         wasAuthenticated.current = true;
         trackSignIn("oauth");
       }
+      console.debug("[login] navigating to /dashboard");
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
@@ -43,7 +48,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("github");
-              void signIn("github", { redirectTo: "/login" });
+              void signIn("github", { redirectTo: "/dashboard" });
             }}
           >
             <GitHubIcon />
@@ -62,7 +67,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("google");
-              void signIn("google", { redirectTo: "/login" });
+              void signIn("google", { redirectTo: "/dashboard" });
             }}
           >
             <GoogleIcon />

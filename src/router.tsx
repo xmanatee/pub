@@ -48,6 +48,7 @@ export function getRouter() {
         <ConvexAuthProvider
           client={convexQueryClient.convexClient}
           replaceURL={(url) => {
+            console.debug("[auth] replaceURL called", url);
             // Synchronously strip the OAuth ?code= param from the URL.
             // We MUST use replaceState (not router.navigate) because:
             //  1. router.navigate triggers a full async navigation cycle
