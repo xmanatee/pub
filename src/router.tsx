@@ -2,7 +2,7 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import * as Sentry from "@sentry/react";
 import { MutationCache, notifyManager, QueryClient } from "@tanstack/react-query";
-import { createRouter, useRouter } from "@tanstack/react-router";
+import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import posthog from "posthog-js";
 import { routeTree } from "./routeTree.gen";
@@ -44,7 +44,6 @@ export function getRouter() {
     defaultPreload: "intent",
     context: { queryClient },
     Wrap: function AuthWrap({ children }) {
-      const router = useRouter();
       return (
         <ConvexAuthProvider
           client={convexQueryClient.convexClient}
@@ -52,6 +51,8 @@ export function getRouter() {
             // Use TanStack Router's navigate to strip the OAuth code param.
             // The default window.history.replaceState({}, ...) bypasses
             // TanStack Router and corrupts its internal state.
+            // We use `router` from the closure — it's fully initialized by the
+            // time Wrap renders inside RouterProvider.
             router.navigate({ to: url, replace: true });
           }}
         >
