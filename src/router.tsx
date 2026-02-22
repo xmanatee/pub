@@ -44,7 +44,18 @@ export function getRouter() {
     defaultPreload: "intent",
     context: { queryClient },
     Wrap: ({ children }) => (
-      <ConvexAuthProvider client={convexQueryClient.convexClient}>{children}</ConvexAuthProvider>
+      <ConvexAuthProvider
+        client={convexQueryClient.convexClient}
+        replaceURL={(url) => {
+          // Preserve TanStack Router's history state (__TSR_key, __TSR_index)
+          // when ConvexAuthProvider strips the OAuth code from the URL.
+          // The default replaceState({}, ...) wipes the state and triggers
+          // a spurious navigation event in the patched history.
+          window.history.replaceState(window.history.state, "", url);
+        }}
+      >
+        {children}
+      </ConvexAuthProvider>
     ),
     scrollRestoration: true,
   });
