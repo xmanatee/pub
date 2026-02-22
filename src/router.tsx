@@ -47,17 +47,13 @@ export function getRouter() {
       return (
         <ConvexAuthProvider
           client={convexQueryClient.convexClient}
-          replaceURL={(url) => {
-            console.debug("[auth] replaceURL called", url);
-            // Synchronously strip the OAuth ?code= param from the URL.
-            // We MUST use replaceState (not router.navigate) because:
-            //  1. router.navigate triggers a full async navigation cycle
-            //     that races with the token exchange happening right after.
-            //  2. The library awaits replaceURL — a sync call resolves
-            //     immediately, letting the token exchange proceed in order.
-            // We spread the existing state to preserve TanStack Router's
-            // __TSR_key and __TSR_index (the default {} wipes them).
-            window.history.replaceState({ ...window.history.state }, "", url);
+          replaceURL={() => {
+            // Intentional no-op. Any call to window.history.replaceState
+            // (even with spread state) triggers TanStack Router's history
+            // patch, which causes a full page reload in TanStack Start SSR
+            // — aborting the in-flight OAuth code exchange.
+            // The ?code= param stays in the URL briefly but is harmless:
+            // it's single-use and ConvexAuthProvider won't reprocess it.
           }}
         >
           {children}
