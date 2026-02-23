@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
@@ -8,19 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 
 export const Route = createFileRoute("/login")({
-  // Preserve the ?code= search param so that the auth library can read it
-  // for the OAuth code exchange. Without this, TanStack Router's Transitioner
-  // strips unknown search params via history.replaceState before the auth
-  // library's useEffect fires.
-  validateSearch: (search: Record<string, unknown>): { code?: string } => {
-    return typeof search.code === "string" ? { code: search.code } : {};
-  },
   component: LoginPage,
 });
 
 function LoginPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const navigate = useNavigate();
   const wasAuthenticated = React.useRef(false);
 
   React.useEffect(() => {
@@ -29,13 +23,9 @@ function LoginPage() {
         wasAuthenticated.current = true;
         trackSignIn("oauth");
       }
-      // Full page navigation ensures the dashboard reads auth state from a
-      // fresh React mount. Client-side navigate() can hit a brief
-      // isAuthenticated=false gap in ConvexProviderWithAuth's effect cleanup,
-      // which triggers the dashboard auth guard redirect back to /login.
-      window.location.href = "/dashboard";
+      navigate({ to: "/dashboard" });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   if (isLoading || isAuthenticated) {
     return (

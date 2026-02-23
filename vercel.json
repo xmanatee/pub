@@ -2,6 +2,8 @@
   "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'npm run build'",
   "installCommand": "npm install",
   "framework": null,
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",

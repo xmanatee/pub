@@ -3,13 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Shared mutable state for mocks (hoisted so vi.mock factories can reference it)
 type WrapFn = (props: { children: React.ReactNode }) => React.ReactElement;
-interface MockRouter {
-  navigate: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-}
 const mocks = vi.hoisted(() => ({
   routerConfig: undefined as { Wrap: WrapFn } | undefined,
-  router: undefined as MockRouter | undefined,
 }));
 
 // --- Mock external dependencies ---
@@ -17,11 +12,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tanstack/react-router", () => ({
   createRouter: vi.fn((config: { Wrap: WrapFn }) => {
     mocks.routerConfig = config;
-    mocks.router = {
+    return {
       navigate: vi.fn(),
       subscribe: vi.fn(),
     };
-    return mocks.router;
   }),
 }));
 
@@ -46,17 +40,16 @@ vi.mock("@tanstack/react-query", () => ({
   notifyManager: { setScheduler: vi.fn() },
 }));
 
-vi.mock("@tanstack/react-router-ssr-query", () => ({
-  setupRouterSsrQueryIntegration: vi.fn(),
-}));
-
 vi.mock("posthog-js", () => ({ default: { capture: vi.fn() } }));
 
 vi.mock("./routeTree.gen", () => ({ routeTree: {} }));
 
+// Stub window for SPA-only code
+vi.stubGlobal("window", { requestAnimationFrame: vi.fn() });
+
 import { getRouter } from "./router";
 
-// Helpers to safely access mocks after getRouter() populates them
+// Helpers
 function config() {
   if (!mocks.routerConfig) throw new Error("routerConfig not set");
   return mocks.routerConfig;
@@ -71,7 +64,6 @@ function renderWrap() {
 describe("getRouter", () => {
   beforeEach(() => {
     mocks.routerConfig = undefined;
-    mocks.router = undefined;
   });
 
   it("creates a router with a Wrap component", () => {
@@ -80,42 +72,28 @@ describe("getRouter", () => {
     expect(typeof config().Wrap).toBe("function");
   });
 
-  it("Wrap uses default replaceURL (no custom override)", () => {
-    getRouter();
-    // No custom replaceURL — the library's default window.history.replaceState
-    // removes ?code= from the URL, preventing double code exchange on re-render.
-    expect(propsOf(renderWrap()).replaceURL).toBeUndefined();
+  it("returns router and queryClient", () => {
+    const result = getRouter();
+    expect(result.router).toBeDefined();
+    expect(result.queryClient).toBeDefined();
   });
 
-  it("Wrap passes shouldHandleCode to ConvexAuthProvider", () => {
+  it("Wrap renders ConvexAuthProvider with convexClient", () => {
     getRouter();
-    const shouldHandleCode = propsOf(renderWrap()).shouldHandleCode as () => boolean;
-    expect(shouldHandleCode).toBeTypeOf("function");
+    expect(propsOf(renderWrap()).client).toEqual({ __mock: true });
   });
 
-  it("shouldHandleCode only returns true on /login", () => {
+  it("Wrap uses library defaults (no custom replaceURL or shouldHandleCode)", () => {
     getRouter();
-    const shouldHandleCode = propsOf(renderWrap()).shouldHandleCode as () => boolean;
-
-    // Simulate being on /login
-    vi.stubGlobal("window", { location: { pathname: "/login" } });
-    expect(shouldHandleCode()).toBe(true);
-
-    // Simulate being on /dashboard
-    vi.stubGlobal("window", { location: { pathname: "/dashboard" } });
-    expect(shouldHandleCode()).toBe(false);
-
-    vi.unstubAllGlobals();
+    const props = propsOf(renderWrap());
+    // SPA mode: no custom overrides needed — the library defaults work
+    expect(props.replaceURL).toBeUndefined();
+    expect(props.shouldHandleCode).toBeUndefined();
   });
 
   it("Wrap does not throw outside RouterProvider", () => {
     getRouter();
     expect(() => renderWrap()).not.toThrow();
-  });
-
-  it("Wrap passes convexClient to ConvexAuthProvider", () => {
-    getRouter();
-    expect(propsOf(renderWrap()).client).toEqual({ __mock: true });
   });
 });
 
