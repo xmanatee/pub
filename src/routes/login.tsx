@@ -1,6 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ConvexHttpClient } from "convex/browser";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
@@ -12,64 +11,11 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-/**
- * Exchange the OAuth ?code= via HTTP instead of the library's default
- * WebSocket path. The library's built-in exchange uses client.action()
- * (WebSocket) which silently fails when the connection drops during
- * the OAuth redirect. We use shouldHandleCode={false} on the provider
- * and handle it here with ConvexHttpClient (stateless HTTP).
- *
- * After storing tokens, a full navigation to /dashboard ensures the
- * auth library reads them from localStorage on the fresh mount.
- */
-async function exchangeOAuthCode() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("code");
-  if (!code) return;
-
-  const convexUrl = import.meta.env.VITE_CONVEX_URL;
-  // The library namespaces localStorage keys as `${key}_${escapedNs}`
-  // where escapedNs strips all non-alphanumeric chars from client.address.
-  const escapedNs = convexUrl.replace(/[^a-zA-Z0-9]/g, "");
-
-  const verifierKey = `__convexAuthOAuthVerifier_${escapedNs}`;
-  const jwtKey = `__convexAuthJWT_${escapedNs}`;
-  const refreshKey = `__convexAuthRefreshToken_${escapedNs}`;
-
-  const verifier = localStorage.getItem(verifierKey) ?? undefined;
-  localStorage.removeItem(verifierKey);
-
-  const httpClient = new ConvexHttpClient(convexUrl);
-  const result: { tokens?: { token: string; refreshToken: string } | null } =
-    // biome-ignore lint/suspicious/noExplicitAny: internal auth action, no generated types
-    await (httpClient as any).action("auth:signIn", {
-      params: { code },
-      verifier,
-    });
-
-  if (result.tokens) {
-    localStorage.setItem(jwtKey, result.tokens.token);
-    localStorage.setItem(refreshKey, result.tokens.refreshToken);
-  }
-
-  // Full navigation so the auth library reads the stored tokens on mount
-  window.location.replace("/dashboard");
-}
-
 function LoginPage() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const wasAuthenticated = React.useRef(false);
-
-  // Detect OAuth callback after hydration (starts false for SSR match).
-  const [isOAuthCallback, setIsOAuthCallback] = React.useState(false);
-  React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("code")) {
-      setIsOAuthCallback(true);
-      void exchangeOAuthCode();
-    }
-  }, []);
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -81,16 +27,6 @@ function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  // OAuth code exchange in progress — show loading
-  if (isOAuthCallback && !isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <div className="text-muted-foreground text-sm">Completing sign-in…</div>
-      </div>
-    );
-  }
-
-  // Already authenticated (e.g. returning user) — wait for redirect
   if (isLoading || isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
