@@ -17,12 +17,16 @@ function LoginPage() {
   const navigate = useNavigate();
   const wasAuthenticated = React.useRef(false);
 
+  console.log("[login] render", { isLoading, isAuthenticated, url: window.location.href });
+
   React.useEffect(() => {
+    console.log("[login] effect", { isLoading, isAuthenticated });
     if (isAuthenticated) {
       if (!wasAuthenticated.current) {
         wasAuthenticated.current = true;
         trackSignIn("oauth");
       }
+      console.log("[login] navigating to /dashboard");
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);

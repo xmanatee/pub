@@ -45,6 +45,7 @@ export function getRouter() {
         <ConvexAuthProvider
           client={convexQueryClient.convexClient}
           replaceURL={(url) => {
+            console.log("[auth] replaceURL called:", url);
             window.history.replaceState(window.history.state, "", url);
           }}
         >
