@@ -28,18 +28,20 @@ async function exchangeOAuthCode() {
   if (!code) return;
 
   const convexUrl = import.meta.env.VITE_CONVEX_URL;
-  const ns = convexUrl; // library namespaces storage keys by client.address
+  // The library namespaces localStorage keys as `${key}_${escapedNs}`
+  // where escapedNs strips all non-alphanumeric chars from client.address.
+  const escapedNs = convexUrl.replace(/[^a-zA-Z0-9]/g, "");
 
-  const verifierKey = `${ns}|__convexAuthOAuthVerifier`;
-  const jwtKey = `${ns}|__convexAuthJWT`;
-  const refreshKey = `${ns}|__convexAuthRefreshToken`;
+  const verifierKey = `__convexAuthOAuthVerifier_${escapedNs}`;
+  const jwtKey = `__convexAuthJWT_${escapedNs}`;
+  const refreshKey = `__convexAuthRefreshToken_${escapedNs}`;
 
   const verifier = localStorage.getItem(verifierKey) ?? undefined;
   localStorage.removeItem(verifierKey);
 
   const httpClient = new ConvexHttpClient(convexUrl);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal auth action, no generated types
   const result: { tokens?: { token: string; refreshToken: string } | null } =
+    // biome-ignore lint/suspicious/noExplicitAny: internal auth action, no generated types
     await (httpClient as any).action("auth:signIn", {
       params: { code },
       verifier,
