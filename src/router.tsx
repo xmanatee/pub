@@ -47,13 +47,14 @@ export function getRouter() {
       return (
         <ConvexAuthProvider
           client={convexQueryClient.convexClient}
+          // Disable the library's built-in ?code= exchange.
+          // It uses client.action() (WebSocket) which silently fails when
+          // the connection drops during the OAuth redirect. The login page
+          // handles the exchange itself via ConvexHttpClient (HTTP).
+          shouldHandleCode={false}
           replaceURL={() => {
-            // Intentional no-op. Any call to window.history.replaceState
-            // (even with spread state) triggers TanStack Router's history
-            // patch, which causes a full page reload in TanStack Start SSR
-            // — aborting the in-flight OAuth code exchange.
-            // The ?code= param stays in the URL briefly but is harmless:
-            // it's single-use and ConvexAuthProvider won't reprocess it.
+            // No-op: history.replaceState triggers TanStack Router's
+            // history patch, causing a full page reload in SSR mode.
           }}
         >
           {children}
