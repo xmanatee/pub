@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   Check,
@@ -38,15 +38,14 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { signOut } = useAuthActions();
 
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate({ to: "/login" });
+      window.location.href = "/login";
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated]);
 
   if (isLoading || !isAuthenticated) {
     return (

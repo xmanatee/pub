@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
@@ -19,7 +19,6 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const navigate = useNavigate();
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const wasAuthenticated = React.useRef(false);
@@ -30,9 +29,13 @@ function LoginPage() {
         wasAuthenticated.current = true;
         trackSignIn("oauth");
       }
-      navigate({ to: "/dashboard" });
+      // Full page navigation ensures the dashboard reads auth state from a
+      // fresh React mount. Client-side navigate() can hit a brief
+      // isAuthenticated=false gap in ConvexProviderWithAuth's effect cleanup,
+      // which triggers the dashboard auth guard redirect back to /login.
+      window.location.href = "/dashboard";
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated]);
 
   if (isLoading || isAuthenticated) {
     return (
