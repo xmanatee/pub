@@ -1,7 +1,5 @@
 node_modules/
 dist/
-.output/
-.vinxi/
 
 .env.local
 .env.secrets

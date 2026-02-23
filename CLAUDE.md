@@ -34,7 +34,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && npm run buil
 
 ## Architecture
 
-**Stack**: React 19 + TanStack Start (Vite SSR) + Convex backend + Tailwind CSS v4
+**Stack**: React 19 SPA + TanStack Router + Convex backend + Tailwind CSS v4
 
 ### Frontend (`src/`)
 - **Routing**: TanStack Router file-based routes in `src/routes/`

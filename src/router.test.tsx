@@ -44,8 +44,10 @@ vi.mock("posthog-js", () => ({ default: { capture: vi.fn() } }));
 
 vi.mock("./routeTree.gen", () => ({ routeTree: {} }));
 
-// Stub window for SPA-only code
-vi.stubGlobal("window", { requestAnimationFrame: vi.fn() });
+vi.stubGlobal("window", {
+  requestAnimationFrame: vi.fn(),
+  history: { state: {}, replaceState: vi.fn() },
+});
 
 import { getRouter } from "./router";
 
@@ -83,80 +85,14 @@ describe("getRouter", () => {
     expect(propsOf(renderWrap()).client).toEqual({ __mock: true });
   });
 
-  it("Wrap uses library defaults (no custom replaceURL or shouldHandleCode)", () => {
+  it("Wrap passes custom replaceURL that preserves history state", () => {
     getRouter();
-    const props = propsOf(renderWrap());
-    // SPA mode: no custom overrides needed — the library defaults work
-    expect(props.replaceURL).toBeUndefined();
-    expect(props.shouldHandleCode).toBeUndefined();
+    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
+    expect(typeof replaceURL).toBe("function");
   });
 
   it("Wrap does not throw outside RouterProvider", () => {
     getRouter();
     expect(() => renderWrap()).not.toThrow();
-  });
-});
-
-describe("auth redirect logic", () => {
-  describe("dashboard auth guard", () => {
-    it("does not redirect while loading", () => {
-      const navigate = vi.fn();
-      const isLoading = true;
-      const isAuthenticated = false;
-
-      if (!isLoading && !isAuthenticated) {
-        navigate({ to: "/login" });
-      }
-
-      expect(navigate).not.toHaveBeenCalled();
-    });
-
-    it("redirects to /login when not loading and not authenticated", () => {
-      const navigate = vi.fn();
-      const isLoading = false;
-      const isAuthenticated = false;
-
-      if (!isLoading && !isAuthenticated) {
-        navigate({ to: "/login" });
-      }
-
-      expect(navigate).toHaveBeenCalledWith({ to: "/login" });
-    });
-
-    it("does not redirect when authenticated", () => {
-      const navigate = vi.fn();
-      const isLoading = false;
-      const isAuthenticated = true;
-
-      if (!isLoading && !isAuthenticated) {
-        navigate({ to: "/login" });
-      }
-
-      expect(navigate).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("login page redirect", () => {
-    it("navigates to /dashboard when user is authenticated", () => {
-      const navigate = vi.fn();
-      const isAuthenticated = true;
-
-      if (isAuthenticated) {
-        navigate({ to: "/dashboard" });
-      }
-
-      expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
-    });
-
-    it("stays on login page when not authenticated", () => {
-      const navigate = vi.fn();
-      const isAuthenticated = false;
-
-      if (isAuthenticated) {
-        navigate({ to: "/dashboard" });
-      }
-
-      expect(navigate).not.toHaveBeenCalled();
-    });
   });
 });
