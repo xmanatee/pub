@@ -1,4 +1,3 @@
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import * as Sentry from "@sentry/react";
 import { MutationCache, notifyManager, QueryClient } from "@tanstack/react-query";
@@ -40,11 +39,6 @@ export function getRouter() {
     routeTree,
     defaultPreload: "intent",
     context: { queryClient },
-    Wrap: function AuthWrap({ children }) {
-      return (
-        <ConvexAuthProvider client={convexQueryClient.convexClient}>{children}</ConvexAuthProvider>
-      );
-    },
     scrollRestoration: true,
   });
 
@@ -55,7 +49,7 @@ export function getRouter() {
     });
   });
 
-  return { router, queryClient };
+  return { router, queryClient, convexClient: convexQueryClient.convexClient };
 }
 
 declare module "@tanstack/react-router" {

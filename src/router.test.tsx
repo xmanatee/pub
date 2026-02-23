@@ -1,26 +1,9 @@
-import * as React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-// Shared mutable state for mocks (hoisted so vi.mock factories can reference it)
-type WrapFn = (props: { children: React.ReactNode }) => React.ReactElement;
-const mocks = vi.hoisted(() => ({
-  routerConfig: undefined as { Wrap: WrapFn } | undefined,
-}));
-
-// --- Mock external dependencies ---
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
-  createRouter: vi.fn((config: { Wrap: WrapFn }) => {
-    mocks.routerConfig = config;
-    return {
-      navigate: vi.fn(),
-      subscribe: vi.fn(),
-    };
+  createRouter: vi.fn((config: Record<string, unknown>) => {
+    return { config, navigate: vi.fn(), subscribe: vi.fn() };
   }),
-}));
-
-vi.mock("@convex-dev/auth/react", () => ({
-  ConvexAuthProvider: vi.fn(),
 }));
 
 vi.mock("@convex-dev/react-query", () => ({
@@ -51,47 +34,17 @@ vi.stubGlobal("window", {
 
 import { getRouter } from "./router";
 
-// Helpers
-function config() {
-  if (!mocks.routerConfig) throw new Error("routerConfig not set");
-  return mocks.routerConfig;
-}
-function propsOf(element: React.ReactElement): Record<string, unknown> {
-  return (element as unknown as { props: Record<string, unknown> }).props;
-}
-function renderWrap() {
-  return config().Wrap({ children: React.createElement("div") });
-}
-
 describe("getRouter", () => {
-  beforeEach(() => {
-    mocks.routerConfig = undefined;
-  });
-
-  it("creates a router with a Wrap component", () => {
-    getRouter();
-    expect(mocks.routerConfig).toBeDefined();
-    expect(typeof config().Wrap).toBe("function");
-  });
-
-  it("returns router and queryClient", () => {
+  it("returns router, queryClient, and convexClient", () => {
     const result = getRouter();
     expect(result.router).toBeDefined();
     expect(result.queryClient).toBeDefined();
+    expect(result.convexClient).toEqual({ __mock: true });
   });
 
-  it("Wrap renders ConvexAuthProvider with convexClient", () => {
-    getRouter();
-    expect(propsOf(renderWrap()).client).toEqual({ __mock: true });
-  });
-
-  it("Wrap uses default replaceURL (no custom override)", () => {
-    getRouter();
-    expect(propsOf(renderWrap()).replaceURL).toBeUndefined();
-  });
-
-  it("Wrap does not throw outside RouterProvider", () => {
-    getRouter();
-    expect(() => renderWrap()).not.toThrow();
+  it("router has no Wrap (auth provider is in main.tsx)", () => {
+    const result = getRouter();
+    const config = (result.router as unknown as { config: Record<string, unknown> }).config;
+    expect(config.Wrap).toBeUndefined();
   });
 });
