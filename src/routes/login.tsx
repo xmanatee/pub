@@ -29,7 +29,8 @@ function LoginPage() {
       trackSignInStarted(provider);
 
       try {
-        const result = await signIn(provider, { redirectTo: "/dashboard" });
+        const callbackUrl = `${window.location.origin}/auth/callback`;
+        const result = await signIn(provider, { redirectTo: callbackUrl });
         if (!result.redirect) {
           isStartingSignInRef.current = false;
           setPendingProvider(null);
