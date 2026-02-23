@@ -1,8 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
+import { z } from "zod";
+
+const callbackSearchSchema = z.object({
+  code: z.string().optional(),
+});
 
 export const Route = createFileRoute("/auth/callback")({
+  validateSearch: callbackSearchSchema,
   component: AuthCallbackPage,
 });
 
