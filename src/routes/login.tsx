@@ -8,9 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>): { code?: string } => {
-    return typeof search.code === "string" ? { code: search.code } : {};
-  },
   component: LoginPage,
 });
 
@@ -18,21 +15,12 @@ function LoginPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
-  const wasAuthenticated = React.useRef(false);
-
-  console.log("[login] render", { isLoading, isAuthenticated, url: window.location.href });
-
   React.useEffect(() => {
-    console.log("[login] effect", { isLoading, isAuthenticated });
     if (isAuthenticated) {
-      if (!wasAuthenticated.current) {
-        wasAuthenticated.current = true;
-        trackSignIn("oauth");
-      }
-      console.log("[login] navigating to /dashboard");
+      trackSignIn("oauth");
       navigate({ to: "/dashboard" });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, navigate]);
 
   if (isLoading || isAuthenticated) {
     return (
@@ -58,7 +46,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("github");
-              void signIn("github", { redirectTo: "/login" });
+              void signIn("github");
             }}
           >
             <GitHubIcon />
@@ -77,7 +65,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("google");
-              void signIn("google", { redirectTo: "/login" });
+              void signIn("google");
             }}
           >
             <GoogleIcon />

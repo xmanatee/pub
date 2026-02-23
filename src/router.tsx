@@ -42,15 +42,7 @@ export function getRouter() {
     context: { queryClient },
     Wrap: function AuthWrap({ children }) {
       return (
-        <ConvexAuthProvider
-          client={convexQueryClient.convexClient}
-          replaceURL={(url) => {
-            console.log("[auth] replaceURL called:", url);
-            window.history.replaceState(window.history.state, "", url);
-          }}
-        >
-          {children}
-        </ConvexAuthProvider>
+        <ConvexAuthProvider client={convexQueryClient.convexClient}>{children}</ConvexAuthProvider>
       );
     },
     scrollRestoration: true,

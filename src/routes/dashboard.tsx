@@ -42,12 +42,8 @@ function Dashboard() {
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
 
-  console.log("[dashboard] render", { isLoading, isAuthenticated });
-
   React.useEffect(() => {
-    console.log("[dashboard] effect", { isLoading, isAuthenticated });
     if (!isLoading && !isAuthenticated) {
-      console.log("[dashboard] redirecting to /login");
       navigate({ to: "/login" });
     }
   }, [isLoading, isAuthenticated, navigate]);

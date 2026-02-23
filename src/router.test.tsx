@@ -85,10 +85,9 @@ describe("getRouter", () => {
     expect(propsOf(renderWrap()).client).toEqual({ __mock: true });
   });
 
-  it("Wrap passes custom replaceURL that preserves history state", () => {
+  it("Wrap uses default replaceURL (no custom override)", () => {
     getRouter();
-    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
-    expect(typeof replaceURL).toBe("function");
+    expect(propsOf(renderWrap()).replaceURL).toBeUndefined();
   });
 
   it("Wrap does not throw outside RouterProvider", () => {
