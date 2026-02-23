@@ -9,7 +9,7 @@ const { router, queryClient, convexClient } = getRouter();
 
 // biome-ignore lint/style/noNonNullAssertion: root element always exists in index.html
 createRoot(document.getElementById("root")!).render(
-  <ConvexAuthProvider client={convexClient}>
+  <ConvexAuthProvider client={convexClient} storageNamespace="pub-auth">
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>

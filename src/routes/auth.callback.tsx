@@ -4,7 +4,7 @@ import * as React from "react";
 import { z } from "zod";
 
 const callbackSearchSchema = z.object({
-  code: z.string().optional(),
+  code: z.coerce.string().optional(),
 });
 
 export const Route = createFileRoute("/auth/callback")({
