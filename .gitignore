@@ -7,3 +7,10 @@ dist/
 
 convex/_generated/
 src/routeTree.gen.ts
+
+# Firebase
+firebase-debug.log
+
+# Playwright
+test-results/
+playwright-report/

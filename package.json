@@ -15,7 +15,8 @@
     "lint": "biome check . && tsc --noEmit",
     "lint:fix": "biome check --fix .",
     "format": "biome format --fix .",
-    "check": "biome check . && tsc --noEmit && vitest run"
+    "check": "biome check . && tsc --noEmit && vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
@@ -52,6 +53,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",

@@ -15,7 +15,9 @@
       "!**/cli/node_modules",
       "!src/routeTree.gen.ts",
       "!**/.vercel",
-      "!**/.claude"
+      "!**/.claude",
+      "!**/test-results",
+      "!**/playwright-report"
     ]
   },
   "linter": {

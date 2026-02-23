@@ -8,6 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>): { code?: string } => {
+    return typeof search.code === "string" ? { code: search.code } : {};
+  },
   component: LoginPage,
 });
 
@@ -29,7 +32,7 @@ function LoginPage() {
       console.log("[login] navigating to /dashboard");
       navigate({ to: "/dashboard" });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   if (isLoading || isAuthenticated) {
     return (
