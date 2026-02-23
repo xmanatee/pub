@@ -47,11 +47,7 @@ export function getRouter() {
       return (
         <ConvexAuthProvider
           client={convexQueryClient.convexClient}
-          replaceURL={() => {
-            // No-op: the default history.replaceState triggers TanStack
-            // Router's history patch, causing a full page reload in SSR
-            // mode and aborting the in-flight OAuth code exchange.
-          }}
+          shouldHandleCode={() => window.location.pathname === "/login"}
         >
           {children}
         </ConvexAuthProvider>

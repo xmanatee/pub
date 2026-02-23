@@ -61,10 +61,6 @@ function config() {
   if (!mocks.routerConfig) throw new Error("routerConfig not set");
   return mocks.routerConfig;
 }
-function router() {
-  if (!mocks.router) throw new Error("router not set");
-  return mocks.router;
-}
 function propsOf(element: React.ReactElement): Record<string, unknown> {
   return (element as unknown as { props: Record<string, unknown> }).props;
 }
@@ -84,41 +80,30 @@ describe("getRouter", () => {
     expect(typeof config().Wrap).toBe("function");
   });
 
-  it("Wrap passes replaceURL to ConvexAuthProvider", () => {
+  it("Wrap uses default replaceURL (no custom override)", () => {
     getRouter();
-    expect(propsOf(renderWrap()).replaceURL).toBeTypeOf("function");
+    // No custom replaceURL — the library's default window.history.replaceState
+    // removes ?code= from the URL, preventing double code exchange on re-render.
+    expect(propsOf(renderWrap()).replaceURL).toBeUndefined();
   });
 
-  it("replaceURL is a no-op to prevent TanStack Router page reloads", () => {
-    const mockReplaceState = vi.fn();
-    vi.stubGlobal("window", {
-      history: { replaceState: mockReplaceState, state: {} },
-    });
-
+  it("Wrap passes shouldHandleCode to ConvexAuthProvider", () => {
     getRouter();
-    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
-    replaceURL("/login");
-
-    // replaceURL must NOT call replaceState — in TanStack Start SSR,
-    // any replaceState triggers the router's history patch and causes
-    // a full page reload, aborting the OAuth code exchange.
-    expect(mockReplaceState).not.toHaveBeenCalled();
-    expect(router().navigate).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
+    const shouldHandleCode = propsOf(renderWrap()).shouldHandleCode as () => boolean;
+    expect(shouldHandleCode).toBeTypeOf("function");
   });
 
-  it("replaceURL is synchronous (returns void, not a Promise)", () => {
-    const mockReplaceState = vi.fn();
-    vi.stubGlobal("window", { history: { replaceState: mockReplaceState, state: {} } });
-
+  it("shouldHandleCode only returns true on /login", () => {
     getRouter();
-    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
-    const result = replaceURL("/login");
+    const shouldHandleCode = propsOf(renderWrap()).shouldHandleCode as () => boolean;
 
-    // Must be synchronous so `await replaceURL(...)` in the library resolves
-    // immediately, allowing the token exchange to proceed without a race.
-    expect(result).toBeUndefined();
+    // Simulate being on /login
+    vi.stubGlobal("window", { location: { pathname: "/login" } });
+    expect(shouldHandleCode()).toBe(true);
+
+    // Simulate being on /dashboard
+    vi.stubGlobal("window", { location: { pathname: "/dashboard" } });
+    expect(shouldHandleCode()).toBe(false);
 
     vi.unstubAllGlobals();
   });
