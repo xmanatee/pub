@@ -17,9 +17,15 @@ function LoginPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const wasAuthenticated = React.useRef(false);
 
-  // Detect OAuth callback: the auth library is exchanging the ?code= param
-  const isOAuthCallback =
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("code");
+  // Detect OAuth callback after hydration to avoid SSR mismatch.
+  // During SSR there is no `window`, so this must start as false and
+  // flip in a useEffect so the server and client initial renders agree.
+  const [isOAuthCallback, setIsOAuthCallback] = React.useState(false);
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("code")) {
+      setIsOAuthCallback(true);
+    }
+  }, []);
 
   React.useEffect(() => {
     if (isAuthenticated) {
