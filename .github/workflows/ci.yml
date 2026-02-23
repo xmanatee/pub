@@ -15,7 +15,12 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npx tsc --noEmit
+      - name: Generate Convex types
+        run: npx convex codegen
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      - name: Build (generates route tree + type checks)
+        run: npm run build
       - run: npm test
 
   lint-and-test-cli:

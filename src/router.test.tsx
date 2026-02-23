@@ -89,38 +89,21 @@ describe("getRouter", () => {
     expect(propsOf(renderWrap()).replaceURL).toBeTypeOf("function");
   });
 
-  it("replaceURL uses history.replaceState (not router.navigate)", () => {
+  it("replaceURL is a no-op to prevent TanStack Router page reloads", () => {
     const mockReplaceState = vi.fn();
-    const mockHistory = {
-      replaceState: mockReplaceState,
-      state: { __TSR_key: "k", __TSR_index: 0 },
-    };
-    vi.stubGlobal("window", { history: mockHistory });
+    vi.stubGlobal("window", {
+      history: { replaceState: mockReplaceState, state: {} },
+    });
 
     getRouter();
     const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
     replaceURL("/login");
 
-    expect(mockReplaceState).toHaveBeenCalledWith({ __TSR_key: "k", __TSR_index: 0 }, "", "/login");
-    // Must NOT use router.navigate — it triggers a full async navigation cycle
-    // that races with the token exchange
+    // replaceURL must NOT call replaceState — in TanStack Start SSR,
+    // any replaceState triggers the router's history patch and causes
+    // a full page reload, aborting the OAuth code exchange.
+    expect(mockReplaceState).not.toHaveBeenCalled();
     expect(router().navigate).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-  });
-
-  it("replaceURL preserves TanStack Router state keys", () => {
-    const mockReplaceState = vi.fn();
-    const existingState = { __TSR_key: "abc", __TSR_index: 3, extra: true };
-    vi.stubGlobal("window", { history: { replaceState: mockReplaceState, state: existingState } });
-
-    getRouter();
-    const replaceURL = propsOf(renderWrap()).replaceURL as (url: string) => void;
-    replaceURL("/login");
-
-    const passedState = mockReplaceState.mock.calls[0][0];
-    expect(passedState.__TSR_key).toBe("abc");
-    expect(passedState.__TSR_index).toBe(3);
 
     vi.unstubAllGlobals();
   });
@@ -152,46 +135,25 @@ describe("getRouter", () => {
 });
 
 describe("auth redirect logic", () => {
-  describe("dashboard auth settling", () => {
-    it("waits 300ms after loading ends before marking settled", () => {
-      vi.useFakeTimers();
-
-      let authSettled = false;
-      const isLoading = false;
-
-      if (!isLoading) {
-        setTimeout(() => {
-          authSettled = true;
-        }, 300);
-      }
-
-      expect(authSettled).toBe(false);
-      vi.advanceTimersByTime(299);
-      expect(authSettled).toBe(false);
-      vi.advanceTimersByTime(1);
-      expect(authSettled).toBe(true);
-
-      vi.useRealTimers();
-    });
-
-    it("does not redirect while still settling", () => {
+  describe("dashboard auth guard", () => {
+    it("does not redirect while loading", () => {
       const navigate = vi.fn();
-      const authSettled = false;
+      const isLoading = true;
       const isAuthenticated = false;
 
-      if (authSettled && !isAuthenticated) {
+      if (!isLoading && !isAuthenticated) {
         navigate({ to: "/login" });
       }
 
       expect(navigate).not.toHaveBeenCalled();
     });
 
-    it("redirects to /login after settling when not authenticated", () => {
+    it("redirects to /login when not loading and not authenticated", () => {
       const navigate = vi.fn();
-      const authSettled = true;
+      const isLoading = false;
       const isAuthenticated = false;
 
-      if (authSettled && !isAuthenticated) {
+      if (!isLoading && !isAuthenticated) {
         navigate({ to: "/login" });
       }
 
@@ -200,10 +162,10 @@ describe("auth redirect logic", () => {
 
     it("does not redirect when authenticated", () => {
       const navigate = vi.fn();
-      const authSettled = true;
+      const isLoading = false;
       const isAuthenticated = true;
 
-      if (authSettled && !isAuthenticated) {
+      if (!isLoading && !isAuthenticated) {
         navigate({ to: "/login" });
       }
 

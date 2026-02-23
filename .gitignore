@@ -4,6 +4,7 @@ dist/
 .vinxi/
 
 .env.local
+.env.secrets
 .vercel
 
 convex/_generated/

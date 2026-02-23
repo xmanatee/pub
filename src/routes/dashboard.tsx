@@ -42,36 +42,13 @@ function Dashboard() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { signOut } = useAuthActions();
 
-  // Wait for auth state to fully settle before redirecting.
-  // ConvexAuthProvider may need an extra render cycle to process an OAuth
-  // callback code in the URL, so we delay the "not authenticated" decision.
-  const [authSettled, setAuthSettled] = React.useState(false);
-
-  // Debug: trace auth state on every render
-  console.debug("[dashboard] render", { isAuthenticated, isLoading, authSettled });
-
   React.useEffect(() => {
-    console.debug("[dashboard] loading effect", { isLoading });
-    if (isLoading) {
-      setAuthSettled(false);
-      return;
-    }
-    const timer = setTimeout(() => {
-      console.debug("[dashboard] authSettled timer fired");
-      setAuthSettled(true);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [isLoading]);
-
-  React.useEffect(() => {
-    console.debug("[dashboard] redirect effect", { authSettled, isAuthenticated });
-    if (authSettled && !isAuthenticated) {
-      console.debug("[dashboard] redirecting to /login!");
+    if (!isLoading && !isAuthenticated) {
       navigate({ to: "/login" });
     }
-  }, [authSettled, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, navigate]);
 
-  if (!authSettled || !isAuthenticated) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-muted-foreground">Loading...</div>

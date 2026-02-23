@@ -1,3 +1,15 @@
 {
-  "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'npm run build'"
+  "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'npm run build'",
+  "installCommand": "npm install",
+  "framework": null,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
 }

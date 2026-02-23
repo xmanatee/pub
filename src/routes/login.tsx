@@ -17,20 +17,38 @@ function LoginPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const wasAuthenticated = React.useRef(false);
 
-  // Debug: trace auth state on every render
-  console.debug("[login] render", { isAuthenticated, isLoading, url: typeof window !== "undefined" ? window.location.href : "ssr" });
+  // Detect OAuth callback: the auth library is exchanging the ?code= param
+  const isOAuthCallback =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("code");
 
   React.useEffect(() => {
-    console.debug("[login] effect", { isAuthenticated });
     if (isAuthenticated) {
       if (!wasAuthenticated.current) {
         wasAuthenticated.current = true;
         trackSignIn("oauth");
       }
-      console.debug("[login] navigating to /dashboard");
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
+
+  // While the auth library exchanges the OAuth code, show a spinner
+  // instead of the login form to avoid a confusing flash.
+  if (isOAuthCallback && !isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+        <div className="text-muted-foreground text-sm">Completing sign-in…</div>
+      </div>
+    );
+  }
+
+  // Already authenticated (e.g. returning user) — wait for redirect
+  if (isLoading || isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+        <div className="text-muted-foreground text-sm">Loading…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
@@ -48,7 +66,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("github");
-              void signIn("github", { redirectTo: "/dashboard" });
+              void signIn("github", { redirectTo: "/login" });
             }}
           >
             <GitHubIcon />
@@ -67,7 +85,7 @@ function LoginPage() {
             className="w-full h-11"
             onClick={() => {
               trackSignInStarted("google");
-              void signIn("google", { redirectTo: "/dashboard" });
+              void signIn("google", { redirectTo: "/login" });
             }}
           >
             <GoogleIcon />
