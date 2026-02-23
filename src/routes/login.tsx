@@ -8,6 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 
 export const Route = createFileRoute("/login")({
+  // Preserve the ?code= search param so that the auth library can read it
+  // for the OAuth code exchange. Without this, TanStack Router's Transitioner
+  // strips unknown search params via history.replaceState before the auth
+  // library's useEffect fires.
+  validateSearch: (search: Record<string, unknown>): { code?: string } => {
+    return typeof search.code === "string" ? { code: search.code } : {};
+  },
   component: LoginPage,
 });
 
