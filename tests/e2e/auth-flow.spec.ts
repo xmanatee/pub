@@ -27,7 +27,7 @@ test.describe("Auth flow", () => {
 
     const redirectUrl = request.url();
     expect(redirectUrl).toContain("/api/auth/signin/github");
-    // No redirectTo param — auth lib handles the callback internally
-    expect(redirectUrl).not.toContain("redirectTo");
+    const redirect = new URL(redirectUrl);
+    expect(redirect.searchParams.get("redirectTo")).toBe("/dashboard");
   });
 });

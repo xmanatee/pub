@@ -1,6 +1,6 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { auth } from "./auth";
 
 function generateApiKey(): string {
   const bytes = new Uint8Array(24);
@@ -69,7 +69,7 @@ export const touchApiKey = internalMutation({
 export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, { name }) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
 
     const key = generateApiKey();
@@ -90,7 +90,7 @@ export const create = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
     const keys = await ctx.db
@@ -111,7 +111,7 @@ export const list = query({
 export const remove = mutation({
   args: { id: v.id("apiKeys") },
   handler: async (ctx, { id }) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
 
     const key = await ctx.db.get(id);

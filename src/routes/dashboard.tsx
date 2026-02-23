@@ -44,7 +44,7 @@ function Dashboard() {
 
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate({ to: "/login" });
+      navigate({ to: "/login", replace: true });
     }
   }, [isLoading, isAuthenticated, navigate]);
 

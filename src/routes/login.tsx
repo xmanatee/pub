@@ -15,12 +15,44 @@ function LoginPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
+  const isStartingSignInRef = React.useRef(false);
+  const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+
+  const startOAuthSignIn = React.useCallback(
+    async (provider: "github" | "google") => {
+      if (isStartingSignInRef.current || pendingProvider) return;
+
+      isStartingSignInRef.current = true;
+      setAuthError(null);
+      setPendingProvider(provider);
+      trackSignInStarted(provider);
+
+      try {
+        const result = await signIn(provider, { redirectTo: "/dashboard" });
+        if (!result.redirect) {
+          isStartingSignInRef.current = false;
+          setPendingProvider(null);
+        }
+        if (!result.redirect && !result.signingIn) {
+          setAuthError("Could not start sign-in. Please try again.");
+        }
+      } catch (error) {
+        console.error("OAuth sign-in failed to start", error);
+        isStartingSignInRef.current = false;
+        setPendingProvider(null);
+        setAuthError("Could not start sign-in. Please try again.");
+      }
+    },
+    [pendingProvider, signIn],
+  );
+
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       trackSignIn("oauth");
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/dashboard", replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   if (isLoading || isAuthenticated) {
     return (
@@ -44,13 +76,13 @@ function LoginPage() {
           <Button
             variant="outline"
             className="w-full h-11"
+            disabled={pendingProvider !== null}
             onClick={() => {
-              trackSignInStarted("github");
-              void signIn("github");
+              void startOAuthSignIn("github");
             }}
           >
             <GitHubIcon />
-            Continue with GitHub
+            {pendingProvider === "github" ? "Connecting..." : "Continue with GitHub"}
           </Button>
           <div className="relative my-1">
             <div className="absolute inset-0 flex items-center">
@@ -63,14 +95,15 @@ function LoginPage() {
           <Button
             variant="outline"
             className="w-full h-11"
+            disabled={pendingProvider !== null}
             onClick={() => {
-              trackSignInStarted("google");
-              void signIn("google");
+              void startOAuthSignIn("google");
             }}
           >
             <GoogleIcon />
-            Continue with Google
+            {pendingProvider === "google" ? "Connecting..." : "Continue with Google"}
           </Button>
+          {authError ? <p className="text-center text-xs text-destructive">{authError}</p> : null}
           <p className="text-center text-xs text-muted-foreground pt-2">
             By continuing, you agree to our terms of service.
           </p>

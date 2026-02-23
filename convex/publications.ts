@@ -1,7 +1,7 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { auth } from "./auth";
 
 const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
 type ContentType = (typeof CONTENT_TYPES)[number];
@@ -50,7 +50,7 @@ export const getBySlug = query({
 
     // If private, only the owner can see it
     if (!pub.isPublic) {
-      const userId = await auth.getUserId(ctx);
+      const userId = await getAuthUserId(ctx);
       if (!userId || pub.userId !== userId) return null;
     }
 
@@ -71,7 +71,7 @@ export const getBySlug = query({
 export const listByUser = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
     const pubs = await ctx.db
@@ -96,7 +96,7 @@ export const listByUser = query({
 export const toggleVisibility = mutation({
   args: { id: v.id("publications") },
   handler: async (ctx, { id }) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
 
     const pub = await ctx.db.get(id);
@@ -110,7 +110,7 @@ export const toggleVisibility = mutation({
 export const deleteByUser = mutation({
   args: { id: v.id("publications") },
   handler: async (ctx, { id }) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
 
     const pub = await ctx.db.get(id);

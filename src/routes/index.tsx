@@ -17,7 +17,7 @@ function Landing() {
 
   React.useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/dashboard", replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
 
