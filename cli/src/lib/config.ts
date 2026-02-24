@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
+
 export interface Config {
   apiKey: string;
   baseUrl: string;
@@ -30,9 +32,11 @@ export function loadConfig(homeDir?: string): Config | null {
   return JSON.parse(raw) as Config;
 }
 
-export function saveConfig(config: Config, homeDir?: string): void {
+export function saveConfig(config: { apiKey: string }, homeDir?: string): void {
   const configPath = getConfigPath(homeDir);
-  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  fs.writeFileSync(configPath, `${JSON.stringify({ apiKey: config.apiKey }, null, 2)}\n`, {
+    mode: 0o600,
+  });
   try {
     fs.chmodSync(configPath, 0o600);
   } catch {
@@ -43,20 +47,21 @@ export function saveConfig(config: Config, homeDir?: string): void {
 export function getConfig(homeDir?: string): Config {
   const envKey = process.env.PUBBLUE_API_KEY;
   const envUrl = process.env.PUBBLUE_URL;
+  const baseUrl = envUrl || DEFAULT_BASE_URL;
 
-  if (envKey && envUrl) {
-    return { apiKey: envKey, baseUrl: envUrl };
+  if (envKey) {
+    return { apiKey: envKey, baseUrl };
   }
 
   const saved = loadConfig(homeDir);
   if (!saved) {
     throw new Error(
-      "Not configured. Run `pubblue configure` or set PUBBLUE_API_KEY and PUBBLUE_URL environment variables.",
+      "Not configured. Run `pubblue configure` or set PUBBLUE_API_KEY environment variable.",
     );
   }
 
   return {
-    apiKey: envKey || saved.apiKey,
-    baseUrl: envUrl || saved.baseUrl,
+    apiKey: saved.apiKey,
+    baseUrl,
   };
 }

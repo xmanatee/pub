@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getConfig, loadConfig, saveConfig } from "./config.js";
+import { DEFAULT_BASE_URL, getConfig, loadConfig, saveConfig } from "./config.js";
 
 describe("config", () => {
   let tmpDir: string;
@@ -23,32 +23,37 @@ describe("config", () => {
     expect(loadConfig(tmpDir)).toBeNull();
   });
 
-  it("saves and loads config", () => {
-    const config = { apiKey: "pub_test", baseUrl: "https://test.convex.site" };
-    saveConfig(config, tmpDir);
-    expect(loadConfig(tmpDir)).toEqual(config);
+  it("saves and loads config with apiKey only", () => {
+    saveConfig({ apiKey: "pub_test" }, tmpDir);
+    expect(loadConfig(tmpDir)).toEqual({ apiKey: "pub_test" });
   });
 
-  it("prefers environment variables over saved config", () => {
-    saveConfig({ apiKey: "pub_saved", baseUrl: "https://saved.convex.site" }, tmpDir);
+  it("uses default base URL when no env var is set", () => {
+    saveConfig({ apiKey: "pub_test" }, tmpDir);
+    const config = getConfig(tmpDir);
+    expect(config.apiKey).toBe("pub_test");
+    expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
+  });
+
+  it("PUBBLUE_URL env var overrides the default base URL", () => {
+    saveConfig({ apiKey: "pub_saved" }, tmpDir);
+    process.env.PUBBLUE_URL = "https://custom.convex.site";
+
+    const config = getConfig(tmpDir);
+    expect(config.apiKey).toBe("pub_saved");
+    expect(config.baseUrl).toBe("https://custom.convex.site");
+  });
+
+  it("prefers PUBBLUE_API_KEY env var over saved config", () => {
+    saveConfig({ apiKey: "pub_saved" }, tmpDir);
     process.env.PUBBLUE_API_KEY = "pub_env";
-    process.env.PUBBLUE_URL = "https://env.convex.site";
 
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_env");
-    expect(config.baseUrl).toBe("https://env.convex.site");
+    expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
   });
 
   it("throws when no config available", () => {
     expect(() => getConfig(tmpDir)).toThrow("Not configured");
-  });
-
-  it("uses env key with saved URL", () => {
-    saveConfig({ apiKey: "pub_saved", baseUrl: "https://saved.convex.site" }, tmpDir);
-    process.env.PUBBLUE_API_KEY = "pub_env";
-
-    const config = getConfig(tmpDir);
-    expect(config.apiKey).toBe("pub_env");
-    expect(config.baseUrl).toBe("https://saved.convex.site");
   });
 });

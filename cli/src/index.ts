@@ -62,17 +62,16 @@ program
 
 program
   .command("configure")
-  .description("Configure the CLI with your API key and server URL")
+  .description("Configure the CLI with your API key")
   .option("--api-key <key>", "Your API key (less secure: appears in shell history)")
   .option("--api-key-stdin", "Read API key from stdin")
-  .requiredOption("--url <url>", "Convex site URL (e.g. https://your-deployment.convex.site)")
-  .action(async (opts: { apiKey?: string; apiKeyStdin?: boolean; url: string }) => {
+  .action(async (opts: { apiKey?: string; apiKeyStdin?: boolean }) => {
     try {
       const apiKey = await resolveConfigureApiKey(opts);
       if (!apiKey) {
         throw new Error("API key is empty.");
       }
-      saveConfig({ apiKey, baseUrl: opts.url });
+      saveConfig({ apiKey });
       console.log("Configuration saved.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to configure CLI.";

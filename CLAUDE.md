@@ -54,7 +54,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 ### CLI (`cli/`)
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - Commands: `configure`, `publish`, `publish-content`, `list`, `get`, `update`, `delete`
-- Config: `~/.config/pubblue/config.json` or env vars `PUBBLUE_API_KEY` / `PUBBLUE_URL`
+- Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
+- Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 - API client in `cli/src/lib/api.ts`
 
 ### Integrations
