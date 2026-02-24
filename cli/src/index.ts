@@ -3,10 +3,32 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
-import { PublishApiClient } from "./lib/api.js";
+import { PublishApiClient, type PublishResult } from "./lib/api.js";
 import { getConfig, saveConfig } from "./lib/config.js";
 
 const program = new Command();
+
+function createClient(): PublishApiClient {
+  const config = getConfig();
+  return new PublishApiClient(config.baseUrl, config.apiKey);
+}
+
+async function readFromStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks).toString("utf-8").trim();
+}
+
+function printPublishResult(result: PublishResult): void {
+  const verb = result.updated ? "Updated" : "Published";
+  console.log(`${verb}: ${result.url}`);
+}
+
+function formatVisibility(isPublic: boolean): string {
+  return isPublic ? "public" : "private";
+}
 
 async function readApiKeyFromPrompt(): Promise<string> {
   const rl = createInterface({
@@ -21,14 +43,6 @@ async function readApiKeyFromPrompt(): Promise<string> {
   }
 }
 
-async function readApiKeyFromStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk as Buffer);
-  }
-  return Buffer.concat(chunks).toString("utf-8").trim();
-}
-
 async function resolveConfigureApiKey(opts: {
   apiKey?: string;
   apiKeyStdin?: boolean;
@@ -40,7 +54,7 @@ async function resolveConfigureApiKey(opts: {
     return opts.apiKey.trim();
   }
   if (opts.apiKeyStdin) {
-    return readApiKeyFromStdin();
+    return readFromStdin();
   }
 
   const envKey = process.env.PUBBLUE_API_KEY?.trim();
@@ -68,9 +82,6 @@ program
   .action(async (opts: { apiKey?: string; apiKeyStdin?: boolean }) => {
     try {
       const apiKey = await resolveConfigureApiKey(opts);
-      if (!apiKey) {
-        throw new Error("API key is empty.");
-      }
       saveConfig({ apiKey });
       console.log("Configuration saved.");
     } catch (error) {
@@ -88,8 +99,7 @@ program
   .option("--title <title>", "Title for the publication")
   .option("--private", "Make the publication private")
   .action(async (file: string, opts: { slug?: string; title?: string; private?: boolean }) => {
-    const config = getConfig();
-    const client = new PublishApiClient(config.baseUrl, config.apiKey);
+    const client = createClient();
 
     const filePath = path.resolve(file);
     if (!fs.existsSync(filePath)) {
@@ -108,11 +118,7 @@ program
       isPublic: !opts.private,
     });
 
-    if (result.updated) {
-      console.log(`Updated: ${result.url}`);
-    } else {
-      console.log(`Published: ${result.url}`);
-    }
+    printPublishResult(result);
   });
 
 program
@@ -131,18 +137,8 @@ program
       title?: string;
       private?: boolean;
     }) => {
-      const config = getConfig();
-      const client = new PublishApiClient(config.baseUrl, config.apiKey);
-
-      let content = opts.content;
-      if (!content) {
-        // Read from stdin
-        const chunks: Buffer[] = [];
-        for await (const chunk of process.stdin) {
-          chunks.push(chunk as Buffer);
-        }
-        content = Buffer.concat(chunks).toString("utf-8");
-      }
+      const client = createClient();
+      const content = opts.content ?? (await readFromStdin());
 
       const result = await client.publish({
         filename: opts.filename,
@@ -152,11 +148,7 @@ program
         isPublic: !opts.private,
       });
 
-      if (result.updated) {
-        console.log(`Updated: ${result.url}`);
-      } else {
-        console.log(`Published: ${result.url}`);
-      }
+      printPublishResult(result);
     },
   );
 
@@ -165,15 +157,13 @@ program
   .description("Get details of a publication")
   .argument("<slug>", "Slug of the publication")
   .action(async (slug: string) => {
-    const config = getConfig();
-    const client = new PublishApiClient(config.baseUrl, config.apiKey);
+    const client = createClient();
     const pub = await client.get(slug);
-    const status = pub.isPublic ? "public" : "private";
     console.log(`  Slug:    ${pub.slug}`);
     console.log(`  File:    ${pub.filename}`);
     console.log(`  Type:    ${pub.contentType}`);
     if (pub.title) console.log(`  Title:   ${pub.title}`);
-    console.log(`  Status:  ${status}`);
+    console.log(`  Status:  ${formatVisibility(pub.isPublic)}`);
     console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
     console.log(`  Updated: ${new Date(pub.updatedAt).toLocaleDateString()}`);
     console.log(`  Size:    ${pub.content.length} bytes`);
@@ -187,31 +177,24 @@ program
   .option("--public", "Make the publication public")
   .option("--private", "Make the publication private")
   .action(async (slug: string, opts: { title?: string; public?: boolean; private?: boolean }) => {
-    const config = getConfig();
-    const client = new PublishApiClient(config.baseUrl, config.apiKey);
+    const client = createClient();
 
     let isPublic: boolean | undefined;
     if (opts.public) isPublic = true;
     else if (opts.private) isPublic = false;
 
-    const result = await client.update({
-      slug,
-      title: opts.title,
-      isPublic,
-    });
+    const result = await client.update({ slug, title: opts.title, isPublic });
 
     console.log(`Updated: ${result.slug}`);
     if (result.title) console.log(`  Title:  ${result.title}`);
-    console.log(`  Status: ${result.isPublic ? "public" : "private"}`);
+    console.log(`  Status: ${formatVisibility(result.isPublic)}`);
   });
 
 program
   .command("list")
   .description("List your publications")
   .action(async () => {
-    const config = getConfig();
-    const client = new PublishApiClient(config.baseUrl, config.apiKey);
-
+    const client = createClient();
     const pubs = await client.list();
     if (pubs.length === 0) {
       console.log("No publications.");
@@ -219,9 +202,10 @@ program
     }
 
     for (const pub of pubs) {
-      const status = pub.isPublic ? "public" : "private";
       const date = new Date(pub.createdAt).toLocaleDateString();
-      console.log(`  ${pub.slug}  ${pub.filename}  [${pub.contentType}]  ${status}  ${date}`);
+      console.log(
+        `  ${pub.slug}  ${pub.filename}  [${pub.contentType}]  ${formatVisibility(pub.isPublic)}  ${date}`,
+      );
     }
   });
 
@@ -230,8 +214,7 @@ program
   .description("Delete a publication")
   .argument("<slug>", "Slug of the publication to delete")
   .action(async (slug: string) => {
-    const config = getConfig();
-    const client = new PublishApiClient(config.baseUrl, config.apiKey);
+    const client = createClient();
     await client.remove(slug);
     console.log(`Deleted: ${slug}`);
   });

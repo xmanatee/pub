@@ -1,39 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-
-// --- Pure business logic extracted for testing ---
-
-const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
-type ContentType = (typeof CONTENT_TYPES)[number];
-
-const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
-
-function generateSlug(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-}
-
-function inferContentType(filename: string): ContentType {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "html":
-    case "htm":
-      return "html";
-    case "css":
-      return "css";
-    case "js":
-    case "mjs":
-      return "js";
-    case "md":
-    case "markdown":
-      return "markdown";
-    default:
-      return "text";
-  }
-}
-
-// --- Tests ---
+import { CONTENT_TYPES, generateSlug, inferContentType, MAX_CONTENT_SIZE } from "./utils";
 
 describe("inferContentType", () => {
   it("infers HTML from .html", () => {
@@ -324,13 +290,11 @@ describe("getBySlug response mapping", () => {
 
 describe("visibility toggle logic", () => {
   it("toggles true to false", () => {
-    const current = true;
-    expect(!current).toBe(false);
+    expect(!true).toBe(false);
   });
 
   it("toggles false to true", () => {
-    const current = false;
-    expect(!current).toBe(true);
+    expect(!false).toBe(true);
   });
 });
 
@@ -351,8 +315,7 @@ describe("private publication access control logic", () => {
 
   it("allows anyone to see public publication", () => {
     const pub = { isPublic: true, userId: "user1" };
-    const currentUserId = null;
-    const canAccess = pub.isPublic || pub.userId === currentUserId;
+    const canAccess = pub.isPublic;
     expect(canAccess).toBe(true);
   });
 
@@ -368,14 +331,12 @@ describe("slug conflict resolution", () => {
   it("allows owner to update existing slug", () => {
     const existing = { userId: "user1", _id: "pub1" };
     const requestUserId = "user1";
-    const isOwner = existing.userId === requestUserId;
-    expect(isOwner).toBe(true);
+    expect(existing.userId === requestUserId).toBe(true);
   });
 
   it("rejects non-owner from taking existing slug", () => {
     const existing = { userId: "user1", _id: "pub1" };
     const requestUserId = "user2";
-    const isOwner = existing.userId === requestUserId;
-    expect(isOwner).toBe(false);
+    expect(existing.userId === requestUserId).toBe(false);
   });
 });

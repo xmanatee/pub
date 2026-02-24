@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-
-// Tests for apiKeys.ts business logic
-
-function generateApiKey(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `pub_${key}`;
-}
+import { generateApiKey, keyPreviewFromKey } from "./utils";
 
 describe("API key list mapping", () => {
   it("maps keys to preview format", () => {
@@ -23,7 +15,7 @@ describe("API key list mapping", () => {
     const mapped = {
       _id: dbKey._id,
       name: dbKey.name,
-      keyPreview: `${dbKey.key.slice(0, 8)}...${dbKey.key.slice(-4)}`,
+      keyPreview: keyPreviewFromKey(dbKey.key),
       createdAt: dbKey.createdAt,
       lastUsedAt: dbKey.lastUsedAt,
     };
@@ -46,7 +38,7 @@ describe("API key list mapping", () => {
     const mapped = {
       _id: dbKey._id,
       name: dbKey.name,
-      keyPreview: `${dbKey.key.slice(0, 8)}...${dbKey.key.slice(-4)}`,
+      keyPreview: keyPreviewFromKey(dbKey.key),
       createdAt: dbKey.createdAt,
       lastUsedAt: dbKey.lastUsedAt,
     };
@@ -58,8 +50,7 @@ describe("API key list mapping", () => {
 describe("API key creation", () => {
   it("returns full key on creation", () => {
     const key = generateApiKey();
-    const result = { key };
-    expect(result.key).toMatch(/^pub_[0-9a-f]{48}$/);
+    expect(key).toMatch(/^pub_[0-9a-f]{48}$/);
   });
 
   it("key name is stored as-is", () => {
@@ -96,9 +87,7 @@ describe("getUserByApiKey return format", () => {
   });
 
   it("returns null when user not found for apiKey", () => {
-    const apiKey = { _id: "apiKey1", userId: "user1", key: "pub_test" };
     const user = null;
-    if (!apiKey) expect.fail("apiKey should exist");
     expect(user).toBeNull();
   });
 });

@@ -2,12 +2,12 @@ import { httpRouter } from "convex/server";
 import { api } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
+import { isValidSlug, MIME_TYPES } from "./utils";
 
 const http = httpRouter();
 
-// Register OAuth callback routes for @convex-dev/auth (GitHub, Google)
 auth.addHttpRoutes(http);
-const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
 const HTML_CSP = [
   "default-src 'none'",
   "base-uri 'none'",
@@ -23,7 +23,7 @@ const HTML_CSP = [
 ].join("; ");
 const DEFAULT_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox";
 
-function corsHeaders() {
+export function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -46,37 +46,37 @@ function publicationSecurityHeaders(mimeType: string) {
   };
 }
 
-function jsonResponse(data: unknown, status = 200) {
+export function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders(), ...baseSecurityHeaders() },
   });
 }
 
-function errorResponse(message: string, status: number) {
+export function errorResponse(message: string, status: number) {
   return jsonResponse({ error: message }, status);
 }
 
-function getApiKey(request: Request): string | null {
+export function getApiKey(request: Request): string | null {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.slice(7).trim();
   return token.length > 0 ? token : null;
 }
 
-function isValidSlug(slug: string): boolean {
-  return SLUG_PATTERN.test(slug);
+async function executeAction<T>(
+  fn: () => Promise<T>,
+  onSuccess: (result: T) => Response,
+): Promise<Response> {
+  try {
+    const result = await fn();
+    return onSuccess(result);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Internal error";
+    return errorResponse(message, 400);
+  }
 }
 
-const MIME_TYPES: Record<string, string> = {
-  html: "text/html; charset=utf-8",
-  css: "text/css; charset=utf-8",
-  js: "application/javascript; charset=utf-8",
-  markdown: "text/markdown; charset=utf-8",
-  text: "text/plain; charset=utf-8",
-};
-
-// OPTIONS handler for CORS
 http.route({
   path: "/api/v1/publish",
   method: "OPTIONS",
@@ -93,7 +93,6 @@ http.route({
   }),
 });
 
-// POST /api/v1/publish — publish content
 http.route({
   path: "/api/v1/publish",
   method: "POST",
@@ -125,32 +124,29 @@ http.route({
       );
     }
 
-    try {
-      const result = await ctx.runAction(api.publications.publish, {
-        apiKey,
-        filename: body.filename,
-        content: body.content,
-        title: body.title,
-        slug: body.slug,
-        isPublic: body.isPublic,
-      });
-
-      const siteUrl = process.env.CONVEX_SITE_URL || request.url;
-      const baseUrl = new URL(siteUrl).origin;
-
-      return jsonResponse({
-        slug: result.slug,
-        updated: result.updated,
-        url: `${baseUrl}/serve/${encodeURIComponent(result.slug)}`,
-      });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Internal error";
-      return errorResponse(message, 400);
-    }
+    return executeAction(
+      () =>
+        ctx.runAction(api.publications.publish, {
+          apiKey,
+          filename: body.filename,
+          content: body.content,
+          title: body.title,
+          slug: body.slug,
+          isPublic: body.isPublic,
+        }),
+      (result) => {
+        const siteUrl = process.env.CONVEX_SITE_URL || request.url;
+        const baseUrl = new URL(siteUrl).origin;
+        return jsonResponse({
+          slug: result.slug,
+          updated: result.updated,
+          url: `${baseUrl}/serve/${encodeURIComponent(result.slug)}`,
+        });
+      },
+    );
   }),
 });
 
-// GET /api/v1/publications — list publications, or get single if ?slug= is set
 http.route({
   path: "/api/v1/publications",
   method: "GET",
@@ -164,24 +160,20 @@ http.route({
       return errorResponse("Invalid slug format", 400);
     }
 
-    try {
-      if (slug) {
-        const pub = await ctx.runAction(api.publications.getViaApi, {
-          apiKey,
-          slug,
-        });
-        return jsonResponse({ publication: pub });
-      }
-      const pubs = await ctx.runAction(api.publications.listViaApi, { apiKey });
-      return jsonResponse({ publications: pubs });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Internal error";
-      return errorResponse(message, 400);
-    }
+    return executeAction(
+      async () => {
+        if (slug) {
+          const pub = await ctx.runAction(api.publications.getViaApi, { apiKey, slug });
+          return { publication: pub };
+        }
+        const pubs = await ctx.runAction(api.publications.listViaApi, { apiKey });
+        return { publications: pubs };
+      },
+      (result) => jsonResponse(result),
+    );
   }),
 });
 
-// PATCH /api/v1/publications — update publication metadata
 http.route({
   path: "/api/v1/publications",
   method: "PATCH",
@@ -203,22 +195,19 @@ http.route({
       return errorResponse("Invalid slug format", 400);
     }
 
-    try {
-      const result = await ctx.runAction(api.publications.updateViaApi, {
-        apiKey,
-        slug: body.slug,
-        title: body.title,
-        isPublic: body.isPublic,
-      });
-      return jsonResponse(result);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Internal error";
-      return errorResponse(message, 400);
-    }
+    return executeAction(
+      () =>
+        ctx.runAction(api.publications.updateViaApi, {
+          apiKey,
+          slug: body.slug,
+          title: body.title,
+          isPublic: body.isPublic,
+        }),
+      (result) => jsonResponse(result),
+    );
   }),
 });
 
-// DELETE /api/v1/publications — delete a publication (slug in query param)
 http.route({
   path: "/api/v1/publications",
   method: "DELETE",
@@ -231,17 +220,13 @@ http.route({
     if (!slug) return errorResponse("Missing slug parameter", 400);
     if (!isValidSlug(slug)) return errorResponse("Invalid slug format", 400);
 
-    try {
-      await ctx.runAction(api.publications.unpublish, { apiKey, slug });
-      return jsonResponse({ deleted: true });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Internal error";
-      return errorResponse(message, 400);
-    }
+    return executeAction(
+      () => ctx.runAction(api.publications.unpublish, { apiKey, slug }),
+      () => jsonResponse({ deleted: true }),
+    );
   }),
 });
 
-// GET /serve/:slug — serve raw content with proper MIME type
 http.route({
   pathPrefix: "/serve/",
   method: "GET",

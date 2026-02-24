@@ -1,42 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-// --- Extracted logic from http.ts ---
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders() },
-  });
-}
-
-function errorResponse(message: string, status: number) {
-  return jsonResponse({ error: message }, status);
-}
-
-function getApiKey(request: Request): string | null {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7).trim();
-  return token.length > 0 ? token : null;
-}
-
-const MIME_TYPES: Record<string, string> = {
-  html: "text/html; charset=utf-8",
-  css: "text/css; charset=utf-8",
-  js: "application/javascript; charset=utf-8",
-  markdown: "text/markdown; charset=utf-8",
-  text: "text/plain; charset=utf-8",
-};
-
-// --- Tests ---
+import { corsHeaders, errorResponse, getApiKey, jsonResponse } from "./http";
+import { isValidSlug, MIME_TYPES } from "./utils";
 
 describe("corsHeaders", () => {
   it("includes all required CORS headers", () => {
@@ -180,6 +144,21 @@ describe("MIME types", () => {
   it("covers all five content types", () => {
     expect(Object.keys(MIME_TYPES)).toHaveLength(5);
     expect(Object.keys(MIME_TYPES).sort()).toEqual(["css", "html", "js", "markdown", "text"]);
+  });
+});
+
+describe("slug validation", () => {
+  it("validates good slugs", () => {
+    expect(isValidSlug("abc123")).toBe(true);
+    expect(isValidSlug("my-page")).toBe(true);
+    expect(isValidSlug("my.page")).toBe(true);
+    expect(isValidSlug("my_page")).toBe(true);
+  });
+
+  it("rejects invalid slugs", () => {
+    expect(isValidSlug("")).toBe(false);
+    expect(isValidSlug("-start")).toBe(false);
+    expect(isValidSlug(".start")).toBe(false);
   });
 });
 

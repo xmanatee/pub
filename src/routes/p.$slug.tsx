@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { ExternalLink, FileText, Globe, Lock } from "lucide-react";
+import { ExternalLink, FileText } from "lucide-react";
 import * as React from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { VisibilityBadge } from "~/components/visibility-badge";
 import { trackPublicationRawViewed, trackPublicationViewed } from "~/lib/analytics";
 import { api } from "../../convex/_generated/api";
 
@@ -56,15 +57,7 @@ function PublicationPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <h1 className="text-lg font-semibold">{publication.title || publication.filename}</h1>
           <Badge variant="secondary">{publication.contentType}</Badge>
-          {publication.isPublic ? (
-            <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-600/20">
-              <Globe className="h-3 w-3" /> public
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600/20">
-              <Lock className="h-3 w-3" /> private
-            </Badge>
-          )}
+          <VisibilityBadge isPublic={publication.isPublic} />
           <span className="text-xs text-muted-foreground">
             {new Date(publication.createdAt).toLocaleDateString()}
           </span>
@@ -86,7 +79,7 @@ function PublicationPage() {
         </Button>
       </div>
 
-      <ContentRenderer content={publication.content} contentType={publication.contentType} />
+      <ContentRenderer content={publication.content ?? ""} contentType={publication.contentType} />
     </div>
   );
 }

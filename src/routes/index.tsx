@@ -3,6 +3,7 @@ import { useConvexAuth } from "convex/react";
 import { ArrowRight, Bot, FileCode2, Globe, Link2, Shield, Terminal, Zap } from "lucide-react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
+import { TerminalPreview } from "~/components/terminal-preview";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { trackCtaClicked } from "~/lib/analytics";
@@ -32,8 +33,6 @@ function Landing() {
     </div>
   );
 }
-
-/* ---------- Hero ---------- */
 
 function HeroSection() {
   return (
@@ -87,30 +86,21 @@ function HeroSection() {
             </Button>
           </div>
 
-          {/* Terminal preview */}
           <div className="mt-16 max-w-xl mx-auto">
-            <div className="rounded-xl border border-border/50 bg-navy text-white overflow-hidden shadow-2xl shadow-primary/10">
-              <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/10">
-                <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                <span className="ml-2 text-xs text-white/40 font-mono">terminal</span>
-              </div>
+            <TerminalPreview className="shadow-2xl shadow-primary/10">
               <div className="p-5 font-mono text-sm leading-relaxed">
                 <div className="text-white/40">$ pubblue publish index.html</div>
                 <div className="text-emerald-400 mt-1">
                   Published: https://pub.blue/serve/k8f2m9
                 </div>
               </div>
-            </div>
+            </TerminalPreview>
           </div>
         </div>
       </div>
     </section>
   );
 }
-
-/* ---------- Logo bar / trust signals ---------- */
 
 function LogoBar() {
   return (
@@ -129,8 +119,6 @@ function LogoBar() {
     </section>
   );
 }
-
-/* ---------- Features ---------- */
 
 function FeaturesSection() {
   const features = [
@@ -203,8 +191,6 @@ function FeaturesSection() {
   );
 }
 
-/* ---------- How it works ---------- */
-
 function HowItWorksSection() {
   const steps = [
     {
@@ -249,8 +235,6 @@ function HowItWorksSection() {
   );
 }
 
-/* ---------- Code example ---------- */
-
 function CodeSection() {
   return (
     <section className="py-24">
@@ -265,18 +249,16 @@ function CodeSection() {
         </div>
 
         <div className="max-w-2xl mx-auto">
-          <div className="rounded-xl border border-border/50 bg-navy overflow-hidden shadow-2xl shadow-primary/5">
-            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/10">
-              <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+          <TerminalPreview
+            className="shadow-2xl shadow-primary/5"
+            headerRight={
               <div className="ml-auto flex items-center gap-1.5 text-white/40">
                 <Terminal className="h-3.5 w-3.5" />
                 <span className="text-xs font-mono">terminal</span>
               </div>
-            </div>
+            }
+          >
             <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
-              {/* Example 1 */}
               <div>
                 <div className="text-white/40 text-xs mb-1"># Publish a file</div>
                 <div className="text-white/70">
@@ -287,7 +269,6 @@ function CodeSection() {
                 </div>
               </div>
 
-              {/* Example 2 */}
               <div>
                 <div className="text-white/40 text-xs mb-1"># Custom slug + title</div>
                 <div className="text-white/70">
@@ -299,7 +280,6 @@ function CodeSection() {
                 </div>
               </div>
 
-              {/* Example 3 */}
               <div>
                 <div className="text-white/40 text-xs mb-1"># Pipe from stdin</div>
                 <div className="text-white/70">
@@ -311,14 +291,12 @@ function CodeSection() {
                 </div>
               </div>
             </div>
-          </div>
+          </TerminalPreview>
         </div>
       </div>
     </section>
   );
 }
-
-/* ---------- Final CTA ---------- */
 
 function CtaSection() {
   return (

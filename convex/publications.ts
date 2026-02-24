@@ -1,42 +1,63 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { ActionCtx } from "./_generated/server";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+  type ContentType,
+  generateSlug,
+  inferContentType,
+  isValidSlug,
+  MAX_CONTENT_SIZE,
+} from "./utils";
 
-const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
-type ContentType = (typeof CONTENT_TYPES)[number];
-
-const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
-const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-
-function generateSlug(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+function mapPublication(
+  pub: {
+    _id: Id<"publications">;
+    slug: string;
+    filename: string;
+    contentType: string;
+    content: string;
+    title?: string;
+    isPublic: boolean;
+    createdAt: number;
+    updatedAt: number;
+  },
+  includeContent = false,
+) {
+  const dto: {
+    _id: Id<"publications">;
+    slug: string;
+    filename: string;
+    contentType: string;
+    title?: string;
+    isPublic: boolean;
+    createdAt: number;
+    updatedAt: number;
+    content?: string;
+  } = {
+    _id: pub._id,
+    slug: pub.slug,
+    filename: pub.filename,
+    contentType: pub.contentType,
+    title: pub.title,
+    isPublic: pub.isPublic,
+    createdAt: pub.createdAt,
+    updatedAt: pub.updatedAt,
+  };
+  if (includeContent) dto.content = pub.content;
+  return dto;
 }
 
-function inferContentType(filename: string): ContentType {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "html":
-    case "htm":
-      return "html";
-    case "css":
-      return "css";
-    case "js":
-    case "mjs":
-      return "js";
-    case "md":
-    case "markdown":
-      return "markdown";
-    default:
-      return "text";
-  }
-}
-
-function isValidSlug(slug: string): boolean {
-  return SLUG_PATTERN.test(slug);
+async function authenticateApiKey(
+  ctx: ActionCtx,
+  apiKey: string,
+): Promise<{ apiKeyId: Id<"apiKeys">; userId: Id<"users"> }> {
+  const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, { key: apiKey });
+  if (!user) throw new Error("Invalid API key");
+  await ctx.runMutation(internal.apiKeys.touchApiKey, { apiKeyId: user.apiKeyId, key: apiKey });
+  return user;
 }
 
 export const getBySlug = query({
@@ -48,23 +69,12 @@ export const getBySlug = query({
       .unique();
     if (!pub) return null;
 
-    // If private, only the owner can see it
     if (!pub.isPublic) {
       const userId = await getAuthUserId(ctx);
       if (!userId || pub.userId !== userId) return null;
     }
 
-    return {
-      _id: pub._id,
-      slug: pub.slug,
-      filename: pub.filename,
-      contentType: pub.contentType,
-      content: pub.content,
-      title: pub.title,
-      isPublic: pub.isPublic,
-      createdAt: pub.createdAt,
-      updatedAt: pub.updatedAt,
-    };
+    return mapPublication(pub, true);
   },
 });
 
@@ -80,16 +90,7 @@ export const listByUser = query({
       .order("desc")
       .collect();
 
-    return pubs.map((p) => ({
-      _id: p._id,
-      slug: p.slug,
-      filename: p.filename,
-      contentType: p.contentType,
-      title: p.title,
-      isPublic: p.isPublic,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    }));
+    return pubs.map((p) => mapPublication(p));
   },
 });
 
@@ -119,8 +120,6 @@ export const deleteByUser = mutation({
     await ctx.db.delete(id);
   },
 });
-
-// --- Internal functions used by HTTP API ---
 
 export const createPublication = internalMutation({
   args: {
@@ -188,8 +187,6 @@ export const deletePublication = internalMutation({
   },
 });
 
-// --- Actions used by HTTP API (API key auth) ---
-
 export const publish = action({
   args: {
     apiKey: v.string(),
@@ -200,15 +197,7 @@ export const publish = action({
     isPublic: v.optional(v.boolean()),
   },
   handler: async (ctx, { apiKey, filename, content, title, slug, isPublic }) => {
-    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
-      key: apiKey,
-    });
-    if (!user) throw new Error("Invalid API key");
-
-    await ctx.runMutation(internal.apiKeys.touchApiKey, {
-      apiKeyId: user.apiKeyId,
-      key: apiKey,
-    });
+    const user = await authenticateApiKey(ctx, apiKey);
 
     if (content.length > MAX_CONTENT_SIZE) {
       throw new Error("Content exceeds maximum size of 1MB");
@@ -228,7 +217,7 @@ export const publish = action({
 
     if (existing) {
       if (existing.userId !== user.userId) {
-        throw new Error("Slug already taken");
+        throw new Error("Slug already taken by another user");
       }
       await ctx.runMutation(internal.publications.updatePublication, {
         id: existing._id,
@@ -256,19 +245,9 @@ export const publish = action({
 export const unpublish = action({
   args: { apiKey: v.string(), slug: v.string() },
   handler: async (ctx, { apiKey, slug }) => {
-    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
-      key: apiKey,
-    });
-    if (!user) throw new Error("Invalid API key");
+    const user = await authenticateApiKey(ctx, apiKey);
 
-    await ctx.runMutation(internal.apiKeys.touchApiKey, {
-      apiKeyId: user.apiKeyId,
-      key: apiKey,
-    });
-
-    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
-      slug,
-    });
+    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
     if (!pub || pub.userId !== user.userId) {
       throw new Error("Publication not found");
     }
@@ -295,19 +274,9 @@ export const getViaApi = action({
     createdAt: number;
     updatedAt: number;
   }> => {
-    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
-      key: apiKey,
-    });
-    if (!user) throw new Error("Invalid API key");
+    const user = await authenticateApiKey(ctx, apiKey);
 
-    await ctx.runMutation(internal.apiKeys.touchApiKey, {
-      apiKeyId: user.apiKeyId,
-      key: apiKey,
-    });
-
-    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
-      slug,
-    });
+    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
     if (!pub || pub.userId !== user.userId) {
       throw new Error("Publication not found");
     }
@@ -341,15 +310,7 @@ export const listViaApi = action({
       updatedAt: number;
     }[]
   > => {
-    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
-      key: apiKey,
-    });
-    if (!user) throw new Error("Invalid API key");
-
-    await ctx.runMutation(internal.apiKeys.touchApiKey, {
-      apiKeyId: user.apiKeyId,
-      key: apiKey,
-    });
+    const user = await authenticateApiKey(ctx, apiKey);
 
     const pubs = await ctx.runQuery(internal.publications.listByUserInternal, {
       userId: user.userId,
@@ -378,19 +339,9 @@ export const updateViaApi = action({
     ctx,
     { apiKey, slug, title, isPublic },
   ): Promise<{ slug: string; title?: string; isPublic: boolean }> => {
-    const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, {
-      key: apiKey,
-    });
-    if (!user) throw new Error("Invalid API key");
+    const user = await authenticateApiKey(ctx, apiKey);
 
-    await ctx.runMutation(internal.apiKeys.touchApiKey, {
-      apiKeyId: user.apiKeyId,
-      key: apiKey,
-    });
-
-    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, {
-      slug,
-    });
+    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
     if (!pub || pub.userId !== user.userId) {
       throw new Error("Publication not found");
     }

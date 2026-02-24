@@ -42,7 +42,9 @@ function RootComponent() {
   return (
     <PostHogProvider client={posthog}>
       <Sentry.ErrorBoundary
-        fallback={({ error }) => <SentryErrorComponent error={error as Error} />}
+        fallback={({ error }) => (
+          <SentryErrorComponent error={error instanceof Error ? error : new Error(String(error))} />
+        )}
       >
         <TooltipProvider>
           <AppLayout>

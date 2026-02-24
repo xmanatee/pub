@@ -1,15 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-
-// --- Extracted logic from apiKeys.ts ---
-
-function generateApiKey(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `pub_${key}`;
-}
-
-// --- Tests ---
+import { generateApiKey, keyPreviewFromKey } from "./utils";
 
 describe("API key generation", () => {
   it("generates keys with pub_ prefix", () => {
@@ -48,14 +38,14 @@ describe("API key generation", () => {
 describe("API key preview format", () => {
   it("shows first 8 and last 4 chars", () => {
     const key = "pub_aabbccdd11223344556677889900aabbccddee1122";
-    const preview = `${key.slice(0, 8)}...${key.slice(-4)}`;
+    const preview = keyPreviewFromKey(key);
     expect(preview).toBe("pub_aabb...1122");
     expect(preview).toHaveLength(15);
   });
 
   it("masks the middle of the key", () => {
     const key = generateApiKey();
-    const preview = `${key.slice(0, 8)}...${key.slice(-4)}`;
+    const preview = keyPreviewFromKey(key);
     expect(preview).toContain("...");
     expect(preview.length).toBeLessThan(key.length);
   });

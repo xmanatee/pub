@@ -1,23 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-
-function generateApiKey(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `pub_${key}`;
-}
-
-function keyPreviewFromKey(key: string): string {
-  return `${key.slice(0, 8)}...${key.slice(-4)}`;
-}
-
-async function hashApiKey(key: string): Promise<string> {
-  const encoded = new TextEncoder().encode(key);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
-}
+import { generateApiKey, hashApiKey, keyPreviewFromKey } from "./utils";
 
 export const getUserByApiKey = internalQuery({
   args: { key: v.string() },
@@ -47,19 +31,16 @@ export const getUserByApiKey = internalQuery({
 export const touchApiKey = internalMutation({
   args: { apiKeyId: v.id("apiKeys"), key: v.optional(v.string()) },
   handler: async (ctx, { apiKeyId, key }) => {
-    const patch: {
-      lastUsedAt: number;
-      keyHash?: string;
-      keyPreview?: string;
-      key?: undefined;
-    } = { lastUsedAt: Date.now() };
-
-    // Opportunistically migrate legacy plaintext keys during normal key usage.
     const current = await ctx.db.get(apiKeyId);
-    if (current && !current.keyHash && key) {
+    if (!current) return;
+
+    const patch: Record<string, unknown> = { lastUsedAt: Date.now() };
+
+    // Migrate legacy plaintext keys: hash the key and clear the plaintext field.
+    if (!current.keyHash && key) {
       patch.keyHash = await hashApiKey(key);
       patch.keyPreview = keyPreviewFromKey(key);
-      patch.key = undefined;
+      patch.key = "";
     }
 
     await ctx.db.patch(apiKeyId, patch);

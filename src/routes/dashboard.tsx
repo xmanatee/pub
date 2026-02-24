@@ -19,6 +19,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { VisibilityBadge } from "~/components/visibility-badge";
 import {
   resetIdentity,
   trackApiKeyCopied,
@@ -85,7 +86,11 @@ function Dashboard() {
 
       <Tabs
         defaultValue="publications"
-        onValueChange={(tab) => trackDashboardTabChanged({ tab: tab as "publications" | "keys" })}
+        onValueChange={(tab) => {
+          if (tab === "publications" || tab === "keys") {
+            trackDashboardTabChanged({ tab });
+          }
+        }}
       >
         <TabsList>
           <TabsTrigger value="publications">
@@ -180,23 +185,7 @@ function PublicationsTab() {
               <Badge variant="secondary" className="text-xs">
                 {pub.contentType}
               </Badge>
-              {pub.isPublic ? (
-                <Badge
-                  variant="outline"
-                  className="text-xs gap-1 text-emerald-600 border-emerald-600/20"
-                >
-                  <Globe className="h-3 w-3" />
-                  public
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="text-xs gap-1 text-amber-600 border-amber-600/20"
-                >
-                  <Lock className="h-3 w-3" />
-                  private
-                </Badge>
-              )}
+              <VisibilityBadge isPublic={pub.isPublic} />
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
