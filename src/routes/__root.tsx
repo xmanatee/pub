@@ -94,7 +94,13 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <PubWordmark iconSize={18} className="text-muted-foreground text-sm" />
             <p className="text-sm text-muted-foreground">
-              Built with Convex, TanStack Router, and Tailwind CSS.
+              by{" "}
+              <a
+                href="https://nemi.love"
+                className="underline hover:text-foreground transition-colors"
+              >
+                nemi.love
+              </a>
             </p>
           </div>
         </div>

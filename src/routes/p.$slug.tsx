@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import * as React from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/p/$slug")({
@@ -52,22 +52,9 @@ function FullScreenContent({ content, contentType }: { content: string; contentT
 }
 
 function FullScreenHtml({ content }: { content: string }) {
-  const iframeRef = React.useRef<HTMLIFrameElement>(null);
-
-  React.useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(content);
-        doc.close();
-      }
-    }
-  }, [content]);
-
   return (
     <iframe
-      ref={iframeRef}
+      srcDoc={content}
       sandbox="allow-scripts"
       className="fixed inset-0 z-[9999] w-full h-full border-none"
       title="Published HTML content"
@@ -76,9 +63,9 @@ function FullScreenHtml({ content }: { content: string }) {
 }
 
 function FullScreenMarkdown({ content }: { content: string }) {
-  const [html, setHtml] = React.useState("");
+  const [html, setHtml] = useState("");
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     void Promise.all([import("marked"), import("dompurify")]).then(
