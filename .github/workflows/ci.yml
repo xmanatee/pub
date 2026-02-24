@@ -48,3 +48,36 @@ jobs:
       - run: pnpm build
       - run: pnpm test
 
+  publish-cli:
+    name: Publish CLI to npm
+    needs: lint-and-test-cli
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install
+      - run: pnpm build
+      - name: Publish if version is new
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          NPM_VERSION=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+          if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
+            pnpm publish --access public --no-git-checks
+          else
+            echo "Version $LOCAL_VERSION already published, skipping."
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+

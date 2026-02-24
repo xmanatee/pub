@@ -22,12 +22,6 @@ pnpm build            # vite build + tsc --noEmit
 # Fixing
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
-
-# Single test file
-pnpm vitest run path/to/file.test.ts
-
-# Deploy
-pnpm deploy:convex    # Deploy Convex backend
 ```
 
 The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` (uses tsup).
@@ -61,17 +55,6 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 ### Integrations
 - **Sentry**: error tracking + performance (configured in `src/lib/sentry.ts`, Vite plugin for source maps)
 - **PostHog**: product analytics with centralized event tracking in `src/lib/analytics.ts`
-
-## Testing
-
-Tests use Vitest in node environment. Test files live next to source: `*.test.ts`.
-
-- `src/lib/utils.test.ts` — cn() utility
-- `src/utils/seo.test.ts` — SEO helper
-- `convex/publications.test.ts` — publication business logic
-- `convex/apiKeys.test.ts` — API key logic
-- `convex/http.test.ts` — HTTP endpoint integration
-- `cli/src/lib/*.test.ts` — CLI api client + config
 
 ## Code Style
 
