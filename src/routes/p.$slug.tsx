@@ -55,7 +55,7 @@ function FullScreenHtml({ content }: { content: string }) {
   return (
     <iframe
       srcDoc={content}
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups"
       className="fixed inset-0 z-[9999] w-full h-full border-none"
       title="Published HTML content"
     />
