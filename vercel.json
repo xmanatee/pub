@@ -1,6 +1,11 @@
 {
   "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'npm run build'",
   "installCommand": "pnpm install",
+  "framework": null,
+  "outputDirectory": "dist",
+  "functions": {
+    "api/p/[slug].ts": {}
+  },
   "rewrites": [
     { "source": "/p/:slug", "destination": "/api/p/:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
