@@ -245,12 +245,6 @@ http.route({
   pathPrefix: "/serve/",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const proxyToken = request.headers.get("x-proxy-token");
-    const expectedToken = process.env.PROXY_SECRET;
-    if (!expectedToken || proxyToken !== expectedToken) {
-      return errorResponse("Direct access not allowed", 403);
-    }
-
     const url = new URL(request.url);
     const rawSlug = url.pathname.replace("/serve/", "").replace(/\/$/, "");
     if (!rawSlug) {

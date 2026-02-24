@@ -244,31 +244,6 @@ describe("serve route cache headers", () => {
   });
 });
 
-describe("proxy token validation", () => {
-  it("rejects request without proxy token", () => {
-    const req = new Request("https://example.com/serve/abc123");
-    const token = req.headers.get("x-proxy-token");
-    expect(token).toBeNull();
-  });
-
-  it("accepts request with correct proxy token header", () => {
-    const secret = "test-secret-value";
-    const req = new Request("https://example.com/serve/abc123", {
-      headers: { "X-Proxy-Token": secret },
-    });
-    expect(req.headers.get("x-proxy-token")).toBe(secret);
-  });
-
-  it("rejects request with wrong proxy token", () => {
-    const expected = "correct-secret";
-    const req = new Request("https://example.com/serve/abc123", {
-      headers: { "X-Proxy-Token": "wrong-secret" },
-    });
-    const token = req.headers.get("x-proxy-token");
-    expect(token !== expected).toBe(true);
-  });
-});
-
 describe("publish URL construction", () => {
   it("uses PUB_PUBLIC_URL when set", () => {
     const publicUrl = "https://pub.blue";

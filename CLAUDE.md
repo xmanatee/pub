@@ -42,7 +42,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Schema** (`schema.ts`): `publications`, `apiKeys`, plus auth tables from `@convex-dev/auth`
 - **Publications** (`publications.ts`): CRUD queries/mutations + API-key-authenticated actions
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`)
-- **HTTP routes** (`http.ts`): REST API at `/api/v1/*` and proxied content serving at `/serve/:slug` (requires `PROXY_SECRET` header; blocked for direct access)
+- **HTTP routes** (`http.ts`): REST API at `/api/v1/*` and content serving at `/serve/:slug`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 
 ### CLI (`cli/`)
@@ -52,12 +52,11 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 - API client in `cli/src/lib/api.ts`
 
-### Edge Proxy (`api/p/`)
-- **`/p/:slug`** — Vercel rewrite → `api/p/[slug].ts` edge function → proxies to Convex `/serve/:slug` with `X-Proxy-Token` header
+### Content Serving
+- **`/p/:slug`** — Vercel rewrite → Convex `/serve/:slug` (direct proxy, no edge function)
 - **`/publication/:slug`** — SPA route → React viewer with app chrome (badges, metadata)
-- Direct access to `convex.site/serve/` is blocked without the proxy token
 - Markdown content is rendered to HTML server-side in the `/serve/` handler
-- Env vars: `PROXY_SECRET` (shared between Vercel + Convex), `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
+- Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Integrations
 - **Sentry**: error tracking + performance (configured in `src/lib/sentry.ts`, Vite plugin for source maps)
