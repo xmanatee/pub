@@ -25,6 +25,11 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xmanatee/pub.git",
+    "directory": "cli"
+  },
   "publishConfig": {
     "access": "public"
   },
