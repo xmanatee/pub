@@ -2,7 +2,7 @@ import { httpRouter } from "convex/server";
 import { api } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
-import { isValidSlug, MIME_TYPES } from "./utils";
+import { INVALID_SLUG_MESSAGE, isValidSlug, MIME_TYPES } from "./utils";
 
 const http = httpRouter();
 
@@ -118,10 +118,7 @@ http.route({
       return errorResponse("Missing required fields: filename, content", 400);
     }
     if (body.slug && !isValidSlug(body.slug)) {
-      return errorResponse(
-        "Invalid slug format. Use 1-64 chars: letters, numbers, dot, dash, or underscore.",
-        400,
-      );
+      return errorResponse(INVALID_SLUG_MESSAGE, 400);
     }
 
     return executeAction(

@@ -50,6 +50,9 @@ export function inferContentType(filename: string): ContentType {
   }
 }
 
+export const INVALID_SLUG_MESSAGE =
+  "Invalid slug format. Use 1-64 chars: letters, numbers, dot, dash, or underscore.";
+
 export function isValidSlug(slug: string): boolean {
   return SLUG_PATTERN.test(slug);
 }

@@ -7,6 +7,7 @@ import { action, internalMutation, internalQuery, mutation, query } from "./_gen
 import {
   type ContentType,
   generateSlug,
+  INVALID_SLUG_MESSAGE,
   inferContentType,
   isValidSlug,
   MAX_CONTENT_SIZE,
@@ -205,9 +206,7 @@ export const publish = action({
 
     const contentType = inferContentType(filename);
     if (slug && !isValidSlug(slug)) {
-      throw new Error(
-        "Invalid slug format. Use 1-64 chars: letters, numbers, dot, dash, or underscore.",
-      );
+      throw new Error(INVALID_SLUG_MESSAGE);
     }
     const finalSlug = slug || generateSlug();
 

@@ -7,7 +7,8 @@ describe("publish command flag mapping", () => {
   });
 
   it("maps no --private flag to isPublic=true", () => {
-    const isPublic = !undefined;
+    const privateFlag = undefined as boolean | undefined;
+    const isPublic = !privateFlag;
     expect(isPublic).toBe(true);
   });
 });
