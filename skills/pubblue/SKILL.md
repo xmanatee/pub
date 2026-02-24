@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires Node.js 16+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "1.0"
+  version: "1.1"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(echo:*) Read Write
 ---
 
@@ -19,18 +19,33 @@ Publish files or generated content to the web via the `pubblue` CLI. Each public
 
 ## Setup
 
+### 1. Install
+
 ```bash
-# Install globally
 npm i -g pubblue
-
-# Or use without installing
-npx pubblue <command>
-
-# Configure (one-time)
-pubblue configure --api-key YOUR_API_KEY --url https://YOUR_DEPLOYMENT.convex.site
+# Or use without installing: npx pubblue <command>
 ```
 
-Or set env vars: `PUBBLUE_API_KEY` and `PUBBLUE_URL`.
+### 2. Get an API key
+
+The user needs an API key from their pub.blue account:
+
+1. Ask the user to visit **https://pub.blue/dashboard**
+2. They sign in with GitHub or Google
+3. They click **"Generate API Key"** — the key starts with `pub_` and is shown only once
+4. They paste the key back here
+
+### 3. Configure
+
+Once the user provides their API key, save it:
+
+```bash
+pubblue configure --api-key pub_THEIR_KEY_HERE
+```
+
+Or the user can set the `PUBBLUE_API_KEY` environment variable instead.
+
+To use a custom Convex deployment, set the `PUBBLUE_URL` environment variable (defaults to `https://silent-guanaco-514.convex.site`).
 
 ## Commands
 
@@ -38,12 +53,6 @@ Or set env vars: `PUBBLUE_API_KEY` and `PUBBLUE_URL`.
 # Publish a file
 pubblue publish path/to/file.html
 pubblue publish --slug my-demo --title "My Demo" page.html
-
-# Publish content directly (useful for generated content)
-pubblue publish-content --filename page.html --content '<h1>Hello</h1>'
-
-# Pipe from stdin
-echo '<h1>Hello</h1>' | pubblue publish-content --filename page.html
 
 # Manage publications
 pubblue list
@@ -56,11 +65,19 @@ pubblue delete <slug>
 
 When the user asks to "publish this", "share this online", or similar:
 
-1. If not configured, run `pubblue configure` first
-2. Generate or gather the content
-3. Pick the right extension (`.html`, `.md`, `.css`, `.js`, `.txt`)
-4. Use `pubblue publish <file>` for files or `pubblue publish-content --filename <name> --content '...'` for generated content
-5. Return the published URL to the user
+1. **Check configuration** — run `pubblue list` to verify the CLI is configured. If it fails with "Not configured", follow the Setup steps above to get and save the user's API key.
+2. **Generate or gather the content.**
+3. **Write content to a temp file** with the right extension (`.html`, `.md`, `.css`, `.js`, `.txt`):
+   ```bash
+   # Use the Write tool to create the file, then publish it:
+   pubblue publish /tmp/my-page.html
+   ```
+   This avoids shell escaping issues with inline content. Always prefer this over `--content`.
+4. **Return the published URL** to the user.
+
+### Why write to file first?
+
+The `publish-content --content '...'` flag exists but breaks on content with quotes, backticks, or `$` signs due to shell escaping. Always use the **Write tool → `pubblue publish <file>`** pattern for reliable publishing.
 
 ## Options
 
@@ -69,8 +86,6 @@ When the user asks to "publish this", "share this online", or similar:
 | `--slug <slug>` | Custom URL slug (auto-generated if omitted) |
 | `--title <title>` | Human-readable title |
 | `--private` | Hide from public listing |
-| `--filename <name>` | Filename for content type detection (publish-content only) |
-| `--content <text>` | Content string (publish-content only; reads stdin if omitted) |
 
 ## Content Types
 
@@ -82,10 +97,17 @@ When the user asks to "publish this", "share this online", or similar:
 | `.md`, `.markdown` | Markdown → HTML |
 | Everything else | Plain text |
 
+## Limits
+
+- Maximum content size: 1 MB per publication
+- Slug format: 1–64 characters, alphanumeric + dots/dashes/underscores, must start with a letter or number
+
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| "API key not found" | Run `pubblue configure` or set `PUBBLUE_API_KEY` env var |
-| "Slug already exists" | Use a different `--slug` value, or `pubblue update <slug>` |
-| "File not found" | Check the path exists; use absolute paths if needed |
+| "Not configured" / "API key not found" | Run `pubblue configure --api-key KEY` or set `PUBBLUE_API_KEY` env var. Get a key from https://pub.blue/dashboard |
+| "Slug already taken" | The slug belongs to another user. Use a different `--slug` value |
+| "Content exceeds maximum size" | Content must be under 1 MB |
+| "File not found" | Check the path; use absolute paths |
+| Content appears garbled | Ensure the file extension matches the content type |
