@@ -8,7 +8,7 @@ The `pubblue` CLI must be installed and configured:
 
 ```bash
 # Install from npm
-npm install -g pubblue
+pnpm add -g pubblue
 
 # Configure with API key and Convex site URL
 pubblue configure --api-key YOUR_API_KEY --url https://YOUR_DEPLOYMENT.convex.site

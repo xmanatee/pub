@@ -10,31 +10,27 @@ Pub is a full-stack TypeScript app for publishing static content (HTML, CSS, JS,
 
 ```bash
 # Development
-npm run dev              # Start both web + Convex backend (runs convex dev --once first)
-npm run dev:web          # Vite dev server only
-npm run dev:db           # Convex backend dev server only
+pnpm dev              # Start both web + Convex backend (runs convex dev --once first)
+pnpm dev:web          # Vite dev server only
+pnpm dev:db           # Convex backend dev server only
 
-# Validation (run all three with `npm run check`)
-npm run lint             # Biome check + tsc --noEmit
-npm test                 # vitest run
-npm run build            # vite build + tsc --noEmit
+# Validation (run all three with `pnpm check`)
+pnpm lint             # Biome check + tsc --noEmit
+pnpm test             # vitest run
+pnpm build            # vite build + tsc --noEmit
 
 # Fixing
-npm run lint:fix         # Biome auto-fix
-npm run format           # Biome format
+pnpm lint:fix         # Biome auto-fix
+pnpm format           # Biome format
 
 # Single test file
-npx vitest run path/to/file.test.ts
+pnpm vitest run path/to/file.test.ts
 
 # Deploy
-npm run deploy:convex    # Deploy Convex backend
+pnpm deploy:convex    # Deploy Convex backend
 ```
 
-The CLI (`cli/`) has its own package.json — build with `cd cli && npm run build` (uses tsup).
-
-## Architecture
-
-**Stack**: React 19 SPA + TanStack Router + Convex backend + Tailwind CSS v4
+The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` (uses tsup).
 
 ### Frontend (`src/`)
 - **Routing**: TanStack Router file-based routes in `src/routes/`
@@ -56,7 +52,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && npm run buil
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 
 ### CLI (`cli/`)
-- **`pubblue`** — Commander.js CLI (`npm i -g pubblue` or `npx pubblue`)
+- **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - Commands: `configure`, `publish`, `publish-content`, `list`, `get`, `update`, `delete`
 - Config: `~/.config/pubblue/config.json` or env vars `PUBBLUE_API_KEY` / `PUBBLUE_URL`
 - API client in `cli/src/lib/api.ts`

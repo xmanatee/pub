@@ -12,10 +12,10 @@ Publish files or generated content to the web via the `pubblue` CLI. Each public
 ## Install
 
 ```bash
-npm i -g pubblue
+pnpm add -g pubblue
 ```
 
-Or use without installing: `npx pubblue <command>`.
+Or use without installing: `pnpm dlx pubblue <command>`.
 
 ## Setup
 

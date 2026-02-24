@@ -4,12 +4,12 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "npx convex dev --once && concurrently -r npm:dev:web npm:dev:db",
+    "dev": "convex dev --once && concurrently -r pnpm:dev:web pnpm:dev:db",
     "dev:web": "vite dev",
-    "dev:db": "npx convex dev",
+    "dev:db": "convex dev",
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
-    "deploy:convex": "npx convex deploy",
+    "deploy:convex": "convex deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check . && tsc --noEmit",
@@ -65,5 +65,8 @@
     "vite": "^7.3.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@sentry/cli", "esbuild", "protobufjs"]
   }
 }

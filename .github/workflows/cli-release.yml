@@ -17,16 +17,20 @@ jobs:
         working-directory: cli
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
           registry-url: "https://registry.npmjs.org"
-      - run: npm install
-      - run: npm run build
-      - run: npm test
+      - run: pnpm install
+      - run: pnpm build
+      - run: pnpm test
 
       # Create tarball for GitHub release
-      - run: npm pack
+      - run: pnpm pack
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/pub-cli-v}" >> $GITHUB_OUTPUT
@@ -38,6 +42,6 @@ jobs:
           generate_release_notes: true
 
       # Publish to npm
-      - run: npm publish --access public
+      - run: pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

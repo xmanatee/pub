@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   lint-and-test-web:
@@ -11,17 +12,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+          cache: pnpm
+      - run: pnpm install
       - name: Generate Convex types
-        run: npx convex codegen
+        run: pnpm convex codegen
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       - name: Build (generates route tree + type checks)
-        run: npm run build
-      - run: npm test
+        run: pnpm build
+      - run: pnpm test
 
   lint-and-test-cli:
     name: Lint & Test CLI
@@ -31,13 +36,17 @@ jobs:
         working-directory: cli
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
-      - run: npx tsc --noEmit
-      - run: npm run build
-      - run: npm test
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm tsc --noEmit
+      - run: pnpm build
+      - run: pnpm test
 
   deploy-convex:
     name: Deploy Convex
@@ -46,11 +55,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
-      - run: npx convex deploy
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm convex deploy
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
 
@@ -61,11 +74,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
       - name: Install Vercel CLI
-        run: npm install -g vercel
+        run: pnpm add -g vercel
       - name: Pull Vercel config
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - name: Build
