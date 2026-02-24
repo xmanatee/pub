@@ -30,6 +30,7 @@ import {
   trackSignOut,
   trackVisibilityToggled,
 } from "~/lib/analytics";
+import { pushAuthDebug } from "~/lib/auth-debug";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -43,7 +44,9 @@ function Dashboard() {
   const navigate = useNavigate();
 
   React.useEffect(() => {
+    pushAuthDebug("dashboard_auth_state", { isLoading, isAuthenticated });
     if (!isLoading && !isAuthenticated) {
+      pushAuthDebug("dashboard_redirect_login", {});
       navigate({ to: "/login", replace: true });
     }
   }, [isLoading, isAuthenticated, navigate]);

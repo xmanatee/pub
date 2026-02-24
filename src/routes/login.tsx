@@ -6,6 +6,7 @@ import { PubLogo } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
+import { pushAuthDebug } from "~/lib/auth-debug";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -27,10 +28,16 @@ function LoginPage() {
       setAuthError(null);
       setPendingProvider(provider);
       trackSignInStarted(provider);
+      pushAuthDebug("oauth_start", { provider, redirectTo: "/dashboard" });
 
       try {
-        const callbackUrl = `${window.location.origin}/auth/callback`;
-        const result = await signIn(provider, { redirectTo: callbackUrl });
+        const result = await signIn(provider, { redirectTo: "/dashboard" });
+        pushAuthDebug("oauth_start_result", {
+          provider,
+          hasRedirect: Boolean(result.redirect),
+          signingIn: result.signingIn,
+          redirect: result.redirect?.toString(),
+        });
         if (!result.redirect) {
           isStartingSignInRef.current = false;
           setPendingProvider(null);
@@ -40,6 +47,7 @@ function LoginPage() {
         }
       } catch (error) {
         console.error("OAuth sign-in failed to start", error);
+        pushAuthDebug("oauth_start_error", { provider, error });
         isStartingSignInRef.current = false;
         setPendingProvider(null);
         setAuthError("Could not start sign-in. Please try again.");
@@ -49,6 +57,7 @@ function LoginPage() {
   );
 
   React.useEffect(() => {
+    pushAuthDebug("login_auth_state", { isLoading, isAuthenticated });
     if (!isLoading && isAuthenticated) {
       trackSignIn("oauth");
       navigate({ to: "/dashboard", replace: true });

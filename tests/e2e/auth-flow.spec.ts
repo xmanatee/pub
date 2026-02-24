@@ -30,6 +30,10 @@ test.describe("Auth flow", () => {
     const redirect = new URL(redirectUrl);
     const redirectTo = redirect.searchParams.get("redirectTo");
     expect(redirectTo).not.toBeNull();
-    expect(new URL(redirectTo as string).pathname).toBe("/auth/callback");
+    if (redirectTo?.startsWith("http://") || redirectTo?.startsWith("https://")) {
+      expect(new URL(redirectTo).pathname).toBe("/dashboard");
+    } else {
+      expect(redirectTo).toBe("/dashboard");
+    }
   });
 });

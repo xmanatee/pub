@@ -8,6 +8,7 @@ import * as React from "react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
 import { initSentry } from "~/lib/sentry";
 
@@ -55,6 +56,10 @@ function RootComponent() {
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+
+  React.useEffect(() => {
+    pushAuthDebug("root_auth_state", { isLoading, isAuthenticated });
+  }, [isLoading, isAuthenticated]);
 
   return (
     <>

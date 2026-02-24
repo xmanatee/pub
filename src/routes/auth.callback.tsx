@@ -1,14 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
-import { z } from "zod";
-
-const callbackSearchSchema = z.object({
-  code: z.coerce.string().optional(),
-});
+import { pushAuthDebug } from "~/lib/auth-debug";
 
 export const Route = createFileRoute("/auth/callback")({
-  validateSearch: callbackSearchSchema,
   component: AuthCallbackPage,
 });
 
@@ -17,8 +12,11 @@ function AuthCallbackPage() {
   const navigate = useNavigate();
 
   React.useEffect(() => {
+    pushAuthDebug("callback_state", { isLoading, isAuthenticated });
     if (isLoading) return;
-    navigate({ to: isAuthenticated ? "/dashboard" : "/login", replace: true });
+    const to = isAuthenticated ? "/dashboard" : "/login";
+    pushAuthDebug("callback_navigate", { to, isAuthenticated });
+    navigate({ to, replace: true });
   }, [isAuthenticated, isLoading, navigate]);
 
   return (
