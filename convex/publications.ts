@@ -11,6 +11,8 @@ import {
   inferContentType,
   isValidSlug,
   MAX_CONTENT_SIZE,
+  MAX_FILENAME_LENGTH,
+  MAX_TITLE_LENGTH,
 } from "./utils";
 
 function mapPublication(
@@ -57,7 +59,7 @@ async function authenticateApiKey(
 ): Promise<{ apiKeyId: Id<"apiKeys">; userId: Id<"users"> }> {
   const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, { key: apiKey });
   if (!user) throw new Error("Invalid API key");
-  await ctx.runMutation(internal.apiKeys.touchApiKey, { apiKeyId: user.apiKeyId, key: apiKey });
+  await ctx.runMutation(internal.apiKeys.touchApiKey, { apiKeyId: user.apiKeyId });
   return user;
 }
 
@@ -203,6 +205,12 @@ export const publish = action({
     if (content.length > MAX_CONTENT_SIZE) {
       throw new Error("Content exceeds maximum size of 1MB");
     }
+    if (filename.length > MAX_FILENAME_LENGTH) {
+      throw new Error(`Filename exceeds maximum length of ${MAX_FILENAME_LENGTH} characters`);
+    }
+    if (title && title.length > MAX_TITLE_LENGTH) {
+      throw new Error(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`);
+    }
 
     const contentType = inferContentType(filename);
     if (slug && !isValidSlug(slug)) {
@@ -339,6 +347,10 @@ export const updateViaApi = action({
     { apiKey, slug, title, isPublic },
   ): Promise<{ slug: string; title?: string; isPublic: boolean }> => {
     const user = await authenticateApiKey(ctx, apiKey);
+
+    if (title && title.length > MAX_TITLE_LENGTH) {
+      throw new Error(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`);
+    }
 
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
     if (!pub || pub.userId !== user.userId) {

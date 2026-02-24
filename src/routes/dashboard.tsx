@@ -177,7 +177,7 @@ function PublicationsTab() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <a
-                href={`/p/${pub.slug}`}
+                href={`/publication/${pub.slug}`}
                 className="font-medium text-sm hover:text-primary transition-colors truncate"
               >
                 {pub.title || pub.filename}

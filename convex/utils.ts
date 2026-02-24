@@ -2,6 +2,9 @@ export const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
 export const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
+export const MAX_TITLE_LENGTH = 256;
+export const MAX_FILENAME_LENGTH = 256;
+export const MAX_KEY_NAME_LENGTH = 128;
 
 export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 

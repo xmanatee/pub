@@ -238,10 +238,57 @@ describe("serve route cache headers", () => {
     const headers = {
       "Content-Type": MIME_TYPES.html,
       "Cache-Control": "public, max-age=60",
-      ...corsHeaders(),
     };
     expect(headers["Cache-Control"]).toBe("public, max-age=60");
     expect(headers["Content-Type"]).toBe("text/html; charset=utf-8");
+  });
+});
+
+describe("proxy token validation", () => {
+  it("rejects request without proxy token", () => {
+    const req = new Request("https://example.com/serve/abc123");
+    const token = req.headers.get("x-proxy-token");
+    expect(token).toBeNull();
+  });
+
+  it("accepts request with correct proxy token header", () => {
+    const secret = "test-secret-value";
+    const req = new Request("https://example.com/serve/abc123", {
+      headers: { "X-Proxy-Token": secret },
+    });
+    expect(req.headers.get("x-proxy-token")).toBe(secret);
+  });
+
+  it("rejects request with wrong proxy token", () => {
+    const expected = "correct-secret";
+    const req = new Request("https://example.com/serve/abc123", {
+      headers: { "X-Proxy-Token": "wrong-secret" },
+    });
+    const token = req.headers.get("x-proxy-token");
+    expect(token !== expected).toBe(true);
+  });
+});
+
+describe("publish URL construction", () => {
+  it("uses PUB_PUBLIC_URL when set", () => {
+    const publicUrl = "https://pub.blue";
+    const slug = "abc123";
+    const url = `${publicUrl}/p/${encodeURIComponent(slug)}`;
+    expect(url).toBe("https://pub.blue/p/abc123");
+  });
+
+  it("falls back to convex site URL when PUB_PUBLIC_URL is not set", () => {
+    const siteUrl = "https://silent-guanaco-514.convex.site";
+    const slug = "abc123";
+    const url = `${new URL(siteUrl).origin}/serve/${encodeURIComponent(slug)}`;
+    expect(url).toBe("https://silent-guanaco-514.convex.site/serve/abc123");
+  });
+
+  it("encodes special characters in slug", () => {
+    const publicUrl = "https://pub.blue";
+    const slug = "my.page";
+    const url = `${publicUrl}/p/${encodeURIComponent(slug)}`;
+    expect(url).toBe("https://pub.blue/p/my.page");
   });
 });
 

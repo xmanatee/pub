@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { ExternalLink, FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import * as React from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -9,7 +9,15 @@ import { VisibilityBadge } from "~/components/visibility-badge";
 import { trackPublicationRawViewed, trackPublicationViewed } from "~/lib/analytics";
 import { api } from "../../convex/_generated/api";
 
-export const Route = createFileRoute("/p/$slug")({
+const RAW_MIME_TYPES: Record<string, string> = {
+  html: "text/html",
+  css: "text/css",
+  js: "application/javascript",
+  markdown: "text/markdown",
+  text: "text/plain",
+};
+
+export const Route = createFileRoute("/publication/$slug")({
   component: PublicationPage,
 });
 
@@ -62,25 +70,44 @@ function PublicationPage() {
             {new Date(publication.createdAt).toLocaleDateString()}
           </span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          asChild
-          onClick={() => trackPublicationRawViewed({ slug })}
-        >
-          <a
-            href={`${import.meta.env.VITE_CONVEX_SITE_URL}/serve/${encodeURIComponent(slug)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            Raw
-          </a>
-        </Button>
+        <RawButton
+          content={publication.content ?? ""}
+          contentType={publication.contentType}
+          slug={slug}
+        />
       </div>
 
       <ContentRenderer content={publication.content ?? ""} contentType={publication.contentType} />
     </div>
+  );
+}
+
+function RawButton({
+  content,
+  contentType,
+  slug,
+}: {
+  content: string;
+  contentType: string;
+  slug: string;
+}) {
+  const blobUrl = React.useMemo(() => {
+    const mimeType = RAW_MIME_TYPES[contentType] || "text/plain";
+    const blob = new Blob([content], { type: mimeType });
+    return URL.createObjectURL(blob);
+  }, [content, contentType]);
+
+  React.useEffect(() => {
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [blobUrl]);
+
+  return (
+    <Button variant="outline" size="sm" asChild onClick={() => trackPublicationRawViewed({ slug })}>
+      <a href={blobUrl} target="_blank" rel="noopener noreferrer">
+        <Download className="h-3.5 w-3.5 mr-1" />
+        Raw
+      </a>
+    </Button>
   );
 }
 

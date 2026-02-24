@@ -2,7 +2,13 @@ import { httpRouter } from "convex/server";
 import { api } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
-import { INVALID_SLUG_MESSAGE, isValidSlug, MIME_TYPES } from "./utils";
+import {
+  INVALID_SLUG_MESSAGE,
+  isValidSlug,
+  MAX_FILENAME_LENGTH,
+  MAX_TITLE_LENGTH,
+  MIME_TYPES,
+} from "./utils";
 
 const http = httpRouter();
 
@@ -40,7 +46,6 @@ function baseSecurityHeaders() {
 
 function publicationSecurityHeaders(mimeType: string) {
   return {
-    ...baseSecurityHeaders(),
     "Cross-Origin-Resource-Policy": "cross-origin",
     "Content-Security-Policy": mimeType.startsWith("text/html") ? HTML_CSP : DEFAULT_CSP,
   };
@@ -120,6 +125,15 @@ http.route({
     if (body.slug && !isValidSlug(body.slug)) {
       return errorResponse(INVALID_SLUG_MESSAGE, 400);
     }
+    if (body.filename.length > MAX_FILENAME_LENGTH) {
+      return errorResponse(
+        `Filename exceeds maximum length of ${MAX_FILENAME_LENGTH} characters`,
+        400,
+      );
+    }
+    if (body.title && body.title.length > MAX_TITLE_LENGTH) {
+      return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
+    }
 
     return executeAction(
       () =>
@@ -132,12 +146,14 @@ http.route({
           isPublic: body.isPublic,
         }),
       (result) => {
-        const siteUrl = process.env.CONVEX_SITE_URL || request.url;
-        const baseUrl = new URL(siteUrl).origin;
+        const publicUrl = process.env.PUB_PUBLIC_URL;
+        const url = publicUrl
+          ? `${publicUrl}/p/${encodeURIComponent(result.slug)}`
+          : `${new URL(process.env.CONVEX_SITE_URL || request.url).origin}/serve/${encodeURIComponent(result.slug)}`;
         return jsonResponse({
           slug: result.slug,
           updated: result.updated,
-          url: `${baseUrl}/serve/${encodeURIComponent(result.slug)}`,
+          url,
         });
       },
     );
@@ -191,6 +207,9 @@ http.route({
     if (!isValidSlug(body.slug)) {
       return errorResponse("Invalid slug format", 400);
     }
+    if (body.title && body.title.length > MAX_TITLE_LENGTH) {
+      return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
+    }
 
     return executeAction(
       () =>
@@ -228,6 +247,12 @@ http.route({
   pathPrefix: "/serve/",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
+    const proxyToken = request.headers.get("x-proxy-token");
+    const expectedToken = process.env.PROXY_SECRET;
+    if (!expectedToken || proxyToken !== expectedToken) {
+      return errorResponse("Direct access not allowed", 403);
+    }
+
     const url = new URL(request.url);
     const rawSlug = url.pathname.replace("/serve/", "").replace(/\/$/, "");
     if (!rawSlug) {
@@ -249,6 +274,27 @@ http.route({
       return new Response("Not found", { status: 404 });
     }
 
+    if (pub.contentType === "markdown") {
+      const { marked } = await import("marked");
+      const rendered = await marked.parse(pub.content ?? "");
+      const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:2rem;line-height:1.6}
+  pre{background:#f5f5f5;padding:1em;overflow-x:auto;border-radius:4px}
+  code{background:#f5f5f5;padding:.2em .4em;border-radius:3px}img{max-width:100%}</style>
+</head><body>${rendered}</body></html>`;
+      return new Response(html, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=60",
+          ...publicationSecurityHeaders("text/html"),
+        },
+      });
+    }
+
     const mimeType = MIME_TYPES[pub.contentType] || "text/plain; charset=utf-8";
 
     return new Response(pub.content, {
@@ -257,7 +303,6 @@ http.route({
         "Content-Type": mimeType,
         "Cache-Control": "public, max-age=60",
         ...publicationSecurityHeaders(mimeType),
-        ...corsHeaders(),
       },
     });
   }),

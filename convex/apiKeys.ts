@@ -1,25 +1,17 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { generateApiKey, hashApiKey, keyPreviewFromKey } from "./utils";
+import { generateApiKey, hashApiKey, keyPreviewFromKey, MAX_KEY_NAME_LENGTH } from "./utils";
 
 export const getUserByApiKey = internalQuery({
   args: { key: v.string() },
   handler: async (ctx, { key }) => {
     const keyHash = await hashApiKey(key);
 
-    let apiKey = await ctx.db
+    const apiKey = await ctx.db
       .query("apiKeys")
       .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
       .unique();
-
-    // Backward compatibility: support older records that still contain plaintext keys.
-    if (!apiKey) {
-      apiKey = await ctx.db
-        .query("apiKeys")
-        .withIndex("by_key", (q) => q.eq("key", key))
-        .unique();
-    }
 
     if (!apiKey) return null;
     const user = await ctx.db.get(apiKey.userId);
@@ -29,21 +21,38 @@ export const getUserByApiKey = internalQuery({
 });
 
 export const touchApiKey = internalMutation({
-  args: { apiKeyId: v.id("apiKeys"), key: v.optional(v.string()) },
-  handler: async (ctx, { apiKeyId, key }) => {
+  args: { apiKeyId: v.id("apiKeys") },
+  handler: async (ctx, { apiKeyId }) => {
     const current = await ctx.db.get(apiKeyId);
     if (!current) return;
+    await ctx.db.patch(apiKeyId, { lastUsedAt: Date.now() });
+  },
+});
 
-    const patch: Record<string, unknown> = { lastUsedAt: Date.now() };
+export const migrateLegacyKeys = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const legacyKeys = await ctx.db
+      .query("apiKeys")
+      .filter((q) => q.eq(q.field("keyHash"), undefined))
+      .collect();
 
-    // Migrate legacy plaintext keys: hash the key and clear the plaintext field.
-    if (!current.keyHash && key) {
-      patch.keyHash = await hashApiKey(key);
-      patch.keyPreview = keyPreviewFromKey(key);
-      patch.key = "";
+    let migrated = 0;
+    let revoked = 0;
+
+    for (const record of legacyKeys) {
+      if (record.key && record.key.length > 0) {
+        const keyHash = await hashApiKey(record.key);
+        const keyPreview = keyPreviewFromKey(record.key);
+        await ctx.db.patch(record._id, { keyHash, keyPreview, key: "" });
+        migrated++;
+      } else {
+        await ctx.db.delete(record._id);
+        revoked++;
+      }
     }
 
-    await ctx.db.patch(apiKeyId, patch);
+    return { migrated, revoked, total: legacyKeys.length };
   },
 });
 
@@ -52,6 +61,10 @@ export const create = mutation({
   handler: async (ctx, { name }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
+
+    if (name.length > MAX_KEY_NAME_LENGTH) {
+      throw new Error(`Key name exceeds maximum length of ${MAX_KEY_NAME_LENGTH} characters`);
+    }
 
     const key = generateApiKey();
     const keyHash = await hashApiKey(key);

@@ -90,9 +90,7 @@ function HeroSection() {
             <TerminalPreview className="shadow-2xl shadow-primary/10">
               <div className="p-5 font-mono text-sm leading-relaxed">
                 <div className="text-white/40">$ pubblue publish index.html</div>
-                <div className="text-emerald-400 mt-1">
-                  Published: https://pub.blue/serve/k8f2m9
-                </div>
+                <div className="text-emerald-400 mt-1">Published: https://pub.blue/p/k8f2m9</div>
               </div>
             </TerminalPreview>
           </div>
@@ -264,9 +262,7 @@ function CodeSection() {
                 <div className="text-white/70">
                   <span className="text-primary">$</span> pubblue publish index.html
                 </div>
-                <div className="text-emerald-400 mt-0.5">
-                  Published: https://pub.blue/serve/k8f2m9
-                </div>
+                <div className="text-emerald-400 mt-0.5">Published: https://pub.blue/p/k8f2m9</div>
               </div>
 
               <div>
@@ -275,9 +271,7 @@ function CodeSection() {
                   <span className="text-primary">$</span> pubblue publish --slug my-demo --title
                   "Demo Page" report.md
                 </div>
-                <div className="text-emerald-400 mt-0.5">
-                  Published: https://pub.blue/serve/my-demo
-                </div>
+                <div className="text-emerald-400 mt-0.5">Published: https://pub.blue/p/my-demo</div>
               </div>
 
               <div>
@@ -286,9 +280,7 @@ function CodeSection() {
                   <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" |
                   pubblue publish-content --filename page.html
                 </div>
-                <div className="text-emerald-400 mt-0.5">
-                  Published: https://pub.blue/serve/w3n7q1
-                </div>
+                <div className="text-emerald-400 mt-0.5">Published: https://pub.blue/p/w3n7q1</div>
               </div>
             </div>
           </TerminalPreview>

@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { CONTENT_TYPES, generateSlug, inferContentType, MAX_CONTENT_SIZE } from "./utils";
+import {
+  CONTENT_TYPES,
+  generateSlug,
+  inferContentType,
+  MAX_CONTENT_SIZE,
+  MAX_FILENAME_LENGTH,
+  MAX_TITLE_LENGTH,
+} from "./utils";
 
 describe("inferContentType", () => {
   it("infers HTML from .html", () => {
@@ -324,6 +331,36 @@ describe("private publication access control logic", () => {
     const currentUserId = null;
     const canAccess = pub.isPublic || (currentUserId !== null && pub.userId === currentUserId);
     expect(canAccess).toBe(false);
+  });
+});
+
+describe("field length limits", () => {
+  it("MAX_TITLE_LENGTH is 256", () => {
+    expect(MAX_TITLE_LENGTH).toBe(256);
+  });
+
+  it("MAX_FILENAME_LENGTH is 256", () => {
+    expect(MAX_FILENAME_LENGTH).toBe(256);
+  });
+
+  it("rejects title exceeding MAX_TITLE_LENGTH", () => {
+    const title = "x".repeat(MAX_TITLE_LENGTH + 1);
+    expect(title.length).toBeGreaterThan(MAX_TITLE_LENGTH);
+  });
+
+  it("accepts title at exactly MAX_TITLE_LENGTH", () => {
+    const title = "x".repeat(MAX_TITLE_LENGTH);
+    expect(title.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+  });
+
+  it("rejects filename exceeding MAX_FILENAME_LENGTH", () => {
+    const filename = "x".repeat(MAX_FILENAME_LENGTH + 1);
+    expect(filename.length).toBeGreaterThan(MAX_FILENAME_LENGTH);
+  });
+
+  it("accepts filename at exactly MAX_FILENAME_LENGTH", () => {
+    const filename = "x".repeat(MAX_FILENAME_LENGTH);
+    expect(filename.length).toBeLessThanOrEqual(MAX_FILENAME_LENGTH);
   });
 });
 

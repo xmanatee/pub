@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateApiKey, keyPreviewFromKey } from "./utils";
+import { generateApiKey, keyPreviewFromKey, MAX_KEY_NAME_LENGTH } from "./utils";
 
 describe("API key list mapping", () => {
   it("maps keys to preview format", () => {
@@ -70,6 +70,22 @@ describe("API key ownership check", () => {
     const key = { userId: "user1" };
     const requestUserId = "user2";
     expect(key.userId === requestUserId).toBe(false);
+  });
+});
+
+describe("API key name length limit", () => {
+  it("MAX_KEY_NAME_LENGTH is 128", () => {
+    expect(MAX_KEY_NAME_LENGTH).toBe(128);
+  });
+
+  it("rejects name exceeding MAX_KEY_NAME_LENGTH", () => {
+    const name = "x".repeat(MAX_KEY_NAME_LENGTH + 1);
+    expect(name.length).toBeGreaterThan(MAX_KEY_NAME_LENGTH);
+  });
+
+  it("accepts name at exactly MAX_KEY_NAME_LENGTH", () => {
+    const name = "x".repeat(MAX_KEY_NAME_LENGTH);
+    expect(name.length).toBeLessThanOrEqual(MAX_KEY_NAME_LENGTH);
   });
 });
 

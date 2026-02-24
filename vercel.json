@@ -3,7 +3,10 @@
   "installCommand": "npm install",
   "framework": null,
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/p/:slug", "destination": "/api/p/:slug" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

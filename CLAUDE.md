@@ -32,7 +32,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; lists publications + API keys
-  - `p.$slug.tsx` — publication viewer (renders content by type)
+  - `publication.$slug.tsx` — publication detail viewer (renders content by type with app chrome)
 - **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
@@ -42,7 +42,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Schema** (`schema.ts`): `publications`, `apiKeys`, plus auth tables from `@convex-dev/auth`
 - **Publications** (`publications.ts`): CRUD queries/mutations + API-key-authenticated actions
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`)
-- **HTTP routes** (`http.ts`): REST API at `/api/v1/*` and raw content serving at `/serve/:slug`
+- **HTTP routes** (`http.ts`): REST API at `/api/v1/*` and proxied content serving at `/serve/:slug` (requires `PROXY_SECRET` header; blocked for direct access)
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 
 ### CLI (`cli/`)
@@ -51,6 +51,13 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 - API client in `cli/src/lib/api.ts`
+
+### Edge Proxy (`api/p/`)
+- **`/p/:slug`** — Vercel rewrite → `api/p/[slug].ts` edge function → proxies to Convex `/serve/:slug` with `X-Proxy-Token` header
+- **`/publication/:slug`** — SPA route → React viewer with app chrome (badges, metadata)
+- Direct access to `convex.site/serve/` is blocked without the proxy token
+- Markdown content is rendered to HTML server-side in the `/serve/` handler
+- Env vars: `PROXY_SECRET` (shared between Vercel + Convex), `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Integrations
 - **Sentry**: error tracking + performance (configured in `src/lib/sentry.ts`, Vite plugin for source maps)
@@ -63,11 +70,11 @@ Biome handles linting and formatting:
 - `noUnusedImports` and `noUnusedVariables`: error
 - `noNonNullAssertion` and `noExplicitAny`: warn
 - Auto-organized imports via Biome assist
-- `noDangerouslySetInnerHtml` disabled only for `p.$slug.tsx`
+- `noDangerouslySetInnerHtml` disabled only for `publication.$slug.tsx`
 
 ## Environment Variables
 
 Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list. Key ones:
-- `VITE_CONVEX_URL` / `VITE_CONVEX_SITE_URL` — Convex endpoints
+- `VITE_CONVEX_URL` — Convex cloud endpoint
 - `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY` — observability
 - Auth secrets (`AUTH_GITHUB_*`, `AUTH_GOOGLE_*`) are set in the Convex dashboard, not in `.env`
