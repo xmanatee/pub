@@ -1,5 +1,5 @@
 import { httpRouter } from "convex/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
 import {
@@ -261,7 +261,7 @@ http.route({
       return errorResponse("Invalid slug format", 400);
     }
 
-    const pub = await ctx.runQuery(api.publications.getBySlug, { slug });
+    const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
     if (!pub) {
       return new Response("Not found", { status: 404 });
     }
