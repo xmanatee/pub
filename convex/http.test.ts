@@ -277,11 +277,11 @@ describe("publish URL construction", () => {
     expect(url).toBe("https://pub.blue/p/abc123");
   });
 
-  it("falls back to convex site URL when PUB_PUBLIC_URL is not set", () => {
-    const siteUrl = "https://silent-guanaco-514.convex.site";
+  it("returns relative path when PUB_PUBLIC_URL is not set", () => {
+    const publicUrl = undefined;
     const slug = "abc123";
-    const url = `${new URL(siteUrl).origin}/serve/${encodeURIComponent(slug)}`;
-    expect(url).toBe("https://silent-guanaco-514.convex.site/serve/abc123");
+    const url = `${publicUrl ?? ""}/p/${encodeURIComponent(slug)}`;
+    expect(url).toBe("/p/abc123");
   });
 
   it("encodes special characters in slug", () => {

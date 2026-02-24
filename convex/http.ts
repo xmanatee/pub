@@ -147,9 +147,7 @@ http.route({
         }),
       (result) => {
         const publicUrl = process.env.PUB_PUBLIC_URL;
-        const url = publicUrl
-          ? `${publicUrl}/p/${encodeURIComponent(result.slug)}`
-          : `${new URL(process.env.CONVEX_SITE_URL || request.url).origin}/serve/${encodeURIComponent(result.slug)}`;
+        const url = `${publicUrl ?? ""}/p/${encodeURIComponent(result.slug)}`;
         return jsonResponse({
           slug: result.slug,
           updated: result.updated,
