@@ -132,23 +132,10 @@ function ContentRenderer({ content, contentType }: { content: string; contentTyp
 }
 
 function HtmlRenderer({ content }: { content: string }) {
-  const iframeRef = React.useRef<HTMLIFrameElement>(null);
-
-  React.useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(content);
-        doc.close();
-      }
-    }
-  }, [content]);
-
   return (
     <Card className="overflow-hidden border-border/50">
       <iframe
-        ref={iframeRef}
+        srcDoc={content}
         sandbox="allow-scripts"
         className="w-full min-h-[600px] bg-white"
         title="Published HTML content"

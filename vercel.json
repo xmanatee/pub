@@ -3,13 +3,7 @@
   "installCommand": "pnpm install",
   "framework": null,
   "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/p/:slug",
-      "destination": "https://silent-guanaco-514.convex.site/serve/:slug"
-    },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",

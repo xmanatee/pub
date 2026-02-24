@@ -49,13 +49,13 @@ describe("formatVisibility", () => {
 
 describe("printPublishResult logic", () => {
   it("uses Updated for updated results", () => {
-    const result = { updated: true, url: "https://pub.blue/serve/abc" };
+    const result = { updated: true, url: "https://pub.blue/p/abc" };
     const verb = result.updated ? "Updated" : "Published";
     expect(verb).toBe("Updated");
   });
 
   it("uses Published for new results", () => {
-    const result = { updated: false, url: "https://pub.blue/serve/abc" };
+    const result = { updated: false, url: "https://pub.blue/p/abc" };
     const verb = result.updated ? "Updated" : "Published";
     expect(verb).toBe("Published");
   });

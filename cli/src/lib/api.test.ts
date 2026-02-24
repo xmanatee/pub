@@ -16,7 +16,7 @@ describe("PublishApiClient", () => {
       const mockResponse = {
         slug: "abc123",
         updated: false,
-        url: "https://test.convex.site/serve/abc123",
+        url: "https://test.convex.site/p/abc123",
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

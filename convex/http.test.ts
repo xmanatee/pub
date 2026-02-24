@@ -244,6 +244,24 @@ describe("serve route cache headers", () => {
   });
 });
 
+describe("serve route visibility guard", () => {
+  function shouldServe(pub: { isPublic: boolean } | null): boolean {
+    return pub?.isPublic ?? false;
+  }
+
+  it("serves public publications", () => {
+    expect(shouldServe({ isPublic: true })).toBe(true);
+  });
+
+  it("rejects private publications", () => {
+    expect(shouldServe({ isPublic: false })).toBe(false);
+  });
+
+  it("rejects null (not found)", () => {
+    expect(shouldServe(null)).toBe(false);
+  });
+});
+
 describe("publish URL construction", () => {
   it("uses PUB_PUBLIC_URL when set", () => {
     const publicUrl = "https://pub.blue";

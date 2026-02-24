@@ -32,6 +32,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; lists publications + API keys
+  - `p.$slug.tsx` — full-screen content viewer (no app chrome, auth-aware for private pubs)
   - `publication.$slug.tsx` — publication detail viewer (renders content by type with app chrome)
 - **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
@@ -53,9 +54,9 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - API client in `cli/src/lib/api.ts`
 
 ### Content Serving
-- **`/p/:slug`** — Vercel rewrite → Convex `/serve/:slug` (direct proxy, no edge function)
+- **`/p/:slug`** — SPA route → full-screen renderer (no app chrome), auth-aware via `getBySlug` query
 - **`/publication/:slug`** — SPA route → React viewer with app chrome (badges, metadata)
-- Markdown content is rendered to HTML server-side in the `/serve/` handler
+- **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** (raw response, no auth)
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Integrations
@@ -69,7 +70,7 @@ Biome handles linting and formatting:
 - `noUnusedImports` and `noUnusedVariables`: error
 - `noNonNullAssertion` and `noExplicitAny`: warn
 - Auto-organized imports via Biome assist
-- `noDangerouslySetInnerHtml` disabled only for `publication.$slug.tsx`
+- `noDangerouslySetInnerHtml` disabled for `publication.$slug.tsx` and `p.$slug.tsx`
 
 ## Environment Variables
 

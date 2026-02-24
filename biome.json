@@ -57,7 +57,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/routes/publication.$slug.tsx"],
+      "includes": ["src/routes/publication.$slug.tsx", "src/routes/p.$slug.tsx"],
       "linter": {
         "rules": {
           "security": {

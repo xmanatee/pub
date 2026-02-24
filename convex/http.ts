@@ -262,7 +262,7 @@ http.route({
     }
 
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
-    if (!pub) {
+    if (!pub || !pub.isPublic) {
       return new Response("Not found", { status: 404 });
     }
 
