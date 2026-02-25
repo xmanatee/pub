@@ -85,7 +85,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isLoading, isAuthenticated]);
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/" className="hover:opacity-80 transition-opacity">
@@ -109,7 +109,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
       <footer className="border-t border-border/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -126,6 +126,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
