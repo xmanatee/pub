@@ -43,16 +43,6 @@ function LinkPage() {
     );
   }
 
-  if (tokenInfo && !tokenInfo.valid) {
-    return (
-      <CenteredCard title="Link Expired" description="This link token is invalid or expired.">
-        <p className="text-sm text-muted-foreground">
-          Generate a new link from the Telegram Mini App.
-        </p>
-      </CenteredCard>
-    );
-  }
-
   if (merged) {
     return (
       <CenteredCard title="Accounts Linked" description="Your accounts have been linked.">
@@ -68,6 +58,16 @@ function LinkPage() {
       <CenteredCard title="Linking Failed" description={error}>
         <p className="text-sm text-muted-foreground">
           Try generating a new link from the Telegram Mini App.
+        </p>
+      </CenteredCard>
+    );
+  }
+
+  if (tokenInfo && !tokenInfo.valid) {
+    return (
+      <CenteredCard title="Link Expired" description="This link token is invalid or expired.">
+        <p className="text-sm text-muted-foreground">
+          Generate a new link from the Telegram Mini App.
         </p>
       </CenteredCard>
     );
