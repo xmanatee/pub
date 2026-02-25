@@ -82,10 +82,18 @@ export const completeMerge = mutation({
 
     const accounts = await ctx.db
       .query("authAccounts")
-      .filter((q) => q.eq(q.field("userId"), sourceUserId))
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", sourceUserId))
       .collect();
     for (const account of accounts) {
       await ctx.db.patch(account._id, { userId: targetUserId });
+    }
+
+    const sessions = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", sourceUserId))
+      .collect();
+    for (const session of sessions) {
+      await ctx.db.patch(session._id, { userId: targetUserId });
     }
 
     await ctx.db.delete(sourceUserId);
