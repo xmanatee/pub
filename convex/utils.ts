@@ -1,4 +1,4 @@
-export const CONTENT_TYPES = ["html", "css", "js", "markdown", "text"] as const;
+export const CONTENT_TYPES = ["html", "markdown", "text"] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
 export const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
@@ -9,8 +9,6 @@ export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 export const MIME_TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
-  css: "text/css; charset=utf-8",
-  js: "application/javascript; charset=utf-8",
   markdown: "text/markdown; charset=utf-8",
   text: "text/plain; charset=utf-8",
 };
@@ -39,11 +37,6 @@ export function inferContentType(filename: string): ContentType {
     case "html":
     case "htm":
       return "html";
-    case "css":
-      return "css";
-    case "js":
-    case "mjs":
-      return "js";
     case "md":
     case "markdown":
       return "markdown";

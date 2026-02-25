@@ -1,16 +1,18 @@
 import * as Sentry from "@sentry/react";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Link, Outlet } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import * as React from "react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
 import { initSentry } from "~/lib/sentry";
+import { api } from "../../convex/_generated/api";
 
 initSentry();
 initPostHog();
@@ -24,7 +26,7 @@ export const Route = createRootRouteWithContext<{
 
 function SentryErrorComponent({ error }: { error: Error }) {
   React.useEffect(() => {
-    Sentry.captureException(error);
+    trackError(error);
   }, [error]);
 
   return (
@@ -38,7 +40,26 @@ function SentryErrorComponent({ error }: { error: Error }) {
   );
 }
 
+function useIdentifyUser() {
+  const { isAuthenticated } = useConvexAuth();
+  const user = useQuery(api.users.currentUser, isAuthenticated ? {} : "skip");
+  const identifiedRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (user?._id && identifiedRef.current !== user._id) {
+      identifiedRef.current = user._id;
+      identifyUser(user._id);
+    }
+    if (!isAuthenticated && identifiedRef.current) {
+      identifiedRef.current = null;
+      resetIdentity();
+    }
+  }, [user, isAuthenticated]);
+}
+
 function RootComponent() {
+  useIdentifyUser();
+
   return (
     <PostHogProvider client={posthog}>
       <Sentry.ErrorBoundary

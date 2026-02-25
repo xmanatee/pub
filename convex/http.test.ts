@@ -114,14 +114,6 @@ describe("MIME types", () => {
     expect(MIME_TYPES.html).toBe("text/html; charset=utf-8");
   });
 
-  it("maps css to text/css", () => {
-    expect(MIME_TYPES.css).toBe("text/css; charset=utf-8");
-  });
-
-  it("maps js to application/javascript", () => {
-    expect(MIME_TYPES.js).toBe("application/javascript; charset=utf-8");
-  });
-
   it("maps markdown to text/markdown", () => {
     expect(MIME_TYPES.markdown).toBe("text/markdown; charset=utf-8");
   });
@@ -141,9 +133,9 @@ describe("MIME types", () => {
     }
   });
 
-  it("covers all five content types", () => {
-    expect(Object.keys(MIME_TYPES)).toHaveLength(5);
-    expect(Object.keys(MIME_TYPES).sort()).toEqual(["css", "html", "js", "markdown", "text"]);
+  it("covers all three content types", () => {
+    expect(Object.keys(MIME_TYPES)).toHaveLength(3);
+    expect(Object.keys(MIME_TYPES).sort()).toEqual(["html", "markdown", "text"]);
   });
 });
 

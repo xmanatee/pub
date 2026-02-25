@@ -46,18 +46,8 @@ export function trackPublicationViewed(props: {
   slug: string;
   contentType: string;
   isPublic: boolean;
-  isOwner: boolean;
 }) {
   posthog.capture("publication_viewed", props);
-}
-
-export function trackPublicationCreated(props: {
-  slug: string;
-  contentType: string;
-  isPublic: boolean;
-  source: "dashboard" | "api" | "cli";
-}) {
-  posthog.capture("publication_created", props);
 }
 
 export function trackPublicationDeleted(props: { slug: string; contentType: string }) {
@@ -73,10 +63,6 @@ export function trackVisibilityToggled(props: {
 
 export function trackPublicationLinkCopied(props: { slug: string }) {
   posthog.capture("publication_link_copied", props);
-}
-
-export function trackPublicationRawViewed(props: { slug: string }) {
-  posthog.capture("publication_raw_viewed", props);
 }
 
 // ---------------------------------------------------------------------------
@@ -122,14 +108,4 @@ export function trackError(error: Error, context?: Record<string, unknown>) {
     ...context,
   });
   Sentry.captureException(error, { extra: context });
-}
-
-export function trackMutationError(mutationName: string, error: Error) {
-  posthog.capture("mutation_error", {
-    mutation: mutationName,
-    error_message: error.message,
-  });
-  Sentry.captureException(error, {
-    tags: { mutation: mutationName },
-  });
 }

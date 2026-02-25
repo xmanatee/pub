@@ -118,12 +118,11 @@ program
     ) => {
       const client = createClient();
 
-      const filePath = fileArg;
       let content: string;
       let filename: string | undefined;
 
-      if (filePath) {
-        const file = readFile(filePath);
+      if (fileArg) {
+        const file = readFile(fileArg);
         content = file.content;
         filename = file.basename;
       } else {

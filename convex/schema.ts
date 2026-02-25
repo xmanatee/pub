@@ -23,13 +23,7 @@ export default defineSchema({
   publications: defineTable({
     userId: v.id("users"),
     slug: v.string(),
-    contentType: v.union(
-      v.literal("html"),
-      v.literal("css"),
-      v.literal("js"),
-      v.literal("markdown"),
-      v.literal("text"),
-    ),
+    contentType: v.union(v.literal("html"), v.literal("markdown"), v.literal("text")),
     content: v.string(),
     title: v.optional(v.string()),
     isPublic: v.boolean(),

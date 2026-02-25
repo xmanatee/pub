@@ -16,16 +16,16 @@ describe("inferContentType", () => {
     expect(inferContentType("page.htm")).toBe("html");
   });
 
-  it("infers CSS from .css", () => {
-    expect(inferContentType("styles.css")).toBe("css");
+  it("treats .css as text", () => {
+    expect(inferContentType("styles.css")).toBe("text");
   });
 
-  it("infers JS from .js", () => {
-    expect(inferContentType("script.js")).toBe("js");
+  it("treats .js as text", () => {
+    expect(inferContentType("script.js")).toBe("text");
   });
 
-  it("infers JS from .mjs", () => {
-    expect(inferContentType("module.mjs")).toBe("js");
+  it("treats .mjs as text", () => {
+    expect(inferContentType("module.mjs")).toBe("text");
   });
 
   it("infers Markdown from .md", () => {
@@ -51,15 +51,15 @@ describe("inferContentType", () => {
 
   it("handles case-insensitive extensions", () => {
     expect(inferContentType("page.HTML")).toBe("html");
-    expect(inferContentType("styles.CSS")).toBe("css");
-    expect(inferContentType("script.JS")).toBe("js");
+    expect(inferContentType("styles.CSS")).toBe("text");
+    expect(inferContentType("script.JS")).toBe("text");
     expect(inferContentType("readme.MD")).toBe("markdown");
   });
 
   it("handles files with multiple dots", () => {
     expect(inferContentType("my.page.html")).toBe("html");
-    expect(inferContentType("my.styles.css")).toBe("css");
-    expect(inferContentType("bundle.min.js")).toBe("js");
+    expect(inferContentType("my.styles.css")).toBe("text");
+    expect(inferContentType("bundle.min.js")).toBe("text");
   });
 
   it("handles empty filename", () => {
@@ -119,11 +119,11 @@ describe("content size limits", () => {
 
 describe("CONTENT_TYPES constant", () => {
   it("contains all expected content types", () => {
-    expect(CONTENT_TYPES).toEqual(["html", "css", "js", "markdown", "text"]);
+    expect(CONTENT_TYPES).toEqual(["html", "markdown", "text"]);
   });
 
-  it("has 5 content types", () => {
-    expect(CONTENT_TYPES).toHaveLength(5);
+  it("has 3 content types", () => {
+    expect(CONTENT_TYPES).toHaveLength(3);
   });
 });
 
@@ -205,14 +205,14 @@ describe("updatePublication patch logic", () => {
 
   it("builds patch with contentType only", () => {
     const content = undefined;
-    const contentType = "css";
+    const contentType = "markdown";
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (content !== undefined) patch.content = content;
     if (contentType !== undefined) patch.contentType = contentType;
 
     expect(patch).not.toHaveProperty("content");
-    expect(patch).toHaveProperty("contentType", "css");
+    expect(patch).toHaveProperty("contentType", "markdown");
   });
 
   it("always includes updatedAt", () => {
@@ -257,7 +257,7 @@ describe("update action return logic", () => {
 
   it("returns new contentType when filename hint provided", () => {
     const pub = { slug: "abc", contentType: "html" };
-    const filename: string | undefined = "new.css";
+    const filename: string | undefined = "new.md";
     const contentType = filename ? inferContentType(filename) : undefined;
 
     const result = {
@@ -265,7 +265,7 @@ describe("update action return logic", () => {
       contentType: contentType ?? pub.contentType,
     };
 
-    expect(result.contentType).toBe("css");
+    expect(result.contentType).toBe("markdown");
   });
 });
 
