@@ -33,7 +33,6 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; lists publications + API keys
   - `p.$slug.tsx` — full-screen content viewer (no app chrome, auth-aware for private pubs)
-  - `publication.$slug.tsx` — publication detail viewer (renders content by type with app chrome)
 - **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
@@ -59,7 +58,6 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Content Serving
 - **`/p/:slug`** — SPA route → full-screen renderer (no app chrome), auth-aware via `getBySlug` query
-- **`/publication/:slug`** — SPA route → React viewer with app chrome (badges, metadata)
 - **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** (raw response, no auth)
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 

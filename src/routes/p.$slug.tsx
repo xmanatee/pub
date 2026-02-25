@@ -52,10 +52,11 @@ function FullScreenContent({ content, contentType }: { content: string; contentT
 }
 
 function FullScreenHtml({ content }: { content: string }) {
+  const srcDoc = `<base target="_blank">${content}`;
   return (
     <iframe
-      srcDoc={content}
-      sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups"
+      srcDoc={srcDoc}
+      sandbox="allow-scripts allow-popups"
       className="fixed inset-0 z-[9999] w-full h-full border-none"
       title="Published HTML content"
     />
