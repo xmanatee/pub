@@ -32,4 +32,10 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_user", ["userId"]),
+
+  linkTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+  }).index("by_token", ["token"]),
 });

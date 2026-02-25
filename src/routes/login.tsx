@@ -7,6 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
+import { getTelegramInitData } from "~/lib/telegram";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -19,6 +20,24 @@ function LoginPage() {
   const isStartingSignInRef = React.useRef(false);
   const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);
   const [authError, setAuthError] = React.useState<string | null>(null);
+  const [telegramPending, setTelegramPending] = React.useState(false);
+  const telegramAttemptedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (telegramAttemptedRef.current || isLoading || isAuthenticated) return;
+
+    const initData = getTelegramInitData();
+    if (!initData) return;
+
+    telegramAttemptedRef.current = true;
+    setTelegramPending(true);
+    trackSignInStarted("telegram");
+
+    void signIn("telegram", { initData }).catch(() => {
+      setTelegramPending(false);
+      setAuthError("Telegram sign-in failed. Please try again.");
+    });
+  }, [isLoading, isAuthenticated, signIn]);
 
   const startOAuthSignIn = React.useCallback(
     async (provider: "github" | "google") => {
@@ -59,15 +78,17 @@ function LoginPage() {
   React.useEffect(() => {
     pushAuthDebug("login_auth_state", { isLoading, isAuthenticated });
     if (!isLoading && isAuthenticated) {
-      trackSignIn("oauth");
+      trackSignIn(telegramAttemptedRef.current ? "telegram" : "oauth");
       navigate({ to: "/dashboard", replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  if (isLoading || isAuthenticated) {
+  if (isLoading || isAuthenticated || telegramPending) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <div className="text-muted-foreground text-sm">Loading...</div>
+        <div className="text-muted-foreground text-sm">
+          {telegramPending ? "Signing in via Telegram..." : "Loading..."}
+        </div>
       </div>
     );
   }

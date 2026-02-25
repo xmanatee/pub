@@ -12,8 +12,10 @@ import {
   LogOut,
   Plus,
   Trash2,
+  User,
 } from "lucide-react";
 import * as React from "react";
+import { AccountTab } from "~/components/account-tab";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -87,7 +89,7 @@ function Dashboard() {
       <Tabs
         defaultValue="publications"
         onValueChange={(tab) => {
-          if (tab === "publications" || tab === "keys") {
+          if (tab === "publications" || tab === "keys" || tab === "account") {
             trackDashboardTabChanged({ tab });
           }
         }}
@@ -101,6 +103,10 @@ function Dashboard() {
             <Key className="h-4 w-4 mr-1.5" />
             API Keys
           </TabsTrigger>
+          <TabsTrigger value="account">
+            <User className="h-4 w-4 mr-1.5" />
+            Account
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="publications">
@@ -108,6 +114,9 @@ function Dashboard() {
         </TabsContent>
         <TabsContent value="keys">
           <ApiKeysTab />
+        </TabsContent>
+        <TabsContent value="account">
+          <AccountTab />
         </TabsContent>
       </Tabs>
     </div>

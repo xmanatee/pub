@@ -85,7 +85,7 @@ export function trackApiKeyCopied() {
 // Dashboard events
 // ---------------------------------------------------------------------------
 
-export function trackDashboardTabChanged(props: { tab: "publications" | "keys" }) {
+export function trackDashboardTabChanged(props: { tab: "publications" | "keys" | "account" }) {
   posthog.capture("dashboard_tab_changed", props);
 }
 
