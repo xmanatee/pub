@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for publishing static content (HTML, CSS, JS, Markdown, text) with shareable URLs. It includes a web dashboard and a CLI tool.
+Pub is a full-stack TypeScript app for publishing static content (HTML, Markdown, text) with shareable URLs. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -31,8 +31,11 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `__root.tsx` — root layout (header, footer, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
-  - `dashboard.tsx` — protected; lists publications + API keys
+  - `dashboard.tsx` — protected; lists publications + API keys + Telegram linking
   - `p.$slug.tsx` — full-screen content viewer (no app chrome, auth-aware for private pubs)
+  - `link.tsx` — Telegram account linking flow
+  - `auth.callback.tsx` — OAuth callback handler
+  - `debug.auth.tsx` — Auth debug page (dev only)
 - **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
@@ -44,6 +47,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`)
 - **HTTP routes** (`http.ts`): REST API with slug-in-path (`POST /api/v1/publications`, `GET/PATCH/DELETE /api/v1/publications/:slug`) and content serving at `/serve/:slug`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
+- **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Default visibility**: publications are **private by default** when created via API
 
 ### CLI (`cli/`)
@@ -60,6 +64,15 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`/p/:slug`** — SPA route → full-screen renderer (no app chrome), auth-aware via `getBySlug` query
 - **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** (raw response, no auth)
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
+
+### Skills (`skills/`)
+- **`pubblue`** — Claude Code skill for publishing content via the CLI
+- Each skill has a `SKILL.md` (instructions) and `claw.json` (ClawHub manifest)
+- Published to ClawHub automatically on push to `main` (see `.github/workflows/clawhub.yml`)
+
+### CI (`.github/workflows/`)
+- **`ci.yml`** — lint, test, build for web app + CLI; auto-publishes CLI to npm on version bump
+- **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`
 
 ### Integrations
 - **Sentry**: error tracking + performance (configured in `src/lib/sentry.ts`, Vite plugin for source maps)

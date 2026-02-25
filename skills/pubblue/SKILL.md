@@ -2,7 +2,7 @@
 name: pubblue
 description: >-
   Publish files or generated content to the web via the pubblue CLI.
-  Creates shareable URLs for HTML, CSS, JS, Markdown, and text.
+  Creates shareable URLs for HTML, Markdown, and text.
   Use when: publishing content online, sharing files via URL, deploying
   static pages, or the user mentions "pubblue" or "pub.blue".
 license: MIT
@@ -92,12 +92,12 @@ When the user asks to "publish this", "share this online", or similar:
 
 1. **Check configuration** — run `pubblue list` to verify the CLI is configured. If it fails with "Not configured. Run `pubblue configure`…", follow the Setup steps above to get and save the user's API key.
 2. **Generate or gather the content.**
-3. **Write content to a temp file** with the right extension (`.html`, `.md`, `.css`, `.js`, `.txt`):
+3. **Write content to a temp file** with the right extension (`.html`, `.md`, `.txt`):
    ```bash
    # Use the Write tool to create the file, then create a publication:
    pubblue create /tmp/my-page.html
    ```
-   The file extension determines the content type (HTML, CSS, JS, Markdown, or text).
+   The file extension determines the content type (HTML, Markdown, or text).
 4. **Return the published URL** to the user.
 
 ### Default visibility
@@ -138,8 +138,6 @@ Content type is inferred from the file extension when a file is provided. When r
 | Extension | Rendered as |
 |-----------|-------------|
 | `.html`, `.htm` | HTML page |
-| `.css` | CSS stylesheet |
-| `.js`, `.mjs` | JavaScript |
 | `.md`, `.markdown` | Markdown → HTML |
 | Everything else | Plain text |
 
