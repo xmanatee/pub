@@ -1,18 +1,18 @@
-export interface PublishResult {
+export interface CreateResult {
   slug: string;
-  updated: boolean;
   url: string;
 }
 
 export interface UpdateResult {
   slug: string;
+  contentType: string;
   title?: string;
   isPublic: boolean;
+  updatedAt: number;
 }
 
 export interface Publication {
   slug: string;
-  filename: string;
   contentType: string;
   title?: string;
   isPublic: boolean;
@@ -20,7 +20,7 @@ export interface Publication {
   updatedAt: number;
 }
 
-export class PublishApiClient {
+export class PubApiClient {
   constructor(
     private baseUrl: string,
     private apiKey: string,
@@ -44,14 +44,14 @@ export class PublishApiClient {
     return data as T;
   }
 
-  async publish(opts: {
-    filename: string;
+  async create(opts: {
     content: string;
+    filename?: string;
     title?: string;
     slug?: string;
     isPublic?: boolean;
-  }): Promise<PublishResult> {
-    return this.request<PublishResult>("/api/v1/publish", {
+  }): Promise<CreateResult> {
+    return this.request<CreateResult>("/api/v1/publications", {
       method: "POST",
       body: JSON.stringify(opts),
     });
@@ -60,7 +60,7 @@ export class PublishApiClient {
   async get(slug: string): Promise<Publication & { content: string }> {
     const data = await this.request<{
       publication: Publication & { content: string };
-    }>(`/api/v1/publications?slug=${encodeURIComponent(slug)}`);
+    }>(`/api/v1/publications/${encodeURIComponent(slug)}`);
     return data.publication;
   }
 
@@ -69,15 +69,22 @@ export class PublishApiClient {
     return data.publications;
   }
 
-  async update(opts: { slug: string; title?: string; isPublic?: boolean }): Promise<UpdateResult> {
-    return this.request<UpdateResult>("/api/v1/publications", {
+  async update(opts: {
+    slug: string;
+    content?: string;
+    filename?: string;
+    title?: string;
+    isPublic?: boolean;
+  }): Promise<UpdateResult> {
+    const { slug, ...body } = opts;
+    return this.request<UpdateResult>(`/api/v1/publications/${encodeURIComponent(slug)}`, {
       method: "PATCH",
-      body: JSON.stringify(opts),
+      body: JSON.stringify(body),
     });
   }
 
   async remove(slug: string): Promise<void> {
-    await this.request(`/api/v1/publications?slug=${encodeURIComponent(slug)}`, {
+    await this.request(`/api/v1/publications/${encodeURIComponent(slug)}`, {
       method: "DELETE",
     });
   }

@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "1.2"
+  version: "2.0"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Read Write
 ---
 
@@ -62,19 +62,27 @@ To use a custom Convex deployment, set the `PUBBLUE_URL` environment variable (d
 ## Commands
 
 ```bash
-# Publish a file
-pubblue publish path/to/file.html
-pubblue publish --slug my-demo --title "My Demo" page.html
+# Create from a file (content type inferred from extension)
+pubblue create path/to/file.html
+pubblue create --slug my-demo --title "My Demo" --public page.html
 
-# Publish content from stdin (--filename is required to determine content type)
-cat page.html | pubblue publish-content --filename page.html
-pubblue publish-content --filename page.html --content "<h1>Hello</h1>"
+# Create from stdin (defaults to text type)
+cat page.html | pubblue create
+echo "Hello world" | pubblue create --slug greeting
 
-# Manage publications
-pubblue list
+# Get publication details
 pubblue get <slug>
+pubblue get <slug> --content    # Output raw content (pipeable)
+
+# Update content from file
+pubblue update <slug> --file new.html
+
+# Update metadata only
 pubblue update <slug> --title "New Title" --public
 pubblue update <slug> --private
+
+# List and delete
+pubblue list
 pubblue delete <slug>
 ```
 
@@ -86,42 +94,46 @@ When the user asks to "publish this", "share this online", or similar:
 2. **Generate or gather the content.**
 3. **Write content to a temp file** with the right extension (`.html`, `.md`, `.css`, `.js`, `.txt`):
    ```bash
-   # Use the Write tool to create the file, then publish it:
-   pubblue publish /tmp/my-page.html
+   # Use the Write tool to create the file, then create a publication:
+   pubblue create /tmp/my-page.html
    ```
-   This avoids shell escaping issues with inline content. Always prefer this over `publish-content --content`.
+   The file extension determines the content type (HTML, CSS, JS, Markdown, or text).
 4. **Return the published URL** to the user.
 
-### Why write to file first?
+### Default visibility
 
-The `publish-content --content '...'` flag exists but breaks on content with quotes, backticks, or `$` signs due to shell escaping. Always use the **Write tool → `pubblue publish <file>`** pattern for reliable publishing.
+Publications are **private by default**. Use `--public` to make them publicly accessible.
 
 ## Options
 
-### publish / publish-content
+### create
 
 | Flag | Description |
 |------|-------------|
+| `[file]` | Positional arg: path to file (reads stdin if omitted) |
 | `--slug <slug>` | Custom URL slug (auto-generated if omitted) |
 | `--title <title>` | Human-readable title |
-| `--private` | Hide from public listing (default: public) |
-
-### publish-content only
-
-| Flag | Description |
-|------|-------------|
-| `--filename <name>` | **(required)** Filename to determine content type (e.g. `page.html`) |
-| `--content <content>` | Content string; if omitted, reads from stdin |
+| `--public` | Make the publication public (default: private) |
+| `--private` | Make the publication private (this is the default) |
 
 ### update
 
 | Flag | Description |
 |------|-------------|
+| `--file <file>` | New content from file |
 | `--title <title>` | New title |
 | `--public` | Make the publication public |
 | `--private` | Make the publication private |
 
+### get
+
+| Flag | Description |
+|------|-------------|
+| `--content` | Output raw content to stdout (no metadata, pipeable) |
+
 ## Content Types
+
+Content type is inferred from the file extension when a file is provided. When reading from stdin, defaults to plain text.
 
 | Extension | Rendered as |
 |-----------|-------------|
@@ -143,7 +155,6 @@ The `publish-content --content '...'` flag exists but breaks on content with quo
 | "Not configured. Run `pubblue configure` or set PUBBLUE_API_KEY environment variable." | CLI has no API key. Run `pubblue configure` or set `PUBBLUE_API_KEY` env var. Get a key from https://pub.blue/dashboard |
 | "Missing API key" | Request to the server is missing the API key header. Re-run `pubblue configure` |
 | "Invalid API key" | The API key was rejected by the server. Generate a new key at https://pub.blue/dashboard |
-| "Slug already taken by another user" | Choose a different `--slug` value |
+| "Slug already taken" | Choose a different `--slug` value |
 | "Content exceeds maximum size of 1MB" | Content must be under 1 MB |
 | "File not found" | Check the path; use absolute paths |
-| Content appears garbled | Ensure the file extension matches the content type |

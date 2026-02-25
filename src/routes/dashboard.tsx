@@ -157,10 +157,10 @@ function PublicationsTab() {
           </div>
           <p className="font-medium mb-1">No publications yet</p>
           <p className="text-sm text-muted-foreground mb-6">
-            Use the CLI or API to publish your first file.
+            Use the CLI or API to create your first publication.
           </p>
           <div className="rounded-lg bg-navy text-white px-4 py-3 font-mono text-sm">
-            <span className="text-primary">$</span> pubblue publish index.html
+            <span className="text-primary">$</span> pubblue create index.html
           </div>
         </CardContent>
       </Card>
@@ -180,7 +180,7 @@ function PublicationsTab() {
                 href={`/publication/${pub.slug}`}
                 className="font-medium text-sm hover:text-primary transition-colors truncate"
               >
-                {pub.title || pub.filename}
+                {pub.title || pub.slug}
               </a>
               <Badge variant="secondary" className="text-xs">
                 {pub.contentType}

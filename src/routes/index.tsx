@@ -89,8 +89,8 @@ function HeroSection() {
           <div className="mt-16 max-w-xl mx-auto">
             <TerminalPreview className="shadow-2xl shadow-primary/10">
               <div className="p-5 font-mono text-sm leading-relaxed">
-                <div className="text-white/40">$ pubblue publish index.html</div>
-                <div className="text-emerald-400 mt-1">Published: https://pub.blue/p/k8f2m9</div>
+                <div className="text-white/40">$ pubblue create index.html</div>
+                <div className="text-emerald-400 mt-1">Created: https://pub.blue/p/k8f2m9</div>
               </div>
             </TerminalPreview>
           </div>
@@ -148,7 +148,7 @@ function FeaturesSection() {
       icon: Link2,
       title: "Custom slugs",
       description:
-        "Choose your own URL slug or let one be generated. Re-publish to the same slug to update in place.",
+        "Choose your own URL slug or let one be generated. Use `update` to modify existing publications.",
     },
     {
       icon: Globe,
@@ -258,29 +258,29 @@ function CodeSection() {
           >
             <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
               <div>
-                <div className="text-white/40 text-xs mb-1"># Publish a file</div>
+                <div className="text-white/40 text-xs mb-1"># Create a publication</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubblue publish index.html
+                  <span className="text-primary">$</span> pubblue create index.html
                 </div>
-                <div className="text-emerald-400 mt-0.5">Published: https://pub.blue/p/k8f2m9</div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/k8f2m9</div>
               </div>
 
               <div>
                 <div className="text-white/40 text-xs mb-1"># Custom slug + title</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubblue publish --slug my-demo --title
+                  <span className="text-primary">$</span> pubblue create --slug my-demo --title
                   "Demo Page" report.md
                 </div>
-                <div className="text-emerald-400 mt-0.5">Published: https://pub.blue/p/my-demo</div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/my-demo</div>
               </div>
 
               <div>
                 <div className="text-white/40 text-xs mb-1"># Pipe from stdin</div>
                 <div className="text-white/70">
                   <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" |
-                  pubblue publish-content --filename page.html
+                  pubblue create
                 </div>
-                <div className="text-emerald-400 mt-0.5">Published: https://pub.blue/p/w3n7q1</div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/w3n7q1</div>
               </div>
             </div>
           </TerminalPreview>

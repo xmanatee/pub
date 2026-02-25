@@ -63,7 +63,7 @@ function PublicationPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-lg font-semibold">{publication.title || publication.filename}</h1>
+          <h1 className="text-lg font-semibold">{publication.title || publication.slug}</h1>
           <Badge variant="secondary">{publication.contentType}</Badge>
           <VisibilityBadge isPublic={publication.isPublic} />
           <span className="text-xs text-muted-foreground">

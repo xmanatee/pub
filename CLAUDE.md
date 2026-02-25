@@ -41,17 +41,21 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Backend (`convex/`)
 - **Schema** (`schema.ts`): `publications`, `apiKeys`, plus auth tables from `@convex-dev/auth`
-- **Publications** (`publications.ts`): CRUD queries/mutations + API-key-authenticated actions
+- **Publications** (`publications.ts`): CRUD actions (`create`, `read`, `list`, `update`, `delete_`) + web dashboard queries/mutations
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`)
-- **HTTP routes** (`http.ts`): REST API at `/api/v1/*` and content serving at `/serve/:slug`
+- **HTTP routes** (`http.ts`): REST API with slug-in-path (`POST /api/v1/publications`, `GET/PATCH/DELETE /api/v1/publications/:slug`) and content serving at `/serve/:slug`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
+- **Default visibility**: publications are **private by default** when created via API
 
 ### CLI (`cli/`)
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
-- Commands: `configure`, `publish`, `publish-content`, `list`, `get`, `update`, `delete`
+- Commands: `configure`, `create`, `get`, `list`, `update`, `delete`
+- `create [file]` reads from file (content type inferred from extension) or stdin (defaults to text); supports `--public`/`--private`
+- `update <slug>` supports `--file` for new content, `--title`, `--public`/`--private` for metadata
+- `get --content` outputs raw content to stdout (pipeable)
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
-- API client in `cli/src/lib/api.ts`
+- API client (`PubApiClient`) in `cli/src/lib/api.ts`
 
 ### Content Serving
 - **`/p/:slug`** — SPA route → full-screen renderer (no app chrome), auth-aware via `getBySlug` query

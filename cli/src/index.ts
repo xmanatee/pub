@@ -3,14 +3,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
-import { PublishApiClient, type PublishResult } from "./lib/api.js";
+import { PubApiClient } from "./lib/api.js";
 import { getConfig, saveConfig } from "./lib/config.js";
 
 const program = new Command();
 
-function createClient(): PublishApiClient {
+function createClient(): PubApiClient {
   const config = getConfig();
-  return new PublishApiClient(config.baseUrl, config.apiKey);
+  return new PubApiClient(config.baseUrl, config.apiKey);
 }
 
 async function readFromStdin(): Promise<string> {
@@ -19,11 +19,6 @@ async function readFromStdin(): Promise<string> {
     chunks.push(chunk as Buffer);
   }
   return Buffer.concat(chunks).toString("utf-8").trim();
-}
-
-function printPublishResult(result: PublishResult): void {
-  const verb = result.updated ? "Updated" : "Published";
-  console.log(`${verb}: ${result.url}`);
 }
 
 function formatVisibility(isPublic: boolean): string {
@@ -69,10 +64,22 @@ async function resolveConfigureApiKey(opts: {
   return readApiKeyFromPrompt();
 }
 
+function readFile(filePath: string): { content: string; basename: string } {
+  const resolved = path.resolve(filePath);
+  if (!fs.existsSync(resolved)) {
+    console.error(`File not found: ${resolved}`);
+    process.exit(1);
+  }
+  return {
+    content: fs.readFileSync(resolved, "utf-8"),
+    basename: path.basename(resolved),
+  };
+}
+
 program
   .name("pubblue")
   .description("Publish static content and get shareable URLs")
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("configure")
@@ -92,63 +99,46 @@ program
   });
 
 program
-  .command("publish")
-  .description("Publish a file")
-  .argument("<file>", "Path to the file to publish")
+  .command("create")
+  .description("Create a new publication")
+  .argument("[file]", "Path to the file (reads stdin if omitted)")
   .option("--slug <slug>", "Custom slug for the URL")
   .option("--title <title>", "Title for the publication")
-  .option("--private", "Make the publication private")
-  .action(async (file: string, opts: { slug?: string; title?: string; private?: boolean }) => {
-    const client = createClient();
-
-    const filePath = path.resolve(file);
-    if (!fs.existsSync(filePath)) {
-      console.error(`File not found: ${filePath}`);
-      process.exit(1);
-    }
-
-    const content = fs.readFileSync(filePath, "utf-8");
-    const filename = path.basename(filePath);
-
-    const result = await client.publish({
-      filename,
-      content,
-      title: opts.title,
-      slug: opts.slug,
-      isPublic: !opts.private,
-    });
-
-    printPublishResult(result);
-  });
-
-program
-  .command("publish-content")
-  .description("Publish content directly from stdin or argument")
-  .requiredOption("--filename <name>", "Filename (determines content type, e.g. page.html)")
-  .option("--content <content>", "Content string (if not provided, reads from stdin)")
-  .option("--slug <slug>", "Custom slug for the URL")
-  .option("--title <title>", "Title for the publication")
-  .option("--private", "Make the publication private")
+  .option("--public", "Make the publication public (default: private)")
+  .option("--private", "Make the publication private (this is the default)")
   .action(
-    async (opts: {
-      filename: string;
-      content?: string;
-      slug?: string;
-      title?: string;
-      private?: boolean;
-    }) => {
+    async (
+      fileArg: string | undefined,
+      opts: {
+        slug?: string;
+        title?: string;
+        public?: boolean;
+        private?: boolean;
+      },
+    ) => {
       const client = createClient();
-      const content = opts.content ?? (await readFromStdin());
 
-      const result = await client.publish({
-        filename: opts.filename,
+      const filePath = fileArg;
+      let content: string;
+      let filename: string | undefined;
+
+      if (filePath) {
+        const file = readFile(filePath);
+        content = file.content;
+        filename = file.basename;
+      } else {
+        content = await readFromStdin();
+      }
+
+      const result = await client.create({
         content,
+        filename,
         title: opts.title,
         slug: opts.slug,
-        isPublic: !opts.private,
+        isPublic: opts.public ?? false,
       });
 
-      printPublishResult(result);
+      console.log(`Created: ${result.url}`);
     },
   );
 
@@ -156,11 +146,17 @@ program
   .command("get")
   .description("Get details of a publication")
   .argument("<slug>", "Slug of the publication")
-  .action(async (slug: string) => {
+  .option("--content", "Output raw content to stdout (no metadata, pipeable)")
+  .action(async (slug: string, opts: { content?: boolean }) => {
     const client = createClient();
     const pub = await client.get(slug);
+
+    if (opts.content) {
+      process.stdout.write(pub.content);
+      return;
+    }
+
     console.log(`  Slug:    ${pub.slug}`);
-    console.log(`  File:    ${pub.filename}`);
     console.log(`  Type:    ${pub.contentType}`);
     if (pub.title) console.log(`  Title:   ${pub.title}`);
     console.log(`  Status:  ${formatVisibility(pub.isPublic)}`);
@@ -171,24 +167,43 @@ program
 
 program
   .command("update")
-  .description("Update publication metadata")
+  .description("Update a publication's content and/or metadata")
   .argument("<slug>", "Slug of the publication to update")
+  .option("--file <file>", "New content from file")
   .option("--title <title>", "New title")
   .option("--public", "Make the publication public")
   .option("--private", "Make the publication private")
-  .action(async (slug: string, opts: { title?: string; public?: boolean; private?: boolean }) => {
-    const client = createClient();
+  .action(
+    async (
+      slug: string,
+      opts: {
+        file?: string;
+        title?: string;
+        public?: boolean;
+        private?: boolean;
+      },
+    ) => {
+      const client = createClient();
 
-    let isPublic: boolean | undefined;
-    if (opts.public) isPublic = true;
-    else if (opts.private) isPublic = false;
+      let content: string | undefined;
+      let filename: string | undefined;
+      if (opts.file) {
+        const file = readFile(opts.file);
+        content = file.content;
+        filename = file.basename;
+      }
 
-    const result = await client.update({ slug, title: opts.title, isPublic });
+      let isPublic: boolean | undefined;
+      if (opts.public) isPublic = true;
+      else if (opts.private) isPublic = false;
 
-    console.log(`Updated: ${result.slug}`);
-    if (result.title) console.log(`  Title:  ${result.title}`);
-    console.log(`  Status: ${formatVisibility(result.isPublic)}`);
-  });
+      const result = await client.update({ slug, content, filename, title: opts.title, isPublic });
+
+      console.log(`Updated: ${result.slug}`);
+      if (result.title) console.log(`  Title:  ${result.title}`);
+      console.log(`  Status: ${formatVisibility(result.isPublic)}`);
+    },
+  );
 
 program
   .command("list")
@@ -204,7 +219,7 @@ program
     for (const pub of pubs) {
       const date = new Date(pub.createdAt).toLocaleDateString();
       console.log(
-        `  ${pub.slug}  ${pub.filename}  [${pub.contentType}]  ${formatVisibility(pub.isPublic)}  ${date}`,
+        `  ${pub.slug}  [${pub.contentType}]  ${formatVisibility(pub.isPublic)}  ${date}`,
       );
     }
   });

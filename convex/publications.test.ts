@@ -4,7 +4,6 @@ import {
   generateSlug,
   inferContentType,
   MAX_CONTENT_SIZE,
-  MAX_FILENAME_LENGTH,
   MAX_TITLE_LENGTH,
 } from "./utils";
 
@@ -128,7 +127,7 @@ describe("CONTENT_TYPES constant", () => {
   });
 });
 
-describe("publish action logic", () => {
+describe("create action logic", () => {
   it("uses provided slug when given", () => {
     const slug = "my-custom-slug";
     const finalSlug = slug || generateSlug();
@@ -141,22 +140,28 @@ describe("publish action logic", () => {
     expect(finalSlug).toMatch(/^[a-z0-9]{8}$/);
   });
 
-  it("defaults isPublic to true when not specified", () => {
+  it("defaults isPublic to false when not specified", () => {
     const isPublic = undefined;
-    const finalIsPublic = isPublic ?? true;
-    expect(finalIsPublic).toBe(true);
+    const finalIsPublic = isPublic ?? false;
+    expect(finalIsPublic).toBe(false);
   });
 
   it("respects explicit isPublic=false", () => {
     const isPublic = false;
-    const finalIsPublic = isPublic ?? true;
+    const finalIsPublic = isPublic ?? false;
     expect(finalIsPublic).toBe(false);
   });
 
   it("respects explicit isPublic=true", () => {
     const isPublic = true;
-    const finalIsPublic = isPublic ?? true;
+    const finalIsPublic = isPublic ?? false;
     expect(finalIsPublic).toBe(true);
+  });
+
+  it("fails if slug already exists regardless of owner", () => {
+    const existing = { userId: "user1", _id: "pub1" };
+    const shouldThrow = !!existing;
+    expect(shouldThrow).toBe(true);
   });
 });
 
@@ -165,13 +170,16 @@ describe("updatePublication patch logic", () => {
     const content = "new content";
     const title = "new title";
     const isPublic = false;
+    const contentType = "html";
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (content !== undefined) patch.content = content;
+    if (contentType !== undefined) patch.contentType = contentType;
     if (title !== undefined) patch.title = title;
     if (isPublic !== undefined) patch.isPublic = isPublic;
 
     expect(patch).toHaveProperty("content", "new content");
+    expect(patch).toHaveProperty("contentType", "html");
     expect(patch).toHaveProperty("title", "new title");
     expect(patch).toHaveProperty("isPublic", false);
     expect(patch).toHaveProperty("updatedAt");
@@ -181,15 +189,30 @@ describe("updatePublication patch logic", () => {
     const content = "new content";
     const title = undefined;
     const isPublic = undefined;
+    const contentType = undefined;
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (content !== undefined) patch.content = content;
+    if (contentType !== undefined) patch.contentType = contentType;
     if (title !== undefined) patch.title = title;
     if (isPublic !== undefined) patch.isPublic = isPublic;
 
     expect(patch).toHaveProperty("content", "new content");
+    expect(patch).not.toHaveProperty("contentType");
     expect(patch).not.toHaveProperty("title");
     expect(patch).not.toHaveProperty("isPublic");
+  });
+
+  it("builds patch with contentType only", () => {
+    const content = undefined;
+    const contentType = "css";
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (content !== undefined) patch.content = content;
+    if (contentType !== undefined) patch.contentType = contentType;
+
+    expect(patch).not.toHaveProperty("content");
+    expect(patch).toHaveProperty("contentType", "css");
   });
 
   it("always includes updatedAt", () => {
@@ -199,14 +222,15 @@ describe("updatePublication patch logic", () => {
   });
 });
 
-describe("updateViaApi return logic", () => {
+describe("update action return logic", () => {
   it("returns new title when provided", () => {
-    const pub = { slug: "abc", title: "old", isPublic: true };
+    const pub = { slug: "abc", title: "old", isPublic: true, contentType: "html" };
     const title: string | undefined = "new";
     const isPublic: boolean | undefined = undefined;
 
     const result = {
       slug: pub.slug,
+      contentType: pub.contentType,
       title: title !== undefined ? title : pub.title,
       isPublic: isPublic !== undefined ? isPublic : pub.isPublic,
     };
@@ -216,18 +240,32 @@ describe("updateViaApi return logic", () => {
   });
 
   it("returns existing title when not provided", () => {
-    const pub = { slug: "abc", title: "old", isPublic: true };
+    const pub = { slug: "abc", title: "old", isPublic: true, contentType: "html" };
     const title: string | undefined = undefined;
     const isPublic: boolean | undefined = false;
 
     const result = {
       slug: pub.slug,
+      contentType: pub.contentType,
       title: title !== undefined ? title : pub.title,
       isPublic: isPublic !== undefined ? isPublic : pub.isPublic,
     };
 
     expect(result.title).toBe("old");
     expect(result.isPublic).toBe(false);
+  });
+
+  it("returns new contentType when filename hint provided", () => {
+    const pub = { slug: "abc", contentType: "html" };
+    const filename: string | undefined = "new.css";
+    const contentType = filename ? inferContentType(filename) : undefined;
+
+    const result = {
+      slug: pub.slug,
+      contentType: contentType ?? pub.contentType,
+    };
+
+    expect(result.contentType).toBe("css");
   });
 });
 
@@ -236,7 +274,6 @@ describe("listByUser response mapping", () => {
     const dbPub = {
       _id: "123",
       slug: "abc",
-      filename: "test.html",
       contentType: "html" as const,
       content: "<h1>Hello</h1>",
       title: "Test",
@@ -249,7 +286,6 @@ describe("listByUser response mapping", () => {
     const mapped = {
       _id: dbPub._id,
       slug: dbPub.slug,
-      filename: dbPub.filename,
       contentType: dbPub.contentType,
       title: dbPub.title,
       isPublic: dbPub.isPublic,
@@ -268,7 +304,6 @@ describe("getBySlug response mapping", () => {
     const dbPub = {
       _id: "123",
       slug: "abc",
-      filename: "test.html",
       contentType: "html" as const,
       content: "<h1>Hello</h1>",
       title: "Test",
@@ -281,7 +316,6 @@ describe("getBySlug response mapping", () => {
     const mapped = {
       _id: dbPub._id,
       slug: dbPub.slug,
-      filename: dbPub.filename,
       contentType: dbPub.contentType,
       content: dbPub.content,
       title: dbPub.title,
@@ -339,10 +373,6 @@ describe("field length limits", () => {
     expect(MAX_TITLE_LENGTH).toBe(256);
   });
 
-  it("MAX_FILENAME_LENGTH is 256", () => {
-    expect(MAX_FILENAME_LENGTH).toBe(256);
-  });
-
   it("rejects title exceeding MAX_TITLE_LENGTH", () => {
     const title = "x".repeat(MAX_TITLE_LENGTH + 1);
     expect(title.length).toBeGreaterThan(MAX_TITLE_LENGTH);
@@ -351,29 +381,5 @@ describe("field length limits", () => {
   it("accepts title at exactly MAX_TITLE_LENGTH", () => {
     const title = "x".repeat(MAX_TITLE_LENGTH);
     expect(title.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
-  });
-
-  it("rejects filename exceeding MAX_FILENAME_LENGTH", () => {
-    const filename = "x".repeat(MAX_FILENAME_LENGTH + 1);
-    expect(filename.length).toBeGreaterThan(MAX_FILENAME_LENGTH);
-  });
-
-  it("accepts filename at exactly MAX_FILENAME_LENGTH", () => {
-    const filename = "x".repeat(MAX_FILENAME_LENGTH);
-    expect(filename.length).toBeLessThanOrEqual(MAX_FILENAME_LENGTH);
-  });
-});
-
-describe("slug conflict resolution", () => {
-  it("allows owner to update existing slug", () => {
-    const existing = { userId: "user1", _id: "pub1" };
-    const requestUserId = "user1";
-    expect(existing.userId === requestUserId).toBe(true);
-  });
-
-  it("rejects non-owner from taking existing slug", () => {
-    const existing = { userId: "user1", _id: "pub1" };
-    const requestUserId = "user2";
-    expect(existing.userId === requestUserId).toBe(false);
   });
 });

@@ -1,11 +1,14 @@
 import { httpRouter } from "convex/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
 import {
+  generateSlug,
   INVALID_SLUG_MESSAGE,
+  inferContentType,
   isValidSlug,
-  MAX_FILENAME_LENGTH,
+  MAX_CONTENT_SIZE,
   MAX_TITLE_LENGTH,
   MIME_TYPES,
 } from "./utils";
@@ -82,32 +85,57 @@ async function executeAction<T>(
   }
 }
 
-http.route({
-  path: "/api/v1/publish",
-  method: "OPTIONS",
-  handler: httpAction(async () => {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  }),
+export function extractSlugFromPath(pathname: string, prefix: string): string {
+  return pathname.slice(prefix.length).replace(/\/$/, "");
+}
+
+function parseSlugFromRequest(request: Request, prefix: string): string | Response {
+  const url = new URL(request.url);
+  const raw = extractSlugFromPath(url.pathname, prefix);
+  if (!raw) return errorResponse("Missing slug", 400);
+  let slug: string;
+  try {
+    slug = decodeURIComponent(raw);
+  } catch {
+    return errorResponse("Invalid slug encoding", 400);
+  }
+  if (!isValidSlug(slug)) return errorResponse("Invalid slug format", 400);
+  return slug;
+}
+
+async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {
+  const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, { key: apiKey });
+  if (!user) throw new Error("Invalid API key");
+  await ctx.runMutation(internal.apiKeys.touchApiKey, { apiKeyId: user.apiKeyId });
+  return user;
+}
+
+const corsPreflightHandler = httpAction(async () => {
+  return new Response(null, { status: 204, headers: corsHeaders() });
 });
 
 http.route({
   path: "/api/v1/publications",
   method: "OPTIONS",
-  handler: httpAction(async () => {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  }),
+  handler: corsPreflightHandler,
 });
 
 http.route({
-  path: "/api/v1/publish",
+  pathPrefix: "/api/v1/publications/",
+  method: "OPTIONS",
+  handler: corsPreflightHandler,
+});
+
+http.route({
+  path: "/api/v1/publications",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const apiKey = getApiKey(request);
     if (!apiKey) return errorResponse("Missing API key", 401);
 
     let body: {
-      filename: string;
       content: string;
+      filename?: string;
       title?: string;
       slug?: string;
       isPublic?: boolean;
@@ -119,40 +147,45 @@ http.route({
       return errorResponse("Invalid JSON body", 400);
     }
 
-    if (!body.filename || !body.content) {
-      return errorResponse("Missing required fields: filename, content", 400);
+    if (!body.content) {
+      return errorResponse("Missing required field: content", 400);
+    }
+    if (body.content.length > MAX_CONTENT_SIZE) {
+      return errorResponse("Content exceeds maximum size of 1MB", 400);
     }
     if (body.slug && !isValidSlug(body.slug)) {
       return errorResponse(INVALID_SLUG_MESSAGE, 400);
-    }
-    if (body.filename.length > MAX_FILENAME_LENGTH) {
-      return errorResponse(
-        `Filename exceeds maximum length of ${MAX_FILENAME_LENGTH} characters`,
-        400,
-      );
     }
     if (body.title && body.title.length > MAX_TITLE_LENGTH) {
       return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
     }
 
     return executeAction(
-      () =>
-        ctx.runAction(api.publications.publish, {
-          apiKey,
-          filename: body.filename,
+      async () => {
+        const user = await authenticateApiKey(ctx, apiKey);
+        const contentType = inferContentType(body.filename ?? "file.txt");
+        const finalSlug = body.slug || generateSlug();
+
+        const existing = await ctx.runQuery(internal.publications.getBySlugInternal, {
+          slug: finalSlug,
+        });
+        if (existing) throw new Error("Slug already taken");
+
+        await ctx.runMutation(internal.publications.createPublication, {
+          userId: user.userId,
+          slug: finalSlug,
+          contentType,
           content: body.content,
           title: body.title,
-          slug: body.slug,
-          isPublic: body.isPublic,
-        }),
+          isPublic: body.isPublic ?? false,
+        });
+
+        return { slug: finalSlug };
+      },
       (result) => {
         const publicUrl = process.env.PUB_PUBLIC_URL;
         const url = `${publicUrl ?? ""}/p/${encodeURIComponent(result.slug)}`;
-        return jsonResponse({
-          slug: result.slug,
-          updated: result.updated,
-          url,
-        });
+        return jsonResponse({ slug: result.slug, url }, 201);
       },
     );
   }),
@@ -165,20 +198,108 @@ http.route({
     const apiKey = getApiKey(request);
     if (!apiKey) return errorResponse("Missing API key", 401);
 
-    const url = new URL(request.url);
-    const slug = url.searchParams.get("slug");
-    if (slug && !isValidSlug(slug)) {
-      return errorResponse("Invalid slug format", 400);
+    return executeAction(
+      async () => {
+        const user = await authenticateApiKey(ctx, apiKey);
+        const pubs = await ctx.runQuery(internal.publications.listByUserInternal, {
+          userId: user.userId,
+        });
+        return pubs.map((p) => ({
+          slug: p.slug,
+          contentType: p.contentType,
+          title: p.title,
+          isPublic: p.isPublic,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+        }));
+      },
+      (pubs) => jsonResponse({ publications: pubs }),
+    );
+  }),
+});
+
+http.route({
+  pathPrefix: "/api/v1/publications/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = getApiKey(request);
+    if (!apiKey) return errorResponse("Missing API key", 401);
+
+    const slug = parseSlugFromRequest(request, "/api/v1/publications/");
+    if (slug instanceof Response) return slug;
+
+    return executeAction(
+      async () => {
+        const user = await authenticateApiKey(ctx, apiKey);
+        const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
+        if (!pub || pub.userId !== user.userId) throw new Error("Publication not found");
+        return {
+          slug: pub.slug,
+          contentType: pub.contentType,
+          content: pub.content,
+          title: pub.title,
+          isPublic: pub.isPublic,
+          createdAt: pub.createdAt,
+          updatedAt: pub.updatedAt,
+        };
+      },
+      (pub) => jsonResponse({ publication: pub }),
+    );
+  }),
+});
+
+http.route({
+  pathPrefix: "/api/v1/publications/",
+  method: "PATCH",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = getApiKey(request);
+    if (!apiKey) return errorResponse("Missing API key", 401);
+
+    const slug = parseSlugFromRequest(request, "/api/v1/publications/");
+    if (slug instanceof Response) return slug;
+
+    let body: {
+      content?: string;
+      filename?: string;
+      title?: string;
+      isPublic?: boolean;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400);
+    }
+
+    if (body.content && body.content.length > MAX_CONTENT_SIZE) {
+      return errorResponse("Content exceeds maximum size of 1MB", 400);
+    }
+    if (body.title && body.title.length > MAX_TITLE_LENGTH) {
+      return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
     }
 
     return executeAction(
       async () => {
-        if (slug) {
-          const pub = await ctx.runAction(api.publications.getViaApi, { apiKey, slug });
-          return { publication: pub };
-        }
-        const pubs = await ctx.runAction(api.publications.listViaApi, { apiKey });
-        return { publications: pubs };
+        const user = await authenticateApiKey(ctx, apiKey);
+        const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
+        if (!pub || pub.userId !== user.userId) throw new Error("Publication not found");
+
+        const contentType = body.filename ? inferContentType(body.filename) : undefined;
+
+        await ctx.runMutation(internal.publications.updatePublication, {
+          id: pub._id,
+          content: body.content,
+          contentType,
+          title: body.title,
+          isPublic: body.isPublic,
+        });
+
+        return {
+          slug: pub.slug,
+          contentType: contentType ?? pub.contentType,
+          title: body.title !== undefined ? body.title : pub.title,
+          isPublic: body.isPublic !== undefined ? body.isPublic : pub.isPublic,
+          updatedAt: Date.now(),
+        };
       },
       (result) => jsonResponse(result),
     );
@@ -186,56 +307,25 @@ http.route({
 });
 
 http.route({
-  path: "/api/v1/publications",
-  method: "PATCH",
-  handler: httpAction(async (ctx, request) => {
-    const apiKey = getApiKey(request);
-    if (!apiKey) return errorResponse("Missing API key", 401);
-
-    let body: { slug: string; title?: string; isPublic?: boolean };
-    try {
-      body = await request.json();
-    } catch {
-      return errorResponse("Invalid JSON body", 400);
-    }
-
-    if (!body.slug) {
-      return errorResponse("Missing required field: slug", 400);
-    }
-    if (!isValidSlug(body.slug)) {
-      return errorResponse("Invalid slug format", 400);
-    }
-    if (body.title && body.title.length > MAX_TITLE_LENGTH) {
-      return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
-    }
-
-    return executeAction(
-      () =>
-        ctx.runAction(api.publications.updateViaApi, {
-          apiKey,
-          slug: body.slug,
-          title: body.title,
-          isPublic: body.isPublic,
-        }),
-      (result) => jsonResponse(result),
-    );
-  }),
-});
-
-http.route({
-  path: "/api/v1/publications",
+  pathPrefix: "/api/v1/publications/",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
     const apiKey = getApiKey(request);
     if (!apiKey) return errorResponse("Missing API key", 401);
 
-    const url = new URL(request.url);
-    const slug = url.searchParams.get("slug");
-    if (!slug) return errorResponse("Missing slug parameter", 400);
-    if (!isValidSlug(slug)) return errorResponse("Invalid slug format", 400);
+    const slug = parseSlugFromRequest(request, "/api/v1/publications/");
+    if (slug instanceof Response) return slug;
 
     return executeAction(
-      () => ctx.runAction(api.publications.unpublish, { apiKey, slug }),
+      async () => {
+        const user = await authenticateApiKey(ctx, apiKey);
+        const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
+        if (!pub || pub.userId !== user.userId) throw new Error("Publication not found");
+        await ctx.runMutation(internal.publications.deletePublication, {
+          id: pub._id,
+          userId: user.userId,
+        });
+      },
       () => jsonResponse({ deleted: true }),
     );
   }),
@@ -245,21 +335,8 @@ http.route({
   pathPrefix: "/serve/",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const url = new URL(request.url);
-    const rawSlug = url.pathname.replace("/serve/", "").replace(/\/$/, "");
-    if (!rawSlug) {
-      return errorResponse("Missing slug", 400);
-    }
-
-    let slug: string;
-    try {
-      slug = decodeURIComponent(rawSlug);
-    } catch {
-      return errorResponse("Invalid slug encoding", 400);
-    }
-    if (!isValidSlug(slug)) {
-      return errorResponse("Invalid slug format", 400);
-    }
+    const slug = parseSlugFromRequest(request, "/serve/");
+    if (slug instanceof Response) return slug;
 
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
     if (!pub || !pub.isPublic) {

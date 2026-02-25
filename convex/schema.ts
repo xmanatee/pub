@@ -23,7 +23,6 @@ export default defineSchema({
   publications: defineTable({
     userId: v.id("users"),
     slug: v.string(),
-    filename: v.string(),
     contentType: v.union(
       v.literal("html"),
       v.literal("css"),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { corsHeaders, errorResponse, getApiKey, jsonResponse } from "./http";
+import { corsHeaders, errorResponse, extractSlugFromPath, getApiKey, jsonResponse } from "./http";
 import { isValidSlug, MIME_TYPES } from "./utils";
 
 describe("corsHeaders", () => {
@@ -162,107 +162,41 @@ describe("slug validation", () => {
   });
 });
 
-describe("slug extraction from URL path", () => {
-  function extractSlug(pathname: string): string {
-    return pathname.replace("/serve/", "").replace(/\/$/, "");
-  }
-
-  it("extracts slug from /serve/abc123", () => {
-    expect(extractSlug("/serve/abc123")).toBe("abc123");
+describe("extractSlugFromPath", () => {
+  it("extracts slug from API path", () => {
+    expect(extractSlugFromPath("/api/v1/publications/abc123", "/api/v1/publications/")).toBe(
+      "abc123",
+    );
   });
 
   it("handles trailing slash", () => {
-    expect(extractSlug("/serve/abc123/")).toBe("abc123");
-  });
-
-  it("returns empty for bare /serve/", () => {
-    expect(extractSlug("/serve/")).toBe("");
+    expect(extractSlugFromPath("/api/v1/publications/abc123/", "/api/v1/publications/")).toBe(
+      "abc123",
+    );
   });
 
   it("handles slugs with hyphens", () => {
-    expect(extractSlug("/serve/my-page")).toBe("my-page");
+    expect(extractSlugFromPath("/api/v1/publications/my-page", "/api/v1/publications/")).toBe(
+      "my-page",
+    );
   });
 
-  it("handles long slugs", () => {
-    expect(extractSlug("/serve/abcdefgh12345678")).toBe("abcdefgh12345678");
-  });
-});
-
-describe("publish route validation", () => {
-  it("rejects missing filename", () => {
-    const body = { content: "hello" };
-    const valid = body.content && "filename" in body && (body as { filename: string }).filename;
-    expect(valid).toBeFalsy();
+  it("handles slugs with dots", () => {
+    expect(extractSlugFromPath("/api/v1/publications/my.page", "/api/v1/publications/")).toBe(
+      "my.page",
+    );
   });
 
-  it("rejects missing content", () => {
-    const body = { filename: "test.html" };
-    const valid = "content" in body && (body as { content: string }).content && body.filename;
-    expect(valid).toBeFalsy();
+  it("returns empty for bare prefix", () => {
+    expect(extractSlugFromPath("/serve/", "/serve/")).toBe("");
   });
 
-  it("accepts valid body", () => {
-    const body = { filename: "test.html", content: "<h1>Hi</h1>" };
-    const valid = body.filename && body.content;
-    expect(valid).toBeTruthy();
+  it("works with serve prefix", () => {
+    expect(extractSlugFromPath("/serve/abc123", "/serve/")).toBe("abc123");
   });
 });
 
-describe("PATCH route validation", () => {
-  it("rejects missing slug", () => {
-    const body = { title: "New Title" };
-    const valid = "slug" in body && (body as { slug: string }).slug;
-    expect(valid).toBeFalsy();
-  });
-
-  it("accepts body with slug", () => {
-    const body = { slug: "abc123", title: "New Title" };
-    expect(body.slug).toBeTruthy();
-  });
-});
-
-describe("DELETE route slug extraction", () => {
-  it("extracts slug from query params", () => {
-    const url = new URL("https://example.com/api/v1/publications?slug=abc123");
-    expect(url.searchParams.get("slug")).toBe("abc123");
-  });
-
-  it("returns null when no slug param", () => {
-    const url = new URL("https://example.com/api/v1/publications");
-    expect(url.searchParams.get("slug")).toBeNull();
-  });
-});
-
-describe("serve route cache headers", () => {
-  it("sets public cache control for served content", () => {
-    const headers = {
-      "Content-Type": MIME_TYPES.html,
-      "Cache-Control": "public, max-age=60",
-    };
-    expect(headers["Cache-Control"]).toBe("public, max-age=60");
-    expect(headers["Content-Type"]).toBe("text/html; charset=utf-8");
-  });
-});
-
-describe("serve route visibility guard", () => {
-  function shouldServe(pub: { isPublic: boolean } | null): boolean {
-    return pub?.isPublic ?? false;
-  }
-
-  it("serves public publications", () => {
-    expect(shouldServe({ isPublic: true })).toBe(true);
-  });
-
-  it("rejects private publications", () => {
-    expect(shouldServe({ isPublic: false })).toBe(false);
-  });
-
-  it("rejects null (not found)", () => {
-    expect(shouldServe(null)).toBe(false);
-  });
-});
-
-describe("publish URL construction", () => {
+describe("create URL construction", () => {
   it("uses PUB_PUBLIC_URL when set", () => {
     const publicUrl = "https://pub.blue";
     const slug = "abc123";
@@ -302,5 +236,34 @@ describe("error message extraction", () => {
     const e: unknown = null;
     const message = e instanceof Error ? e.message : "Internal error";
     expect(message).toBe("Internal error");
+  });
+});
+
+describe("serve route cache headers", () => {
+  it("sets public cache control for served content", () => {
+    const headers = {
+      "Content-Type": MIME_TYPES.html,
+      "Cache-Control": "public, max-age=60",
+    };
+    expect(headers["Cache-Control"]).toBe("public, max-age=60");
+    expect(headers["Content-Type"]).toBe("text/html; charset=utf-8");
+  });
+});
+
+describe("serve route visibility guard", () => {
+  function shouldServe(pub: { isPublic: boolean } | null): boolean {
+    return pub?.isPublic ?? false;
+  }
+
+  it("serves public publications", () => {
+    expect(shouldServe({ isPublic: true })).toBe(true);
+  });
+
+  it("rejects private publications", () => {
+    expect(shouldServe({ isPublic: false })).toBe(false);
+  });
+
+  it("rejects null (not found)", () => {
+    expect(shouldServe(null)).toBe(false);
   });
 });
