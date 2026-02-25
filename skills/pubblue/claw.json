@@ -1,0 +1,9 @@
+{
+  "name": "pubblue",
+  "version": "2.0.0",
+  "description": "Publish files or generated content to the web via the pubblue CLI. Creates shareable URLs for HTML, CSS, JS, Markdown, and text.",
+  "author": "pub.blue",
+  "license": "MIT",
+  "tags": ["publishing", "web", "cli", "html", "markdown"],
+  "entry": "SKILL.md"
+}

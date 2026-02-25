@@ -1,0 +1,51 @@
+name: Publish Skills to ClawHub
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "skills/**"
+
+jobs:
+  publish-skills:
+    name: Publish Changed Skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install -g clawhub
+
+      - name: Authenticate
+        run: clawhub login --token "$CLAWHUB_TOKEN"
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+
+      - name: Publish changed skills
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- skills/ | cut -d'/' -f2 | sort -u)
+          if [ -z "$CHANGED" ]; then
+            echo "No skill changes detected."
+            exit 0
+          fi
+          for SKILL in $CHANGED; do
+            SKILL_DIR="skills/$SKILL"
+            if [ ! -f "$SKILL_DIR/claw.json" ]; then
+              echo "Skipping $SKILL (no claw.json)"
+              continue
+            fi
+            NAME=$(node -p "require('./$SKILL_DIR/claw.json').name")
+            VERSION=$(node -p "require('./$SKILL_DIR/claw.json').version")
+            echo "Publishing $NAME@$VERSION from $SKILL_DIR"
+            clawhub publish "./$SKILL_DIR" \
+              --slug "$NAME" \
+              --version "$VERSION" \
+              --changelog "Auto-publish from commit ${{ github.sha }}"
+          done
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
