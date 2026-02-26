@@ -6,18 +6,21 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { api } from "../../convex/_generated/api";
 
-const PREVIEW_STYLES = `<style>
+const siteUrl = import.meta.env.VITE_CONVEX_URL
+  ? import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")
+  : "";
+
+const TEXT_PREVIEW_STYLES = `<style>
 body{margin:0;padding:12px;font-family:system-ui,sans-serif;font-size:11px;line-height:1.5;overflow:hidden;color:#1a1a1a}
 pre{background:#f5f5f5;padding:.5em;overflow:hidden;border-radius:3px;font-size:10px}
 code{background:#f5f5f5;padding:.1em .3em;border-radius:2px;font-size:10px}
 img{max-width:100%;height:auto}
 </style>`;
 
-function buildSrcdoc(content: string, contentType: string) {
-  if (contentType === "html") return `${PREVIEW_STYLES}${content}`;
+function buildTextSrcdoc(content: string, contentType: string) {
   if (contentType === "text")
-    return `${PREVIEW_STYLES}<pre style="white-space:pre-wrap;font-size:10px">${escapeHtml(content)}</pre>`;
-  return `${PREVIEW_STYLES}<div>${escapeHtml(content)}</div>`;
+    return `${TEXT_PREVIEW_STYLES}<pre style="white-space:pre-wrap;font-size:10px">${escapeHtml(content)}</pre>`;
+  return `${TEXT_PREVIEW_STYLES}<div>${escapeHtml(content)}</div>`;
 }
 
 function escapeHtml(s: string) {
@@ -66,14 +69,25 @@ function ExplorePage() {
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
                 <div className="relative aspect-[1200/630] overflow-hidden bg-white">
-                  <iframe
-                    srcDoc={buildSrcdoc(pub.contentPreview, pub.contentType)}
-                    sandbox="allow-scripts"
-                    loading="lazy"
-                    tabIndex={-1}
-                    title={pub.title || pub.slug}
-                    className="h-full w-full border-none pointer-events-none"
-                  />
+                  {pub.contentType === "html" ? (
+                    <iframe
+                      src={`${siteUrl}/serve/${pub.slug}?preview=1`}
+                      sandbox="allow-scripts"
+                      loading="lazy"
+                      tabIndex={-1}
+                      title={pub.title || pub.slug}
+                      className="h-full w-full border-none pointer-events-none"
+                    />
+                  ) : (
+                    <iframe
+                      srcDoc={buildTextSrcdoc(pub.contentPreview, pub.contentType)}
+                      sandbox=""
+                      loading="lazy"
+                      tabIndex={-1}
+                      title={pub.title || pub.slug}
+                      className="h-full w-full border-none pointer-events-none"
+                    />
+                  )}
                 </div>
                 <CardContent className="px-4 py-3">
                   <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
@@ -101,7 +115,7 @@ function ExplorePage() {
           )}
           {status === "LoadingMore" && (
             <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
-              Loading more\u2026
+              Loading more…
             </div>
           )}
         </div>

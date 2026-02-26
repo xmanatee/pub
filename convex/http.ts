@@ -460,7 +460,10 @@ http.route({
       return new Response("Not found", { status: 404 });
     }
 
-    await ctx.runMutation(internal.analytics.recordView, { slug });
+    const isPreview = new URL(request.url).searchParams.get("preview") === "1";
+    if (!isPreview) {
+      await ctx.runMutation(internal.analytics.recordView, { slug });
+    }
 
     if (pub.contentType === "markdown") {
       const { marked } = await import("marked");
