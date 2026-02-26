@@ -21,7 +21,7 @@ function AuthCallbackPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-      <div className="text-muted-foreground text-sm">Completing sign-in...</div>
+      <div className="text-muted-foreground text-sm">Completing sign-in\u2026</div>
     </div>
   );
 }

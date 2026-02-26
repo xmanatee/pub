@@ -163,10 +163,17 @@
   * {
     @apply border-border;
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
   body {
     @apply bg-background text-foreground;
     font-family:
-      "Geist",
       "Inter",
       -apple-system,
       BlinkMacSystemFont,
@@ -183,9 +190,14 @@
     @media (hover: hover) {
       opacity: 0;
       transition: opacity 150ms;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
     }
   }
-  .group:hover .hover-reveal {
+  .group:hover .hover-reveal,
+  .group:focus-within .hover-reveal {
     @media (hover: hover) {
       opacity: 1;
     }

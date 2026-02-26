@@ -86,12 +86,18 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="hover:opacity-80 transition-opacity">
+          <Link to="/" aria-label="Pub home" className="hover:opacity-80 transition-opacity">
             <PubWordmark iconSize={22} className="text-foreground" />
           </Link>
-          <nav className="flex items-center gap-3">
+          <nav aria-label="Main navigation" className="flex items-center gap-3">
             <Button variant="ghost" size="sm" className="pointer-coarse:h-11" asChild>
               <Link to="/explore">Explore</Link>
             </Button>
@@ -112,11 +118,17 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main id="main" className="flex-1">
+        {children}
+      </main>
       <footer className="border-t border-border/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <PubWordmark iconSize={18} className="text-muted-foreground text-sm" />
+            <PubWordmark
+              iconSize={18}
+              className="text-muted-foreground text-sm"
+              aria-hidden="true"
+            />
             <p className="text-sm text-muted-foreground">
               by{" "}
               <a

@@ -257,7 +257,7 @@ describe("constants", () => {
   });
 
   it("limits are reasonable", () => {
-    expect(MAX_CONTENT_SIZE).toBe(1024 * 1024);
+    expect(MAX_CONTENT_SIZE).toBe(100 * 1024);
     expect(MAX_TITLE_LENGTH).toBe(256);
     expect(MAX_KEY_NAME_LENGTH).toBe(128);
     expect(MAX_PUBLIC_PUBS).toBe(20);

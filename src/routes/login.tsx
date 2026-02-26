@@ -87,7 +87,7 @@ function LoginPage() {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
         <div className="text-muted-foreground text-sm">
-          {telegramPending ? "Signing in via Telegram..." : "Loading..."}
+          {telegramPending ? "Signing in via Telegram\u2026" : "Loading\u2026"}
         </div>
       </div>
     );
@@ -113,7 +113,7 @@ function LoginPage() {
             }}
           >
             <GitHubIcon />
-            {pendingProvider === "github" ? "Connecting..." : "Continue with GitHub"}
+            {pendingProvider === "github" ? "Connecting\u2026" : "Continue with GitHub"}
           </Button>
           <div className="relative my-1">
             <div className="absolute inset-0 flex items-center">
@@ -132,7 +132,7 @@ function LoginPage() {
             }}
           >
             <GoogleIcon />
-            {pendingProvider === "google" ? "Connecting..." : "Continue with Google"}
+            {pendingProvider === "google" ? "Connecting\u2026" : "Continue with Google"}
           </Button>
           {authError ? <p className="text-center text-xs text-destructive">{authError}</p> : null}
           <p className="text-center text-xs text-muted-foreground pt-2">

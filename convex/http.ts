@@ -213,7 +213,7 @@ http.route({
       return errorResponse("Missing required field: content", 400);
     }
     if (body.content.length > MAX_CONTENT_SIZE) {
-      return errorResponse("Content exceeds maximum size of 1MB", 400);
+      return errorResponse("Content exceeds maximum size of 100KB", 400);
     }
     if (body.slug && !isValidSlug(body.slug)) {
       return errorResponse(INVALID_SLUG_MESSAGE, 400);
@@ -369,7 +369,7 @@ http.route({
     }
 
     if (body.content && body.content.length > MAX_CONTENT_SIZE) {
-      return errorResponse("Content exceeds maximum size of 1MB", 400);
+      return errorResponse("Content exceeds maximum size of 100KB", 400);
     }
     if (body.title && body.title.length > MAX_TITLE_LENGTH) {
       return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);

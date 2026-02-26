@@ -8,7 +8,7 @@ export const CONTENT_TYPE_VALIDATOR = v.union(
   v.literal("text"),
 );
 
-export const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
+export const MAX_CONTENT_SIZE = 100 * 1024; // 100KB
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBLIC_PUBS = 20;

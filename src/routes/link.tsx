@@ -76,7 +76,7 @@ function LinkPage() {
   if (authLoading || !tokenInfo) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <div className="text-muted-foreground text-sm">Loading...</div>
+        <div className="text-muted-foreground text-sm">Loading\u2026</div>
       </div>
     );
   }
@@ -84,7 +84,7 @@ function LinkPage() {
   if (isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <div className="text-muted-foreground text-sm">Linking accounts...</div>
+        <div className="text-muted-foreground text-sm">Linking accounts\u2026</div>
       </div>
     );
   }

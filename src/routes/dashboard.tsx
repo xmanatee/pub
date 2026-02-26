@@ -59,7 +59,7 @@ function Dashboard() {
   if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">Loading\u2026</div>
       </div>
     );
   }
@@ -83,7 +83,7 @@ function Dashboard() {
           }}
           className="text-muted-foreground"
         >
-          <LogOut className="h-4 w-4 mr-1" />
+          <LogOut className="h-4 w-4 mr-1" aria-hidden="true" />
           Sign out
         </Button>
       </div>
@@ -98,15 +98,15 @@ function Dashboard() {
       >
         <TabsList>
           <TabsTrigger value="publications">
-            <FileText className="h-4 w-4 mr-1.5" />
+            <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
             Publications
           </TabsTrigger>
           <TabsTrigger value="keys">
-            <Key className="h-4 w-4 mr-1.5" />
+            <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
             API Keys
           </TabsTrigger>
           <TabsTrigger value="account">
-            <User className="h-4 w-4 mr-1.5" />
+            <User className="h-4 w-4 mr-1.5" aria-hidden="true" />
             Account
           </TabsTrigger>
         </TabsList>
@@ -125,7 +125,15 @@ function Dashboard() {
   );
 }
 
-function CopyButton({ text, onCopy }: { text: string; onCopy?: () => void }) {
+function CopyButton({
+  text,
+  onCopy,
+  label = "Copy URL",
+}: {
+  text: string;
+  onCopy?: () => void;
+  label?: string;
+}) {
   const [copied, setCopied] = React.useState(false);
 
   return (
@@ -139,12 +147,12 @@ function CopyButton({ text, onCopy }: { text: string; onCopy?: () => void }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      title="Copy URL"
+      aria-label={label}
     >
       {copied ? (
-        <Check className="h-3.5 w-3.5 text-emerald-500" />
+        <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
       ) : (
-        <Copy className="h-3.5 w-3.5" />
+        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
       )}
     </Button>
   );
@@ -174,7 +182,7 @@ function PublicationsTab() {
   const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
 
   if (status === "LoadingFirstPage") {
-    return <div className="text-muted-foreground py-8">Loading...</div>;
+    return <div className="text-muted-foreground py-8">Loading\u2026</div>;
   }
 
   if (publications.length === 0) {
@@ -182,7 +190,7 @@ function PublicationsTab() {
       <Card className="mt-4 border-border/50 border-dashed">
         <CardContent className="flex flex-col items-center py-16">
           <div className="rounded-full bg-muted p-4 mb-4">
-            <FileText className="h-8 w-8 text-muted-foreground" />
+            <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
           </div>
           <p className="font-medium mb-1">No publications yet</p>
           <p className="text-sm text-muted-foreground mb-6">
@@ -220,14 +228,16 @@ function PublicationsTab() {
                   variant="outline"
                   className="gap-1 text-orange-600 border-orange-600/20 text-xs"
                 >
-                  <Clock className="h-3 w-3" />
+                  <Clock className="h-3 w-3" aria-hidden="true" />
                   {formatRelativeTime(pub.expiresAt)}
                 </Badge>
               )}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
-              {viewCounts?.[pub.slug] !== undefined && <> &middot; {viewCounts[pub.slug]} views</>}
+              {viewCounts?.[pub.slug] !== undefined && (
+                <span className="tabular-nums"> &middot; {viewCounts[pub.slug]} views</span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5 ml-2 hover-reveal">
@@ -245,9 +255,9 @@ function PublicationsTab() {
                 href={`/p/${encodeURIComponent(pub.slug)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Open"
+                aria-label="Open in new tab"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             </Button>
             <Button
@@ -261,9 +271,13 @@ function PublicationsTab() {
                 });
                 toggleVisibility({ id: pub._id });
               }}
-              title={pub.isPublic ? "Make private" : "Make public"}
+              aria-label={pub.isPublic ? "Make private" : "Make public"}
             >
-              {pub.isPublic ? <Lock className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
+              {pub.isPublic ? (
+                <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -278,9 +292,9 @@ function PublicationsTab() {
                   deletePub({ id: pub._id });
                 }
               }}
-              title="Delete"
+              aria-label="Delete publication"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -294,7 +308,7 @@ function PublicationsTab() {
         </div>
       )}
       {status === "LoadingMore" && (
-        <div className="text-center pt-4 text-muted-foreground text-sm">Loading more...</div>
+        <div className="text-center pt-4 text-muted-foreground text-sm">Loading more\u2026</div>
       )}
     </div>
   );
@@ -338,14 +352,19 @@ function ApiKeysTab() {
   return (
     <div className="mt-4 space-y-4">
       <form onSubmit={handleCreate} className="flex gap-2">
+        <label htmlFor="api-key-name" className="sr-only">
+          API key name
+        </label>
         <Input
+          id="api-key-name"
           placeholder="Key name (e.g. my-agent)"
           value={newKeyName}
           onChange={(e) => setNewKeyName(e.target.value)}
           className="flex-1"
+          autoComplete="off"
         />
         <Button type="submit" disabled={loading || !newKeyName.trim()} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
+          <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
           Create key
         </Button>
       </form>
@@ -362,7 +381,11 @@ function ApiKeysTab() {
               <code className="text-sm bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1.5 rounded flex-1 break-all font-mono">
                 {createdKey}
               </code>
-              <CopyButton text={createdKey} onCopy={() => trackApiKeyCopied()} />
+              <CopyButton
+                text={createdKey}
+                label="Copy API key"
+                onCopy={() => trackApiKeyCopied()}
+              />
             </div>
             <Button
               variant="link"
@@ -378,20 +401,20 @@ function ApiKeysTab() {
 
       {rssUrl && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border border-border/50 px-4 py-2">
-          <Rss className="h-4 w-4 text-orange-500 shrink-0" />
+          <Rss className="h-4 w-4 text-orange-500 shrink-0" aria-hidden="true" />
           <span>RSS feed:</span>
           <code className="text-xs font-mono truncate flex-1">{rssUrl}</code>
-          <CopyButton text={rssUrl} />
+          <CopyButton text={rssUrl} label="Copy RSS URL" />
         </div>
       )}
 
       {!keys ? (
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">Loading\u2026</div>
       ) : keys.length === 0 ? (
         <Card className="border-border/50 border-dashed">
           <CardContent className="flex flex-col items-center py-16">
             <div className="rounded-full bg-muted p-4 mb-4">
-              <Key className="h-8 w-8 text-muted-foreground" />
+              <Key className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="font-medium mb-1">No API keys yet</p>
             <p className="text-sm text-muted-foreground">
@@ -419,9 +442,9 @@ function ApiKeysTab() {
                 size="icon"
                 className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive hover-reveal"
                 onClick={() => handleDelete(k._id)}
-                title="Delete key"
+                aria-label="Delete key"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             </div>
           ))}

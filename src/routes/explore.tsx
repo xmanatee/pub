@@ -7,7 +7,6 @@ import { Card, CardContent } from "~/components/ui/card";
 import { api } from "../../convex/_generated/api";
 
 const PREVIEW_STYLES = `<style>
-*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 body{margin:0;padding:12px;font-family:system-ui,sans-serif;font-size:11px;line-height:1.5;overflow:hidden;color:#1a1a1a}
 pre{background:#f5f5f5;padding:.5em;overflow:hidden;border-radius:3px;font-size:10px}
 code{background:#f5f5f5;padding:.1em .3em;border-radius:2px;font-size:10px}
@@ -34,10 +33,10 @@ function ExplorePage() {
     results: publications,
     status,
     loadMore,
-  } = usePaginatedQuery(api.publications.listPublic, {}, { initialNumItems: 25 });
+  } = usePaginatedQuery(api.publications.listPublic, {}, { initialNumItems: 12 });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Explore</h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -46,14 +45,14 @@ function ExplorePage() {
       </div>
 
       {status === "LoadingFirstPage" && (
-        <div className="text-muted-foreground py-8">Loading...</div>
+        <div className="text-muted-foreground py-8">Loading\u2026</div>
       )}
 
       {status !== "LoadingFirstPage" && publications.length === 0 && (
         <Card className="border-border/50 border-dashed">
           <CardContent className="flex flex-col items-center py-16">
             <div className="rounded-full bg-muted p-4 mb-4">
-              <FileText className="h-8 w-8 text-muted-foreground" />
+              <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="font-medium mb-1">No public publications yet</p>
             <p className="text-sm text-muted-foreground">Be the first to publish something!</p>
@@ -62,15 +61,16 @@ function ExplorePage() {
       )}
 
       {publications.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {publications.map((pub) => (
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
                 <div className="relative aspect-[1200/630] overflow-hidden bg-white">
                   <iframe
                     srcDoc={buildSrcdoc(pub.contentPreview, pub.contentType)}
-                    sandbox=""
+                    sandbox="allow-scripts"
                     loading="lazy"
+                    tabIndex={-1}
                     title={pub.title || pub.slug}
                     className="h-full w-full border-none pointer-events-none"
                   />
@@ -94,14 +94,14 @@ function ExplorePage() {
 
           {status === "CanLoadMore" && (
             <div className="col-span-full text-center pt-4">
-              <Button variant="outline" size="sm" onClick={() => loadMore(25)}>
+              <Button variant="outline" size="sm" onClick={() => loadMore(12)}>
                 Load more
               </Button>
             </div>
           )}
           {status === "LoadingMore" && (
             <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
-              Loading more...
+              Loading more\u2026
             </div>
           )}
         </div>

@@ -26,18 +26,18 @@ function FullScreenPublication() {
 
   if (publication === undefined) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
-        <div className="text-gray-400 text-sm">Loading...</div>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background">
+        <div className="text-muted-foreground text-sm">Loading\u2026</div>
       </div>
     );
   }
 
   if (publication === null) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white gap-4">
-        <h1 className="text-xl font-bold text-gray-900">Not found</h1>
-        <p className="text-gray-500">This publication doesn't exist or is not public.</p>
-        <Link to="/" className="text-blue-600 hover:underline text-sm">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background gap-4">
+        <h1 className="text-xl font-bold text-foreground">Not found</h1>
+        <p className="text-muted-foreground">This publication doesn't exist or is not public.</p>
+        <Link to="/" className="text-primary hover:underline text-sm">
           Go to pub.blue
         </Link>
       </div>
@@ -57,8 +57,8 @@ function FullScreenContent({ content, contentType }: { content: string; contentT
       return <FullScreenMarkdown content={content} />;
     default:
       return (
-        <div className="fixed inset-0 z-[9999] overflow-auto bg-white">
-          <pre className="p-6 text-sm whitespace-pre-wrap font-mono text-gray-900">{content}</pre>
+        <div className="fixed inset-0 z-[9999] overflow-auto bg-background">
+          <pre className="p-6 text-sm whitespace-pre-wrap font-mono text-foreground">{content}</pre>
         </div>
       );
   }
@@ -100,9 +100,9 @@ function FullScreenMarkdown({ content }: { content: string }) {
   }, [content]);
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-auto bg-white">
+    <div className="fixed inset-0 z-[9999] overflow-auto bg-background">
       <div
-        className="max-w-[800px] mx-auto px-8 py-12 prose prose-sm"
+        className="max-w-[800px] mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

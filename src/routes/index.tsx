@@ -45,11 +45,11 @@ function HeroSection() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
           <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs font-medium gap-1.5">
-            <Zap className="h-3 w-3" />
+            <Zap className="h-3 w-3" aria-hidden="true" />
             Built for developers and AI agents
           </Badge>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.05] mb-6">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.05] mb-6 text-balance">
             Publish content.
             <br />
             <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
@@ -71,7 +71,7 @@ function HeroSection() {
             >
               <Link to="/login">
                 Start publishing
-                <ArrowRight className="ml-1 h-4 w-4" />
+                <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
               </Link>
             </Button>
             <Button
@@ -175,7 +175,7 @@ function FeaturesSection() {
               className="group rounded-xl border border-border/50 bg-card p-6 transition-colors hover:border-primary/20 hover:bg-accent/50"
             >
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <feature.icon className="h-5 w-5 text-primary" />
+                <feature.icon className="h-5 w-5 text-primary" aria-hidden="true" />
               </div>
               <h3 className="text-base font-semibold mb-2">{feature.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
@@ -249,7 +249,7 @@ function CodeSection() {
             className="shadow-2xl shadow-primary/5"
             headerRight={
               <div className="ml-auto flex items-center gap-1.5 text-white/40">
-                <Terminal className="h-3.5 w-3.5" />
+                <Terminal className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="text-xs font-mono">terminal</span>
               </div>
             }
@@ -305,7 +305,7 @@ function CtaSection() {
         >
           <Link to="/login">
             Get started free
-            <ArrowRight className="ml-1 h-4 w-4" />
+            <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
           </Link>
         </Button>
       </div>

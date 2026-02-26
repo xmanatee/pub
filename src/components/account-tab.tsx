@@ -31,7 +31,7 @@ export function AccountTab() {
   }
 
   if (!providers) {
-    return <div className="text-muted-foreground py-8">Loading...</div>;
+    return <div className="text-muted-foreground py-8">Loading\u2026</div>;
   }
 
   const hasGithub = providers.includes("github");
@@ -47,7 +47,7 @@ export function AccountTab() {
         <CardContent className="space-y-2">
           {providers.map((provider: string) => (
             <div key={provider} className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-500" />
+              <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />
               <span className="text-sm">{PROVIDER_LABELS[provider] ?? provider}</span>
               <Badge variant="secondary" className="text-xs">
                 Connected
@@ -77,14 +77,14 @@ export function AccountTab() {
                   size="sm"
                   onClick={() => window.Telegram?.WebApp?.openLink(linkUrl)}
                 >
-                  <ExternalLink className="h-4 w-4 mr-1.5" />
+                  <ExternalLink className="h-4 w-4 mr-1.5" aria-hidden="true" />
                   Open link page
                 </Button>
               </div>
             ) : (
               <Button variant="outline" size="sm" disabled={loading} onClick={handleCreateLink}>
-                <Link2 className="h-4 w-4 mr-1.5" />
-                {loading ? "Generating..." : "Generate link"}
+                <Link2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                {loading ? "Generating\u2026" : "Generate link"}
               </Button>
             )}
           </CardContent>
