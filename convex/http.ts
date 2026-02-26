@@ -170,6 +170,37 @@ function buildOgTags(pub: { title?: string; slug: string }): string {
   ].join("\n  ");
 }
 
+const OG_TYPE_COLORS: Record<string, string> = {
+  html: "#3b82f6",
+  markdown: "#8b5cf6",
+  text: "#6b7280",
+};
+
+export function getOgCardData(
+  pub: { title?: string; slug: string; contentType: string; isPublic: boolean } | null,
+  slug: string,
+) {
+  if (!pub || !pub.isPublic) {
+    return {
+      title: "pub.blue publication",
+      contentType: "text",
+      typeColor: OG_TYPE_COLORS.text,
+      badgeColor: "#3b82f6",
+      badgeText: "PUB.BLUE",
+      slugLabel: "",
+    };
+  }
+
+  return {
+    title: pub.title || pub.slug || slug,
+    contentType: pub.contentType,
+    typeColor: OG_TYPE_COLORS[pub.contentType] || OG_TYPE_COLORS.text,
+    badgeColor: "#10b981",
+    badgeText: "PUBLIC",
+    slugLabel: `/${slug}`,
+  };
+}
+
 const corsPreflightHandler = httpAction(async () => {
   return new Response(null, { status: 204, headers: corsHeaders() });
 });
@@ -523,18 +554,7 @@ http.route({
     if (slug instanceof Response) return slug;
 
     const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
-    const title = pub?.title || pub?.slug || slug;
-    const contentType = pub?.contentType || "text";
-    const isPublic = pub?.isPublic ?? false;
-
-    const badgeColor = isPublic ? "#10b981" : "#f59e0b";
-    const badgeText = isPublic ? "PUBLIC" : "PRIVATE";
-    const typeColors: Record<string, string> = {
-      html: "#3b82f6",
-      markdown: "#8b5cf6",
-      text: "#6b7280",
-    };
-    const typeColor = typeColors[contentType] || "#6b7280";
+    const og = getOgCardData(pub, slug);
 
     const svg = `<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -546,13 +566,13 @@ http.route({
   <rect width="1200" height="630" fill="url(#bg)"/>
   <circle cx="1100" cy="100" r="200" fill="#3b82f6" opacity="0.08"/>
   <circle cx="100" cy="530" r="150" fill="#8b5cf6" opacity="0.06"/>
-  <text x="80" y="200" font-family="system-ui,sans-serif" font-size="64" font-weight="700" fill="#f8fafc">${escapeXml(truncate(title, 40))}</text>
-  <rect x="80" y="240" width="${contentType.length * 18 + 32}" height="40" rx="8" fill="${typeColor}" opacity="0.2"/>
-  <text x="96" y="268" font-family="system-ui,sans-serif" font-size="20" font-weight="600" fill="${typeColor}">${contentType.toUpperCase()}</text>
-  <rect x="${80 + contentType.length * 18 + 48}" y="240" width="${badgeText.length * 16 + 32}" height="40" rx="8" fill="${badgeColor}" opacity="0.2"/>
-  <text x="${96 + contentType.length * 18 + 48}" y="268" font-family="system-ui,sans-serif" font-size="20" font-weight="600" fill="${badgeColor}">${badgeText}</text>
+  <text x="80" y="200" font-family="system-ui,sans-serif" font-size="64" font-weight="700" fill="#f8fafc">${escapeXml(truncate(og.title, 40))}</text>
+  <rect x="80" y="240" width="${og.contentType.length * 18 + 32}" height="40" rx="8" fill="${og.typeColor}" opacity="0.2"/>
+  <text x="96" y="268" font-family="system-ui,sans-serif" font-size="20" font-weight="600" fill="${og.typeColor}">${og.contentType.toUpperCase()}</text>
+  <rect x="${80 + og.contentType.length * 18 + 48}" y="240" width="${og.badgeText.length * 16 + 32}" height="40" rx="8" fill="${og.badgeColor}" opacity="0.2"/>
+  <text x="${96 + og.contentType.length * 18 + 48}" y="268" font-family="system-ui,sans-serif" font-size="20" font-weight="600" fill="${og.badgeColor}">${og.badgeText}</text>
   <text x="80" y="540" font-family="system-ui,sans-serif" font-size="32" font-weight="600" fill="#3b82f6">pub.blue</text>
-  <text x="260" y="540" font-family="system-ui,sans-serif" font-size="24" fill="#64748b">/${escapeXml(slug)}</text>
+  <text x="260" y="540" font-family="system-ui,sans-serif" font-size="24" fill="#64748b">${escapeXml(og.slugLabel)}</text>
 </svg>`;
 
     return new Response(svg, {
@@ -576,13 +596,10 @@ http.route({
     const publicUrl = getPublicUrl();
     const siteUrl = process.env.CONVEX_SITE_URL ?? "";
 
-    const pubs = await ctx
-      .runQuery(internal.publications.listPublicByUserInternal, {
-        userId: userId as Id<"users">,
-        limit: 50,
-      })
-      .catch(() => null);
-    if (pubs === null) return errorResponse("Invalid user ID", 400);
+    const pubs = await ctx.runQuery(internal.publications.listPublicByUserInternal, {
+      userId,
+      limit: 50,
+    });
 
     const feed = new Feed({
       title: "pub.blue publications",

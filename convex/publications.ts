@@ -7,6 +7,29 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { CONTENT_TYPE_VALIDATOR, MAX_PRIVATE_PUBS, MAX_PUBLIC_PUBS } from "./utils";
 
+export function isVisibilityEscalation(
+  currentIsPublic: boolean,
+  nextIsPublic: boolean | undefined,
+): boolean {
+  return currentIsPublic === false && nextIsPublic === true;
+}
+
+export function buildPublicationPatch(fields: {
+  content?: string;
+  contentType?: "html" | "markdown" | "text";
+  title?: string;
+  isPublic?: boolean;
+  slug?: string;
+}) {
+  const patch: Record<string, unknown> = { updatedAt: Date.now() };
+  if (fields.content !== undefined) patch.content = fields.content;
+  if (fields.contentType !== undefined) patch.contentType = fields.contentType;
+  if (fields.title !== undefined) patch.title = fields.title;
+  if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
+  if (fields.slug !== undefined) patch.slug = fields.slug;
+  return patch;
+}
+
 async function countUserPubs(db: GenericDatabaseReader<DataModel>, userId: Id<"users">) {
   const pubs = await db
     .query("publications")
@@ -185,12 +208,23 @@ export const updatePublication = internalMutation({
     slug: v.optional(v.string()),
   },
   handler: async (ctx, { id, content, contentType, title, isPublic, slug }) => {
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (content !== undefined) patch.content = content;
-    if (contentType !== undefined) patch.contentType = contentType;
-    if (title !== undefined) patch.title = title;
-    if (isPublic !== undefined) patch.isPublic = isPublic;
-    if (slug !== undefined) patch.slug = slug;
+    const pub = await ctx.db.get(id);
+    if (!pub) throw new Error("Not found");
+
+    if (isVisibilityEscalation(pub.isPublic, isPublic)) {
+      const { publicCount } = await countUserPubs(ctx.db, pub.userId);
+      if (publicCount >= MAX_PUBLIC_PUBS) {
+        throw new Error(`Public publication limit reached (${MAX_PUBLIC_PUBS})`);
+      }
+    }
+
+    const patch = buildPublicationPatch({
+      content,
+      contentType,
+      title,
+      isPublic,
+      slug,
+    });
     await ctx.db.patch(id, patch);
   },
 });
@@ -259,11 +293,11 @@ export const listPublic = query({
 });
 
 export const listPublicByUserInternal = internalQuery({
-  args: { userId: v.id("users"), limit: v.optional(v.number()) },
+  args: { userId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { userId, limit }) => {
     const pubs = await ctx.db
       .query("publications")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
       .order("desc")
       .collect();
 

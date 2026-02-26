@@ -1,16 +1,30 @@
-import { miniApp } from "@telegram-apps/sdk-react";
 import { useEffect } from "react";
-import { IN_TELEGRAM } from "~/lib/telegram";
+import {
+  applyTelegramSafeAreaVars,
+  applyTelegramThemeClass,
+  getTelegramWebApp,
+  IN_TELEGRAM,
+} from "~/lib/telegram";
 
 export function useTelegramTheme(): void {
   useEffect(() => {
     if (!IN_TELEGRAM) return;
+    const webApp = getTelegramWebApp();
+    if (!webApp) return;
 
-    const apply = (isDark: boolean) => {
-      document.documentElement.classList.toggle("dark", isDark);
+    const apply = () => {
+      applyTelegramThemeClass();
+      applyTelegramSafeAreaVars();
     };
 
-    apply(miniApp.isDark());
-    return miniApp.isDark.sub((current) => apply(current));
+    apply();
+    if (!webApp.onEvent) return;
+    webApp.onEvent("themeChanged", apply);
+    webApp.onEvent("viewportChanged", apply);
+
+    return () => {
+      webApp.offEvent?.("themeChanged", apply);
+      webApp.offEvent?.("viewportChanged", apply);
+    };
   }, []);
 }

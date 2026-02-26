@@ -1,7 +1,6 @@
 import { useMatches, useNavigate, useRouter } from "@tanstack/react-router";
-import { backButton } from "@telegram-apps/sdk-react";
 import { useEffect } from "react";
-import { IN_TELEGRAM } from "~/lib/telegram";
+import { getTelegramWebApp, IN_TELEGRAM } from "~/lib/telegram";
 
 export function useTelegramBackButton(): void {
   const matches = useMatches();
@@ -9,8 +8,9 @@ export function useTelegramBackButton(): void {
   const router = useRouter();
 
   useEffect(() => {
-    if (!IN_TELEGRAM) return;
-    if (!backButton.show.isAvailable()) return;
+    const webApp = getTelegramWebApp();
+    const backButton = webApp?.BackButton;
+    if (!IN_TELEGRAM || !backButton) return;
 
     const isRoot = matches.length <= 2;
 
@@ -20,14 +20,17 @@ export function useTelegramBackButton(): void {
       backButton.show();
     }
 
-    const off = backButton.onClick(() => {
+    const handleBack = () => {
       if (window.history.length > 1) {
         router.history.back();
       } else {
         navigate({ to: "/" });
       }
-    });
+    };
+    backButton.onClick(handleBack);
 
-    return off;
+    return () => {
+      backButton.offClick(handleBack);
+    };
   }, [matches.length, navigate, router]);
 }

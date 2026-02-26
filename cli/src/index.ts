@@ -104,8 +104,7 @@ program
   .argument("[file]", "Path to the file (reads stdin if omitted)")
   .option("--slug <slug>", "Custom slug for the URL")
   .option("--title <title>", "Title for the publication")
-  .option("--public", "Make the publication public (default: private)")
-  .option("--private", "Make the publication private (this is the default)")
+  .option("--private", "Make the publication private (default)")
   .option("--expires <duration>", "Auto-delete after duration (e.g. 1h, 24h, 7d)")
   .action(
     async (
@@ -113,7 +112,6 @@ program
       opts: {
         slug?: string;
         title?: string;
-        public?: boolean;
         private?: boolean;
         expires?: string;
       },
@@ -136,7 +134,7 @@ program
         filename,
         title: opts.title,
         slug: opts.slug,
-        isPublic: opts.public ?? false,
+        isPublic: false,
         expiresIn: opts.expires,
       });
 
@@ -177,7 +175,6 @@ program
   .argument("<slug>", "Slug of the publication to update")
   .option("--file <file>", "New content from file")
   .option("--title <title>", "New title")
-  .option("--public", "Make the publication public")
   .option("--private", "Make the publication private")
   .option("--slug <newSlug>", "Rename the slug")
   .action(
@@ -186,7 +183,6 @@ program
       opts: {
         file?: string;
         title?: string;
-        public?: boolean;
         private?: boolean;
         slug?: string;
       },
@@ -202,8 +198,7 @@ program
       }
 
       let isPublic: boolean | undefined;
-      if (opts.public) isPublic = true;
-      else if (opts.private) isPublic = false;
+      if (opts.private) isPublic = false;
 
       const result = await client.update({
         slug,

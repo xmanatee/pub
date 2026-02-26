@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { trackPublicationViewed } from "~/lib/analytics";
 import { api } from "../../convex/_generated/api";
@@ -11,11 +11,13 @@ export const Route = createFileRoute("/p/$slug")({
 function FullScreenPublication() {
   const { slug } = Route.useParams();
   const publication = useQuery(api.publications.getBySlug, { slug });
-  const tracked = useRef(false);
+  const recordPublicView = useMutation(api.analytics.recordPublicView);
+  const trackedAnalytics = useRef(false);
+  const trackedViewCount = useRef(false);
 
   useEffect(() => {
-    if (publication && !tracked.current) {
-      tracked.current = true;
+    if (publication && !trackedAnalytics.current) {
+      trackedAnalytics.current = true;
       trackPublicationViewed({
         slug: publication.slug,
         contentType: publication.contentType,
@@ -23,6 +25,12 @@ function FullScreenPublication() {
       });
     }
   }, [publication]);
+
+  useEffect(() => {
+    if (!publication || !publication.isPublic || trackedViewCount.current) return;
+    trackedViewCount.current = true;
+    void recordPublicView({ slug: publication.slug });
+  }, [publication, recordPublicView]);
 
   if (publication === undefined) {
     return (

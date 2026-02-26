@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 describe("create command flag mapping", () => {
-  it("defaults to isPublic=false (private)", () => {
-    const publicFlag = undefined as boolean | undefined;
-    const isPublic = publicFlag ?? false;
-    expect(isPublic).toBe(false);
-  });
+  function mapCreateOptions(opts: { slug?: string; title?: string; expires?: string }) {
+    return {
+      ...opts,
+      isPublic: false,
+    };
+  }
 
-  it("maps --public flag to isPublic=true", () => {
-    const publicFlag = true;
-    const isPublic = publicFlag ?? false;
-    expect(isPublic).toBe(true);
+  it("always creates private publications", () => {
+    expect(mapCreateOptions({}).isPublic).toBe(false);
+    expect(mapCreateOptions({ slug: "a", title: "b", expires: "1h" }).isPublic).toBe(false);
   });
 });
 
@@ -33,15 +33,10 @@ describe("create command content resolution", () => {
 });
 
 describe("update command visibility flags", () => {
-  function resolveVisibility(opts: { public?: boolean; private?: boolean }): boolean | undefined {
-    if (opts.public) return true;
+  function resolveVisibility(opts: { private?: boolean }): boolean | undefined {
     if (opts.private) return false;
     return undefined;
   }
-
-  it("sets isPublic=true when --public", () => {
-    expect(resolveVisibility({ public: true })).toBe(true);
-  });
 
   it("sets isPublic=false when --private", () => {
     expect(resolveVisibility({ private: true })).toBe(false);

@@ -7,7 +7,7 @@ export default defineConfig({
   retries: 0,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -23,8 +23,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "npm run dev:web",
-    url: "http://localhost:3000",
+    command: "VITE_E2E_AUTH_BASE_URL=https://example.convex.cloud npm run dev:web",
+    url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

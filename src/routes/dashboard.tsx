@@ -46,18 +46,27 @@ export const Route = createFileRoute("/dashboard")({
 
 function Dashboard() {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const hasConfiguredConvex = Boolean(import.meta.env.VITE_CONVEX_URL);
+  const hasE2EFallback = Boolean(import.meta.env.VITE_E2E_AUTH_BASE_URL);
+  const effectiveIsLoading = hasConfiguredConvex ? isLoading : false;
+  const effectiveIsAuthenticated = hasConfiguredConvex ? isAuthenticated : false;
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    pushAuthDebug("dashboard_auth_state", { isLoading, isAuthenticated });
-    if (!isLoading && !isAuthenticated) {
+    pushAuthDebug("dashboard_auth_state", {
+      isLoading: effectiveIsLoading,
+      isAuthenticated: effectiveIsAuthenticated,
+      hasConfiguredConvex,
+      hasE2EFallback,
+    });
+    if (!effectiveIsLoading && !effectiveIsAuthenticated) {
       pushAuthDebug("dashboard_redirect_login", {});
       navigate({ to: "/login", replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [effectiveIsLoading, effectiveIsAuthenticated, hasConfiguredConvex, hasE2EFallback, navigate]);
 
-  if (isLoading || !isAuthenticated) {
+  if (effectiveIsLoading || !effectiveIsAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-muted-foreground">Loading\u2026</div>

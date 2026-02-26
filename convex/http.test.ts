@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { corsHeaders, errorResponse, extractSlugFromPath, getApiKey, jsonResponse } from "./http";
+import {
+  corsHeaders,
+  errorResponse,
+  extractSlugFromPath,
+  getApiKey,
+  getOgCardData,
+  jsonResponse,
+} from "./http";
 import { MIME_TYPES } from "./utils";
 
 describe("corsHeaders", () => {
@@ -114,5 +121,43 @@ describe("MIME types", () => {
 
   it("covers exactly the three content types", () => {
     expect(Object.keys(MIME_TYPES).sort()).toEqual(["html", "markdown", "text"]);
+  });
+});
+
+describe("getOgCardData", () => {
+  it("returns generic OG data for private or missing publications", () => {
+    expect(getOgCardData(null, "secret-slug")).toEqual({
+      title: "pub.blue publication",
+      contentType: "text",
+      typeColor: "#6b7280",
+      badgeColor: "#3b82f6",
+      badgeText: "PUB.BLUE",
+      slugLabel: "",
+    });
+
+    expect(
+      getOgCardData(
+        { title: "Secret", slug: "secret-slug", contentType: "markdown", isPublic: false },
+        "secret-slug",
+      ),
+    ).toEqual({
+      title: "pub.blue publication",
+      contentType: "text",
+      typeColor: "#6b7280",
+      badgeColor: "#3b82f6",
+      badgeText: "PUB.BLUE",
+      slugLabel: "",
+    });
+  });
+
+  it("returns publication details for public entries", () => {
+    const og = getOgCardData(
+      { title: "Hello", slug: "hello", contentType: "markdown", isPublic: true },
+      "hello",
+    );
+    expect(og.title).toBe("Hello");
+    expect(og.contentType).toBe("markdown");
+    expect(og.badgeText).toBe("PUBLIC");
+    expect(og.slugLabel).toBe("/hello");
   });
 });

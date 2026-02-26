@@ -1,25 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { buildPublicationPatch, isVisibilityEscalation } from "./publications";
 import { inferContentType } from "./utils";
 
 describe("update patch construction", () => {
-  function buildPatch(fields: {
-    content?: string;
-    contentType?: string;
-    title?: string;
-    isPublic?: boolean;
-    slug?: string;
-  }) {
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (fields.content !== undefined) patch.content = fields.content;
-    if (fields.contentType !== undefined) patch.contentType = fields.contentType;
-    if (fields.title !== undefined) patch.title = fields.title;
-    if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
-    if (fields.slug !== undefined) patch.slug = fields.slug;
-    return patch;
-  }
-
   it("includes only provided fields plus updatedAt", () => {
-    const patch = buildPatch({ content: "new" });
+    const patch = buildPublicationPatch({ content: "new" });
     expect(patch.content).toBe("new");
     expect(patch).toHaveProperty("updatedAt");
     expect(patch).not.toHaveProperty("title");
@@ -27,7 +12,7 @@ describe("update patch construction", () => {
   });
 
   it("includes all fields when all provided", () => {
-    const patch = buildPatch({
+    const patch = buildPublicationPatch({
       content: "c",
       contentType: "html",
       title: "t",
@@ -40,30 +25,21 @@ describe("update patch construction", () => {
   });
 
   it("includes slug for rename", () => {
-    const patch = buildPatch({ slug: "new-slug" });
+    const patch = buildPublicationPatch({ slug: "new-slug" });
     expect(patch.slug).toBe("new-slug");
   });
 });
 
-describe("private publication access control", () => {
-  function canAccess(pub: { isPublic: boolean; userId: string }, currentUserId: string | null) {
-    return pub.isPublic || (currentUserId !== null && pub.userId === currentUserId);
-  }
-
-  it("allows owner to see private publication", () => {
-    expect(canAccess({ isPublic: false, userId: "u1" }, "u1")).toBe(true);
+describe("visibility escalation guard", () => {
+  it("detects private to public changes", () => {
+    expect(isVisibilityEscalation(false, true)).toBe(true);
   });
 
-  it("denies non-owner from seeing private publication", () => {
-    expect(canAccess({ isPublic: false, userId: "u1" }, "u2")).toBe(false);
-  });
-
-  it("allows anyone to see public publication", () => {
-    expect(canAccess({ isPublic: true, userId: "u1" }, null)).toBe(true);
-  });
-
-  it("denies unauthenticated users from private publications", () => {
-    expect(canAccess({ isPublic: false, userId: "u1" }, null)).toBe(false);
+  it("does not flag unchanged or non-public transitions", () => {
+    expect(isVisibilityEscalation(true, true)).toBe(false);
+    expect(isVisibilityEscalation(true, false)).toBe(false);
+    expect(isVisibilityEscalation(false, false)).toBe(false);
+    expect(isVisibilityEscalation(false, undefined)).toBe(false);
   });
 });
 

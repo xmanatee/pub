@@ -1,7 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { ArrowRight, Bot, FileCode2, Globe, Link2, Shield, Terminal, Zap } from "lucide-react";
-import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
 import { TerminalPreview } from "~/components/terminal-preview";
 import { Badge } from "~/components/ui/badge";
@@ -13,14 +12,19 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
-  const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
 
-  React.useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate({ to: "/dashboard", replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-muted-foreground text-sm">Loading…</div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="flex flex-col">

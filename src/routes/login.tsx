@@ -16,6 +16,11 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const hasConfiguredConvex = Boolean(import.meta.env.VITE_CONVEX_URL);
+  const e2eAuthBaseUrl = import.meta.env.VITE_E2E_AUTH_BASE_URL;
+  const hasE2EFallback = Boolean(e2eAuthBaseUrl);
+  const effectiveIsLoading = hasConfiguredConvex ? isLoading : false;
+  const effectiveIsAuthenticated = hasConfiguredConvex ? isAuthenticated : false;
   const navigate = useNavigate();
   const isStartingSignInRef = React.useRef(false);
   const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);
@@ -24,6 +29,7 @@ function LoginPage() {
   const telegramAttemptedRef = React.useRef(false);
 
   React.useEffect(() => {
+    if (!hasConfiguredConvex) return;
     if (telegramAttemptedRef.current || isLoading || isAuthenticated) return;
 
     const initData = getTelegramInitData();
@@ -37,7 +43,7 @@ function LoginPage() {
       setTelegramPending(false);
       setAuthError("Telegram sign-in failed. Please try again.");
     });
-  }, [isLoading, isAuthenticated, signIn]);
+  }, [hasConfiguredConvex, isLoading, isAuthenticated, signIn]);
 
   const startOAuthSignIn = React.useCallback(
     async (provider: "github" | "google") => {
@@ -48,6 +54,13 @@ function LoginPage() {
       setPendingProvider(provider);
       trackSignInStarted(provider);
       pushAuthDebug("oauth_start", { provider, redirectTo: "/dashboard" });
+
+      if (!hasConfiguredConvex && hasE2EFallback && e2eAuthBaseUrl) {
+        const url = new URL(`/api/auth/signin/${provider}`, e2eAuthBaseUrl);
+        url.searchParams.set("redirectTo", "/dashboard");
+        window.location.assign(url.toString());
+        return;
+      }
 
       try {
         const result = await signIn(provider, { redirectTo: "/dashboard" });
@@ -72,18 +85,22 @@ function LoginPage() {
         setAuthError("Could not start sign-in. Please try again.");
       }
     },
-    [pendingProvider, signIn],
+    [hasConfiguredConvex, hasE2EFallback, pendingProvider, signIn],
   );
 
   React.useEffect(() => {
-    pushAuthDebug("login_auth_state", { isLoading, isAuthenticated });
-    if (!isLoading && isAuthenticated) {
+    pushAuthDebug("login_auth_state", {
+      isLoading: effectiveIsLoading,
+      isAuthenticated: effectiveIsAuthenticated,
+      hasConfiguredConvex,
+    });
+    if (!effectiveIsLoading && effectiveIsAuthenticated) {
       trackSignIn(telegramAttemptedRef.current ? "telegram" : "oauth");
       navigate({ to: "/dashboard", replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [effectiveIsAuthenticated, effectiveIsLoading, hasConfiguredConvex, navigate]);
 
-  if (isLoading || isAuthenticated || telegramPending) {
+  if (effectiveIsLoading || effectiveIsAuthenticated || telegramPending) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
         <div className="text-muted-foreground text-sm">
@@ -112,6 +129,22 @@ function LoginPage() {
               </p>
             )}
           </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasConfiguredConvex && !hasE2EFallback) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+        <Card className="w-full max-w-sm border-border/50">
+          <CardHeader className="text-center pb-2">
+            <div className="flex justify-center mb-4">
+              <PubLogo size={40} />
+            </div>
+            <CardTitle className="text-2xl">Configuration Required</CardTitle>
+            <CardDescription>Set `VITE_CONVEX_URL` to enable authentication.</CardDescription>
+          </CardHeader>
         </Card>
       </div>
     );
