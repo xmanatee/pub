@@ -252,7 +252,7 @@ export const listPublic = query({
         contentType: p.contentType,
         title: p.title,
         createdAt: p.createdAt,
-        contentPreview: p.content.slice(0, 2000),
+        contentPreview: p.contentType === "html" ? "" : p.content.slice(0, 2000),
       })),
     };
   },

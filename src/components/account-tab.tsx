@@ -4,7 +4,7 @@ import * as React from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { isTelegramMiniApp } from "~/lib/telegram";
+import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -18,7 +18,6 @@ export function AccountTab() {
   const createLinkToken = useMutation(api.linking.createLinkToken);
   const [linkUrl, setLinkUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const inTelegram = isTelegramMiniApp();
 
   async function handleCreateLink() {
     setLoading(true);
@@ -60,7 +59,7 @@ export function AccountTab() {
         </CardContent>
       </Card>
 
-      {inTelegram && (!hasGithub || !hasGoogle) && (
+      {IN_TELEGRAM && (!hasGithub || !hasGoogle) && (
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Link Another Account</CardTitle>
@@ -72,11 +71,7 @@ export function AccountTab() {
             {linkUrl ? (
               <div className="space-y-2">
                 <p className="text-sm">Open this link in a browser to complete linking:</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.Telegram?.WebApp?.openLink(linkUrl)}
-                >
+                <Button variant="outline" size="sm" onClick={() => telegramOpenLink(linkUrl)}>
                   <ExternalLink className="h-4 w-4 mr-1.5" aria-hidden="true" />
                   Open link page
                 </Button>
@@ -91,7 +86,7 @@ export function AccountTab() {
         </Card>
       )}
 
-      {!inTelegram && !hasTelegram && (
+      {!IN_TELEGRAM && !hasTelegram && (
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Link Telegram</CardTitle>

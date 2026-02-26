@@ -68,7 +68,7 @@ function ExplorePage() {
           {publications.map((pub) => (
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
-                <div className="relative aspect-[1200/630] overflow-hidden bg-white">
+                <div className="aspect-[1200/630] overflow-hidden bg-white">
                   {pub.contentType === "html" ? (
                     <iframe
                       src={`${siteUrl}/serve/${pub.slug}?preview=1`}

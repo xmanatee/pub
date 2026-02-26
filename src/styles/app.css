@@ -51,8 +51,15 @@
   --color-navy-light: var(--navy-light);
 }
 
+:root[style*="--tg-safe-area-inset"] {
+  --safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+  --safe-bottom: calc(var(--tg-safe-area-inset-bottom, 0px) + var(--tg-content-safe-area-inset-bottom, 0px));
+}
+
 /* Light mode — clean white with blue-tinted neutrals */
 :root {
+  --safe-top: 0px;
+  --safe-bottom: 0px;
   --radius: 0.625rem;
 
   --background: oklch(0.995 0.002 250);
@@ -160,6 +167,9 @@
 }
 
 @layer base {
+  html, body {
+    overscroll-behavior: contain;
+  }
   * {
     @apply border-border;
   }

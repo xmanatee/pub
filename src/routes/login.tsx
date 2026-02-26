@@ -7,7 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { getTelegramInitData } from "~/lib/telegram";
+import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -89,6 +89,30 @@ function LoginPage() {
         <div className="text-muted-foreground text-sm">
           {telegramPending ? "Signing in via Telegram\u2026" : "Loading\u2026"}
         </div>
+      </div>
+    );
+  }
+
+  if (IN_TELEGRAM) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+        <Card className="w-full max-w-sm border-border/50">
+          <CardHeader className="text-center pb-2">
+            <div className="flex justify-center mb-4">
+              <PubLogo size={40} />
+            </div>
+            <CardTitle className="text-2xl">Sign in to Pub</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {authError ? (
+              <p className="text-center text-sm text-destructive">{authError}</p>
+            ) : (
+              <p className="text-center text-sm text-muted-foreground">
+                Telegram sign-in failed. Please try reopening the app.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -8,6 +8,8 @@ import * as React from "react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { useTelegramBackButton } from "~/hooks/use-telegram-back-button";
+import { useTelegramTheme } from "~/hooks/use-telegram-theme";
 import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
@@ -59,6 +61,8 @@ function useIdentifyUser() {
 
 function RootComponent() {
   useIdentifyUser();
+  useTelegramBackButton();
+  useTelegramTheme();
 
   return (
     <PostHogProvider client={posthog}>
@@ -92,7 +96,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <header
+        style={{ paddingTop: "var(--safe-top)" }}
+        className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl"
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/" aria-label="Pub home" className="hover:opacity-80 transition-opacity">
             <PubWordmark iconSize={22} className="text-foreground" />
@@ -121,7 +128,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <main id="main" className="flex-1">
         {children}
       </main>
-      <footer className="border-t border-border/50">
+      <footer style={{ paddingBottom: "var(--safe-bottom)" }} className="border-t border-border/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <PubWordmark

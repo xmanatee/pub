@@ -36,6 +36,7 @@ import {
   trackVisibilityToggled,
 } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
+import { telegramConfirm } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -284,13 +285,14 @@ function PublicationsTab() {
               size="icon"
               className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive"
               onClick={() => {
-                if (confirm("Delete this publication?")) {
+                void telegramConfirm("Delete this publication?").then((ok) => {
+                  if (!ok) return;
                   trackPublicationDeleted({
                     slug: pub.slug,
                     contentType: pub.contentType,
                   });
                   deletePub({ id: pub._id });
-                }
+                });
               }}
               aria-label="Delete publication"
             >
@@ -338,7 +340,7 @@ function ApiKeysTab() {
   }
 
   async function handleDelete(id: Id<"apiKeys">) {
-    if (!confirm("Delete this API key? This cannot be undone.")) return;
+    if (!(await telegramConfirm("Delete this API key? This cannot be undone."))) return;
     const key = keys?.find((k) => k._id === id);
     if (key) trackApiKeyDeleted({ name: key.name });
     await removeKey({ id });

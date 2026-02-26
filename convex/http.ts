@@ -29,7 +29,6 @@ const HTML_CSP = [
   "default-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
-  "frame-ancestors 'none'",
   "img-src https: http: data:",
   "font-src https: http: data:",
   "media-src https: http: data:",
@@ -38,7 +37,7 @@ const HTML_CSP = [
   "connect-src https: http: wss:",
   "sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads",
 ].join("; ");
-const DEFAULT_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox";
+const DEFAULT_CSP = "default-src 'none'; sandbox";
 
 export function corsHeaders() {
   return {
