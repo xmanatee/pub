@@ -6,6 +6,10 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { api } from "../../convex/_generated/api";
 
+const siteUrl = import.meta.env.VITE_CONVEX_URL
+  ? import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")
+  : "";
+
 export const Route = createFileRoute("/explore")({
   component: ExplorePage,
 });
@@ -43,39 +47,45 @@ function ExplorePage() {
       )}
 
       {publications.length > 0 && (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {publications.map((pub) => (
-            <Link
-              key={pub.slug}
-              to="/p/$slug"
-              params={{ slug: pub.slug }}
-              className="group flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:border-primary/20"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+            <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
+              <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
+                <div className="aspect-[1200/630] overflow-hidden bg-muted">
+                  <img
+                    src={`${siteUrl}/og/${pub.slug}`}
+                    alt={pub.title || pub.slug}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                  />
+                </div>
+                <CardContent className="px-4 py-3">
+                  <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
                     {pub.title || pub.slug}
-                  </span>
-                  <Badge variant="secondary" className="text-xs">
-                    {pub.contentType}
-                  </Badge>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
-                </div>
-              </div>
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {pub.contentType}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(pub.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
           ))}
 
           {status === "CanLoadMore" && (
-            <div className="text-center pt-4">
+            <div className="col-span-full text-center pt-4">
               <Button variant="outline" size="sm" onClick={() => loadMore(25)}>
                 Load more
               </Button>
             </div>
           )}
           {status === "LoadingMore" && (
-            <div className="text-center pt-4 text-muted-foreground text-sm">Loading more...</div>
+            <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
+              Loading more...
+            </div>
           )}
         </div>
       )}
