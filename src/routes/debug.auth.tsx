@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -10,6 +10,11 @@ import {
 } from "~/lib/auth-debug";
 
 export const Route = createFileRoute("/debug/auth")({
+  beforeLoad: () => {
+    if (!import.meta.env.DEV) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: AuthDebugPage,
 });
 

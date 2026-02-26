@@ -23,36 +23,7 @@ export const getUserByApiKey = internalQuery({
 export const touchApiKey = internalMutation({
   args: { apiKeyId: v.id("apiKeys") },
   handler: async (ctx, { apiKeyId }) => {
-    const current = await ctx.db.get(apiKeyId);
-    if (!current) return;
     await ctx.db.patch(apiKeyId, { lastUsedAt: Date.now() });
-  },
-});
-
-export const migrateLegacyKeys = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const legacyKeys = await ctx.db
-      .query("apiKeys")
-      .filter((q) => q.eq(q.field("keyHash"), undefined))
-      .collect();
-
-    let migrated = 0;
-    let revoked = 0;
-
-    for (const record of legacyKeys) {
-      if (record.key && record.key.length > 0) {
-        const keyHash = await hashApiKey(record.key);
-        const keyPreview = keyPreviewFromKey(record.key);
-        await ctx.db.patch(record._id, { keyHash, keyPreview, key: "" });
-        migrated++;
-      } else {
-        await ctx.db.delete(record._id);
-        revoked++;
-      }
-    }
-
-    return { migrated, revoked, total: legacyKeys.length };
   },
 });
 
@@ -95,7 +66,7 @@ export const list = query({
     return keys.map((k) => ({
       _id: k._id,
       name: k.name,
-      keyPreview: k.keyPreview ?? (k.key ? keyPreviewFromKey(k.key) : "pub_****...****"),
+      keyPreview: k.keyPreview,
       createdAt: k.createdAt,
       lastUsedAt: k.lastUsedAt,
     }));

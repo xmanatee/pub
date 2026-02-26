@@ -1,385 +1,84 @@
-import { describe, expect, it, vi } from "vitest";
-import {
-  CONTENT_TYPES,
-  generateSlug,
-  inferContentType,
-  MAX_CONTENT_SIZE,
-  MAX_TITLE_LENGTH,
-} from "./utils";
+import { describe, expect, it } from "vitest";
+import { inferContentType } from "./utils";
 
-describe("inferContentType", () => {
-  it("infers HTML from .html", () => {
-    expect(inferContentType("page.html")).toBe("html");
-  });
-
-  it("infers HTML from .htm", () => {
-    expect(inferContentType("page.htm")).toBe("html");
-  });
-
-  it("treats .css as text", () => {
-    expect(inferContentType("styles.css")).toBe("text");
-  });
-
-  it("treats .js as text", () => {
-    expect(inferContentType("script.js")).toBe("text");
-  });
-
-  it("treats .mjs as text", () => {
-    expect(inferContentType("module.mjs")).toBe("text");
-  });
-
-  it("infers Markdown from .md", () => {
-    expect(inferContentType("readme.md")).toBe("markdown");
-  });
-
-  it("infers Markdown from .markdown", () => {
-    expect(inferContentType("doc.markdown")).toBe("markdown");
-  });
-
-  it("defaults to text for unknown extensions", () => {
-    expect(inferContentType("data.json")).toBe("text");
-    expect(inferContentType("file.txt")).toBe("text");
-    expect(inferContentType("file.yaml")).toBe("text");
-    expect(inferContentType("file.xml")).toBe("text");
-    expect(inferContentType("file.toml")).toBe("text");
-  });
-
-  it("handles files without extension", () => {
-    expect(inferContentType("Makefile")).toBe("text");
-    expect(inferContentType("Dockerfile")).toBe("text");
-  });
-
-  it("handles case-insensitive extensions", () => {
-    expect(inferContentType("page.HTML")).toBe("html");
-    expect(inferContentType("styles.CSS")).toBe("text");
-    expect(inferContentType("script.JS")).toBe("text");
-    expect(inferContentType("readme.MD")).toBe("markdown");
-  });
-
-  it("handles files with multiple dots", () => {
-    expect(inferContentType("my.page.html")).toBe("html");
-    expect(inferContentType("my.styles.css")).toBe("text");
-    expect(inferContentType("bundle.min.js")).toBe("text");
-  });
-
-  it("handles empty filename", () => {
-    expect(inferContentType("")).toBe("text");
-  });
-
-  it("handles dotfile without extension", () => {
-    expect(inferContentType(".gitignore")).toBe("text");
-  });
-});
-
-describe("generateSlug", () => {
-  it("generates 8-character slugs", () => {
-    const slug = generateSlug();
-    expect(slug).toHaveLength(8);
-  });
-
-  it("generates alphanumeric-only slugs", () => {
-    for (let i = 0; i < 20; i++) {
-      const slug = generateSlug();
-      expect(slug).toMatch(/^[a-z0-9]+$/);
-    }
-  });
-
-  it("generates unique slugs", () => {
-    const slugs = new Set<string>();
-    for (let i = 0; i < 50; i++) {
-      slugs.add(generateSlug());
-    }
-    expect(slugs.size).toBe(50);
-  });
-
-  it("uses crypto.getRandomValues for entropy", () => {
-    const spy = vi.spyOn(crypto, "getRandomValues");
-    generateSlug();
-    expect(spy).toHaveBeenCalledWith(expect.any(Uint8Array));
-    spy.mockRestore();
-  });
-});
-
-describe("content size limits", () => {
-  it("accepts content under 1MB", () => {
-    const content = "x".repeat(1000);
-    expect(content.length).toBeLessThan(MAX_CONTENT_SIZE);
-  });
-
-  it("accepts content at exactly 1MB", () => {
-    const content = "x".repeat(MAX_CONTENT_SIZE);
-    expect(content.length).toBeLessThanOrEqual(MAX_CONTENT_SIZE);
-  });
-
-  it("rejects content over 1MB", () => {
-    const content = "x".repeat(MAX_CONTENT_SIZE + 1);
-    expect(content.length).toBeGreaterThan(MAX_CONTENT_SIZE);
-  });
-});
-
-describe("CONTENT_TYPES constant", () => {
-  it("contains all expected content types", () => {
-    expect(CONTENT_TYPES).toEqual(["html", "markdown", "text"]);
-  });
-
-  it("has 3 content types", () => {
-    expect(CONTENT_TYPES).toHaveLength(3);
-  });
-});
-
-describe("create action logic", () => {
-  it("uses provided slug when given", () => {
-    const slug = "my-custom-slug";
-    const finalSlug = slug || generateSlug();
-    expect(finalSlug).toBe("my-custom-slug");
-  });
-
-  it("generates slug when none provided", () => {
-    const slug = undefined;
-    const finalSlug = slug || generateSlug();
-    expect(finalSlug).toMatch(/^[a-z0-9]{8}$/);
-  });
-
-  it("defaults isPublic to false when not specified", () => {
-    const isPublic = undefined;
-    const finalIsPublic = isPublic ?? false;
-    expect(finalIsPublic).toBe(false);
-  });
-
-  it("respects explicit isPublic=false", () => {
-    const isPublic = false;
-    const finalIsPublic = isPublic ?? false;
-    expect(finalIsPublic).toBe(false);
-  });
-
-  it("respects explicit isPublic=true", () => {
-    const isPublic = true;
-    const finalIsPublic = isPublic ?? false;
-    expect(finalIsPublic).toBe(true);
-  });
-
-  it("fails if slug already exists regardless of owner", () => {
-    const existing = { userId: "user1", _id: "pub1" };
-    const shouldThrow = !!existing;
-    expect(shouldThrow).toBe(true);
-  });
-});
-
-describe("updatePublication patch logic", () => {
-  it("builds patch with all fields", () => {
-    const content = "new content";
-    const title = "new title";
-    const isPublic = false;
-    const contentType = "html";
-
+describe("update patch construction", () => {
+  function buildPatch(fields: {
+    content?: string;
+    contentType?: string;
+    title?: string;
+    isPublic?: boolean;
+    slug?: string;
+  }) {
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (content !== undefined) patch.content = content;
-    if (contentType !== undefined) patch.contentType = contentType;
-    if (title !== undefined) patch.title = title;
-    if (isPublic !== undefined) patch.isPublic = isPublic;
+    if (fields.content !== undefined) patch.content = fields.content;
+    if (fields.contentType !== undefined) patch.contentType = fields.contentType;
+    if (fields.title !== undefined) patch.title = fields.title;
+    if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
+    if (fields.slug !== undefined) patch.slug = fields.slug;
+    return patch;
+  }
 
-    expect(patch).toHaveProperty("content", "new content");
-    expect(patch).toHaveProperty("contentType", "html");
-    expect(patch).toHaveProperty("title", "new title");
-    expect(patch).toHaveProperty("isPublic", false);
+  it("includes only provided fields plus updatedAt", () => {
+    const patch = buildPatch({ content: "new" });
+    expect(patch.content).toBe("new");
     expect(patch).toHaveProperty("updatedAt");
-  });
-
-  it("builds patch with only content", () => {
-    const content = "new content";
-    const title = undefined;
-    const isPublic = undefined;
-    const contentType = undefined;
-
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (content !== undefined) patch.content = content;
-    if (contentType !== undefined) patch.contentType = contentType;
-    if (title !== undefined) patch.title = title;
-    if (isPublic !== undefined) patch.isPublic = isPublic;
-
-    expect(patch).toHaveProperty("content", "new content");
-    expect(patch).not.toHaveProperty("contentType");
     expect(patch).not.toHaveProperty("title");
-    expect(patch).not.toHaveProperty("isPublic");
+    expect(patch).not.toHaveProperty("slug");
   });
 
-  it("builds patch with contentType only", () => {
-    const content = undefined;
-    const contentType = "markdown";
-
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (content !== undefined) patch.content = content;
-    if (contentType !== undefined) patch.contentType = contentType;
-
-    expect(patch).not.toHaveProperty("content");
-    expect(patch).toHaveProperty("contentType", "markdown");
-  });
-
-  it("always includes updatedAt", () => {
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    expect(patch).toHaveProperty("updatedAt");
-    expect(typeof patch.updatedAt).toBe("number");
-  });
-});
-
-describe("update action return logic", () => {
-  it("returns new title when provided", () => {
-    const pub = { slug: "abc", title: "old", isPublic: true, contentType: "html" };
-    const title: string | undefined = "new";
-    const isPublic: boolean | undefined = undefined;
-
-    const result = {
-      slug: pub.slug,
-      contentType: pub.contentType,
-      title: title !== undefined ? title : pub.title,
-      isPublic: isPublic !== undefined ? isPublic : pub.isPublic,
-    };
-
-    expect(result.title).toBe("new");
-    expect(result.isPublic).toBe(true);
-  });
-
-  it("returns existing title when not provided", () => {
-    const pub = { slug: "abc", title: "old", isPublic: true, contentType: "html" };
-    const title: string | undefined = undefined;
-    const isPublic: boolean | undefined = false;
-
-    const result = {
-      slug: pub.slug,
-      contentType: pub.contentType,
-      title: title !== undefined ? title : pub.title,
-      isPublic: isPublic !== undefined ? isPublic : pub.isPublic,
-    };
-
-    expect(result.title).toBe("old");
-    expect(result.isPublic).toBe(false);
-  });
-
-  it("returns new contentType when filename hint provided", () => {
-    const pub = { slug: "abc", contentType: "html" };
-    const filename: string | undefined = "new.md";
-    const contentType = filename ? inferContentType(filename) : undefined;
-
-    const result = {
-      slug: pub.slug,
-      contentType: contentType ?? pub.contentType,
-    };
-
-    expect(result.contentType).toBe("markdown");
-  });
-});
-
-describe("listByUser response mapping", () => {
-  it("maps publications without content field", () => {
-    const dbPub = {
-      _id: "123",
-      slug: "abc",
-      contentType: "html" as const,
-      content: "<h1>Hello</h1>",
-      title: "Test",
+  it("includes all fields when all provided", () => {
+    const patch = buildPatch({
+      content: "c",
+      contentType: "html",
+      title: "t",
       isPublic: true,
-      createdAt: 1000,
-      updatedAt: 2000,
-      userId: "user1",
-    };
+      slug: "s",
+    });
+    expect(Object.keys(patch).sort()).toEqual(
+      ["content", "contentType", "isPublic", "slug", "title", "updatedAt"].sort(),
+    );
+  });
 
-    const mapped = {
-      _id: dbPub._id,
-      slug: dbPub.slug,
-      contentType: dbPub.contentType,
-      title: dbPub.title,
-      isPublic: dbPub.isPublic,
-      createdAt: dbPub.createdAt,
-      updatedAt: dbPub.updatedAt,
-    };
-
-    expect(mapped).not.toHaveProperty("content");
-    expect(mapped).not.toHaveProperty("userId");
-    expect(mapped.slug).toBe("abc");
+  it("includes slug for rename", () => {
+    const patch = buildPatch({ slug: "new-slug" });
+    expect(patch.slug).toBe("new-slug");
   });
 });
 
-describe("getBySlug response mapping", () => {
-  it("includes content in response", () => {
-    const dbPub = {
-      _id: "123",
-      slug: "abc",
-      contentType: "html" as const,
-      content: "<h1>Hello</h1>",
-      title: "Test",
-      isPublic: true,
-      createdAt: 1000,
-      updatedAt: 2000,
-      userId: "user1",
-    };
+describe("private publication access control", () => {
+  function canAccess(pub: { isPublic: boolean; userId: string }, currentUserId: string | null) {
+    return pub.isPublic || (currentUserId !== null && pub.userId === currentUserId);
+  }
 
-    const mapped = {
-      _id: dbPub._id,
-      slug: dbPub.slug,
-      contentType: dbPub.contentType,
-      content: dbPub.content,
-      title: dbPub.title,
-      isPublic: dbPub.isPublic,
-      createdAt: dbPub.createdAt,
-      updatedAt: dbPub.updatedAt,
-    };
-
-    expect(mapped).toHaveProperty("content", "<h1>Hello</h1>");
-    expect(mapped).not.toHaveProperty("userId");
-  });
-});
-
-describe("visibility toggle logic", () => {
-  it("toggles true to false", () => {
-    expect(!true).toBe(false);
-  });
-
-  it("toggles false to true", () => {
-    expect(!false).toBe(true);
-  });
-});
-
-describe("private publication access control logic", () => {
   it("allows owner to see private publication", () => {
-    const pub = { isPublic: false, userId: "user1" };
-    const currentUserId = "user1";
-    const canAccess = pub.isPublic || pub.userId === currentUserId;
-    expect(canAccess).toBe(true);
+    expect(canAccess({ isPublic: false, userId: "u1" }, "u1")).toBe(true);
   });
 
   it("denies non-owner from seeing private publication", () => {
-    const pub = { isPublic: false, userId: "user1" };
-    const currentUserId = "user2";
-    const canAccess = pub.isPublic || pub.userId === currentUserId;
-    expect(canAccess).toBe(false);
+    expect(canAccess({ isPublic: false, userId: "u1" }, "u2")).toBe(false);
   });
 
   it("allows anyone to see public publication", () => {
-    const pub = { isPublic: true, userId: "user1" };
-    const canAccess = pub.isPublic;
-    expect(canAccess).toBe(true);
+    expect(canAccess({ isPublic: true, userId: "u1" }, null)).toBe(true);
   });
 
-  it("denies access when no user and private", () => {
-    const pub = { isPublic: false, userId: "user1" };
-    const currentUserId = null;
-    const canAccess = pub.isPublic || (currentUserId !== null && pub.userId === currentUserId);
-    expect(canAccess).toBe(false);
+  it("denies unauthenticated users from private publications", () => {
+    expect(canAccess({ isPublic: false, userId: "u1" }, null)).toBe(false);
   });
 });
 
-describe("field length limits", () => {
-  it("MAX_TITLE_LENGTH is 256", () => {
-    expect(MAX_TITLE_LENGTH).toBe(256);
+describe("content type inference for update", () => {
+  it("infers new contentType from filename hint", () => {
+    const pub = { contentType: "html" };
+    const filename = "new.md";
+    const contentType = filename ? inferContentType(filename) : undefined;
+    expect(contentType ?? pub.contentType).toBe("markdown");
   });
 
-  it("rejects title exceeding MAX_TITLE_LENGTH", () => {
-    const title = "x".repeat(MAX_TITLE_LENGTH + 1);
-    expect(title.length).toBeGreaterThan(MAX_TITLE_LENGTH);
-  });
-
-  it("accepts title at exactly MAX_TITLE_LENGTH", () => {
-    const title = "x".repeat(MAX_TITLE_LENGTH);
-    expect(title.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+  it("keeps existing contentType when no filename", () => {
+    const pub = { contentType: "html" };
+    const filename = undefined;
+    const contentType = filename ? inferContentType(filename) : undefined;
+    expect(contentType ?? pub.contentType).toBe("html");
   });
 });

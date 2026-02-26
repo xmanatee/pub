@@ -37,7 +37,6 @@ function Landing() {
 function HeroSection() {
   return (
     <section className="relative overflow-hidden">
-      {/* Gradient background */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/8 rounded-full blur-3xl" />
@@ -59,8 +58,8 @@ function HeroSection() {
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Push HTML, Markdown, CSS, or JS to the web in one command. Built for quick demos,
-            previews, and agent-generated content.
+            Push HTML, Markdown, or text to the web in one command. Built for quick demos, previews,
+            and agent-generated content.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -123,8 +122,7 @@ function FeaturesSection() {
     {
       icon: FileCode2,
       title: "Any static content",
-      description:
-        "HTML pages, CSS stylesheets, JavaScript files, Markdown documents, or plain text. Served with proper MIME types.",
+      description: "HTML pages, Markdown documents, or plain text. Served with proper MIME types.",
     },
     {
       icon: Zap,

@@ -92,6 +92,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <PubWordmark iconSize={22} className="text-foreground" />
           </Link>
           <nav className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/explore">Explore</Link>
+            </Button>
             {isLoading ? null : isAuthenticated ? (
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/dashboard">Dashboard</Link>

@@ -1,8 +1,9 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import {
   Check,
+  Clock,
   Copy,
   ExternalLink,
   FileText,
@@ -11,6 +12,7 @@ import {
   Lock,
   LogOut,
   Plus,
+  Rss,
   Trash2,
   User,
 } from "lucide-react";
@@ -148,12 +150,30 @@ function CopyButton({ text, onCopy }: { text: string; onCopy?: () => void }) {
   );
 }
 
+function formatRelativeTime(timestamp: number): string {
+  const diff = timestamp - Date.now();
+  if (diff <= 0) return "expired";
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d`;
+  if (hours > 0) return `${hours}h`;
+  const minutes = Math.floor(diff / (1000 * 60));
+  return `${minutes}m`;
+}
+
 function PublicationsTab() {
-  const publications = useQuery(api.publications.listByUser);
+  const {
+    results: publications,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.publications.listByUser, {}, { initialNumItems: 25 });
   const toggleVisibility = useMutation(api.publications.toggleVisibility);
   const deletePub = useMutation(api.publications.deleteByUser);
 
-  if (!publications) {
+  const slugs = publications?.map((p) => p.slug) ?? [];
+  const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
+
+  if (status === "LoadingFirstPage") {
     return <div className="text-muted-foreground py-8">Loading...</div>;
   }
 
@@ -195,9 +215,19 @@ function PublicationsTab() {
                 {pub.contentType}
               </Badge>
               <VisibilityBadge isPublic={pub.isPublic} />
+              {pub.expiresAt && (
+                <Badge
+                  variant="outline"
+                  className="gap-1 text-orange-600 border-orange-600/20 text-xs"
+                >
+                  <Clock className="h-3 w-3" />
+                  {formatRelativeTime(pub.expiresAt)}
+                </Badge>
+              )}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
+              {viewCounts?.[pub.slug] !== undefined && <> &middot; {viewCounts[pub.slug]} views</>}
             </div>
           </div>
           <div className="flex items-center gap-0.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -250,6 +280,17 @@ function PublicationsTab() {
           </div>
         </div>
       ))}
+
+      {status === "CanLoadMore" && (
+        <div className="text-center pt-4">
+          <Button variant="outline" size="sm" onClick={() => loadMore(25)}>
+            Load more
+          </Button>
+        </div>
+      )}
+      {status === "LoadingMore" && (
+        <div className="text-center pt-4 text-muted-foreground text-sm">Loading more...</div>
+      )}
     </div>
   );
 }
@@ -261,6 +302,7 @@ function ApiKeysTab() {
   const [newKeyName, setNewKeyName] = React.useState("");
   const [createdKey, setCreatedKey] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const user = useQuery(api.users.currentUser);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -282,6 +324,11 @@ function ApiKeysTab() {
     if (key) trackApiKeyDeleted({ name: key.name });
     await removeKey({ id });
   }
+
+  const siteUrl = import.meta.env.VITE_CONVEX_URL
+    ? import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")
+    : "";
+  const rssUrl = user?._id ? `${siteUrl}/rss/${user._id}` : null;
 
   return (
     <div className="mt-4 space-y-4">
@@ -322,6 +369,15 @@ function ApiKeysTab() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {rssUrl && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border border-border/50 px-4 py-2">
+          <Rss className="h-4 w-4 text-orange-500 shrink-0" />
+          <span>RSS feed:</span>
+          <code className="text-xs font-mono truncate flex-1">{rssUrl}</code>
+          <CopyButton text={rssUrl} />
+        </div>
       )}
 
       {!keys ? (

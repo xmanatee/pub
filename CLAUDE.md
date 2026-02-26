@@ -28,41 +28,52 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Frontend (`src/`)
 - **Routing**: TanStack Router file-based routes in `src/routes/`
-  - `__root.tsx` — root layout (header, footer, providers)
+  - `__root.tsx` — root layout (header with Explore link, footer, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
-  - `dashboard.tsx` — protected; lists publications + API keys + Telegram linking
+  - `dashboard.tsx` — protected; paginated publications (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
+  - `explore.tsx` — public discovery feed; paginated list of all public publications
   - `p.$slug.tsx` — full-screen content viewer (no app chrome, auth-aware for private pubs)
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
-  - `debug.auth.tsx` — Auth debug page (dev only)
+  - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
 - **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
 - **Path alias**: `~/*` maps to `src/*`
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `publications`, `apiKeys`, plus auth tables from `@convex-dev/auth`
-- **Publications** (`publications.ts`): CRUD actions (`create`, `read`, `list`, `update`, `delete_`) + web dashboard queries/mutations
-- **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`)
-- **HTTP routes** (`http.ts`): REST API with slug-in-path (`POST /api/v1/publications`, `GET/PATCH/DELETE /api/v1/publications/:slug`) and content serving at `/serve/:slug`
+- **Schema** (`schema.ts`): `publications` (with `expiresAt`, `by_public` index), `apiKeys`, `linkTokens`, plus auth tables
+- **Publications** (`publications.ts`): CRUD + pagination (`listByUser`, `listPublic`), pub limits (20 public / 100 private), expiring pubs via scheduler, slug rename
+- **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
+- **HTTP routes** (`http.ts`): REST API with rate limiting, slug rename, expiry, pagination; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
+- **Analytics** (`analytics.ts`): view counting via `@convex-dev/sharded-counter`
+- **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
-- **Default visibility**: publications are **private by default** when created via API
+- **Components** (`convex.config.ts`): registers `rateLimiter` and `shardedCounter` components
+- **Default visibility**: publications are **private by default**
+
+### Publication Limits
+- **Public**: max 20 per user (enforced on create and toggle)
+- **Private**: max 100 per user (enforced on create)
+- These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
-- **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
+- **`pubblue`** v0.3.0 — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - Commands: `configure`, `create`, `get`, `list`, `update`, `delete`
-- `create [file]` reads from file (content type inferred from extension) or stdin (defaults to text); supports `--public`/`--private`
-- `update <slug>` supports `--file` for new content, `--title`, `--public`/`--private` for metadata
+- `create [file]` — supports `--public`/`--private`, `--expires <duration>` (e.g. `1h`, `24h`, `7d`)
+- `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
+- `list` — auto-paginates through all pages
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
-- API client (`PubApiClient`) in `cli/src/lib/api.ts`
 
 ### Content Serving
 - **`/p/:slug`** — SPA route → full-screen renderer (no app chrome), auth-aware via `getBySlug` query
-- **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** (raw response, no auth)
+- **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** with OG meta tags and view tracking
+- **`/og/:slug`** — Dynamic SVG Open Graph image for social previews
+- **`/rss/:userId`** — RSS 2.0 feed of user's public publications
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)

@@ -1,0 +1,84 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { usePaginatedQuery } from "convex/react";
+import { FileText } from "lucide-react";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
+import { api } from "../../convex/_generated/api";
+
+export const Route = createFileRoute("/explore")({
+  component: ExplorePage,
+});
+
+function ExplorePage() {
+  const {
+    results: publications,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.publications.listPublic, {}, { initialNumItems: 25 });
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight">Explore</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Browse public publications from the community
+        </p>
+      </div>
+
+      {status === "LoadingFirstPage" && (
+        <div className="text-muted-foreground py-8">Loading...</div>
+      )}
+
+      {status !== "LoadingFirstPage" && publications.length === 0 && (
+        <Card className="border-border/50 border-dashed">
+          <CardContent className="flex flex-col items-center py-16">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <FileText className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="font-medium mb-1">No public publications yet</p>
+            <p className="text-sm text-muted-foreground">Be the first to publish something!</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {publications.length > 0 && (
+        <div className="space-y-2">
+          {publications.map((pub) => (
+            <Link
+              key={pub.slug}
+              to="/p/$slug"
+              params={{ slug: pub.slug }}
+              className="group flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:border-primary/20"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+                    {pub.title || pub.slug}
+                  </span>
+                  <Badge variant="secondary" className="text-xs">
+                    {pub.contentType}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            </Link>
+          ))}
+
+          {status === "CanLoadMore" && (
+            <div className="text-center pt-4">
+              <Button variant="outline" size="sm" onClick={() => loadMore(25)}>
+                Load more
+              </Button>
+            </div>
+          )}
+          {status === "LoadingMore" && (
+            <div className="text-center pt-4 text-muted-foreground text-sm">Loading more...</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

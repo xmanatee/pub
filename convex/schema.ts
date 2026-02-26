@@ -1,37 +1,36 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { CONTENT_TYPE_VALIDATOR } from "./utils";
 
 export default defineSchema({
   ...authTables,
 
   apiKeys: defineTable({
     userId: v.id("users"),
-    // New records store only a one-way hash of the API key.
-    keyHash: v.optional(v.string()),
-    keyPreview: v.optional(v.string()),
-    // Legacy plaintext key retained only for backward compatibility.
-    key: v.optional(v.string()),
+    keyHash: v.string(),
+    keyPreview: v.string(),
     name: v.string(),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
   })
     .index("by_key_hash", ["keyHash"])
-    .index("by_key", ["key"])
     .index("by_user", ["userId"]),
 
   publications: defineTable({
     userId: v.id("users"),
     slug: v.string(),
-    contentType: v.union(v.literal("html"), v.literal("markdown"), v.literal("text")),
+    contentType: CONTENT_TYPE_VALIDATOR,
     content: v.string(),
     title: v.optional(v.string()),
     isPublic: v.boolean(),
+    expiresAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_slug", ["slug"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_public", ["isPublic", "createdAt"]),
 
   linkTokens: defineTable({
     userId: v.id("users"),

@@ -79,7 +79,7 @@ function readFile(filePath: string): { content: string; basename: string } {
 program
   .name("pubblue")
   .description("Publish static content and get shareable URLs")
-  .version("0.2.0");
+  .version("0.3.0");
 
 program
   .command("configure")
@@ -106,6 +106,7 @@ program
   .option("--title <title>", "Title for the publication")
   .option("--public", "Make the publication public (default: private)")
   .option("--private", "Make the publication private (this is the default)")
+  .option("--expires <duration>", "Auto-delete after duration (e.g. 1h, 24h, 7d)")
   .action(
     async (
       fileArg: string | undefined,
@@ -114,6 +115,7 @@ program
         title?: string;
         public?: boolean;
         private?: boolean;
+        expires?: string;
       },
     ) => {
       const client = createClient();
@@ -135,9 +137,13 @@ program
         title: opts.title,
         slug: opts.slug,
         isPublic: opts.public ?? false,
+        expiresIn: opts.expires,
       });
 
       console.log(`Created: ${result.url}`);
+      if (result.expiresAt) {
+        console.log(`  Expires: ${new Date(result.expiresAt).toISOString()}`);
+      }
     },
   );
 
@@ -159,6 +165,7 @@ program
     console.log(`  Type:    ${pub.contentType}`);
     if (pub.title) console.log(`  Title:   ${pub.title}`);
     console.log(`  Status:  ${formatVisibility(pub.isPublic)}`);
+    if (pub.expiresAt) console.log(`  Expires: ${new Date(pub.expiresAt).toISOString()}`);
     console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
     console.log(`  Updated: ${new Date(pub.updatedAt).toLocaleDateString()}`);
     console.log(`  Size:    ${pub.content.length} bytes`);
@@ -172,6 +179,7 @@ program
   .option("--title <title>", "New title")
   .option("--public", "Make the publication public")
   .option("--private", "Make the publication private")
+  .option("--slug <newSlug>", "Rename the slug")
   .action(
     async (
       slug: string,
@@ -180,6 +188,7 @@ program
         title?: string;
         public?: boolean;
         private?: boolean;
+        slug?: string;
       },
     ) => {
       const client = createClient();
@@ -196,7 +205,14 @@ program
       if (opts.public) isPublic = true;
       else if (opts.private) isPublic = false;
 
-      const result = await client.update({ slug, content, filename, title: opts.title, isPublic });
+      const result = await client.update({
+        slug,
+        content,
+        filename,
+        title: opts.title,
+        isPublic,
+        newSlug: opts.slug,
+      });
 
       console.log(`Updated: ${result.slug}`);
       if (result.title) console.log(`  Title:  ${result.title}`);
@@ -217,8 +233,9 @@ program
 
     for (const pub of pubs) {
       const date = new Date(pub.createdAt).toLocaleDateString();
+      const expires = pub.expiresAt ? ` expires:${new Date(pub.expiresAt).toISOString()}` : "";
       console.log(
-        `  ${pub.slug}  [${pub.contentType}]  ${formatVisibility(pub.isPublic)}  ${date}`,
+        `  ${pub.slug}  [${pub.contentType}]  ${formatVisibility(pub.isPublic)}  ${date}${expires}`,
       );
     }
   });

@@ -1,6 +1,7 @@
 export interface CreateResult {
   slug: string;
   url: string;
+  expiresAt?: number;
 }
 
 export interface UpdateResult {
@@ -16,8 +17,15 @@ export interface Publication {
   contentType: string;
   title?: string;
   isPublic: boolean;
+  expiresAt?: number;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface ListResult {
+  publications: Publication[];
+  cursor?: string;
+  hasMore: boolean;
 }
 
 export class PubApiClient {
@@ -50,6 +58,7 @@ export class PubApiClient {
     title?: string;
     slug?: string;
     isPublic?: boolean;
+    expiresIn?: string;
   }): Promise<CreateResult> {
     return this.request<CreateResult>("/api/v1/publications", {
       method: "POST",
@@ -64,9 +73,23 @@ export class PubApiClient {
     return data.publication;
   }
 
+  async listPage(cursor?: string, limit?: number): Promise<ListResult> {
+    const params = new URLSearchParams();
+    if (cursor) params.set("cursor", cursor);
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString();
+    return this.request<ListResult>(`/api/v1/publications${qs ? `?${qs}` : ""}`);
+  }
+
   async list(): Promise<Publication[]> {
-    const data = await this.request<{ publications: Publication[] }>("/api/v1/publications");
-    return data.publications;
+    const all: Publication[] = [];
+    let cursor: string | undefined;
+    do {
+      const result = await this.listPage(cursor, 100);
+      all.push(...result.publications);
+      cursor = result.hasMore ? result.cursor : undefined;
+    } while (cursor);
+    return all;
   }
 
   async update(opts: {
@@ -75,8 +98,11 @@ export class PubApiClient {
     filename?: string;
     title?: string;
     isPublic?: boolean;
+    newSlug?: string;
   }): Promise<UpdateResult> {
-    const { slug, ...body } = opts;
+    const { slug, newSlug, ...rest } = opts;
+    const body: Record<string, unknown> = { ...rest };
+    if (newSlug) body.slug = newSlug;
     return this.request<UpdateResult>(`/api/v1/publications/${encodeURIComponent(slug)}`, {
       method: "PATCH",
       body: JSON.stringify(body),
