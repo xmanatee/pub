@@ -36,7 +36,7 @@ import {
   trackVisibilityToggled,
 } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { telegramConfirm } from "~/lib/telegram";
+import { IN_TELEGRAM, telegramConfirm } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -74,19 +74,21 @@ function Dashboard() {
             Manage your publications and API keys
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            trackSignOut();
-            resetIdentity();
-            void signOut();
-          }}
-          className="text-muted-foreground"
-        >
-          <LogOut className="h-4 w-4 mr-1" aria-hidden="true" />
-          Sign out
-        </Button>
+        {!IN_TELEGRAM && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              trackSignOut();
+              resetIdentity();
+              void signOut();
+            }}
+            className="text-muted-foreground"
+          >
+            <LogOut className="h-4 w-4 mr-1" aria-hidden="true" />
+            Sign out
+          </Button>
+        )}
       </div>
 
       <Tabs
