@@ -132,7 +132,7 @@ function CopyButton({ text, onCopy }: { text: string; onCopy?: () => void }) {
     <Button
       variant="ghost"
       size="icon"
-      className="h-8 w-8"
+      className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
       onClick={() => {
         navigator.clipboard.writeText(text);
         onCopy?.();
@@ -230,12 +230,17 @@ function PublicationsTab() {
               {viewCounts?.[pub.slug] !== undefined && <> &middot; {viewCounts[pub.slug]} views</>}
             </div>
           </div>
-          <div className="flex items-center gap-0.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5 ml-2 hover-reveal">
             <CopyButton
               text={`${window.location.origin}/p/${encodeURIComponent(pub.slug)}`}
               onCopy={() => trackPublicationLinkCopied({ slug: pub.slug })}
             />
-            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
+              asChild
+            >
               <a
                 href={`/p/${encodeURIComponent(pub.slug)}`}
                 target="_blank"
@@ -248,7 +253,7 @@ function PublicationsTab() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
               onClick={() => {
                 trackVisibilityToggled({
                   slug: pub.slug,
@@ -263,7 +268,7 @@ function PublicationsTab() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
+              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive"
               onClick={() => {
                 if (confirm("Delete this publication?")) {
                   trackPublicationDeleted({
@@ -412,7 +417,7 @@ function ApiKeysTab() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive hover-reveal"
                 onClick={() => handleDelete(k._id)}
                 title="Delete key"
               >
