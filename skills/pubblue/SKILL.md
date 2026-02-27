@@ -122,7 +122,7 @@ Start an encrypted P2P WebRTC tunnel so users can communicate with you through t
 
 1. **Start a tunnel:**
    ```bash
-   pubblue tunnel start --title "Session" --expires 4h
+   pubblue tunnel start --expires 4h
    ```
    Prints a URL (e.g., `https://pub.blue/t/abc123`) and tunnel ID.
    Owner-auth mode: open it while signed into the same pub.blue account that created the tunnel.

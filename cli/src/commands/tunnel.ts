@@ -114,15 +114,13 @@ export function registerTunnelCommands(program: Command): void {
   tunnel
     .command("start")
     .description("Start a new tunnel (spawns background daemon)")
-    .option("--title <title>", "Tunnel title")
     .option("--expires <duration>", "Auto-close after duration (e.g. 4h, 1d)", "24h")
     .option("--foreground", "Run in foreground (don't fork)")
-    .action(async (opts: { title?: string; expires: string; foreground?: boolean }) => {
+    .action(async (opts: { expires: string; foreground?: boolean }) => {
       await ensureNodeDatachannelAvailable();
       const apiClient = createApiClient();
 
       const result = await apiClient.create({
-        title: opts.title,
         expiresIn: opts.expires,
       });
 
@@ -340,9 +338,7 @@ export function registerTunnelCommands(program: Command): void {
         const age = Math.floor((Date.now() - t.createdAt) / 60_000);
         const running = isDaemonRunning(t.tunnelId) ? "running" : "no daemon";
         const conn = t.hasConnection ? "connected" : "waiting";
-        console.log(
-          `  ${t.tunnelId}  ${t.title || "(untitled)"}  ${conn}  ${running}  ${age}m ago`,
-        );
+        console.log(`  ${t.tunnelId}  ${conn}  ${running}  ${age}m ago`);
       }
     });
 

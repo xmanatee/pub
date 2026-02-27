@@ -29,7 +29,6 @@ export const getByTunnelId = query({
       browserAnswer: tunnel.browserAnswer,
       agentCandidates: tunnel.agentCandidates,
       browserCandidates: tunnel.browserCandidates,
-      title: tunnel.title,
       createdAt: tunnel.createdAt,
       expiresAt: tunnel.expiresAt,
     };
@@ -72,7 +71,6 @@ export const createTunnel = internalMutation({
   args: {
     userId: v.id("users"),
     tunnelId: v.string(),
-    title: v.optional(v.string()),
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
@@ -91,7 +89,6 @@ export const createTunnel = internalMutation({
       status: "active",
       agentCandidates: [],
       browserCandidates: [],
-      title: args.title,
       createdAt: Date.now(),
       expiresAt: args.expiresAt,
     });
@@ -149,7 +146,6 @@ export const listByUserInternal = internalQuery({
       .filter((t) => t.status === "active" && t.expiresAt > Date.now())
       .map((t) => ({
         tunnelId: t.tunnelId,
-        title: t.title,
         status: t.status,
         hasConnection: !!t.browserAnswer,
         createdAt: t.createdAt,

@@ -11,7 +11,6 @@ export interface TunnelCreateResult {
 export interface TunnelInfo {
   tunnelId: string;
   status: string;
-  title?: string;
   agentOffer?: string;
   browserAnswer?: string;
   agentCandidates: string[];
@@ -22,7 +21,6 @@ export interface TunnelInfo {
 
 export interface TunnelListItem {
   tunnelId: string;
-  title?: string;
   status: string;
   hasConnection: boolean;
   createdAt: number;
@@ -55,7 +53,7 @@ export class TunnelApiClient {
     return data as T;
   }
 
-  async create(opts: { title?: string; expiresIn?: string }): Promise<TunnelCreateResult> {
+  async create(opts: { expiresIn?: string }): Promise<TunnelCreateResult> {
     return this.request<TunnelCreateResult>("/api/v1/tunnels", {
       method: "POST",
       body: JSON.stringify(opts),

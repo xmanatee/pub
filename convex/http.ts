@@ -668,7 +668,7 @@ http.route({
     const apiKey = getApiKey(request);
     if (!apiKey) return errorResponse("Missing API key", 401);
 
-    let body: { title?: string; expiresIn?: string | number };
+    let body: { expiresIn?: string | number };
     try {
       body = await request.json();
     } catch {
@@ -695,7 +695,6 @@ http.route({
         await ctx.runMutation(internal.tunnels.createTunnel, {
           userId: user.userId,
           tunnelId,
-          title: body.title,
           expiresAt,
         });
         return { tunnelId, expiresAt };
@@ -743,7 +742,6 @@ http.route({
         return {
           tunnelId: tunnel.tunnelId,
           status: tunnel.status,
-          title: tunnel.title,
           agentOffer: tunnel.agentOffer,
           browserAnswer: tunnel.browserAnswer,
           agentCandidates: tunnel.agentCandidates,
