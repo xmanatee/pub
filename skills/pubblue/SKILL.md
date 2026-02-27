@@ -11,7 +11,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.0"
+  version: "3.1"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Read Write
 ---
 
@@ -151,7 +151,16 @@ Start an encrypted P2P WebRTC tunnel so users can communicate with you through t
    pubblue tunnel read <id> --follow
    ```
 
-4. **Close when done:**
+4. **Stream user messages continuously:**
+   After sending content or a message, start a continuous reader:
+   ```bash
+   pubblue tunnel read <id> --follow
+   ```
+   - Keep it running while the conversation is active
+   - Messages are buffered — nothing is lost between polls
+   - IMPORTANT: You will NOT be notified automatically unless you are actively reading (`--follow` or manual polling).
+
+5. **Close when done:**
    ```bash
    pubblue tunnel close <id>
    ```
@@ -172,7 +181,6 @@ You can use any custom channel name with `-c <name>`.
 
 ### Tips
 
-- **Polling**: check `pubblue tunnel read <id>` every 2–3 seconds when expecting user input. Messages are buffered — nothing is lost between polls.
 - **Canvas updates**: just write again to the `canvas` channel — the connection stays open.
 - **Auto-detect tunnel**: if only one tunnel is active, tunnel id can be omitted from `write` (no `--tunnel`), `read`, `status`, and `channels`.
 - **Multiple tunnels**: `pubblue tunnel list` shows all active tunnels.

@@ -34,6 +34,12 @@ interface DaemonConfig {
 }
 
 const OFFER_TIMEOUT_MS = 10_000;
+const NOT_CONNECTED_WRITE_ERROR =
+  "No browser connected. Ask the user to open the tunnel URL first, then retry.";
+
+export function getTunnelWriteReadinessError(isConnected: boolean): string | null {
+  return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;
+}
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { tunnelId, apiClient, socketPath, infoPath } = config;
@@ -315,6 +321,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     switch (req.method) {
       case "write": {
         const channel = (req.params.channel as string) || CHANNELS.CHAT;
+        const readinessError = getTunnelWriteReadinessError(connected);
+        if (readinessError) return { ok: false, error: readinessError };
         const msg = req.params.msg as BridgeMessage;
         const binaryBase64 =
           typeof req.params.binaryBase64 === "string"
