@@ -1,3 +1,4 @@
+import type { ChildProcess } from "node:child_process";
 import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -129,21 +130,25 @@ export function registerTunnelCommands(program: Command): void {
       const infoPath = tunnelInfoPath(result.tunnelId);
 
       if (opts.foreground) {
-        // Run daemon in this process
         const { startDaemon } = await import("../lib/tunnel-daemon.js");
         console.log(`Tunnel started: ${result.url}`);
         console.log(`Tunnel ID: ${result.tunnelId}`);
         console.log(`Expires: ${new Date(result.expiresAt).toISOString()}`);
         console.log("Running in foreground. Press Ctrl+C to stop.");
-        await startDaemon({
-          tunnelId: result.tunnelId,
-          apiClient,
-          socketPath,
-          infoPath,
-        });
+        try {
+          await startDaemon({
+            tunnelId: result.tunnelId,
+            apiClient,
+            socketPath,
+            infoPath,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`Daemon failed: ${message}`);
+          process.exit(1);
+        }
       } else {
-        // Fork daemon as background process
-        const daemonScript = path.join(import.meta.dirname, "..", "tunnel-daemon-entry.js");
+        const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
         const config = getConfig();
         const child = fork(daemonScript, [], {
           detached: true,
@@ -158,6 +163,14 @@ export function registerTunnelCommands(program: Command): void {
           },
         });
         child.unref();
+
+        // Wait for daemon readiness (info file appears) or early exit
+        const ready = await waitForDaemonReady(infoPath, child, 5000);
+        if (!ready) {
+          console.error("Daemon failed to start. Cleaning up tunnel...");
+          await apiClient.close(result.tunnelId).catch(() => {});
+          process.exit(1);
+        }
 
         console.log(`Tunnel started: ${result.url}`);
         console.log(`Tunnel ID: ${result.tunnelId}`);
@@ -377,4 +390,29 @@ async function resolveActiveTunnel(): Promise<string> {
   if (active.length === 1) return active[0];
   console.error(`Multiple active tunnels: ${active.join(", ")}. Specify one.`);
   process.exit(1);
+}
+
+function waitForDaemonReady(
+  infoPath: string,
+  child: ChildProcess,
+  timeoutMs: number,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
+      clearTimeout(timeout);
+      resolve(value);
+    };
+
+    child.on("exit", () => done(false));
+
+    const poll = setInterval(() => {
+      if (fs.existsSync(infoPath)) done(true);
+    }, 100);
+
+    const timeout = setTimeout(() => done(false), timeoutMs);
+  });
 }

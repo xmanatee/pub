@@ -220,6 +220,61 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     expect(parsed.meta.title).toBe("Test");
   });
 
+  it("generates offer with STUN servers via onGatheringStateChange", async () => {
+    if (!ndc) return;
+
+    const peer = new ndc.PeerConnection("agent", {
+      iceServers: ["stun:stun.l.google.com:19302"],
+    });
+    const cleanup = () => {
+      try {
+        peer.close();
+      } catch {
+        /* already closed */
+      }
+    };
+
+    try {
+      peer.createDataChannel("test", { ordered: true });
+
+      const offer = await new Promise<{ sdp: string; type: string }>((resolve, reject) => {
+        let resolved = false;
+        const done = (sdp: string, type: string) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          resolve({ sdp, type });
+        };
+
+        peer.onLocalDescription((sdp, type) => done(sdp, type));
+        peer.onGatheringStateChange((state: string) => {
+          if (state === "complete" && !resolved) {
+            const desc = peer.localDescription();
+            if (desc) done(desc.sdp, desc.type);
+          }
+        });
+
+        const timeout = setTimeout(() => {
+          if (resolved) return;
+          const desc = peer.localDescription();
+          if (desc) {
+            done(desc.sdp, desc.type);
+          } else {
+            resolved = true;
+            reject(new Error("Timed out generating offer with STUN"));
+          }
+        }, 10_000);
+
+        peer.setLocalDescription();
+      });
+
+      expect(offer.sdp).toContain("v=0");
+      expect(offer.type).toBe("offer");
+    } finally {
+      cleanup();
+    }
+  }, 15_000);
+
   it("bridge protocol messages round-trip over DataChannel", async () => {
     if (!ndc) return;
 

@@ -25,9 +25,11 @@ declare module "node-datachannel" {
     onLocalDescription(cb: (sdp: string, type: string) => void): void;
     onLocalCandidate(cb: (candidate: string, mid: string) => void): void;
     onStateChange(cb: (state: string) => void): void;
+    onGatheringStateChange(cb: (state: string) => void): void;
     onDataChannel(cb: (dc: DataChannel) => void): void;
     setLocalDescription(type?: string): void;
     setRemoteDescription(sdp: string, type: string): void;
+    localDescription(): { sdp: string; type: string } | null;
     addRemoteCandidate(candidate: string, mid: string): void;
     createDataChannel(label: string, opts?: DataChannelOptions): DataChannel;
     close(): void;

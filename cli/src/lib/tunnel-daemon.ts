@@ -2,10 +2,10 @@
  * Tunnel daemon — background process that holds a WebRTC PeerConnection.
  *
  * Responsibilities:
+ * - Listen on Unix socket for IPC commands from CLI (started FIRST for discoverability)
  * - Create WebRTC offer and send to Convex via HTTP API
  * - Poll Convex for browser's SDP answer and ICE candidates
  * - Manage named DataChannels (generic bridge)
- * - Listen on Unix socket for IPC commands from CLI
  * - Buffer incoming messages per channel
  */
 
@@ -33,10 +33,11 @@ interface DaemonConfig {
   infoPath: string;
 }
 
+const OFFER_TIMEOUT_MS = 10_000;
+
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { tunnelId, apiClient, socketPath, infoPath } = config;
 
-  // Dynamic import for node-datachannel (native module)
   const ndc = await import("node-datachannel");
 
   const buffer: ChannelBuffer = { messages: [] };
@@ -116,12 +117,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
   }
 
-  // Open default channels
   openDataChannel(CONTROL_CHANNEL);
   openDataChannel(CHANNELS.CHAT);
   openDataChannel(CHANNELS.CANVAS);
 
-  // Collect ICE candidates
   const localCandidates: string[] = [];
   peer.onLocalCandidate((candidate: string, mid: string) => {
     localCandidates.push(JSON.stringify({ candidate, sdpMid: mid }));
@@ -143,25 +142,112 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     setupChannel(dc.getLabel(), dc);
   });
 
-  // Create offer
-  const offer = await new Promise<string>((resolve) => {
-    peer.onLocalDescription((sdp: string, type: string) => {
-      resolve(JSON.stringify({ sdp, type }));
+  // -- IPC server (Unix socket) — started BEFORE offer for discoverability ---
+
+  if (fs.existsSync(socketPath)) {
+    let stale = true;
+    try {
+      const raw = fs.readFileSync(infoPath, "utf-8");
+      const info = JSON.parse(raw) as { pid: number };
+      process.kill(info.pid, 0);
+      stale = false;
+    } catch {
+      stale = true;
+    }
+    if (stale) {
+      try {
+        fs.unlinkSync(socketPath);
+      } catch {
+        /* ok */
+      }
+    } else {
+      throw new Error(`Daemon already running (socket: ${socketPath})`);
+    }
+  }
+
+  const ipcServer = net.createServer((conn) => {
+    let data = "";
+    conn.on("data", (chunk) => {
+      data += chunk.toString();
+      const newlineIdx = data.indexOf("\n");
+      if (newlineIdx === -1) return;
+
+      const line = data.slice(0, newlineIdx);
+      data = data.slice(newlineIdx + 1);
+
+      let request: { method: string; params: Record<string, unknown> };
+      try {
+        request = JSON.parse(line);
+      } catch {
+        conn.write(`${JSON.stringify({ ok: false, error: "Invalid JSON" })}\n`);
+        return;
+      }
+
+      handleIpcRequest(request)
+        .then((response) => conn.write(`${JSON.stringify(response)}\n`))
+        .catch((err) => conn.write(`${JSON.stringify({ ok: false, error: String(err) })}\n`));
     });
-    peer.setLocalDescription();
   });
 
-  // Send offer to Convex
+  ipcServer.listen(socketPath);
+
+  // Write daemon info so parent process can verify readiness
+  const infoDir = path.dirname(infoPath);
+  if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
+  fs.writeFileSync(
+    infoPath,
+    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime }),
+  );
+
+  // -- Cleanup + shutdown ----------------------------------------------------
+
+  async function cleanup(): Promise<void> {
+    if (pollingInterval) clearInterval(pollingInterval);
+    for (const dc of channels.values()) dc.close();
+    peer.close();
+    ipcServer.close();
+    try {
+      fs.unlinkSync(socketPath);
+    } catch {
+      /* ok */
+    }
+    try {
+      fs.unlinkSync(infoPath);
+    } catch {
+      /* ok */
+    }
+    await apiClient.close(tunnelId).catch(() => {});
+  }
+
+  async function shutdown(): Promise<void> {
+    await cleanup();
+    process.exit(0);
+  }
+
+  process.on("SIGTERM", () => void shutdown());
+  process.on("SIGINT", () => void shutdown());
+
+  // -- Generate offer --------------------------------------------------------
+
+  let offer: string;
+  try {
+    offer = await generateOffer(peer, OFFER_TIMEOUT_MS);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await cleanup();
+    throw new Error(`Failed to generate WebRTC offer: ${message}`);
+  }
+
   await apiClient.signal(tunnelId, { offer });
 
-  // Send ICE candidates after a short delay (let them accumulate)
+  // -- ICE candidate flushing ------------------------------------------------
+
   setTimeout(async () => {
     if (localCandidates.length > 0) {
       await apiClient.signal(tunnelId, { candidates: localCandidates }).catch(() => {});
     }
   }, 1000);
 
-  // Keep sending new ICE candidates
   let lastSentCandidateCount = 0;
   const candidateInterval = setInterval(async () => {
     if (localCandidates.length > lastSentCandidateCount) {
@@ -220,56 +306,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }, 500);
 
-  // -- IPC server (Unix socket) ----------------------------------------------
-
-  // Remove stale socket from a dead process
-  if (fs.existsSync(socketPath)) {
-    const infoFile = infoPath;
-    let stale = true;
-    try {
-      const raw = fs.readFileSync(infoFile, "utf-8");
-      const info = JSON.parse(raw) as { pid: number };
-      process.kill(info.pid, 0); // throws if process doesn't exist
-      stale = false;
-    } catch {
-      stale = true;
-    }
-    if (stale) {
-      try {
-        fs.unlinkSync(socketPath);
-      } catch {
-        /* ok */
-      }
-    } else {
-      throw new Error(`Daemon already running (socket: ${socketPath})`);
-    }
-  }
-
-  const ipcServer = net.createServer((conn) => {
-    let data = "";
-    conn.on("data", (chunk) => {
-      data += chunk.toString();
-      const newlineIdx = data.indexOf("\n");
-      if (newlineIdx === -1) return;
-
-      const line = data.slice(0, newlineIdx);
-      data = data.slice(newlineIdx + 1);
-
-      let request: { method: string; params: Record<string, unknown> };
-      try {
-        request = JSON.parse(line);
-      } catch {
-        conn.write(`${JSON.stringify({ ok: false, error: "Invalid JSON" })}\n`);
-        return;
-      }
-
-      handleIpcRequest(request)
-        .then((response) => conn.write(`${JSON.stringify(response)}\n`))
-        .catch((err) => conn.write(`${JSON.stringify({ ok: false, error: String(err) })}\n`));
-    });
-  });
-
-  ipcServer.listen(socketPath);
+  // -- IPC request handler ---------------------------------------------------
 
   async function handleIpcRequest(req: {
     method: string;
@@ -355,41 +392,46 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return { ok: false, error: `Unknown method: ${req.method}` };
     }
   }
+}
 
-  // -- Shutdown --------------------------------------------------------------
+/**
+ * Generate a WebRTC offer with robust fallback:
+ * 1. Fast path: onLocalDescription callback (works with iceServers: [])
+ * 2. Primary path: onGatheringStateChange → localDescription() (works with real STUN)
+ * 3. Safety net: hard timeout with last-chance localDescription() read
+ */
+function generateOffer(peer: PeerConnection, timeoutMs: number): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let resolved = false;
+    const done = (sdp: string, type: string) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeout);
+      resolve(JSON.stringify({ sdp, type }));
+    };
 
-  async function shutdown(): Promise<void> {
-    if (pollingInterval) clearInterval(pollingInterval);
-    for (const dc of channels.values()) dc.close();
-    peer.close();
-    ipcServer.close();
-    try {
-      fs.unlinkSync(socketPath);
-    } catch {
-      /* ok */
-    }
-    try {
-      fs.unlinkSync(infoPath);
-    } catch {
-      /* ok */
-    }
-    await apiClient.close(tunnelId).catch(() => {});
-    process.exit(0);
-  }
+    peer.onLocalDescription((sdp: string, type: string) => {
+      done(sdp, type);
+    });
 
-  process.on("SIGTERM", () => void shutdown());
-  process.on("SIGINT", () => void shutdown());
+    peer.onGatheringStateChange((state: string) => {
+      if (state === "complete" && !resolved) {
+        const desc = peer.localDescription();
+        if (desc) done(desc.sdp, desc.type);
+      }
+    });
 
-  // Write daemon info
-  const infoDir = path.dirname(infoPath);
-  if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
-  fs.writeFileSync(
-    infoPath,
-    JSON.stringify({
-      pid: process.pid,
-      tunnelId,
-      socketPath,
-      startedAt: startTime,
-    }),
-  );
+    const timeout = setTimeout(() => {
+      if (resolved) return;
+      const desc = peer.localDescription();
+      if (desc) {
+        done(desc.sdp, desc.type);
+      } else {
+        resolved = true;
+        reject(new Error(`Timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    peer.setLocalDescription();
+  });
 }
