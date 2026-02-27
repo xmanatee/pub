@@ -2,14 +2,16 @@
 name: pubblue
 description: >-
   Publish files or generated content to the web via the pubblue CLI.
-  Creates shareable URLs for HTML, Markdown, and text.
+  Creates shareable URLs for HTML, Markdown, and text. Start encrypted
+  P2P tunnels for live agent-to-browser communication.
   Use when: publishing content online, sharing files via URL, deploying
-  static pages, or the user mentions "pubblue" or "pub.blue".
+  static pages, starting a tunnel for browser communication,
+  or the user mentions "pubblue" or "pub.blue".
 license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "2.0"
+  version: "3.0"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Read Write
 ---
 
@@ -104,6 +106,84 @@ Type is inferred from file extension. Stdin defaults to plain text.
 
 - Max content size: 100 KB
 - Slug: 1–64 chars, alphanumeric + `.`/`-`/`_`, must start with letter or number
+
+## Tunnel — P2P Bridge to Browser
+
+Start an encrypted P2P WebRTC tunnel so users can communicate with you through their browser. All data flows directly between your daemon and the user's browser — pub.blue only handles the initial connection setup.
+
+### When to Use
+
+- User wants to interact with you via a web UI instead of the terminal
+- You need to present rich HTML content (dashboards, charts, interactive pages)
+- User wants a live browser session tied to their own account
+- Real-time back-and-forth with audio, images, or files
+
+### Tunnel Workflow
+
+1. **Start a tunnel:**
+   ```bash
+   pubblue tunnel start --title "Session" --expires 4h
+   ```
+   Prints a URL (e.g., `https://pub.blue/t/abc123`) and tunnel ID.
+   Owner-auth mode: open it while signed into the same pub.blue account that created the tunnel.
+
+2. **Wait for connection:**
+   ```bash
+   pubblue tunnel status
+   ```
+   Shows `connected` once the user opens the URL.
+
+3. **Communicate via channels:**
+   ```bash
+   # Send a text message (default channel: chat)
+   pubblue tunnel write --tunnel <id> "Here are the results..."
+
+   # Present HTML in the canvas panel
+   pubblue tunnel write --tunnel <id> -c canvas -f /tmp/dashboard.html
+
+   # Send a file
+   pubblue tunnel write --tunnel <id> -c file -f /tmp/report.pdf
+
+   # Read incoming messages (returns JSON array)
+   pubblue tunnel read <id>
+
+   # Stream messages continuously
+   pubblue tunnel read <id> --follow
+   ```
+
+4. **Close when done:**
+   ```bash
+   pubblue tunnel close <id>
+   ```
+
+### Channels
+
+Data flows through named channels. Default channels:
+
+| Channel | Purpose |
+|---------|---------|
+| `chat` | Text messages (default for `write`/`read`) |
+| `canvas` | HTML content displayed in a side panel |
+| `audio` | Audio streams |
+| `media` | Images, screenshots, camera frames |
+| `file` | File transfers |
+
+You can use any custom channel name with `-c <name>`.
+
+### Tips
+
+- **Polling**: check `pubblue tunnel read <id>` every 2–3 seconds when expecting user input. Messages are buffered — nothing is lost between polls.
+- **Canvas updates**: just write again to the `canvas` channel — the connection stays open.
+- **Auto-detect tunnel**: if only one tunnel is active, tunnel id can be omitted from `write` (no `--tunnel`), `read`, `status`, and `channels`.
+- **Multiple tunnels**: `pubblue tunnel list` shows all active tunnels.
+- **Foreground mode**: `pubblue tunnel start --foreground` runs the daemon in your terminal (useful for debugging).
+
+### Tunnel Limits
+
+- Max 5 active tunnels per user
+- Max expiry: 7 days (default: 24 hours)
+- Requires `node-datachannel` native module (bundled with pubblue)
+- Tunnel access is owner-authenticated (not a public bearer link yet)
 
 ## Troubleshooting
 

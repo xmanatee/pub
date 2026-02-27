@@ -37,4 +37,19 @@ export default defineSchema({
     token: v.string(),
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
+
+  tunnels: defineTable({
+    tunnelId: v.string(),
+    userId: v.id("users"),
+    status: v.union(v.literal("active"), v.literal("closed")),
+    agentOffer: v.optional(v.string()),
+    browserAnswer: v.optional(v.string()),
+    agentCandidates: v.array(v.string()),
+    browserCandidates: v.array(v.string()),
+    title: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_tunnel_id", ["tunnelId"])
+    .index("by_user", ["userId"]),
 });

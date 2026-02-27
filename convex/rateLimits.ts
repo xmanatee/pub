@@ -8,4 +8,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   updatePublication: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 5 },
   deletePublication: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
   serveContent: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 20 },
+  createTunnel: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 2 },
+  tunnelSignal: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
+  readTunnel: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 30 },
+  closeTunnel: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
 });

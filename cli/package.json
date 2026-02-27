@@ -1,20 +1,21 @@
 {
   "name": "pubblue",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "CLI tool for publishing static content via pub.blue",
   "type": "module",
   "bin": {
     "pubblue": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --watch",
+    "build": "tsup src/index.ts src/tunnel-daemon-entry.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/tunnel-daemon-entry.ts --format esm --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "commander": "^13.0.0"
+    "commander": "^13.0.0",
+    "node-datachannel": "^0.32.0"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
@@ -35,7 +36,8 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "node-datachannel"
     ]
   }
 }

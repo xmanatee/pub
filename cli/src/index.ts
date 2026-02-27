@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
+import { registerTunnelCommands } from "./commands/tunnel.js";
 import { PubApiClient } from "./lib/api.js";
 import { getConfig, saveConfig } from "./lib/config.js";
 
@@ -79,7 +80,7 @@ function readFile(filePath: string): { content: string; basename: string } {
 program
   .name("pubblue")
   .description("Publish static content and get shareable URLs")
-  .version("0.3.0");
+  .version("0.4.0");
 
 program
   .command("configure")
@@ -244,5 +245,7 @@ program
     await client.remove(slug);
     console.log(`Deleted: ${slug}`);
   });
+
+registerTunnelCommands(program);
 
 program.parse();
