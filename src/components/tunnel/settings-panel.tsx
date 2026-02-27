@@ -1,0 +1,96 @@
+import { ArrowLeft, Settings2 } from "lucide-react";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Separator } from "~/components/ui/separator";
+import { Switch } from "~/components/ui/switch";
+
+interface SettingsPanelProps {
+  autoOpenCanvas: boolean;
+  fileCount: number;
+  messageCount: number;
+  onAutoOpenCanvasChange: (value: boolean) => void;
+  onBackToCanvas: () => void;
+  onClearFiles: () => void;
+  onClearMessages: () => void;
+  onShowDeliveryStatusChange: (value: boolean) => void;
+  showDeliveryStatus: boolean;
+}
+
+export function SettingsPanel({
+  autoOpenCanvas,
+  fileCount,
+  messageCount,
+  onAutoOpenCanvasChange,
+  onBackToCanvas,
+  onClearFiles,
+  onClearMessages,
+  onShowDeliveryStatusChange,
+  showDeliveryStatus,
+}: SettingsPanelProps) {
+  return (
+    <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
+      <Card className="sticky top-2 z-10 border-border/70 bg-background/85 backdrop-blur-xl shadow-sm">
+        <CardHeader className="px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-sm font-semibold inline-flex items-center gap-2">
+              <Settings2 className="h-4 w-4" />
+              Settings
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={onBackToCanvas}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to canvas
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader className="px-4 py-3">
+          <CardTitle className="text-sm">Behavior</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 px-4 pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">Auto-open canvas on incoming HTML</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Automatically switch to canvas when new HTML is received.
+              </div>
+            </div>
+            <Switch checked={autoOpenCanvas} onCheckedChange={onAutoOpenCanvasChange} />
+          </div>
+
+          <Separator />
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">Show delivery status in chat</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Show Sending, Delivered, or Not delivered under your messages.
+              </div>
+            </div>
+            <Switch checked={showDeliveryStatus} onCheckedChange={onShowDeliveryStatusChange} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="px-4 py-3">
+          <CardTitle className="text-sm">Session Data</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 px-4 pb-4">
+          <div className="text-xs text-muted-foreground">
+            Messages: {messageCount} · Files: {fileCount}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onClearMessages}>
+              Clear chat messages
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={onClearFiles}>
+              Clear file list
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -23,6 +23,18 @@ describe("bridge protocol sync (web <-> cli)", () => {
     expect(webProtocol.decodeMessage(encodedByCli)).toEqual(msg);
   });
 
+  it("keeps ACK payload helpers aligned", () => {
+    const ack = webProtocol.makeAckMessage("msg-sync", webProtocol.CHANNELS.CHAT);
+    const encodedByWeb = webProtocol.encodeMessage(ack);
+    const decodedByCli = cliProtocol.decodeMessage(encodedByWeb);
+    expect(decodedByCli).toEqual(ack);
+    expect(cliProtocol.parseAckMessage(decodedByCli as cliProtocol.BridgeMessage)).toEqual({
+      messageId: "msg-sync",
+      channel: cliProtocol.CHANNELS.CHAT,
+      receivedAt: ack.meta?.receivedAt,
+    });
+  });
+
   it("keeps tunnel ID format aligned", () => {
     expect(webProtocol.generateTunnelId()).toMatch(/^[a-z0-9]{16}$/);
     expect(cliProtocol.generateTunnelId()).toMatch(/^[a-z0-9]{16}$/);

@@ -9,12 +9,15 @@ import {
   generateTunnelId,
   MAX_TUNNEL_EXPIRY_MS,
   MAX_TUNNELS_PER_USER,
+  makeAckMessage,
   makeBinaryMetaMessage,
   makeEventMessage,
   makeHtmlMessage,
   makeStreamEnd,
   makeStreamStart,
   makeTextMessage,
+  parseAckMessage,
+  shouldAcknowledgeMessage,
 } from "./bridge-protocol";
 
 describe("generateMessageId", () => {
@@ -98,6 +101,32 @@ describe("message factories", () => {
     const msg = makeStreamEnd("stream-123");
     expect(msg.type).toBe("stream-end");
     expect(msg.meta?.streamId).toBe("stream-123");
+  });
+
+  it("makeAckMessage creates ack payload for delivery receipts", () => {
+    const msg = makeAckMessage("msg-1", CHANNELS.CHAT);
+    expect(msg.type).toBe("event");
+    expect(msg.data).toBe("ack");
+    expect(msg.meta?.messageId).toBe("msg-1");
+    expect(msg.meta?.channel).toBe(CHANNELS.CHAT);
+    expect(typeof msg.meta?.receivedAt).toBe("number");
+  });
+
+  it("parseAckMessage extracts ack metadata", () => {
+    const ack = makeAckMessage("msg-2", CHANNELS.CANVAS);
+    expect(parseAckMessage(ack)).toEqual({
+      messageId: "msg-2",
+      channel: CHANNELS.CANVAS,
+      receivedAt: ack.meta?.receivedAt,
+    });
+  });
+
+  it("shouldAcknowledgeMessage ignores control ack events", () => {
+    expect(shouldAcknowledgeMessage(CHANNELS.CHAT, makeTextMessage("hello"))).toBe(true);
+    expect(shouldAcknowledgeMessage(CONTROL_CHANNEL, makeEventMessage("status"))).toBe(false);
+    expect(shouldAcknowledgeMessage(CHANNELS.CHAT, makeAckMessage("msg-3", CHANNELS.CHAT))).toBe(
+      false,
+    );
   });
 });
 

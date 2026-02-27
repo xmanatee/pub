@@ -11,8 +11,11 @@ import {
   DATACHANNEL_OPTIONS,
   decodeMessage,
   encodeMessage,
+  makeAckMessage,
   makeEventMessage,
+  parseAckMessage,
   STUN_SERVERS,
+  shouldAcknowledgeMessage,
 } from "./bridge-protocol";
 
 export type BridgeState = "connecting" | "connected" | "disconnected" | "closed";
@@ -38,6 +41,10 @@ export class BrowserBridge {
   private iceCandidates: string[] = [];
   private pendingRemoteCandidates: string[] = [];
   private pendingBinaryMeta = new Map<string, BridgeMessage>();
+  private pendingDeliveryAcks = new Map<
+    string,
+    { resolve: (received: boolean) => void; timer: ReturnType<typeof setTimeout> }
+  >();
   private remoteDescriptionSet = false;
 
   getState(): BridgeState {
@@ -132,6 +139,19 @@ export class BrowserBridge {
     return true;
   }
 
+  async sendWithAck(channel: string, message: BridgeMessage, timeoutMs = 5_000): Promise<boolean> {
+    if (!shouldAcknowledgeMessage(channel, message)) {
+      return this.send(channel, message);
+    }
+
+    const ackPromise = this.waitForAck(message.id, timeoutMs);
+    if (!this.send(channel, message)) {
+      this.settlePendingAck(message.id, false);
+      return false;
+    }
+    return await ackPromise;
+  }
+
   sendBinary(channel: string, data: ArrayBuffer): boolean {
     const dc = this.channels.get(channel);
     if (!dc || dc.readyState !== "open") return false;
@@ -153,6 +173,7 @@ export class BrowserBridge {
   }
 
   close(): void {
+    this.failPendingAcks();
     this.setState("closed");
     for (const dc of this.channels.values()) {
       dc.close();
@@ -178,9 +199,18 @@ export class BrowserBridge {
       if (typeof event.data === "string") {
         const msg = decodeMessage(event.data);
         if (msg) {
+          const ack = parseAckMessage(msg);
+          if (dc.label === CONTROL_CHANNEL && ack) {
+            this.settlePendingAck(ack.messageId, true);
+            return;
+          }
+
           if (msg.type === "binary" && !msg.data) {
             this.pendingBinaryMeta.set(dc.label, msg);
             return;
+          }
+          if (shouldAcknowledgeMessage(dc.label, msg)) {
+            this.sendAck(msg.id, dc.label);
           }
           this.onMessage?.({
             channel: dc.label,
@@ -234,11 +264,48 @@ export class BrowserBridge {
       timestamp: Date.now(),
       binaryData: payload,
     });
+    if (shouldAcknowledgeMessage(channel, binaryMsg)) {
+      this.sendAck(binaryMsg.id, channel);
+    }
   }
 
   private setState(newState: BridgeState): void {
     if (this.state === newState || this.state === "closed") return;
+    if (newState === "disconnected" || newState === "closed") {
+      this.failPendingAcks();
+    }
     this.state = newState;
     this.onStateChange?.(newState);
+  }
+
+  private sendAck(messageId: string, channel: string): void {
+    this.send(CONTROL_CHANNEL, makeAckMessage(messageId, channel));
+  }
+
+  private waitForAck(messageId: string, timeoutMs: number): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingDeliveryAcks.delete(messageId);
+        resolve(false);
+      }, timeoutMs);
+
+      this.pendingDeliveryAcks.set(messageId, { resolve, timer });
+    });
+  }
+
+  private settlePendingAck(messageId: string, received: boolean): void {
+    const pending = this.pendingDeliveryAcks.get(messageId);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    this.pendingDeliveryAcks.delete(messageId);
+    pending.resolve(received);
+  }
+
+  private failPendingAcks(): void {
+    for (const [messageId, pending] of this.pendingDeliveryAcks) {
+      clearTimeout(pending.timer);
+      pending.resolve(false);
+      this.pendingDeliveryAcks.delete(messageId);
+    }
   }
 }

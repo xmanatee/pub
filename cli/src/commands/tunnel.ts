@@ -3,7 +3,7 @@ import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
-import { type BridgeMessage, generateMessageId } from "../lib/bridge-protocol.js";
+import { type BridgeMessage, CHANNELS, generateMessageId } from "../lib/bridge-protocol.js";
 import { getConfig } from "../lib/config.js";
 import { TunnelApiClient } from "../lib/tunnel-api.js";
 import { getSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
@@ -260,12 +260,23 @@ export function registerTunnelCommands(program: Command): void {
     .argument("[tunnelId]", "Tunnel ID (auto-detected if one active)")
     .option("-c, --channel <channel>", "Filter by channel")
     .option("--follow", "Stream messages continuously")
+    .option("--all", "With --follow, include all channels instead of chat-only default")
     .action(
-      async (tunnelIdArg: string | undefined, opts: { channel?: string; follow?: boolean }) => {
+      async (
+        tunnelIdArg: string | undefined,
+        opts: { channel?: string; follow?: boolean; all?: boolean },
+      ) => {
         const tunnelId = tunnelIdArg || (await resolveActiveTunnel());
         const socketPath = getSocketPath(tunnelId);
+        const readChannel = opts.channel || (opts.follow && !opts.all ? CHANNELS.CHAT : undefined);
 
         if (opts.follow) {
+          if (!opts.channel && !opts.all) {
+            console.error(
+              "Following chat channel by default. Use `--all` to include binary/file channels.",
+            );
+          }
+
           let consecutiveFailures = 0;
           let warnedDisconnected = false;
 
@@ -273,7 +284,7 @@ export function registerTunnelCommands(program: Command): void {
             try {
               const response = await ipcCall(socketPath, {
                 method: "read",
-                params: { channel: opts.channel },
+                params: { channel: readChannel },
               });
 
               if (warnedDisconnected) {
@@ -301,7 +312,7 @@ export function registerTunnelCommands(program: Command): void {
         } else {
           const response = await ipcCall(socketPath, {
             method: "read",
-            params: { channel: opts.channel },
+            params: { channel: readChannel },
           });
           if (!response.ok) {
             console.error(`Failed: ${response.error}`);

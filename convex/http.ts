@@ -769,7 +769,9 @@ http.route({
     const pathParts = url.pathname.slice("/api/v1/tunnels/".length).split("/");
     const tunnelId = pathParts[0];
     if (!tunnelId || !isValidTunnelId(tunnelId)) return errorResponse("Invalid tunnel ID", 400);
-    if (pathParts[1] !== "signal") return errorResponse("Invalid tunnel signal path", 400);
+    if (pathParts.length !== 2 || pathParts[1] !== "signal") {
+      return errorResponse("Invalid tunnel signal path", 400);
+    }
 
     let body: { offer?: string; candidates?: string[] };
     try {

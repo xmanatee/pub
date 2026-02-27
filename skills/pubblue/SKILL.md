@@ -151,15 +151,17 @@ Start an encrypted P2P WebRTC tunnel so users can communicate with you through t
    # Stream messages continuously
    pubblue tunnel read <id> --follow
    ```
+   `tunnel write` now waits for delivery confirmation from the browser. If delivery is not confirmed, it fails so you can retry.
 
 4. **Stream user messages continuously:**
    After sending content or a message, start a continuous reader:
    ```bash
-   pubblue tunnel read <id> --follow
+   pubblue tunnel read <id> --follow -c chat
    ```
    - Keep it running while the conversation is active
    - It automatically retries if the local daemon restarts
-   - Messages are buffered — nothing is lost between polls
+   - `read` consumes buffered messages; avoid running a second `pubblue tunnel read` in parallel for the same channel
+   - If you need files/screenshots, use a separate read on `-c file` only when needed
    - IMPORTANT: You will NOT be notified automatically unless you are actively reading (`--follow` or manual polling).
 
 5. **Close when done:**

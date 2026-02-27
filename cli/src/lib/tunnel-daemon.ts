@@ -12,6 +12,9 @@ import {
   CONTROL_CHANNEL,
   decodeMessage,
   encodeMessage,
+  makeAckMessage,
+  parseAckMessage,
+  shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
 import { TunnelApiClient } from "../lib/tunnel-api.js";
 
@@ -30,6 +33,7 @@ const OFFER_TIMEOUT_MS = 10_000;
 const SIGNAL_POLL_WAITING_MS = 500;
 const SIGNAL_POLL_CONNECTED_MS = 2_000;
 const RECOVERY_DELAY_MS = 1_000;
+const WRITE_ACK_TIMEOUT_MS = 5_000;
 
 const NOT_CONNECTED_WRITE_ERROR =
   "No browser connected. Ask the user to open the tunnel URL first, then retry.";
@@ -56,6 +60,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const pendingRemoteCandidates: Array<{ candidate: string; sdpMid: string }> = [];
   const localCandidates: string[] = [];
+  const pendingDeliveryAcks = new Map<
+    string,
+    { resolve: (received: boolean) => void; timeout: ReturnType<typeof setTimeout> }
+  >();
 
   let peer: PeerConnection | null = null;
   let channels = new Map<string, DataChannel>();
@@ -98,9 +106,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (typeof data === "string") {
         const msg = decodeMessage(data);
         if (!msg) return;
+        const ack = parseAckMessage(msg);
+        if (name === CONTROL_CHANNEL && ack) {
+          settlePendingAck(ack.messageId, true);
+          return;
+        }
         if (msg.type === "binary" && !msg.data) {
           pendingInboundBinaryMeta.set(name, msg);
           return;
+        }
+        if (shouldAcknowledgeMessage(name, msg)) {
+          sendAck(msg.id, name);
         }
         buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
         return;
@@ -121,8 +137,44 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
             data: data.toString("base64"),
             meta: { size: data.length },
           };
+      if (shouldAcknowledgeMessage(name, binMsg)) {
+        sendAck(binMsg.id, name);
+      }
       buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
     });
+  }
+
+  function sendAck(messageId: string, channel: string): void {
+    const controlDc = channels.get(CONTROL_CHANNEL);
+    if (!controlDc || !controlDc.isOpen()) return;
+    controlDc.sendMessage(encodeMessage(makeAckMessage(messageId, channel)));
+  }
+
+  function waitForDeliveryAck(messageId: string, timeoutMs: number): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const timeout = setTimeout(() => {
+        pendingDeliveryAcks.delete(messageId);
+        resolve(false);
+      }, timeoutMs);
+
+      pendingDeliveryAcks.set(messageId, { resolve, timeout });
+    });
+  }
+
+  function settlePendingAck(messageId: string, received: boolean): void {
+    const pending = pendingDeliveryAcks.get(messageId);
+    if (!pending) return;
+    clearTimeout(pending.timeout);
+    pendingDeliveryAcks.delete(messageId);
+    pending.resolve(received);
+  }
+
+  function failPendingAcks(): void {
+    for (const [messageId, pending] of pendingDeliveryAcks) {
+      clearTimeout(pending.timeout);
+      pending.resolve(false);
+      pendingDeliveryAcks.delete(messageId);
+    }
   }
 
   function openDataChannel(name: string): DataChannel {
@@ -158,6 +210,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function resetNegotiationState(): void {
     connected = false;
+    failPendingAcks();
     remoteDescriptionApplied = false;
     lastBrowserCandidateCount = 0;
     lastSentCandidateCount = 0;
@@ -195,7 +248,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return;
       }
 
-      if (state === "disconnected" || state === "failed") {
+      if (state === "disconnected" || state === "failed" || state === "closed") {
         connected = false;
         scheduleRecovery();
       }
@@ -224,6 +277,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   function closeCurrentPeer(): void {
+    failPendingAcks();
+
     for (const dc of channels.values()) {
       try {
         dc.close();
@@ -480,23 +535,43 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           return { ok: false, error: `Channel "${channel}" not open: ${message}` };
         }
 
-        if (msg.type === "binary" && binaryBase64) {
-          const payload = Buffer.from(binaryBase64, "base64");
-          targetDc.sendMessage(
-            encodeMessage({
-              ...msg,
-              meta: {
-                ...(msg.meta || {}),
-                size: payload.length,
-              },
-            }),
-          );
-          targetDc.sendMessageBinary(payload);
-        } else {
-          targetDc.sendMessage(encodeMessage(msg));
+        const waitForAck = shouldAcknowledgeMessage(channel, msg)
+          ? waitForDeliveryAck(msg.id, WRITE_ACK_TIMEOUT_MS)
+          : null;
+
+        try {
+          if (msg.type === "binary" && binaryBase64) {
+            const payload = Buffer.from(binaryBase64, "base64");
+            targetDc.sendMessage(
+              encodeMessage({
+                ...msg,
+                meta: {
+                  ...(msg.meta || {}),
+                  size: payload.length,
+                },
+              }),
+            );
+            targetDc.sendMessageBinary(payload);
+          } else {
+            targetDc.sendMessage(encodeMessage(msg));
+          }
+        } catch (error) {
+          if (waitForAck) settlePendingAck(msg.id, false);
+          const message = error instanceof Error ? error.message : String(error);
+          return { ok: false, error: `Failed to send on channel "${channel}": ${message}` };
         }
 
-        return { ok: true };
+        if (waitForAck) {
+          const acked = await waitForAck;
+          if (!acked) {
+            return {
+              ok: false,
+              error: `Delivery not confirmed for message ${msg.id} within ${WRITE_ACK_TIMEOUT_MS}ms.`,
+            };
+          }
+        }
+
+        return { ok: true, delivered: true };
       }
 
       case "read": {

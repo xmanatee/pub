@@ -49,9 +49,16 @@ export type ControlEvent =
   | "status"
   | "error"
   | "ping"
-  | "pong";
+  | "pong"
+  | "ack";
 
 export type BridgeCapability = "text" | "html" | "audio" | "video" | "binary" | "stream";
+
+export interface DeliveryAckPayload {
+  messageId: string;
+  channel: string;
+  receivedAt?: number;
+}
 
 // -- Default channel names (convention) --------------------------------------
 
@@ -107,6 +114,10 @@ export function makeEventMessage(event: ControlEvent, meta?: BridgeMessageMeta):
   return { id: generateMessageId(), type: "event", data: event, meta };
 }
 
+export function makeAckMessage(messageId: string, channel: string): BridgeMessage {
+  return makeEventMessage("ack", { messageId, channel, receivedAt: Date.now() });
+}
+
 export function makeBinaryMetaMessage(meta: BridgeMessageMeta): BridgeMessage {
   return { id: generateMessageId(), type: "binary", meta };
 }
@@ -117,6 +128,21 @@ export function makeStreamStart(meta?: BridgeMessageMeta): BridgeMessage {
 
 export function makeStreamEnd(streamId: string): BridgeMessage {
   return { id: generateMessageId(), type: "stream-end", meta: { streamId } };
+}
+
+export function parseAckMessage(msg: BridgeMessage): DeliveryAckPayload | null {
+  if (msg.type !== "event" || msg.data !== "ack" || !msg.meta) return null;
+
+  const messageId = typeof msg.meta.messageId === "string" ? msg.meta.messageId : null;
+  const channel = typeof msg.meta.channel === "string" ? msg.meta.channel : null;
+  if (!messageId || !channel) return null;
+
+  const receivedAt = typeof msg.meta.receivedAt === "number" ? msg.meta.receivedAt : undefined;
+  return { messageId, channel, receivedAt };
+}
+
+export function shouldAcknowledgeMessage(channel: string, msg: BridgeMessage): boolean {
+  return channel !== CONTROL_CHANNEL && parseAckMessage(msg) === null;
 }
 
 // -- Tunnel ID generation ----------------------------------------------------
