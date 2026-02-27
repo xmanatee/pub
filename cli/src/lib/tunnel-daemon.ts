@@ -22,6 +22,11 @@ interface ChannelBuffer {
   messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
 }
 
+interface StickyOutboundMessage {
+  binaryPayload?: Buffer;
+  msg: BridgeMessage;
+}
+
 interface DaemonConfig {
   tunnelId: string;
   apiClient: TunnelApiClient;
@@ -72,6 +77,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const pendingRemoteCandidates: Array<{ candidate: string; sdpMid: string }> = [];
   const localCandidates: string[] = [];
+  const stickyOutboundByChannel = new Map<string, StickyOutboundMessage>();
+  const pendingOutboundAcks = new Map<string, { channel: string; messageId: string }>();
   const pendingDeliveryAcks = new Map<
     string,
     { resolve: (received: boolean) => void; timeout: ReturnType<typeof setTimeout> }
@@ -113,6 +120,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function setupChannel(name: string, dc: DataChannel): void {
     channels.set(name, dc);
+    dc.onOpen(() => {
+      if (name === CONTROL_CHANNEL) flushQueuedAcks();
+    });
 
     dc.onMessage((data: string | Buffer) => {
       if (typeof data === "string") {
@@ -128,7 +138,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           return;
         }
         if (shouldAcknowledgeMessage(name, msg)) {
-          sendAck(msg.id, name);
+          queueAck(msg.id, name);
         }
         buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
         return;
@@ -150,16 +160,34 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
             meta: { size: data.length },
           };
       if (shouldAcknowledgeMessage(name, binMsg)) {
-        sendAck(binMsg.id, name);
+        queueAck(binMsg.id, name);
       }
       buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
     });
   }
 
-  function sendAck(messageId: string, channel: string): void {
+  function getAckKey(messageId: string, channel: string): string {
+    return `${channel}:${messageId}`;
+  }
+
+  function queueAck(messageId: string, channel: string): void {
+    pendingOutboundAcks.set(getAckKey(messageId, channel), { messageId, channel });
+    flushQueuedAcks();
+  }
+
+  function flushQueuedAcks(): void {
     const controlDc = channels.get(CONTROL_CHANNEL);
     if (!controlDc || !controlDc.isOpen()) return;
-    controlDc.sendMessage(encodeMessage(makeAckMessage(messageId, channel)));
+
+    for (const [ackKey, ack] of pendingOutboundAcks) {
+      try {
+        controlDc.sendMessage(encodeMessage(makeAckMessage(ack.messageId, ack.channel)));
+        pendingOutboundAcks.delete(ackKey);
+      } catch {
+        // Keep queued acks for a future retry when control channel is healthy again.
+        break;
+      }
+    }
   }
 
   function waitForDeliveryAck(messageId: string, timeoutMs: number): Promise<boolean> {
@@ -220,6 +248,58 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
   }
 
+  function maybePersistStickyOutbound(
+    channel: string,
+    msg: BridgeMessage,
+    binaryPayload: Buffer | undefined,
+  ): void {
+    if (channel !== CHANNELS.CANVAS) return;
+
+    if (msg.type === "event" && msg.data === "hide") {
+      stickyOutboundByChannel.delete(channel);
+      return;
+    }
+
+    if (msg.type !== "html") return;
+
+    stickyOutboundByChannel.set(channel, {
+      msg: {
+        ...msg,
+        meta: msg.meta ? { ...msg.meta } : undefined,
+      },
+      binaryPayload,
+    });
+  }
+
+  async function replayStickyOutboundMessages(): Promise<void> {
+    if (!connected || recovering || stopped) return;
+
+    for (const [channel, sticky] of stickyOutboundByChannel) {
+      try {
+        let targetDc = channels.get(channel);
+        if (!targetDc) targetDc = openDataChannel(channel);
+        await waitForChannelOpen(targetDc, 3_000);
+
+        if (sticky.msg.type === "binary" && sticky.binaryPayload) {
+          targetDc.sendMessage(
+            encodeMessage({
+              ...sticky.msg,
+              meta: {
+                ...(sticky.msg.meta || {}),
+                size: sticky.binaryPayload.length,
+              },
+            }),
+          );
+          targetDc.sendMessageBinary(sticky.binaryPayload);
+        } else {
+          targetDc.sendMessage(encodeMessage(sticky.msg));
+        }
+      } catch {
+        // Replay is best-effort; next reconnection can retry.
+      }
+    }
+  }
+
   function resetNegotiationState(): void {
     connected = false;
     failPendingAcks();
@@ -258,6 +338,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
       if (state === "connected") {
         connected = true;
+        flushQueuedAcks();
+        void replayStickyOutboundMessages();
         return;
       }
 
@@ -549,6 +631,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           typeof req.params.binaryBase64 === "string"
             ? (req.params.binaryBase64 as string)
             : undefined;
+        const binaryPayload =
+          msg.type === "binary" && binaryBase64 ? Buffer.from(binaryBase64, "base64") : undefined;
 
         let targetDc = channels.get(channel);
         if (!targetDc) targetDc = openDataChannel(channel);
@@ -565,18 +649,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           : null;
 
         try {
-          if (msg.type === "binary" && binaryBase64) {
-            const payload = Buffer.from(binaryBase64, "base64");
+          if (msg.type === "binary" && binaryPayload) {
             targetDc.sendMessage(
               encodeMessage({
                 ...msg,
                 meta: {
                   ...(msg.meta || {}),
-                  size: payload.length,
+                  size: binaryPayload.length,
                 },
               }),
             );
-            targetDc.sendMessageBinary(payload);
+            targetDc.sendMessageBinary(binaryPayload);
           } else {
             targetDc.sendMessage(encodeMessage(msg));
           }
@@ -596,6 +679,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           }
         }
 
+        maybePersistStickyOutbound(channel, msg, binaryPayload);
         return { ok: true, delivered: true };
       }
 

@@ -1,17 +1,9 @@
-import {
-  type PointerEvent as ReactPointerEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/lib/bridge-protocol";
 import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
 
-const LOCK_DRAG_THRESHOLD = 40;
-
-export type BarMode = "idle" | "push-recording" | "locked-recording" | "voice-mode";
+export type BarMode = "idle" | "recording" | "recording-paused" | "voice-mode";
 
 interface UseControlBarAudioOptions {
   disabled: boolean;
@@ -29,7 +21,6 @@ function getSupportedMimeType(): string {
 export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControlBarAudioOptions) {
   const [mode, setMode] = useState<BarMode>("idle");
   const [elapsed, setElapsed] = useState(0);
-  const [lockHint, setLockHint] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -39,11 +30,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const barsRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const initialYRef = useRef(0);
-  const lockedRef = useRef(false);
   const streamIdRef = useRef<string | null>(null);
-  const pointerIsDownRef = useRef(false);
-  const pendingReleaseRef = useRef(false);
+  const shouldSendOnStopRef = useRef(false);
+  const localStopInProgressRef = useRef(false);
 
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
@@ -65,8 +54,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     draw();
   }, []);
 
-  const startTimer = useCallback(() => {
-    setElapsed(0);
+  const startTimer = useCallback((resetElapsed: boolean) => {
+    if (resetElapsed) setElapsed(0);
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setElapsed((t) => t + 1), 1000);
   }, []);
 
@@ -77,11 +67,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     }
   }, []);
 
-  const cleanup = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    mediaRecorderRef.current = null;
+  const releaseMediaResources = useCallback(() => {
     if (streamRef.current) {
       for (const track of streamRef.current.getTracks()) track.stop();
       streamRef.current = null;
@@ -92,8 +78,20 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     }
     cancelAnimationFrame(animFrameRef.current);
     analyserRef.current = null;
+    mediaRecorderRef.current = null;
     stopTimer();
   }, [stopTimer]);
+
+  const teardownMediaState = useCallback(
+    (stopRecorder: boolean) => {
+      const recorder = mediaRecorderRef.current;
+      if (stopRecorder && recorder && recorder.state !== "inactive") {
+        recorder.stop();
+      }
+      releaseMediaResources();
+    },
+    [releaseMediaResources],
+  );
 
   const setupAudio = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -108,126 +106,119 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     return stream;
   }, []);
 
-  const finishPushRecording = useCallback(() => {
-    setLockHint(0);
-    if (lockedRef.current) {
-      setMode("locked-recording");
-      return;
-    }
-    cleanup();
-    setMode("idle");
-  }, [cleanup]);
+  const startRecording = useCallback(async () => {
+    if (disabled || mode !== "idle" || localStopInProgressRef.current) return;
 
-  const handleMicPointerDown = useCallback(
-    async (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (disabled || mode !== "idle") return;
-      e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      pointerIsDownRef.current = true;
-      pendingReleaseRef.current = false;
-      initialYRef.current = e.clientY;
-      lockedRef.current = false;
-      setLockHint(0);
+    try {
+      const stream = await setupAudio();
+      const mimeType = getSupportedMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
 
-      try {
-        const stream = await setupAudio();
-        const recorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
+      audioChunksRef.current = [];
+      shouldSendOnStopRef.current = false;
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) audioChunksRef.current.push(ev.data);
+      };
+      recorder.onstop = () => {
+        if (mediaRecorderRef.current !== recorder) return;
+        const shouldSend = shouldSendOnStopRef.current;
+        shouldSendOnStopRef.current = false;
+        const blob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || mimeType || "audio/webm",
+        });
         audioChunksRef.current = [];
-        recorder.ondataavailable = (ev) => {
-          if (ev.data.size > 0) audioChunksRef.current.push(ev.data);
-        };
-        recorder.onstop = () => {
-          const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
-          if (blob.size > 0) onSendAudio(blob);
-        };
-        mediaRecorderRef.current = recorder;
-        recorder.start();
-        setMode("push-recording");
-        startTimer();
-        animateWaveform();
-        if (pendingReleaseRef.current) {
-          pendingReleaseRef.current = false;
-          finishPushRecording();
-        }
-      } catch {
-        // Permission denied or media setup failed; return to idle state.
-        pointerIsDownRef.current = false;
-        pendingReleaseRef.current = false;
-        cleanup();
-      }
-    },
-    [
-      disabled,
-      mode,
-      setupAudio,
-      onSendAudio,
-      startTimer,
-      animateWaveform,
-      finishPushRecording,
-      cleanup,
-    ],
-  );
+        if (shouldSend && blob.size > 0) onSendAudio(blob);
+        localStopInProgressRef.current = false;
+        releaseMediaResources();
+        setMode("idle");
+        setElapsed(0);
+      };
 
-  const handleMicPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (mode !== "push-recording") return;
-      const dy = initialYRef.current - e.clientY;
-      setLockHint(Math.min(dy / LOCK_DRAG_THRESHOLD, 1));
-      if (dy > LOCK_DRAG_THRESHOLD) {
-        lockedRef.current = true;
-      }
-    },
-    [mode],
-  );
-
-  const handleMicPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-
-      pointerIsDownRef.current = false;
-      if (mode !== "push-recording") {
-        pendingReleaseRef.current = true;
-        return;
-      }
-      finishPushRecording();
-    },
-    [mode, finishPushRecording],
-  );
-
-  const handleMicPointerCancel = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-      pointerIsDownRef.current = false;
-      if (mode !== "push-recording") {
-        pendingReleaseRef.current = true;
-        return;
-      }
-      lockedRef.current = false;
-      finishPushRecording();
-    },
-    [mode, finishPushRecording],
-  );
-
-  useEffect(() => {
-    if (mode !== "push-recording") return;
-    if (pointerIsDownRef.current) return;
-    if (!pendingReleaseRef.current) return;
-
-    pendingReleaseRef.current = false;
-    finishPushRecording();
-  }, [mode, finishPushRecording]);
-
-  const stopLockedRecording = useCallback(() => {
-    if (streamIdRef.current) {
-      streamIdRef.current = null;
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setMode("recording");
+      startTimer(true);
+      animateWaveform();
+    } catch {
+      shouldSendOnStopRef.current = false;
+      audioChunksRef.current = [];
+      localStopInProgressRef.current = false;
+      teardownMediaState(true);
+      setMode("idle");
+      setElapsed(0);
     }
-    cleanup();
-    setMode("idle");
-  }, [cleanup]);
+  }, [
+    disabled,
+    mode,
+    setupAudio,
+    onSendAudio,
+    startTimer,
+    animateWaveform,
+    teardownMediaState,
+    releaseMediaResources,
+  ]);
+
+  const stopLocalRecording = useCallback(
+    (send: boolean) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        shouldSendOnStopRef.current = false;
+        audioChunksRef.current = [];
+        localStopInProgressRef.current = false;
+        releaseMediaResources();
+        setMode("idle");
+        setElapsed(0);
+        return;
+      }
+
+      shouldSendOnStopRef.current = send;
+      localStopInProgressRef.current = true;
+      stopTimer();
+      cancelAnimationFrame(animFrameRef.current);
+      analyserRef.current = null;
+      try {
+        recorder.stop();
+      } catch {
+        shouldSendOnStopRef.current = false;
+        audioChunksRef.current = [];
+        localStopInProgressRef.current = false;
+        releaseMediaResources();
+        setMode("idle");
+        setElapsed(0);
+      }
+    },
+    [releaseMediaResources, stopTimer],
+  );
+
+  const cancelRecording = useCallback(() => {
+    stopLocalRecording(false);
+  }, [stopLocalRecording]);
+
+  const sendRecording = useCallback(() => {
+    stopLocalRecording(true);
+  }, [stopLocalRecording]);
+
+  const pauseRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || mode !== "recording") return;
+    if (recorder.state !== "recording") return;
+
+    recorder.pause();
+    stopTimer();
+    setMode("recording-paused");
+  }, [mode, stopTimer]);
+
+  const resumeRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || mode !== "recording-paused") return;
+    if (recorder.state !== "paused") return;
+
+    recorder.resume();
+    startTimer(false);
+    setMode("recording");
+  }, [mode, startTimer]);
 
   const startVoiceMode = useCallback(async () => {
     if (disabled || !bridge) return;
@@ -237,7 +228,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
 
       const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
       if (!ready) {
-        cleanup();
+        teardownMediaState(true);
         return;
       }
 
@@ -245,9 +236,11 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       bridge.send(CHANNELS.AUDIO, startMsg);
       streamIdRef.current = startMsg.id;
 
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
       recorder.ondataavailable = async (ev) => {
-        if (ev.data.size > 0 && bridge && streamIdRef.current) {
+        if (ev.data.size > 0 && streamIdRef.current) {
           const buf = await ev.data.arrayBuffer();
           bridge.sendBinary(CHANNELS.AUDIO, buf);
         }
@@ -255,38 +248,43 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       mediaRecorderRef.current = recorder;
       recorder.start(2000);
       setMode("voice-mode");
-      startTimer();
+      startTimer(true);
       animateWaveform();
     } catch {
-      // Voice mode setup failed; reset recorder state.
-      cleanup();
+      teardownMediaState(true);
+      setMode("idle");
+      setElapsed(0);
     }
-  }, [disabled, bridge, setupAudio, cleanup, startTimer, animateWaveform]);
+  }, [disabled, bridge, setupAudio, teardownMediaState, startTimer, animateWaveform]);
 
   const stopVoiceMode = useCallback(() => {
     if (bridge && streamIdRef.current) {
       bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current));
       streamIdRef.current = null;
     }
-    cleanup();
+    teardownMediaState(true);
     setMode("idle");
-  }, [bridge, cleanup]);
+    setElapsed(0);
+  }, [bridge, teardownMediaState]);
 
   useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
+    return () => {
+      shouldSendOnStopRef.current = false;
+      localStopInProgressRef.current = false;
+      teardownMediaState(true);
+    };
+  }, [teardownMediaState]);
 
   return {
     barsRef,
+    cancelRecording,
     elapsed,
-    handleMicPointerCancel,
-    handleMicPointerDown,
-    handleMicPointerMove,
-    handleMicPointerUp,
-    lockHint,
     mode,
+    pauseRecording,
+    resumeRecording,
+    sendRecording,
+    startRecording,
     startVoiceMode,
-    stopLockedRecording,
     stopVoiceMode,
   };
 }

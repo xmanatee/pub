@@ -1,4 +1,4 @@
-import { ArrowLeft, FileDown, MessageSquare } from "lucide-react";
+import { FileDown } from "lucide-react";
 import type { RefObject } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -8,32 +8,15 @@ export function ChatPanel({
   files,
   messages,
   messagesEndRef,
-  onBackToCanvas,
   showDeliveryStatus,
 }: {
   files: ReceivedFile[];
   messages: ChatEntry[];
   messagesEndRef: RefObject<HTMLDivElement | null>;
-  onBackToCanvas: () => void;
   showDeliveryStatus: boolean;
 }) {
   return (
     <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
-      <Card className="sticky top-2 z-10 border-border/70 bg-background/85 backdrop-blur-xl shadow-sm">
-        <CardHeader className="px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-sm font-semibold inline-flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Chat view
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={onBackToCanvas}>
-              <ArrowLeft className="h-4 w-4" />
-              Back to canvas
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-
       {messages.length === 0 && files.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="pt-6 text-muted-foreground text-sm text-center">

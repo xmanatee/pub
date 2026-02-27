@@ -9,6 +9,7 @@ import type { BridgeMessage } from "./bridge-protocol";
 import {
   CONTROL_CHANNEL,
   DATACHANNEL_OPTIONS,
+  type DeliveryAckPayload,
   decodeMessage,
   encodeMessage,
   makeAckMessage,
@@ -30,6 +31,7 @@ export interface ChannelMessage {
 type StateChangeHandler = (state: BridgeState) => void;
 type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
+type DeliveryAckHandler = (ack: DeliveryAckPayload) => void;
 
 export class BrowserBridge {
   private pc: RTCPeerConnection | null = null;
@@ -38,6 +40,7 @@ export class BrowserBridge {
   private onStateChange: StateChangeHandler | null = null;
   private onMessage: MessageHandler | null = null;
   private onTrack: TrackHandler | null = null;
+  private onDeliveryAck: DeliveryAckHandler | null = null;
   private iceCandidates: string[] = [];
   private pendingRemoteCandidates: string[] = [];
   private pendingBinaryMeta = new Map<string, BridgeMessage>();
@@ -61,6 +64,10 @@ export class BrowserBridge {
 
   setOnTrack(handler: TrackHandler): void {
     this.onTrack = handler;
+  }
+
+  setOnDeliveryAck(handler: DeliveryAckHandler): void {
+    this.onDeliveryAck = handler;
   }
 
   getIceCandidates(): string[] {
@@ -202,6 +209,7 @@ export class BrowserBridge {
           const ack = parseAckMessage(msg);
           if (dc.label === CONTROL_CHANNEL && ack) {
             this.settlePendingAck(ack.messageId, true);
+            this.onDeliveryAck?.(ack);
             return;
           }
 

@@ -1,5 +1,22 @@
-import { AudioLines, Lock, Mic, Paperclip, Send, Square } from "lucide-react";
-import { type ChangeEvent, type KeyboardEvent, useCallback, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  AudioLines,
+  Mic,
+  Paperclip,
+  Pause,
+  Play,
+  Send,
+  Square,
+  Trash2,
+} from "lucide-react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "~/components/ui/button";
 import {
   ContextMenu,
@@ -12,6 +29,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { CHANNELS, makeBinaryMetaMessage, makeHtmlMessage } from "~/lib/bridge-protocol";
+import { cn } from "~/lib/utils";
 import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
 import type { TunnelViewMode } from "./types";
@@ -52,18 +70,21 @@ export function ControlBar({
 
   const floatingShellClass =
     "pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(var(--safe-bottom)+0.75rem)]";
+  const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
+  const controlBarClass =
+    "flex w-full items-center gap-3 rounded-full border border-border/70 bg-background/86 px-4 py-3 shadow-lg backdrop-blur-xl";
+  const recordingToneClass = "border-destructive/40 bg-background/88";
 
   const {
     barsRef,
+    cancelRecording,
     elapsed,
-    handleMicPointerCancel,
-    handleMicPointerDown,
-    handleMicPointerMove,
-    handleMicPointerUp,
-    lockHint,
     mode,
+    pauseRecording,
+    resumeRecording,
+    sendRecording,
+    startRecording,
     startVoiceMode,
-    stopLockedRecording,
     stopVoiceMode,
   } = useControlBarAudio({ disabled, bridge, onSendAudio });
 
@@ -102,67 +123,140 @@ export function ControlBar({
     [bridge],
   );
 
+  const renderFloatingShell = (children: ReactNode) => (
+    <div className={floatingShellClass}>
+      <div className={shellContainerClass}>
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">{children}</div>
+          {viewMode !== "canvas" ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-12 w-12 shrink-0 rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl"
+              onClick={() => onChangeView("canvas")}
+              aria-label="Back to canvas"
+            >
+              <ArrowLeft className="size-6" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
   const waveformEl = (
-    <div ref={barsRef} className="flex items-center gap-0.5 h-9">
+    <div ref={barsRef} className="flex h-9 items-center gap-0.5">
       {WAVEFORM_BARS.map((id) => (
         <div
           key={id}
-          className="w-1 rounded-full bg-white/80 transition-[height] duration-75"
+          className="w-1 rounded-full bg-foreground/70 transition-[height] duration-75"
           style={{ height: "4px" }}
         />
       ))}
     </div>
   );
 
-  if (mode === "push-recording") {
-    return (
-      <div className={floatingShellClass}>
-        <div className="pointer-events-auto mx-auto w-full max-w-4xl relative">
+  if (mode === "recording" || mode === "recording-paused") {
+    const paused = mode === "recording-paused";
+    return renderFloatingShell(
+      <div className={cn(controlBarClass, recordingToneClass)}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full text-destructive"
+              onClick={cancelRecording}
+              aria-label="Delete recording"
+            >
+              <Trash2 className="size-6" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Delete recording</TooltipContent>
+        </Tooltip>
+
+        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-full bg-destructive/12 px-3 py-1.5">
           <div
-            className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center justify-center transition-opacity duration-150"
-            style={{ opacity: Math.max(0.2, lockHint) }}
-          >
-            <div className="bg-zinc-800/90 border border-white/15 rounded-full p-2 backdrop-blur-md shadow-lg">
-              <Lock className="h-5 w-5 text-white" />
-            </div>
-          </div>
-          <div className="flex w-full items-center justify-center gap-3 rounded-[1.6rem] border border-red-400/45 bg-red-600/92 px-5 py-4 shadow-xl backdrop-blur-xl">
-            <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
-            <span className="text-white text-sm font-semibold">{formatTime(elapsed)}</span>
+            className={cn(
+              "h-2.5 w-2.5 rounded-full",
+              paused ? "bg-muted-foreground" : "animate-pulse bg-destructive",
+            )}
+          />
+          <span className="text-sm font-semibold">{formatTime(elapsed)}</span>
+          <div className={cn("min-w-0 flex-1", paused ? "opacity-45" : "opacity-100")}>
             {waveformEl}
           </div>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {paused ? "Paused" : "Recording"}
+          </span>
         </div>
-      </div>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full"
+              onClick={paused ? resumeRecording : pauseRecording}
+              aria-label={paused ? "Resume recording" : "Pause recording"}
+            >
+              {paused ? <Play className="size-6" /> : <Pause className="size-6" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{paused ? "Resume" : "Pause"}</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="default"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full"
+              onClick={sendRecording}
+              aria-label="Send recording"
+            >
+              <Send className="size-6" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Send recording</TooltipContent>
+        </Tooltip>
+      </div>,
     );
   }
 
-  if (mode === "locked-recording" || mode === "voice-mode") {
-    const onStop = mode === "voice-mode" ? stopVoiceMode : stopLockedRecording;
-    return (
-      <div className={floatingShellClass}>
-        <div className="pointer-events-auto mx-auto w-full max-w-4xl">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onStop}
-            className="flex w-full items-center justify-center gap-3 rounded-[1.6rem] border border-red-400/45 bg-red-600/92 px-5 py-4 cursor-pointer shadow-xl backdrop-blur-xl"
-          >
-            <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
-            <span className="text-white text-sm font-semibold">{formatTime(elapsed)}</span>
-            {waveformEl}
-            <Square className="ml-3 h-4 w-4 text-white shrink-0" />
-          </Button>
+  if (mode === "voice-mode") {
+    return renderFloatingShell(
+      <div className={cn(controlBarClass, recordingToneClass)}>
+        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-full bg-destructive/12 px-3 py-1.5">
+          <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
+          <span className="text-sm font-semibold">{formatTime(elapsed)}</span>
+          {waveformEl}
         </div>
-      </div>
+        <span className="shrink-0 text-xs text-muted-foreground">Voice streaming</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 shrink-0 rounded-full text-destructive"
+          onClick={stopVoiceMode}
+          aria-label="Stop voice mode"
+        >
+          <Square className="size-6" />
+        </Button>
+      </div>,
     );
   }
 
   return (
     <ContextMenu modal={false}>
-      <div className={floatingShellClass}>
+      {renderFloatingShell(
         <ContextMenuTrigger asChild>
-          <div className="pointer-events-auto mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/86 px-4 py-3 shadow-lg backdrop-blur-xl">
+          <div>
+            <div className={controlBarClass}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -173,7 +267,7 @@ export function ControlBar({
                     disabled={disabled}
                     aria-label="Attach file"
                   >
-                    <Paperclip className="h-6 w-6" />
+                    <Paperclip className="size-6" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Attach file</TooltipContent>
@@ -206,7 +300,7 @@ export function ControlBar({
                       disabled={disabled}
                       aria-label="Send message"
                     >
-                      <Send className="h-6 w-6" />
+                      <Send className="size-6" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Send</TooltipContent>
@@ -218,18 +312,15 @@ export function ControlBar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-11 w-11 shrink-0 rounded-full touch-none"
-                        onPointerDown={handleMicPointerDown}
-                        onPointerMove={handleMicPointerMove}
-                        onPointerUp={handleMicPointerUp}
-                        onPointerCancel={handleMicPointerCancel}
+                        className="h-11 w-11 shrink-0 rounded-full"
+                        onClick={startRecording}
                         disabled={disabled}
-                        aria-label="Push to talk"
+                        aria-label="Record audio"
                       >
-                        <Mic className="h-6 w-6" />
+                        <Mic className="size-6" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Hold to talk</TooltipContent>
+                    <TooltipContent>Record</TooltipContent>
                   </Tooltip>
 
                   <Tooltip>
@@ -242,7 +333,7 @@ export function ControlBar({
                         disabled={disabled}
                         aria-label="Voice mode"
                       >
-                        <AudioLines className="h-6 w-6" />
+                        <AudioLines className="size-6" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Voice mode</TooltipContent>
@@ -251,8 +342,8 @@ export function ControlBar({
               )}
             </div>
           </div>
-        </ContextMenuTrigger>
-      </div>
+        </ContextMenuTrigger>,
+      )}
 
       <ContextMenuContent>
         <ContextMenuRadioGroup

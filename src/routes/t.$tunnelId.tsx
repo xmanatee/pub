@@ -2,6 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasPanel } from "~/components/tunnel/canvas-panel";
+import {
+  readCachedCanvasHtml,
+  writeCachedCanvasHtml,
+} from "~/components/tunnel/canvas-session-cache";
 import { ChatPanel } from "~/components/tunnel/chat-panel";
 import { ControlBar } from "~/components/tunnel/control-bar";
 import { useTunnelSessionVisualState } from "~/components/tunnel/session-visual-state";
@@ -40,7 +44,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [files, setFiles] = useState<ReceivedFile[]>([]);
-  const [canvasHtml, setCanvasHtml] = useState<string | null>(null);
+  const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(tunnelId));
   const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
@@ -80,18 +84,34 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const visualState = useTunnelSessionVisualState({
     bridgeState,
     hasCanvasContent: Boolean(canvasHtml),
+    isActive: viewMode === "canvas",
     lastAgentActivityAt,
     lastUserDeliveredAt,
   });
 
-  const updateMessageDelivery = useCallback(
-    (messageId: string, delivery: ChatEntry["delivery"]) => {
-      setMessages((prev) =>
-        prev.map((entry) => (entry.id === messageId ? { ...entry, delivery } : entry)),
-      );
-    },
-    [],
-  );
+  const markMessageDelivered = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((entry) =>
+        entry.from === "user" && entry.id === messageId
+          ? { ...entry, delivery: "delivered" }
+          : entry,
+      ),
+    );
+  }, []);
+
+  const markMessageFailedIfPending = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((entry) =>
+        entry.from === "user" && entry.id === messageId && entry.delivery === "sending"
+          ? { ...entry, delivery: "failed" }
+          : entry,
+      ),
+    );
+  }, []);
+
+  useEffect(() => {
+    setCanvasHtml(readCachedCanvasHtml(tunnelId));
+  }, [tunnelId]);
 
   useEffect(() => {
     return () => {
@@ -110,11 +130,13 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         markAgentActivity();
         if (message.type === "html" && message.data) {
           setCanvasHtml(message.data);
+          writeCachedCanvasHtml(tunnelId, message.data);
           if (autoOpenCanvas) {
             setViewMode("canvas");
           }
         } else if (message.type === "event" && message.data === "hide") {
           setCanvasHtml(null);
+          writeCachedCanvasHtml(tunnelId, null);
         }
       } else if (channel === CHANNELS.FILE && message.type === "binary" && cm.binaryData) {
         markAgentActivity();
@@ -138,7 +160,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         ]);
       }
     },
-    [addMessage, autoOpenCanvas, markAgentActivity],
+    [addMessage, autoOpenCanvas, markAgentActivity, tunnelId],
   );
 
   useEffect(() => {
@@ -152,6 +174,11 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage(handleBridgeMessage);
     bridge.setOnTrack(() => markAgentActivity());
+    bridge.setOnDeliveryAck((ack) => {
+      if (ack.channel !== CHANNELS.CHAT) return;
+      setLastUserDeliveredAt(typeof ack.receivedAt === "number" ? ack.receivedAt : Date.now());
+      markMessageDelivered(ack.messageId);
+    });
 
     void (async () => {
       try {
@@ -196,7 +223,14 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
       bridge.close();
       bridgeRef.current = null;
     };
-  }, [tunnel?.agentOffer, tunnelId, storeBrowserSignal, handleBridgeMessage, markAgentActivity]);
+  }, [
+    tunnel?.agentOffer,
+    tunnelId,
+    storeBrowserSignal,
+    handleBridgeMessage,
+    markAgentActivity,
+    markMessageDelivered,
+  ]);
 
   useEffect(() => {
     if (!tunnel?.agentCandidates || !bridgeRef.current) return;
@@ -224,16 +258,21 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.CHAT);
         if (!ready) {
-          updateMessageDelivery(msg.id, "failed");
+          markMessageFailedIfPending(msg.id);
           return;
         }
 
         const delivered = await bridge.sendWithAck(CHANNELS.CHAT, msg, 8_000);
-        if (delivered) setLastUserDeliveredAt(Date.now());
-        updateMessageDelivery(msg.id, delivered ? "delivered" : "failed");
+        if (delivered) {
+          setLastUserDeliveredAt(Date.now());
+          markMessageDelivered(msg.id);
+          return;
+        }
+
+        markMessageFailedIfPending(msg.id);
       })();
     },
-    [addMessage, updateMessageDelivery],
+    [addMessage, markMessageDelivered, markMessageFailedIfPending],
   );
 
   useEffect(() => {
@@ -270,7 +309,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
   if (tunnel === undefined) return <StatusScreen text="Loading..." />;
   if (tunnel === null) return <StatusScreen text="Tunnel not found or expired." />;
-  if (!tunnel.agentOffer) return <StatusScreen text="Waiting for agent..." />;
+  if (!tunnel.agentOffer && !canvasHtml) return <StatusScreen text="Waiting for agent..." />;
 
   const connected = bridgeState === "connected";
 
@@ -290,7 +329,6 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
             files={files}
             messages={messages}
             messagesEndRef={messagesEndRef}
-            onBackToCanvas={() => setViewMode("canvas")}
             showDeliveryStatus={showDeliveryStatus}
           />
         ) : null}
@@ -302,7 +340,6 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
             messageCount={messages.length}
             onAutoOpenCanvasChange={setAutoOpenCanvas}
             onAnimationStyleChange={setAnimationStyle}
-            onBackToCanvas={() => setViewMode("canvas")}
             onClearFiles={clearFiles}
             onClearMessages={() => setMessages([])}
             onShowDeliveryStatusChange={setShowDeliveryStatus}

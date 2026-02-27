@@ -1,4 +1,3 @@
-import { ArrowLeft, Settings2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
@@ -18,7 +17,6 @@ interface SettingsPanelProps {
   messageCount: number;
   onAutoOpenCanvasChange: (value: boolean) => void;
   onAnimationStyleChange: (value: TunnelAnimationStyle) => void;
-  onBackToCanvas: () => void;
   onClearFiles: () => void;
   onClearMessages: () => void;
   onShowDeliveryStatusChange: (value: boolean) => void;
@@ -32,7 +30,6 @@ export function SettingsPanel({
   messageCount,
   onAutoOpenCanvasChange,
   onAnimationStyleChange,
-  onBackToCanvas,
   onClearFiles,
   onClearMessages,
   onShowDeliveryStatusChange,
@@ -40,21 +37,6 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   return (
     <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
-      <Card className="sticky top-2 z-10 border-border/70 bg-background/85 backdrop-blur-xl shadow-sm">
-        <CardHeader className="px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-sm font-semibold inline-flex items-center gap-2">
-              <Settings2 className="h-4 w-4" />
-              Settings
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={onBackToCanvas}>
-              <ArrowLeft className="h-4 w-4" />
-              Back to canvas
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-
       <Card>
         <CardHeader className="px-4 py-3">
           <CardTitle className="text-sm">Behavior</CardTitle>

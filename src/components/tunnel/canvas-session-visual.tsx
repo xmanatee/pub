@@ -1,8 +1,11 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
+import "./canvas-session-visual.css";
 import type { TunnelAnimationStyle, TunnelSessionVisualState } from "./types";
 
 interface Tone {
+  coreScale: number;
+  energy: number;
   glow: number;
   hueA: number;
   hueB: number;
@@ -13,6 +16,8 @@ interface Tone {
 
 const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
   connecting: {
+    coreScale: 0.82,
+    energy: 0.34,
     hueA: 210,
     hueB: 220,
     hueC: 235,
@@ -21,6 +26,8 @@ const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
     glow: 0.55,
   },
   disconnected: {
+    coreScale: 0.78,
+    energy: 0.26,
     hueA: 8,
     hueB: 355,
     hueC: 330,
@@ -29,6 +36,8 @@ const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
     glow: 0.52,
   },
   "waiting-content": {
+    coreScale: 0.9,
+    energy: 0.46,
     hueA: 208,
     hueB: 214,
     hueC: 228,
@@ -37,6 +46,8 @@ const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
     glow: 0.62,
   },
   idle: {
+    coreScale: 1,
+    energy: 0.62,
     hueA: 210,
     hueB: 168,
     hueC: 295,
@@ -45,6 +56,8 @@ const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
     glow: 0.82,
   },
   "agent-replying": {
+    coreScale: 1.18,
+    energy: 0.98,
     hueA: 195,
     hueB: 132,
     hueC: 304,
@@ -79,7 +92,9 @@ function VisualLayer({
     "--tv-hue-c": `${tone.hueC}`,
     "--tv-saturation": `${tone.saturation}`,
     "--tv-glow": `${tone.glow}`,
+    "--tv-energy": `${tone.energy}`,
     "--tv-speed-ms": `${tone.speedMs}ms`,
+    "--tv-core-scale": `${tone.coreScale}`,
     "--tv-opacity": hasCanvasContent ? "0.24" : "1",
   } as CSSProperties;
 
@@ -96,6 +111,12 @@ function VisualLayer({
       <div className="tunnel-visual__ring tunnel-visual__ring-b" />
       <div className="tunnel-visual__mesh tunnel-visual__mesh-a" />
       <div className="tunnel-visual__mesh tunnel-visual__mesh-b" />
+      <div className="tunnel-visual__center">
+        <div className="tunnel-visual__center-halo" />
+        <div className="tunnel-visual__center-ring tunnel-visual__center-ring-a" />
+        <div className="tunnel-visual__center-ring tunnel-visual__center-ring-b" />
+        <div className="tunnel-visual__center-glyph" />
+      </div>
       <div className="tunnel-visual__grain" />
       <div className="tunnel-visual__vignette" />
     </div>

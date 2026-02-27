@@ -113,6 +113,13 @@ export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures:
   return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
 }
 
+export function resolveTunnelIdSelection(
+  tunnelIdArg: string | undefined,
+  tunnelOpt: string | undefined,
+): string | undefined {
+  return tunnelOpt || tunnelIdArg;
+}
+
 export function registerTunnelCommands(program: Command): void {
   const tunnel = program.command("tunnel").description("P2P encrypted tunnel to browser");
 
@@ -258,15 +265,17 @@ export function registerTunnelCommands(program: Command): void {
     .command("read")
     .description("Read buffered messages from channels")
     .argument("[tunnelId]", "Tunnel ID (auto-detected if one active)")
+    .option("-t, --tunnel <tunnelId>", "Tunnel ID (alternative to positional arg)")
     .option("-c, --channel <channel>", "Filter by channel")
     .option("--follow", "Stream messages continuously")
     .option("--all", "With --follow, include all channels instead of chat-only default")
     .action(
       async (
         tunnelIdArg: string | undefined,
-        opts: { channel?: string; follow?: boolean; all?: boolean },
+        opts: { tunnel?: string; channel?: string; follow?: boolean; all?: boolean },
       ) => {
-        const tunnelId = tunnelIdArg || (await resolveActiveTunnel());
+        const tunnelId =
+          resolveTunnelIdSelection(tunnelIdArg, opts.tunnel) || (await resolveActiveTunnel());
         const socketPath = getSocketPath(tunnelId);
         const readChannel = opts.channel || (opts.follow && !opts.all ? CHANNELS.CHAT : undefined);
 
@@ -327,8 +336,10 @@ export function registerTunnelCommands(program: Command): void {
     .command("channels")
     .description("List active channels")
     .argument("[tunnelId]", "Tunnel ID")
-    .action(async (tunnelIdArg?: string) => {
-      const tunnelId = tunnelIdArg || (await resolveActiveTunnel());
+    .option("-t, --tunnel <tunnelId>", "Tunnel ID (alternative to positional arg)")
+    .action(async (tunnelIdArg: string | undefined, opts: { tunnel?: string }) => {
+      const tunnelId =
+        resolveTunnelIdSelection(tunnelIdArg, opts.tunnel) || (await resolveActiveTunnel());
       const socketPath = getSocketPath(tunnelId);
       const response = await ipcCall(socketPath, { method: "channels", params: {} });
       if (response.channels) {
@@ -342,8 +353,10 @@ export function registerTunnelCommands(program: Command): void {
     .command("status")
     .description("Check tunnel connection status")
     .argument("[tunnelId]", "Tunnel ID")
-    .action(async (tunnelIdArg?: string) => {
-      const tunnelId = tunnelIdArg || (await resolveActiveTunnel());
+    .option("-t, --tunnel <tunnelId>", "Tunnel ID (alternative to positional arg)")
+    .action(async (tunnelIdArg: string | undefined, opts: { tunnel?: string }) => {
+      const tunnelId =
+        resolveTunnelIdSelection(tunnelIdArg, opts.tunnel) || (await resolveActiveTunnel());
       const socketPath = getSocketPath(tunnelId);
       const response = await ipcCall(socketPath, { method: "status", params: {} });
       console.log(`  Status: ${response.connected ? "connected" : "waiting"}`);

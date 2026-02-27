@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFollowReadDelayMs } from "./tunnel.js";
+import { getFollowReadDelayMs, resolveTunnelIdSelection } from "./tunnel.js";
 
 describe("getFollowReadDelayMs", () => {
   it("uses steady polling when daemon is reachable", () => {
@@ -12,5 +12,19 @@ describe("getFollowReadDelayMs", () => {
     expect(getFollowReadDelayMs(true, 2)).toBe(4_000);
     expect(getFollowReadDelayMs(true, 3)).toBe(5_000);
     expect(getFollowReadDelayMs(true, 10)).toBe(5_000);
+  });
+});
+
+describe("resolveTunnelIdSelection", () => {
+  it("prefers --tunnel over positional tunnelId", () => {
+    expect(resolveTunnelIdSelection("arg-id", "opt-id")).toBe("opt-id");
+  });
+
+  it("uses positional tunnelId when --tunnel is omitted", () => {
+    expect(resolveTunnelIdSelection("arg-id", undefined)).toBe("arg-id");
+  });
+
+  it("returns undefined when neither source provides tunnelId", () => {
+    expect(resolveTunnelIdSelection(undefined, undefined)).toBeUndefined();
   });
 });

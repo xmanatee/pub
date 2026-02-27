@@ -42,6 +42,7 @@ export function resolveTunnelSessionVisualState({
 interface UseTunnelSessionVisualStateParams {
   bridgeState: BridgeState;
   hasCanvasContent: boolean;
+  isActive?: boolean;
   lastAgentActivityAt: number | null;
   lastUserDeliveredAt: number | null;
 }
@@ -49,15 +50,18 @@ interface UseTunnelSessionVisualStateParams {
 export function useTunnelSessionVisualState({
   bridgeState,
   hasCanvasContent,
+  isActive = true,
   lastAgentActivityAt,
   lastUserDeliveredAt,
 }: UseTunnelSessionVisualStateParams): TunnelSessionVisualState {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
+    if (!isActive) return;
+    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [isActive]);
 
   return useMemo(
     () =>
