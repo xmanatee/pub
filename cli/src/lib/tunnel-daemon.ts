@@ -42,6 +42,17 @@ export function getTunnelWriteReadinessError(isConnected: boolean): string | nul
   return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;
 }
 
+export function shouldRecoverForBrowserAnswerChange(params: {
+  incomingBrowserAnswer: string | undefined;
+  lastAppliedBrowserAnswer: string | null;
+  remoteDescriptionApplied: boolean;
+}): boolean {
+  const { incomingBrowserAnswer, lastAppliedBrowserAnswer, remoteDescriptionApplied } = params;
+  if (!remoteDescriptionApplied) return false;
+  if (!incomingBrowserAnswer) return false;
+  return incomingBrowserAnswer !== lastAppliedBrowserAnswer;
+}
+
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { tunnelId, apiClient, socketPath, infoPath } = config;
 
@@ -55,6 +66,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let recovering = false;
 
   let remoteDescriptionApplied = false;
+  let lastAppliedBrowserAnswer: string | null = null;
   let lastBrowserCandidateCount = 0;
   let lastSentCandidateCount = 0;
 
@@ -212,6 +224,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     connected = false;
     failPendingAcks();
     remoteDescriptionApplied = false;
+    lastAppliedBrowserAnswer = null;
     lastBrowserCandidateCount = 0;
     lastSentCandidateCount = 0;
     pendingRemoteCandidates.length = 0;
@@ -310,6 +323,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function pollSignalingOnce(): Promise<void> {
     const tunnel = await apiClient.get(tunnelId);
+    if (
+      shouldRecoverForBrowserAnswerChange({
+        incomingBrowserAnswer: tunnel.browserAnswer,
+        lastAppliedBrowserAnswer,
+        remoteDescriptionApplied,
+      })
+    ) {
+      connected = false;
+      scheduleRecovery(0, true);
+      return;
+    }
 
     if (tunnel.browserAnswer && !remoteDescriptionApplied) {
       if (!peer) return;
@@ -318,6 +342,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         const answer = JSON.parse(tunnel.browserAnswer);
         peer.setRemoteDescription(answer.sdp, answer.type);
         remoteDescriptionApplied = true;
+        lastAppliedBrowserAnswer = tunnel.browserAnswer;
 
         while (pendingRemoteCandidates.length > 0) {
           const next = pendingRemoteCandidates.shift();
@@ -391,14 +416,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function scheduleRecovery(delayMs = RECOVERY_DELAY_MS): void {
+  function scheduleRecovery(delayMs = RECOVERY_DELAY_MS, force = false): void {
     if (stopped || recovering || recoveryTimer) return;
 
     recoveryTimer = setTimeout(() => {
       recoveryTimer = null;
-      if (stopped || connected) return;
+      if (stopped || (!force && connected)) return;
       void recoverPeer().catch(() => {
-        if (!stopped) scheduleRecovery(delayMs);
+        if (!stopped) scheduleRecovery(delayMs, force);
       });
     }, delayMs);
   }

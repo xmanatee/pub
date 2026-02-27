@@ -207,4 +207,236 @@
       opacity: 1;
     }
   }
+
+  .tunnel-visual {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    isolation: isolate;
+    opacity: var(--tv-opacity, 1);
+    transition: opacity 320ms ease;
+  }
+
+  .tunnel-visual-fade-in {
+    animation: tunnel-visual-cross-in 420ms ease;
+  }
+
+  .tunnel-visual-fade-out {
+    animation: tunnel-visual-cross-out 420ms ease forwards;
+  }
+
+  .tunnel-visual__layer,
+  .tunnel-visual__ring,
+  .tunnel-visual__mesh,
+  .tunnel-visual__grain,
+  .tunnel-visual__vignette {
+    position: absolute;
+    inset: -16%;
+  }
+
+  .tunnel-visual__layer {
+    mix-blend-mode: screen;
+    filter: blur(48px) saturate(var(--tv-saturation, 1));
+    opacity: calc(0.16 + var(--tv-glow, 1) * 0.45);
+    will-change: transform, opacity;
+  }
+
+  .tunnel-visual__layer-a {
+    background:
+      radial-gradient(circle at 22% 30%, hsl(var(--tv-hue-a) 87% 58% / 0.82) 0%, transparent 52%),
+      radial-gradient(circle at 72% 70%, hsl(var(--tv-hue-b) 84% 58% / 0.52) 0%, transparent 56%);
+    animation: tunnel-visual-drift var(--tv-speed-ms, 16s) linear infinite;
+  }
+
+  .tunnel-visual__layer-b {
+    background:
+      radial-gradient(circle at 78% 25%, hsl(var(--tv-hue-c) 88% 61% / 0.72) 0%, transparent 52%),
+      radial-gradient(circle at 30% 72%, hsl(var(--tv-hue-b) 82% 61% / 0.5) 0%, transparent 58%);
+    animation: tunnel-visual-drift calc(var(--tv-speed-ms, 16s) * 1.25) linear infinite reverse;
+  }
+
+  .tunnel-visual__layer-c {
+    background:
+      radial-gradient(circle at 50% 55%, hsl(var(--tv-hue-a) 85% 60% / 0.48) 0%, transparent 48%),
+      radial-gradient(circle at 45% 30%, hsl(var(--tv-hue-c) 84% 62% / 0.44) 0%, transparent 52%);
+    animation: tunnel-visual-float calc(var(--tv-speed-ms, 16s) * 0.8) ease-in-out infinite;
+  }
+
+  .tunnel-visual__ring {
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  .tunnel-visual__ring-a {
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle at center, transparent 44%, hsl(var(--tv-hue-a) 86% 60% / 0.22) 48%, transparent 58%),
+      conic-gradient(
+        from 90deg,
+        transparent,
+        hsl(var(--tv-hue-b) 84% 60% / 0.42),
+        transparent,
+        hsl(var(--tv-hue-c) 85% 62% / 0.36),
+        transparent
+      );
+    filter: blur(1px);
+    animation: tunnel-visual-spin calc(var(--tv-speed-ms, 16s) * 0.95) linear infinite;
+  }
+
+  .tunnel-visual__ring-b {
+    inset: -26%;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle at center, transparent 52%, hsl(var(--tv-hue-b) 84% 58% / 0.12) 56%, transparent 67%),
+      conic-gradient(
+        from 210deg,
+        transparent,
+        hsl(var(--tv-hue-a) 82% 58% / 0.28),
+        transparent,
+        hsl(var(--tv-hue-c) 82% 62% / 0.22),
+        transparent
+      );
+    filter: blur(3px);
+    animation: tunnel-visual-spin calc(var(--tv-speed-ms, 16s) * 1.4) linear infinite reverse;
+  }
+
+  .tunnel-visual__mesh {
+    border-radius: 9999px;
+    filter: blur(58px) saturate(var(--tv-saturation, 1));
+    opacity: 0;
+    will-change: transform;
+  }
+
+  .tunnel-visual__mesh-a {
+    background:
+      radial-gradient(circle at center, hsl(var(--tv-hue-a) 90% 60% / 0.52) 0%, transparent 65%),
+      radial-gradient(circle at 62% 38%, hsl(var(--tv-hue-b) 86% 61% / 0.36) 0%, transparent 62%);
+    animation: tunnel-visual-pulse calc(var(--tv-speed-ms, 16s) * 0.62) ease-in-out infinite;
+  }
+
+  .tunnel-visual__mesh-b {
+    background:
+      radial-gradient(circle at center, hsl(var(--tv-hue-c) 90% 61% / 0.5) 0%, transparent 66%),
+      radial-gradient(circle at 42% 65%, hsl(var(--tv-hue-b) 84% 58% / 0.35) 0%, transparent 60%);
+    animation: tunnel-visual-pulse calc(var(--tv-speed-ms, 16s) * 0.78) ease-in-out infinite reverse;
+  }
+
+  .tunnel-visual__grain {
+    inset: 0;
+    background-image: radial-gradient(rgb(255 255 255 / 0.08) 0.65px, transparent 0.65px);
+    background-size: 3px 3px;
+    mix-blend-mode: soft-light;
+    opacity: 0.08;
+  }
+
+  .tunnel-visual__vignette {
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 45%,
+      hsl(var(--tv-hue-a) 28% 4% / 0.42) 100%
+    );
+  }
+
+  .tunnel-visual--aurora .tunnel-visual__layer {
+    opacity: calc(0.2 + var(--tv-glow, 1) * 0.47);
+  }
+
+  .tunnel-visual--aurora .tunnel-visual__ring,
+  .tunnel-visual--aurora .tunnel-visual__mesh {
+    opacity: 0;
+  }
+
+  .tunnel-visual--rings .tunnel-visual__layer {
+    opacity: calc(0.1 + var(--tv-glow, 1) * 0.24);
+    filter: blur(52px);
+  }
+
+  .tunnel-visual--rings .tunnel-visual__ring {
+    opacity: calc(0.22 + var(--tv-glow, 1) * 0.48);
+  }
+
+  .tunnel-visual--rings .tunnel-visual__mesh {
+    opacity: calc(0.06 + var(--tv-glow, 1) * 0.14);
+  }
+
+  .tunnel-visual--mesh .tunnel-visual__layer {
+    opacity: calc(0.12 + var(--tv-glow, 1) * 0.24);
+    filter: blur(62px) saturate(var(--tv-saturation, 1));
+  }
+
+  .tunnel-visual--mesh .tunnel-visual__ring {
+    opacity: calc(0.03 + var(--tv-glow, 1) * 0.08);
+  }
+
+  .tunnel-visual--mesh .tunnel-visual__mesh {
+    opacity: calc(0.24 + var(--tv-glow, 1) * 0.44);
+  }
+}
+
+@keyframes tunnel-visual-drift {
+  0% {
+    transform: translate3d(-6%, -3%, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(5%, 4%, 0) rotate(180deg) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-6%, -3%, 0) rotate(360deg) scale(1);
+  }
+}
+
+@keyframes tunnel-visual-float {
+  0% {
+    transform: translate3d(0, -5%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, 5%, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(0, -5%, 0) scale(1);
+  }
+}
+
+@keyframes tunnel-visual-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes tunnel-visual-pulse {
+  0% {
+    transform: translate3d(-6%, -3%, 0) scale(0.92);
+  }
+  50% {
+    transform: translate3d(7%, 5%, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(-6%, -3%, 0) scale(0.92);
+  }
+}
+
+@keyframes tunnel-visual-cross-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: var(--tv-opacity, 1);
+  }
+}
+
+@keyframes tunnel-visual-cross-out {
+  0% {
+    opacity: var(--tv-opacity, 1);
+  }
+  100% {
+    opacity: 0;
+  }
 }

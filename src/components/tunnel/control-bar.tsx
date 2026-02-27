@@ -158,11 +158,11 @@ export function ControlBar({
   }
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div className={floatingShellClass}>
+    <ContextMenu modal={false}>
+      <div className={floatingShellClass}>
+        <ContextMenuTrigger asChild>
           <div className="pointer-events-auto mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-3 rounded-[1.6rem] border border-border/70 bg-background/86 px-4 py-3 shadow-lg backdrop-blur-xl">
+            <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/86 px-4 py-3 shadow-lg backdrop-blur-xl">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -173,7 +173,7 @@ export function ControlBar({
                     disabled={disabled}
                     aria-label="Attach file"
                   >
-                    <Paperclip className="h-5 w-5" />
+                    <Paperclip className="h-6 w-6" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Attach file</TooltipContent>
@@ -206,7 +206,7 @@ export function ControlBar({
                       disabled={disabled}
                       aria-label="Send message"
                     >
-                      <Send className="h-5 w-5" />
+                      <Send className="h-6 w-6" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Send</TooltipContent>
@@ -226,7 +226,7 @@ export function ControlBar({
                         disabled={disabled}
                         aria-label="Push to talk"
                       >
-                        <Mic className="h-5 w-5" />
+                        <Mic className="h-6 w-6" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Hold to talk</TooltipContent>
@@ -242,7 +242,7 @@ export function ControlBar({
                         disabled={disabled}
                         aria-label="Voice mode"
                       >
-                        <AudioLines className="h-5 w-5" />
+                        <AudioLines className="h-6 w-6" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Voice mode</TooltipContent>
@@ -251,8 +251,8 @@ export function ControlBar({
               )}
             </div>
           </div>
-        </div>
-      </ContextMenuTrigger>
+        </ContextMenuTrigger>
+      </div>
 
       <ContextMenuContent>
         <ContextMenuRadioGroup

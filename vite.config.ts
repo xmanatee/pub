@@ -9,6 +9,13 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 3000,
+    proxy: {
+      "/ph": {
+        target: "https://eu.i.posthog.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ph/, ""),
+      },
+    },
   },
   build: {
     sourcemap: "hidden",

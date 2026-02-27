@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasPanel } from "~/components/tunnel/canvas-panel";
 import { ChatPanel } from "~/components/tunnel/chat-panel";
 import { ControlBar } from "~/components/tunnel/control-bar";
+import { useTunnelSessionVisualState } from "~/components/tunnel/session-visual-state";
 import { SettingsPanel } from "~/components/tunnel/settings-panel";
 import type { ChatEntry, ReceivedFile, TunnelViewMode } from "~/components/tunnel/types";
+import { useTunnelPreferences } from "~/components/tunnel/use-tunnel-preferences";
 import { CHANNELS, makeBinaryMetaMessage, makeTextMessage } from "~/lib/bridge-protocol";
 import type { BridgeState, ChannelMessage } from "~/lib/webrtc-browser";
 import { BrowserBridge } from "~/lib/webrtc-browser";
@@ -40,8 +42,16 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const [files, setFiles] = useState<ReceivedFile[]>([]);
   const [canvasHtml, setCanvasHtml] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
-  const [autoOpenCanvas, setAutoOpenCanvas] = useState(true);
-  const [showDeliveryStatus, setShowDeliveryStatus] = useState(true);
+  const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
+  const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
+  const {
+    animationStyle,
+    autoOpenCanvas,
+    setAnimationStyle,
+    setAutoOpenCanvas,
+    setShowDeliveryStatus,
+    showDeliveryStatus,
+  } = useTunnelPreferences();
 
   const lastAgentCandidateCount = useRef(0);
   const lastHandledOffer = useRef<string | null>(null);
@@ -63,6 +73,17 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     [scrollToBottom],
   );
 
+  const markAgentActivity = useCallback(() => {
+    setLastAgentActivityAt(Date.now());
+  }, []);
+
+  const visualState = useTunnelSessionVisualState({
+    bridgeState,
+    hasCanvasContent: Boolean(canvasHtml),
+    lastAgentActivityAt,
+    lastUserDeliveredAt,
+  });
+
   const updateMessageDelivery = useCallback(
     (messageId: string, delivery: ChatEntry["delivery"]) => {
       setMessages((prev) =>
@@ -83,8 +104,10 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     (cm: ChannelMessage) => {
       const { channel, message } = cm;
       if (channel === CHANNELS.CHAT && message.type === "text" && message.data) {
+        markAgentActivity();
         addMessage({ id: message.id, from: "agent", content: message.data, timestamp: Date.now() });
       } else if (channel === CHANNELS.CANVAS) {
+        markAgentActivity();
         if (message.type === "html" && message.data) {
           setCanvasHtml(message.data);
           if (autoOpenCanvas) {
@@ -94,6 +117,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
           setCanvasHtml(null);
         }
       } else if (channel === CHANNELS.FILE && message.type === "binary" && cm.binaryData) {
+        markAgentActivity();
         const filename =
           typeof message.meta?.filename === "string" ? message.meta.filename : "download.bin";
         const mime =
@@ -114,7 +138,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         ]);
       }
     },
-    [addMessage, autoOpenCanvas],
+    [addMessage, autoOpenCanvas, markAgentActivity],
   );
 
   useEffect(() => {
@@ -127,6 +151,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     lastAgentCandidateCount.current = 0;
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage(handleBridgeMessage);
+    bridge.setOnTrack(() => markAgentActivity());
 
     void (async () => {
       try {
@@ -171,7 +196,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
       bridge.close();
       bridgeRef.current = null;
     };
-  }, [tunnel?.agentOffer, tunnelId, storeBrowserSignal, handleBridgeMessage]);
+  }, [tunnel?.agentOffer, tunnelId, storeBrowserSignal, handleBridgeMessage, markAgentActivity]);
 
   useEffect(() => {
     if (!tunnel?.agentCandidates || !bridgeRef.current) return;
@@ -204,6 +229,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         }
 
         const delivered = await bridge.sendWithAck(CHANNELS.CHAT, msg, 8_000);
+        if (delivered) setLastUserDeliveredAt(Date.now());
         updateMessageDelivery(msg.id, delivered ? "delivered" : "failed");
       })();
     },
@@ -249,10 +275,16 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const connected = bridgeState === "connected";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-background text-foreground">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
       <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
       <div className="flex-1 min-h-0 relative">
-        {viewMode === "canvas" ? <CanvasPanel html={canvasHtml} /> : null}
+        {viewMode === "canvas" ? (
+          <CanvasPanel
+            animationStyle={animationStyle}
+            html={canvasHtml}
+            visualState={visualState}
+          />
+        ) : null}
         {viewMode === "chat" ? (
           <ChatPanel
             files={files}
@@ -265,9 +297,11 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         {viewMode === "settings" ? (
           <SettingsPanel
             autoOpenCanvas={autoOpenCanvas}
+            animationStyle={animationStyle}
             fileCount={files.length}
             messageCount={messages.length}
             onAutoOpenCanvasChange={setAutoOpenCanvas}
+            onAnimationStyleChange={setAnimationStyle}
             onBackToCanvas={() => setViewMode("canvas")}
             onClearFiles={clearFiles}
             onClearMessages={() => setMessages([])}
@@ -291,7 +325,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
 function StatusScreen({ text }: { text: string }) {
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
       <div className="text-muted-foreground text-sm">{text}</div>
     </div>
   );

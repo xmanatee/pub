@@ -3,12 +3,21 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  isTunnelAnimationStyle,
+  TUNNEL_ANIMATION_STYLE_META,
+  TUNNEL_ANIMATION_STYLES,
+  type TunnelAnimationStyle,
+} from "./types";
 
 interface SettingsPanelProps {
   autoOpenCanvas: boolean;
+  animationStyle: TunnelAnimationStyle;
   fileCount: number;
   messageCount: number;
   onAutoOpenCanvasChange: (value: boolean) => void;
+  onAnimationStyleChange: (value: TunnelAnimationStyle) => void;
   onBackToCanvas: () => void;
   onClearFiles: () => void;
   onClearMessages: () => void;
@@ -18,9 +27,11 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({
   autoOpenCanvas,
+  animationStyle,
   fileCount,
   messageCount,
   onAutoOpenCanvasChange,
+  onAnimationStyleChange,
   onBackToCanvas,
   onClearFiles,
   onClearMessages,
@@ -69,6 +80,36 @@ export function SettingsPanel({
               </div>
             </div>
             <Switch checked={showDeliveryStatus} onCheckedChange={onShowDeliveryStatusChange} />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <div>
+              <div className="text-sm font-medium">Canvas session animation</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Pick the live background style used in canvas mode.
+              </div>
+            </div>
+
+            <Tabs
+              value={animationStyle}
+              onValueChange={(value) => {
+                if (isTunnelAnimationStyle(value)) onAnimationStyleChange(value);
+              }}
+            >
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-muted p-1">
+                {TUNNEL_ANIMATION_STYLES.map((style) => (
+                  <TabsTrigger key={style} value={style} className="h-10 text-xs">
+                    {TUNNEL_ANIMATION_STYLE_META[style].label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            <div className="text-xs text-muted-foreground">
+              {TUNNEL_ANIMATION_STYLE_META[animationStyle].description}
+            </div>
           </div>
         </CardContent>
       </Card>

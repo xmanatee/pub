@@ -4,11 +4,11 @@ let initialized = false;
 
 export function initPostHog() {
   const apiKey = import.meta.env.VITE_POSTHOG_KEY;
-  const apiHost = import.meta.env.VITE_POSTHOG_HOST;
   if (!apiKey || initialized) return;
 
   posthog.init(apiKey, {
-    api_host: apiHost || "https://eu.i.posthog.com",
+    api_host: "/ph",
+    ui_host: "https://eu.posthog.com",
     person_profiles: "identified_only",
 
     // Autocapture — clicks, form submissions, page views
