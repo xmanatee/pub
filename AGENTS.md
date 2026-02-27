@@ -60,9 +60,9 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
-- **`pubblue`** v0.4.2 — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
+- **`pubblue`** v0.4.3 — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - Commands: `configure`, `create`, `get`, `list`, `update`, `delete`
-- `create [file]` — supports `--public`/`--private`, `--expires <duration>` (e.g. `1h`, `24h`, `7d`)
+- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, and `--expires <duration>` (e.g. `1h`, `24h`, `7d`)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages

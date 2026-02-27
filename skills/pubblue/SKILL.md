@@ -11,7 +11,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.1"
+  version: "3.2"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Read Write
 ---
 
@@ -87,6 +87,7 @@ Publications are single files. Leaner content loads faster and stays within the 
 | | `--slug <slug>` | Custom URL slug (auto-generated if omitted) |
 | | `--title <title>` | Human-readable title |
 | | `--public` / `--private` | Visibility (default: private) |
+| | `--expires <duration>` | Optional auto-delete duration (e.g. `1h`, `24h`, `7d`) |
 | `update` | `--file <file>` | New content from file |
 | | `--title <title>` | New title |
 | | `--public` / `--private` | Change visibility |
@@ -157,6 +158,7 @@ Start an encrypted P2P WebRTC tunnel so users can communicate with you through t
    pubblue tunnel read <id> --follow
    ```
    - Keep it running while the conversation is active
+   - It automatically retries if the local daemon restarts
    - Messages are buffered — nothing is lost between polls
    - IMPORTANT: You will NOT be notified automatically unless you are actively reading (`--follow` or manual polling).
 

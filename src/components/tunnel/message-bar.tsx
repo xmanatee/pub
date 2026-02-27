@@ -39,6 +39,42 @@ interface MessageBarProps {
   onToggleView: () => void;
 }
 
+function formatTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function getSupportedMimeType(): string {
+  for (const mime of ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return "";
+}
+
+async function ensureChannelReady(
+  bridge: BrowserBridge,
+  channel: string,
+  timeoutMs = 5000,
+): Promise<boolean> {
+  if (bridge.isChannelOpen(channel)) return true;
+  const dc = bridge.openChannel(channel);
+  if (!dc) return false;
+  if (dc.readyState === "open") return true;
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    const done = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(value);
+    };
+    const timeout = setTimeout(() => done(false), timeoutMs);
+    dc.addEventListener("open", () => done(true), { once: true });
+    dc.addEventListener("close", () => done(false), { once: true });
+  });
+}
+
 export function MessageBar({
   disabled,
   bridge,
@@ -164,12 +200,11 @@ export function MessageBar({
     return { stream, audioCtx };
   }, []);
 
-  // -- Push-to-talk: pointer down on mic button --
   const handleMicPointerDown = useCallback(
     async (e: ReactPointerEvent<HTMLButtonElement>) => {
       if (disabled || mode !== "idle") return;
       e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      e.currentTarget.setPointerCapture(e.pointerId);
       initialYRef.current = e.clientY;
       lockedRef.current = false;
       setLockHint(0);
@@ -191,10 +226,10 @@ export function MessageBar({
         startTimer();
         animateWaveform();
       } catch {
-        // Mic access denied
+        cleanup();
       }
     },
-    [disabled, mode, setupAudio, onSendAudio, startTimer, animateWaveform],
+    [disabled, mode, setupAudio, onSendAudio, startTimer, animateWaveform, cleanup],
   );
 
   const handleMicPointerMove = useCallback(
@@ -215,45 +250,16 @@ export function MessageBar({
     if (lockedRef.current) {
       setMode("locked-recording");
     } else {
-      // Stop and send
-      if (mediaRecorderRef.current?.state === "recording") {
-        mediaRecorderRef.current.stop();
-      }
-      if (streamRef.current) {
-        for (const track of streamRef.current.getTracks()) track.stop();
-        streamRef.current = null;
-      }
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close();
-        audioCtxRef.current = null;
-      }
-      cancelAnimationFrame(animFrameRef.current);
-      analyserRef.current = null;
-      stopTimer();
+      cleanup();
       setMode("idle");
     }
-  }, [mode, stopTimer]);
+  }, [mode, cleanup]);
 
-  // -- Locked recording: click to stop & send --
   const handleLockedStop = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      for (const track of streamRef.current.getTracks()) track.stop();
-      streamRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close();
-      audioCtxRef.current = null;
-    }
-    cancelAnimationFrame(animFrameRef.current);
-    analyserRef.current = null;
-    stopTimer();
+    cleanup();
     setMode("idle");
-  }, [stopTimer]);
+  }, [cleanup]);
 
-  // -- Voice mode: continuous streaming --
   const startVoiceMode = useCallback(async () => {
     if (disabled || !bridge) return;
     try {
@@ -288,43 +294,17 @@ export function MessageBar({
   }, [disabled, bridge, setupAudio, cleanup, startTimer, animateWaveform]);
 
   const stopVoiceMode = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
     if (bridge && streamIdRef.current) {
       bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current));
       streamIdRef.current = null;
     }
-    if (streamRef.current) {
-      for (const track of streamRef.current.getTracks()) track.stop();
-      streamRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close();
-      audioCtxRef.current = null;
-    }
-    cancelAnimationFrame(animFrameRef.current);
-    analyserRef.current = null;
-    stopTimer();
+    cleanup();
     setMode("idle");
-  }, [bridge, stopTimer]);
+  }, [bridge, cleanup]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      cancelAnimationFrame(animFrameRef.current);
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (streamRef.current) {
-        for (const track of streamRef.current.getTracks()) track.stop();
-      }
-    };
-  }, []);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  };
+    return () => cleanup();
+  }, [cleanup]);
 
   const waveformEl = (
     <div ref={barsRef} className="flex items-center gap-0.5 h-8">
@@ -338,7 +318,6 @@ export function MessageBar({
     </div>
   );
 
-  // -- Push-recording overlay --
   if (mode === "push-recording") {
     return (
       <div className="shrink-0 safe-bottom relative">
@@ -359,13 +338,13 @@ export function MessageBar({
     );
   }
 
-  // -- Locked recording bar --
-  if (mode === "locked-recording") {
+  if (mode === "locked-recording" || mode === "voice-mode") {
+    const onStop = mode === "voice-mode" ? stopVoiceMode : handleLockedStop;
     return (
       <div className="shrink-0 safe-bottom">
         <button
           type="button"
-          onClick={handleLockedStop}
+          onClick={onStop}
           className="flex w-full items-center justify-center gap-2 bg-red-600 px-4 py-3 cursor-pointer"
         >
           <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
@@ -377,25 +356,6 @@ export function MessageBar({
     );
   }
 
-  // -- Voice mode bar --
-  if (mode === "voice-mode") {
-    return (
-      <div className="shrink-0 safe-bottom">
-        <button
-          type="button"
-          onClick={stopVoiceMode}
-          className="flex w-full items-center justify-center gap-2 bg-red-600 px-4 py-3 cursor-pointer"
-        >
-          <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-          <span className="text-white text-sm font-medium">{formatTime(elapsed)}</span>
-          {waveformEl}
-          <Square className="ml-3 h-4 w-4 text-white shrink-0" />
-        </button>
-      </div>
-    );
-  }
-
-  // -- Idle bar --
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -456,6 +416,7 @@ export function MessageBar({
                     onPointerDown={handleMicPointerDown}
                     onPointerMove={handleMicPointerMove}
                     onPointerUp={handleMicPointerUp}
+                    onPointerCancel={handleMicPointerUp}
                     disabled={disabled}
                     aria-label="Push to talk"
                   >
@@ -493,34 +454,4 @@ export function MessageBar({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
-
-function getSupportedMimeType(): string {
-  for (const mime of ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]) {
-    if (MediaRecorder.isTypeSupported(mime)) return mime;
-  }
-  return "";
-}
-
-async function ensureChannelReady(
-  bridge: BrowserBridge,
-  channel: string,
-  timeoutMs = 5000,
-): Promise<boolean> {
-  if (bridge.isChannelOpen(channel)) return true;
-  const dc = bridge.openChannel(channel);
-  if (!dc) return false;
-  if (dc.readyState === "open") return true;
-  return await new Promise<boolean>((resolve) => {
-    let settled = false;
-    const done = (value: boolean) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      resolve(value);
-    };
-    const timeout = setTimeout(() => done(false), timeoutMs);
-    dc.addEventListener("open", () => done(true), { once: true });
-    dc.addEventListener("close", () => done(false), { once: true });
-  });
 }

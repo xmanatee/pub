@@ -115,11 +115,21 @@ export const storeAgentSignal = internalMutation({
     if (tunnel.expiresAt < Date.now()) throw new Error("Tunnel expired");
 
     const patch: Record<string, unknown> = {};
-    if (offer !== undefined) patch.agentOffer = offer;
+    const resetSignaling = offer !== undefined;
+
+    if (resetSignaling) {
+      patch.agentOffer = offer;
+      patch.agentCandidates = [];
+      patch.browserCandidates = [];
+      patch.browserAnswer = "";
+    }
+
     if (candidates?.length) {
-      const merged = [...tunnel.agentCandidates, ...candidates].slice(0, MAX_CANDIDATES);
+      const base = resetSignaling ? [] : tunnel.agentCandidates;
+      const merged = [...base, ...candidates].slice(0, MAX_CANDIDATES);
       patch.agentCandidates = merged;
     }
+
     await ctx.db.patch(tunnel._id, patch);
   },
 });

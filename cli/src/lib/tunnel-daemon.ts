@@ -1,12 +1,5 @@
 /**
  * Tunnel daemon — background process that holds a WebRTC PeerConnection.
- *
- * Responsibilities:
- * - Listen on Unix socket for IPC commands from CLI (started FIRST for discoverability)
- * - Create WebRTC offer and send to Convex via HTTP API
- * - Poll Convex for browser's SDP answer and ICE candidates
- * - Manage named DataChannels (generic bridge)
- * - Buffer incoming messages per channel
  */
 
 import * as fs from "node:fs";
@@ -34,6 +27,10 @@ interface DaemonConfig {
 }
 
 const OFFER_TIMEOUT_MS = 10_000;
+const SIGNAL_POLL_WAITING_MS = 500;
+const SIGNAL_POLL_CONNECTED_MS = 2_000;
+const RECOVERY_DELAY_MS = 1_000;
+
 const NOT_CONNECTED_WRITE_ERROR =
   "No browser connected. Ask the user to open the tunnel URL first, then retry.";
 
@@ -48,31 +45,100 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const buffer: ChannelBuffer = { messages: [] };
   const startTime = Date.now();
+
+  let stopped = false;
   let connected = false;
-  let pollingInterval: ReturnType<typeof setInterval> | null = null;
-  let lastBrowserCandidateCount = 0;
+  let recovering = false;
+
   let remoteDescriptionApplied = false;
+  let lastBrowserCandidateCount = 0;
+  let lastSentCandidateCount = 0;
+
   const pendingRemoteCandidates: Array<{ candidate: string; sdpMid: string }> = [];
+  const localCandidates: string[] = [];
 
-  // -- WebRTC setup ----------------------------------------------------------
+  let peer: PeerConnection | null = null;
+  let channels = new Map<string, DataChannel>();
+  let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
 
-  const peer: PeerConnection = new ndc.PeerConnection("agent", {
-    iceServers: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
-  });
+  let pollingTimer: ReturnType<typeof setTimeout> | null = null;
+  let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
+  let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
+  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const channels = new Map<string, DataChannel>();
-  const pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
+  function clearPollingTimer(): void {
+    if (pollingTimer) {
+      clearTimeout(pollingTimer);
+      pollingTimer = null;
+    }
+  }
+
+  function clearLocalCandidateTimers(): void {
+    if (localCandidateInterval) {
+      clearInterval(localCandidateInterval);
+      localCandidateInterval = null;
+    }
+    if (localCandidateStopTimer) {
+      clearTimeout(localCandidateStopTimer);
+      localCandidateStopTimer = null;
+    }
+  }
+
+  function clearRecoveryTimer(): void {
+    if (recoveryTimer) {
+      clearTimeout(recoveryTimer);
+      recoveryTimer = null;
+    }
+  }
+
+  function setupChannel(name: string, dc: DataChannel): void {
+    channels.set(name, dc);
+
+    dc.onMessage((data: string | Buffer) => {
+      if (typeof data === "string") {
+        const msg = decodeMessage(data);
+        if (!msg) return;
+        if (msg.type === "binary" && !msg.data) {
+          pendingInboundBinaryMeta.set(name, msg);
+          return;
+        }
+        buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
+        return;
+      }
+
+      const pendingMeta = pendingInboundBinaryMeta.get(name);
+      if (pendingMeta) pendingInboundBinaryMeta.delete(name);
+      const binMsg: BridgeMessage = pendingMeta
+        ? {
+            id: pendingMeta.id,
+            type: "binary",
+            data: data.toString("base64"),
+            meta: { ...pendingMeta.meta, size: data.length },
+          }
+        : {
+            id: `bin-${Date.now()}`,
+            type: "binary",
+            data: data.toString("base64"),
+            meta: { size: data.length },
+          };
+      buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
+    });
+  }
 
   function openDataChannel(name: string): DataChannel {
+    if (!peer) throw new Error("PeerConnection not initialized");
+
     const existing = channels.get(name);
     if (existing) return existing;
+
     const dc = peer.createDataChannel(name, { ordered: true });
     setupChannel(name, dc);
     return dc;
   }
 
-  async function waitForChannelOpen(dc: DataChannel, timeoutMs = 5000): Promise<void> {
+  async function waitForChannelOpen(dc: DataChannel, timeoutMs = 5_000): Promise<void> {
     if (dc.isOpen()) return;
+
     await new Promise<void>((resolve, reject) => {
       let settled = false;
       const timeout = setTimeout(() => {
@@ -90,65 +156,197 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
   }
 
-  function setupChannel(name: string, dc: DataChannel): void {
-    channels.set(name, dc);
-    dc.onMessage((data: string | Buffer) => {
-      if (typeof data === "string") {
-        const msg = decodeMessage(data);
-        if (msg) {
-          if (msg.type === "binary" && !msg.data) {
-            pendingInboundBinaryMeta.set(name, msg);
-            return;
-          }
-          buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
-        }
-      } else {
-        const pendingMeta = pendingInboundBinaryMeta.get(name);
-        if (pendingMeta) pendingInboundBinaryMeta.delete(name);
-        const binMsg: BridgeMessage = pendingMeta
-          ? {
-              id: pendingMeta.id,
-              type: "binary",
-              data: data.toString("base64"),
-              meta: { ...pendingMeta.meta, size: data.length },
-            }
-          : {
-              id: `bin-${Date.now()}`,
-              type: "binary",
-              data: data.toString("base64"),
-              meta: { size: data.length },
-            };
-        buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
+  function resetNegotiationState(): void {
+    connected = false;
+    remoteDescriptionApplied = false;
+    lastBrowserCandidateCount = 0;
+    lastSentCandidateCount = 0;
+    pendingRemoteCandidates.length = 0;
+    localCandidates.length = 0;
+    clearLocalCandidateTimers();
+  }
+
+  function startLocalCandidateFlush(): void {
+    clearLocalCandidateTimers();
+
+    localCandidateInterval = setInterval(async () => {
+      if (localCandidates.length <= lastSentCandidateCount) return;
+      const newOnes = localCandidates.slice(lastSentCandidateCount);
+      lastSentCandidateCount = localCandidates.length;
+      await apiClient.signal(tunnelId, { candidates: newOnes }).catch(() => {});
+    }, 500);
+
+    localCandidateStopTimer = setTimeout(() => {
+      clearLocalCandidateTimers();
+    }, 30_000);
+  }
+
+  function attachPeerHandlers(currentPeer: PeerConnection): void {
+    currentPeer.onLocalCandidate((candidate: string, mid: string) => {
+      if (stopped || currentPeer !== peer) return;
+      localCandidates.push(JSON.stringify({ candidate, sdpMid: mid }));
+    });
+
+    currentPeer.onStateChange((state: string) => {
+      if (stopped || currentPeer !== peer) return;
+
+      if (state === "connected") {
+        connected = true;
+        return;
       }
+
+      if (state === "disconnected" || state === "failed") {
+        connected = false;
+        scheduleRecovery();
+      }
+    });
+
+    currentPeer.onDataChannel((dc: DataChannel) => {
+      if (stopped || currentPeer !== peer) return;
+      setupChannel(dc.getLabel(), dc);
     });
   }
 
-  openDataChannel(CONTROL_CHANNEL);
-  openDataChannel(CHANNELS.CHAT);
-  openDataChannel(CHANNELS.CANVAS);
+  function createPeer(): void {
+    const nextPeer: PeerConnection = new ndc.PeerConnection("agent", {
+      iceServers: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
+    });
 
-  const localCandidates: string[] = [];
-  peer.onLocalCandidate((candidate: string, mid: string) => {
-    localCandidates.push(JSON.stringify({ candidate, sdpMid: mid }));
-  });
+    peer = nextPeer;
+    channels = new Map<string, DataChannel>();
+    pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
 
-  peer.onStateChange((state: string) => {
-    if (state === "connected") {
-      connected = true;
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
+    attachPeerHandlers(nextPeer);
+
+    openDataChannel(CONTROL_CHANNEL);
+    openDataChannel(CHANNELS.CHAT);
+    openDataChannel(CHANNELS.CANVAS);
+  }
+
+  function closeCurrentPeer(): void {
+    for (const dc of channels.values()) {
+      try {
+        dc.close();
+      } catch {
+        // Ignore close errors while tearing down.
       }
-    } else if (state === "disconnected" || state === "failed") {
-      connected = false;
     }
-  });
 
-  peer.onDataChannel((dc: DataChannel) => {
-    setupChannel(dc.getLabel(), dc);
-  });
+    channels.clear();
+    pendingInboundBinaryMeta.clear();
 
-  // -- IPC server (Unix socket) — started BEFORE offer for discoverability ---
+    if (peer) {
+      try {
+        peer.close();
+      } catch {
+        // Ignore close errors while tearing down.
+      }
+      peer = null;
+    }
+  }
+
+  function scheduleNextPoll(delayMs: number): void {
+    if (stopped) return;
+    clearPollingTimer();
+    pollingTimer = setTimeout(() => {
+      void runPollingLoop();
+    }, delayMs);
+  }
+
+  async function pollSignalingOnce(): Promise<void> {
+    const tunnel = await apiClient.get(tunnelId);
+
+    if (tunnel.browserAnswer && !remoteDescriptionApplied) {
+      if (!peer) return;
+
+      try {
+        const answer = JSON.parse(tunnel.browserAnswer);
+        peer.setRemoteDescription(answer.sdp, answer.type);
+        remoteDescriptionApplied = true;
+
+        while (pendingRemoteCandidates.length > 0) {
+          const next = pendingRemoteCandidates.shift();
+          if (!next) break;
+          try {
+            peer.addRemoteCandidate(next.candidate, next.sdpMid);
+          } catch {
+            // Ignore malformed/stale candidates and continue.
+          }
+        }
+      } catch {
+        // Retry next poll; answer can be stale or temporarily invalid.
+      }
+    }
+
+    if (tunnel.browserCandidates.length > lastBrowserCandidateCount) {
+      const newCandidates = tunnel.browserCandidates.slice(lastBrowserCandidateCount);
+      lastBrowserCandidateCount = tunnel.browserCandidates.length;
+
+      for (const c of newCandidates) {
+        try {
+          const parsed = JSON.parse(c);
+          if (typeof parsed.candidate !== "string") continue;
+          const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
+
+          if (!remoteDescriptionApplied) {
+            pendingRemoteCandidates.push({ candidate: parsed.candidate, sdpMid });
+            continue;
+          }
+
+          if (!peer) continue;
+          peer.addRemoteCandidate(parsed.candidate, sdpMid);
+        } catch {
+          // Ignore malformed candidates and keep processing others.
+        }
+      }
+    }
+  }
+
+  async function runPollingLoop(): Promise<void> {
+    if (stopped) return;
+
+    try {
+      await pollSignalingOnce();
+    } catch {
+      // Poll failures are transient; keep retrying.
+    }
+
+    scheduleNextPoll(remoteDescriptionApplied ? SIGNAL_POLL_CONNECTED_MS : SIGNAL_POLL_WAITING_MS);
+  }
+
+  async function runNegotiationCycle(): Promise<void> {
+    if (!peer) throw new Error("PeerConnection not initialized");
+
+    resetNegotiationState();
+    const offer = await generateOffer(peer, OFFER_TIMEOUT_MS);
+    await apiClient.signal(tunnelId, { offer });
+    startLocalCandidateFlush();
+  }
+
+  async function recoverPeer(): Promise<void> {
+    if (stopped || recovering) return;
+    recovering = true;
+
+    try {
+      closeCurrentPeer();
+      createPeer();
+      await runNegotiationCycle();
+    } finally {
+      recovering = false;
+    }
+  }
+
+  function scheduleRecovery(delayMs = RECOVERY_DELAY_MS): void {
+    if (stopped || recovering || recoveryTimer) return;
+
+    recoveryTimer = setTimeout(() => {
+      recoveryTimer = null;
+      if (stopped || connected) return;
+      void recoverPeer().catch(() => {
+        if (!stopped) scheduleRecovery(delayMs);
+      });
+    }, delayMs);
+  }
 
   if (fs.existsSync(socketPath)) {
     let stale = true;
@@ -160,19 +358,23 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     } catch {
       stale = true;
     }
+
     if (stale) {
       try {
         fs.unlinkSync(socketPath);
       } catch {
-        /* ok */
+        // Ignore stale socket unlink failures.
       }
     } else {
       throw new Error(`Daemon already running (socket: ${socketPath})`);
     }
   }
 
+  createPeer();
+
   const ipcServer = net.createServer((conn) => {
     let data = "";
+
     conn.on("data", (chunk) => {
       data += chunk.toString();
       const newlineIdx = data.indexOf("\n");
@@ -197,7 +399,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   ipcServer.listen(socketPath);
 
-  // Write daemon info so parent process can verify readiness
   const infoDir = path.dirname(infoPath);
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   fs.writeFileSync(
@@ -205,23 +406,39 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime }),
   );
 
-  // -- Cleanup + shutdown ----------------------------------------------------
+  scheduleNextPoll(0);
+
+  try {
+    await runNegotiationCycle();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await cleanup();
+    throw new Error(`Failed to generate WebRTC offer: ${message}`);
+  }
 
   async function cleanup(): Promise<void> {
-    if (pollingInterval) clearInterval(pollingInterval);
-    for (const dc of channels.values()) dc.close();
-    peer.close();
+    if (stopped) return;
+    stopped = true;
+
+    clearPollingTimer();
+    clearLocalCandidateTimers();
+    clearRecoveryTimer();
+    closeCurrentPeer();
+
     ipcServer.close();
+
     try {
       fs.unlinkSync(socketPath);
     } catch {
-      /* ok */
+      // Ignore socket cleanup errors.
     }
+
     try {
       fs.unlinkSync(infoPath);
     } catch {
-      /* ok */
+      // Ignore info cleanup errors.
     }
+
     await apiClient.close(tunnelId).catch(() => {});
   }
 
@@ -230,89 +447,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     process.exit(0);
   }
 
-  process.on("SIGTERM", () => void shutdown());
-  process.on("SIGINT", () => void shutdown());
-
-  // -- Generate offer --------------------------------------------------------
-
-  let offer: string;
-  try {
-    offer = await generateOffer(peer, OFFER_TIMEOUT_MS);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await cleanup();
-    throw new Error(`Failed to generate WebRTC offer: ${message}`);
-  }
-
-  await apiClient.signal(tunnelId, { offer });
-
-  // -- ICE candidate flushing ------------------------------------------------
-
-  setTimeout(async () => {
-    if (localCandidates.length > 0) {
-      await apiClient.signal(tunnelId, { candidates: localCandidates }).catch(() => {});
-    }
-  }, 1000);
-
-  let lastSentCandidateCount = 0;
-  const candidateInterval = setInterval(async () => {
-    if (localCandidates.length > lastSentCandidateCount) {
-      const newOnes = localCandidates.slice(lastSentCandidateCount);
-      lastSentCandidateCount = localCandidates.length;
-      await apiClient.signal(tunnelId, { candidates: newOnes }).catch(() => {});
-    }
-  }, 500);
-  setTimeout(() => clearInterval(candidateInterval), 30_000);
-
-  // -- Poll for browser answer + ICE candidates ------------------------------
-
-  pollingInterval = setInterval(async () => {
-    try {
-      const tunnel = await apiClient.get(tunnelId);
-
-      if (tunnel.browserAnswer && !remoteDescriptionApplied) {
-        try {
-          const answer = JSON.parse(tunnel.browserAnswer);
-          peer.setRemoteDescription(answer.sdp, answer.type);
-          remoteDescriptionApplied = true;
-          while (pendingRemoteCandidates.length > 0) {
-            const next = pendingRemoteCandidates.shift();
-            if (!next) break;
-            try {
-              peer.addRemoteCandidate(next.candidate, next.sdpMid);
-            } catch {
-              // Ignore malformed/stale candidates and continue.
-            }
-          }
-        } catch {
-          // Wait for next poll; answer can be temporarily malformed during updates.
-        }
-      }
-
-      if (tunnel.browserCandidates.length > lastBrowserCandidateCount) {
-        const newCandidates = tunnel.browserCandidates.slice(lastBrowserCandidateCount);
-        lastBrowserCandidateCount = tunnel.browserCandidates.length;
-        for (const c of newCandidates) {
-          try {
-            const parsed = JSON.parse(c);
-            if (typeof parsed.candidate !== "string") continue;
-            const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
-            if (!remoteDescriptionApplied) {
-              pendingRemoteCandidates.push({ candidate: parsed.candidate, sdpMid });
-              continue;
-            }
-            peer.addRemoteCandidate(parsed.candidate, sdpMid);
-          } catch {
-            // Ignore malformed candidates and keep processing others.
-          }
-        }
-      }
-    } catch {
-      // Polling failure — retry on next interval.
-    }
-  }, 500);
-
-  // -- IPC request handler ---------------------------------------------------
+  process.on("SIGTERM", () => {
+    void shutdown();
+  });
+  process.on("SIGINT", () => {
+    void shutdown();
+  });
 
   async function handleIpcRequest(req: {
     method: string;
@@ -323,17 +463,15 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         const channel = (req.params.channel as string) || CHANNELS.CHAT;
         const readinessError = getTunnelWriteReadinessError(connected);
         if (readinessError) return { ok: false, error: readinessError };
+
         const msg = req.params.msg as BridgeMessage;
         const binaryBase64 =
           typeof req.params.binaryBase64 === "string"
             ? (req.params.binaryBase64 as string)
             : undefined;
-        const dc = channels.get(channel);
-        let targetDc = dc;
-        if (!targetDc) {
-          const newDc = openDataChannel(channel);
-          targetDc = newDc;
-        }
+
+        let targetDc = channels.get(channel);
+        if (!targetDc) targetDc = openDataChannel(channel);
 
         try {
           await waitForChannelOpen(targetDc);
@@ -357,12 +495,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         } else {
           targetDc.sendMessage(encodeMessage(msg));
         }
+
         return { ok: true };
       }
 
       case "read": {
         const channel = req.params.channel as string | undefined;
         let msgs: ChannelBuffer["messages"];
+
         if (channel) {
           msgs = buffer.messages.filter((m) => m.channel === channel);
           buffer.messages = buffer.messages.filter((m) => m.channel !== channel);
@@ -370,14 +510,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           msgs = [...buffer.messages];
           buffer.messages = [];
         }
+
         return { ok: true, messages: msgs };
       }
 
       case "channels": {
-        const chList = [...channels.keys()].map((name) => ({
-          name,
-          direction: "bidi",
-        }));
+        const chList = [...channels.keys()].map((name) => ({ name, direction: "bidi" }));
         return { ok: true, channels: chList };
       }
 
@@ -402,12 +540,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 }
 
-/**
- * Generate a WebRTC offer with robust fallback:
- * 1. Fast path: onLocalDescription callback (works with iceServers: [])
- * 2. Primary path: onGatheringStateChange → localDescription() (works with real STUN)
- * 3. Safety net: hard timeout with last-chance localDescription() read
- */
 function generateOffer(peer: PeerConnection, timeoutMs: number): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     let resolved = false;

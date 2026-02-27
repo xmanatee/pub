@@ -44,4 +44,25 @@ describe("TunnelApiClient", () => {
 
     await expect(client.get("abc123")).rejects.toThrow("Tunnel not found");
   });
+
+  it("sends signaling payloads to /signal endpoint", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await client.signal("abc123", { offer: "offer-sdp" });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, options] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toBe(new URL("/api/v1/tunnels/abc123/signal", baseUrl).toString());
+    expect(options).toEqual(
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ offer: "offer-sdp" }),
+      }),
+    );
+  });
 });

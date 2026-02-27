@@ -108,6 +108,11 @@ function isDaemonRunning(tunnelId: string): boolean {
   }
 }
 
+export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures: number): number {
+  if (!disconnected) return 1_000;
+  return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
+}
+
 export function registerTunnelCommands(program: Command): void {
   const tunnel = program.command("tunnel").description("P2P encrypted tunnel to browser");
 
@@ -261,22 +266,37 @@ export function registerTunnelCommands(program: Command): void {
         const socketPath = getSocketPath(tunnelId);
 
         if (opts.follow) {
-          // Polling loop
+          let consecutiveFailures = 0;
+          let warnedDisconnected = false;
+
           while (true) {
-            const response = await ipcCall(socketPath, {
-              method: "read",
-              params: { channel: opts.channel },
-            }).catch(() => null);
-            if (!response) {
-              console.error("Daemon disconnected.");
-              process.exit(1);
-            }
-            if (response.messages && response.messages.length > 0) {
-              for (const m of response.messages) {
-                console.log(JSON.stringify(m));
+            try {
+              const response = await ipcCall(socketPath, {
+                method: "read",
+                params: { channel: opts.channel },
+              });
+
+              if (warnedDisconnected) {
+                console.error("Daemon reconnected.");
+                warnedDisconnected = false;
+              }
+
+              consecutiveFailures = 0;
+              if (response.messages && response.messages.length > 0) {
+                for (const m of response.messages) {
+                  console.log(JSON.stringify(m));
+                }
+              }
+            } catch {
+              consecutiveFailures += 1;
+              if (!warnedDisconnected) {
+                console.error("Daemon disconnected. Waiting for recovery...");
+                warnedDisconnected = true;
               }
             }
-            await new Promise((r) => setTimeout(r, 1000));
+
+            const delayMs = getFollowReadDelayMs(warnedDisconnected, consecutiveFailures);
+            await new Promise((r) => setTimeout(r, delayMs));
           }
         } else {
           const response = await ipcCall(socketPath, {

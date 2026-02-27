@@ -1,16 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 describe("create command flag mapping", () => {
-  function mapCreateOptions(opts: { slug?: string; title?: string; expires?: string }) {
-    return {
-      ...opts,
-      isPublic: false,
-    };
+  function resolveCreateVisibility(opts: { public?: boolean; private?: boolean }): boolean {
+    if (opts.public && opts.private) throw new Error("conflict");
+    if (opts.public) return true;
+    if (opts.private) return false;
+    return false;
   }
 
-  it("always creates private publications", () => {
-    expect(mapCreateOptions({}).isPublic).toBe(false);
-    expect(mapCreateOptions({ slug: "a", title: "b", expires: "1h" }).isPublic).toBe(false);
+  it("defaults to private when no visibility flag is set", () => {
+    expect(resolveCreateVisibility({})).toBe(false);
+  });
+
+  it("sets public visibility when --public is passed", () => {
+    expect(resolveCreateVisibility({ public: true })).toBe(true);
+  });
+
+  it("sets private visibility when --private is passed", () => {
+    expect(resolveCreateVisibility({ private: true })).toBe(false);
+  });
+
+  it("rejects conflicting create visibility flags", () => {
+    expect(() => resolveCreateVisibility({ public: true, private: true })).toThrow("conflict");
   });
 });
 
@@ -33,10 +44,16 @@ describe("create command content resolution", () => {
 });
 
 describe("update command visibility flags", () => {
-  function resolveVisibility(opts: { private?: boolean }): boolean | undefined {
+  function resolveVisibility(opts: { public?: boolean; private?: boolean }): boolean | undefined {
+    if (opts.public && opts.private) throw new Error("conflict");
+    if (opts.public) return true;
     if (opts.private) return false;
     return undefined;
   }
+
+  it("sets isPublic=true when --public", () => {
+    expect(resolveVisibility({ public: true })).toBe(true);
+  });
 
   it("sets isPublic=false when --private", () => {
     expect(resolveVisibility({ private: true })).toBe(false);
@@ -44,6 +61,10 @@ describe("update command visibility flags", () => {
 
   it("leaves isPublic undefined when neither flag", () => {
     expect(resolveVisibility({})).toBeUndefined();
+  });
+
+  it("rejects conflicting update visibility flags", () => {
+    expect(() => resolveVisibility({ public: true, private: true })).toThrow("conflict");
   });
 });
 

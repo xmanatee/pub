@@ -65,6 +65,19 @@ async function resolveConfigureApiKey(opts: {
   return readApiKeyFromPrompt();
 }
 
+function resolveVisibilityFlags(opts: {
+  public?: boolean;
+  private?: boolean;
+  commandName: string;
+}): boolean | undefined {
+  if (opts.public && opts.private) {
+    throw new Error(`Use only one of --public or --private for ${opts.commandName}.`);
+  }
+  if (opts.public) return true;
+  if (opts.private) return false;
+  return undefined;
+}
+
 function readFile(filePath: string): { content: string; basename: string } {
   const resolved = path.resolve(filePath);
   if (!fs.existsSync(resolved)) {
@@ -80,7 +93,7 @@ function readFile(filePath: string): { content: string; basename: string } {
 program
   .name("pubblue")
   .description("Publish static content and get shareable URLs")
-  .version("0.4.2");
+  .version("0.4.3");
 
 program
   .command("configure")
@@ -105,6 +118,7 @@ program
   .argument("[file]", "Path to the file (reads stdin if omitted)")
   .option("--slug <slug>", "Custom slug for the URL")
   .option("--title <title>", "Title for the publication")
+  .option("--public", "Make the publication public")
   .option("--private", "Make the publication private (default)")
   .option("--expires <duration>", "Auto-delete after duration (e.g. 1h, 24h, 7d)")
   .action(
@@ -113,6 +127,7 @@ program
       opts: {
         slug?: string;
         title?: string;
+        public?: boolean;
         private?: boolean;
         expires?: string;
       },
@@ -130,12 +145,18 @@ program
         content = await readFromStdin();
       }
 
+      const resolvedVisibility = resolveVisibilityFlags({
+        public: opts.public,
+        private: opts.private,
+        commandName: "create",
+      });
+
       const result = await client.create({
         content,
         filename,
         title: opts.title,
         slug: opts.slug,
-        isPublic: false,
+        isPublic: resolvedVisibility ?? false,
         expiresIn: opts.expires,
       });
 
@@ -176,6 +197,7 @@ program
   .argument("<slug>", "Slug of the publication to update")
   .option("--file <file>", "New content from file")
   .option("--title <title>", "New title")
+  .option("--public", "Make the publication public")
   .option("--private", "Make the publication private")
   .option("--slug <newSlug>", "Rename the slug")
   .action(
@@ -184,6 +206,7 @@ program
       opts: {
         file?: string;
         title?: string;
+        public?: boolean;
         private?: boolean;
         slug?: string;
       },
@@ -198,8 +221,11 @@ program
         filename = file.basename;
       }
 
-      let isPublic: boolean | undefined;
-      if (opts.private) isPublic = false;
+      const isPublic = resolveVisibilityFlags({
+        public: opts.public,
+        private: opts.private,
+        commandName: "update",
+      });
 
       const result = await client.update({
         slug,
