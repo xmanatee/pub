@@ -32,10 +32,12 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `dashboard.tsx` — protected; paginated publications (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
   - `explore.tsx` — public discovery feed; paginated list of all public publications
   - `p.$slug.tsx` — full-screen content viewer (no app chrome, auth-aware for private pubs)
+  - `t.$tunnelId.tsx` — WebRTC tunnel chat/canvas page (authenticated, full-screen)
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
 - **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives
+- **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
 - **Path alias**: `~/*` maps to `src/*`
