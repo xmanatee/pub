@@ -96,6 +96,9 @@ function applyBridgeSet(bridge: BridgeConfig, key: string, value: string): void 
     case "openclaw.threadId":
       bridge.threadId = value;
       return;
+    case "openclaw.canvasReminderEvery":
+      bridge.canvasReminderEvery = parsePositiveInteger(value, key);
+      return;
     case "openclaw.deliver":
       bridge.deliver = parseBooleanValue(value, key);
       return;
@@ -123,6 +126,7 @@ function applyBridgeSet(bridge: BridgeConfig, key: string, value: string): void 
           "  openclaw.path",
           "  openclaw.sessionId",
           "  openclaw.threadId",
+          "  openclaw.canvasReminderEvery",
           "  openclaw.deliver",
           "  openclaw.deliverChannel",
           "  openclaw.replyTo",
@@ -147,6 +151,9 @@ function applyBridgeUnset(bridge: BridgeConfig, key: string): void {
       return;
     case "openclaw.threadId":
       delete bridge.threadId;
+      return;
+    case "openclaw.canvasReminderEvery":
+      delete bridge.canvasReminderEvery;
       return;
     case "openclaw.deliver":
       delete bridge.deliver;
@@ -197,6 +204,8 @@ function printConfigSummary(saved: SavedConfig | null): void {
   if (saved.bridge.openclawPath) console.log(`  openclaw.path: ${saved.bridge.openclawPath}`);
   if (saved.bridge.sessionId) console.log(`  openclaw.sessionId: ${saved.bridge.sessionId}`);
   if (saved.bridge.threadId) console.log(`  openclaw.threadId: ${saved.bridge.threadId}`);
+  if (saved.bridge.canvasReminderEvery !== undefined)
+    console.log(`  openclaw.canvasReminderEvery: ${saved.bridge.canvasReminderEvery}`);
   if (saved.bridge.deliver !== undefined)
     console.log(`  openclaw.deliver: ${saved.bridge.deliver ? "true" : "false"}`);
   if (saved.bridge.deliverChannel)

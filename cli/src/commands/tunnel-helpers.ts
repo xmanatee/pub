@@ -135,6 +135,9 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
   setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
   setIfMissing("OPENCLAW_THREAD_ID", bridgeConfig.threadId);
+  if (bridgeConfig.canvasReminderEvery !== undefined) {
+    setIfMissing("OPENCLAW_CANVAS_REMINDER_EVERY", bridgeConfig.canvasReminderEvery);
+  }
   if (bridgeConfig.deliver !== undefined) {
     setIfMissing("OPENCLAW_DELIVER", bridgeConfig.deliver ? "1" : "0");
   }

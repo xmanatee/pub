@@ -9,6 +9,7 @@ export interface BridgeConfig {
   openclawPath?: string;
   sessionId?: string;
   threadId?: string;
+  canvasReminderEvery?: number;
   deliver?: boolean;
   deliverChannel?: string;
   replyTo?: string;

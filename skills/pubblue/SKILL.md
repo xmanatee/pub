@@ -44,6 +44,7 @@ pubblue configure --set openclaw.path=/app/dist/index.js
 pubblue configure --set openclaw.sessionId=<session-id>
 # or:
 pubblue configure --set openclaw.threadId=<thread-id>
+pubblue configure --set openclaw.canvasReminderEvery=10
 pubblue configure --show
 ```
 
@@ -140,6 +141,7 @@ Useful env for `openclaw` mode:
 - `OPENCLAW_DELIVER=1` (optional, enables OpenClaw `--deliver`)
 - `OPENCLAW_DELIVER_CHANNEL`, `OPENCLAW_REPLY_TO` (optional channel routing)
 - `OPENCLAW_DELIVER_TIMEOUT_MS` (optional dispatch timeout)
+- `OPENCLAW_CANVAS_REMINDER_EVERY` (optional, default `10`)
 
 ## Troubleshooting
 

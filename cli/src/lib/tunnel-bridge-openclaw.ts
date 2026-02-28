@@ -29,6 +29,7 @@ const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
   CHANNELS.MEDIA,
 ]);
 const DEFAULT_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+const DEFAULT_CANVAS_REMINDER_EVERY = 10;
 const MAX_SEEN_IDS = 10_000;
 
 interface BridgeProcessInfo {
@@ -100,6 +101,12 @@ export function resolveAttachmentRootDir(): string {
 export function resolveAttachmentMaxBytes(): number {
   const raw = Number.parseInt(process.env.OPENCLAW_ATTACHMENT_MAX_BYTES || "", 10);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_ATTACHMENT_MAX_BYTES;
+  return raw;
+}
+
+export function resolveCanvasReminderEvery(): number {
+  const raw = Number.parseInt(process.env.OPENCLAW_CANVAS_REMINDER_EVERY || "", 10);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CANVAS_REMINDER_EVERY;
   return raw;
 }
 
@@ -196,8 +203,33 @@ function stageAttachment(params: {
   };
 }
 
-function buildInboundPrompt(tunnelId: string, userText: string): string {
+function buildCanvasPolicyReminderBlock(): string {
   return [
+    "[Canvas policy reminder: do not reply to this reminder block]",
+    "- Prefer canvas-first responses for substantive output.",
+    "- Use chat only for short clarifications, confirmations, or blockers.",
+    "- Keep chat replies concise.",
+    "",
+  ].join("\n");
+}
+
+export function shouldIncludeCanvasPolicyReminder(
+  forwardedMessageCount: number,
+  reminderEvery: number,
+): boolean {
+  if (!Number.isFinite(reminderEvery) || reminderEvery <= 0) return false;
+  if (forwardedMessageCount <= 0) return false;
+  return forwardedMessageCount % reminderEvery === 0;
+}
+
+export function buildInboundPrompt(
+  tunnelId: string,
+  userText: string,
+  includeCanvasReminder: boolean,
+): string {
+  const policyReminder = includeCanvasReminder ? buildCanvasPolicyReminderBlock() : "";
+  return [
+    policyReminder,
     `[Pubblue Tunnel ${tunnelId}] Incoming user message:`,
     "",
     userText,
@@ -205,11 +237,19 @@ function buildInboundPrompt(tunnelId: string, userText: string): string {
     "---",
     `Reply with: pubblue tunnel write --tunnel ${tunnelId} "<your reply>"`,
     `Canvas update: pubblue tunnel write --tunnel ${tunnelId} -c canvas -f /path/to/file.html`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-export function buildAttachmentPrompt(tunnelId: string, staged: StagedAttachment): string {
+export function buildAttachmentPrompt(
+  tunnelId: string,
+  staged: StagedAttachment,
+  includeCanvasReminder: boolean,
+): string {
+  const policyReminder = includeCanvasReminder ? buildCanvasPolicyReminderBlock() : "";
   return [
+    policyReminder,
     `[Pubblue Tunnel ${tunnelId}] Incoming user attachment:`,
     `- channel: ${staged.channel}`,
     `- type: attachment`,
@@ -475,15 +515,20 @@ async function handleAttachmentEntry(params: {
   attachmentMaxBytes: number;
   attachmentRoot: string;
   entry: BufferedEntry;
+  includeCanvasReminder: boolean;
   openclawPath: string;
   sessionId: string;
   tunnelId: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const { entry, activeStreams } = params;
   const { channel, msg } = entry;
 
   const stageAndDeliver = async (staged: StagedAttachment) => {
-    const attachmentPrompt = buildAttachmentPrompt(params.tunnelId, staged);
+    const attachmentPrompt = buildAttachmentPrompt(
+      params.tunnelId,
+      staged,
+      params.includeCanvasReminder,
+    );
     await deliverMessageToOpenClaw({
       openclawPath: params.openclawPath,
       sessionId: params.sessionId,
@@ -493,6 +538,7 @@ async function handleAttachmentEntry(params: {
 
   if (msg.type === "stream-start") {
     const existing = activeStreams.get(channel);
+    let deliveredInterrupted = false;
     if (existing && existing.bytes > 0) {
       const interruptedBytes = Buffer.concat(existing.chunks);
       const stagedInterrupted = stageAttachment({
@@ -507,6 +553,7 @@ async function handleAttachmentEntry(params: {
         bytes: interruptedBytes,
       });
       await stageAndDeliver(stagedInterrupted);
+      deliveredInterrupted = true;
     }
 
     activeStreams.set(channel, {
@@ -516,19 +563,19 @@ async function handleAttachmentEntry(params: {
       mime: typeof msg.meta?.mime === "string" ? msg.meta.mime : undefined,
       streamId: msg.id,
     });
-    return;
+    return deliveredInterrupted;
   }
 
   if (msg.type === "stream-end") {
     const stream = activeStreams.get(channel);
-    if (!stream) return;
+    if (!stream) return false;
 
     const requestedStreamId =
       typeof msg.meta?.streamId === "string" ? (msg.meta.streamId as string) : undefined;
-    if (requestedStreamId && requestedStreamId !== stream.streamId) return;
+    if (requestedStreamId && requestedStreamId !== stream.streamId) return false;
 
     activeStreams.delete(channel);
-    if (stream.bytes === 0) return;
+    if (stream.bytes === 0) return false;
 
     const bytes = Buffer.concat(stream.chunks);
     const staged = stageAttachment({
@@ -543,15 +590,15 @@ async function handleAttachmentEntry(params: {
       bytes,
     });
     await stageAndDeliver(staged);
-    return;
+    return true;
   }
 
   if (msg.type === "stream-data") {
-    if (typeof msg.data !== "string" || msg.data.length === 0) return;
+    if (typeof msg.data !== "string" || msg.data.length === 0) return false;
     const stream = activeStreams.get(channel);
-    if (!stream) return;
+    if (!stream) return false;
     const requestedStreamId = readStreamIdFromMeta(msg.meta);
-    if (requestedStreamId && requestedStreamId !== stream.streamId) return;
+    if (requestedStreamId && requestedStreamId !== stream.streamId) return false;
 
     const chunk = decodeBinaryPayload(msg.data, `${channel}/${msg.id}`);
     const nextBytes = stream.bytes + chunk.length;
@@ -564,18 +611,18 @@ async function handleAttachmentEntry(params: {
 
     stream.bytes = nextBytes;
     stream.chunks.push(chunk);
-    return;
+    return false;
   }
 
   if (msg.type !== "binary" || typeof msg.data !== "string") {
-    return;
+    return false;
   }
 
   const payload = decodeBinaryPayload(msg.data, `${channel}/${msg.id}`);
   const stream = activeStreams.get(channel);
   if (stream) {
     const requestedStreamId = readStreamIdFromMeta(msg.meta);
-    if (requestedStreamId && requestedStreamId !== stream.streamId) return;
+    if (requestedStreamId && requestedStreamId !== stream.streamId) return false;
     const nextBytes = stream.bytes + payload.length;
     if (nextBytes > params.attachmentMaxBytes) {
       activeStreams.delete(channel);
@@ -585,7 +632,7 @@ async function handleAttachmentEntry(params: {
     }
     stream.bytes = nextBytes;
     stream.chunks.push(payload);
-    return;
+    return false;
   }
 
   if (payload.length > params.attachmentMaxBytes) {
@@ -605,6 +652,7 @@ async function handleAttachmentEntry(params: {
     bytes: payload,
   });
   await stageAndDeliver(staged);
+  return true;
 }
 
 export async function startOpenClawBridge(params: StartBridgeParams): Promise<void> {
@@ -693,6 +741,8 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
 
     const seenIds = new Set<string>();
     const activeStreams = new Map<string, ActiveStream>();
+    const canvasReminderEvery = resolveCanvasReminderEvery();
+    let forwardedMessageCount = 0;
     let consecutiveReadFailures = 0;
 
     while (!shuttingDown) {
@@ -738,26 +788,35 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
         }
 
         try {
+          const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
+            forwardedMessageCount + 1,
+            canvasReminderEvery,
+          );
           const chat = readTextChatMessage(entry);
           if (chat) {
             await deliverMessageToOpenClaw({
               openclawPath,
               sessionId,
-              text: buildInboundPrompt(params.tunnelId, chat),
+              text: buildInboundPrompt(params.tunnelId, chat, includeCanvasReminder),
             });
+            forwardedMessageCount += 1;
             continue;
           }
 
           if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) continue;
-          await handleAttachmentEntry({
+          const deliveredAttachment = await handleAttachmentEntry({
             activeStreams,
             attachmentMaxBytes,
             attachmentRoot,
             entry,
+            includeCanvasReminder,
             openclawPath,
             sessionId,
             tunnelId: params.tunnelId,
           });
+          if (deliveredAttachment) {
+            forwardedMessageCount += 1;
+          }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.error(`[pubblue bridge ${params.tunnelId}] ${message}`);
