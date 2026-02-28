@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { promisify } from "node:util";
 import { type BridgeMessage, CHANNELS, generateMessageId } from "./bridge-protocol.js";
+import type { BridgeSessionSource } from "./tunnel-bridge-types.js";
 import { ipcCall } from "./tunnel-ipc.js";
 
 const execFileAsync = promisify(execFile);
@@ -36,7 +37,7 @@ interface BridgeProcessInfo {
   mode: "openclaw";
   sessionId?: string;
   sessionKey?: string;
-  sessionSource?: "env" | "thread-canonical" | "thread-legacy" | "main-fallback";
+  sessionSource?: BridgeSessionSource;
   startedAt: number;
   status: "starting" | "ready" | "waiting-daemon" | "error" | "stopped";
   lastError?: string;
@@ -285,7 +286,7 @@ interface SessionResolution {
   readError?: string;
   sessionId: string | null;
   sessionKey?: string;
-  sessionSource?: "env" | "thread-canonical" | "thread-legacy" | "main-fallback";
+  sessionSource?: BridgeSessionSource;
 }
 
 export function resolveSessionFromSessionsData(

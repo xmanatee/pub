@@ -6,6 +6,7 @@ import { failCli } from "../lib/cli-error.js";
 import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
 import { TunnelApiClient, TunnelApiError, type TunnelListItem } from "../lib/tunnel-api.js";
+import type { BridgeSessionSource } from "../lib/tunnel-bridge-types.js";
 import { ipcCall } from "../lib/tunnel-ipc.js";
 
 export const TEXT_FILE_EXTENSIONS = new Set([
@@ -64,7 +65,7 @@ export interface BridgeProcessInfo {
   mode: string;
   sessionId?: string;
   sessionKey?: string;
-  sessionSource?: "env" | "thread-canonical" | "thread-legacy" | "main-fallback";
+  sessionSource?: BridgeSessionSource;
   startedAt: number;
   status?: string;
   lastError?: string;
