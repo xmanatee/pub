@@ -22,6 +22,9 @@ export const Route = createFileRoute("/t/$tunnelId")({
   component: TunnelPage,
 });
 
+const CHAT_ACK_TIMEOUT_MS = 8_000;
+const CHAT_CONFIRM_GRACE_MS = 12_000;
+
 function TunnelPage() {
   const { tunnelId } = Route.useParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -60,6 +63,10 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const lastAgentCandidateCount = useRef(0);
   const lastHandledOffer = useRef<string | null>(null);
   const localIceFlushInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const localIceStopTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeliveryFailureTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
   const fileUrlsRef = useRef<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -89,25 +96,55 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     lastUserDeliveredAt,
   });
 
-  const markMessageDelivered = useCallback((messageId: string) => {
+  const clearPendingDeliveryFailureTimer = useCallback((messageId: string) => {
+    const pending = pendingDeliveryFailureTimersRef.current.get(messageId);
+    if (!pending) return;
+    clearTimeout(pending);
+    pendingDeliveryFailureTimersRef.current.delete(messageId);
+  }, []);
+
+  const markMessageDelivered = useCallback(
+    (messageId: string) => {
+      clearPendingDeliveryFailureTimer(messageId);
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.from === "user" && entry.id === messageId
+            ? { ...entry, delivery: "delivered" }
+            : entry,
+        ),
+      );
+    },
+    [clearPendingDeliveryFailureTimer],
+  );
+
+  const markMessageConfirmingIfPending = useCallback((messageId: string) => {
     setMessages((prev) =>
       prev.map((entry) =>
-        entry.from === "user" && entry.id === messageId
-          ? { ...entry, delivery: "delivered" }
+        entry.from === "user" &&
+        entry.id === messageId &&
+        (entry.delivery === "sending" || entry.delivery === "confirming")
+          ? { ...entry, delivery: "confirming" }
           : entry,
       ),
     );
   }, []);
 
-  const markMessageFailedIfPending = useCallback((messageId: string) => {
-    setMessages((prev) =>
-      prev.map((entry) =>
-        entry.from === "user" && entry.id === messageId && entry.delivery === "sending"
-          ? { ...entry, delivery: "failed" }
-          : entry,
-      ),
-    );
-  }, []);
+  const markMessageFailedIfPending = useCallback(
+    (messageId: string) => {
+      clearPendingDeliveryFailureTimer(messageId);
+
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.from === "user" &&
+          entry.id === messageId &&
+          (entry.delivery === "sending" || entry.delivery === "confirming")
+            ? { ...entry, delivery: "failed" }
+            : entry,
+        ),
+      );
+    },
+    [clearPendingDeliveryFailureTimer],
+  );
 
   useEffect(() => {
     setCanvasHtml(readCachedCanvasHtml(tunnelId));
@@ -115,6 +152,10 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
   useEffect(() => {
     return () => {
+      for (const timeout of pendingDeliveryFailureTimersRef.current.values()) {
+        clearTimeout(timeout);
+      }
+      pendingDeliveryFailureTimersRef.current.clear();
       for (const url of fileUrlsRef.current) URL.revokeObjectURL(url);
       fileUrlsRef.current = [];
     };
@@ -188,26 +229,30 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         if (candidates.length > 0) await storeBrowserSignal({ tunnelId, candidates });
 
         if (localIceFlushInterval.current) clearInterval(localIceFlushInterval.current);
+        if (localIceStopTimeout.current) clearTimeout(localIceStopTimeout.current);
+
+        const flushLocalCandidates = async () => {
+          try {
+            const current = bridge.getIceCandidates();
+            if (current.length <= candidates.length) return;
+            const nc = current.slice(candidates.length);
+            candidates.push(...nc);
+            await storeBrowserSignal({ tunnelId, candidates: nc });
+          } catch {
+            // Ignore transient signaling write failures; next interval retries.
+          }
+        };
+
         localIceFlushInterval.current = setInterval(() => {
-          void (async () => {
-            try {
-              const current = bridge.getIceCandidates();
-              if (current.length > candidates.length) {
-                const nc = current.slice(candidates.length);
-                candidates.push(...nc);
-                await storeBrowserSignal({ tunnelId, candidates: nc });
-              }
-            } catch {
-              // Ignore transient signaling write failures; next interval retries.
-            }
-          })();
+          void flushLocalCandidates();
         }, 500);
 
-        setTimeout(() => {
+        localIceStopTimeout.current = setTimeout(() => {
           if (localIceFlushInterval.current) {
             clearInterval(localIceFlushInterval.current);
             localIceFlushInterval.current = null;
           }
+          localIceStopTimeout.current = null;
         }, 30_000);
       } catch {
         // Failed to establish WebRTC answer/signaling for this offer.
@@ -220,6 +265,10 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         clearInterval(localIceFlushInterval.current);
         localIceFlushInterval.current = null;
       }
+      if (localIceStopTimeout.current) {
+        clearTimeout(localIceStopTimeout.current);
+        localIceStopTimeout.current = null;
+      }
       bridge.close();
       bridgeRef.current = null;
     };
@@ -231,6 +280,28 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     markAgentActivity,
     markMessageDelivered,
   ]);
+
+  useEffect(() => {
+    const confirmingIds = new Set(
+      messages
+        .filter((entry) => entry.from === "user" && entry.delivery === "confirming")
+        .map((entry) => entry.id),
+    );
+
+    for (const messageId of confirmingIds) {
+      if (pendingDeliveryFailureTimersRef.current.has(messageId)) continue;
+      const timeout = setTimeout(() => {
+        markMessageFailedIfPending(messageId);
+      }, CHAT_CONFIRM_GRACE_MS);
+      pendingDeliveryFailureTimersRef.current.set(messageId, timeout);
+    }
+
+    for (const [messageId, timeout] of pendingDeliveryFailureTimersRef.current) {
+      if (confirmingIds.has(messageId)) continue;
+      clearTimeout(timeout);
+      pendingDeliveryFailureTimersRef.current.delete(messageId);
+    }
+  }, [messages, markMessageFailedIfPending]);
 
   useEffect(() => {
     if (!tunnel?.agentCandidates || !bridgeRef.current) return;
@@ -262,17 +333,17 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
           return;
         }
 
-        const delivered = await bridge.sendWithAck(CHANNELS.CHAT, msg, 8_000);
+        const delivered = await bridge.sendWithAck(CHANNELS.CHAT, msg, CHAT_ACK_TIMEOUT_MS);
         if (delivered) {
           setLastUserDeliveredAt(Date.now());
           markMessageDelivered(msg.id);
           return;
         }
 
-        markMessageFailedIfPending(msg.id);
+        markMessageConfirmingIfPending(msg.id);
       })();
     },
-    [addMessage, markMessageDelivered, markMessageFailedIfPending],
+    [addMessage, markMessageConfirmingIfPending, markMessageDelivered, markMessageFailedIfPending],
   );
 
   useEffect(() => {
@@ -280,7 +351,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     setMessages((prev) =>
       prev.map((entry) =>
         entry.from === "user" && entry.delivery === "sending"
-          ? { ...entry, delivery: "failed" }
+          ? { ...entry, delivery: "confirming" }
           : entry,
       ),
     );

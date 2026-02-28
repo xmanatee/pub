@@ -34,6 +34,11 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
 
+  const resetToIdle = useCallback(() => {
+    setMode("idle");
+    setElapsed(0);
+  }, []);
+
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
     const container = barsRef.current;
@@ -132,8 +137,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         if (shouldSend && blob.size > 0) onSendAudio(blob);
         localStopInProgressRef.current = false;
         releaseMediaResources();
-        setMode("idle");
-        setElapsed(0);
+        resetToIdle();
       };
 
       mediaRecorderRef.current = recorder;
@@ -146,8 +150,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       audioChunksRef.current = [];
       localStopInProgressRef.current = false;
       teardownMediaState(true);
-      setMode("idle");
-      setElapsed(0);
+      resetToIdle();
     }
   }, [
     disabled,
@@ -158,6 +161,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     animateWaveform,
     teardownMediaState,
     releaseMediaResources,
+    resetToIdle,
   ]);
 
   const stopLocalRecording = useCallback(
@@ -168,8 +172,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         audioChunksRef.current = [];
         localStopInProgressRef.current = false;
         releaseMediaResources();
-        setMode("idle");
-        setElapsed(0);
+        resetToIdle();
         return;
       }
 
@@ -185,11 +188,10 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         audioChunksRef.current = [];
         localStopInProgressRef.current = false;
         releaseMediaResources();
-        setMode("idle");
-        setElapsed(0);
+        resetToIdle();
       }
     },
-    [releaseMediaResources, stopTimer],
+    [releaseMediaResources, stopTimer, resetToIdle],
   );
 
   const cancelRecording = useCallback(() => {
@@ -252,10 +254,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       animateWaveform();
     } catch {
       teardownMediaState(true);
-      setMode("idle");
-      setElapsed(0);
+      resetToIdle();
     }
-  }, [disabled, bridge, setupAudio, teardownMediaState, startTimer, animateWaveform]);
+  }, [disabled, bridge, setupAudio, teardownMediaState, startTimer, animateWaveform, resetToIdle]);
 
   const stopVoiceMode = useCallback(() => {
     if (bridge && streamIdRef.current) {
@@ -263,9 +264,8 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       streamIdRef.current = null;
     }
     teardownMediaState(true);
-    setMode("idle");
-    setElapsed(0);
-  }, [bridge, teardownMediaState]);
+    resetToIdle();
+  }, [bridge, teardownMediaState, resetToIdle]);
 
   useEffect(() => {
     return () => {

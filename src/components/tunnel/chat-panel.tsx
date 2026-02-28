@@ -4,6 +4,14 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import type { ChatEntry, ReceivedFile } from "./types";
 
+function getDeliveryLabel(delivery: ChatEntry["delivery"]): string | null {
+  if (!delivery) return null;
+  if (delivery === "sending") return "Sending...";
+  if (delivery === "confirming") return "Confirming...";
+  if (delivery === "delivered") return "Delivered";
+  return "Not delivered";
+}
+
 export function ChatPanel({
   files,
   messages,
@@ -40,11 +48,7 @@ export function ChatPanel({
             <div>{msg.content}</div>
             {showDeliveryStatus && msg.from === "user" && msg.delivery && (
               <div className="mt-1 text-[10px] leading-none text-primary-foreground/70">
-                {msg.delivery === "sending"
-                  ? "Sending..."
-                  : msg.delivery === "delivered"
-                    ? "Delivered"
-                    : "Not delivered"}
+                {getDeliveryLabel(msg.delivery)}
               </div>
             )}
           </div>

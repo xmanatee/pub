@@ -37,7 +37,7 @@ export interface ChatEntry {
   from: "user" | "agent";
   content: string;
   timestamp: number;
-  delivery?: "sending" | "delivered" | "failed";
+  delivery?: "sending" | "confirming" | "delivered" | "failed";
 }
 
 export interface ReceivedFile {
