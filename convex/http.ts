@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
-import { registerPublicationRoutes } from "./http/publication-routes";
+import { registerPublicationRoutes } from "./http/publication_routes";
 import {
   corsHeaders,
   errorResponse,
@@ -10,7 +10,7 @@ import {
   jsonResponse,
   mapTunnelError,
 } from "./http/shared";
-import { registerTunnelRoutes } from "./http/tunnel-routes";
+import { registerTunnelRoutes } from "./http/tunnel_routes";
 
 const http = httpRouter();
 
