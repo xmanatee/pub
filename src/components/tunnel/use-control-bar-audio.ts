@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/lib/bridge-protocol";
 import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
+import {
+  canStartRecording,
+  canStartVoice,
+  INITIAL_AUDIO_MACHINE_STATE,
+  reduceAudioMachine,
+  toBarMode,
+} from "./control-bar-audio-machine";
 
-export type BarMode = "idle" | "recording" | "recording-paused" | "voice-mode";
+export type { BarMode } from "./control-bar-audio-machine";
 
 interface UseControlBarAudioOptions {
   disabled: boolean;
@@ -19,8 +26,7 @@ function getSupportedMimeType(): string {
 }
 
 export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControlBarAudioOptions) {
-  const [mode, setMode] = useState<BarMode>("idle");
-  const [elapsed, setElapsed] = useState(0);
+  const [state, dispatch] = useReducer(reduceAudioMachine, INITIAL_AUDIO_MACHINE_STATE);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -33,13 +39,6 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const streamIdRef = useRef<string | null>(null);
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
-  const startInProgressRef = useRef(false);
-  const pendingActionRef = useRef<"send" | "cancel" | null>(null);
-
-  const resetToIdle = useCallback(() => {
-    setMode("idle");
-    setElapsed(0);
-  }, []);
 
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
@@ -62,9 +61,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   }, []);
 
   const startTimer = useCallback((resetElapsed: boolean) => {
-    if (resetElapsed) setElapsed(0);
+    if (resetElapsed) dispatch({ type: "RESET_ELAPSED" });
     if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setElapsed((t) => t + 1), 1000);
+    timerRef.current = setInterval(() => dispatch({ type: "TICK" }), 1000);
   }, []);
 
   const stopTimer = useCallback(() => {
@@ -113,11 +112,42 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     return stream;
   }, []);
 
-  const startRecording = useCallback(async (): Promise<boolean> => {
-    if (disabled || mode !== "idle" || localStopInProgressRef.current) return false;
-    if (startInProgressRef.current) return false;
+  const stopLocalRecording = useCallback(
+    (send: boolean) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        shouldSendOnStopRef.current = false;
+        audioChunksRef.current = [];
+        localStopInProgressRef.current = false;
+        releaseMediaResources();
+        dispatch({ type: "RECORDING_STOP_FINISHED" });
+        return;
+      }
 
-    startInProgressRef.current = true;
+      shouldSendOnStopRef.current = send;
+      localStopInProgressRef.current = true;
+      stopTimer();
+      cancelAnimationFrame(animFrameRef.current);
+      analyserRef.current = null;
+      try {
+        recorder.stop();
+      } catch (error) {
+        console.error("Failed to stop recording cleanly", error);
+        shouldSendOnStopRef.current = false;
+        audioChunksRef.current = [];
+        localStopInProgressRef.current = false;
+        releaseMediaResources();
+        dispatch({ type: "RECORDING_STOP_FINISHED" });
+      }
+    },
+    [releaseMediaResources, stopTimer],
+  );
+
+  const startRecording = useCallback(async (): Promise<boolean> => {
+    if (disabled || !canStartRecording(state.mode) || localStopInProgressRef.current) return false;
+
+    dispatch({ type: "START_RECORDING_REQUEST" });
+
     try {
       const stream = await setupAudio();
       const mimeType = getSupportedMimeType();
@@ -141,12 +171,12 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         if (shouldSend && blob.size > 0) onSendAudio(blob);
         localStopInProgressRef.current = false;
         releaseMediaResources();
-        resetToIdle();
+        dispatch({ type: "RECORDING_STOP_FINISHED" });
       };
 
       mediaRecorderRef.current = recorder;
       recorder.start();
-      setMode("recording");
+      dispatch({ type: "START_RECORDING_SUCCESS" });
       startTimer(true);
       animateWaveform();
       return true;
@@ -155,100 +185,60 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       shouldSendOnStopRef.current = false;
       audioChunksRef.current = [];
       localStopInProgressRef.current = false;
-      pendingActionRef.current = null;
+      dispatch({ type: "START_RECORDING_FAILURE" });
       teardownMediaState(true);
-      resetToIdle();
       return false;
-    } finally {
-      startInProgressRef.current = false;
     }
   }, [
     disabled,
-    mode,
+    state.mode,
     setupAudio,
     onSendAudio,
     startTimer,
     animateWaveform,
     teardownMediaState,
     releaseMediaResources,
-    resetToIdle,
   ]);
 
-  const stopLocalRecording = useCallback(
-    (send: boolean) => {
-      const recorder = mediaRecorderRef.current;
-      if (!recorder || recorder.state === "inactive") {
-        shouldSendOnStopRef.current = false;
-        audioChunksRef.current = [];
-        localStopInProgressRef.current = false;
-        releaseMediaResources();
-        resetToIdle();
-        return;
-      }
-
-      shouldSendOnStopRef.current = send;
-      localStopInProgressRef.current = true;
-      stopTimer();
-      cancelAnimationFrame(animFrameRef.current);
-      analyserRef.current = null;
-      try {
-        recorder.stop();
-      } catch (error) {
-        console.error("Failed to stop recording cleanly", error);
-        shouldSendOnStopRef.current = false;
-        audioChunksRef.current = [];
-        localStopInProgressRef.current = false;
-        releaseMediaResources();
-        resetToIdle();
-      }
-    },
-    [releaseMediaResources, stopTimer, resetToIdle],
-  );
-
   const cancelRecording = useCallback(() => {
-    if (mode === "idle") {
-      if (startInProgressRef.current) pendingActionRef.current = "cancel";
-      return;
-    }
-    stopLocalRecording(false);
-  }, [mode, stopLocalRecording]);
+    dispatch({ type: "REQUEST_RECORDING_STOP", intent: "cancel" });
+  }, []);
 
   const sendRecording = useCallback(() => {
-    if (mode === "idle") {
-      if (startInProgressRef.current) pendingActionRef.current = "send";
-      return;
-    }
-    stopLocalRecording(true);
-  }, [mode, stopLocalRecording]);
+    dispatch({ type: "REQUEST_RECORDING_STOP", intent: "send" });
+  }, []);
 
   const pauseRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
-    if (!recorder || mode !== "recording") return;
+    if (!recorder || state.mode !== "recording") return;
     if (recorder.state !== "recording") return;
 
     recorder.pause();
     stopTimer();
-    setMode("recording-paused");
-  }, [mode, stopTimer]);
+    dispatch({ type: "PAUSE_RECORDING" });
+  }, [state.mode, stopTimer]);
 
   const resumeRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
-    if (!recorder || mode !== "recording-paused") return;
+    if (!recorder || state.mode !== "recording-paused") return;
     if (recorder.state !== "paused") return;
 
     recorder.resume();
     startTimer(false);
-    setMode("recording");
-  }, [mode, startTimer]);
+    dispatch({ type: "RESUME_RECORDING" });
+  }, [state.mode, startTimer]);
 
   const startVoiceMode = useCallback(async () => {
-    if (disabled || !bridge) return;
+    if (disabled || !bridge || !canStartVoice(state.mode)) return;
+    dispatch({ type: "START_VOICE_REQUEST" });
+
     try {
       const stream = await setupAudio();
       const mime = getSupportedMimeType();
 
       const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
       if (!ready) {
+        dispatch({ type: "START_VOICE_FAILURE" });
         teardownMediaState(true);
         return;
       }
@@ -268,39 +258,41 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       };
       mediaRecorderRef.current = recorder;
       recorder.start(2000);
-      setMode("voice-mode");
+      dispatch({ type: "START_VOICE_SUCCESS" });
       startTimer(true);
       animateWaveform();
     } catch (error) {
       console.error("Failed to start voice mode", error);
+      dispatch({ type: "START_VOICE_FAILURE" });
       teardownMediaState(true);
-      resetToIdle();
     }
-  }, [disabled, bridge, setupAudio, teardownMediaState, startTimer, animateWaveform, resetToIdle]);
+  }, [disabled, bridge, state.mode, setupAudio, teardownMediaState, startTimer, animateWaveform]);
 
   const stopVoiceMode = useCallback(() => {
+    dispatch({ type: "REQUEST_VOICE_STOP" });
+  }, []);
+
+  useEffect(() => {
+    if (state.mode !== "stopping-recording") return;
+    if (localStopInProgressRef.current) return;
+    stopLocalRecording(state.stopIntent === "send");
+  }, [state.mode, state.stopIntent, stopLocalRecording]);
+
+  useEffect(() => {
+    if (state.mode !== "stopping-voice") return;
+
     if (bridge && streamIdRef.current) {
       bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current));
       streamIdRef.current = null;
     }
     teardownMediaState(true);
-    resetToIdle();
-  }, [bridge, teardownMediaState, resetToIdle]);
-
-  useEffect(() => {
-    if (mode !== "recording") return;
-    const pending = pendingActionRef.current;
-    if (!pending) return;
-    pendingActionRef.current = null;
-    stopLocalRecording(pending === "send");
-  }, [mode, stopLocalRecording]);
+    dispatch({ type: "VOICE_STOP_FINISHED" });
+  }, [state.mode, bridge, teardownMediaState]);
 
   useEffect(() => {
     return () => {
       shouldSendOnStopRef.current = false;
       localStopInProgressRef.current = false;
-      startInProgressRef.current = false;
-      pendingActionRef.current = null;
       teardownMediaState(true);
     };
   }, [teardownMediaState]);
@@ -308,8 +300,8 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   return {
     barsRef,
     cancelRecording,
-    elapsed,
-    mode,
+    elapsed: state.elapsed,
+    mode: toBarMode(state.mode),
     pauseRecording,
     resumeRecording,
     sendRecording,

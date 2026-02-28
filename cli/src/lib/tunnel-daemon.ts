@@ -17,6 +17,7 @@ import {
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
 import { TunnelApiClient } from "../lib/tunnel-api.js";
+import { resolveAckChannel } from "./ack-routing.js";
 
 interface ChannelBuffer {
   messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
@@ -56,16 +57,6 @@ export function shouldRecoverForBrowserAnswerChange(params: {
   if (!remoteDescriptionApplied) return false;
   if (!incomingBrowserAnswer) return false;
   return incomingBrowserAnswer !== lastAppliedBrowserAnswer;
-}
-
-export function resolveAckChannel(params: {
-  controlChannelOpen: boolean;
-  messageChannelOpen: boolean;
-  messageChannel: string;
-}): string | null {
-  if (params.messageChannelOpen) return params.messageChannel;
-  if (params.controlChannelOpen) return CONTROL_CHANNEL;
-  return null;
 }
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {

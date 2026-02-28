@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
+import {
+  cleanupHoldListeners,
+  shouldStartKeyboardCapture,
+  shouldStartPointerCapture,
+} from "./hold-to-record-logic";
 import type { BarMode } from "./use-control-bar-audio";
 
 const LOCK_THRESHOLD_PX = 70;
@@ -12,6 +17,8 @@ interface UseHoldToRecordOptions {
   cancelRecording: () => void;
 }
 
+type HoldListenerEntry = Parameters<typeof cleanupHoldListeners>[0];
+
 export function useHoldToRecord({
   disabled,
   mode,
@@ -21,30 +28,28 @@ export function useHoldToRecord({
 }: UseHoldToRecordOptions) {
   const startCoordsRef = useRef<{ x: number; y: number } | null>(null);
   const pointerIdRef = useRef<number | null>(null);
-  const listenersRef = useRef<{
-    el: HTMLElement;
-    up: (e: PointerEvent) => void;
-    cancel: (e: PointerEvent) => void;
-  } | null>(null);
+  const listenersRef = useRef<HoldListenerEntry>(null);
 
   const cleanup = useCallback(() => {
-    const l = listenersRef.current;
-    if (l) {
-      l.el.removeEventListener("pointerup", l.up);
-      l.el.removeEventListener("pointercancel", l.cancel);
-      const pid = pointerIdRef.current;
-      if (pid != null && l.el.hasPointerCapture(pid)) l.el.releasePointerCapture(pid);
-      listenersRef.current = null;
-    }
+    cleanupHoldListeners(listenersRef.current, pointerIdRef.current);
+    listenersRef.current = null;
     startCoordsRef.current = null;
     pointerIdRef.current = null;
   }, []);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (disabled || mode !== "idle") return;
-      if (pointerIdRef.current != null) return;
-      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (
+        !shouldStartPointerCapture({
+          button: e.button,
+          disabled,
+          mode,
+          pointerId: pointerIdRef.current,
+          pointerType: e.pointerType,
+        })
+      ) {
+        return;
+      }
 
       e.preventDefault();
       e.stopPropagation();
@@ -96,8 +101,7 @@ export function useHoldToRecord({
 
   const onClick = useCallback(
     (e: React.MouseEvent) => {
-      if (disabled || mode !== "idle") return;
-      if (e.detail !== 0) return;
+      if (!shouldStartKeyboardCapture({ clickDetail: e.detail, disabled, mode })) return;
       void startRecording();
     },
     [disabled, mode, startRecording],

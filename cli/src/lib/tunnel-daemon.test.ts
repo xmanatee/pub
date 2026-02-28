@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { resolveAckChannel } from "./ack-routing.js";
 import {
   getTunnelWriteReadinessError,
-  resolveAckChannel,
   shouldRecoverForBrowserAnswerChange,
 } from "./tunnel-daemon.js";
 

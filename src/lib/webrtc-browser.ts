@@ -5,6 +5,7 @@
  * Signaling happens through Convex (reactive queries + mutations).
  */
 
+import { resolveAckChannel } from "./ack-routing";
 import type { BridgeMessage } from "./bridge-protocol";
 import {
   CONTROL_CHANNEL,
@@ -289,8 +290,17 @@ export class BrowserBridge {
 
   private sendAck(messageId: string, channel: string): void {
     const ack = makeAckMessage(messageId, channel);
-    if (this.send(channel, ack)) return;
-    this.send(CONTROL_CHANNEL, ack);
+    const target = resolveAckChannel({
+      controlChannelOpen: this.isChannelOpen(CONTROL_CHANNEL),
+      messageChannel: channel,
+      messageChannelOpen: this.isChannelOpen(channel),
+    });
+    if (!target) return;
+
+    if (this.send(target, ack)) return;
+    const fallback = target === channel ? CONTROL_CHANNEL : channel;
+    if (fallback === target) return;
+    this.send(fallback, ack);
   }
 
   private waitForAck(messageId: string, timeoutMs: number): Promise<boolean> {
