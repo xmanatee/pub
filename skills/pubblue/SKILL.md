@@ -11,8 +11,8 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.2"
-allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Read Write
+  version: "3.4"
+allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
 # pubblue — Instant Content Publishing
@@ -27,6 +27,15 @@ npx pubblue <command>
 
 # Or global:
 npm i -g pubblue
+```
+
+### Required CLI Version
+
+Use **pubblue CLI 0.4.3 or newer**. Older versions have tunnel reliability differences.
+
+```bash
+pubblue --version
+npm i -g pubblue@0.4.3
 ```
 
 **API key** — required. The user gets one from [pub.blue/dashboard](https://pub.blue/dashboard) (sign in → "Generate API Key" → starts with `pub_`, shown once).
@@ -197,6 +206,73 @@ You can use any custom channel name with `-c <name>`.
 - Requires `node-datachannel` native module (bundled with pubblue)
 - Tunnel access is owner-authenticated (not a public bearer link yet)
 
+## OpenClaw Direct Bridge Mode (No Manual Polling)
+
+Use this mode when tunnel chat must be wired directly to OpenClaw, without the main process manually polling every turn.
+
+### What this does
+
+- Starts or attaches to a pubblue tunnel daemon
+- Runs one long-lived `read --follow` consumer
+- For each incoming tunnel chat message, forwards it to OpenClaw
+- Wraps incoming text with explicit `pubblue tunnel write --tunnel <id> ...` reply instructions
+- Supports two bridge modes:
+  - `openclaw-deliver` (recommended): uses local `openclaw agent --local --deliver` injection
+  - `gateway-reply` (fallback): uses gateway `/v1/chat/completions` and writes reply back directly
+
+### Why `openclaw-deliver` is preferred
+
+This mirrors the proven pattern used in `agent-chat`: local OpenClaw delivery avoids fragile gateway auth/pairing loops and injects into a real OpenClaw session.
+
+### Prerequisites
+
+1. `pubblue >= 0.4.3`
+2. OpenClaw installed (for `openclaw-deliver`) or gateway Chat Completions enabled (for `gateway-reply`)
+3. Exactly one `read --follow` consumer per tunnel/chat channel
+4. For `openclaw-deliver`, ensure the OpenClaw session can execute `pubblue` commands
+
+### Run (recommended: openclaw-deliver)
+
+```bash
+# Start tunnel + long-lived bridge
+OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
+node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start --expires 7d
+
+# Or attach to existing tunnel
+OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
+node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --tunnel <id>
+```
+
+Optional env for `openclaw-deliver`:
+
+- `OPENCLAW_DELIVER_CMD` — custom command receiving `AGENT_MSG` + `AGENT_TUNNEL_ID`
+- `OPENCLAW_PATH` — explicit OpenClaw binary/index.js path
+- `OPENCLAW_SESSION_ID` — explicit session UUID
+- `OPENCLAW_THREAD_ID` — resolve `agent:main:main:thread:<id>` from sessions file
+- `OPENCLAW_DELIVER_CHANNEL` / `OPENCLAW_REPLY_TO` — delivery routing
+
+### Run (fallback: gateway-reply)
+
+```bash
+OPENCLAW_BRIDGE_MODE="gateway-reply" \
+OPENCLAW_GATEWAY_URL="http://127.0.0.1:18789" \
+OPENCLAW_GATEWAY_TOKEN="<token-if-needed>" \
+OPENCLAW_MODEL="openclaw:main" \
+node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start --expires 7d
+```
+
+Optional env for `gateway-reply`:
+
+- `OPENCLAW_AGENT_ID` — set `x-openclaw-agent-id`
+- `OPENCLAW_SESSION_KEY` — session key (default: `pubblue:tunnel:<id>`)
+
+### Operational rules
+
+- Run exactly one `pubblue tunnel read --follow` consumer per channel/tunnel pair
+- Keep bridge process alive with a supervisor (`tmux`, `screen`, system service, or container manager)
+- Do not run competing `read` commands on `chat`; reads are consumptive
+- Treat failed `tunnel write` as undelivered and retry after reconnect (gateway mode)
+
 ## Troubleshooting
 
 | Issue | Solution |
@@ -206,3 +282,6 @@ You can use any custom channel name with `-c <name>`.
 | "Slug already taken" | Choose a different `--slug` |
 | "Content exceeds maximum size of 100KB" | Reduce content to under 100 KB |
 | "File not found" | Check path; use absolute paths |
+| `No browser connected` on `tunnel write` | Ask user to open tunnel URL first, wait for `pubblue tunnel status` = `connected`, retry |
+| `pairing required` / gateway auth failures in OpenClaw bridge | Use token/password auth for local bridge calls, or route via trusted proxy with required headers |
+| Bridge forwards to OpenClaw but tunnel gets no reply | In `openclaw-deliver`, ensure OpenClaw session has pubblue skill + command access, or switch to `OPENCLAW_BRIDGE_MODE=gateway-reply` |
