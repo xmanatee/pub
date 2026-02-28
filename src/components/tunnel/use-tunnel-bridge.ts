@@ -31,10 +31,31 @@ export function useTunnelBridge({
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
 
+  const onDeliveryAckRef = useRef(onDeliveryAck);
+  const onMessageRef = useRef(onMessage);
+  const onTrackActivityRef = useRef(onTrackActivity);
+  const storeBrowserSignalRef = useRef(storeBrowserSignal);
+
   const lastAgentCandidateCountRef = useRef(0);
   const lastHandledOfferRef = useRef<string | null>(null);
   const localIceFlushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localIceStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    onDeliveryAckRef.current = onDeliveryAck;
+  }, [onDeliveryAck]);
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+
+  useEffect(() => {
+    onTrackActivityRef.current = onTrackActivity;
+  }, [onTrackActivity]);
+
+  useEffect(() => {
+    storeBrowserSignalRef.current = storeBrowserSignal;
+  }, [storeBrowserSignal]);
 
   useEffect(() => {
     if (!agentOffer || lastHandledOfferRef.current === agentOffer) return;
@@ -44,16 +65,16 @@ export function useTunnelBridge({
     bridgeRef.current = bridge;
     lastAgentCandidateCountRef.current = 0;
     bridge.setOnStateChange(setBridgeState);
-    bridge.setOnMessage(onMessage);
-    bridge.setOnTrack(() => onTrackActivity());
-    bridge.setOnDeliveryAck(onDeliveryAck);
+    bridge.setOnMessage((message) => onMessageRef.current(message));
+    bridge.setOnTrack(() => onTrackActivityRef.current());
+    bridge.setOnDeliveryAck((ack) => onDeliveryAckRef.current(ack));
 
     void (async () => {
       try {
         const answer = await bridge.createAnswer(agentOffer);
-        await storeBrowserSignal({ tunnelId, answer });
+        await storeBrowserSignalRef.current({ tunnelId, answer });
         const candidates = bridge.getIceCandidates();
-        if (candidates.length > 0) await storeBrowserSignal({ tunnelId, candidates });
+        if (candidates.length > 0) await storeBrowserSignalRef.current({ tunnelId, candidates });
 
         if (localIceFlushIntervalRef.current) clearInterval(localIceFlushIntervalRef.current);
         if (localIceStopTimeoutRef.current) clearTimeout(localIceStopTimeoutRef.current);
@@ -64,7 +85,7 @@ export function useTunnelBridge({
             if (current.length <= candidates.length) return;
             const next = current.slice(candidates.length);
             candidates.push(...next);
-            await storeBrowserSignal({ tunnelId, candidates: next });
+            await storeBrowserSignalRef.current({ tunnelId, candidates: next });
           } catch (error) {
             // Ignore transient signaling write failures; next interval retries.
             console.warn("Failed to store local ICE candidates", error);
@@ -85,6 +106,10 @@ export function useTunnelBridge({
       } catch (error) {
         // Failed to establish WebRTC answer/signaling for this offer.
         console.error("Failed to establish tunnel WebRTC bridge", error);
+        bridge.close();
+        if (bridgeRef.current === bridge) {
+          bridgeRef.current = null;
+        }
         setBridgeState("disconnected");
       }
     })();
@@ -99,9 +124,11 @@ export function useTunnelBridge({
         localIceStopTimeoutRef.current = null;
       }
       bridge.close();
-      bridgeRef.current = null;
+      if (bridgeRef.current === bridge) {
+        bridgeRef.current = null;
+      }
     };
-  }, [agentOffer, onDeliveryAck, onMessage, onTrackActivity, storeBrowserSignal, tunnelId]);
+  }, [agentOffer, tunnelId]);
 
   useEffect(() => {
     const bridge = bridgeRef.current;

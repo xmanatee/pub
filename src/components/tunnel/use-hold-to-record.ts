@@ -92,9 +92,14 @@ export function useHoldToRecord({
       el.addEventListener("pointerup", onUp);
       el.addEventListener("pointercancel", onCancel);
 
-      void startRecording().then((started) => {
-        if (!started) cleanup();
-      });
+      void startRecording()
+        .then((started) => {
+          if (!started) cleanup();
+        })
+        .catch((error) => {
+          console.error("Failed to start hold-to-record session", error);
+          cleanup();
+        });
     },
     [disabled, mode, startRecording, sendRecording, cancelRecording, cleanup],
   );

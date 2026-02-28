@@ -219,16 +219,30 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         messageChannel: ack.channel,
       });
       if (!targetChannel) continue;
-      const targetDc = targetChannel === CONTROL_CHANNEL ? controlDc : messageDc;
-      if (!targetDc) continue;
+
+      const encodedAck = encodeMessage(makeAckMessage(ack.messageId, ack.channel));
+      const primaryDc = targetChannel === CONTROL_CHANNEL ? controlDc : messageDc;
 
       try {
-        targetDc.sendMessage(encodeMessage(makeAckMessage(ack.messageId, ack.channel)));
-        pendingOutboundAcks.delete(ackKey);
+        if (primaryDc?.isOpen()) {
+          primaryDc.sendMessage(encodedAck);
+          pendingOutboundAcks.delete(ackKey);
+          continue;
+        }
+      } catch (error) {
+        markError("failed to flush queued ack on primary channel", error);
+      }
+
+      const fallbackChannel = targetChannel === ack.channel ? CONTROL_CHANNEL : ack.channel;
+      const fallbackDc = fallbackChannel === CONTROL_CHANNEL ? controlDc : messageDc;
+      try {
+        if (fallbackDc?.isOpen()) {
+          fallbackDc.sendMessage(encodedAck);
+          pendingOutboundAcks.delete(ackKey);
+        }
       } catch (error) {
         // Keep queued acks for a future retry when channels are healthy again.
-        debugLog("failed to flush queued ack", error);
-        break;
+        markError("failed to flush queued ack on fallback channel", error);
       }
     }
   }

@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
-const MIN_SUPPORTED_CLI = [0, 4, 3];
+const MIN_SUPPORTED_CLI = [0, 4, 4];
 const MAX_SEEN_IDS = 1000;
 const OPENCLAW_DISCOVERY_PATHS = [
   join(homedir(), "openclaw", "dist", "index.js"),
@@ -52,7 +52,7 @@ function usage() {
       "  OPENCLAW_GATEWAY_TIMEOUT_MS (default: 30000)",
       "",
       "Notes:",
-      "  - Requires pubblue >= 0.4.3",
+      "  - Requires pubblue >= 0.4.4",
       "  - Maintains one long-lived pubblue read --follow consumer",
     ].join("\n"),
   );
