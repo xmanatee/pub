@@ -39,7 +39,7 @@ export function ChatPanel({
           className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
         >
           <div
-            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+            className={`max-w-4/5 rounded-lg px-3 py-2 text-sm ${
               msg.from === "user"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-foreground"
@@ -47,7 +47,7 @@ export function ChatPanel({
           >
             <div>{msg.content}</div>
             {showDeliveryStatus && msg.from === "user" && msg.delivery && (
-              <div className="mt-1 text-[10px] leading-none text-primary-foreground/70">
+              <div className="mt-1 text-xs leading-none text-primary-foreground/70">
                 {getDeliveryLabel(msg.delivery)}
               </div>
             )}

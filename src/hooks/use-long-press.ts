@@ -14,10 +14,16 @@ interface UseLongPressOptions {
 
 function shouldIgnoreLongPressTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  if (target.closest("[data-long-press-ignore='true']")) return true;
-  return Boolean(
-    target.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']"),
-  );
+  if (target.closest(".long-press-ignore")) return true;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    return true;
+  }
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  return false;
 }
 
 export function useLongPress({ onActivate }: UseLongPressOptions) {

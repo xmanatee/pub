@@ -62,13 +62,18 @@ export function ControlBar({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasText = input.trim().length > 0;
 
-  const floatingShellClass =
-    "pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(var(--safe-bottom)+0.75rem)]";
+  const floatingShellClass = "pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-3";
+  const floatingShellStyle = { paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" } as const;
   const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
+  const controlHeightClass = "h-16 min-h-16";
+  const actionButtonClass = "h-14 w-14 shrink-0 rounded-full";
+  const actionIconClass = "size-6";
   const controlBarClass =
-    "flex w-full items-center gap-3 rounded-full border border-border/70 bg-background/86 px-4 py-3 shadow-lg backdrop-blur-xl";
-  const controlRowClass = "flex w-full items-center gap-3 px-4 py-3";
+    "flex w-full items-center gap-2 rounded-full border border-border/70 bg-background/88 px-2 shadow-lg backdrop-blur-xl";
+  const controlRowClass = "flex w-full items-center gap-2 px-2";
   const recordingToneClass = "border-destructive/40 bg-background/88";
+  const backButtonClass =
+    "h-16 w-16 shrink-0 rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl";
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
   const longPressHandlers = useLongPress({ onActivate: () => setExpanded(true) });
@@ -153,25 +158,20 @@ export function ControlBar({
   );
 
   const renderFloatingShell = (children: ReactNode) => (
-    <div className={floatingShellClass}>
+    <div className={floatingShellClass} style={floatingShellStyle}>
       <div className={shellContainerClass}>
-        <div className={cn("flex gap-2", expanded ? "items-end" : "items-stretch")}>
+        <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">{children}</div>
           {viewMode !== "canvas" ? (
             <Button
               type="button"
               variant="secondary"
               size="icon"
-              className={cn(
-                "shrink-0 rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl",
-                expanded
-                  ? "h-[4.25rem] w-[4.25rem]"
-                  : "h-auto min-h-[4.25rem] aspect-square self-stretch",
-              )}
+              className={backButtonClass}
               onClick={() => onChangeView("canvas")}
               aria-label="Back to canvas"
             >
-              <ArrowLeft className="size-6" />
+              <ArrowLeft className={actionIconClass} />
             </Button>
           ) : null}
         </div>
@@ -184,7 +184,7 @@ export function ControlBar({
       {WAVEFORM_BARS.map((id) => (
         <div
           key={id}
-          className="w-1 rounded-full bg-foreground/70 transition-[height] duration-75"
+          className="w-1 rounded-full bg-foreground/70 transition-all duration-75"
           style={{ height: "4px" }}
         />
       ))}
@@ -194,24 +194,24 @@ export function ControlBar({
   if (mode === "recording" || mode === "recording-paused") {
     const paused = mode === "recording-paused";
     return renderFloatingShell(
-      <div className={cn(controlBarClass, recordingToneClass)}>
+      <div className={cn(controlBarClass, controlHeightClass, recordingToneClass)}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-11 w-11 shrink-0 rounded-full text-destructive"
+              className={cn(actionButtonClass, "text-destructive")}
               onClick={cancelRecording}
               aria-label="Delete recording"
             >
-              <Trash2 className="size-6" />
+              <Trash2 className={actionIconClass} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Delete recording</TooltipContent>
         </Tooltip>
 
-        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-full bg-destructive/12 px-3 py-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-destructive/12 px-3 py-2">
           <div
             className={cn(
               "h-2.5 w-2.5 rounded-full",
@@ -233,11 +233,15 @@ export function ControlBar({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-11 w-11 shrink-0 rounded-full"
+              className={actionButtonClass}
               onClick={paused ? resumeRecording : pauseRecording}
               aria-label={paused ? "Resume recording" : "Pause recording"}
             >
-              {paused ? <Play className="size-6" /> : <Pause className="size-6" />}
+              {paused ? (
+                <Play className={actionIconClass} />
+              ) : (
+                <Pause className={actionIconClass} />
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent>{paused ? "Resume" : "Pause"}</TooltipContent>
@@ -249,11 +253,11 @@ export function ControlBar({
               type="button"
               variant="default"
               size="icon"
-              className="h-11 w-11 shrink-0 rounded-full"
+              className={actionButtonClass}
               onClick={sendRecording}
               aria-label="Send recording"
             >
-              <Send className="size-6" />
+              <Send className={actionIconClass} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Send recording</TooltipContent>
@@ -264,8 +268,8 @@ export function ControlBar({
 
   if (mode === "voice-mode") {
     return renderFloatingShell(
-      <div className={cn(controlBarClass, recordingToneClass)}>
-        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-full bg-destructive/12 px-3 py-1.5">
+      <div className={cn(controlBarClass, controlHeightClass, recordingToneClass)}>
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-destructive/12 px-3 py-2">
           <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
           <span className="text-sm font-semibold">{formatTime(elapsed)}</span>
           {waveformEl}
@@ -275,11 +279,11 @@ export function ControlBar({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-11 w-11 shrink-0 rounded-full text-destructive"
+          className={cn(actionButtonClass, "text-destructive")}
           onClick={stopVoiceMode}
           aria-label="Stop voice mode"
         >
-          <Square className="size-6" />
+          <Square className={actionIconClass} />
         </Button>
       </div>,
     );
@@ -310,26 +314,25 @@ export function ControlBar({
           <div
             className={cn(
               "overflow-hidden transition-all duration-300",
-              expanded ? "max-h-28 opacity-100" : "max-h-0 opacity-0",
+              expanded ? "max-h-36 opacity-100" : "max-h-0 opacity-0",
             )}
           >
             <ExtendedOptions viewMode={viewMode} onSelect={handleViewSelect} />
             <Separator />
           </div>
 
-          <div className={controlRowClass}>
+          <div className={cn(controlRowClass, controlHeightClass)}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-11 w-11 shrink-0 rounded-full"
+                  className={cn(actionButtonClass, "long-press-ignore")}
                   onClick={() => fileInputRef.current?.click()}
                   disabled={disabled}
                   aria-label="Attach file"
-                  data-long-press-ignore="true"
                 >
-                  <Paperclip className="size-6" />
+                  <Paperclip className={actionIconClass} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Attach file</TooltipContent>
@@ -337,7 +340,6 @@ export function ControlBar({
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFile} />
 
             <Input
-              className="h-11 flex-1 border-0 bg-transparent px-1 text-base shadow-none focus-visible:ring-0"
               placeholder={disabled ? "Connecting..." : "Message..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -349,7 +351,14 @@ export function ControlBar({
               }}
               disabled={disabled}
               aria-label="Message"
-              data-long-press-ignore="true"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck
+              enterKeyHint="send"
+              className={cn(
+                "h-14 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0",
+                "long-press-ignore",
+              )}
             />
 
             {hasText ? (
@@ -358,13 +367,12 @@ export function ControlBar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-11 w-11 shrink-0 rounded-full"
+                    className={cn(actionButtonClass, "long-press-ignore")}
                     onClick={handleSend}
                     disabled={disabled}
                     aria-label="Send message"
-                    data-long-press-ignore="true"
                   >
-                    <Send className="size-6" />
+                    <Send className={actionIconClass} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Send</TooltipContent>
@@ -376,13 +384,12 @@ export function ControlBar({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-11 w-11 shrink-0 rounded-full touch-none"
+                      className={cn(actionButtonClass, "touch-none long-press-ignore")}
                       disabled={disabled}
                       aria-label="Hold to record audio"
-                      data-long-press-ignore="true"
                       {...pointerHandlers}
                     >
-                      <Mic className="size-6" />
+                      <Mic className={actionIconClass} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Hold to record</TooltipContent>
@@ -393,13 +400,12 @@ export function ControlBar({
                     <Button
                       variant="default"
                       size="icon"
-                      className="h-11 w-11 shrink-0 rounded-full"
+                      className={cn(actionButtonClass, "long-press-ignore")}
                       onClick={startVoiceMode}
                       disabled={disabled}
                       aria-label="Voice mode"
-                      data-long-press-ignore="true"
                     >
-                      <AudioLines className="size-6" />
+                      <AudioLines className={actionIconClass} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Voice mode</TooltipContent>
