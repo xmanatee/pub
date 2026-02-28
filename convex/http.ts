@@ -88,6 +88,22 @@ class ApiError extends Error {
   }
 }
 
+export function mapTunnelError(error: unknown): { message: string; status: number } | null {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message === "Tunnel not found") return { message, status: 404 };
+  if (message === "Tunnel closed") return { message, status: 409 };
+  if (message === "Tunnel expired") return { message, status: 410 };
+  if (message.startsWith("Tunnel limit reached")) return { message, status: 429 };
+  return null;
+}
+
+function rethrowTunnelApiError(error: unknown): never {
+  if (error instanceof ApiError) throw error;
+  const mapped = mapTunnelError(error);
+  if (mapped) throw new ApiError(mapped.message, mapped.status);
+  throw error;
+}
+
 async function executeAction<T>(
   fn: () => Promise<T>,
   onSuccess: (result: T) => Response,
@@ -692,11 +708,15 @@ http.route({
 
     return executeAction(
       async () => {
-        await ctx.runMutation(internal.tunnels.createTunnel, {
-          userId: user.userId,
-          tunnelId,
-          expiresAt,
-        });
+        try {
+          await ctx.runMutation(internal.tunnels.createTunnel, {
+            userId: user.userId,
+            tunnelId,
+            expiresAt,
+          });
+        } catch (error) {
+          rethrowTunnelApiError(error);
+        }
         return { tunnelId, expiresAt };
       },
       (result) => {
@@ -786,12 +806,16 @@ http.route({
 
     return executeAction(
       async () => {
-        await ctx.runMutation(internal.tunnels.storeAgentSignal, {
-          tunnelId,
-          userId: user.userId,
-          offer: body.offer,
-          candidates: body.candidates,
-        });
+        try {
+          await ctx.runMutation(internal.tunnels.storeAgentSignal, {
+            tunnelId,
+            userId: user.userId,
+            offer: body.offer,
+            candidates: body.candidates,
+          });
+        } catch (error) {
+          rethrowTunnelApiError(error);
+        }
       },
       () => jsonResponse({ ok: true }),
     );
@@ -815,10 +839,14 @@ http.route({
 
     return executeAction(
       async () => {
-        await ctx.runMutation(internal.tunnels.closeTunnel, {
-          tunnelId,
-          userId: user.userId,
-        });
+        try {
+          await ctx.runMutation(internal.tunnels.closeTunnel, {
+            tunnelId,
+            userId: user.userId,
+          });
+        } catch (error) {
+          rethrowTunnelApiError(error);
+        }
       },
       () => jsonResponse({ closed: true }),
     );

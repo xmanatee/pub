@@ -124,6 +124,10 @@ export function resolveTunnelIdSelection(
   return tunnelOpt || tunnelIdArg;
 }
 
+export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
+  return ["ignore", logFd, logFd, "ipc"];
+}
+
 export function registerTunnelCommands(program: Command): void {
   const tunnel = program.command("tunnel").description("P2P encrypted tunnel to browser");
 
@@ -168,7 +172,7 @@ export function registerTunnelCommands(program: Command): void {
         const daemonLogFd = fs.openSync(logPath, "a");
         const child = fork(daemonScript, [], {
           detached: true,
-          stdio: ["ignore", daemonLogFd, daemonLogFd],
+          stdio: buildDaemonForkStdio(daemonLogFd),
           env: {
             ...process.env,
             PUBBLUE_DAEMON_TUNNEL_ID: result.tunnelId,
@@ -179,6 +183,9 @@ export function registerTunnelCommands(program: Command): void {
           },
         });
         fs.closeSync(daemonLogFd);
+        if (child.connected) {
+          child.disconnect();
+        }
         child.unref();
 
         // Wait for daemon readiness (info file appears) or early exit

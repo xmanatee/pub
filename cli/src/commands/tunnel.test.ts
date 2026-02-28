@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFollowReadDelayMs, resolveTunnelIdSelection } from "./tunnel.js";
+import { buildDaemonForkStdio, getFollowReadDelayMs, resolveTunnelIdSelection } from "./tunnel.js";
 
 describe("getFollowReadDelayMs", () => {
   it("uses steady polling when daemon is reachable", () => {
@@ -26,5 +26,11 @@ describe("resolveTunnelIdSelection", () => {
 
   it("returns undefined when neither source provides tunnelId", () => {
     expect(resolveTunnelIdSelection(undefined, undefined)).toBeUndefined();
+  });
+});
+
+describe("buildDaemonForkStdio", () => {
+  it("includes required IPC channel for fork", () => {
+    expect(buildDaemonForkStdio(7)).toEqual(["ignore", 7, 7, "ipc"]);
   });
 });

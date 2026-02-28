@@ -1,4 +1,32 @@
-const CANVAS_DEBUG_BRIDGE_SCRIPT = `<script>(function(){const notify=(payload)=>{try{parent.postMessage({source:"pubblue-canvas",...payload},"*")}catch{}};window.addEventListener("error",function(ev){notify({type:"error",message:ev.message||"Script error",filename:ev.filename||"",lineno:ev.lineno||0,colno:ev.colno||0});});window.addEventListener("unhandledrejection",function(ev){const reason=ev.reason;notify({type:"error",message:(reason&&reason.message)?reason.message:String(reason??"Unhandled promise rejection")});});})();</script>`;
+const CANVAS_DEBUG_BRIDGE_SCRIPT = [
+  "<script>",
+  "(function(){",
+  'function notify(payload){try{parent.postMessage(payload,"*");}catch(_error){}}',
+  "function emit(type,details){",
+  'var payload={source:"pubblue-canvas",type:type};',
+  'if(details&&typeof details==="object"){',
+  "for(var key in details){",
+  "if(Object.prototype.hasOwnProperty.call(details,key)){payload[key]=details[key];}",
+  "}",
+  "}",
+  "notify(payload);",
+  "}",
+  'window.addEventListener("error",function(ev){',
+  'emit("error",{',
+  'message:ev&&ev.message?ev.message:"Script error",',
+  'filename:ev&&ev.filename?ev.filename:"",',
+  'lineno:ev&&typeof ev.lineno==="number"?ev.lineno:0,',
+  'colno:ev&&typeof ev.colno==="number"?ev.colno:0',
+  "});",
+  "});",
+  'window.addEventListener("unhandledrejection",function(ev){',
+  "var reason=ev&&ev.reason;",
+  'var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");',
+  'emit("error",{message:message});',
+  "});",
+  "})();",
+  "</script>",
+].join("");
 
 function injectHead(html: string): string {
   if (/<head(\s|>)/i.test(html)) {

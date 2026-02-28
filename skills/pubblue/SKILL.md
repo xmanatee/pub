@@ -11,7 +11,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.2"
+  version: "3.4.3"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -31,11 +31,11 @@ npm i -g pubblue
 
 ### Required CLI Version
 
-Use **pubblue CLI 0.4.4 or newer**. Older versions have tunnel reliability differences.
+Use **pubblue CLI 0.4.5 or newer**. Older versions have tunnel reliability differences.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.4
+npm i -g pubblue@0.4.5
 ```
 
 **API key** — required. The user gets one from [pub.blue/dashboard](https://pub.blue/dashboard) (sign in → "Generate API Key" → starts with `pub_`, shown once).
@@ -226,7 +226,7 @@ This mirrors the proven pattern used in `agent-chat`: local OpenClaw delivery av
 
 ### Prerequisites
 
-1. `pubblue >= 0.4.4`
+1. `pubblue >= 0.4.5`
 2. OpenClaw installed (for `openclaw-deliver`) or gateway Chat Completions enabled (for `gateway-reply`)
 3. Exactly one `read --follow` consumer per tunnel/chat channel
 4. For `openclaw-deliver`, ensure the OpenClaw session can execute `pubblue` commands

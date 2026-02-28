@@ -6,6 +6,7 @@ import {
   getApiKey,
   getOgCardData,
   jsonResponse,
+  mapTunnelError,
 } from "./http";
 import { MIME_TYPES } from "./utils";
 
@@ -159,5 +160,30 @@ describe("getOgCardData", () => {
     expect(og.contentType).toBe("markdown");
     expect(og.badgeText).toBe("PUBLIC");
     expect(og.slugLabel).toBe("/hello");
+  });
+});
+
+describe("mapTunnelError", () => {
+  it("maps known tunnel errors to API statuses", () => {
+    expect(mapTunnelError(new Error("Tunnel not found"))).toEqual({
+      message: "Tunnel not found",
+      status: 404,
+    });
+    expect(mapTunnelError(new Error("Tunnel closed"))).toEqual({
+      message: "Tunnel closed",
+      status: 409,
+    });
+    expect(mapTunnelError(new Error("Tunnel expired"))).toEqual({
+      message: "Tunnel expired",
+      status: 410,
+    });
+    expect(mapTunnelError(new Error("Tunnel limit reached (5)"))).toEqual({
+      message: "Tunnel limit reached (5)",
+      status: 429,
+    });
+  });
+
+  it("returns null for unknown failures", () => {
+    expect(mapTunnelError(new Error("Unexpected failure"))).toBeNull();
   });
 });
