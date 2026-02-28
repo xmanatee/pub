@@ -24,7 +24,7 @@ interface ControlBarIdleModeProps {
   onInputChange: (value: string) => void;
   onInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onSend: () => void;
-  onStartVoiceMode?: () => void;
+  onStartVoiceMode: () => void;
   onViewSelect: (mode: TunnelViewMode) => void;
   voiceModeEnabled: boolean;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;

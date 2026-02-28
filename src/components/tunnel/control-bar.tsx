@@ -237,7 +237,7 @@ export function ControlBar({
         }
       }}
       onSend={handleSend}
-      onStartVoiceMode={voiceModeEnabled ? startVoiceMode : undefined}
+      onStartVoiceMode={startVoiceMode}
       onViewSelect={handleViewSelect}
       voiceModeEnabled={voiceModeEnabled}
       pointerHandlers={pointerHandlers}
