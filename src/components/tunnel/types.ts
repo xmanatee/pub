@@ -1,6 +1,6 @@
 export type TunnelViewMode = "canvas" | "chat" | "settings";
 
-export const TUNNEL_ANIMATION_STYLES = ["aurora", "rings", "mesh"] as const;
+export const TUNNEL_ANIMATION_STYLES = ["aurora", "orb", "flow", "lissajous", "blob"] as const;
 export type TunnelAnimationStyle = (typeof TUNNEL_ANIMATION_STYLES)[number];
 
 export const TUNNEL_ANIMATION_STYLE_META: Record<
@@ -11,13 +11,21 @@ export const TUNNEL_ANIMATION_STYLE_META: Record<
     label: "Aurora",
     description: "Soft gradient clouds with gentle drift.",
   },
-  rings: {
-    label: "Rings",
-    description: "Layered halos that pulse around session activity.",
+  orb: {
+    label: "Orb",
+    description: "Overlapping circles that pulse and breathe.",
   },
-  mesh: {
-    label: "Mesh",
-    description: "Depth-focused blobs with continuous movement.",
+  flow: {
+    label: "Flow",
+    description: "Particles drifting through a layered flow field.",
+  },
+  lissajous: {
+    label: "Lissajous",
+    description: "Evolving parametric curves that morph continuously.",
+  },
+  blob: {
+    label: "Blob",
+    description: "A living organic shape that morphs and wobbles.",
   },
 };
 

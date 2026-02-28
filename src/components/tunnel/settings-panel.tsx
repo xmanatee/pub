@@ -84,9 +84,9 @@ export function SettingsPanel({
                 if (isTunnelAnimationStyle(value)) onAnimationStyleChange(value);
               }}
             >
-              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-muted p-1">
+              <TabsList className="grid h-auto w-full grid-cols-5 gap-1 bg-muted p-1">
                 {TUNNEL_ANIMATION_STYLES.map((style) => (
-                  <TabsTrigger key={style} value={style} className="h-10 text-xs">
+                  <TabsTrigger key={style} value={style} className="h-10 text-xs px-1">
                     {TUNNEL_ANIMATION_STYLE_META[style].label}
                   </TabsTrigger>
                 ))}

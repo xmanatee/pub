@@ -71,7 +71,11 @@ export class TunnelApiClient {
       if (res.status === 429) {
         const retrySuffix =
           retryAfterSeconds !== undefined ? ` Retry after ${retryAfterSeconds}s.` : "";
-        throw new TunnelApiError(`Rate limit exceeded.${retrySuffix}`, res.status, retryAfterSeconds);
+        throw new TunnelApiError(
+          `Rate limit exceeded.${retrySuffix}`,
+          res.status,
+          retryAfterSeconds,
+        );
       }
       throw new TunnelApiError(data.error || `Request failed: ${res.status}`, res.status);
     }

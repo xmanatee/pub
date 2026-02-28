@@ -2,70 +2,11 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
 import "./canvas-session-visual.css";
 import type { TunnelAnimationStyle, TunnelSessionVisualState } from "./types";
-
-interface Tone {
-  coreScale: number;
-  energy: number;
-  glow: number;
-  hueA: number;
-  hueB: number;
-  hueC: number;
-  speedMs: number;
-  saturation: number;
-}
-
-const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
-  connecting: {
-    coreScale: 0.82,
-    energy: 0.34,
-    hueA: 210,
-    hueB: 220,
-    hueC: 235,
-    saturation: 0.7,
-    speedMs: 26_000,
-    glow: 0.55,
-  },
-  disconnected: {
-    coreScale: 0.78,
-    energy: 0.26,
-    hueA: 8,
-    hueB: 355,
-    hueC: 330,
-    saturation: 0.78,
-    speedMs: 24_000,
-    glow: 0.52,
-  },
-  "waiting-content": {
-    coreScale: 0.9,
-    energy: 0.46,
-    hueA: 208,
-    hueB: 214,
-    hueC: 228,
-    saturation: 0.78,
-    speedMs: 20_000,
-    glow: 0.62,
-  },
-  idle: {
-    coreScale: 1,
-    energy: 0.62,
-    hueA: 210,
-    hueB: 168,
-    hueC: 295,
-    saturation: 1.08,
-    speedMs: 16_000,
-    glow: 0.82,
-  },
-  "agent-replying": {
-    coreScale: 1.18,
-    energy: 0.98,
-    hueA: 195,
-    hueB: 132,
-    hueC: 304,
-    saturation: 1.2,
-    speedMs: 7_000,
-    glow: 1,
-  },
-};
+import { BlobVisual } from "./visuals/blob-visual";
+import { FlowVisual } from "./visuals/flow-visual";
+import { LissajousVisual } from "./visuals/lissajous-visual";
+import { OrbVisual } from "./visuals/orb-visual";
+import { type Tone, VISUAL_THEME, type VisualProps } from "./visuals/shared";
 
 interface CanvasSessionVisualProps {
   className?: string;
@@ -75,15 +16,13 @@ interface CanvasSessionVisualProps {
   styleType: TunnelAnimationStyle;
 }
 
-function VisualLayer({
+function AuroraLayer({
   className,
   hasCanvasContent,
-  styleType,
   tone,
 }: {
   className?: string;
   hasCanvasContent: boolean;
-  styleType: TunnelAnimationStyle;
   tone: Tone;
 }) {
   const style = {
@@ -99,18 +38,10 @@ function VisualLayer({
   } as CSSProperties;
 
   return (
-    <div
-      className={cn("tunnel-visual", `tunnel-visual--${styleType}`, className)}
-      style={style}
-      aria-hidden
-    >
+    <div className={cn("tunnel-visual", className)} style={style} aria-hidden>
       <div className="tunnel-visual__layer tunnel-visual__layer-a" />
       <div className="tunnel-visual__layer tunnel-visual__layer-b" />
       <div className="tunnel-visual__layer tunnel-visual__layer-c" />
-      <div className="tunnel-visual__ring tunnel-visual__ring-a" />
-      <div className="tunnel-visual__ring tunnel-visual__ring-b" />
-      <div className="tunnel-visual__mesh tunnel-visual__mesh-a" />
-      <div className="tunnel-visual__mesh tunnel-visual__mesh-b" />
       <div className="tunnel-visual__center">
         <div className="tunnel-visual__center-halo" />
         <div className="tunnel-visual__center-ring tunnel-visual__center-ring-a" />
@@ -121,6 +52,28 @@ function VisualLayer({
       <div className="tunnel-visual__vignette" />
     </div>
   );
+}
+
+function VisualForStyle({
+  styleType,
+  tone,
+  hasCanvasContent,
+  className,
+}: VisualProps & { styleType: TunnelAnimationStyle }) {
+  switch (styleType) {
+    case "aurora":
+      return <AuroraLayer className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
+    case "orb":
+      return <OrbVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
+    case "flow":
+      return <FlowVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
+    case "lissajous":
+      return (
+        <LissajousVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />
+      );
+    case "blob":
+      return <BlobVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
+  }
 }
 
 export function CanvasSessionVisual({
@@ -147,19 +100,21 @@ export function CanvasSessionVisual({
     return () => clearTimeout(timer);
   }, [tone]);
 
+  const isCSS = styleType === "aurora" || styleType === "orb";
+
   return (
     <div className={cn("absolute inset-0 pointer-events-none", className)}>
-      {previousTone ? (
-        <VisualLayer
+      {isCSS && previousTone ? (
+        <VisualForStyle
           className="tunnel-visual-fade-out"
           hasCanvasContent={hasCanvasContent}
           styleType={styleType}
           tone={previousTone}
         />
       ) : null}
-      <VisualLayer
+      <VisualForStyle
         className={cn(
-          isTransitioning ? "tunnel-visual-fade-in" : undefined,
+          isCSS && isTransitioning ? "tunnel-visual-fade-in" : undefined,
           fadeOut && "opacity-0",
         )}
         hasCanvasContent={hasCanvasContent}

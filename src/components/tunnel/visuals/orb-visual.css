@@ -1,0 +1,116 @@
+.orb-visual {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: var(--tv-opacity, 1);
+  transition: opacity 320ms ease;
+}
+
+.orb-visual__container {
+  position: relative;
+  width: clamp(200px, 50vmin, 500px);
+  aspect-ratio: 1;
+  animation: orb-breath var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+.orb-visual__petal {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  mix-blend-mode: screen;
+  will-change: transform;
+  filter: blur(24px);
+}
+
+.orb-visual__petal-0 {
+  background: radial-gradient(circle at center, var(--orb-color-a) 0%, transparent 70%);
+  animation: orb-petal-0 var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+.orb-visual__petal-1 {
+  background: radial-gradient(circle at center, var(--orb-color-b) 0%, transparent 70%);
+  animation: orb-petal-1 var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+.orb-visual__petal-2 {
+  background: radial-gradient(circle at center, var(--orb-color-c) 0%, transparent 70%);
+  animation: orb-petal-2 var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+.orb-visual__petal-3 {
+  background: radial-gradient(circle at center, var(--orb-color-a) 0%, transparent 70%);
+  animation: orb-petal-3 var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  opacity: 0.7;
+}
+
+.orb-visual__petal-4 {
+  background: radial-gradient(circle at center, var(--orb-color-b) 0%, transparent 70%);
+  animation: orb-petal-4 var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  opacity: 0.6;
+}
+
+.orb-visual__petal-5 {
+  background: radial-gradient(circle at center, var(--orb-color-c) 0%, transparent 70%);
+  animation: orb-petal-5 var(--orb-speed, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  opacity: 0.5;
+}
+
+.orb-visual__core {
+  position: absolute;
+  inset: 25%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    var(--orb-color-a) 0%,
+    var(--orb-color-b) 40%,
+    transparent 75%
+  );
+  filter: blur(12px);
+  opacity: calc(0.3 + var(--orb-energy, 0.5) * 0.4);
+}
+
+@keyframes orb-breath {
+  0% {
+    transform: scale(var(--orb-core-scale, 0.85)) rotate(0deg);
+  }
+  50% {
+    transform: scale(1) rotate(180deg);
+  }
+  100% {
+    transform: scale(var(--orb-core-scale, 0.85)) rotate(360deg);
+  }
+}
+
+@keyframes orb-petal-0 {
+  0%, 100% { transform: translate(0, calc(-1 * var(--orb-expand, 30%))) scale(0.8); opacity: 0.4; }
+  50% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+}
+
+@keyframes orb-petal-1 {
+  0%, 100% { transform: translate(calc(var(--orb-expand, 30%) * 0.87), calc(var(--orb-expand, 30%) * 0.5)) scale(0.8); opacity: 0.4; }
+  50% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+}
+
+@keyframes orb-petal-2 {
+  0%, 100% { transform: translate(calc(var(--orb-expand, 30%) * -0.87), calc(var(--orb-expand, 30%) * 0.5)) scale(0.8); opacity: 0.4; }
+  50% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+}
+
+@keyframes orb-petal-3 {
+  0%, 100% { transform: translate(0, var(--orb-expand, 30%)) scale(0.75); opacity: 0.3; }
+  50% { transform: translate(0, 0) scale(0.95); opacity: 0.65; }
+}
+
+@keyframes orb-petal-4 {
+  0%, 100% { transform: translate(calc(var(--orb-expand, 30%) * -0.87), calc(-1 * var(--orb-expand, 30%) * 0.5)) scale(0.75); opacity: 0.3; }
+  50% { transform: translate(0, 0) scale(0.95); opacity: 0.65; }
+}
+
+@keyframes orb-petal-5 {
+  0%, 100% { transform: translate(calc(var(--orb-expand, 30%) * 0.87), calc(-1 * var(--orb-expand, 30%) * 0.5)) scale(0.75); opacity: 0.3; }
+  50% { transform: translate(0, 0) scale(0.95); opacity: 0.65; }
+}

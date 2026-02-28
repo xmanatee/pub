@@ -8,8 +8,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   updatePublication: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 5 },
   deletePublication: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
   serveContent: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 20 },
-  createTunnel: { kind: "token bucket", rate: 12, period: MINUTE, capacity: 6 },
-  tunnelSignal: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
-  readTunnel: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 30 },
-  closeTunnel: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 10 },
+  // Fresh keys reset exhausted tunnel buckets after deployment.
+  createTunnelV2: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 30 },
+  tunnelSignalV2: { kind: "token bucket", rate: 600, period: MINUTE, capacity: 200 },
+  readTunnelV2: { kind: "token bucket", rate: 600, period: MINUTE, capacity: 200 },
+  closeTunnelV2: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 60 },
 });

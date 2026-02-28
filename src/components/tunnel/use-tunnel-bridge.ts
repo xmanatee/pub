@@ -58,14 +58,10 @@ export function useTunnelBridge({
   }, [storeBrowserSignal]);
 
   useEffect(() => {
-    lastHandledOfferRef.current = null;
-    lastAgentCandidateCountRef.current = 0;
-    setBridgeState("connecting");
-  }, [tunnelId]);
-
-  useEffect(() => {
-    if (!agentOffer || lastHandledOfferRef.current === agentOffer) return;
-    lastHandledOfferRef.current = agentOffer;
+    if (!agentOffer) return;
+    const offerKey = `${tunnelId}:${agentOffer}`;
+    if (lastHandledOfferRef.current === offerKey) return;
+    lastHandledOfferRef.current = offerKey;
     setBridgeState("connecting");
 
     const bridge = new BrowserBridge();
