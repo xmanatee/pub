@@ -11,7 +11,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.4"
+  version: "3.4.5"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -256,6 +256,7 @@ Optional env for `openclaw-deliver`:
 - `OPENCLAW_SESSION_ID` — explicit session UUID
 - `OPENCLAW_THREAD_ID` — resolve `agent:main:main:thread:<id>` from sessions file
 - `OPENCLAW_DELIVER_CHANNEL` / `OPENCLAW_REPLY_TO` — delivery routing
+- `OPENCLAW_BRIDGE_STATE_DIR` — optional writable dir for bridge lock/state files (defaults auto-fallback to XDG/home/tmp/cwd)
 
 For deterministic routing, set `OPENCLAW_SESSION_ID` (or `OPENCLAW_THREAD_ID`) so tunnel
 messages are delivered into the intended OpenClaw conversation.

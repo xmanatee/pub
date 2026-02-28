@@ -2,7 +2,7 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
@@ -19,6 +19,8 @@ const MODES = {
   GATEWAY_REPLY: "gateway-reply",
 };
 let warnedImplicitSessionFallback = false;
+let warnedNoBridgeStateDir = false;
+let resolvedBridgeStateDir;
 
 function usage() {
   console.error(
@@ -229,15 +231,63 @@ async function listActiveTunnelIds(pubblueBin) {
   return parseTunnelIdsFromListOutput(result.stdout);
 }
 
+function tryEnsureWritableDir(dirPath) {
+  try {
+    if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true });
+    const probePath = join(dirPath, `.bridge-write-test-${process.pid}-${Date.now()}`);
+    writeFileSync(probePath, "ok");
+    unlinkSync(probePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function unique(values) {
+  return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))];
+}
+
+function resolveBridgeStateDir() {
+  if (resolvedBridgeStateDir !== undefined) return resolvedBridgeStateDir;
+
+  const homePath = process.env.HOME || process.env.USERPROFILE || homedir();
+  const configuredPubblueRoot = process.env.PUBBLUE_DIR;
+  const configuredBridgeState = process.env.OPENCLAW_BRIDGE_STATE_DIR || process.env.PUBBLUE_BRIDGE_DIR;
+  const xdgState = process.env.XDG_STATE_HOME;
+  const xdgConfig = process.env.XDG_CONFIG_HOME;
+  const tmpPath = process.env.TMPDIR || tmpdir();
+  const cwdPath = process.cwd();
+
+  const candidates = unique([
+    configuredBridgeState,
+    configuredPubblueRoot ? join(configuredPubblueRoot, "tunnel-bridge") : "",
+    xdgState ? join(xdgState, "pubblue", "tunnel-bridge") : "",
+    xdgConfig ? join(xdgConfig, "pubblue", "tunnel-bridge") : "",
+    homePath ? join(homePath, ".config", "pubblue", "tunnel-bridge") : "",
+    join(tmpPath, "pubblue", "tunnel-bridge"),
+    join(cwdPath, ".pubblue-tunnel-bridge"),
+  ]);
+
+  for (const candidate of candidates) {
+    if (tryEnsureWritableDir(candidate)) {
+      resolvedBridgeStateDir = candidate;
+      return resolvedBridgeStateDir;
+    }
+  }
+
+  resolvedBridgeStateDir = null;
+  return resolvedBridgeStateDir;
+}
+
 function getStatePath(tunnelId) {
-  const baseDir = join(homedir(), ".config", "pubblue", "tunnel-bridge");
-  if (!existsSync(baseDir)) mkdirSync(baseDir, { recursive: true });
+  const baseDir = resolveBridgeStateDir();
+  if (!baseDir) return null;
   return join(baseDir, `${tunnelId}.state.json`);
 }
 
 function getPidLockPath(tunnelId) {
-  const baseDir = join(homedir(), ".config", "pubblue", "tunnel-bridge");
-  if (!existsSync(baseDir)) mkdirSync(baseDir, { recursive: true });
+  const baseDir = resolveBridgeStateDir();
+  if (!baseDir) return null;
   return join(baseDir, `${tunnelId}.pid`);
 }
 
@@ -252,6 +302,9 @@ function isProcessAlive(pid) {
 
 function acquirePidLock(tunnelId) {
   const lockPath = getPidLockPath(tunnelId);
+  if (!lockPath) {
+    return () => {};
+  }
   if (existsSync(lockPath)) {
     let existingPid = null;
     try {
@@ -278,6 +331,7 @@ function acquirePidLock(tunnelId) {
 
 function loadSeenState(tunnelId) {
   const statePath = getStatePath(tunnelId);
+  if (!statePath) return [];
   if (!existsSync(statePath)) return [];
   try {
     const parsed = JSON.parse(readFileSync(statePath, "utf8"));
@@ -290,6 +344,7 @@ function loadSeenState(tunnelId) {
 
 function saveSeenState(tunnelId, seenIds) {
   const statePath = getStatePath(tunnelId);
+  if (!statePath) return;
   const payload = { seenIds: seenIds.slice(-MAX_SEEN_IDS), updatedAt: Date.now() };
   writeFileSync(statePath, JSON.stringify(payload));
 }
@@ -523,6 +578,15 @@ async function main() {
   }
 
   const sessionKey = process.env.OPENCLAW_SESSION_KEY || `pubblue:tunnel:${tunnelId}`;
+  const bridgeStateDir = resolveBridgeStateDir();
+  if (bridgeStateDir) {
+    console.error(`Bridge state dir: ${bridgeStateDir}`);
+  } else if (!warnedNoBridgeStateDir) {
+    warnedNoBridgeStateDir = true;
+    console.error(
+      "[bridge] No writable bridge state directory. Continuing without pid lock and seen-id persistence.",
+    );
+  }
   const releasePidLock = acquirePidLock(tunnelId);
   const persistedSeen = loadSeenState(tunnelId);
   const seenIds = new Set(persistedSeen);
