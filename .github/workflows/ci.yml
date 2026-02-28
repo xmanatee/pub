@@ -20,8 +20,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install
+      - name: Generate Convex types
+        run: pnpm convex codegen
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       - name: Validate Convex deploy (dry-run)
-        run: pnpm convex deploy --dry-run -y
+        run: pnpm convex deploy --dry-run -y --codegen disable
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       - name: Build (generates route tree + type checks)
