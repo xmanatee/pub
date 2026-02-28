@@ -1,5 +1,5 @@
-export const LONG_PRESS_MS = 500;
-export const MOVE_THRESHOLD_PX = 10;
+const LONG_PRESS_MS = 500;
+const MOVE_THRESHOLD_PX = 10;
 
 export interface LongPressState {
   timer: ReturnType<typeof setTimeout> | null;
@@ -12,7 +12,7 @@ export function createState(): LongPressState {
   return { timer: null, start: null, fired: false, touchActive: false };
 }
 
-export function cancel(state: LongPressState): void {
+function cancel(state: LongPressState): void {
   if (state.timer) clearTimeout(state.timer);
   state.timer = null;
   state.start = null;
