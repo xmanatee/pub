@@ -66,8 +66,8 @@ export function ControlBar({
   const floatingShellStyle = { paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" } as const;
   const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
   const controlHeightClass = "h-16 min-h-16";
-  const actionButtonClass = "h-14 w-14 shrink-0 rounded-full";
-  const actionIconClass = "size-6";
+  const actionButtonClass = "size-14 shrink-0 rounded-full";
+  const actionIconClass = "size-10";
   const controlBarClass =
     "flex w-full items-center gap-2 rounded-full border border-border/70 bg-background/88 px-2 shadow-lg backdrop-blur-xl";
   const controlRowClass = "flex w-full items-center gap-2 px-2";
@@ -327,7 +327,7 @@ export function ControlBar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn(actionButtonClass, "long-press-ignore")}
+                  className={actionButtonClass}
                   onClick={() => fileInputRef.current?.click()}
                   disabled={disabled}
                   aria-label="Attach file"
@@ -355,19 +355,16 @@ export function ControlBar({
               autoCorrect="on"
               spellCheck
               enterKeyHint="send"
-              className={cn(
-                "h-14 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0",
-                "long-press-ignore",
-              )}
+              className="h-14 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
             />
 
             {hasText ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="default"
                     size="icon"
-                    className={cn(actionButtonClass, "long-press-ignore")}
+                    className={actionButtonClass}
                     onClick={handleSend}
                     disabled={disabled}
                     aria-label="Send message"
@@ -400,7 +397,7 @@ export function ControlBar({
                     <Button
                       variant="default"
                       size="icon"
-                      className={cn(actionButtonClass, "long-press-ignore")}
+                      className={actionButtonClass}
                       onClick={startVoiceMode}
                       disabled={disabled}
                       aria-label="Voice mode"

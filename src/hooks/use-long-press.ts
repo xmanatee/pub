@@ -14,16 +14,7 @@ interface UseLongPressOptions {
 
 function shouldIgnoreLongPressTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  if (target.closest(".long-press-ignore")) return true;
-  if (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  ) {
-    return true;
-  }
-  if (target instanceof HTMLElement && target.isContentEditable) return true;
-  return false;
+  return Boolean(target.closest(".long-press-ignore"));
 }
 
 export function useLongPress({ onActivate }: UseLongPressOptions) {
@@ -55,5 +46,11 @@ export function useLongPress({ onActivate }: UseLongPressOptions) {
 
   useEffect(() => () => endTouch(stateRef.current), []);
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onContextMenu };
+  return {
+    onContextMenuCapture: onContextMenu,
+    onPointerCancelCapture: onPointerCancel,
+    onPointerDownCapture: onPointerDown,
+    onPointerMoveCapture: onPointerMove,
+    onPointerUpCapture: onPointerUp,
+  };
 }

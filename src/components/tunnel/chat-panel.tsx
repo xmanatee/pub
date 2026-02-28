@@ -71,7 +71,7 @@ export function ChatPanel({
                 asChild
               >
                 <a href={file.downloadUrl} download={file.filename}>
-                  <FileDown className="h-4 w-4 shrink-0" />
+                  <FileDown className="h-5 w-5 shrink-0" />
                   <div className="text-left">
                     <div className="font-medium">{file.filename}</div>
                     <div className="text-xs text-muted-foreground">
