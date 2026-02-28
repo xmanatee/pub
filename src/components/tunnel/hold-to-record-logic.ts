@@ -28,25 +28,30 @@ export function shouldStartKeyboardCapture(input: ShouldStartKeyboardCaptureInpu
 
 export interface HoldListeners {
   cancel: (event: PointerEvent) => void;
-  el: {
-    hasPointerCapture: (pointerId: number) => boolean;
-    releasePointerCapture: (pointerId: number) => void;
-    removeEventListener: (
-      type: "pointercancel" | "pointerup",
-      cb: (event: PointerEvent) => void,
-    ) => void;
-  };
+  move: (event: PointerEvent) => void;
   up: (event: PointerEvent) => void;
 }
 
-export function cleanupHoldListeners(
-  listeners: HoldListeners | null,
-  pointerId: number | null,
-): void {
+export function cleanupHoldListeners(listeners: HoldListeners | null): void {
   if (!listeners) return;
-  listeners.el.removeEventListener("pointerup", listeners.up);
-  listeners.el.removeEventListener("pointercancel", listeners.cancel);
-  if (pointerId != null && listeners.el.hasPointerCapture(pointerId)) {
-    listeners.el.releasePointerCapture(pointerId);
-  }
+  document.removeEventListener("pointerup", listeners.up);
+  document.removeEventListener("pointermove", listeners.move);
+  document.removeEventListener("pointercancel", listeners.cancel);
+}
+
+export type HoldGesture = "send" | "cancel" | "lock";
+
+export function classifyHoldGesture(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  lockPx: number,
+  cancelPx: number,
+): HoldGesture {
+  const deltaX = startX - endX;
+  const deltaY = startY - endY;
+  if (deltaY >= lockPx) return "lock";
+  if (deltaX >= cancelPx) return "cancel";
+  return "send";
 }

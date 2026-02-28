@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  classifyHoldGesture,
   cleanupHoldListeners,
   shouldStartKeyboardCapture,
   shouldStartPointerCapture,
@@ -35,25 +36,58 @@ describe("hold-to-record logic", () => {
     ).toBe(false);
   });
 
-  it("cleans listeners and releases pointer capture", () => {
+  it("cleans up document listeners", () => {
+    const up = vi.fn();
+    const move = vi.fn();
+    const cancel = vi.fn();
     const removeEventListener = vi.fn();
-    const hasPointerCapture = vi.fn(() => true);
-    const releasePointerCapture = vi.fn();
-    const listeners = {
-      cancel: vi.fn(),
-      el: {
-        hasPointerCapture,
-        releasePointerCapture,
-        removeEventListener,
-      },
-      up: vi.fn(),
-    };
+    vi.stubGlobal("document", { removeEventListener });
 
-    cleanupHoldListeners(listeners, 11);
+    cleanupHoldListeners({ up, move, cancel });
 
-    expect(removeEventListener).toHaveBeenCalledWith("pointerup", listeners.up);
-    expect(removeEventListener).toHaveBeenCalledWith("pointercancel", listeners.cancel);
-    expect(hasPointerCapture).toHaveBeenCalledWith(11);
-    expect(releasePointerCapture).toHaveBeenCalledWith(11);
+    expect(removeEventListener).toHaveBeenCalledWith("pointerup", up);
+    expect(removeEventListener).toHaveBeenCalledWith("pointermove", move);
+    expect(removeEventListener).toHaveBeenCalledWith("pointercancel", cancel);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("cleanupHoldListeners is a no-op for null", () => {
+    expect(() => cleanupHoldListeners(null)).not.toThrow();
+  });
+});
+
+describe("classifyHoldGesture", () => {
+  const lock = 70;
+  const cancel = 100;
+
+  it("returns 'send' for small movement", () => {
+    expect(classifyHoldGesture(100, 100, 95, 95, lock, cancel)).toBe("send");
+  });
+
+  it("returns 'cancel' for large leftward drag", () => {
+    expect(classifyHoldGesture(200, 100, 90, 100, lock, cancel)).toBe("cancel");
+  });
+
+  it("returns 'lock' for large upward drag", () => {
+    expect(classifyHoldGesture(100, 200, 100, 120, lock, cancel)).toBe("lock");
+  });
+
+  it("lock takes precedence over cancel when both thresholds met", () => {
+    // deltaX = 150 (>= cancel), deltaY = 100 (>= lock) — lock wins
+    expect(classifyHoldGesture(200, 200, 50, 100, lock, cancel)).toBe("lock");
+  });
+
+  it("returns 'send' at exact boundary (below thresholds)", () => {
+    // deltaX = 99 (< cancel), deltaY = 69 (< lock)
+    expect(classifyHoldGesture(100, 100, 1, 31, lock, cancel)).toBe("send");
+  });
+
+  it("returns 'lock' at exact lock threshold", () => {
+    expect(classifyHoldGesture(100, 100, 100, 30, lock, cancel)).toBe("lock");
+  });
+
+  it("returns 'cancel' at exact cancel threshold", () => {
+    expect(classifyHoldGesture(200, 100, 100, 100, lock, cancel)).toBe("cancel");
   });
 });

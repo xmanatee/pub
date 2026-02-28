@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
+  classifyHoldGesture,
   cleanupHoldListeners,
   shouldStartKeyboardCapture,
   shouldStartPointerCapture,
@@ -29,12 +30,19 @@ export function useHoldToRecord({
   const startCoordsRef = useRef<{ x: number; y: number } | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const listenersRef = useRef<HoldListenerEntry>(null);
+  const lockedRef = useRef(false);
+
+  const sendRef = useRef(sendRecording);
+  sendRef.current = sendRecording;
+  const cancelRef = useRef(cancelRecording);
+  cancelRef.current = cancelRecording;
 
   const cleanup = useCallback(() => {
-    cleanupHoldListeners(listenersRef.current, pointerIdRef.current);
+    cleanupHoldListeners(listenersRef.current);
     listenersRef.current = null;
     startCoordsRef.current = null;
     pointerIdRef.current = null;
+    lockedRef.current = false;
   }, []);
 
   const onPointerDown = useCallback(
@@ -54,43 +62,62 @@ export function useHoldToRecord({
       e.preventDefault();
       e.stopPropagation();
 
-      const el = e.currentTarget as HTMLElement;
-      el.setPointerCapture(e.pointerId);
-
       pointerIdRef.current = e.pointerId;
       startCoordsRef.current = { x: e.clientX, y: e.clientY };
+      lockedRef.current = false;
 
       const onUp = (ev: PointerEvent) => {
         if (ev.pointerId !== pointerIdRef.current) return;
+        if (lockedRef.current) {
+          cleanup();
+          return;
+        }
+
         const start = startCoordsRef.current;
-
         if (start) {
-          const deltaX = start.x - ev.clientX;
-          const deltaY = start.y - ev.clientY;
-
-          if (deltaX >= CANCEL_THRESHOLD_PX) {
-            cancelRecording();
-          } else if (deltaY >= LOCK_THRESHOLD_PX) {
-            // lock: recording continues, standard recording bar takes over
+          const gesture = classifyHoldGesture(
+            start.x,
+            start.y,
+            ev.clientX,
+            ev.clientY,
+            LOCK_THRESHOLD_PX,
+            CANCEL_THRESHOLD_PX,
+          );
+          if (gesture === "cancel") {
+            cancelRef.current();
+          } else if (gesture === "lock") {
+            // already locked via pointermove — recording bar handles it
           } else {
-            sendRecording();
+            sendRef.current();
           }
         } else {
-          sendRecording();
+          sendRef.current();
         }
 
         cleanup();
       };
 
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerIdRef.current) return;
+        if (lockedRef.current) return;
+        const start = startCoordsRef.current;
+        if (!start) return;
+        const deltaY = start.y - ev.clientY;
+        if (deltaY >= LOCK_THRESHOLD_PX) {
+          lockedRef.current = true;
+        }
+      };
+
       const onCancel = (ev: PointerEvent) => {
         if (ev.pointerId !== pointerIdRef.current) return;
-        cancelRecording();
+        cancelRef.current();
         cleanup();
       };
 
-      listenersRef.current = { el, up: onUp, cancel: onCancel };
-      el.addEventListener("pointerup", onUp);
-      el.addEventListener("pointercancel", onCancel);
+      listenersRef.current = { up: onUp, move: onMove, cancel: onCancel };
+      document.addEventListener("pointerup", onUp);
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointercancel", onCancel);
 
       void startRecording()
         .then((started) => {
@@ -101,7 +128,7 @@ export function useHoldToRecord({
           cleanup();
         });
     },
-    [disabled, mode, startRecording, sendRecording, cancelRecording, cleanup],
+    [disabled, mode, startRecording, cleanup],
   );
 
   const onClick = useCallback(

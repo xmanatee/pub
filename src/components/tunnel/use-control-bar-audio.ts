@@ -163,6 +163,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         if (ev.data.size > 0) audioChunksRef.current.push(ev.data);
       };
       recorder.onstop = () => {
+        localStopInProgressRef.current = false;
         if (mediaRecorderRef.current !== recorder) return;
         const shouldSend = shouldSendOnStopRef.current;
         shouldSendOnStopRef.current = false;
@@ -171,7 +172,6 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         });
         audioChunksRef.current = [];
         if (shouldSend && blob.size > 0) onSendAudio(blob);
-        localStopInProgressRef.current = false;
         releaseMediaResources();
         dispatch({ type: "RECORDING_STOP_FINISHED" });
       };
