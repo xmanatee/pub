@@ -58,6 +58,16 @@ export function shouldRecoverForBrowserAnswerChange(params: {
   return incomingBrowserAnswer !== lastAppliedBrowserAnswer;
 }
 
+export function resolveAckChannel(params: {
+  controlChannelOpen: boolean;
+  messageChannelOpen: boolean;
+  messageChannel: string;
+}): string | null {
+  if (params.controlChannelOpen) return CONTROL_CHANNEL;
+  if (params.messageChannelOpen) return params.messageChannel;
+  return null;
+}
+
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { tunnelId, apiClient, socketPath, infoPath } = config;
 
@@ -92,6 +102,38 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
   let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastError: string | null = null;
+  const debugEnabled = process.env.PUBBLUE_TUNNEL_DEBUG === "1";
+
+  function debugLog(message: string, error?: unknown): void {
+    if (!debugEnabled) return;
+    const detail =
+      error === undefined
+        ? ""
+        : ` | ${
+            error instanceof Error
+              ? `${error.name}: ${error.message}`
+              : typeof error === "string"
+                ? error
+                : JSON.stringify(error)
+          }`;
+    console.error(`[pubblue-daemon:${tunnelId}] ${message}${detail}`);
+  }
+
+  function markError(message: string, error?: unknown): void {
+    const detail =
+      error === undefined
+        ? message
+        : `${message}: ${
+            error instanceof Error
+              ? error.message
+              : typeof error === "string"
+                ? error
+                : JSON.stringify(error)
+          }`;
+    lastError = detail;
+    debugLog(message, error);
+  }
 
   function clearPollingTimer(): void {
     if (pollingTimer) {
@@ -177,14 +219,24 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function flushQueuedAcks(): void {
     const controlDc = channels.get(CONTROL_CHANNEL);
-    if (!controlDc || !controlDc.isOpen()) return;
 
     for (const [ackKey, ack] of pendingOutboundAcks) {
+      const messageDc = channels.get(ack.channel);
+      const targetChannel = resolveAckChannel({
+        controlChannelOpen: Boolean(controlDc?.isOpen()),
+        messageChannelOpen: Boolean(messageDc?.isOpen()),
+        messageChannel: ack.channel,
+      });
+      if (!targetChannel) break;
+      const targetDc = targetChannel === CONTROL_CHANNEL ? controlDc : messageDc;
+      if (!targetDc) break;
+
       try {
-        controlDc.sendMessage(encodeMessage(makeAckMessage(ack.messageId, ack.channel)));
+        targetDc.sendMessage(encodeMessage(makeAckMessage(ack.messageId, ack.channel)));
         pendingOutboundAcks.delete(ackKey);
-      } catch {
-        // Keep queued acks for a future retry when control channel is healthy again.
+      } catch (error) {
+        // Keep queued acks for a future retry when channels are healthy again.
+        debugLog("failed to flush queued ack", error);
         break;
       }
     }
@@ -294,8 +346,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         } else {
           targetDc.sendMessage(encodeMessage(sticky.msg));
         }
-      } catch {
+      } catch (error) {
         // Replay is best-effort; next reconnection can retry.
+        debugLog(`sticky outbound replay failed for channel ${channel}`, error);
       }
     }
   }
@@ -319,7 +372,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (localCandidates.length <= lastSentCandidateCount) return;
       const newOnes = localCandidates.slice(lastSentCandidateCount);
       lastSentCandidateCount = localCandidates.length;
-      await apiClient.signal(tunnelId, { candidates: newOnes }).catch(() => {});
+      await apiClient.signal(tunnelId, { candidates: newOnes }).catch((error) => {
+        debugLog("failed to publish local ICE candidates", error);
+      });
     }, 500);
 
     localCandidateStopTimer = setTimeout(() => {
@@ -377,8 +432,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     for (const dc of channels.values()) {
       try {
         dc.close();
-      } catch {
+      } catch (error) {
         // Ignore close errors while tearing down.
+        debugLog("failed to close data channel cleanly", error);
       }
     }
 
@@ -388,8 +444,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (peer) {
       try {
         peer.close();
-      } catch {
+      } catch (error) {
         // Ignore close errors while tearing down.
+        debugLog("failed to close peer connection cleanly", error);
       }
       peer = null;
     }
@@ -431,12 +488,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           if (!next) break;
           try {
             peer.addRemoteCandidate(next.candidate, next.sdpMid);
-          } catch {
+          } catch (error) {
             // Ignore malformed/stale candidates and continue.
+            debugLog("failed to apply queued remote ICE candidate", error);
           }
         }
-      } catch {
+      } catch (error) {
         // Retry next poll; answer can be stale or temporarily invalid.
+        markError("failed to apply browser answer", error);
       }
     }
 
@@ -457,8 +516,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
           if (!peer) continue;
           peer.addRemoteCandidate(parsed.candidate, sdpMid);
-        } catch {
+        } catch (error) {
           // Ignore malformed candidates and keep processing others.
+          debugLog("failed to parse/apply browser ICE candidate", error);
         }
       }
     }
@@ -469,8 +529,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     try {
       await pollSignalingOnce();
-    } catch {
+    } catch (error) {
       // Poll failures are transient; keep retrying.
+      markError("signaling poll failed", error);
     }
 
     scheduleNextPoll(remoteDescriptionApplied ? SIGNAL_POLL_CONNECTED_MS : SIGNAL_POLL_WAITING_MS);
@@ -504,7 +565,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     recoveryTimer = setTimeout(() => {
       recoveryTimer = null;
       if (stopped || (!force && connected)) return;
-      void recoverPeer().catch(() => {
+      void recoverPeer().catch((error) => {
+        markError("peer recovery failed", error);
         if (!stopped) scheduleRecovery(delayMs, force);
       });
     }, delayMs);
@@ -524,8 +586,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (stale) {
       try {
         fs.unlinkSync(socketPath);
-      } catch {
+      } catch (error) {
         // Ignore stale socket unlink failures.
+        debugLog("failed to remove stale daemon socket", error);
       }
     } else {
       throw new Error(`Daemon already running (socket: ${socketPath})`);
@@ -574,6 +637,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     await runNegotiationCycle();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    markError("initial negotiation failed", error);
     await cleanup();
     throw new Error(`Failed to generate WebRTC offer: ${message}`);
   }
@@ -591,17 +655,21 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     try {
       fs.unlinkSync(socketPath);
-    } catch {
+    } catch (error) {
       // Ignore socket cleanup errors.
+      debugLog("failed to remove daemon socket during cleanup", error);
     }
 
     try {
       fs.unlinkSync(infoPath);
-    } catch {
+    } catch (error) {
       // Ignore info cleanup errors.
+      debugLog("failed to remove daemon info file during cleanup", error);
     }
 
-    await apiClient.close(tunnelId).catch(() => {});
+    await apiClient.close(tunnelId).catch((error) => {
+      markError("failed to close tunnel on API during cleanup", error);
+    });
   }
 
   async function shutdown(): Promise<void> {
@@ -641,6 +709,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           await waitForChannelOpen(targetDc);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
+          markError(`channel "${channel}" failed to open`, error);
           return { ok: false, error: `Channel "${channel}" not open: ${message}` };
         }
 
@@ -666,12 +735,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         } catch (error) {
           if (waitForAck) settlePendingAck(msg.id, false);
           const message = error instanceof Error ? error.message : String(error);
+          markError(`failed to send message on channel "${channel}"`, error);
           return { ok: false, error: `Failed to send on channel "${channel}": ${message}` };
         }
 
         if (waitForAck) {
           const acked = await waitForAck;
           if (!acked) {
+            markError(`delivery ack timeout for message ${msg.id}`);
             return {
               ok: false,
               error: `Delivery not confirmed for message ${msg.id} within ${WRITE_ACK_TIMEOUT_MS}ms.`,
@@ -710,6 +781,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           uptime: Math.floor((Date.now() - startTime) / 1000),
           channels: [...channels.keys()],
           bufferedMessages: buffer.messages.length,
+          lastError,
         };
       }
 

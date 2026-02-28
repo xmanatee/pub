@@ -34,6 +34,7 @@ import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
 import type { TunnelViewMode } from "./types";
 import { useControlBarAudio } from "./use-control-bar-audio";
+import { useHoldToRecord } from "./use-hold-to-record";
 
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
@@ -87,6 +88,14 @@ export function ControlBar({
     startVoiceMode,
     stopVoiceMode,
   } = useControlBarAudio({ disabled, bridge, onSendAudio });
+
+  const { pointerHandlers } = useHoldToRecord({
+    disabled,
+    mode,
+    startRecording,
+    sendRecording,
+    cancelRecording,
+  });
 
   const handleSend = useCallback(() => {
     if (!hasText) return;
@@ -312,10 +321,10 @@ export function ControlBar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-11 w-11 shrink-0 rounded-full"
-                        onClick={startRecording}
+                        className="h-11 w-11 shrink-0 rounded-full touch-none"
                         disabled={disabled}
                         aria-label="Record audio"
+                        {...pointerHandlers}
                       >
                         <Mic className="size-6" />
                       </Button>

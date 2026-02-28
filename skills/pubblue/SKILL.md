@@ -11,7 +11,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4"
+  version: "3.4.1"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -202,7 +202,7 @@ You can use any custom channel name with `-c <name>`.
 ### Tunnel Limits
 
 - Max 5 active tunnels per user
-- Max expiry: 7 days (default: 24 hours)
+- Max expiry: 7 days (default: 24 hours). There is no infinite tunnel TTL; long-lived setups must recreate tunnels.
 - Requires `node-datachannel` native module (bundled with pubblue)
 - Tunnel access is owner-authenticated (not a public bearer link yet)
 

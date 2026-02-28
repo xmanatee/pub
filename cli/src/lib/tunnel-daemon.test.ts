@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getTunnelWriteReadinessError,
+  resolveAckChannel,
   shouldRecoverForBrowserAnswerChange,
 } from "./tunnel-daemon.js";
 
@@ -45,5 +46,37 @@ describe("shouldRecoverForBrowserAnswerChange", () => {
         remoteDescriptionApplied: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe("resolveAckChannel", () => {
+  it("prefers control channel when available", () => {
+    expect(
+      resolveAckChannel({
+        controlChannelOpen: true,
+        messageChannelOpen: true,
+        messageChannel: "chat",
+      }),
+    ).toBe("_control");
+  });
+
+  it("falls back to message channel when control is unavailable", () => {
+    expect(
+      resolveAckChannel({
+        controlChannelOpen: false,
+        messageChannelOpen: true,
+        messageChannel: "chat",
+      }),
+    ).toBe("chat");
+  });
+
+  it("returns null when no channel can carry ack", () => {
+    expect(
+      resolveAckChannel({
+        controlChannelOpen: false,
+        messageChannelOpen: false,
+        messageChannel: "chat",
+      }),
+    ).toBeNull();
   });
 });

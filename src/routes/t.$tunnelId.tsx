@@ -238,8 +238,9 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
             const nc = current.slice(candidates.length);
             candidates.push(...nc);
             await storeBrowserSignal({ tunnelId, candidates: nc });
-          } catch {
+          } catch (error) {
             // Ignore transient signaling write failures; next interval retries.
+            console.warn("Failed to store local ICE candidates", error);
           }
         };
 
@@ -254,8 +255,9 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
           }
           localIceStopTimeout.current = null;
         }, 30_000);
-      } catch {
+      } catch (error) {
         // Failed to establish WebRTC answer/signaling for this offer.
+        console.error("Failed to establish tunnel WebRTC bridge", error);
         setBridgeState("disconnected");
       }
     })();

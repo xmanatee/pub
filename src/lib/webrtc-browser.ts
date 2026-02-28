@@ -124,8 +124,9 @@ export class BrowserBridge {
       }
       try {
         await this.pc?.addIceCandidate(JSON.parse(candidate) as RTCIceCandidateInit);
-      } catch {
+      } catch (error) {
         // Ignore invalid candidates
+        console.warn("Ignoring invalid remote ICE candidate", error);
       }
     }
   }
@@ -207,7 +208,7 @@ export class BrowserBridge {
         const msg = decodeMessage(event.data);
         if (msg) {
           const ack = parseAckMessage(msg);
-          if (dc.label === CONTROL_CHANNEL && ack) {
+          if (ack) {
             this.settlePendingAck(ack.messageId, true);
             this.onDeliveryAck?.(ack);
             return;

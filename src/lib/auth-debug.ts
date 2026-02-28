@@ -36,7 +36,9 @@ function writeLogUnsafe(entries: AuthDebugEntry[]) {
   if (!hasWindow()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_ENTRIES)));
-  } catch {}
+  } catch (error) {
+    console.warn("[auth-debug] failed to persist auth debug log", error);
+  }
 }
 
 export function pushAuthDebug(event: string, data?: unknown) {

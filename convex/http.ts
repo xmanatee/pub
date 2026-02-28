@@ -97,8 +97,8 @@ async function executeAction<T>(
     return onSuccess(result);
   } catch (e: unknown) {
     if (e instanceof ApiError) return errorResponse(e.message, e.status);
-    const message = e instanceof Error ? e.message : "Internal error";
-    return errorResponse(message, 400);
+    console.error("Unexpected HTTP action failure", e);
+    return errorResponse("Internal error", 500);
   }
 }
 

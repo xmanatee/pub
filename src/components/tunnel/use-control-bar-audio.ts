@@ -33,6 +33,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const streamIdRef = useRef<string | null>(null);
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
+  const pendingActionRef = useRef<"send" | "cancel" | null>(null);
 
   const resetToIdle = useCallback(() => {
     setMode("idle");
@@ -145,10 +146,12 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       setMode("recording");
       startTimer(true);
       animateWaveform();
-    } catch {
+    } catch (error) {
+      console.error("Failed to start recording", error);
       shouldSendOnStopRef.current = false;
       audioChunksRef.current = [];
       localStopInProgressRef.current = false;
+      pendingActionRef.current = null;
       teardownMediaState(true);
       resetToIdle();
     }
@@ -183,7 +186,8 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       analyserRef.current = null;
       try {
         recorder.stop();
-      } catch {
+      } catch (error) {
+        console.error("Failed to stop recording cleanly", error);
         shouldSendOnStopRef.current = false;
         audioChunksRef.current = [];
         localStopInProgressRef.current = false;
@@ -195,12 +199,20 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   );
 
   const cancelRecording = useCallback(() => {
+    if (mode === "idle") {
+      pendingActionRef.current = "cancel";
+      return;
+    }
     stopLocalRecording(false);
-  }, [stopLocalRecording]);
+  }, [mode, stopLocalRecording]);
 
   const sendRecording = useCallback(() => {
+    if (mode === "idle") {
+      pendingActionRef.current = "send";
+      return;
+    }
     stopLocalRecording(true);
-  }, [stopLocalRecording]);
+  }, [mode, stopLocalRecording]);
 
   const pauseRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -252,7 +264,8 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       setMode("voice-mode");
       startTimer(true);
       animateWaveform();
-    } catch {
+    } catch (error) {
+      console.error("Failed to start voice mode", error);
       teardownMediaState(true);
       resetToIdle();
     }
@@ -268,9 +281,18 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   }, [bridge, teardownMediaState, resetToIdle]);
 
   useEffect(() => {
+    if (mode !== "recording") return;
+    const pending = pendingActionRef.current;
+    if (!pending) return;
+    pendingActionRef.current = null;
+    stopLocalRecording(pending === "send");
+  }, [mode, stopLocalRecording]);
+
+  useEffect(() => {
     return () => {
       shouldSendOnStopRef.current = false;
       localStopInProgressRef.current = false;
+      pendingActionRef.current = null;
       teardownMediaState(true);
     };
   }, [teardownMediaState]);

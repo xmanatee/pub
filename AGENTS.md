@@ -81,6 +81,13 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Each skill has a `SKILL.md` (instructions) and `claw.json` (ClawHub manifest)
 - Published to ClawHub automatically on push to `main` (see `.github/workflows/clawhub.yml`)
 
+#### Skill Authoring Rules
+- Put **runtime/operator instructions** in `SKILL.md` only (commands, prerequisites, limits, troubleshooting).
+- Keep `SKILL.md` deterministic: exact commands, version floors, expected outcomes.
+- Do **not** put meta-guidance in `SKILL.md` about how to write skills.
+- Put **meta-guidance for agents/maintainers** in `AGENTS.md` (this file).
+- When CLI behavior changes, update `SKILL.md`, `claw.json` version, and AGENTS command notes together.
+
 ### CI (`.github/workflows/`)
 - **`ci.yml`** — lint, test, build for web app + CLI; auto-publishes CLI to npm on version bump
 - **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`

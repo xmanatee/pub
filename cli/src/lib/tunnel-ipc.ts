@@ -17,6 +17,7 @@ export interface IpcResponse {
   channels?: Array<{ name: string; direction: string }>;
   connected?: boolean;
   uptime?: number;
+  lastError?: string | null;
   error?: string;
   [key: string]: unknown;
 }

@@ -73,6 +73,10 @@ function tunnelInfoPath(tunnelId: string): string {
   return path.join(tunnelInfoDir(), `${tunnelId}.json`);
 }
 
+function tunnelLogPath(tunnelId: string): string {
+  return path.join(tunnelInfoDir(), `${tunnelId}.log`);
+}
+
 function createApiClient(): TunnelApiClient {
   const config = getConfig();
   return new TunnelApiClient(config.baseUrl, config.apiKey);
@@ -160,9 +164,11 @@ export function registerTunnelCommands(program: Command): void {
       } else {
         const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
         const config = getConfig();
+        const logPath = tunnelLogPath(result.tunnelId);
+        const daemonLogFd = fs.openSync(logPath, "a");
         const child = fork(daemonScript, [], {
           detached: true,
-          stdio: "ignore",
+          stdio: ["ignore", daemonLogFd, daemonLogFd],
           env: {
             ...process.env,
             PUBBLUE_DAEMON_TUNNEL_ID: result.tunnelId,
@@ -172,12 +178,14 @@ export function registerTunnelCommands(program: Command): void {
             PUBBLUE_DAEMON_INFO: infoPath,
           },
         });
+        fs.closeSync(daemonLogFd);
         child.unref();
 
         // Wait for daemon readiness (info file appears) or early exit
         const ready = await waitForDaemonReady(infoPath, child, 5000);
         if (!ready) {
           console.error("Daemon failed to start. Cleaning up tunnel...");
+          console.error(`Daemon log: ${logPath}`);
           await apiClient.close(result.tunnelId).catch(() => {});
           process.exit(1);
         }
@@ -185,6 +193,7 @@ export function registerTunnelCommands(program: Command): void {
         console.log(`Tunnel started: ${result.url}`);
         console.log(`Tunnel ID: ${result.tunnelId}`);
         console.log(`Expires: ${new Date(result.expiresAt).toISOString()}`);
+        console.log(`Daemon log: ${logPath}`);
       }
     });
 
@@ -307,10 +316,11 @@ export function registerTunnelCommands(program: Command): void {
                   console.log(JSON.stringify(m));
                 }
               }
-            } catch {
+            } catch (error) {
               consecutiveFailures += 1;
               if (!warnedDisconnected) {
-                console.error("Daemon disconnected. Waiting for recovery...");
+                const detail = error instanceof Error ? ` ${error.message}` : "";
+                console.error(`Daemon disconnected. Waiting for recovery...${detail}`);
                 warnedDisconnected = true;
               }
             }
@@ -366,6 +376,13 @@ export function registerTunnelCommands(program: Command): void {
         : [];
       console.log(`  Channels: ${chNames.join(", ")}`);
       console.log(`  Buffered: ${response.bufferedMessages ?? 0} messages`);
+      if (typeof response.lastError === "string" && response.lastError.length > 0) {
+        console.log(`  Last error: ${response.lastError}`);
+      }
+      const logPath = tunnelLogPath(tunnelId);
+      if (fs.existsSync(logPath)) {
+        console.log(`  Log: ${logPath}`);
+      }
     });
 
   tunnel
