@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   classifyHoldGesture,
   cleanupHoldListeners,
+  shouldStartHold,
   shouldStartKeyboardCapture,
-  shouldStartPointerCapture,
 } from "./hold-to-record-logic";
 
 describe("hold-to-record logic", () => {
   it("ignores non-primary mouse button pointerdown", () => {
     expect(
-      shouldStartPointerCapture({
+      shouldStartHold({
         button: 2,
         disabled: false,
         mode: "idle",

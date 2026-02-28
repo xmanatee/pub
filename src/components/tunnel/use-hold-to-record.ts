@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   classifyHoldGesture,
   cleanupHoldListeners,
+  type HoldListeners,
+  shouldStartHold,
   shouldStartKeyboardCapture,
-  shouldStartPointerCapture,
 } from "./hold-to-record-logic";
 import type { BarMode } from "./use-control-bar-audio";
 
@@ -18,8 +19,6 @@ interface UseHoldToRecordOptions {
   cancelRecording: () => void;
 }
 
-type HoldListenerEntry = Parameters<typeof cleanupHoldListeners>[0];
-
 export function useHoldToRecord({
   disabled,
   mode,
@@ -29,7 +28,7 @@ export function useHoldToRecord({
 }: UseHoldToRecordOptions) {
   const startCoordsRef = useRef<{ x: number; y: number } | null>(null);
   const pointerIdRef = useRef<number | null>(null);
-  const listenersRef = useRef<HoldListenerEntry>(null);
+  const listenersRef = useRef<HoldListeners | null>(null);
   const lockedRef = useRef(false);
 
   const sendRef = useRef(sendRecording);
@@ -48,7 +47,7 @@ export function useHoldToRecord({
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (
-        !shouldStartPointerCapture({
+        !shouldStartHold({
           button: e.button,
           disabled,
           mode,
@@ -64,17 +63,11 @@ export function useHoldToRecord({
 
       pointerIdRef.current = e.pointerId;
       startCoordsRef.current = { x: e.clientX, y: e.clientY };
-      lockedRef.current = false;
 
       const onUp = (ev: PointerEvent) => {
         if (ev.pointerId !== pointerIdRef.current) return;
-        if (lockedRef.current) {
-          cleanup();
-          return;
-        }
-
         const start = startCoordsRef.current;
-        if (start) {
+        if (!lockedRef.current && start) {
           const gesture = classifyHoldGesture(
             start.x,
             start.y,
@@ -83,17 +76,9 @@ export function useHoldToRecord({
             LOCK_THRESHOLD_PX,
             CANCEL_THRESHOLD_PX,
           );
-          if (gesture === "cancel") {
-            cancelRef.current();
-          } else if (gesture === "lock") {
-            // already locked via pointermove — recording bar handles it
-          } else {
-            sendRef.current();
-          }
-        } else {
-          sendRef.current();
+          if (gesture === "cancel") cancelRef.current();
+          else if (gesture === "send") sendRef.current();
         }
-
         cleanup();
       };
 

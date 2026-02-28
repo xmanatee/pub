@@ -1,6 +1,6 @@
 import type { BarMode } from "./control-bar-audio-machine";
 
-interface ShouldStartPointerCaptureInput {
+interface ShouldStartHoldInput {
   button: number;
   disabled: boolean;
   mode: BarMode;
@@ -8,7 +8,7 @@ interface ShouldStartPointerCaptureInput {
   pointerType: string;
 }
 
-export function shouldStartPointerCapture(input: ShouldStartPointerCaptureInput): boolean {
+export function shouldStartHold(input: ShouldStartHoldInput): boolean {
   if (input.disabled || input.mode !== "idle") return false;
   if (input.pointerId != null) return false;
   if (input.pointerType === "mouse" && input.button !== 0) return false;
