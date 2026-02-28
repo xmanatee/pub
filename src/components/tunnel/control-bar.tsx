@@ -66,8 +66,8 @@ export function ControlBar({
   const floatingShellStyle = { paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" } as const;
   const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
   const controlHeightClass = "h-16 min-h-16";
-  const actionButtonClass = "size-14 shrink-0 rounded-full [&_svg]:size-8";
-  const actionIconClass = "size-8";
+  const actionButtonClass = "size-14 shrink-0 rounded-full [&_svg]:size-7";
+  const actionIconClass = "size-7";
   const controlBarClass =
     "flex w-full items-center gap-2 rounded-full border border-border/70 bg-background/88 px-2 shadow-lg backdrop-blur-xl";
   const controlRowClass = "flex w-full items-center gap-2 px-2";
@@ -305,10 +305,7 @@ export function ControlBar({
 
       {renderFloatingShell(
         <div
-          className={cn(
-            "border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300",
-            expanded ? "rounded-3xl" : "rounded-full",
-          )}
+          className="border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-4xl"
           {...longPressHandlers}
         >
           <div

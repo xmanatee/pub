@@ -28,6 +28,7 @@
   filter: blur(48px) saturate(var(--tv-saturation, 1));
   opacity: calc(0.08 + var(--tv-glow, 1) * 0.18);
   will-change: transform, opacity;
+  transition: opacity 600ms ease;
 }
 
 .tunnel-visual__layer-a {
@@ -61,6 +62,7 @@
   opacity: calc(0.44 + var(--tv-glow, 1) * 0.4);
   filter: saturate(var(--tv-saturation, 1));
   will-change: transform;
+  transition: transform 600ms cubic-bezier(0.37, 0, 0.63, 1), opacity 600ms ease;
   animation: aurora-center-breathe calc(var(--tv-speed-ms, 16s) * 0.65) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
@@ -76,19 +78,21 @@
 .tunnel-visual__center-halo {
   background: radial-gradient(
     circle at 50% 50%,
-    hsl(var(--tv-hue-a) 90% 64% / 0.56) 0%,
-    hsl(var(--tv-hue-b) 85% 61% / 0.28) 28%,
-    hsl(var(--tv-hue-c) 84% 58% / 0.12) 50%,
+    hsl(var(--tv-hue-a) 92% 68% / 0.64) 0%,
+    hsl(var(--tv-hue-b) 88% 64% / 0.34) 28%,
+    hsl(var(--tv-hue-c) 86% 60% / 0.16) 50%,
     transparent 74%
   );
   filter: blur(14px);
-  opacity: calc(0.26 + var(--tv-energy, 0.6) * 0.5);
+  opacity: calc(0.34 + var(--tv-energy, 0.6) * 0.56);
+  transition: opacity 600ms ease;
   animation: aurora-center-halo calc(var(--tv-speed-ms, 16s) * 0.48) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
 .tunnel-visual__center-ring {
   inset: 12%;
   opacity: calc(0.08 + var(--tv-energy, 0.6) * 0.24);
+  transition: opacity 600ms ease;
 }
 
 .tunnel-visual__center-ring-a {
@@ -126,14 +130,17 @@
   inset: 27%;
   border-radius: 38% 62% 54% 46% / 50% 42% 58% 50%;
   background:
-    radial-gradient(circle at 42% 36%, hsl(var(--tv-hue-a) 92% 72% / 0.76) 0%, transparent 62%),
-    radial-gradient(circle at 64% 64%, hsl(var(--tv-hue-b) 88% 66% / 0.64) 0%, transparent 64%),
-    radial-gradient(circle at center, hsl(var(--tv-hue-c) 84% 62% / 0.42) 0%, transparent 76%);
-  border: 1px solid hsl(var(--tv-hue-a) 92% 74% / 0.24);
+    radial-gradient(circle at 42% 36%, hsl(var(--tv-hue-a) 94% 76% / 0.84) 0%, transparent 62%),
+    radial-gradient(circle at 64% 64%, hsl(var(--tv-hue-b) 90% 70% / 0.72) 0%, transparent 64%),
+    radial-gradient(circle at center, hsl(var(--tv-hue-c) 86% 66% / 0.52) 0%, transparent 76%);
+  border: 1px solid hsl(var(--tv-hue-a) 92% 74% / 0.28);
   box-shadow:
-    0 0 0 1px hsl(var(--tv-hue-c) 88% 68% / 0.14) inset,
-    0 0 24px hsl(var(--tv-hue-b) 90% 64% / 0.22);
+    0 0 0 1px hsl(var(--tv-hue-c) 88% 68% / 0.18) inset,
+    0 0 32px hsl(var(--tv-hue-b) 92% 68% / 0.34),
+    0 0 64px hsl(var(--tv-hue-a) 90% 66% / 0.18);
   filter: blur(0.5px);
+  opacity: calc(0.6 + var(--tv-energy, 0.6) * 0.4);
+  transition: opacity 600ms ease;
   animation: aurora-center-glyph calc(var(--tv-speed-ms, 16s) * 0.6) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 

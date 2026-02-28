@@ -4,7 +4,25 @@ import { lerp, type VisualProps } from "./shared";
 
 const TAU = Math.PI * 2;
 
-export function LissajousVisual({ tone, hasCanvasContent, className }: VisualProps) {
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+interface Ribbon {
+  phaseOffset: number;
+  widthScale: number;
+  hueKey: "hueA" | "hueB" | "hueC";
+  alphaScale: number;
+}
+
+const RIBBONS: Ribbon[] = [
+  { phaseOffset: 0, widthScale: 1, hueKey: "hueA", alphaScale: 1 },
+  { phaseOffset: TAU / 3, widthScale: 0.8, hueKey: "hueB", alphaScale: 0.8 },
+  { phaseOffset: (2 * TAU) / 3, widthScale: 0.6, hueKey: "hueC", alphaScale: 0.65 },
+];
+
+export function TapesVisual({ tone, hasCanvasContent, className }: VisualProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const toneRef = useRef(tone);
   const currentToneRef = useRef({ ...tone });
@@ -49,7 +67,7 @@ export function LissajousVisual({ tone, hasCanvasContent, className }: VisualPro
     let phase = 0;
     let targetFreqX = 3;
     let targetFreqY = 2;
-    let nextSwitch = 6;
+    let nextSwitch = 8;
 
     const draw = () => {
       const target = toneRef.current;
@@ -67,61 +85,65 @@ export function LissajousVisual({ tone, hasCanvasContent, className }: VisualPro
       const speed = 16_000 / cur.speedMs;
       const dt = 0.006 * speed;
       t += dt;
-      phase += dt * 0.3;
+      phase += dt * 0.25;
 
-      freqX = lerp(freqX, targetFreqX, 0.005);
-      freqY = lerp(freqY, targetFreqY, 0.005);
+      freqX = lerp(freqX, targetFreqX, 0.002);
+      freqY = lerp(freqY, targetFreqY, 0.002);
 
       if (t > nextSwitch) {
-        const freqs = [2, 3, 4, 5, 7];
+        const freqs = [2, 3, 5];
         targetFreqX = freqs[Math.floor(Math.random() * freqs.length)];
         targetFreqY = freqs[Math.floor(Math.random() * freqs.length)];
-        nextSwitch = t + 5 + Math.random() * 5;
+        nextSwitch = t + 7 + Math.random() * 6;
       }
 
       const opacity = hasContentRef.current ? 0.24 : 1;
       ctx.globalAlpha = 1;
-      const trailAlpha = 0.02 + (1 - cur.glow) * 0.04;
+      const trailAlpha = 0.03 + (1 - cur.glow) * 0.05;
       ctx.fillStyle = `rgba(0, 0, 0, ${trailAlpha})`;
       ctx.fillRect(0, 0, w, h);
 
       const cx = w * 0.5;
       const cy = h * 0.5;
-      const ampX = Math.min(w, h) * 0.35 * cur.coreScale;
-      const ampY = ampX;
-      const lineWidth = 1 + cur.energy * 2;
-      const steps = 600;
-
-      ctx.lineWidth = lineWidth;
-      ctx.lineCap = "round";
-      ctx.globalAlpha = (0.4 + cur.energy * 0.5) * opacity;
-
-      ctx.beginPath();
-      for (let i = 0; i <= steps; i++) {
-        const p = (i / steps) * TAU;
-        const x = cx + Math.sin(freqX * p + phase) * ampX;
-        const y = cy + Math.sin(freqY * p) * ampY;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-
-      const hueProgress = (t * 10) % 360;
+      const amp = Math.min(w, h) * 0.22 * cur.coreScale;
+      const maxDist = Math.min(w, h) * 0.4;
       const sat = cur.saturation * 80;
-      ctx.strokeStyle = `hsl(${(cur.hueA + hueProgress) % 360} ${sat}% 62%)`;
-      ctx.stroke();
+      const steps = 400;
+      const segSize = 20;
 
-      ctx.globalAlpha = (0.15 + cur.energy * 0.2) * opacity;
-      ctx.lineWidth = lineWidth * 0.6;
-      ctx.beginPath();
-      for (let i = 0; i <= steps; i++) {
-        const p = (i / steps) * TAU;
-        const x = cx + Math.sin(freqX * p + phase + 0.5) * ampX * 0.9;
-        const y = cy + Math.sin(freqY * p + 0.3) * ampY * 0.9;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      for (const ribbon of RIBBONS) {
+        const baseWidth = (5 + cur.energy * 5) * ribbon.widthScale;
+        const hue = cur[ribbon.hueKey];
+        const baseAlpha = (0.35 + cur.energy * 0.45) * ribbon.alphaScale * opacity;
+        ctx.lineWidth = baseWidth;
+
+        for (let seg = 0; seg < steps; seg += segSize) {
+          const segEnd = Math.min(seg + segSize, steps);
+          const midIdx = Math.floor((seg + segEnd) / 2);
+          const midP = (midIdx / steps) * TAU;
+          const midX = cx + Math.sin(freqX * midP + phase + ribbon.phaseOffset) * amp;
+          const midY = cy + Math.sin(freqY * midP + ribbon.phaseOffset * 0.5) * amp;
+          const dist = Math.hypot(midX - cx, midY - cy);
+          const envelope = 1 - smoothstep(0.7, 1.0, dist / maxDist);
+
+          ctx.globalAlpha = baseAlpha * envelope;
+          ctx.strokeStyle = `hsl(${hue} ${sat}% 62%)`;
+          ctx.beginPath();
+
+          for (let i = seg; i <= segEnd; i++) {
+            const p = (i / steps) * TAU;
+            const x = cx + Math.sin(freqX * p + phase + ribbon.phaseOffset) * amp;
+            const y = cy + Math.sin(freqY * p + ribbon.phaseOffset * 0.5) * amp;
+            if (i === seg) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+
+          ctx.stroke();
+        }
       }
-      ctx.strokeStyle = `hsl(${(cur.hueB + hueProgress) % 360} ${sat}% 58%)`;
-      ctx.stroke();
 
       raf = requestAnimationFrame(draw);
     };

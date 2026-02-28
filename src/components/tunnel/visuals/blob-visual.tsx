@@ -4,6 +4,24 @@ import { lerp, type VisualProps } from "./shared";
 
 const TAU = Math.PI * 2;
 const POINTS = 7;
+const INNER_POINTS = 4;
+
+function buildBlobPath(ctx: CanvasRenderingContext2D, pts: [number, number][], count: number) {
+  ctx.beginPath();
+  for (let i = 0; i < count; i++) {
+    const next = pts[(i + 1) % count];
+    const after = pts[(i + 2) % count];
+    const cpx = (next[0] + after[0]) / 2;
+    const cpy = (next[1] + after[1]) / 2;
+    if (i === 0) {
+      const first = pts[0];
+      const firstNext = pts[1];
+      ctx.moveTo((first[0] + firstNext[0]) / 2, (first[1] + firstNext[1]) / 2);
+    }
+    ctx.quadraticCurveTo(next[0], next[1], cpx, cpy);
+  }
+  ctx.closePath();
+}
 
 export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -47,6 +65,10 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       { length: POINTS },
       (_, i) => (i / POINTS) * TAU + Math.random() * 0.5,
     );
+    const innerPhases = Array.from(
+      { length: INNER_POINTS },
+      (_, i) => (i / INNER_POINTS) * TAU + Math.random() * 0.8 + 1.0,
+    );
 
     let raf: number;
     let t = 0;
@@ -75,44 +97,69 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       const baseRadius = Math.min(w, h) * 0.22 * cur.coreScale;
       const amp1 = baseRadius * 0.18 * cur.energy;
       const amp2 = baseRadius * 0.1 * cur.energy;
+      const amp3 = baseRadius * 0.06 * cur.energy;
 
       const pts: [number, number][] = [];
       for (let i = 0; i < POINTS; i++) {
         const angle = (i / POINTS) * TAU;
         const ph = phases[i];
-        const r = baseRadius + Math.sin(t + ph) * amp1 + Math.sin(t * 1.7 + ph * 2.3) * amp2;
+        const r =
+          baseRadius +
+          Math.sin(t + ph) * amp1 +
+          Math.sin(t * 1.7 + ph * 2.3) * amp2 +
+          Math.sin(t * 2.3 + ph * 3.1) * amp3;
         pts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
       }
 
       const opacity = hasContentRef.current ? 0.24 : 1;
+      const sat = cur.saturation * 80;
 
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius * 1.5);
-      const sat = cur.saturation * 80;
       grad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 62% / ${0.7 * opacity})`);
       grad.addColorStop(0.5, `hsl(${cur.hueB} ${sat}% 56% / ${0.5 * opacity})`);
       grad.addColorStop(1, `hsl(${cur.hueC} ${sat}% 50% / ${0.15 * opacity})`);
 
-      ctx.beginPath();
-      for (let i = 0; i < POINTS; i++) {
-        const next = pts[(i + 1) % POINTS];
-        const after = pts[(i + 2) % POINTS];
-        const cpx = (next[0] + after[0]) / 2;
-        const cpy = (next[1] + after[1]) / 2;
-        if (i === 0) {
-          const first = pts[0];
-          const firstNext = pts[1];
-          ctx.moveTo((first[0] + firstNext[0]) / 2, (first[1] + firstNext[1]) / 2);
-        }
-        ctx.quadraticCurveTo(next[0], next[1], cpx, cpy);
-      }
-      ctx.closePath();
+      buildBlobPath(ctx, pts, POINTS);
       ctx.fillStyle = grad;
       ctx.fill();
 
+      // Outer glow
       ctx.globalAlpha = (0.12 + cur.energy * 0.18) * opacity;
       ctx.filter = `blur(${24 + cur.energy * 16}px)`;
       ctx.fill();
       ctx.filter = "none";
+
+      // Edge shimmer
+      buildBlobPath(ctx, pts, POINTS);
+      ctx.globalAlpha = (0.2 + cur.energy * 0.4) * opacity;
+      ctx.strokeStyle = `hsl(${cur.hueA} ${sat}% 74%)`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Inner highlight (nucleus)
+      const innerRadius = baseRadius * 0.5;
+      const innerAmp1 = innerRadius * 0.22 * cur.energy;
+      const innerAmp2 = innerRadius * 0.12 * cur.energy;
+      const innerPts: [number, number][] = [];
+      for (let i = 0; i < INNER_POINTS; i++) {
+        const angle = (i / INNER_POINTS) * TAU;
+        const ph = innerPhases[i];
+        const r =
+          innerRadius +
+          Math.sin(t * 1.3 + ph) * innerAmp1 +
+          Math.sin(t * 2.1 + ph * 1.7) * innerAmp2;
+        innerPts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
+      }
+
+      const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerRadius * 1.4);
+      innerGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 76% / ${0.6 * opacity})`);
+      innerGrad.addColorStop(0.6, `hsl(${cur.hueB} ${sat}% 68% / ${0.3 * opacity})`);
+      innerGrad.addColorStop(1, `transparent`);
+
+      ctx.globalAlpha = 1;
+      buildBlobPath(ctx, innerPts, INNER_POINTS);
+      ctx.fillStyle = innerGrad;
+      ctx.fill();
 
       raf = requestAnimationFrame(draw);
     };

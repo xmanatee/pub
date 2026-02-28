@@ -73,6 +73,21 @@
   opacity: calc(0.3 + var(--orb-energy, 0.5) * 0.4);
 }
 
+.orb-visual__accent {
+  position: absolute;
+  inset: 38%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at center, var(--orb-color-a) 0%, transparent 70%);
+  mix-blend-mode: screen;
+  filter: blur(4px);
+  animation: orb-accent-pulse calc(var(--orb-speed, 8s) * 0.5) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+@keyframes orb-accent-pulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
 @keyframes orb-breath {
   0% {
     transform: scale(var(--orb-core-scale, 0.85)) rotate(0deg);

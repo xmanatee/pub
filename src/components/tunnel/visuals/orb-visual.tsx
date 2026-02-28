@@ -26,6 +26,7 @@ export function OrbVisual({ tone, hasCanvasContent, className }: VisualProps) {
         <div className="orb-visual__petal orb-visual__petal-4" />
         <div className="orb-visual__petal orb-visual__petal-5" />
         <div className="orb-visual__core" />
+        <div className="orb-visual__accent" />
       </div>
     </div>
   );

@@ -42,18 +42,20 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
 
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
-    const container = barsRef.current;
-    if (!analyser || !container) return;
+    if (!analyser) return;
     const data = new Uint8Array(analyser.frequencyBinCount);
 
     function draw() {
-      if (!analyser || !container) return;
-      analyser.getByteFrequencyData(data);
-      const bars = container.children;
-      for (let i = 0; i < bars.length; i++) {
-        const value = data[i % data.length] / 255;
-        const height = Math.max(4, value * 32);
-        (bars[i] as HTMLElement).style.height = `${height}px`;
+      if (!analyserRef.current) return;
+      analyserRef.current.getByteFrequencyData(data);
+      const container = barsRef.current;
+      if (container) {
+        const bars = container.children;
+        for (let i = 0; i < bars.length; i++) {
+          const value = data[i % data.length] / 255;
+          const height = Math.max(4, value * 32);
+          (bars[i] as HTMLElement).style.height = `${height}px`;
+        }
       }
       animFrameRef.current = requestAnimationFrame(draw);
     }

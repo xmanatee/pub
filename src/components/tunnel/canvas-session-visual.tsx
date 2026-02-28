@@ -3,10 +3,9 @@ import { cn } from "~/lib/utils";
 import "./canvas-session-visual.css";
 import type { TunnelAnimationStyle, TunnelSessionVisualState } from "./types";
 import { BlobVisual } from "./visuals/blob-visual";
-import { FlowVisual } from "./visuals/flow-visual";
-import { LissajousVisual } from "./visuals/lissajous-visual";
 import { OrbVisual } from "./visuals/orb-visual";
 import { type Tone, VISUAL_THEME, type VisualProps } from "./visuals/shared";
+import { TapesVisual } from "./visuals/tapes-visual";
 
 interface CanvasSessionVisualProps {
   className?: string;
@@ -65,12 +64,8 @@ function VisualForStyle({
       return <AuroraLayer className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
     case "orb":
       return <OrbVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
-    case "flow":
-      return <FlowVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
-    case "lissajous":
-      return (
-        <LissajousVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />
-      );
+    case "tapes":
+      return <TapesVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
     case "blob":
       return <BlobVisual className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
   }
