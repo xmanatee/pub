@@ -50,7 +50,6 @@ interface StartBridgeParams {
 interface BufferedEntry {
   channel: string;
   msg: BridgeMessage;
-  timestamp: number;
 }
 
 interface ActiveStream {
@@ -228,7 +227,7 @@ export function buildAttachmentPrompt(tunnelId: string, staged: StagedAttachment
 
 function isBufferedEntry(entry: unknown): entry is BufferedEntry {
   if (!entry || typeof entry !== "object") return false;
-  const candidate = entry as { channel?: unknown; msg?: unknown; timestamp?: unknown };
+  const candidate = entry as { channel?: unknown; msg?: unknown };
   if (typeof candidate.channel !== "string") return false;
   if (!candidate.msg || typeof candidate.msg !== "object") return false;
   const msg = candidate.msg as { id?: unknown; type?: unknown };
@@ -423,19 +422,13 @@ function decodeBinaryPayload(base64Data: string, label: string): Buffer {
     throw new Error(`Binary payload for ${label} is not valid base64`);
   }
 
-  try {
-    const decoded = Buffer.from(normalized, "base64");
-    const expected = normalized.replace(/=+$/, "");
-    const actual = decoded.toString("base64").replace(/=+$/, "");
-    if (actual !== expected) {
-      throw new Error("base64 round-trip validation mismatch");
-    }
-    return decoded;
-  } catch (error) {
-    throw new Error(
-      `Failed to decode base64 payload for ${label}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  const decoded = Buffer.from(normalized, "base64");
+  const expected = normalized.replace(/=+$/, "");
+  const actual = decoded.toString("base64").replace(/=+$/, "");
+  if (actual !== expected) {
+    throw new Error(`Failed to decode base64 payload for ${label}: round-trip mismatch`);
   }
+  return decoded;
 }
 
 function readStreamIdFromMeta(meta: BridgeMessage["meta"]): string | undefined {
@@ -509,7 +502,7 @@ async function handleAttachmentEntry(params: {
       attachmentRoot: params.attachmentRoot,
       channel,
       filename: stream.filename,
-      messageId: msg.id,
+      messageId: stream.streamId,
       mime: stream.mime,
       streamId: stream.streamId,
       streamStatus: "complete",
