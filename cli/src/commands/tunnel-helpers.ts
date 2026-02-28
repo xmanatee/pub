@@ -63,6 +63,8 @@ export interface BridgeProcessInfo {
   tunnelId: string;
   mode: string;
   sessionId?: string;
+  sessionKey?: string;
+  sessionSource?: "env" | "thread-canonical" | "thread-legacy" | "main-fallback";
   startedAt: number;
   status?: string;
   lastError?: string;

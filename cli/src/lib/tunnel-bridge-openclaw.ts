@@ -35,6 +35,8 @@ interface BridgeProcessInfo {
   tunnelId: string;
   mode: "openclaw";
   sessionId?: string;
+  sessionKey?: string;
+  sessionSource?: "env" | "thread-canonical" | "thread-legacy" | "main-fallback";
   startedAt: number;
   status: "starting" | "ready" | "waiting-daemon" | "error" | "stopped";
   lastError?: string;
@@ -253,6 +255,14 @@ function writeBridgeInfo(
   writeFileSync(infoPath, JSON.stringify(payload));
 }
 
+const OPENCLAW_MAIN_SESSION_KEY = "agent:main:main";
+
+function buildThreadCandidateKeys(threadId?: string): string[] {
+  const trimmed = threadId?.trim();
+  if (!trimmed) return [];
+  return [`agent:main:main:thread:${trimmed}`, `agent:main:${trimmed}`];
+}
+
 function readSessionIdFromEntry(entry: unknown): string | null {
   if (!entry || typeof entry !== "object") return null;
   const value = (entry as { sessionId?: unknown }).sessionId;
@@ -270,27 +280,51 @@ function readSessionsIndex(sessionsData: unknown): Record<string, unknown> {
   return sessionsData as Record<string, unknown>;
 }
 
-export function resolveSessionIdFromSessionsData(
+interface SessionResolution {
+  attemptedKeys: string[];
+  readError?: string;
+  sessionId: string | null;
+  sessionKey?: string;
+  sessionSource?: "env" | "thread-canonical" | "thread-legacy" | "main-fallback";
+}
+
+export function resolveSessionFromSessionsData(
   sessionsData: unknown,
   threadId?: string,
-): string | null {
+): SessionResolution {
   const sessions = readSessionsIndex(sessionsData);
-  const trimmedThreadId = threadId?.trim();
-  if (trimmedThreadId && trimmedThreadId.length > 0) {
-    const threadCandidates = [
-      `agent:main:main:thread:${trimmedThreadId}`,
-      `agent:main:${trimmedThreadId}`,
-    ];
-    for (const key of threadCandidates) {
-      const sessionId = readSessionIdFromEntry(sessions[key]);
-      if (sessionId) return sessionId;
+  const threadCandidates = buildThreadCandidateKeys(threadId);
+  const attemptedKeys: string[] = [];
+
+  for (const [index, key] of threadCandidates.entries()) {
+    attemptedKeys.push(key);
+    const sessionId = readSessionIdFromEntry(sessions[key]);
+    if (sessionId) {
+      return {
+        attemptedKeys,
+        sessionId,
+        sessionKey: key,
+        sessionSource: index === 0 ? "thread-canonical" : "thread-legacy",
+      };
     }
   }
 
-  return readSessionIdFromEntry(sessions["agent:main:main"]);
+  attemptedKeys.push(OPENCLAW_MAIN_SESSION_KEY);
+  const mainSessionId = readSessionIdFromEntry(sessions[OPENCLAW_MAIN_SESSION_KEY]);
+  if (mainSessionId) {
+    return {
+      attemptedKeys,
+      sessionId: mainSessionId,
+      sessionKey: OPENCLAW_MAIN_SESSION_KEY,
+      sessionSource: "main-fallback",
+    };
+  }
+
+  return { attemptedKeys, sessionId: null };
 }
 
-function readSessionIdFromOpenClaw(threadId?: string): string | null {
+function resolveSessionFromOpenClaw(threadId?: string): SessionResolution {
+  const attemptedKeys = [...buildThreadCandidateKeys(threadId), OPENCLAW_MAIN_SESSION_KEY];
   try {
     const sessionsPath = join(
       homedir(),
@@ -301,9 +335,10 @@ function readSessionIdFromOpenClaw(threadId?: string): string | null {
       "sessions.json",
     );
     const sessionsData = JSON.parse(readFileSync(sessionsPath, "utf-8")) as unknown;
-    return resolveSessionIdFromSessionsData(sessionsData, threadId);
-  } catch {
-    return null;
+    return resolveSessionFromSessionsData(sessionsData, threadId);
+  } catch (error) {
+    const readError = error instanceof Error ? error.message : String(error);
+    return { attemptedKeys, readError, sessionId: null };
   }
 }
 
@@ -595,23 +630,41 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
     status: "starting",
   });
 
+  let bridgeSessionId: string | undefined;
+  let bridgeSessionKey: string | undefined;
+  let bridgeSessionSource: BridgeProcessInfo["sessionSource"];
+
   try {
     const openclawPath = resolveOpenClawPath();
-    const sessionId =
-      process.env.OPENCLAW_SESSION_ID ||
-      readSessionIdFromOpenClaw(process.env.OPENCLAW_THREAD_ID) ||
-      "";
-    if (sessionId.length === 0) {
-      throw new Error(
-        [
-          "OpenClaw session could not be resolved.",
-          "Configure one of:",
-          "  pubblue configure --set openclaw.sessionId=<session-id>",
-          "  pubblue configure --set openclaw.threadId=<thread-id>",
-          "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
-        ].join("\n"),
-      );
+    const configuredSessionId = process.env.OPENCLAW_SESSION_ID?.trim();
+    const resolvedSession = configuredSessionId
+      ? {
+          attemptedKeys: [],
+          sessionId: configuredSessionId,
+          sessionKey: "OPENCLAW_SESSION_ID",
+          sessionSource: "env" as const,
+        }
+      : resolveSessionFromOpenClaw(process.env.OPENCLAW_THREAD_ID);
+    if (!resolvedSession.sessionId) {
+      const details = [
+        "OpenClaw session could not be resolved.",
+        resolvedSession.attemptedKeys.length > 0
+          ? `Attempted keys: ${resolvedSession.attemptedKeys.join(", ")}`
+          : "",
+        resolvedSession.readError ? `Session lookup error: ${resolvedSession.readError}` : "",
+        "Configure one of:",
+        "  pubblue configure --set openclaw.sessionId=<session-id>",
+        "  pubblue configure --set openclaw.threadId=<thread-id>",
+        "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      throw new Error(details);
     }
+    const sessionId = resolvedSession.sessionId;
+    bridgeSessionId = sessionId;
+    bridgeSessionKey = resolvedSession.sessionKey;
+    bridgeSessionSource = resolvedSession.sessionSource;
 
     const attachmentRoot = resolveAttachmentRootDir();
     const attachmentMaxBytes = resolveAttachmentMaxBytes();
@@ -635,6 +688,8 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
     writeBridgeInfo(params.infoPath, {
       ...baseInfo,
       sessionId,
+      sessionKey: resolvedSession.sessionKey,
+      sessionSource: resolvedSession.sessionSource,
       status: "ready",
     });
 
@@ -659,6 +714,8 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
         writeBridgeInfo(params.infoPath, {
           ...baseInfo,
           sessionId,
+          sessionKey: resolvedSession.sessionKey,
+          sessionSource: resolvedSession.sessionSource,
           status: "waiting-daemon",
           lastError: error instanceof Error ? error.message : String(error),
         });
@@ -709,6 +766,8 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
           writeBridgeInfo(params.infoPath, {
             ...baseInfo,
             sessionId,
+            sessionKey: resolvedSession.sessionKey,
+            sessionSource: resolvedSession.sessionSource,
             status: "ready",
             lastError: message,
           });
@@ -718,6 +777,8 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
       writeBridgeInfo(params.infoPath, {
         ...baseInfo,
         sessionId,
+        sessionKey: resolvedSession.sessionKey,
+        sessionSource: resolvedSession.sessionSource,
         status: "ready",
       });
     }
@@ -725,6 +786,8 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
     writeBridgeInfo(params.infoPath, {
       ...baseInfo,
       sessionId,
+      sessionKey: resolvedSession.sessionKey,
+      sessionSource: resolvedSession.sessionSource,
       status: "stopped",
     });
   } catch (error) {
@@ -732,6 +795,9 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
     writeBridgeInfo(params.infoPath, {
       ...baseInfo,
       status: "error",
+      sessionId: bridgeSessionId,
+      sessionKey: bridgeSessionKey,
+      sessionSource: bridgeSessionSource,
       lastError: message,
     });
     try {

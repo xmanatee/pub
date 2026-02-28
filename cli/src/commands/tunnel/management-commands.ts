@@ -74,8 +74,14 @@ export function registerTunnelManagementCommands(tunnel: Command): void {
         if (bridgeInfo.sessionId) {
           console.log(`  Bridge session: ${bridgeInfo.sessionId}`);
         }
-        if (!bridgeRunning && bridgeInfo.lastError) {
-          console.log(`  Bridge error: ${bridgeInfo.lastError}`);
+        if (bridgeInfo.sessionSource) {
+          console.log(`  Bridge session source: ${bridgeInfo.sessionSource}`);
+        }
+        if (bridgeInfo.sessionKey) {
+          console.log(`  Bridge session key: ${bridgeInfo.sessionKey}`);
+        }
+        if (bridgeInfo.lastError) {
+          console.log(`  Bridge last error: ${bridgeInfo.lastError}`);
         }
       }
       const bridgeLog = bridgeLogPath(tunnelId);
