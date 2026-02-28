@@ -123,20 +123,17 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // Outer glow
       ctx.globalAlpha = (0.12 + cur.energy * 0.18) * opacity;
       ctx.filter = `blur(${24 + cur.energy * 16}px)`;
       ctx.fill();
       ctx.filter = "none";
 
-      // Edge shimmer
       buildBlobPath(ctx, pts, POINTS);
       ctx.globalAlpha = (0.2 + cur.energy * 0.4) * opacity;
       ctx.strokeStyle = `hsl(${cur.hueA} ${sat}% 74%)`;
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Inner highlight (nucleus)
       const innerRadius = baseRadius * 0.5;
       const innerAmp1 = innerRadius * 0.22 * cur.energy;
       const innerAmp2 = innerRadius * 0.12 * cur.energy;
@@ -154,7 +151,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerRadius * 1.4);
       innerGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 76% / ${0.6 * opacity})`);
       innerGrad.addColorStop(0.6, `hsl(${cur.hueB} ${sat}% 68% / ${0.3 * opacity})`);
-      innerGrad.addColorStop(1, `transparent`);
+      innerGrad.addColorStop(1, "transparent");
 
       ctx.globalAlpha = 1;
       buildBlobPath(ctx, innerPts, INNER_POINTS);
