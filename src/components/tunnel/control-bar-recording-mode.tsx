@@ -1,0 +1,105 @@
+import { Pause, Play, Send, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
+import { Button } from "~/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
+import { cn } from "~/lib/utils";
+
+interface ControlBarRecordingModeProps {
+  actionButtonClass: string;
+  actionIconClass: string;
+  controlBarClass: string;
+  controlHeightClass: string;
+  elapsedLabel: string;
+  isPaused: boolean;
+  onCancelRecording: () => void;
+  onPauseResume: () => void;
+  onSendRecording: () => void;
+  recordingToneClass: string;
+  waveformEl: ReactNode;
+}
+
+export function ControlBarRecordingMode({
+  actionButtonClass,
+  actionIconClass,
+  controlBarClass,
+  controlHeightClass,
+  elapsedLabel,
+  isPaused,
+  onCancelRecording,
+  onPauseResume,
+  onSendRecording,
+  recordingToneClass,
+  waveformEl,
+}: ControlBarRecordingModeProps) {
+  return (
+    <div className={cn(controlBarClass, controlHeightClass, recordingToneClass)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(actionButtonClass, "text-destructive")}
+            onClick={onCancelRecording}
+            aria-label="Delete recording"
+          >
+            <Trash2 className={actionIconClass} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Delete recording</TooltipContent>
+      </Tooltip>
+
+      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-destructive/12 px-3 py-2">
+        <div
+          className={cn(
+            "h-2.5 w-2.5 rounded-full",
+            isPaused ? "bg-muted-foreground" : "animate-pulse bg-destructive",
+          )}
+        />
+        <span className="text-sm font-semibold">{elapsedLabel}</span>
+        <div className={cn("min-w-0 flex-1", isPaused ? "opacity-45" : "opacity-100")}>
+          {waveformEl}
+        </div>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {isPaused ? "Paused" : "Recording"}
+        </span>
+      </div>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={actionButtonClass}
+            onClick={onPauseResume}
+            aria-label={isPaused ? "Resume recording" : "Pause recording"}
+          >
+            {isPaused ? (
+              <Play className={actionIconClass} />
+            ) : (
+              <Pause className={actionIconClass} />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{isPaused ? "Resume" : "Pause"}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="default"
+            size="icon"
+            className={actionButtonClass}
+            onClick={onSendRecording}
+            aria-label="Send recording"
+          >
+            <Send className={actionIconClass} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Send recording</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
