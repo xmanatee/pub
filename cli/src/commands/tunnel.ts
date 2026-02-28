@@ -18,5 +18,7 @@ export {
   parseBridgeMode,
   parsePositiveIntegerOption,
   pickReusableTunnel,
+  readDaemonProcessInfo,
   resolveTunnelIdSelection,
+  shouldRestartDaemonForCliUpgrade,
 } from "./tunnel-helpers.js";

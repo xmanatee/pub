@@ -37,7 +37,7 @@ export {
 } from "./tunnel-daemon-shared.js";
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
-  const { tunnelId, apiClient, socketPath, infoPath } = config;
+  const { tunnelId, apiClient, socketPath, infoPath, cliVersion } = config;
 
   const ndc = await import("node-datachannel");
 
@@ -619,7 +619,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   fs.writeFileSync(
     infoPath,
-    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime }),
+    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime, cliVersion }),
   );
 
   scheduleNextPoll(0);

@@ -87,6 +87,10 @@ function resolveOpenClawStateDir(): string {
   return join(homedir(), ".openclaw");
 }
 
+export function resolveOpenClawSessionsPath(): string {
+  return join(resolveOpenClawStateDir(), "agents", "main", "sessions", "sessions.json");
+}
+
 export function resolveAttachmentRootDir(): string {
   const configured = process.env.OPENCLAW_ATTACHMENT_DIR?.trim();
   if (configured) return configured;
@@ -327,14 +331,7 @@ export function resolveSessionFromSessionsData(
 function resolveSessionFromOpenClaw(threadId?: string): SessionResolution {
   const attemptedKeys = [...buildThreadCandidateKeys(threadId), OPENCLAW_MAIN_SESSION_KEY];
   try {
-    const sessionsPath = join(
-      homedir(),
-      ".openclaw",
-      "agents",
-      "main",
-      "sessions",
-      "sessions.json",
-    );
+    const sessionsPath = resolveOpenClawSessionsPath();
     const sessionsData = JSON.parse(readFileSync(sessionsPath, "utf-8")) as unknown;
     return resolveSessionFromSessionsData(sessionsData, threadId);
   } catch (error) {

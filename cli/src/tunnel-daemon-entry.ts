@@ -11,6 +11,7 @@ const baseUrl = process.env.PUBBLUE_DAEMON_BASE_URL;
 const apiKey = process.env.PUBBLUE_DAEMON_API_KEY;
 const socketPath = process.env.PUBBLUE_DAEMON_SOCKET;
 const infoPath = process.env.PUBBLUE_DAEMON_INFO;
+const cliVersion = process.env.PUBBLUE_CLI_VERSION;
 
 if (!tunnelId || !baseUrl || !apiKey || !socketPath || !infoPath) {
   console.error("Missing required env vars for daemon.");
@@ -18,7 +19,7 @@ if (!tunnelId || !baseUrl || !apiKey || !socketPath || !infoPath) {
 }
 
 const apiClient = new TunnelApiClient(baseUrl, apiKey);
-void startDaemon({ tunnelId, apiClient, socketPath, infoPath }).catch((error) => {
+void startDaemon({ tunnelId, apiClient, socketPath, infoPath, cliVersion }).catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`Tunnel daemon failed to start: ${message}`);
   process.exit(1);

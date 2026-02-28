@@ -60,6 +60,7 @@ export function getMimeType(filePath: string): string {
 }
 
 export interface BridgeProcessInfo {
+  lastError?: string;
   pid: number;
   tunnelId: string;
   mode: string;
@@ -68,7 +69,14 @@ export interface BridgeProcessInfo {
   sessionSource?: BridgeSessionSource;
   startedAt: number;
   status?: string;
-  lastError?: string;
+}
+
+export interface DaemonProcessInfo {
+  cliVersion?: string;
+  pid: number;
+  socketPath?: string;
+  startedAt?: number;
+  tunnelId: string;
 }
 
 export type BridgeMode = "openclaw" | "none";
@@ -158,19 +166,25 @@ export async function ensureNodeDatachannelAvailable(): Promise<void> {
 }
 
 export function isDaemonRunning(tunnelId: string): boolean {
+  return readDaemonProcessInfo(tunnelId) !== null;
+}
+
+export function readDaemonProcessInfo(tunnelId: string): DaemonProcessInfo | null {
   const infoPath = tunnelInfoPath(tunnelId);
-  if (!fs.existsSync(infoPath)) return false;
+  if (!fs.existsSync(infoPath)) return null;
+
   try {
-    const info = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
+    const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as DaemonProcessInfo;
+    if (!Number.isFinite(info.pid)) throw new Error("invalid daemon pid");
     process.kill(info.pid, 0);
-    return true;
+    return info;
   } catch {
     try {
       fs.unlinkSync(infoPath);
     } catch {
       // stale pid file cleanup failed
     }
-    return false;
+    return null;
   }
 }
 
@@ -245,6 +259,14 @@ export function parseBridgeMode(raw: string): BridgeMode {
     return normalized;
   }
   throw new Error(`--bridge must be one of: openclaw, none. Received: ${raw}`);
+}
+
+export function shouldRestartDaemonForCliUpgrade(
+  daemonCliVersion: string | undefined,
+  currentCliVersion: string,
+): boolean {
+  if (!daemonCliVersion || daemonCliVersion.trim().length === 0) return true;
+  return daemonCliVersion.trim() !== currentCliVersion;
 }
 
 export function messageContainsPong(payload: unknown): boolean {

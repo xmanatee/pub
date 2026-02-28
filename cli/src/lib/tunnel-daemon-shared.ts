@@ -11,6 +11,7 @@ export interface StickyOutboundMessage {
 }
 
 export interface DaemonConfig {
+  cliVersion?: string;
   tunnelId: string;
   apiClient: TunnelApiClient;
   socketPath: string;

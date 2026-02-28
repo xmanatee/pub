@@ -4,6 +4,7 @@ import {
   resolveAttachmentFilename,
   resolveAttachmentMaxBytes,
   resolveAttachmentRootDir,
+  resolveOpenClawSessionsPath,
   resolveSessionFromSessionsData,
   type StagedAttachment,
 } from "./tunnel-bridge-openclaw.js";
@@ -31,6 +32,15 @@ describe("resolveAttachmentRootDir", () => {
     delete process.env.OPENCLAW_ATTACHMENT_DIR;
     process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-state";
     expect(resolveAttachmentRootDir()).toBe("/tmp/openclaw-state/pubblue-inbox");
+  });
+});
+
+describe("resolveOpenClawSessionsPath", () => {
+  it("resolves sessions.json under OPENCLAW_STATE_DIR when set", () => {
+    process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-custom-state";
+    expect(resolveOpenClawSessionsPath()).toBe(
+      "/tmp/openclaw-custom-state/agents/main/sessions/sessions.json",
+    );
   });
 });
 

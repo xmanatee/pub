@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CLI_VERSION } from "../lib/version.js";
 import {
   buildBridgeForkStdio,
   buildDaemonForkStdio,
@@ -8,6 +9,7 @@ import {
   parsePositiveIntegerOption,
   pickReusableTunnel,
   resolveTunnelIdSelection,
+  shouldRestartDaemonForCliUpgrade,
 } from "./tunnel.js";
 
 describe("getFollowReadDelayMs", () => {
@@ -165,5 +167,20 @@ describe("pickReusableTunnel", () => {
       now,
     );
     expect(tunnel).toBeNull();
+  });
+});
+
+describe("shouldRestartDaemonForCliUpgrade", () => {
+  it("restarts when daemon version is missing", () => {
+    expect(shouldRestartDaemonForCliUpgrade(undefined, CLI_VERSION)).toBe(true);
+    expect(shouldRestartDaemonForCliUpgrade("", CLI_VERSION)).toBe(true);
+  });
+
+  it("does not restart when versions match", () => {
+    expect(shouldRestartDaemonForCliUpgrade(CLI_VERSION, CLI_VERSION)).toBe(false);
+  });
+
+  it("restarts when versions differ", () => {
+    expect(shouldRestartDaemonForCliUpgrade("0.0.0", CLI_VERSION)).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import type { Command } from "commander";
 import { failCli } from "../../lib/cli-error.js";
 import { getConfig } from "../../lib/config.js";
 import { getSocketPath, ipcCall } from "../../lib/tunnel-ipc.js";
+import { CLI_VERSION } from "../../lib/version.js";
 import {
   bridgeLogPath,
   buildBridgeProcessEnv,
@@ -16,15 +17,32 @@ import {
   ensureNodeDatachannelAvailable,
   formatApiError,
   getPublicTunnelUrl,
+  isBridgeRunning,
   isDaemonRunning,
   parseBridgeMode,
   pickReusableTunnel,
+  readDaemonProcessInfo,
   readLogTail,
+  shouldRestartDaemonForCliUpgrade,
+  stopBridgeProcess,
   tunnelInfoPath,
   tunnelLogPath,
   waitForAgentOffer,
   waitForDaemonReady,
 } from "../tunnel-helpers.js";
+
+async function waitForStopped(
+  isRunning: () => boolean,
+  timeoutMs: number,
+  pollMs = 120,
+): Promise<boolean> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (!isRunning()) return true;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  return !isRunning();
+}
 
 export function registerTunnelStartCommand(tunnel: Command): void {
   tunnel
@@ -138,6 +156,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
           console.log("Running in foreground. Press Ctrl+C to stop.");
           try {
             await startDaemon({
+              cliVersion: CLI_VERSION,
               tunnelId: target.tunnelId,
               apiClient,
               socketPath,
@@ -150,61 +169,105 @@ export function registerTunnelStartCommand(tunnel: Command): void {
           return;
         }
 
-        if (isDaemonRunning(target.tunnelId)) {
-          try {
-            const status = await ipcCall(socketPath, { method: "status", params: {} });
-            if (!status.ok) throw new Error(String(status.error || "status check failed"));
-          } catch (error) {
-            failCli(
-              [
-                `Daemon process exists but is not responding: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-                "Run `pubblue tunnel close <id>` and start again.",
-              ].join("\n"),
+        const runningDaemonInfo = readDaemonProcessInfo(target.tunnelId);
+        if (runningDaemonInfo) {
+          const daemonVersion = runningDaemonInfo.cliVersion;
+          const shouldRestartForUpgrade = shouldRestartDaemonForCliUpgrade(
+            daemonVersion,
+            CLI_VERSION,
+          );
+
+          if (shouldRestartForUpgrade) {
+            console.error(
+              `Restarting daemon for CLI version ${CLI_VERSION} (running: ${daemonVersion || "unknown"}).`,
             );
-          }
 
-          if (bridgeMode !== "none") {
-            const bridgeReady = await ensureBridgeReady({
-              bridgeMode,
-              tunnelId: target.tunnelId,
-              socketPath,
-              bridgeProcessEnv,
-              timeoutMs: 8_000,
-            });
-            if (!bridgeReady.ok) {
-              const lines = [
-                `Bridge failed to start for running tunnel: ${bridgeReady.reason ?? "unknown reason"}`,
-              ];
-              const existingBridgeLog = bridgeLogPath(target.tunnelId);
-              if (fs.existsSync(existingBridgeLog)) {
-                lines.push(`Bridge log: ${existingBridgeLog}`);
-                const bridgeTail = readLogTail(existingBridgeLog);
-                if (bridgeTail) {
-                  lines.push("---- bridge log tail ----");
-                  lines.push(bridgeTail.trimEnd());
-                  lines.push("---- end bridge log tail ----");
-                }
+            if (isBridgeRunning(target.tunnelId)) {
+              stopBridgeProcess(target.tunnelId);
+              const bridgeStopped = await waitForStopped(
+                () => isBridgeRunning(target.tunnelId),
+                5_000,
+              );
+              if (!bridgeStopped) {
+                failCli("Bridge process did not stop during daemon upgrade restart.");
               }
-              failCli(lines.join("\n"));
             }
-          }
 
-          console.log(`Tunnel started: ${target.url}`);
-          console.log(`Tunnel ID: ${target.tunnelId}`);
-          console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
-          console.log("Daemon already running for this tunnel.");
-          console.log(`Daemon log: ${logPath}`);
-          if (bridgeMode !== "none") {
-            console.log("Bridge mode: openclaw");
-            console.log(`Bridge log: ${bridgeLogPath(target.tunnelId)}`);
+            try {
+              await ipcCall(socketPath, { method: "close", params: {} });
+            } catch (error) {
+              failCli(
+                [
+                  `Failed to stop running daemon for upgrade: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                  "Run `pubblue tunnel close <id>` and retry.",
+                ].join("\n"),
+              );
+            }
+
+            const daemonStopped = await waitForStopped(
+              () => isDaemonRunning(target.tunnelId),
+              6_000,
+            );
+            if (!daemonStopped) {
+              failCli("Daemon did not stop in time during upgrade restart.");
+            }
+          } else {
+            try {
+              const status = await ipcCall(socketPath, { method: "status", params: {} });
+              if (!status.ok) throw new Error(String(status.error || "status check failed"));
+            } catch (error) {
+              failCli(
+                [
+                  `Daemon process exists but is not responding: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                  "Run `pubblue tunnel close <id>` and start again.",
+                ].join("\n"),
+              );
+            }
+
+            if (bridgeMode !== "none") {
+              const bridgeReady = await ensureBridgeReady({
+                bridgeMode,
+                tunnelId: target.tunnelId,
+                socketPath,
+                bridgeProcessEnv,
+                timeoutMs: 8_000,
+              });
+              if (!bridgeReady.ok) {
+                const lines = [
+                  `Bridge failed to start for running tunnel: ${bridgeReady.reason ?? "unknown reason"}`,
+                ];
+                const existingBridgeLog = bridgeLogPath(target.tunnelId);
+                if (fs.existsSync(existingBridgeLog)) {
+                  lines.push(`Bridge log: ${existingBridgeLog}`);
+                  const bridgeTail = readLogTail(existingBridgeLog);
+                  if (bridgeTail) {
+                    lines.push("---- bridge log tail ----");
+                    lines.push(bridgeTail.trimEnd());
+                    lines.push("---- end bridge log tail ----");
+                  }
+                }
+                failCli(lines.join("\n"));
+              }
+            }
+
+            console.log(`Tunnel started: ${target.url}`);
+            console.log(`Tunnel ID: ${target.tunnelId}`);
+            console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
+            console.log("Daemon already running for this tunnel.");
+            console.log(`Daemon log: ${logPath}`);
+            if (bridgeMode !== "none") {
+              console.log("Bridge mode: openclaw");
+              console.log(`Bridge log: ${bridgeLogPath(target.tunnelId)}`);
+            }
+            return;
           }
-          return;
         }
 
         const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
-        const config = getConfig();
         const daemonLogFd = fs.openSync(logPath, "a");
         const child = fork(daemonScript, [], {
           detached: true,
@@ -212,10 +275,11 @@ export function registerTunnelStartCommand(tunnel: Command): void {
           env: {
             ...process.env,
             PUBBLUE_DAEMON_TUNNEL_ID: target.tunnelId,
-            PUBBLUE_DAEMON_BASE_URL: config.baseUrl,
-            PUBBLUE_DAEMON_API_KEY: config.apiKey,
+            PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
+            PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
             PUBBLUE_DAEMON_SOCKET: socketPath,
             PUBBLUE_DAEMON_INFO: infoPath,
+            PUBBLUE_CLI_VERSION: CLI_VERSION,
           },
         });
         fs.closeSync(daemonLogFd);
