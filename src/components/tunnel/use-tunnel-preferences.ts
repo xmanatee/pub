@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   autoOpenCanvas: "pubblue:tunnel:auto-open-canvas",
   showDeliveryStatus: "pubblue:tunnel:show-delivery-status",
   animationStyle: "pubblue:tunnel:animation-style",
+  voiceModeEnabled: "pubblue:tunnel:voice-mode-enabled",
 } as const;
 
 function readStoredBoolean(key: string, fallback: boolean): boolean {
@@ -35,6 +36,9 @@ export function useTunnelPreferences() {
   );
   const [animationStyle, setAnimationStyle] =
     useState<TunnelAnimationStyle>(readStoredAnimationStyle);
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.voiceModeEnabled, false),
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -51,6 +55,11 @@ export function useTunnelPreferences() {
     window.localStorage.setItem(STORAGE_KEYS.animationStyle, animationStyle);
   }, [animationStyle]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_KEYS.voiceModeEnabled, voiceModeEnabled ? "1" : "0");
+  }, [voiceModeEnabled]);
+
   return {
     autoOpenCanvas,
     setAutoOpenCanvas,
@@ -58,5 +67,7 @@ export function useTunnelPreferences() {
     setShowDeliveryStatus,
     animationStyle,
     setAnimationStyle,
+    voiceModeEnabled,
+    setVoiceModeEnabled,
   };
 }

@@ -24,8 +24,9 @@ interface ControlBarIdleModeProps {
   onInputChange: (value: string) => void;
   onInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onSend: () => void;
-  onStartVoiceMode: () => void;
+  onStartVoiceMode?: () => void;
   onViewSelect: (mode: TunnelViewMode) => void;
+  voiceModeEnabled: boolean;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   shellContentClassName: string;
   viewMode: TunnelViewMode;
@@ -52,6 +53,7 @@ export function ControlBarIdleMode({
   pointerHandlers,
   shellContentClassName,
   viewMode,
+  voiceModeEnabled,
 }: ControlBarIdleModeProps) {
   return (
     <>
@@ -144,21 +146,23 @@ export function ControlBarIdleMode({
                 <TooltipContent>Hold to record</TooltipContent>
               </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="default"
-                    size="icon"
-                    className={actionButtonClass}
-                    onClick={onStartVoiceMode}
-                    disabled={disabled}
-                    aria-label="Voice mode"
-                  >
-                    <AudioLines className={actionIconClass} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Voice mode</TooltipContent>
-              </Tooltip>
+              {voiceModeEnabled ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="icon"
+                      className={actionButtonClass}
+                      onClick={onStartVoiceMode}
+                      disabled={disabled}
+                      aria-label="Voice mode"
+                    >
+                      <AudioLines className={actionIconClass} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Voice mode</TooltipContent>
+                </Tooltip>
+              ) : null}
             </>
           )}
         </div>

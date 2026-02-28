@@ -67,7 +67,9 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
             onClearFiles={model.clearFiles}
             onClearMessages={model.clearMessages}
             onShowDeliveryStatusChange={model.setShowDeliveryStatus}
+            onVoiceModeEnabledChange={model.setVoiceModeEnabled}
             showDeliveryStatus={model.showDeliveryStatus}
+            voiceModeEnabled={model.voiceModeEnabled}
           />
         ) : null}
       </div>
@@ -79,6 +81,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
         onSendChat={model.sendChat}
         onChangeView={model.setViewMode}
         viewMode={model.viewMode}
+        voiceModeEnabled={model.voiceModeEnabled}
       />
     </div>
   );

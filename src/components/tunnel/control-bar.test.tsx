@@ -59,7 +59,10 @@ vi.mock("~/hooks/use-long-press", () => ({
   }),
 }));
 
-function renderControlBar(overrides?: { viewMode?: "canvas" | "chat" | "settings" }) {
+function renderControlBar(overrides?: {
+  viewMode?: "canvas" | "chat" | "settings";
+  voiceModeEnabled?: boolean;
+}) {
   return renderToStaticMarkup(
     <TooltipProvider>
       <ControlBar
@@ -69,6 +72,7 @@ function renderControlBar(overrides?: { viewMode?: "canvas" | "chat" | "settings
         onSendChat={vi.fn()}
         onChangeView={vi.fn()}
         viewMode={overrides?.viewMode ?? "canvas"}
+        voiceModeEnabled={overrides?.voiceModeEnabled ?? false}
       />
     </TooltipProvider>,
   );
@@ -86,8 +90,11 @@ describe("ControlBar", () => {
   it("shows hold-to-record and voice actions in idle mode", () => {
     const html = renderControlBar();
     expect(html).toContain('aria-label="Hold to record audio"');
-    expect(html).toContain('aria-label="Voice mode"');
+    expect(html).not.toContain('aria-label="Voice mode"');
     expect(html).not.toContain('aria-label="Send message"');
+
+    const htmlWithVoice = renderControlBar({ voiceModeEnabled: true });
+    expect(htmlWithVoice).toContain('aria-label="Voice mode"');
   });
 
   it("shows recording controls in recording mode", () => {

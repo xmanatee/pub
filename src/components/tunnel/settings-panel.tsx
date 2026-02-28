@@ -22,7 +22,9 @@ interface SettingsPanelProps {
   onClearFiles: () => void;
   onClearMessages: () => void;
   onShowDeliveryStatusChange: (value: boolean) => void;
+  onVoiceModeEnabledChange: (value: boolean) => void;
   showDeliveryStatus: boolean;
+  voiceModeEnabled: boolean;
 }
 
 export function SettingsPanel({
@@ -37,7 +39,9 @@ export function SettingsPanel({
   onClearFiles,
   onClearMessages,
   onShowDeliveryStatusChange,
+  onVoiceModeEnabledChange,
   showDeliveryStatus,
+  voiceModeEnabled,
 }: SettingsPanelProps) {
   return (
     <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
@@ -96,6 +100,21 @@ export function SettingsPanel({
             <div className="text-xs text-muted-foreground">
               {TUNNEL_ANIMATION_STYLE_META[animationStyle].description}
             </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">Voice mode</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Enable the voice streaming button in the control bar.
+              </div>
+              <div className="text-xs text-muted-foreground/60 mt-1">
+                In development — may be unstable.
+              </div>
+            </div>
+            <Switch checked={voiceModeEnabled} onCheckedChange={onVoiceModeEnabledChange} />
           </div>
         </CardContent>
       </Card>

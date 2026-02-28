@@ -33,7 +33,9 @@ export function useTunnelPageModel(tunnelId: string) {
     setAnimationStyle,
     setAutoOpenCanvas,
     setShowDeliveryStatus,
+    setVoiceModeEnabled,
     showDeliveryStatus,
+    voiceModeEnabled,
   } = useTunnelPreferences();
 
   const {
@@ -208,9 +210,11 @@ export function useTunnelPageModel(tunnelId: string) {
     setAutoOpenCanvas,
     setShowDeliveryStatus,
     setViewMode,
+    setVoiceModeEnabled,
     showDeliveryStatus,
     tunnel,
     viewMode,
     visualState,
+    voiceModeEnabled,
   };
 }

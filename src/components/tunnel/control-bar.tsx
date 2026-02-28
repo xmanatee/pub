@@ -29,6 +29,7 @@ interface ControlBarProps {
   onSendAudio: (blob: Blob) => void;
   viewMode: TunnelViewMode;
   onChangeView: (view: TunnelViewMode) => void;
+  voiceModeEnabled: boolean;
 }
 
 function formatTime(seconds: number) {
@@ -44,6 +45,7 @@ export function ControlBar({
   onSendAudio,
   viewMode,
   onChangeView,
+  voiceModeEnabled,
 }: ControlBarProps) {
   const [input, setInput] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -235,8 +237,9 @@ export function ControlBar({
         }
       }}
       onSend={handleSend}
-      onStartVoiceMode={startVoiceMode}
+      onStartVoiceMode={voiceModeEnabled ? startVoiceMode : undefined}
       onViewSelect={handleViewSelect}
+      voiceModeEnabled={voiceModeEnabled}
       pointerHandlers={pointerHandlers}
       shellContentClassName="border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-4xl"
       viewMode={viewMode}
