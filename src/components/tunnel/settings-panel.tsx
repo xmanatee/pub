@@ -14,9 +14,11 @@ interface SettingsPanelProps {
   autoOpenCanvas: boolean;
   animationStyle: TunnelAnimationStyle;
   fileCount: number;
+  hasCanvasContent: boolean;
   messageCount: number;
   onAutoOpenCanvasChange: (value: boolean) => void;
   onAnimationStyleChange: (value: TunnelAnimationStyle) => void;
+  onClearCanvas: () => void;
   onClearFiles: () => void;
   onClearMessages: () => void;
   onShowDeliveryStatusChange: (value: boolean) => void;
@@ -27,9 +29,11 @@ export function SettingsPanel({
   autoOpenCanvas,
   animationStyle,
   fileCount,
+  hasCanvasContent,
   messageCount,
   onAutoOpenCanvasChange,
   onAnimationStyleChange,
+  onClearCanvas,
   onClearFiles,
   onClearMessages,
   onShowDeliveryStatusChange,
@@ -102,7 +106,8 @@ export function SettingsPanel({
         </CardHeader>
         <CardContent className="space-y-3 px-4 pb-4">
           <div className="text-xs text-muted-foreground">
-            Messages: {messageCount} · Files: {fileCount}
+            Messages: {messageCount} · Files: {fileCount} · Canvas:{" "}
+            {hasCanvasContent ? "loaded" : "empty"}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={onClearMessages}>
@@ -110,6 +115,15 @@ export function SettingsPanel({
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={onClearFiles}>
               Clear file list
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClearCanvas}
+              disabled={!hasCanvasContent}
+            >
+              Clear canvas
             </Button>
           </div>
         </CardContent>

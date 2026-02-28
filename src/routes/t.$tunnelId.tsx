@@ -78,7 +78,12 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
   useEffect(() => {
     setCanvasHtml(readCachedCanvasHtml(tunnelId));
-  }, [tunnelId]);
+    setViewMode("canvas");
+    setLastAgentActivityAt(null);
+    setLastUserDeliveredAt(null);
+    clearMessages();
+    clearFiles();
+  }, [tunnelId, clearFiles, clearMessages]);
 
   const handleBridgeMessage = useCallback(
     (cm: ChannelMessage) => {
@@ -201,6 +206,11 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
     [bridgeRef],
   );
 
+  const clearCanvas = useCallback(() => {
+    setCanvasHtml(null);
+    writeCachedCanvasHtml(tunnelId, null);
+  }, [tunnelId]);
+
   if (tunnel === undefined) return <StatusScreen text="Loading..." />;
   if (tunnel === null) return <StatusScreen text="Tunnel not found or expired." />;
   if (!tunnel.agentOffer && !canvasHtml) return <StatusScreen text="Waiting for agent..." />;
@@ -231,9 +241,11 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
             autoOpenCanvas={autoOpenCanvas}
             animationStyle={animationStyle}
             fileCount={files.length}
+            hasCanvasContent={Boolean(canvasHtml)}
             messageCount={messages.length}
             onAutoOpenCanvasChange={setAutoOpenCanvas}
             onAnimationStyleChange={setAnimationStyle}
+            onClearCanvas={clearCanvas}
             onClearFiles={clearFiles}
             onClearMessages={clearMessages}
             onShowDeliveryStatusChange={setShowDeliveryStatus}
