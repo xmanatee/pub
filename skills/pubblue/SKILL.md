@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.8"
+  version: "3.4.9"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,11 +17,11 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.4.8+**.
+Use **pubblue CLI 0.4.9+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.8
+npm i -g pubblue@0.4.9
 ```
 
 ## Setup
@@ -61,14 +61,21 @@ Notes:
 
 ## OpenClaw Default Flow (Recommended)
 
-For continuous two-way tunnel chat without manual polling, use the bridge flow below.
-Use manual `pubblue tunnel read` only for debugging.
+`pubblue tunnel start` now owns bridge setup by default.
+- Default bridge mode: `openclaw`
+- To disable managed bridge (manual mode): `--bridge none`
 
 ## Tunnel Quick Flow
 
-1. Start:
+1. Start (managed bridge enabled by default):
 ```bash
 pubblue tunnel start --expires 4h
+```
+
+Optional explicit bridge selector:
+```bash
+pubblue tunnel start --bridge openclaw --expires 4h
+pubblue tunnel start --bridge none --expires 4h
 ```
 
 2. Wait for browser:
@@ -82,7 +89,7 @@ pubblue tunnel write --tunnel <id> "Hello"
 pubblue tunnel write --tunnel <id> -c canvas -f /tmp/view.html
 ```
 
-4. Read incoming:
+4. Read incoming (manual/debug mode):
 ```bash
 pubblue tunnel read <id> --follow -c chat
 ```
@@ -107,52 +114,18 @@ Important:
   - Supports `--tunnel <id>` to attach explicitly
   - Use `--new` to force creating a new tunnel
 
-## Bridge Modes (No Manual Polling)
+## Bridge Modes
 
-Script: `skills/pubblue/scripts/openclaw-tunnel-bridge.mjs`
+`pubblue tunnel start` supports:
+- `--bridge openclaw` (default): managed local bridge process (OpenClaw session delivery)
+- `--bridge none`: no managed bridge; use manual polling or external integration
 
-Recommended (`openclaw-deliver`):
-```bash
-OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
-OPENCLAW_PATH="/app/dist/index.js" \
-PUBBLUE_BIN="/home/node/.openclaw/bin/pubblue" \
-node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start --expires 7d
-```
-
-Attach to existing tunnel:
-```bash
-OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
-OPENCLAW_PATH="/app/dist/index.js" \
-PUBBLUE_BIN="/home/node/.openclaw/bin/pubblue" \
-node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --tunnel <id>
-```
-
-Alternative (`gateway-reply`, only if your gateway exposes OpenAI-compatible endpoints):
-```bash
-OPENCLAW_BRIDGE_MODE="gateway-reply" \
-OPENCLAW_GATEWAY_URL="http://127.0.0.1:18789" \
-OPENCLAW_GATEWAY_TOKEN="<token-if-needed>" \
-PUBBLUE_BIN="/home/node/.openclaw/bin/pubblue" \
-node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start --expires 7d
-```
-
-If gateway-reply preflight reports HTML from `/v1/models` or `405`, that deployment does not expose compatible API endpoints. Use `openclaw-deliver`.
-
-Behavior:
-- One long-lived `pubblue tunnel read --follow -c chat` consumer
-- Automatic restart on reader exit
-- Dedupe via seen-message state
-- Startup preflight:
-  - `openclaw-deliver`: verifies OpenClaw executable/command
-  - `gateway-reply`: verifies gateway reachability (`/v1/models`)
-
-Useful env:
-- `OPENCLAW_SESSION_ID` or `OPENCLAW_THREAD_ID` (strongly recommended for deterministic routing)
-- `OPENCLAW_BRIDGE_STATE_DIR` (override bridge lock/state directory)
-- `OPENCLAW_DELIVER_CMD`, `OPENCLAW_PATH`
-- `OPENCLAW_DELIVER=1` (enable OpenClaw `--deliver`; by default bridge injects message into session without forced delivery)
-- `PUBBLUE_BIN` (e.g. `/home/node/.openclaw/bin/pubblue` when `pubblue` is not on PATH)
-- `OPENCLAW_GATEWAY_TIMEOUT_MS`, `OPENCLAW_MODEL`, `OPENCLAW_AGENT_ID`
+Useful env for `openclaw` mode:
+- `OPENCLAW_SESSION_ID` or `OPENCLAW_THREAD_ID` (recommended for deterministic routing)
+- `OPENCLAW_PATH` (explicit OpenClaw binary/index.js path, if auto-discovery fails)
+- `OPENCLAW_DELIVER=1` (optional, enables OpenClaw `--deliver`)
+- `OPENCLAW_DELIVER_CHANNEL`, `OPENCLAW_REPLY_TO` (optional channel routing)
+- `OPENCLAW_DELIVER_TIMEOUT_MS` (optional dispatch timeout)
 
 ## Troubleshooting
 
@@ -165,4 +138,4 @@ Useful env:
   - Check `pubblue tunnel status` and daemon log path from start output.
   - Restart daemon against existing tunnel with `pubblue tunnel start --tunnel <id>`.
 - Bridge errors:
-  - Run bridge script directly and use its preflight output for diagnosis.
+  - Use `pubblue tunnel status` and inspect bridge state/log path.

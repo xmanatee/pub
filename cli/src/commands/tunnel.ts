@@ -3,7 +3,12 @@ import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
-import { type BridgeMessage, CHANNELS, generateMessageId } from "../lib/bridge-protocol.js";
+import {
+  type BridgeMessage,
+  CHANNELS,
+  CONTROL_CHANNEL,
+  generateMessageId,
+} from "../lib/bridge-protocol.js";
 import { getConfig } from "../lib/config.js";
 import {
   TunnelApiClient,
@@ -135,6 +140,8 @@ interface BridgeProcessInfo {
   lastError?: string;
 }
 
+type BridgeMode = "openclaw" | "none";
+
 function readBridgeProcessInfo(tunnelId: string): BridgeProcessInfo | null {
   const infoPath = bridgeInfoPath(tunnelId);
   if (!fs.existsSync(infoPath)) return null;
@@ -172,6 +179,10 @@ function stopBridgeProcess(tunnelId: string): void {
   }
 }
 
+export function buildBridgeForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
+  return ["ignore", logFd, logFd, "ipc"];
+}
+
 export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures: number): number {
   if (!disconnected) return 1_000;
   return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
@@ -194,6 +205,14 @@ export function parsePositiveIntegerOption(raw: string, optionName: string): num
     throw new Error(`${optionName} must be a positive integer. Received: ${raw}`);
   }
   return parsed;
+}
+
+export function parseBridgeMode(raw: string): BridgeMode {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "openclaw" || normalized === "none") {
+    return normalized;
+  }
+  throw new Error(`--bridge must be one of: openclaw, none. Received: ${raw}`);
 }
 
 export function messageContainsPong(payload: unknown): boolean {
@@ -272,12 +291,26 @@ export function registerTunnelCommands(program: Command): void {
     .option("--expires <duration>", "Auto-close after duration (e.g. 4h, 1d)", "24h")
     .option("-t, --tunnel <tunnelId>", "Attach/start daemon for an existing tunnel")
     .option("--new", "Always create a new tunnel (skip single-tunnel reuse)")
-    .option("--foreground", "Run in foreground (don't fork)")
+    .option("--bridge <mode>", "Bridge mode: openclaw|none", "openclaw")
+    .option("--foreground", "Run in foreground (don't fork, no managed bridge)")
     .action(
-      async (opts: { expires: string; tunnel?: string; new?: boolean; foreground?: boolean }) => {
+      async (opts: {
+        expires: string;
+        tunnel?: string;
+        new?: boolean;
+        bridge: string;
+        foreground?: boolean;
+      }) => {
         await ensureNodeDatachannelAvailable();
         const apiClient = createApiClient();
         let target: DaemonStartTarget | null = null;
+        let bridgeMode: BridgeMode;
+        try {
+          bridgeMode = parseBridgeMode(opts.bridge);
+        } catch (error) {
+          console.error(error instanceof Error ? error.message : String(error));
+          process.exit(1);
+        }
 
         if (opts.tunnel) {
           try {
@@ -359,6 +392,11 @@ export function registerTunnelCommands(program: Command): void {
         const logPath = tunnelLogPath(target.tunnelId);
 
         if (opts.foreground) {
+          if (bridgeMode !== "none") {
+            console.error(
+              "Foreground mode disables managed bridge process. Use background mode for --bridge openclaw.",
+            );
+          }
           const { startDaemon } = await import("../lib/tunnel-daemon.js");
           console.log(`Tunnel started: ${target.url}`);
           console.log(`Tunnel ID: ${target.tunnelId}`);
@@ -391,11 +429,41 @@ export function registerTunnelCommands(program: Command): void {
               console.error("Run `pubblue tunnel close <id>` and start again.");
               process.exit(1);
             }
+
+            if (bridgeMode !== "none") {
+              const bridgeReady = await ensureBridgeReady({
+                bridgeMode,
+                tunnelId: target.tunnelId,
+                socketPath,
+                timeoutMs: 8_000,
+              });
+              if (!bridgeReady.ok) {
+                console.error(
+                  `Bridge failed to start for running tunnel: ${bridgeReady.reason ?? "unknown reason"}`,
+                );
+                const existingBridgeLog = bridgeLogPath(target.tunnelId);
+                if (fs.existsSync(existingBridgeLog)) {
+                  console.error(`Bridge log: ${existingBridgeLog}`);
+                  const bridgeTail = readLogTail(existingBridgeLog);
+                  if (bridgeTail) {
+                    console.error("---- bridge log tail ----");
+                    console.error(bridgeTail.trimEnd());
+                    console.error("---- end bridge log tail ----");
+                  }
+                }
+                process.exit(1);
+              }
+            }
+
             console.log(`Tunnel started: ${target.url}`);
             console.log(`Tunnel ID: ${target.tunnelId}`);
             console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
             console.log("Daemon already running for this tunnel.");
             console.log(`Daemon log: ${logPath}`);
+            if (bridgeMode !== "none") {
+              console.log("Bridge mode: openclaw");
+              console.log(`Bridge log: ${bridgeLogPath(target.tunnelId)}`);
+            }
             return;
           }
 
@@ -458,12 +526,45 @@ export function registerTunnelCommands(program: Command): void {
             process.exit(1);
           }
 
+          if (bridgeMode !== "none") {
+            const bridgeReady = await ensureBridgeReady({
+              bridgeMode,
+              tunnelId: target.tunnelId,
+              socketPath,
+              timeoutMs: 8_000,
+            });
+            if (!bridgeReady.ok) {
+              console.error(`Bridge failed to start: ${bridgeReady.reason ?? "unknown reason"}`);
+              const bridgeLog = bridgeLogPath(target.tunnelId);
+              if (fs.existsSync(bridgeLog)) {
+                console.error(`Bridge log: ${bridgeLog}`);
+                const bridgeTail = readLogTail(bridgeLog);
+                if (bridgeTail) {
+                  console.error("---- bridge log tail ----");
+                  console.error(bridgeTail.trimEnd());
+                  console.error("---- end bridge log tail ----");
+                }
+              }
+              try {
+                await ipcCall(socketPath, { method: "close", params: {} });
+              } catch {
+                // daemon may already be down
+              }
+              await cleanupCreatedTunnelOnStartFailure(apiClient, target);
+              process.exit(1);
+            }
+          }
+
           console.log(`Tunnel started: ${target.url}`);
           console.log(`Tunnel ID: ${target.tunnelId}`);
           console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
           if (target.mode === "existing") console.log("Mode: attached existing tunnel");
           console.log("Daemon health: OK");
           console.log(`Daemon log: ${logPath}`);
+          if (bridgeMode !== "none") {
+            console.log("Bridge mode: openclaw");
+            console.log(`Bridge log: ${bridgeLogPath(target.tunnelId)}`);
+          }
         }
       },
     );
@@ -654,6 +755,22 @@ export function registerTunnelCommands(program: Command): void {
       if (fs.existsSync(logPath)) {
         console.log(`  Log: ${logPath}`);
       }
+      const bridgeInfo = readBridgeProcessInfo(tunnelId);
+      if (bridgeInfo) {
+        const bridgeRunning = isBridgeRunning(tunnelId);
+        const bridgeState = bridgeInfo.status || (bridgeRunning ? "running" : "stopped");
+        console.log(`  Bridge: ${bridgeInfo.mode} (${bridgeState})`);
+        if (bridgeInfo.sessionId) {
+          console.log(`  Bridge session: ${bridgeInfo.sessionId}`);
+        }
+        if (!bridgeRunning && bridgeInfo.lastError) {
+          console.log(`  Bridge error: ${bridgeInfo.lastError}`);
+        }
+      }
+      const bridgeLog = bridgeLogPath(tunnelId);
+      if (fs.existsSync(bridgeLog)) {
+        console.log(`  Bridge log: ${bridgeLog}`);
+      }
     });
 
   tunnel
@@ -685,49 +802,60 @@ export function registerTunnelCommands(program: Command): void {
 
         console.log(`Doctor tunnel: ${tunnelId}`);
 
-        let statusResponse: Record<string, unknown>;
+        let statusResponse: Record<string, unknown> | null = null;
         try {
-          statusResponse = await ipcCall(socketPath, { method: "status", params: {} });
+          statusResponse = await ipcCall(socketPath, {
+            method: "status",
+            params: {},
+          });
         } catch (error) {
           fail(
             `daemon is unreachable (${error instanceof Error ? error.message : String(error)}).`,
           );
         }
-
-        if (!statusResponse.ok) {
-          fail(`daemon returned non-ok status: ${String(statusResponse.error || "unknown error")}`);
+        if (!statusResponse) {
+          fail("daemon status returned no response.");
         }
-        if (!statusResponse.connected) {
+        const daemonStatus = statusResponse as Record<string, unknown>;
+
+        if (!daemonStatus.ok) {
+          fail(`daemon returned non-ok status: ${String(daemonStatus.error || "unknown error")}`);
+        }
+        if (!daemonStatus.connected) {
           fail("daemon is running but browser is not connected.");
         }
 
-        const channelNames = Array.isArray(statusResponse.channels)
-          ? statusResponse.channels.map((entry) => String(entry))
+        const channelNames = Array.isArray(daemonStatus.channels)
+          ? daemonStatus.channels.map((entry) => String(entry))
           : [];
-        for (const required of [CHANNELS.CONTROL, CHANNELS.CHAT, CHANNELS.CANVAS]) {
+        for (const required of [CONTROL_CHANNEL, CHANNELS.CHAT, CHANNELS.CANVAS]) {
           if (!channelNames.includes(required)) {
             fail(`required channel is missing: ${required}`);
           }
         }
         console.log("Daemon/channel check: OK");
 
-        let tunnelInfo: TunnelInfo;
+        let tunnelInfo: TunnelInfo | null = null;
         try {
           tunnelInfo = await apiClient.get(tunnelId);
         } catch (error) {
           fail(`failed to fetch tunnel info from API: ${formatApiError(error)}`);
         }
-
-        if (tunnelInfo.status !== "active") {
-          fail(`API reports tunnel is not active (status: ${tunnelInfo.status})`);
+        if (!tunnelInfo) {
+          fail("API returned no tunnel payload.");
         }
-        if (tunnelInfo.expiresAt <= Date.now()) {
+        const apiTunnel = tunnelInfo as TunnelInfo;
+
+        if (apiTunnel.status !== "active") {
+          fail(`API reports tunnel is not active (status: ${apiTunnel.status})`);
+        }
+        if (apiTunnel.expiresAt <= Date.now()) {
           fail("API reports tunnel is expired.");
         }
-        if (!tunnelInfo.hasConnection) {
+        if (!apiTunnel.hasConnection) {
           fail("API reports no browser connection.");
         }
-        if (typeof tunnelInfo.agentOffer !== "string" || tunnelInfo.agentOffer.length === 0) {
+        if (typeof apiTunnel.agentOffer !== "string" || apiTunnel.agentOffer.length === 0) {
           fail("agent offer was not published.");
         }
         console.log("API/signaling check: OK");
@@ -812,8 +940,14 @@ export function registerTunnelCommands(program: Command): void {
       for (const t of tunnels) {
         const age = Math.floor((Date.now() - t.createdAt) / 60_000);
         const running = isDaemonRunning(t.tunnelId) ? "running" : "no daemon";
+        const bridgeInfo = readBridgeProcessInfo(t.tunnelId);
+        const bridge = bridgeInfo
+          ? isBridgeRunning(t.tunnelId)
+            ? `${bridgeInfo.mode}:running`
+            : `${bridgeInfo.mode}:stopped`
+          : "none";
         const conn = t.hasConnection ? "connected" : "waiting";
-        console.log(`  ${t.tunnelId}  ${conn}  ${running}  ${age}m ago`);
+        console.log(`  ${t.tunnelId}  ${conn}  ${running}  bridge=${bridge}  ${age}m ago`);
       }
     });
 
@@ -822,6 +956,12 @@ export function registerTunnelCommands(program: Command): void {
     .description("Close a tunnel and stop its daemon")
     .argument("<tunnelId>", "Tunnel ID")
     .action(async (tunnelId: string) => {
+      stopBridgeProcess(tunnelId);
+      try {
+        fs.unlinkSync(bridgeInfoPath(tunnelId));
+      } catch {
+        // bridge info may not exist
+      }
       const socketPath = getSocketPath(tunnelId);
       try {
         await ipcCall(socketPath, { method: "close", params: {} });
@@ -846,7 +986,9 @@ export function registerTunnelCommands(program: Command): void {
 
 async function resolveActiveTunnel(): Promise<string> {
   const dir = tunnelInfoDir();
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json") && !f.endsWith(".bridge.json"));
   const active: string[] = [];
   for (const f of files) {
     const tunnelId = f.replace(".json", "");
@@ -950,4 +1092,125 @@ async function waitForAgentOffer(params: {
       ? `agent offer was not published in time (last API error: ${lastError})`
       : "agent offer was not published in time",
   };
+}
+
+interface EnsureBridgeReadyParams {
+  bridgeMode: BridgeMode;
+  tunnelId: string;
+  socketPath: string;
+  timeoutMs: number;
+}
+
+async function ensureBridgeReady(
+  params: EnsureBridgeReadyParams,
+): Promise<WaitForDaemonReadyResult> {
+  if (params.bridgeMode === "none") {
+    return { ok: true };
+  }
+
+  const infoPath = bridgeInfoPath(params.tunnelId);
+  if (isBridgeRunning(params.tunnelId)) {
+    return waitForBridgeReady({
+      infoPath,
+      tunnelId: params.tunnelId,
+      timeoutMs: params.timeoutMs,
+    });
+  }
+
+  const bridgeScript = path.join(import.meta.dirname, "tunnel-bridge-entry.js");
+  const logPath = bridgeLogPath(params.tunnelId);
+  const logFd = fs.openSync(logPath, "a");
+  const child = fork(bridgeScript, [], {
+    detached: true,
+    stdio: buildBridgeForkStdio(logFd),
+    env: {
+      ...process.env,
+      PUBBLUE_BRIDGE_MODE: params.bridgeMode,
+      PUBBLUE_BRIDGE_TUNNEL_ID: params.tunnelId,
+      PUBBLUE_BRIDGE_SOCKET: params.socketPath,
+      PUBBLUE_BRIDGE_INFO: infoPath,
+    },
+  });
+  fs.closeSync(logFd);
+  if (child.connected) {
+    child.disconnect();
+  }
+  child.unref();
+
+  return waitForBridgeReady({
+    child,
+    infoPath,
+    tunnelId: params.tunnelId,
+    timeoutMs: params.timeoutMs,
+  });
+}
+
+interface WaitForBridgeReadyParams {
+  child?: ChildProcess;
+  infoPath: string;
+  tunnelId: string;
+  timeoutMs: number;
+}
+
+function waitForBridgeReady({
+  child,
+  infoPath,
+  tunnelId,
+  timeoutMs,
+}: WaitForBridgeReadyParams): Promise<WaitForDaemonReadyResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let lastState: string | undefined;
+    let lastError: string | undefined;
+
+    const done = (result: WaitForDaemonReadyResult) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
+      clearTimeout(timeout);
+      if (child) {
+        child.off("exit", onExit);
+      }
+      resolve(result);
+    };
+
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      const suffix = signal ? ` (signal ${signal})` : "";
+      done({ ok: false, reason: `bridge exited with code ${code ?? 0}${suffix}` });
+    };
+
+    if (child) {
+      child.on("exit", onExit);
+    }
+
+    const poll = setInterval(() => {
+      if (!fs.existsSync(infoPath)) return;
+      const info = readBridgeProcessInfo(tunnelId);
+      if (!info) return;
+      lastState = info.status;
+      lastError = info.lastError;
+      if (info.status === "ready" && isBridgeRunning(tunnelId)) {
+        done({ ok: true });
+        return;
+      }
+      if (info.status === "error") {
+        done({
+          ok: false,
+          reason: info.lastError
+            ? `bridge reported startup error: ${info.lastError}`
+            : "bridge reported startup error",
+        });
+      }
+    }, 120);
+
+    const timeout = setTimeout(() => {
+      const reason =
+        lastError && lastError.length > 0
+          ? `timed out after ${timeoutMs}ms waiting for bridge readiness (last error: ${lastError})`
+          : `timed out after ${timeoutMs}ms waiting for bridge readiness (state: ${
+              lastState || "unknown"
+            })`;
+      done({ ok: false, reason });
+    }, timeoutMs);
+  });
 }

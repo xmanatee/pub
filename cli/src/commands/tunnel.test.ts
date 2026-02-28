@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBridgeForkStdio,
   buildDaemonForkStdio,
   getFollowReadDelayMs,
   messageContainsPong,
+  parseBridgeMode,
   parsePositiveIntegerOption,
   pickReusableTunnel,
   resolveTunnelIdSelection,
@@ -42,6 +44,12 @@ describe("buildDaemonForkStdio", () => {
   });
 });
 
+describe("buildBridgeForkStdio", () => {
+  it("includes required IPC channel for fork", () => {
+    expect(buildBridgeForkStdio(8)).toEqual(["ignore", 8, 8, "ipc"]);
+  });
+});
+
 describe("parsePositiveIntegerOption", () => {
   it("parses valid positive integers", () => {
     expect(parsePositiveIntegerOption("30", "--timeout")).toBe(30);
@@ -60,6 +68,18 @@ describe("parsePositiveIntegerOption", () => {
     expect(() => parsePositiveIntegerOption("abc", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
+  });
+});
+
+describe("parseBridgeMode", () => {
+  it("accepts supported bridge modes", () => {
+    expect(parseBridgeMode("openclaw")).toBe("openclaw");
+    expect(parseBridgeMode("none")).toBe("none");
+    expect(parseBridgeMode("OPENCLAW")).toBe("openclaw");
+  });
+
+  it("throws for unsupported bridge modes", () => {
+    expect(() => parseBridgeMode("claude-code")).toThrow("--bridge must be one of");
   });
 });
 

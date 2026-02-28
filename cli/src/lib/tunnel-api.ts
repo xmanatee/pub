@@ -11,6 +11,7 @@ export interface TunnelCreateResult {
 export interface TunnelInfo {
   tunnelId: string;
   status: string;
+  hasConnection: boolean;
   agentOffer?: string;
   browserAnswer?: string;
   agentCandidates: string[];

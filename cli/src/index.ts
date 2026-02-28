@@ -93,7 +93,7 @@ function readFile(filePath: string): { content: string; basename: string } {
 program
   .name("pubblue")
   .description("Publish static content and get shareable URLs")
-  .version("0.4.7");
+  .version("0.4.9");
 
 program
   .command("configure")
