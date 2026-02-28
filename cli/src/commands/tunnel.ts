@@ -9,6 +9,7 @@ import {
   CONTROL_CHANNEL,
   generateMessageId,
 } from "../lib/bridge-protocol.js";
+import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
 import {
   TunnelApiClient,
@@ -95,9 +96,34 @@ function bridgeLogPath(tunnelId: string): string {
   return path.join(tunnelInfoDir(), `${tunnelId}.bridge.log`);
 }
 
-function createApiClient(): TunnelApiClient {
-  const config = getConfig();
+function createApiClient(configOverride?: Config): TunnelApiClient {
+  const config = configOverride || getConfig();
   return new TunnelApiClient(config.baseUrl, config.apiKey);
+}
+
+function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (!bridgeConfig) return env;
+
+  const setIfMissing = (key: string, value: string | number | boolean | undefined) => {
+    if (value === undefined || value === null) return;
+    const current = env[key];
+    if (typeof current === "string" && current.length > 0) return;
+    env[key] = String(value);
+  };
+
+  setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
+  setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
+  setIfMissing("OPENCLAW_THREAD_ID", bridgeConfig.threadId);
+  if (bridgeConfig.deliver !== undefined) {
+    setIfMissing("OPENCLAW_DELIVER", bridgeConfig.deliver ? "1" : "0");
+  }
+  setIfMissing("OPENCLAW_DELIVER_CHANNEL", bridgeConfig.deliverChannel);
+  setIfMissing("OPENCLAW_REPLY_TO", bridgeConfig.replyTo);
+  if (bridgeConfig.deliverTimeoutMs !== undefined) {
+    setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
+  }
+  return env;
 }
 
 async function ensureNodeDatachannelAvailable(): Promise<void> {
@@ -291,26 +317,28 @@ export function registerTunnelCommands(program: Command): void {
     .option("--expires <duration>", "Auto-close after duration (e.g. 4h, 1d)", "24h")
     .option("-t, --tunnel <tunnelId>", "Attach/start daemon for an existing tunnel")
     .option("--new", "Always create a new tunnel (skip single-tunnel reuse)")
-    .option("--bridge <mode>", "Bridge mode: openclaw|none", "openclaw")
+    .option("--bridge <mode>", "Bridge mode: openclaw|none")
     .option("--foreground", "Run in foreground (don't fork, no managed bridge)")
     .action(
       async (opts: {
         expires: string;
         tunnel?: string;
         new?: boolean;
-        bridge: string;
+        bridge?: string;
         foreground?: boolean;
       }) => {
         await ensureNodeDatachannelAvailable();
-        const apiClient = createApiClient();
+        const runtimeConfig = getConfig();
+        const apiClient = createApiClient(runtimeConfig);
         let target: DaemonStartTarget | null = null;
         let bridgeMode: BridgeMode;
         try {
-          bridgeMode = parseBridgeMode(opts.bridge);
+          bridgeMode = parseBridgeMode(opts.bridge || runtimeConfig.bridge?.mode || "openclaw");
         } catch (error) {
           console.error(error instanceof Error ? error.message : String(error));
           process.exit(1);
         }
+        const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
         if (opts.tunnel) {
           try {
@@ -435,6 +463,7 @@ export function registerTunnelCommands(program: Command): void {
                 bridgeMode,
                 tunnelId: target.tunnelId,
                 socketPath,
+                bridgeProcessEnv,
                 timeoutMs: 8_000,
               });
               if (!bridgeReady.ok) {
@@ -531,6 +560,7 @@ export function registerTunnelCommands(program: Command): void {
               bridgeMode,
               tunnelId: target.tunnelId,
               socketPath,
+              bridgeProcessEnv,
               timeoutMs: 8_000,
             });
             if (!bridgeReady.ok) {
@@ -1098,6 +1128,7 @@ interface EnsureBridgeReadyParams {
   bridgeMode: BridgeMode;
   tunnelId: string;
   socketPath: string;
+  bridgeProcessEnv: NodeJS.ProcessEnv;
   timeoutMs: number;
 }
 
@@ -1124,7 +1155,7 @@ async function ensureBridgeReady(
     detached: true,
     stdio: buildBridgeForkStdio(logFd),
     env: {
-      ...process.env,
+      ...params.bridgeProcessEnv,
       PUBBLUE_BRIDGE_MODE: params.bridgeMode,
       PUBBLUE_BRIDGE_TUNNEL_ID: params.tunnelId,
       PUBBLUE_BRIDGE_SOCKET: params.socketPath,

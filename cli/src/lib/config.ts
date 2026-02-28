@@ -4,9 +4,26 @@ import * as path from "node:path";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
 
+export interface BridgeConfig {
+  mode?: "openclaw" | "none";
+  openclawPath?: string;
+  sessionId?: string;
+  threadId?: string;
+  deliver?: boolean;
+  deliverChannel?: string;
+  replyTo?: string;
+  deliverTimeoutMs?: number;
+}
+
+export interface SavedConfig {
+  apiKey: string;
+  bridge?: BridgeConfig;
+}
+
 export interface Config {
   apiKey: string;
   baseUrl: string;
+  bridge?: BridgeConfig;
 }
 
 export function getConfigDir(homeDir?: string): string {
@@ -25,16 +42,16 @@ function getConfigPath(homeDir?: string): string {
   return path.join(dir, "config.json");
 }
 
-export function loadConfig(homeDir?: string): Config | null {
+export function loadConfig(homeDir?: string): SavedConfig | null {
   const configPath = getConfigPath(homeDir);
   if (!fs.existsSync(configPath)) return null;
   const raw = fs.readFileSync(configPath, "utf-8");
-  return JSON.parse(raw) as Config;
+  return JSON.parse(raw) as SavedConfig;
 }
 
-export function saveConfig(config: { apiKey: string }, homeDir?: string): void {
+export function saveConfig(config: SavedConfig, homeDir?: string): void {
   const configPath = getConfigPath(homeDir);
-  fs.writeFileSync(configPath, `${JSON.stringify({ apiKey: config.apiKey }, null, 2)}\n`, {
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, {
     mode: 0o600,
   });
   try {
@@ -48,12 +65,12 @@ export function getConfig(homeDir?: string): Config {
   const envKey = process.env.PUBBLUE_API_KEY;
   const envUrl = process.env.PUBBLUE_URL;
   const baseUrl = envUrl || DEFAULT_BASE_URL;
+  const saved = loadConfig(homeDir);
 
   if (envKey) {
-    return { apiKey: envKey, baseUrl };
+    return { apiKey: envKey, baseUrl, bridge: saved?.bridge };
   }
 
-  const saved = loadConfig(homeDir);
   if (!saved) {
     throw new Error(
       "Not configured. Run `pubblue configure` or set PUBBLUE_API_KEY environment variable.",
@@ -63,5 +80,6 @@ export function getConfig(homeDir?: string): Config {
   return {
     apiKey: saved.apiKey,
     baseUrl,
+    bridge: saved.bridge,
   };
 }

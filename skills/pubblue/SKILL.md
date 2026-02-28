@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.9"
+  version: "3.4.10"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,11 +17,11 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.4.9+**.
+Use **pubblue CLI 0.4.10+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.9
+npm i -g pubblue@0.4.10
 ```
 
 ## Setup
@@ -36,6 +36,16 @@ echo "pub_KEY" | pubblue configure --api-key-stdin
 Key source: <https://pub.blue/dashboard>
 Config path: `~/.config/pubblue/config.json`
 Env override: `PUBBLUE_API_KEY`
+
+Optional OpenClaw bridge config (saved in CLI config):
+```bash
+pubblue configure --set bridge.mode=openclaw
+pubblue configure --set openclaw.path=/app/dist/index.js
+pubblue configure --set openclaw.sessionId=<session-id>
+# or:
+pubblue configure --set openclaw.threadId=<thread-id>
+pubblue configure --show
+```
 
 ## Core Publish Commands
 
@@ -77,6 +87,10 @@ Optional explicit bridge selector:
 pubblue tunnel start --bridge openclaw --expires 4h
 pubblue tunnel start --bridge none --expires 4h
 ```
+
+Behavior:
+- Default `tunnel start` runs daemon + managed bridge in background, but only returns after health checks pass.
+- `--foreground` keeps process attached to current shell and does not run managed bridge.
 
 2. Wait for browser:
 ```bash

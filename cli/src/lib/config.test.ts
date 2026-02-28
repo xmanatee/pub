@@ -28,11 +28,34 @@ describe("config", () => {
     expect(loadConfig(tmpDir)).toEqual({ apiKey: "pub_test" });
   });
 
+  it("saves and loads bridge config", () => {
+    saveConfig(
+      {
+        apiKey: "pub_test",
+        bridge: {
+          mode: "openclaw",
+          sessionId: "session-123",
+          deliver: true,
+        },
+      },
+      tmpDir,
+    );
+    expect(loadConfig(tmpDir)).toEqual({
+      apiKey: "pub_test",
+      bridge: {
+        mode: "openclaw",
+        sessionId: "session-123",
+        deliver: true,
+      },
+    });
+  });
+
   it("uses default base URL when no env var is set", () => {
     saveConfig({ apiKey: "pub_test" }, tmpDir);
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_test");
     expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
+    expect(config.bridge).toBeUndefined();
   });
 
   it("PUBBLUE_URL env var overrides the default base URL", () => {
@@ -45,12 +68,19 @@ describe("config", () => {
   });
 
   it("prefers PUBBLUE_API_KEY env var over saved config", () => {
-    saveConfig({ apiKey: "pub_saved" }, tmpDir);
+    saveConfig(
+      {
+        apiKey: "pub_saved",
+        bridge: { mode: "openclaw", threadId: "thread-a" },
+      },
+      tmpDir,
+    );
     process.env.PUBBLUE_API_KEY = "pub_env";
 
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_env");
     expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
+    expect(config.bridge).toEqual({ mode: "openclaw", threadId: "thread-a" });
   });
 
   it("throws when no config available", () => {

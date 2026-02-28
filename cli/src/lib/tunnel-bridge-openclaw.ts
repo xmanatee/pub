@@ -90,7 +90,12 @@ function resolveOpenClawPath(): string {
   }
 
   throw new Error(
-    `OpenClaw executable was not found. Set OPENCLAW_PATH or install openclaw. Checked: ${OPENCLAW_DISCOVERY_PATHS.join(", ")}`,
+    [
+      "OpenClaw executable was not found.",
+      "Configure it with: pubblue configure --set openclaw.path=/absolute/path/to/openclaw",
+      "Or set OPENCLAW_PATH in environment.",
+      `Checked: ${OPENCLAW_DISCOVERY_PATHS.join(", ")}`,
+    ].join(" "),
   );
 }
 
@@ -232,7 +237,13 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
       "";
     if (sessionId.length === 0) {
       throw new Error(
-        "OpenClaw session could not be resolved. Set OPENCLAW_SESSION_ID or OPENCLAW_THREAD_ID.",
+        [
+          "OpenClaw session could not be resolved.",
+          "Configure one of:",
+          "  pubblue configure --set openclaw.sessionId=<session-id>",
+          "  pubblue configure --set openclaw.threadId=<thread-id>",
+          "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
+        ].join("\n"),
       );
     }
 
