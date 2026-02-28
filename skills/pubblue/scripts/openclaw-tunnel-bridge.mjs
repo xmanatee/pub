@@ -6,7 +6,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
-const MIN_SUPPORTED_CLI = [0, 4, 5];
+const MIN_SUPPORTED_CLI = [0, 4, 7];
 const MAX_SEEN_IDS = 1000;
 const OPENCLAW_DISCOVERY_PATHS = [
   join(homedir(), "openclaw", "dist", "index.js"),
@@ -56,7 +56,7 @@ function usage() {
       "  OPENCLAW_GATEWAY_TIMEOUT_MS (default: 30000)",
       "",
       "Notes:",
-      "  - Requires pubblue >= 0.4.5",
+      "  - Requires pubblue >= 0.4.7",
       "  - Maintains one long-lived pubblue read --follow consumer",
     ].join("\n"),
   );
@@ -117,6 +117,7 @@ function sleep(ms) {
 
 async function runPubblue(bin, args, stdinText) {
   return new Promise((resolve) => {
+    let settled = false;
     const child = spawn(bin, args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: process.env,
@@ -132,8 +133,19 @@ async function runPubblue(bin, args, stdinText) {
       stderr += chunk.toString();
     });
 
-    child.on("close", (code) => {
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
       resolve({ code: code ?? 1, stdout, stderr });
+    };
+
+    child.on("error", (error) => {
+      stderr += error instanceof Error ? error.message : String(error);
+      finish(1);
+    });
+
+    child.on("close", (code) => {
+      finish(code ?? 1);
     });
 
     if (typeof stdinText === "string") child.stdin.write(stdinText);
@@ -365,6 +377,50 @@ function getMode() {
   return MODES.GATEWAY_REPLY;
 }
 
+function parseTimeoutMs(rawValue, fallbackMs) {
+  const parsed = Number.parseInt(rawValue || `${fallbackMs}`, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackMs;
+}
+
+function ensureOpenClawDeliverConfigured() {
+  if (process.env.OPENCLAW_DELIVER_CMD) return;
+  const openclawPath = resolveOpenClawPath();
+  if (!openclawPath) {
+    throw new Error(
+      "OpenClaw deliver mode selected, but OpenClaw executable was not found. Set OPENCLAW_PATH or OPENCLAW_DELIVER_CMD.",
+    );
+  }
+}
+
+async function verifyGatewayReachable(params) {
+  const { agentId, gatewayToken, gatewayUrl } = params;
+  const timeoutMs = parseTimeoutMs(process.env.OPENCLAW_GATEWAY_TIMEOUT_MS, 30_000);
+  const headers = {};
+  if (gatewayToken) headers.Authorization = `Bearer ${gatewayToken}`;
+  if (agentId) headers["x-openclaw-agent-id"] = agentId;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.min(timeoutMs, 10_000));
+  try {
+    const response = await fetch(`${gatewayUrl}/v1/models`, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gateway preflight failed (${response.status}): ${body.slice(0, 300)}`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Gateway preflight timed out while calling /v1/models");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function buildTunnelInboundPrompt(tunnelId, userText) {
   return [
     `[Pubblue Tunnel ${tunnelId}] Incoming user message:`,
@@ -387,12 +443,7 @@ async function dispatchGatewayReply(params) {
     sessionKey,
     text,
   } = params;
-  const requestedTimeoutMs = Number.parseInt(
-    process.env.OPENCLAW_GATEWAY_TIMEOUT_MS || "30000",
-    10,
-  );
-  const timeoutMs =
-    Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0 ? requestedTimeoutMs : 30000;
+  const timeoutMs = parseTimeoutMs(process.env.OPENCLAW_GATEWAY_TIMEOUT_MS, 30_000);
   const headers = {
     "Content-Type": "application/json",
   };
@@ -446,7 +497,7 @@ function dispatchOpenClawDeliver(params) {
         AGENT_MSG: deliverText,
         AGENT_TUNNEL_ID: tunnelId,
       },
-      timeout: Number.parseInt(process.env.OPENCLAW_DELIVER_TIMEOUT_MS || "120000", 10),
+      timeout: parseTimeoutMs(process.env.OPENCLAW_DELIVER_TIMEOUT_MS, 120_000),
     });
     return;
   }
@@ -493,7 +544,7 @@ function dispatchOpenClawDeliver(params) {
 
   execFileSync(execBin, args, {
     stdio: "inherit",
-    timeout: Number.parseInt(process.env.OPENCLAW_DELIVER_TIMEOUT_MS || "120000", 10),
+    timeout: parseTimeoutMs(process.env.OPENCLAW_DELIVER_TIMEOUT_MS, 120_000),
   });
 }
 
@@ -532,6 +583,21 @@ async function main() {
   if (!cliVersion || compareSemver(cliVersion, MIN_SUPPORTED_CLI) < 0) {
     console.error(
       `pubblue ${versionCheck.stdout.trim()} is unsupported. Need >= ${MIN_SUPPORTED_CLI.join(".")}.`,
+    );
+    process.exit(1);
+  }
+
+  try {
+    if (mode === MODES.OPENCLAW_DELIVER) {
+      ensureOpenClawDeliverConfigured();
+      console.error("Bridge preflight: OpenClaw deliver mode is configured.");
+    } else {
+      await verifyGatewayReachable({ agentId, gatewayToken, gatewayUrl });
+      console.error(`Bridge preflight: Gateway reachable at ${gatewayUrl}.`);
+    }
+  } catch (error) {
+    console.error(
+      `Bridge preflight failed: ${error instanceof Error ? error.message : String(error)}`,
     );
     process.exit(1);
   }
@@ -684,10 +750,18 @@ async function main() {
         .catch(async (error) => {
           const message = error instanceof Error ? error.message : String(error);
           console.error(`Bridge pipeline error: ${message}`);
-          await sendTunnelMessage(
-            `Bridge error: ${message}\n` +
-              "Check bridge mode/env, OpenClaw session routing, or gateway auth/session config.",
-          ).catch(() => {});
+          try {
+            await sendTunnelMessage(
+              `Bridge error: ${message}\n` +
+                "Check bridge mode/env, OpenClaw session routing, or gateway auth/session config.",
+            );
+          } catch (sendError) {
+            console.error(
+              `Failed to report bridge error to tunnel: ${
+                sendError instanceof Error ? sendError.message : String(sendError)
+              }`,
+            );
+          }
         });
     });
 
@@ -700,7 +774,7 @@ async function main() {
       child.on("close", (code) => resolve(code ?? 1));
     });
 
-    await processing.catch(() => {});
+    await processing;
     lines.close();
     followChild = null;
 

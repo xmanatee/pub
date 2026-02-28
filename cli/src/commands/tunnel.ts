@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { Command } from "commander";
 import { type BridgeMessage, CHANNELS, generateMessageId } from "../lib/bridge-protocol.js";
 import { getConfig } from "../lib/config.js";
-import { TunnelApiClient } from "../lib/tunnel-api.js";
+import { TunnelApiClient, TunnelApiError, type TunnelListItem } from "../lib/tunnel-api.js";
 import { getSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
 
 const TEXT_FILE_EXTENSIONS = new Set([
@@ -128,34 +128,168 @@ export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, 
   return ["ignore", logFd, logFd, "ipc"];
 }
 
+function getPublicTunnelUrl(tunnelId: string): string {
+  const base = process.env.PUBBLUE_PUBLIC_URL || "https://pub.blue";
+  return `${base.replace(/\/$/, "")}/t/${tunnelId}`;
+}
+
+export function pickReusableTunnel(
+  tunnels: TunnelListItem[],
+  nowMs = Date.now(),
+): TunnelListItem | null {
+  const active = tunnels
+    .filter((t) => t.status === "active" && t.expiresAt > nowMs)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  return active[0] ?? null;
+}
+
+function readLogTail(logPath: string, maxChars = 4_000): string | null {
+  if (!fs.existsSync(logPath)) return null;
+  try {
+    const content = fs.readFileSync(logPath, "utf-8");
+    if (content.length <= maxChars) return content;
+    return content.slice(-maxChars);
+  } catch {
+    return null;
+  }
+}
+
+function formatApiError(error: unknown): string {
+  if (error instanceof TunnelApiError) {
+    if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+      return `Rate limit exceeded. Retry after ${error.retryAfterSeconds}s.`;
+    }
+    return `${error.message} (HTTP ${error.status})`;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function cleanupCreatedTunnelOnStartFailure(
+  apiClient: TunnelApiClient,
+  target: DaemonStartTarget,
+): Promise<void> {
+  if (!target.createdNew) return;
+  try {
+    await apiClient.close(target.tunnelId);
+  } catch (closeError) {
+    console.error(
+      `Failed to clean up newly created tunnel ${target.tunnelId}: ${formatApiError(closeError)}`,
+    );
+  }
+}
+
+interface DaemonStartTarget {
+  createdNew: boolean;
+  expiresAt: number;
+  mode: "created" | "existing";
+  tunnelId: string;
+  url: string;
+}
+
 export function registerTunnelCommands(program: Command): void {
   const tunnel = program.command("tunnel").description("P2P encrypted tunnel to browser");
 
   tunnel
     .command("start")
-    .description("Start a new tunnel (spawns background daemon)")
+    .description("Start a tunnel daemon (reuses existing tunnel when possible)")
     .option("--expires <duration>", "Auto-close after duration (e.g. 4h, 1d)", "24h")
+    .option("-t, --tunnel <tunnelId>", "Attach/start daemon for an existing tunnel")
+    .option("--new", "Always create a new tunnel (skip single-tunnel reuse)")
     .option("--foreground", "Run in foreground (don't fork)")
-    .action(async (opts: { expires: string; foreground?: boolean }) => {
+    .action(async (opts: { expires: string; tunnel?: string; new?: boolean; foreground?: boolean }) => {
       await ensureNodeDatachannelAvailable();
       const apiClient = createApiClient();
+      let target: DaemonStartTarget | null = null;
 
-      const result = await apiClient.create({
-        expiresIn: opts.expires,
-      });
+      if (opts.tunnel) {
+        try {
+          const existing = await apiClient.get(opts.tunnel);
+          if (existing.status === "closed" || existing.expiresAt <= Date.now()) {
+            console.error(`Tunnel ${opts.tunnel} is closed or expired.`);
+            process.exit(1);
+          }
+          target = {
+            createdNew: false,
+            expiresAt: existing.expiresAt,
+            mode: "existing",
+            tunnelId: existing.tunnelId,
+            url: getPublicTunnelUrl(existing.tunnelId),
+          };
+        } catch (error) {
+          console.error(`Failed to use tunnel ${opts.tunnel}: ${formatApiError(error)}`);
+          process.exit(1);
+        }
+      } else if (!opts.new) {
+        try {
+          const listed = await apiClient.list();
+          const active = listed
+            .filter((t) => t.status === "active" && t.expiresAt > Date.now())
+            .sort((a, b) => b.createdAt - a.createdAt);
+          const reusable = pickReusableTunnel(listed);
+          if (reusable) {
+            target = {
+              createdNew: false,
+              expiresAt: reusable.expiresAt,
+              mode: "existing",
+              tunnelId: reusable.tunnelId,
+              url: getPublicTunnelUrl(reusable.tunnelId),
+            };
+            if (active.length > 1) {
+              console.error(
+                [
+                  `Multiple active tunnels found: ${active.map((t) => t.tunnelId).join(", ")}`,
+                  `Reusing most recent active tunnel ${reusable.tunnelId}.`,
+                  "Use --tunnel <id> to choose explicitly or --new to force creation.",
+                ].join("\n"),
+              );
+            } else {
+              console.error(
+                `Reusing existing active tunnel ${reusable.tunnelId}. Use --new to force creation.`,
+              );
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to list tunnels for reuse check: ${formatApiError(error)}`);
+          process.exit(1);
+        }
+      }
 
-      const socketPath = getSocketPath(result.tunnelId);
-      const infoPath = tunnelInfoPath(result.tunnelId);
+      if (!target) {
+        try {
+          const created = await apiClient.create({
+            expiresIn: opts.expires,
+          });
+          target = {
+            createdNew: true,
+            expiresAt: created.expiresAt,
+            mode: "created",
+            tunnelId: created.tunnelId,
+            url: created.url,
+          };
+        } catch (error) {
+          console.error(`Failed to create tunnel: ${formatApiError(error)}`);
+          process.exit(1);
+        }
+      }
+      if (!target) {
+        console.error("Failed to resolve tunnel target.");
+        process.exit(1);
+      }
+
+      const socketPath = getSocketPath(target.tunnelId);
+      const infoPath = tunnelInfoPath(target.tunnelId);
+      const logPath = tunnelLogPath(target.tunnelId);
 
       if (opts.foreground) {
         const { startDaemon } = await import("../lib/tunnel-daemon.js");
-        console.log(`Tunnel started: ${result.url}`);
-        console.log(`Tunnel ID: ${result.tunnelId}`);
-        console.log(`Expires: ${new Date(result.expiresAt).toISOString()}`);
+        console.log(`Tunnel started: ${target.url}`);
+        console.log(`Tunnel ID: ${target.tunnelId}`);
+        console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
+        if (target.mode === "existing") console.log("Mode: attached existing tunnel");
         console.log("Running in foreground. Press Ctrl+C to stop.");
         try {
           await startDaemon({
-            tunnelId: result.tunnelId,
+            tunnelId: target.tunnelId,
             apiClient,
             socketPath,
             infoPath,
@@ -166,16 +300,36 @@ export function registerTunnelCommands(program: Command): void {
           process.exit(1);
         }
       } else {
+        if (isDaemonRunning(target.tunnelId)) {
+          try {
+            const status = await ipcCall(socketPath, { method: "status", params: {} });
+            if (!status.ok) throw new Error(String(status.error || "status check failed"));
+          } catch (error) {
+            console.error(
+              `Daemon process exists but is not responding: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+            console.error("Run `pubblue tunnel close <id>` and start again.");
+            process.exit(1);
+          }
+          console.log(`Tunnel started: ${target.url}`);
+          console.log(`Tunnel ID: ${target.tunnelId}`);
+          console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
+          console.log("Daemon already running for this tunnel.");
+          console.log(`Daemon log: ${logPath}`);
+          return;
+        }
+
         const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
         const config = getConfig();
-        const logPath = tunnelLogPath(result.tunnelId);
         const daemonLogFd = fs.openSync(logPath, "a");
         const child = fork(daemonScript, [], {
           detached: true,
           stdio: buildDaemonForkStdio(daemonLogFd),
           env: {
             ...process.env,
-            PUBBLUE_DAEMON_TUNNEL_ID: result.tunnelId,
+            PUBBLUE_DAEMON_TUNNEL_ID: target.tunnelId,
             PUBBLUE_DAEMON_BASE_URL: config.baseUrl,
             PUBBLUE_DAEMON_API_KEY: config.apiKey,
             PUBBLUE_DAEMON_SOCKET: socketPath,
@@ -188,18 +342,49 @@ export function registerTunnelCommands(program: Command): void {
         }
         child.unref();
 
-        // Wait for daemon readiness (info file appears) or early exit
-        const ready = await waitForDaemonReady(infoPath, child, 5000);
-        if (!ready) {
-          console.error("Daemon failed to start. Cleaning up tunnel...");
+        console.log(`Starting daemon for tunnel ${target.tunnelId}...`);
+        const ready = await waitForDaemonReady({
+          child,
+          infoPath,
+          socketPath,
+          timeoutMs: 8_000,
+        });
+        if (!ready.ok) {
+          console.error(`Daemon failed to start: ${ready.reason ?? "unknown reason"}`);
           console.error(`Daemon log: ${logPath}`);
-          await apiClient.close(result.tunnelId).catch(() => {});
+          const tail = readLogTail(logPath);
+          if (tail) {
+            console.error("---- daemon log tail ----");
+            console.error(tail.trimEnd());
+            console.error("---- end daemon log tail ----");
+          }
+          await cleanupCreatedTunnelOnStartFailure(apiClient, target);
           process.exit(1);
         }
 
-        console.log(`Tunnel started: ${result.url}`);
-        console.log(`Tunnel ID: ${result.tunnelId}`);
-        console.log(`Expires: ${new Date(result.expiresAt).toISOString()}`);
+        const offerReady = await waitForAgentOffer({
+          apiClient,
+          tunnelId: target.tunnelId,
+          timeoutMs: 5_000,
+        });
+        if (!offerReady.ok) {
+          console.error(`Daemon started but signaling is not ready: ${offerReady.reason}`);
+          console.error(`Daemon log: ${logPath}`);
+          const tail = readLogTail(logPath);
+          if (tail) {
+            console.error("---- daemon log tail ----");
+            console.error(tail.trimEnd());
+            console.error("---- end daemon log tail ----");
+          }
+          await cleanupCreatedTunnelOnStartFailure(apiClient, target);
+          process.exit(1);
+        }
+
+        console.log(`Tunnel started: ${target.url}`);
+        console.log(`Tunnel ID: ${target.tunnelId}`);
+        console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
+        if (target.mode === "existing") console.log("Mode: attached existing tunnel");
+        console.log("Daemon health: OK");
         console.log(`Daemon log: ${logPath}`);
       }
     });
@@ -416,20 +601,18 @@ export function registerTunnelCommands(program: Command): void {
     .argument("<tunnelId>", "Tunnel ID")
     .action(async (tunnelId: string) => {
       const socketPath = getSocketPath(tunnelId);
-      let closedByDaemon = false;
       try {
-        const daemonResult = await ipcCall(socketPath, { method: "close", params: {} });
-        closedByDaemon = daemonResult.ok;
+        await ipcCall(socketPath, { method: "close", params: {} });
       } catch {
-        closedByDaemon = false;
+        // Daemon may already be stopped; continue with API close.
       }
 
-      if (!closedByDaemon) {
-        const apiClient = createApiClient();
-        try {
-          await apiClient.close(tunnelId);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+      const apiClient = createApiClient();
+      try {
+        await apiClient.close(tunnelId);
+      } catch (error) {
+        const message = formatApiError(error);
+        if (!/Tunnel not found/i.test(message)) {
           console.error(`Failed to close tunnel ${tunnelId}: ${message}`);
           process.exit(1);
         }
@@ -456,27 +639,93 @@ async function resolveActiveTunnel(): Promise<string> {
   process.exit(1);
 }
 
-function waitForDaemonReady(
-  infoPath: string,
-  child: ChildProcess,
-  timeoutMs: number,
-): Promise<boolean> {
+interface WaitForDaemonReadyParams {
+  child: ChildProcess;
+  infoPath: string;
+  socketPath: string;
+  timeoutMs: number;
+}
+
+interface WaitForDaemonReadyResult {
+  ok: boolean;
+  reason?: string;
+}
+
+function waitForDaemonReady({
+  child,
+  infoPath,
+  socketPath,
+  timeoutMs,
+}: WaitForDaemonReadyParams): Promise<WaitForDaemonReadyResult> {
   return new Promise((resolve) => {
     let settled = false;
-    const done = (value: boolean) => {
+    let pollInFlight = false;
+    let lastIpcError: string | null = null;
+
+    const done = (result: WaitForDaemonReadyResult) => {
       if (settled) return;
       settled = true;
       clearInterval(poll);
       clearTimeout(timeout);
-      resolve(value);
+      child.off("exit", onExit);
+      resolve(result);
     };
 
-    child.on("exit", () => done(false));
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      const suffix = signal ? ` (signal ${signal})` : "";
+      done({ ok: false, reason: `daemon exited with code ${code ?? 0}${suffix}` });
+    };
+
+    child.on("exit", onExit);
 
     const poll = setInterval(() => {
-      if (fs.existsSync(infoPath)) done(true);
-    }, 100);
+      if (pollInFlight || !fs.existsSync(infoPath)) return;
+      pollInFlight = true;
+      void ipcCall(socketPath, { method: "status", params: {} })
+        .then((status) => {
+          if (status.ok) done({ ok: true });
+        })
+        .catch((error) => {
+          lastIpcError = error instanceof Error ? error.message : String(error);
+        })
+        .finally(() => {
+          pollInFlight = false;
+        });
+    }, 120);
 
-    const timeout = setTimeout(() => done(false), timeoutMs);
+    const timeout = setTimeout(() => {
+      const reason = lastIpcError
+        ? `timed out after ${timeoutMs}ms waiting for daemon readiness (last IPC error: ${lastIpcError})`
+        : `timed out after ${timeoutMs}ms waiting for daemon readiness`;
+      done({ ok: false, reason });
+    }, timeoutMs);
   });
+}
+
+async function waitForAgentOffer(params: {
+  apiClient: TunnelApiClient;
+  tunnelId: string;
+  timeoutMs: number;
+}): Promise<WaitForDaemonReadyResult> {
+  const startedAt = Date.now();
+  let lastError: string | null = null;
+
+  while (Date.now() - startedAt < params.timeoutMs) {
+    try {
+      const tunnel = await params.apiClient.get(params.tunnelId);
+      if (typeof tunnel.agentOffer === "string" && tunnel.agentOffer.length > 0) {
+        return { ok: true };
+      }
+    } catch (error) {
+      lastError = formatApiError(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  return {
+    ok: false,
+    reason: lastError
+      ? `agent offer was not published in time (last API error: ${lastError})`
+      : "agent offer was not published in time",
+  };
 }

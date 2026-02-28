@@ -629,15 +629,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   ipcServer.listen(socketPath);
 
-  const infoDir = path.dirname(infoPath);
-  if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
-  fs.writeFileSync(
-    infoPath,
-    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime }),
-  );
-
-  scheduleNextPoll(0);
-
   try {
     await runNegotiationCycle();
   } catch (error) {
@@ -646,6 +637,15 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     await cleanup();
     throw new Error(`Failed to generate WebRTC offer: ${message}`);
   }
+
+  const infoDir = path.dirname(infoPath);
+  if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
+  fs.writeFileSync(
+    infoPath,
+    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime }),
+  );
+
+  scheduleNextPoll(0);
 
   async function cleanup(): Promise<void> {
     if (stopped) return;
@@ -671,10 +671,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       // Ignore info cleanup errors.
       debugLog("failed to remove daemon info file during cleanup", error);
     }
-
-    await apiClient.close(tunnelId).catch((error) => {
-      markError("failed to close tunnel on API during cleanup", error);
-    });
   }
 
   async function shutdown(): Promise<void> {
