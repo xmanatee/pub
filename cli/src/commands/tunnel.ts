@@ -5,7 +5,12 @@ import * as path from "node:path";
 import { Command } from "commander";
 import { type BridgeMessage, CHANNELS, generateMessageId } from "../lib/bridge-protocol.js";
 import { getConfig } from "../lib/config.js";
-import { TunnelApiClient, TunnelApiError, type TunnelListItem } from "../lib/tunnel-api.js";
+import {
+  TunnelApiClient,
+  TunnelApiError,
+  type TunnelInfo,
+  type TunnelListItem,
+} from "../lib/tunnel-api.js";
 import { getSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
 
 const TEXT_FILE_EXTENSIONS = new Set([
@@ -77,6 +82,14 @@ function tunnelLogPath(tunnelId: string): string {
   return path.join(tunnelInfoDir(), `${tunnelId}.log`);
 }
 
+function bridgeInfoPath(tunnelId: string): string {
+  return path.join(tunnelInfoDir(), `${tunnelId}.bridge.json`);
+}
+
+function bridgeLogPath(tunnelId: string): string {
+  return path.join(tunnelInfoDir(), `${tunnelId}.bridge.log`);
+}
+
 function createApiClient(): TunnelApiClient {
   const config = getConfig();
   return new TunnelApiClient(config.baseUrl, config.apiKey);
@@ -112,6 +125,53 @@ function isDaemonRunning(tunnelId: string): boolean {
   }
 }
 
+interface BridgeProcessInfo {
+  pid: number;
+  tunnelId: string;
+  mode: string;
+  sessionId?: string;
+  startedAt: number;
+  status?: string;
+  lastError?: string;
+}
+
+function readBridgeProcessInfo(tunnelId: string): BridgeProcessInfo | null {
+  const infoPath = bridgeInfoPath(tunnelId);
+  if (!fs.existsSync(infoPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(infoPath, "utf-8")) as BridgeProcessInfo;
+  } catch {
+    return null;
+  }
+}
+
+function isBridgeRunning(tunnelId: string): boolean {
+  const infoPath = bridgeInfoPath(tunnelId);
+  if (!fs.existsSync(infoPath)) return false;
+  try {
+    const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as BridgeProcessInfo;
+    process.kill(info.pid, 0);
+    return true;
+  } catch {
+    try {
+      fs.unlinkSync(infoPath);
+    } catch {
+      // ignore stale bridge cleanup failures
+    }
+    return false;
+  }
+}
+
+function stopBridgeProcess(tunnelId: string): void {
+  const info = readBridgeProcessInfo(tunnelId);
+  if (!info || !Number.isFinite(info.pid)) return;
+  try {
+    process.kill(info.pid, "SIGTERM");
+  } catch {
+    // ignore if already stopped
+  }
+}
+
 export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures: number): number {
   if (!disconnected) return 1_000;
   return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
@@ -126,6 +186,23 @@ export function resolveTunnelIdSelection(
 
 export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
   return ["ignore", logFd, logFd, "ipc"];
+}
+
+export function parsePositiveIntegerOption(raw: string, optionName: string): number {
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${optionName} must be a positive integer. Received: ${raw}`);
+  }
+  return parsed;
+}
+
+export function messageContainsPong(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const message = (payload as { msg?: unknown }).msg;
+  if (!message || typeof message !== "object") return false;
+  const type = (message as { type?: unknown }).type;
+  const data = (message as { data?: unknown }).data;
+  return type === "text" && typeof data === "string" && data.trim().toLowerCase() === "pong";
 }
 
 function getPublicTunnelUrl(tunnelId: string): string {
@@ -578,6 +655,149 @@ export function registerTunnelCommands(program: Command): void {
         console.log(`  Log: ${logPath}`);
       }
     });
+
+  tunnel
+    .command("doctor")
+    .description("Run strict end-to-end tunnel checks (daemon, channels, chat/canvas ping)")
+    .option("-t, --tunnel <tunnelId>", "Tunnel ID (auto-detected if one active)")
+    .option("--timeout <seconds>", "Timeout for pong wait and repeated reads", "30")
+    .option("--wait-pong", "Wait for user to reply with exact text 'pong' on chat channel")
+    .option("--skip-chat", "Skip chat ping check")
+    .option("--skip-canvas", "Skip canvas ping check")
+    .action(
+      async (opts: {
+        tunnel?: string;
+        timeout: string;
+        waitPong?: boolean;
+        skipChat?: boolean;
+        skipCanvas?: boolean;
+      }) => {
+        const timeoutSeconds = parsePositiveIntegerOption(opts.timeout, "--timeout");
+        const timeoutMs = timeoutSeconds * 1_000;
+        const tunnelId = opts.tunnel || (await resolveActiveTunnel());
+        const socketPath = getSocketPath(tunnelId);
+        const apiClient = createApiClient();
+
+        const fail = (message: string): never => {
+          console.error(`Doctor failed: ${message}`);
+          process.exit(1);
+        };
+
+        console.log(`Doctor tunnel: ${tunnelId}`);
+
+        let statusResponse: Record<string, unknown>;
+        try {
+          statusResponse = await ipcCall(socketPath, { method: "status", params: {} });
+        } catch (error) {
+          fail(
+            `daemon is unreachable (${error instanceof Error ? error.message : String(error)}).`,
+          );
+        }
+
+        if (!statusResponse.ok) {
+          fail(`daemon returned non-ok status: ${String(statusResponse.error || "unknown error")}`);
+        }
+        if (!statusResponse.connected) {
+          fail("daemon is running but browser is not connected.");
+        }
+
+        const channelNames = Array.isArray(statusResponse.channels)
+          ? statusResponse.channels.map((entry) => String(entry))
+          : [];
+        for (const required of [CHANNELS.CONTROL, CHANNELS.CHAT, CHANNELS.CANVAS]) {
+          if (!channelNames.includes(required)) {
+            fail(`required channel is missing: ${required}`);
+          }
+        }
+        console.log("Daemon/channel check: OK");
+
+        let tunnelInfo: TunnelInfo;
+        try {
+          tunnelInfo = await apiClient.get(tunnelId);
+        } catch (error) {
+          fail(`failed to fetch tunnel info from API: ${formatApiError(error)}`);
+        }
+
+        if (tunnelInfo.status !== "active") {
+          fail(`API reports tunnel is not active (status: ${tunnelInfo.status})`);
+        }
+        if (tunnelInfo.expiresAt <= Date.now()) {
+          fail("API reports tunnel is expired.");
+        }
+        if (!tunnelInfo.hasConnection) {
+          fail("API reports no browser connection.");
+        }
+        if (typeof tunnelInfo.agentOffer !== "string" || tunnelInfo.agentOffer.length === 0) {
+          fail("agent offer was not published.");
+        }
+        console.log("API/signaling check: OK");
+
+        if (!opts.skipChat) {
+          const pingText = "This is a ping test. Reply with 'pong'.";
+          const pingMsg: BridgeMessage = {
+            id: generateMessageId(),
+            type: "text",
+            data: pingText,
+          };
+          const writeResponse = await ipcCall(socketPath, {
+            method: "write",
+            params: { channel: CHANNELS.CHAT, msg: pingMsg },
+          });
+          if (!writeResponse.ok) {
+            fail(`chat ping failed: ${String(writeResponse.error || "unknown write error")}`);
+          }
+          console.log("Chat ping write ACK: OK");
+
+          if (opts.waitPong) {
+            const startedAt = Date.now();
+            let receivedPong = false;
+            while (Date.now() - startedAt < timeoutMs) {
+              const readResponse = await ipcCall(socketPath, {
+                method: "read",
+                params: { channel: CHANNELS.CHAT },
+              });
+              if (!readResponse.ok) {
+                fail(
+                  `chat read failed while waiting for pong: ${String(readResponse.error || "unknown read error")}`,
+                );
+              }
+              const messages = Array.isArray(readResponse.messages) ? readResponse.messages : [];
+              if (messages.some((entry) => messageContainsPong(entry))) {
+                receivedPong = true;
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1_000));
+            }
+
+            if (!receivedPong) {
+              fail(
+                `timed out after ${timeoutSeconds}s waiting for exact 'pong' reply on chat channel.`,
+              );
+            }
+            console.log("Chat pong roundtrip: OK");
+          }
+        }
+
+        if (!opts.skipCanvas) {
+          const stamp = new Date().toISOString();
+          const canvasMsg: BridgeMessage = {
+            id: generateMessageId(),
+            type: "html",
+            data: `<!doctype html><html><body style="margin:0;padding:24px;font-family:system-ui;background:#111;color:#f5f5f5">Canvas ping OK<br><small>${stamp}</small></body></html>`,
+          };
+          const canvasResponse = await ipcCall(socketPath, {
+            method: "write",
+            params: { channel: CHANNELS.CANVAS, msg: canvasMsg },
+          });
+          if (!canvasResponse.ok) {
+            fail(`canvas ping failed: ${String(canvasResponse.error || "unknown write error")}`);
+          }
+          console.log("Canvas ping write ACK: OK");
+        }
+
+        console.log("Tunnel doctor: PASS");
+      },
+    );
 
   tunnel
     .command("list")

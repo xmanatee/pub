@@ -6,20 +6,24 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
-const MIN_SUPPORTED_CLI = [0, 4, 7];
+const MIN_SUPPORTED_CLI = [0, 4, 8];
 const MAX_SEEN_IDS = 1000;
 const OPENCLAW_DISCOVERY_PATHS = [
+  "/app/dist/index.js",
   join(homedir(), "openclaw", "dist", "index.js"),
   join(homedir(), ".openclaw", "openclaw"),
   "/usr/local/bin/openclaw",
   "/opt/homebrew/bin/openclaw",
 ];
+const PUBBLUE_DISCOVERY_PATHS = [
+  join(homedir(), ".openclaw", "bin", "pubblue"),
+  "/home/node/.openclaw/bin/pubblue",
+  "/usr/local/bin/pubblue",
+];
 const MODES = {
   OPENCLAW_DELIVER: "openclaw-deliver",
   GATEWAY_REPLY: "gateway-reply",
 };
-let warnedImplicitSessionFallback = false;
-let warnedNoBridgeStateDir = false;
 let resolvedBridgeStateDir;
 
 function usage() {
@@ -32,7 +36,7 @@ function usage() {
       "",
       "Bridge modes (OPENCLAW_BRIDGE_MODE):",
       "  openclaw-deliver (recommended on OpenClaw)",
-      "  gateway-reply     (fallback)",
+      "  gateway-reply     (alternative; requires compatible /v1 endpoints)",
       "",
       "Core env:",
       "  OPENCLAW_BRIDGE_MODE   (optional; auto-detected if omitted)",
@@ -56,7 +60,7 @@ function usage() {
       "  OPENCLAW_GATEWAY_TIMEOUT_MS (default: 30000)",
       "",
       "Notes:",
-      "  - Requires pubblue >= 0.4.7",
+      "  - Requires pubblue >= 0.4.8",
       "  - Maintains one long-lived pubblue read --follow consumer",
     ].join("\n"),
   );
@@ -197,6 +201,47 @@ function resolveOpenClawPath() {
   return null;
 }
 
+function resolvePubblueBin(configuredBin) {
+  if (configuredBin) {
+    if (configuredBin.includes("/")) {
+      if (!existsSync(configuredBin)) {
+        throw new Error(`PUBBLUE_BIN path does not exist: ${configuredBin}`);
+      }
+      return configuredBin;
+    }
+
+    try {
+      const whichConfigured = execFileSync("which", [configuredBin], { timeout: 5000 })
+        .toString()
+        .trim();
+      if (whichConfigured) return configuredBin;
+    } catch {
+      throw new Error(`PUBBLUE_BIN command was not found in PATH: ${configuredBin}`);
+    }
+  }
+
+  try {
+    const whichPubblue = execFileSync("which", ["pubblue"], { timeout: 5000 })
+      .toString()
+      .trim();
+    if (whichPubblue) return "pubblue";
+  } catch {
+    // no-op
+  }
+
+  for (const candidate of PUBBLUE_DISCOVERY_PATHS) {
+    if (existsSync(candidate)) return candidate;
+  }
+
+  throw new Error(
+    [
+      "pubblue CLI was not found.",
+      "Install pubblue or set PUBBLUE_BIN.",
+      `Checked: ${PUBBLUE_DISCOVERY_PATHS.join(", ")}`,
+    ].join(" "),
+  );
+}
+
 function resolveSessionId(threadId) {
   try {
     const sessionsPath = join(
@@ -222,8 +267,12 @@ function parseFollowLine(line) {
     const parsed = JSON.parse(line);
     if (!parsed || typeof parsed !== "object") return null;
     return parsed;
-  } catch {
-    return null;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse JSON from pubblue follow stream: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 }
 
@@ -239,7 +288,10 @@ function parseTunnelIdsFromListOutput(stdout) {
 
 async function listActiveTunnelIds(pubblueBin) {
   const result = await runPubblue(pubblueBin, ["tunnel", "list"]);
-  if (result.code !== 0) return [];
+  if (result.code !== 0) {
+    const details = `${result.stderr}\n${result.stdout}`.trim();
+    throw new Error(details || "Failed to list active tunnels");
+  }
   return parseTunnelIdsFromListOutput(result.stdout);
 }
 
@@ -411,6 +463,51 @@ async function verifyGatewayReachable(params) {
       const body = await response.text();
       throw new Error(`Gateway preflight failed (${response.status}): ${body.slice(0, 300)}`);
     }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const body = await response.text();
+      throw new Error(
+        [
+          `Gateway preflight expected JSON from /v1/models, got "${contentType || "unknown"}".`,
+          `Body starts with: ${body.slice(0, 120).replace(/\s+/g, " ")}`,
+          "OPENCLAW_GATEWAY_URL likely points to Control UI or this gateway build has no OpenAI-compatible API. Use openclaw-deliver mode.",
+        ].join(" "),
+      );
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      throw new Error(
+        `Gateway preflight could not parse JSON from /v1/models: ${
+          parseError instanceof Error ? parseError.message : String(parseError)
+        }`,
+      );
+    }
+
+    if (!data || typeof data !== "object" || !Array.isArray(data.data)) {
+      throw new Error(
+        "Gateway preflight got unexpected /v1/models payload (missing data[]). Use openclaw-deliver mode.",
+      );
+    }
+
+    const chatProbe = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({}),
+    });
+    if (chatProbe.status === 404 || chatProbe.status === 405) {
+      const body = await chatProbe.text();
+      throw new Error(
+        `Gateway preflight failed: /v1/chat/completions is unavailable (${chatProbe.status}): ${body.slice(0, 200)}`,
+      );
+    }
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("Gateway preflight timed out while calling /v1/models");
@@ -512,16 +609,10 @@ function dispatchOpenClawDeliver(params) {
   const baseArgs = isIndexJs ? [openclawPath] : [];
 
   const threadId = process.env.OPENCLAW_THREAD_ID;
-  const resolvedSession =
-    process.env.OPENCLAW_SESSION_ID || resolveSessionId(threadId) || "pubblue-tunnel-inbox";
-  if (!process.env.OPENCLAW_SESSION_ID && !threadId && !warnedImplicitSessionFallback) {
-    warnedImplicitSessionFallback = true;
-    console.error(
-      [
-        `[bridge] OPENCLAW_SESSION_ID and OPENCLAW_THREAD_ID are unset.`,
-        `[bridge] Using default session "${resolvedSession}".`,
-        "[bridge] If messages appear in the wrong chat/session, set one of these env vars explicitly.",
-      ].join("\n"),
+  const resolvedSession = process.env.OPENCLAW_SESSION_ID || resolveSessionId(threadId);
+  if (!resolvedSession) {
+    throw new Error(
+      "OpenClaw session could not be resolved. Set OPENCLAW_SESSION_ID or OPENCLAW_THREAD_ID.",
     );
   }
   const args = [
@@ -532,8 +623,13 @@ function dispatchOpenClawDeliver(params) {
     resolvedSession,
     "-m",
     deliverText,
-    "--deliver",
   ];
+
+  const shouldDeliver =
+    process.env.OPENCLAW_DELIVER === "1" ||
+    Boolean(process.env.OPENCLAW_DELIVER_CHANNEL) ||
+    Boolean(process.env.OPENCLAW_REPLY_TO);
+  if (shouldDeliver) args.push("--deliver");
 
   if (process.env.OPENCLAW_DELIVER_CHANNEL) {
     args.push("--channel", process.env.OPENCLAW_DELIVER_CHANNEL);
@@ -550,7 +646,7 @@ function dispatchOpenClawDeliver(params) {
 
 async function main() {
   const args = parseArgs(process.argv);
-  const pubblueBin = process.env.PUBBLUE_BIN || "pubblue";
+  const pubblueBin = resolvePubblueBin(process.env.PUBBLUE_BIN || "");
   const mode = getMode();
   const gatewayUrl = (process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789").replace(
     /\/$/,
@@ -561,7 +657,17 @@ async function main() {
   const agentId = process.env.OPENCLAW_AGENT_ID || "";
 
   if (!args.start && !args.tunnelId) {
-    const active = await listActiveTunnelIds(pubblueBin);
+    let active;
+    try {
+      active = await listActiveTunnelIds(pubblueBin);
+    } catch (error) {
+      console.error(
+        `Failed to auto-detect active tunnel: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      process.exit(1);
+    }
     if (active.length === 1) {
       args.tunnelId = active[0];
       console.error(
@@ -608,29 +714,8 @@ async function main() {
     const started = await runPubblue(pubblueBin, ["tunnel", "start", "--expires", args.expires]);
     if (started.code !== 0) {
       const output = `${started.stderr}\n${started.stdout}`.trim();
-      const active = await listActiveTunnelIds(pubblueBin);
-      const looksLikeCapacityOrMappedInternal =
-        /tunnel limit reached|internal error|rate limit exceeded|429/i.test(output);
-
-      if (looksLikeCapacityOrMappedInternal && active.length === 1) {
-        tunnelId = active[0];
-        console.error(
-          [
-            `Tunnel start failed (${output.split("\n")[0]}).`,
-            `Auto-attaching to existing active tunnel: ${tunnelId}`,
-            "Tip: use --tunnel <id> explicitly if you already created a tunnel.",
-          ].join("\n"),
-        );
-      } else {
-        if (active.length > 1) {
-          console.error(`Active tunnels found: ${active.join(", ")}`);
-          console.error(
-            "Pass --tunnel <id> to attach, or close old tunnels before using --start.",
-          );
-        }
-        console.error(output || "Failed to start tunnel");
-        process.exit(1);
-      }
+      console.error(output || "Failed to start tunnel");
+      process.exit(1);
     }
     if (started.code === 0) {
       const info = extractTunnelInfo(started.stdout);
@@ -647,11 +732,11 @@ async function main() {
   const bridgeStateDir = resolveBridgeStateDir();
   if (bridgeStateDir) {
     console.error(`Bridge state dir: ${bridgeStateDir}`);
-  } else if (!warnedNoBridgeStateDir) {
-    warnedNoBridgeStateDir = true;
+  } else {
     console.error(
-      "[bridge] No writable bridge state directory. Continuing without pid lock and seen-id persistence.",
+      "[bridge] No writable bridge state directory. Set OPENCLAW_BRIDGE_STATE_DIR or PUBBLUE_DIR.",
     );
+    process.exit(1);
   }
   const releasePidLock = acquirePidLock(tunnelId);
   const persistedSeen = loadSeenState(tunnelId);

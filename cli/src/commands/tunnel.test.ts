@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildDaemonForkStdio,
   getFollowReadDelayMs,
+  messageContainsPong,
+  parsePositiveIntegerOption,
   pickReusableTunnel,
   resolveTunnelIdSelection,
 } from "./tunnel.js";
@@ -37,6 +39,46 @@ describe("resolveTunnelIdSelection", () => {
 describe("buildDaemonForkStdio", () => {
   it("includes required IPC channel for fork", () => {
     expect(buildDaemonForkStdio(7)).toEqual(["ignore", 7, 7, "ipc"]);
+  });
+});
+
+describe("parsePositiveIntegerOption", () => {
+  it("parses valid positive integers", () => {
+    expect(parsePositiveIntegerOption("30", "--timeout")).toBe(30);
+  });
+
+  it("throws for zero or negative values", () => {
+    expect(() => parsePositiveIntegerOption("0", "--timeout")).toThrow(
+      "--timeout must be a positive integer",
+    );
+    expect(() => parsePositiveIntegerOption("-1", "--timeout")).toThrow(
+      "--timeout must be a positive integer",
+    );
+  });
+
+  it("throws for non-integer values", () => {
+    expect(() => parsePositiveIntegerOption("abc", "--timeout")).toThrow(
+      "--timeout must be a positive integer",
+    );
+  });
+});
+
+describe("messageContainsPong", () => {
+  it("matches exact pong text (trimmed, case-insensitive)", () => {
+    expect(
+      messageContainsPong({
+        msg: {
+          type: "text",
+          data: "  PoNg  ",
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for non-text or other values", () => {
+    expect(messageContainsPong({ msg: { type: "text", data: "ping" } })).toBe(false);
+    expect(messageContainsPong({ msg: { type: "html", data: "pong" } })).toBe(false);
+    expect(messageContainsPong(null)).toBe(false);
   });
 });
 

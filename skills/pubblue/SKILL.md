@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.7"
+  version: "3.4.8"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,11 +17,11 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.4.7+**.
+Use **pubblue CLI 0.4.8+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.7
+npm i -g pubblue@0.4.8
 ```
 
 ## Setup
@@ -92,6 +92,13 @@ pubblue tunnel read <id> --follow -c chat
 pubblue tunnel close <id>
 ```
 
+6. Validate tunnel end-to-end (strict):
+```bash
+pubblue tunnel doctor --tunnel <id>
+# optional handshake:
+pubblue tunnel doctor --tunnel <id> --wait-pong --timeout 30
+```
+
 Important:
 - `tunnel write` uses delivery confirmation; failures should be retried.
 - `read` is consumptive. Do not run multiple `read --follow` consumers on the same channel.
@@ -107,22 +114,29 @@ Script: `skills/pubblue/scripts/openclaw-tunnel-bridge.mjs`
 Recommended (`openclaw-deliver`):
 ```bash
 OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
+OPENCLAW_PATH="/app/dist/index.js" \
+PUBBLUE_BIN="/home/node/.openclaw/bin/pubblue" \
 node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start --expires 7d
 ```
 
 Attach to existing tunnel:
 ```bash
 OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
+OPENCLAW_PATH="/app/dist/index.js" \
+PUBBLUE_BIN="/home/node/.openclaw/bin/pubblue" \
 node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --tunnel <id>
 ```
 
-Fallback (`gateway-reply`):
+Alternative (`gateway-reply`, only if your gateway exposes OpenAI-compatible endpoints):
 ```bash
 OPENCLAW_BRIDGE_MODE="gateway-reply" \
 OPENCLAW_GATEWAY_URL="http://127.0.0.1:18789" \
 OPENCLAW_GATEWAY_TOKEN="<token-if-needed>" \
+PUBBLUE_BIN="/home/node/.openclaw/bin/pubblue" \
 node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start --expires 7d
 ```
+
+If gateway-reply preflight reports HTML from `/v1/models` or `405`, that deployment does not expose compatible API endpoints. Use `openclaw-deliver`.
 
 Behavior:
 - One long-lived `pubblue tunnel read --follow -c chat` consumer
@@ -136,6 +150,8 @@ Useful env:
 - `OPENCLAW_SESSION_ID` or `OPENCLAW_THREAD_ID` (strongly recommended for deterministic routing)
 - `OPENCLAW_BRIDGE_STATE_DIR` (override bridge lock/state directory)
 - `OPENCLAW_DELIVER_CMD`, `OPENCLAW_PATH`
+- `OPENCLAW_DELIVER=1` (enable OpenClaw `--deliver`; by default bridge injects message into session without forced delivery)
+- `PUBBLUE_BIN` (e.g. `/home/node/.openclaw/bin/pubblue` when `pubblue` is not on PATH)
 - `OPENCLAW_GATEWAY_TIMEOUT_MS`, `OPENCLAW_MODEL`, `OPENCLAW_AGENT_ID`
 
 ## Troubleshooting
