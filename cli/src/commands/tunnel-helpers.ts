@@ -2,6 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { failCli } from "../lib/cli-error.js";
 import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
 import { TunnelApiClient, TunnelApiError, type TunnelListItem } from "../lib/tunnel-api.js";
@@ -139,10 +140,13 @@ export async function ensureNodeDatachannelAvailable(): Promise<void> {
     await import("node-datachannel");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("node-datachannel native module is not available.");
-    console.error("Run `pnpm rebuild node-datachannel` in the cli package and retry.");
-    console.error(`Details: ${message}`);
-    process.exit(1);
+    failCli(
+      [
+        "node-datachannel native module is not available.",
+        "Run `pnpm rebuild node-datachannel` in the cli package and retry.",
+        `Details: ${message}`,
+      ].join("\n"),
+    );
   }
 }
 
@@ -306,12 +310,10 @@ export async function resolveActiveTunnel(): Promise<string> {
     if (isDaemonRunning(tunnelId)) active.push(tunnelId);
   }
   if (active.length === 0) {
-    console.error("No active tunnels. Run `pubblue tunnel start` first.");
-    process.exit(1);
+    failCli("No active tunnels. Run `pubblue tunnel start` first.");
   }
   if (active.length === 1) return active[0];
-  console.error(`Multiple active tunnels: ${active.join(", ")}. Specify one.`);
-  process.exit(1);
+  failCli(`Multiple active tunnels: ${active.join(", ")}. Specify one.`);
 }
 
 export interface WaitForDaemonReadyParams {

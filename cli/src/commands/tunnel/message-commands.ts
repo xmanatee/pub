@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { type BridgeMessage, CHANNELS, generateMessageId } from "../../lib/bridge-protocol.js";
+import { failCli } from "../../lib/cli-error.js";
 import { getSocketPath, ipcCall } from "../../lib/tunnel-ipc.js";
 import {
   getFollowReadDelayMs,
@@ -79,8 +80,7 @@ export function registerTunnelMessageCommands(tunnel: Command): void {
           params: { channel: opts.channel, msg, binaryBase64 },
         });
         if (!response.ok) {
-          console.error(`Failed: ${response.error}`);
-          process.exit(1);
+          failCli(`Failed: ${response.error}`);
         }
       },
     );
@@ -149,8 +149,7 @@ export function registerTunnelMessageCommands(tunnel: Command): void {
             params: { channel: readChannel },
           });
           if (!response.ok) {
-            console.error(`Failed: ${response.error}`);
-            process.exit(1);
+            failCli(`Failed: ${response.error}`);
           }
           console.log(JSON.stringify(response.messages || [], null, 2));
         }

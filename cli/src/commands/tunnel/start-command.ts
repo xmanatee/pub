@@ -2,6 +2,7 @@ import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
+import { failCli } from "../../lib/cli-error.js";
 import { getConfig } from "../../lib/config.js";
 import { getSocketPath, ipcCall } from "../../lib/tunnel-ipc.js";
 import {
@@ -46,21 +47,14 @@ export function registerTunnelStartCommand(tunnel: Command): void {
         const runtimeConfig = getConfig();
         const apiClient = createApiClient(runtimeConfig);
         let target: DaemonStartTarget | null = null;
-        let bridgeMode: "openclaw" | "none";
-        try {
-          bridgeMode = parseBridgeMode(opts.bridge || runtimeConfig.bridge?.mode || "openclaw");
-        } catch (error) {
-          console.error(error instanceof Error ? error.message : String(error));
-          process.exit(1);
-        }
+        const bridgeMode = parseBridgeMode(opts.bridge || runtimeConfig.bridge?.mode || "openclaw");
         const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
         if (opts.tunnel) {
           try {
             const existing = await apiClient.get(opts.tunnel);
             if (existing.status === "closed" || existing.expiresAt <= Date.now()) {
-              console.error(`Tunnel ${opts.tunnel} is closed or expired.`);
-              process.exit(1);
+              failCli(`Tunnel ${opts.tunnel} is closed or expired.`);
             }
             target = {
               createdNew: false,
@@ -70,8 +64,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               url: getPublicTunnelUrl(existing.tunnelId),
             };
           } catch (error) {
-            console.error(`Failed to use tunnel ${opts.tunnel}: ${formatApiError(error)}`);
-            process.exit(1);
+            failCli(`Failed to use tunnel ${opts.tunnel}: ${formatApiError(error)}`);
           }
         } else if (!opts.new) {
           try {
@@ -103,8 +96,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               }
             }
           } catch (error) {
-            console.error(`Failed to list tunnels for reuse check: ${formatApiError(error)}`);
-            process.exit(1);
+            failCli(`Failed to list tunnels for reuse check: ${formatApiError(error)}`);
           }
         }
 
@@ -121,13 +113,11 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               url: created.url,
             };
           } catch (error) {
-            console.error(`Failed to create tunnel: ${formatApiError(error)}`);
-            process.exit(1);
+            failCli(`Failed to create tunnel: ${formatApiError(error)}`);
           }
         }
         if (!target) {
-          console.error("Failed to resolve tunnel target.");
-          process.exit(1);
+          failCli("Failed to resolve tunnel target.");
         }
 
         const socketPath = getSocketPath(target.tunnelId);
@@ -136,7 +126,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
 
         if (opts.foreground) {
           if (bridgeMode !== "none") {
-            console.error(
+            throw new Error(
               "Foreground mode disables managed bridge process. Use background mode for --bridge openclaw.",
             );
           }
@@ -155,8 +145,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
             });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.error(`Daemon failed: ${message}`);
-            process.exit(1);
+            failCli(`Daemon failed: ${message}`);
           }
           return;
         }
@@ -166,13 +155,14 @@ export function registerTunnelStartCommand(tunnel: Command): void {
             const status = await ipcCall(socketPath, { method: "status", params: {} });
             if (!status.ok) throw new Error(String(status.error || "status check failed"));
           } catch (error) {
-            console.error(
-              `Daemon process exists but is not responding: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
+            failCli(
+              [
+                `Daemon process exists but is not responding: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+                "Run `pubblue tunnel close <id>` and start again.",
+              ].join("\n"),
             );
-            console.error("Run `pubblue tunnel close <id>` and start again.");
-            process.exit(1);
           }
 
           if (bridgeMode !== "none") {
@@ -184,20 +174,20 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               timeoutMs: 8_000,
             });
             if (!bridgeReady.ok) {
-              console.error(
+              const lines = [
                 `Bridge failed to start for running tunnel: ${bridgeReady.reason ?? "unknown reason"}`,
-              );
+              ];
               const existingBridgeLog = bridgeLogPath(target.tunnelId);
               if (fs.existsSync(existingBridgeLog)) {
-                console.error(`Bridge log: ${existingBridgeLog}`);
+                lines.push(`Bridge log: ${existingBridgeLog}`);
                 const bridgeTail = readLogTail(existingBridgeLog);
                 if (bridgeTail) {
-                  console.error("---- bridge log tail ----");
-                  console.error(bridgeTail.trimEnd());
-                  console.error("---- end bridge log tail ----");
+                  lines.push("---- bridge log tail ----");
+                  lines.push(bridgeTail.trimEnd());
+                  lines.push("---- end bridge log tail ----");
                 }
               }
-              process.exit(1);
+              failCli(lines.join("\n"));
             }
           }
 
@@ -242,16 +232,18 @@ export function registerTunnelStartCommand(tunnel: Command): void {
           timeoutMs: 8_000,
         });
         if (!ready.ok) {
-          console.error(`Daemon failed to start: ${ready.reason ?? "unknown reason"}`);
-          console.error(`Daemon log: ${logPath}`);
+          const lines = [
+            `Daemon failed to start: ${ready.reason ?? "unknown reason"}`,
+            `Daemon log: ${logPath}`,
+          ];
           const tail = readLogTail(logPath);
           if (tail) {
-            console.error("---- daemon log tail ----");
-            console.error(tail.trimEnd());
-            console.error("---- end daemon log tail ----");
+            lines.push("---- daemon log tail ----");
+            lines.push(tail.trimEnd());
+            lines.push("---- end daemon log tail ----");
           }
           await cleanupCreatedTunnelOnStartFailure(apiClient, target);
-          process.exit(1);
+          failCli(lines.join("\n"));
         }
 
         const offerReady = await waitForAgentOffer({
@@ -260,16 +252,18 @@ export function registerTunnelStartCommand(tunnel: Command): void {
           timeoutMs: 5_000,
         });
         if (!offerReady.ok) {
-          console.error(`Daemon started but signaling is not ready: ${offerReady.reason}`);
-          console.error(`Daemon log: ${logPath}`);
+          const lines = [
+            `Daemon started but signaling is not ready: ${offerReady.reason}`,
+            `Daemon log: ${logPath}`,
+          ];
           const tail = readLogTail(logPath);
           if (tail) {
-            console.error("---- daemon log tail ----");
-            console.error(tail.trimEnd());
-            console.error("---- end daemon log tail ----");
+            lines.push("---- daemon log tail ----");
+            lines.push(tail.trimEnd());
+            lines.push("---- end daemon log tail ----");
           }
           await cleanupCreatedTunnelOnStartFailure(apiClient, target);
-          process.exit(1);
+          failCli(lines.join("\n"));
         }
 
         if (bridgeMode !== "none") {
@@ -281,15 +275,15 @@ export function registerTunnelStartCommand(tunnel: Command): void {
             timeoutMs: 8_000,
           });
           if (!bridgeReady.ok) {
-            console.error(`Bridge failed to start: ${bridgeReady.reason ?? "unknown reason"}`);
+            const lines = [`Bridge failed to start: ${bridgeReady.reason ?? "unknown reason"}`];
             const bridgeLog = bridgeLogPath(target.tunnelId);
             if (fs.existsSync(bridgeLog)) {
-              console.error(`Bridge log: ${bridgeLog}`);
+              lines.push(`Bridge log: ${bridgeLog}`);
               const bridgeTail = readLogTail(bridgeLog);
               if (bridgeTail) {
-                console.error("---- bridge log tail ----");
-                console.error(bridgeTail.trimEnd());
-                console.error("---- end bridge log tail ----");
+                lines.push("---- bridge log tail ----");
+                lines.push(bridgeTail.trimEnd());
+                lines.push("---- end bridge log tail ----");
               }
             }
             try {
@@ -298,7 +292,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               // daemon may already be down
             }
             await cleanupCreatedTunnelOnStartFailure(apiClient, target);
-            process.exit(1);
+            failCli(lines.join("\n"));
           }
         }
 

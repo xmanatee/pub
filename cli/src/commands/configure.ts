@@ -214,55 +214,49 @@ export function registerConfigureCommand(program: Command): void {
         unset: string[];
         show?: boolean;
       }) => {
-        try {
-          const saved = loadConfig();
-          const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
-          const hasSet = opts.set.length > 0;
-          const hasUnset = opts.unset.length > 0;
-          const hasMutation = hasApiUpdate || hasSet || hasUnset;
+        const saved = loadConfig();
+        const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
+        const hasSet = opts.set.length > 0;
+        const hasUnset = opts.unset.length > 0;
+        const hasMutation = hasApiUpdate || hasSet || hasUnset;
 
-          if (!hasMutation && opts.show) {
-            printConfigSummary(saved);
-            return;
-          }
+        if (!hasMutation && opts.show) {
+          printConfigSummary(saved);
+          return;
+        }
 
-          let apiKey = saved?.apiKey;
-          if (hasApiUpdate || !hasMutation) {
-            apiKey = await resolveConfigureApiKey(opts);
+        let apiKey = saved?.apiKey;
+        if (hasApiUpdate || !hasMutation) {
+          apiKey = await resolveConfigureApiKey(opts);
+        }
+        if (!apiKey) {
+          const envKey = process.env.PUBBLUE_API_KEY?.trim();
+          if (envKey) {
+            apiKey = envKey;
+          } else {
+            throw new Error(
+              "No API key available. Provide --api-key/--api-key-stdin (or run plain `pubblue configure` first).",
+            );
           }
-          if (!apiKey) {
-            const envKey = process.env.PUBBLUE_API_KEY?.trim();
-            if (envKey) {
-              apiKey = envKey;
-            } else {
-              throw new Error(
-                "No API key available. Provide --api-key/--api-key-stdin (or run plain `pubblue configure` first).",
-              );
-            }
-          }
+        }
 
-          const nextBridge: BridgeConfig = { ...(saved?.bridge ?? {}) };
-          for (const entry of opts.set) {
-            const { key, value } = parseSetInput(entry);
-            applyBridgeSet(nextBridge, key, value);
-          }
-          for (const key of opts.unset) {
-            applyBridgeUnset(nextBridge, key.trim());
-          }
+        const nextBridge: BridgeConfig = { ...(saved?.bridge ?? {}) };
+        for (const entry of opts.set) {
+          const { key, value } = parseSetInput(entry);
+          applyBridgeSet(nextBridge, key, value);
+        }
+        for (const key of opts.unset) {
+          applyBridgeUnset(nextBridge, key.trim());
+        }
 
-          const nextConfig: SavedConfig = {
-            apiKey,
-            bridge: hasBridgeValues(nextBridge) ? nextBridge : undefined,
-          };
-          saveConfig(nextConfig);
-          console.log("Configuration saved.");
-          if (opts.show || hasSet || hasUnset) {
-            printConfigSummary(nextConfig);
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Failed to configure CLI.";
-          console.error(message);
-          process.exit(1);
+        const nextConfig: SavedConfig = {
+          apiKey,
+          bridge: hasBridgeValues(nextBridge) ? nextBridge : undefined,
+        };
+        saveConfig(nextConfig);
+        console.log("Configuration saved.");
+        if (opts.show || hasSet || hasUnset) {
+          printConfigSummary(nextConfig);
         }
       },
     );

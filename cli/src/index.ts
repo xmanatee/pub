@@ -1,18 +1,13 @@
 #!/usr/bin/env node
-import { Command } from "commander";
-import { registerConfigureCommand } from "./commands/configure.js";
-import { registerPublicationCommands } from "./commands/publications.js";
-import { registerTunnelCommands } from "./commands/tunnel.js";
+import { toCliFailure } from "./lib/cli-error.js";
+import { buildProgram } from "./program.js";
 
-const program = new Command();
+const program = buildProgram();
 
-program
-  .name("pubblue")
-  .description("Publish static content and get shareable URLs")
-  .version("0.4.10");
-
-registerConfigureCommand(program);
-registerPublicationCommands(program);
-registerTunnelCommands(program);
-
-program.parse();
+await program.parseAsync(process.argv).catch((error: unknown) => {
+  const failure = toCliFailure(error);
+  if (failure.message) {
+    console.error(failure.message);
+  }
+  process.exit(failure.exitCode);
+});

@@ -16,48 +16,25 @@ import {
   parseAckMessage,
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
-import { TunnelApiClient } from "../lib/tunnel-api.js";
 import { resolveAckChannel } from "./ack-routing.js";
+import { generateOffer } from "./tunnel-daemon-offer.js";
+import {
+  type ChannelBuffer,
+  type DaemonConfig,
+  getTunnelWriteReadinessError,
+  OFFER_TIMEOUT_MS,
+  RECOVERY_DELAY_MS,
+  SIGNAL_POLL_CONNECTED_MS,
+  SIGNAL_POLL_WAITING_MS,
+  type StickyOutboundMessage,
+  shouldRecoverForBrowserAnswerChange,
+  WRITE_ACK_TIMEOUT_MS,
+} from "./tunnel-daemon-shared.js";
 
-interface ChannelBuffer {
-  messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
-}
-
-interface StickyOutboundMessage {
-  binaryPayload?: Buffer;
-  msg: BridgeMessage;
-}
-
-interface DaemonConfig {
-  tunnelId: string;
-  apiClient: TunnelApiClient;
-  socketPath: string;
-  infoPath: string;
-}
-
-const OFFER_TIMEOUT_MS = 10_000;
-const SIGNAL_POLL_WAITING_MS = 500;
-const SIGNAL_POLL_CONNECTED_MS = 2_000;
-const RECOVERY_DELAY_MS = 1_000;
-const WRITE_ACK_TIMEOUT_MS = 5_000;
-
-const NOT_CONNECTED_WRITE_ERROR =
-  "No browser connected. Ask the user to open the tunnel URL first, then retry.";
-
-export function getTunnelWriteReadinessError(isConnected: boolean): string | null {
-  return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;
-}
-
-export function shouldRecoverForBrowserAnswerChange(params: {
-  incomingBrowserAnswer: string | undefined;
-  lastAppliedBrowserAnswer: string | null;
-  remoteDescriptionApplied: boolean;
-}): boolean {
-  const { incomingBrowserAnswer, lastAppliedBrowserAnswer, remoteDescriptionApplied } = params;
-  if (!remoteDescriptionApplied) return false;
-  if (!incomingBrowserAnswer) return false;
-  return incomingBrowserAnswer !== lastAppliedBrowserAnswer;
-}
+export {
+  getTunnelWriteReadinessError,
+  shouldRecoverForBrowserAnswerChange,
+} from "./tunnel-daemon-shared.js";
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { tunnelId, apiClient, socketPath, infoPath } = config;
@@ -795,40 +772,4 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return { ok: false, error: `Unknown method: ${req.method}` };
     }
   }
-}
-
-function generateOffer(peer: PeerConnection, timeoutMs: number): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    let resolved = false;
-    const done = (sdp: string, type: string) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timeout);
-      resolve(JSON.stringify({ sdp, type }));
-    };
-
-    peer.onLocalDescription((sdp: string, type: string) => {
-      done(sdp, type);
-    });
-
-    peer.onGatheringStateChange((state: string) => {
-      if (state === "complete" && !resolved) {
-        const desc = peer.localDescription();
-        if (desc) done(desc.sdp, desc.type);
-      }
-    });
-
-    const timeout = setTimeout(() => {
-      if (resolved) return;
-      const desc = peer.localDescription();
-      if (desc) {
-        done(desc.sdp, desc.type);
-      } else {
-        resolved = true;
-        reject(new Error(`Timed out after ${timeoutMs}ms`));
-      }
-    }, timeoutMs);
-
-    peer.setLocalDescription();
-  });
 }

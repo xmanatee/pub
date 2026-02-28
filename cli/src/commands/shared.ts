@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { PubApiClient } from "../lib/api.js";
+import { failCli } from "../lib/cli-error.js";
 import { getConfig } from "../lib/config.js";
 
 export function createClient(): PubApiClient {
@@ -36,8 +37,7 @@ export function resolveVisibilityFlags(opts: {
 export function readFile(filePath: string): { content: string; basename: string } {
   const resolved = path.resolve(filePath);
   if (!fs.existsSync(resolved)) {
-    console.error(`File not found: ${resolved}`);
-    process.exit(1);
+    failCli(`File not found: ${resolved}`);
   }
   return {
     content: fs.readFileSync(resolved, "utf-8"),

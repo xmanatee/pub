@@ -6,6 +6,7 @@ import {
   CONTROL_CHANNEL,
   generateMessageId,
 } from "../../lib/bridge-protocol.js";
+import { failCli } from "../../lib/cli-error.js";
 import { getSocketPath, ipcCall } from "../../lib/tunnel-ipc.js";
 import {
   bridgeInfoPath,
@@ -105,10 +106,7 @@ export function registerTunnelManagementCommands(tunnel: Command): void {
         const socketPath = getSocketPath(tunnelId);
         const apiClient = createApiClient();
 
-        const fail = (message: string): never => {
-          console.error(`Doctor failed: ${message}`);
-          process.exit(1);
-        };
+        const fail = (message: string): never => failCli(`Doctor failed: ${message}`);
 
         console.log(`Doctor tunnel: ${tunnelId}`);
 
@@ -281,8 +279,7 @@ export function registerTunnelManagementCommands(tunnel: Command): void {
       } catch (error) {
         const message = formatApiError(error);
         if (!/Tunnel not found/i.test(message)) {
-          console.error(`Failed to close tunnel ${tunnelId}: ${message}`);
-          process.exit(1);
+          failCli(`Failed to close tunnel ${tunnelId}: ${message}`);
         }
       }
 
