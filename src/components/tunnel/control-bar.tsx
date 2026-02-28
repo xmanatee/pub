@@ -23,8 +23,10 @@ import { useHoldToRecord } from "./use-hold-to-record";
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
 interface ControlBarProps {
+  chatPreview: string | null;
   disabled: boolean;
   bridge: BrowserBridge | null;
+  onDismissPreview: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
   viewMode: TunnelViewMode;
@@ -39,8 +41,10 @@ function formatTime(seconds: number) {
 }
 
 export function ControlBar({
+  chatPreview,
   disabled,
   bridge,
+  onDismissPreview,
   onSendChat,
   onSendAudio,
   viewMode,
@@ -111,6 +115,11 @@ export function ControlBar({
     sendRecording,
     cancelRecording,
   });
+
+  const handlePreviewClick = useCallback(() => {
+    onChangeView("chat");
+    onDismissPreview();
+  }, [onChangeView, onDismissPreview]);
 
   const handleSend = useCallback(() => {
     if (!hasText) return;
@@ -219,6 +228,7 @@ export function ControlBar({
     <ControlBarIdleMode
       actionButtonClass={actionButtonClass}
       actionIconClass={actionIconClass}
+      chatPreview={chatPreview}
       controlHeightClass={controlHeightClass}
       controlRowClass={controlRowClass}
       disabled={disabled}
@@ -230,6 +240,7 @@ export function ControlBar({
       onCloseExpanded={closeExpanded}
       onFileChange={handleFile}
       onInputChange={setInput}
+      onPreviewClick={handlePreviewClick}
       onInputKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();

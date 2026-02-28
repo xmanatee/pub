@@ -1,4 +1,4 @@
-import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
+import { AudioLines, MessageSquare, Mic, Paperclip, Send } from "lucide-react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -11,6 +11,7 @@ import type { TunnelViewMode } from "./types";
 interface ControlBarIdleModeProps {
   actionButtonClass: string;
   actionIconClass: string;
+  chatPreview: string | null;
   controlHeightClass: string;
   controlRowClass: string;
   disabled: boolean;
@@ -23,6 +24,7 @@ interface ControlBarIdleModeProps {
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onInputChange: (value: string) => void;
   onInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onPreviewClick: () => void;
   onSend: () => void;
   onStartVoiceMode: () => void;
   onViewSelect: (mode: TunnelViewMode) => void;
@@ -35,6 +37,7 @@ interface ControlBarIdleModeProps {
 export function ControlBarIdleMode({
   actionButtonClass,
   actionIconClass,
+  chatPreview,
   controlHeightClass,
   controlRowClass,
   disabled,
@@ -47,6 +50,7 @@ export function ControlBarIdleMode({
   onFileChange,
   onInputChange,
   onInputKeyDown,
+  onPreviewClick,
   onSend,
   onStartVoiceMode,
   onViewSelect,
@@ -55,6 +59,7 @@ export function ControlBarIdleMode({
   viewMode,
   voiceModeEnabled,
 }: ControlBarIdleModeProps) {
+  const showPreview = !expanded && chatPreview !== null;
   return (
     <>
       <button
@@ -79,6 +84,22 @@ export function ControlBarIdleMode({
           <ExtendedOptions viewMode={viewMode} onSelect={onViewSelect} />
           <Separator />
         </div>
+
+        <button
+          type="button"
+          className={cn(
+            "overflow-hidden transition-all duration-300",
+            showPreview ? "max-h-12 opacity-100" : "max-h-0 opacity-0",
+          )}
+          onClick={onPreviewClick}
+          aria-label="Open chat"
+        >
+          <div className="flex items-center gap-2 px-4 py-2">
+            <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm text-foreground">{chatPreview}</span>
+          </div>
+          <Separator />
+        </button>
 
         <div className={cn(controlRowClass, controlHeightClass)}>
           <Tooltip>

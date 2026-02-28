@@ -5,6 +5,7 @@ import { CanvasPanel } from "~/components/tunnel/canvas-panel";
 import { ChatPanel } from "~/components/tunnel/chat-panel";
 import { ControlBar } from "~/components/tunnel/control-bar";
 import { SettingsPanel } from "~/components/tunnel/settings-panel";
+import { useChatPreview } from "~/components/tunnel/use-chat-preview";
 import { useTunnelPageModel } from "~/components/tunnel/use-tunnel-page-model";
 
 export const Route = createFileRoute("/t/$tunnelId")({
@@ -27,6 +28,7 @@ function TunnelPage() {
 
 function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const model = useTunnelPageModel(tunnelId);
+  const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
 
   if (model.tunnel === undefined) return <StatusScreen text="Loading..." />;
   if (model.tunnel === null) return <StatusScreen text="Tunnel not found or expired." />;
@@ -75,8 +77,10 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
       </div>
 
       <ControlBar
+        chatPreview={previewText}
         disabled={!model.connected}
         bridge={model.bridgeRef.current}
+        onDismissPreview={dismissPreview}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
         onChangeView={model.setViewMode}

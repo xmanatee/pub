@@ -60,14 +60,17 @@ vi.mock("~/hooks/use-long-press", () => ({
 }));
 
 function renderControlBar(overrides?: {
+  chatPreview?: string | null;
   viewMode?: "canvas" | "chat" | "settings";
   voiceModeEnabled?: boolean;
 }) {
   return renderToStaticMarkup(
     <TooltipProvider>
       <ControlBar
+        chatPreview={overrides?.chatPreview ?? null}
         disabled={false}
         bridge={null}
+        onDismissPreview={vi.fn()}
         onSendAudio={vi.fn()}
         onSendChat={vi.fn()}
         onChangeView={vi.fn()}
@@ -111,6 +114,18 @@ describe("ControlBar", () => {
     mockAudioState.mode = "voice-mode";
     const html = renderControlBar();
     expect(html).toContain('aria-label="Stop voice mode"');
+  });
+
+  it("shows chat preview when chatPreview is provided", () => {
+    const html = renderControlBar({ chatPreview: "Hello from agent" });
+    expect(html).toContain("Hello from agent");
+    expect(html).toContain('aria-label="Open chat"');
+  });
+
+  it("hides chat preview when chatPreview is null", () => {
+    const html = renderControlBar({ chatPreview: null });
+    expect(html).toContain("max-h-0");
+    expect(html).not.toContain("max-h-12");
   });
 
   it("shows back button only outside canvas mode", () => {
