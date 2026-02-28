@@ -63,8 +63,8 @@ export function resolveAckChannel(params: {
   messageChannelOpen: boolean;
   messageChannel: string;
 }): string | null {
-  if (params.controlChannelOpen) return CONTROL_CHANNEL;
   if (params.messageChannelOpen) return params.messageChannel;
+  if (params.controlChannelOpen) return CONTROL_CHANNEL;
   return null;
 }
 
@@ -171,7 +171,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         const msg = decodeMessage(data);
         if (!msg) return;
         const ack = parseAckMessage(msg);
-        if (name === CONTROL_CHANNEL && ack) {
+        if (ack) {
           settlePendingAck(ack.messageId, true);
           return;
         }
@@ -227,9 +227,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         messageChannelOpen: Boolean(messageDc?.isOpen()),
         messageChannel: ack.channel,
       });
-      if (!targetChannel) break;
+      if (!targetChannel) continue;
       const targetDc = targetChannel === CONTROL_CHANNEL ? controlDc : messageDc;
-      if (!targetDc) break;
+      if (!targetDc) continue;
 
       try {
         targetDc.sendMessage(encodeMessage(makeAckMessage(ack.messageId, ack.channel)));

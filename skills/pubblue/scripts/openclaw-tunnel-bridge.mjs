@@ -49,6 +49,7 @@ function usage() {
       "  OPENCLAW_GATEWAY_TOKEN  (optional token/password auth)",
       "  OPENCLAW_MODEL          (default: openclaw:main)",
       "  OPENCLAW_AGENT_ID       (optional x-openclaw-agent-id header)",
+      "  OPENCLAW_GATEWAY_TIMEOUT_MS (default: 30000)",
       "",
       "Notes:",
       "  - Requires pubblue >= 0.4.3",
@@ -313,22 +314,41 @@ async function dispatchGatewayReply(params) {
     sessionKey,
     text,
   } = params;
+  const requestedTimeoutMs = Number.parseInt(
+    process.env.OPENCLAW_GATEWAY_TIMEOUT_MS || "30000",
+    10,
+  );
+  const timeoutMs =
+    Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0 ? requestedTimeoutMs : 30000;
   const headers = {
     "Content-Type": "application/json",
   };
   if (gatewayToken) headers.Authorization = `Bearer ${gatewayToken}`;
   if (agentId) headers["x-openclaw-agent-id"] = agentId;
 
-  const response = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model,
-      user: sessionKey,
-      messages: [{ role: "user", content: text }],
-      stream: false,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers,
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        user: sessionKey,
+        messages: [{ role: "user", content: text }],
+        stream: false,
+      }),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Gateway request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const body = await response.text();

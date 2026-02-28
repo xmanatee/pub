@@ -31,8 +31,12 @@ const telegram = ConvexCredentials<DataModel>({
       return { userId: existingUser._id };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const isMissingAccount =
-        /not found/i.test(message) || /does not exist/i.test(message) || /missing/i.test(message);
+      const isMissingAccount = [
+        /account.+not found/i,
+        /no account/i,
+        /does not exist/i,
+        /could not find/i,
+      ].some((pattern) => pattern.test(message));
       if (!isMissingAccount) throw error;
 
       const { user: newUser } = await createAccount(ctx, {

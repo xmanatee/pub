@@ -265,6 +265,7 @@ Optional env for `gateway-reply`:
 
 - `OPENCLAW_AGENT_ID` — set `x-openclaw-agent-id`
 - `OPENCLAW_SESSION_KEY` — session key (default: `pubblue:tunnel:<id>`)
+- `OPENCLAW_GATEWAY_TIMEOUT_MS` — request timeout for gateway calls (default: `30000`)
 
 ### Operational rules
 

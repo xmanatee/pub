@@ -50,24 +50,24 @@ describe("shouldRecoverForBrowserAnswerChange", () => {
 });
 
 describe("resolveAckChannel", () => {
-  it("prefers control channel when available", () => {
+  it("prefers message channel when available", () => {
     expect(
       resolveAckChannel({
         controlChannelOpen: true,
         messageChannelOpen: true,
         messageChannel: "chat",
       }),
-    ).toBe("_control");
+    ).toBe("chat");
   });
 
-  it("falls back to message channel when control is unavailable", () => {
+  it("falls back to control channel when message channel is unavailable", () => {
     expect(
       resolveAckChannel({
-        controlChannelOpen: false,
-        messageChannelOpen: true,
+        controlChannelOpen: true,
+        messageChannelOpen: false,
         messageChannel: "chat",
       }),
-    ).toBe("chat");
+    ).toBe("_control");
   });
 
   it("returns null when no channel can carry ack", () => {

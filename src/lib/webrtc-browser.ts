@@ -288,7 +288,9 @@ export class BrowserBridge {
   }
 
   private sendAck(messageId: string, channel: string): void {
-    this.send(CONTROL_CHANNEL, makeAckMessage(messageId, channel));
+    const ack = makeAckMessage(messageId, channel);
+    if (this.send(channel, ack)) return;
+    this.send(CONTROL_CHANNEL, ack);
   }
 
   private waitForAck(messageId: string, timeoutMs: number): Promise<boolean> {

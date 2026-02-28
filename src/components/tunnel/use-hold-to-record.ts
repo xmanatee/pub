@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { BarMode } from "./use-control-bar-audio";
 
 const LOCK_THRESHOLD_PX = 70;
@@ -7,7 +7,7 @@ const CANCEL_THRESHOLD_PX = 100;
 interface UseHoldToRecordOptions {
   disabled: boolean;
   mode: BarMode;
-  startRecording: () => void;
+  startRecording: () => Promise<boolean>;
   sendRecording: () => void;
   cancelRecording: () => void;
 }
@@ -33,11 +33,7 @@ export function useHoldToRecord({
       l.el.removeEventListener("pointerup", l.up);
       l.el.removeEventListener("pointercancel", l.cancel);
       const pid = pointerIdRef.current;
-      if (pid != null) {
-        try {
-          l.el.releasePointerCapture(pid);
-        } catch {}
-      }
+      if (pid != null && l.el.hasPointerCapture(pid)) l.el.releasePointerCapture(pid);
       listenersRef.current = null;
     }
     startCoordsRef.current = null;
@@ -48,6 +44,7 @@ export function useHoldToRecord({
     (e: React.PointerEvent) => {
       if (disabled || mode !== "idle") return;
       if (pointerIdRef.current != null) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
 
       e.preventDefault();
       e.stopPropagation();
@@ -90,16 +87,29 @@ export function useHoldToRecord({
       el.addEventListener("pointerup", onUp);
       el.addEventListener("pointercancel", onCancel);
 
-      startRecording();
+      void startRecording().then((started) => {
+        if (!started) cleanup();
+      });
     },
     [disabled, mode, startRecording, sendRecording, cancelRecording, cleanup],
+  );
+
+  const onClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (disabled || mode !== "idle") return;
+      if (e.detail !== 0) return;
+      void startRecording();
+    },
+    [disabled, mode, startRecording],
   );
 
   const onContextMenu = useCallback((e: React.SyntheticEvent) => {
     e.preventDefault();
   }, []);
 
+  useEffect(() => cleanup, [cleanup]);
+
   return {
-    pointerHandlers: { onPointerDown, onContextMenu },
+    pointerHandlers: { onPointerDown, onClick, onContextMenu },
   };
 }

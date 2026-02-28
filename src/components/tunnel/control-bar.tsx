@@ -323,13 +323,13 @@ export function ControlBar({
                         size="icon"
                         className="h-11 w-11 shrink-0 rounded-full touch-none"
                         disabled={disabled}
-                        aria-label="Record audio"
+                        aria-label="Hold to record audio"
                         {...pointerHandlers}
                       >
                         <Mic className="size-6" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Record</TooltipContent>
+                    <TooltipContent>Hold to record</TooltipContent>
                   </Tooltip>
 
                   <Tooltip>

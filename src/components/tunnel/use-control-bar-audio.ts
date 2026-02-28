@@ -33,6 +33,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const streamIdRef = useRef<string | null>(null);
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
+  const startInProgressRef = useRef(false);
   const pendingActionRef = useRef<"send" | "cancel" | null>(null);
 
   const resetToIdle = useCallback(() => {
@@ -112,9 +113,11 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     return stream;
   }, []);
 
-  const startRecording = useCallback(async () => {
-    if (disabled || mode !== "idle" || localStopInProgressRef.current) return;
+  const startRecording = useCallback(async (): Promise<boolean> => {
+    if (disabled || mode !== "idle" || localStopInProgressRef.current) return false;
+    if (startInProgressRef.current) return false;
 
+    startInProgressRef.current = true;
     try {
       const stream = await setupAudio();
       const mimeType = getSupportedMimeType();
@@ -146,6 +149,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       setMode("recording");
       startTimer(true);
       animateWaveform();
+      return true;
     } catch (error) {
       console.error("Failed to start recording", error);
       shouldSendOnStopRef.current = false;
@@ -154,6 +158,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       pendingActionRef.current = null;
       teardownMediaState(true);
       resetToIdle();
+      return false;
+    } finally {
+      startInProgressRef.current = false;
     }
   }, [
     disabled,
@@ -200,7 +207,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
 
   const cancelRecording = useCallback(() => {
     if (mode === "idle") {
-      pendingActionRef.current = "cancel";
+      if (startInProgressRef.current) pendingActionRef.current = "cancel";
       return;
     }
     stopLocalRecording(false);
@@ -208,7 +215,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
 
   const sendRecording = useCallback(() => {
     if (mode === "idle") {
-      pendingActionRef.current = "send";
+      if (startInProgressRef.current) pendingActionRef.current = "send";
       return;
     }
     stopLocalRecording(true);
@@ -292,6 +299,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     return () => {
       shouldSendOnStopRef.current = false;
       localStopInProgressRef.current = false;
+      startInProgressRef.current = false;
       pendingActionRef.current = null;
       teardownMediaState(true);
     };
