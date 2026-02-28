@@ -11,7 +11,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.3"
+  version: "3.4.4"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -130,6 +130,9 @@ Start an encrypted P2P WebRTC tunnel so users can communicate with you through t
 
 ### Tunnel Workflow
 
+On OpenClaw, prefer starting the bridge script (see "OpenClaw Direct Bridge Mode") instead of
+manual `tunnel read` polling, so chat messages flow into the agent automatically.
+
 1. **Start a tunnel:**
    ```bash
    pubblue tunnel start --expires 4h
@@ -243,6 +246,9 @@ OPENCLAW_BRIDGE_MODE="openclaw-deliver" \
 node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --tunnel <id>
 ```
 
+Do not start a second tunnel if one already exists for the session. Prefer attaching with
+`--tunnel <id>` to avoid tunnel-limit/API failures.
+
 Optional env for `openclaw-deliver`:
 
 - `OPENCLAW_DELIVER_CMD` — custom command receiving `AGENT_MSG` + `AGENT_TUNNEL_ID`
@@ -250,6 +256,9 @@ Optional env for `openclaw-deliver`:
 - `OPENCLAW_SESSION_ID` — explicit session UUID
 - `OPENCLAW_THREAD_ID` — resolve `agent:main:main:thread:<id>` from sessions file
 - `OPENCLAW_DELIVER_CHANNEL` / `OPENCLAW_REPLY_TO` — delivery routing
+
+For deterministic routing, set `OPENCLAW_SESSION_ID` (or `OPENCLAW_THREAD_ID`) so tunnel
+messages are delivered into the intended OpenClaw conversation.
 
 ### Run (fallback: gateway-reply)
 

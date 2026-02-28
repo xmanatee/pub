@@ -18,6 +18,7 @@ const MODES = {
   OPENCLAW_DELIVER: "openclaw-deliver",
   GATEWAY_REPLY: "gateway-reply",
 };
+let warnedImplicitSessionFallback = false;
 
 function usage() {
   console.error(
@@ -25,6 +26,7 @@ function usage() {
       "Usage:",
       "  node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --start [--expires 7d]",
       "  node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs --tunnel <id>",
+      "  node skills/pubblue/scripts/openclaw-tunnel-bridge.mjs  # auto-attach if exactly one active tunnel",
       "",
       "Bridge modes (OPENCLAW_BRIDGE_MODE):",
       "  openclaw-deliver (recommended on OpenClaw)",
@@ -211,6 +213,22 @@ function parseFollowLine(line) {
   }
 }
 
+function parseTunnelIdsFromListOutput(stdout) {
+  const ids = [];
+  for (const rawLine of stdout.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const match = line.match(/^([a-z0-9]{8,32})\b/);
+    if (match?.[1]) ids.push(match[1]);
+  }
+  return ids;
+}
+
+async function listActiveTunnelIds(pubblueBin) {
+  const result = await runPubblue(pubblueBin, ["tunnel", "list"]);
+  if (result.code !== 0) return [];
+  return parseTunnelIdsFromListOutput(result.stdout);
+}
+
 function getStatePath(tunnelId) {
   const baseDir = join(homedir(), ".config", "pubblue", "tunnel-bridge");
   if (!existsSync(baseDir)) mkdirSync(baseDir, { recursive: true });
@@ -390,6 +408,16 @@ function dispatchOpenClawDeliver(params) {
   const threadId = process.env.OPENCLAW_THREAD_ID;
   const resolvedSession =
     process.env.OPENCLAW_SESSION_ID || resolveSessionId(threadId) || "pubblue-tunnel-inbox";
+  if (!process.env.OPENCLAW_SESSION_ID && !threadId && !warnedImplicitSessionFallback) {
+    warnedImplicitSessionFallback = true;
+    console.error(
+      [
+        `[bridge] OPENCLAW_SESSION_ID and OPENCLAW_THREAD_ID are unset.`,
+        `[bridge] Using default session "${resolvedSession}".`,
+        "[bridge] If messages appear in the wrong chat/session, set one of these env vars explicitly.",
+      ].join("\n"),
+    );
+  }
   const args = [
     ...baseArgs,
     "agent",
@@ -427,8 +455,16 @@ async function main() {
   const agentId = process.env.OPENCLAW_AGENT_ID || "";
 
   if (!args.start && !args.tunnelId) {
-    usage();
-    process.exit(1);
+    const active = await listActiveTunnelIds(pubblueBin);
+    if (active.length === 1) {
+      args.tunnelId = active[0];
+      console.error(
+        `No --start/--tunnel provided. Attaching to active tunnel ${args.tunnelId}.`,
+      );
+    } else {
+      usage();
+      process.exit(1);
+    }
   }
 
   const versionCheck = await runPubblue(pubblueBin, ["--version"]);
@@ -450,15 +486,39 @@ async function main() {
   if (args.start) {
     const started = await runPubblue(pubblueBin, ["tunnel", "start", "--expires", args.expires]);
     if (started.code !== 0) {
-      console.error(started.stderr || started.stdout || "Failed to start tunnel");
-      process.exit(1);
+      const output = `${started.stderr}\n${started.stdout}`.trim();
+      const active = await listActiveTunnelIds(pubblueBin);
+      const looksLikeCapacityOrMappedInternal =
+        /tunnel limit reached|internal error|rate limit exceeded|429/i.test(output);
+
+      if (looksLikeCapacityOrMappedInternal && active.length === 1) {
+        tunnelId = active[0];
+        console.error(
+          [
+            `Tunnel start failed (${output.split("\n")[0]}).`,
+            `Auto-attaching to existing active tunnel: ${tunnelId}`,
+            "Tip: use --tunnel <id> explicitly if you already created a tunnel.",
+          ].join("\n"),
+        );
+      } else {
+        if (active.length > 1) {
+          console.error(`Active tunnels found: ${active.join(", ")}`);
+          console.error(
+            "Pass --tunnel <id> to attach, or close old tunnels before using --start.",
+          );
+        }
+        console.error(output || "Failed to start tunnel");
+        process.exit(1);
+      }
     }
-    const info = extractTunnelInfo(started.stdout);
-    tunnelId = info.tunnelId;
-    tunnelUrl = info.tunnelUrl;
-    if (!tunnelId) {
-      console.error(`Could not parse tunnel id from output:\n${started.stdout}`);
-      process.exit(1);
+    if (started.code === 0) {
+      const info = extractTunnelInfo(started.stdout);
+      tunnelId = info.tunnelId;
+      tunnelUrl = info.tunnelUrl;
+      if (!tunnelId) {
+        console.error(`Could not parse tunnel id from output:\n${started.stdout}`);
+        process.exit(1);
+      }
     }
   }
 
