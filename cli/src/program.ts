@@ -10,7 +10,7 @@ export function buildProgram(): Command {
   program
     .name("pubblue")
     .description("Publish static content and get shareable URLs")
-    .version("0.4.10");
+    .version("0.4.11");
 
   registerConfigureCommand(program);
   registerPublicationCommands(program);

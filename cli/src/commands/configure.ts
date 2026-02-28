@@ -108,6 +108,12 @@ function applyBridgeSet(bridge: BridgeConfig, key: string, value: string): void 
     case "openclaw.deliverTimeoutMs":
       bridge.deliverTimeoutMs = parsePositiveInteger(value, key);
       return;
+    case "openclaw.attachmentDir":
+      bridge.attachmentDir = value;
+      return;
+    case "openclaw.attachmentMaxBytes":
+      bridge.attachmentMaxBytes = parsePositiveInteger(value, key);
+      return;
     default:
       throw new Error(
         [
@@ -121,6 +127,8 @@ function applyBridgeSet(bridge: BridgeConfig, key: string, value: string): void 
           "  openclaw.deliverChannel",
           "  openclaw.replyTo",
           "  openclaw.deliverTimeoutMs",
+          "  openclaw.attachmentDir",
+          "  openclaw.attachmentMaxBytes",
         ].join("\n"),
       );
   }
@@ -151,6 +159,12 @@ function applyBridgeUnset(bridge: BridgeConfig, key: string): void {
       return;
     case "openclaw.deliverTimeoutMs":
       delete bridge.deliverTimeoutMs;
+      return;
+    case "openclaw.attachmentDir":
+      delete bridge.attachmentDir;
+      return;
+    case "openclaw.attachmentMaxBytes":
+      delete bridge.attachmentMaxBytes;
       return;
     default:
       throw new Error(`Unknown config key for --unset: ${key}`);
@@ -190,6 +204,10 @@ function printConfigSummary(saved: SavedConfig | null): void {
   if (saved.bridge.replyTo) console.log(`  openclaw.replyTo: ${saved.bridge.replyTo}`);
   if (saved.bridge.deliverTimeoutMs !== undefined)
     console.log(`  openclaw.deliverTimeoutMs: ${saved.bridge.deliverTimeoutMs}`);
+  if (saved.bridge.attachmentDir)
+    console.log(`  openclaw.attachmentDir: ${saved.bridge.attachmentDir}`);
+  if (saved.bridge.attachmentMaxBytes !== undefined)
+    console.log(`  openclaw.attachmentMaxBytes: ${saved.bridge.attachmentMaxBytes}`);
 }
 
 export function registerConfigureCommand(program: Command): void {

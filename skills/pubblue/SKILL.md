@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.10"
+  version: "3.4.11"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,11 +17,11 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.4.10+**.
+Use **pubblue CLI 0.4.11+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.10
+npm i -g pubblue@0.4.11
 ```
 
 ## Setup

@@ -132,6 +132,10 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   if (bridgeConfig.deliverTimeoutMs !== undefined) {
     setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
   }
+  setIfMissing("OPENCLAW_ATTACHMENT_DIR", bridgeConfig.attachmentDir);
+  if (bridgeConfig.attachmentMaxBytes !== undefined) {
+    setIfMissing("OPENCLAW_ATTACHMENT_MAX_BYTES", bridgeConfig.attachmentMaxBytes);
+  }
   return env;
 }
 

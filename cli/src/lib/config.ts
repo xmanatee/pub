@@ -13,6 +13,8 @@ export interface BridgeConfig {
   deliverChannel?: string;
   replyTo?: string;
   deliverTimeoutMs?: number;
+  attachmentDir?: string;
+  attachmentMaxBytes?: number;
 }
 
 export interface SavedConfig {
