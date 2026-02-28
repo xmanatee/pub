@@ -88,7 +88,7 @@ export function ControlBarIdleMode({
         <button
           type="button"
           className={cn(
-            "overflow-hidden transition-all duration-300",
+            "w-full overflow-hidden transition-all duration-300",
             showPreview ? "max-h-12 opacity-100" : "max-h-0 opacity-0",
           )}
           onClick={onPreviewClick}

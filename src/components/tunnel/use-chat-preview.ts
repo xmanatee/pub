@@ -20,31 +20,23 @@ export function useChatPreview(messages: ChatEntry[], viewMode: TunnelViewMode) 
     setPreviewText(null);
   }, [clearTimer]);
 
-  // Track the last message ID seen while in chat mode
   useEffect(() => {
+    const lastAgent = findLastAgentMessage(messages);
+
     if (viewMode === "chat") {
-      const lastAgent = findLastAgentMessage(messages);
       if (lastAgent) lastSeenIdRef.current = lastAgent.id;
       dismissPreview();
+      return;
     }
-  }, [viewMode, messages, dismissPreview]);
 
-  // Show preview when a new agent message arrives outside chat mode
-  useEffect(() => {
-    if (viewMode === "chat") return;
-
-    const lastAgent = findLastAgentMessage(messages);
-    if (!lastAgent) return;
-    if (lastAgent.id === lastSeenIdRef.current) return;
+    if (!lastAgent || lastAgent.id === lastSeenIdRef.current) return;
 
     lastSeenIdRef.current = lastAgent.id;
     setPreviewText(lastAgent.content);
-
     clearTimer();
     timerRef.current = setTimeout(() => setPreviewText(null), AUTO_DISMISS_MS);
-  }, [viewMode, messages, clearTimer]);
+  }, [viewMode, messages, clearTimer, dismissPreview]);
 
-  // Cleanup timer on unmount
   useEffect(() => clearTimer, [clearTimer]);
 
   return { previewText, dismissPreview };
