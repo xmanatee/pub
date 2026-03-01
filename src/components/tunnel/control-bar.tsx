@@ -60,14 +60,14 @@ export function ControlBar({
   const floatingShellStyle = { paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" } as const;
   const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
   const controlHeightClass = "h-16 min-h-16";
-  const actionButtonClass = "size-14 shrink-0 rounded-full [&_svg]:size-7";
+  const actionButtonClass = "size-14 shrink-0 rounded-full [&_svg]:size-6";
   const actionIconClass = "size-6";
   const controlBarClass =
     "flex w-full items-center gap-2 rounded-full border border-border/70 bg-background/88 px-2 shadow-lg backdrop-blur-xl";
   const controlRowClass = "flex w-full items-center gap-2 px-2";
   const recordingToneClass = "border-destructive/40 bg-background/88";
   const backButtonClass =
-    "h-16 w-16 shrink-0 rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl";
+    "size-16 shrink-0 rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl";
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
   const longPressHandlers = useLongPress({ onActivate: () => setExpanded(true) });
@@ -183,7 +183,7 @@ export function ControlBar({
       {WAVEFORM_BARS.map((id) => (
         <div
           key={id}
-          className="w-1 rounded-full bg-foreground/70 transition-all duration-75"
+          className="size-6 w-1 rounded-full bg-foreground/70 transition-all duration-75"
           style={{ height: "4px" }}
         />
       ))}
