@@ -250,7 +250,7 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+export async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     if (!isProcessAlive(pid)) return true;
@@ -259,7 +259,7 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   return !isProcessAlive(pid);
 }
 
-async function stopBridgeForTunnel(tunnelId: string): Promise<string | null> {
+export async function stopBridge(tunnelId: string): Promise<string | null> {
   const bridge = readBridgeProcessInfo(tunnelId);
   if (!bridge || !Number.isFinite(bridge.pid)) return null;
   if (!isProcessAlive(bridge.pid)) return null;
@@ -315,7 +315,7 @@ export async function stopOtherDaemons(exceptTunnelId?: string): Promise<void> {
     const tunnelId = entry.replace(/\.json$/, "");
     if (exceptTunnelId && tunnelId === exceptTunnelId) continue;
 
-    const bridgeError = await stopBridgeForTunnel(tunnelId);
+    const bridgeError = await stopBridge(tunnelId);
     if (bridgeError) failures.push(`[${tunnelId}] ${bridgeError}`);
 
     const info = readDaemonProcessInfo(tunnelId);
@@ -332,16 +332,6 @@ export async function stopOtherDaemons(exceptTunnelId?: string): Promise<void> {
         ...failures,
       ].join("\n"),
     );
-  }
-}
-
-export function stopBridgeProcess(tunnelId: string): void {
-  const info = readBridgeProcessInfo(tunnelId);
-  if (!info || !Number.isFinite(info.pid)) return;
-  try {
-    process.kill(info.pid, "SIGTERM");
-  } catch {
-    // already stopped
   }
 }
 

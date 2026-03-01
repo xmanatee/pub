@@ -17,34 +17,20 @@ import {
   ensureNodeDatachannelAvailable,
   formatApiError,
   getPublicTunnelUrl,
-  isBridgeRunning,
-  isDaemonRunning,
   parseBridgeMode,
   pickReusableTunnel,
   readDaemonProcessInfo,
   readLogTail,
   shouldRestartDaemonForCliUpgrade,
-  stopBridgeProcess,
+  stopBridge,
   stopOtherDaemons,
   tunnelInfoPath,
   tunnelLogPath,
   waitForAgentOffer,
   waitForDaemonReady,
+  waitForProcessExit,
   writeLatestCliVersion,
 } from "../tunnel-helpers.js";
-
-async function waitForStopped(
-  isRunning: () => boolean,
-  timeoutMs: number,
-  pollMs = 120,
-): Promise<boolean> {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    if (!isRunning()) return true;
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
-  }
-  return !isRunning();
-}
 
 export function registerTunnelStartCommand(tunnel: Command): void {
   tunnel
@@ -192,16 +178,8 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               `Restarting daemon for CLI version ${CLI_VERSION} (running: ${daemonVersion || "unknown"}).`,
             );
 
-            if (isBridgeRunning(target.tunnelId)) {
-              stopBridgeProcess(target.tunnelId);
-              const bridgeStopped = await waitForStopped(
-                () => isBridgeRunning(target.tunnelId),
-                5_000,
-              );
-              if (!bridgeStopped) {
-                failCli("Bridge process did not stop during daemon upgrade restart.");
-              }
-            }
+            const bridgeError = await stopBridge(target.tunnelId);
+            if (bridgeError) failCli(bridgeError);
 
             try {
               await ipcCall(socketPath, { method: "close", params: {} });
@@ -216,10 +194,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
               );
             }
 
-            const daemonStopped = await waitForStopped(
-              () => isDaemonRunning(target.tunnelId),
-              6_000,
-            );
+            const daemonStopped = await waitForProcessExit(runningDaemonInfo.pid, 6_000);
             if (!daemonStopped) {
               failCli("Daemon did not stop in time during upgrade restart.");
             }
@@ -362,10 +337,16 @@ export function registerTunnelStartCommand(tunnel: Command): void {
                 lines.push("---- end bridge log tail ----");
               }
             }
+            let daemonCloseWarning: string | null = null;
             try {
               await ipcCall(socketPath, { method: "close", params: {} });
-            } catch {
-              // daemon may already be down
+            } catch (error) {
+              daemonCloseWarning = `failed to stop daemon after bridge startup failure: ${
+                error instanceof Error ? error.message : String(error)
+              }`;
+            }
+            if (daemonCloseWarning) {
+              lines.push(`Warning: ${daemonCloseWarning}`);
             }
             await cleanupCreatedTunnelOnStartFailure(apiClient, target);
             failCli(lines.join("\n"));

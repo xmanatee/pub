@@ -20,7 +20,7 @@ import {
   readBridgeProcessInfo,
   resolveActiveTunnel,
   resolveTunnelIdSelection,
-  stopBridgeProcess,
+  stopBridge,
   tunnelLogPath,
 } from "../tunnel-helpers.js";
 
@@ -266,17 +266,20 @@ export function registerTunnelManagementCommands(tunnel: Command): void {
     .description("Close a tunnel and stop its daemon")
     .argument("<tunnelId>", "Tunnel ID")
     .action(async (tunnelId: string) => {
-      stopBridgeProcess(tunnelId);
-      try {
-        fs.unlinkSync(bridgeInfoPath(tunnelId));
-      } catch {
-        // bridge info may not exist
-      }
+      const bridgeError = await stopBridge(tunnelId);
+      if (bridgeError) console.error(bridgeError);
+      fs.rmSync(bridgeInfoPath(tunnelId), { force: true });
       const socketPath = getSocketPath(tunnelId);
-      try {
-        await ipcCall(socketPath, { method: "close", params: {} });
-      } catch {
-        // daemon may already be stopped; continue with API close.
+      if (isDaemonRunning(tunnelId)) {
+        try {
+          await ipcCall(socketPath, { method: "close", params: {} });
+        } catch (error) {
+          console.error(
+            `Warning: failed to stop daemon over IPC for ${tunnelId}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
       }
 
       const apiClient = createApiClient();

@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
-import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
+import { trackError, trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
 
@@ -52,7 +52,12 @@ export function useTelegramAuth(): { telegramPending: boolean } {
           trackSignIn("telegram");
           pushAuthDebug("telegram_signin_success");
         })
-        .catch((error) => pushAuthDebug("telegram_signin_error", error))
+        .catch((error) => {
+          trackError(error instanceof Error ? error : new Error(String(error)), {
+            provider: "telegram",
+          });
+          pushAuthDebug("telegram_signin_error", error);
+        })
         .finally(() => {
           if (!disposed) setTelegramPending(false);
         });
