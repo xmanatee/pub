@@ -17,8 +17,10 @@
       }
     },
     "cli": {
-      "entry": ["src/tunnel-daemon-entry.ts", "src/tunnel-bridge-entry.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts", "src/tunnel-daemon-entry.ts", "src/tunnel-bridge-entry.ts"],
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["tsup"],
+      "ignoreBinaries": ["tsup"]
     }
   }
 }
