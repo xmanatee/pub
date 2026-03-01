@@ -94,8 +94,8 @@ export function getConfig(homeDir?: string): Config {
   };
 }
 
-export function getTelegramMiniAppUrl(type: "pub" | "tunnel", id: string): string | null {
+export function getTelegramMiniAppUrl(slug: string): string | null {
   const saved = loadConfig();
   if (!saved?.telegram?.botUsername) return null;
-  return `https://t.me/${saved.telegram.botUsername}?startapp=${type === "pub" ? "p" : "t"}_${id}`;
+  return `https://t.me/${saved.telegram.botUsername}?startapp=${slug}`;
 }

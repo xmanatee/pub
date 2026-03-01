@@ -31,8 +31,8 @@ import {
   trackApiKeyCreated,
   trackApiKeyDeleted,
   trackDashboardTabChanged,
-  trackPublicationDeleted,
-  trackPublicationLinkCopied,
+  trackPubDeleted,
+  trackPubLinkCopied,
   trackSignOut,
   trackVisibilityToggled,
 } from "~/lib/analytics";
@@ -80,9 +80,7 @@ function Dashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage your publications and API keys
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">Manage your pubs and API keys</p>
         </div>
         {!IN_TELEGRAM && (
           <Button
@@ -102,17 +100,17 @@ function Dashboard() {
       </div>
 
       <Tabs
-        defaultValue="publications"
+        defaultValue="pubs"
         onValueChange={(tab) => {
-          if (tab === "publications" || tab === "keys" || tab === "account") {
+          if (tab === "pubs" || tab === "keys" || tab === "account") {
             trackDashboardTabChanged({ tab });
           }
         }}
       >
         <TabsList>
-          <TabsTrigger value="publications">
+          <TabsTrigger value="pubs">
             <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
-            Publications
+            Pubs
           </TabsTrigger>
           <TabsTrigger value="keys">
             <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
@@ -124,8 +122,8 @@ function Dashboard() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="publications">
-          <PublicationsTab />
+        <TabsContent value="pubs">
+          <PubsTab />
         </TabsContent>
         <TabsContent value="keys">
           <ApiKeysTab />
@@ -182,31 +180,31 @@ function formatRelativeTime(timestamp: number): string {
   return `${minutes}m`;
 }
 
-function ActiveTunnels() {
-  const tunnels = useQuery(api.tunnels.listActiveTunnels);
-  if (!tunnels || tunnels.length === 0) return null;
+function ActiveSessions() {
+  const sessions = useQuery(api.pubs.listActiveSessions);
+  if (!sessions || sessions.length === 0) return null;
 
   return (
     <div className="space-y-2 mb-6">
-      <h3 className="text-sm font-medium text-muted-foreground">Active Tunnels</h3>
-      {tunnels.map((t) => (
+      <h3 className="text-sm font-medium text-muted-foreground">Active Sessions</h3>
+      {sessions.map((s) => (
         <a
-          key={t.tunnelId}
-          href={`/t/${t.tunnelId}`}
+          key={s.slug}
+          href={`/p/${s.slug}`}
           className="group flex items-center justify-between rounded-lg border border-emerald-600/20 bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-3 transition-colors hover:border-emerald-600/40"
         >
           <div className="flex items-center gap-2">
             <Radio className="h-4 w-4 text-emerald-600 animate-pulse" aria-hidden="true" />
-            <span className="font-medium text-sm">{t.tunnelId}</span>
+            <span className="font-medium text-sm">{s.slug}</span>
             <Badge
               variant="outline"
               className="gap-1 text-emerald-600 border-emerald-600/20 text-xs"
             >
-              {t.hasConnection ? "Connected" : "Waiting"}
+              {s.hasConnection ? "Connected" : "Waiting"}
             </Badge>
             <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600/20 text-xs">
               <Clock className="h-3 w-3" aria-hidden="true" />
-              {formatRelativeTime(t.expiresAt)}
+              {formatRelativeTime(s.expiresAt)}
             </Badge>
           </div>
           <ExternalLink
@@ -219,32 +217,32 @@ function ActiveTunnels() {
   );
 }
 
-function PublicationsTab() {
+function PubsTab() {
   const {
-    results: publications,
+    results: pubs,
     status,
     loadMore,
-  } = usePaginatedQuery(api.publications.listByUser, {}, { initialNumItems: 25 });
-  const toggleVisibility = useMutation(api.publications.toggleVisibility);
-  const deletePub = useMutation(api.publications.deleteByUser);
+  } = usePaginatedQuery(api.pubs.listByUser, {}, { initialNumItems: 25 });
+  const toggleVisibility = useMutation(api.pubs.toggleVisibility);
+  const deletePub = useMutation(api.pubs.deleteByUser);
 
-  const slugs = publications?.map((p) => p.slug) ?? [];
+  const slugs = pubs?.map((p) => p.slug) ?? [];
   const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
 
   if (status === "LoadingFirstPage") {
     return <div className="text-muted-foreground py-8">Loading\u2026</div>;
   }
 
-  if (publications.length === 0) {
+  if (pubs.length === 0) {
     return (
       <Card className="mt-4 border-border/50 border-dashed">
         <CardContent className="flex flex-col items-center py-16">
           <div className="rounded-full bg-muted p-4 mb-4">
             <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
           </div>
-          <p className="font-medium mb-1">No publications yet</p>
+          <p className="font-medium mb-1">No pubs yet</p>
           <p className="text-sm text-muted-foreground mb-6">
-            Use the CLI or API to create your first publication.
+            Use the CLI or API to create your first pub.
           </p>
           <div className="rounded-lg bg-navy text-white px-4 py-3 font-mono text-sm">
             <span className="text-primary">$</span> pubblue create index.html
@@ -256,8 +254,8 @@ function PublicationsTab() {
 
   return (
     <div className="space-y-2 mt-4">
-      <ActiveTunnels />
-      {publications.map((pub) => (
+      <ActiveSessions />
+      {pubs.map((pub) => (
         <div
           key={pub._id}
           className="group flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:border-primary/20"
@@ -294,7 +292,7 @@ function PublicationsTab() {
           <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5 ml-2 hover-reveal">
             <CopyButton
               text={`${window.location.origin}/p/${encodeURIComponent(pub.slug)}`}
-              onCopy={() => trackPublicationLinkCopied({ slug: pub.slug })}
+              onCopy={() => trackPubLinkCopied({ slug: pub.slug })}
             />
             <Button
               variant="ghost"
@@ -335,16 +333,16 @@ function PublicationsTab() {
               size="icon"
               className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive"
               onClick={() => {
-                void telegramConfirm("Delete this publication?").then((ok) => {
+                void telegramConfirm("Delete this pub?").then((ok) => {
                   if (!ok) return;
-                  trackPublicationDeleted({
+                  trackPubDeleted({
                     slug: pub.slug,
-                    contentType: pub.contentType,
+                    contentType: pub.contentType ?? "text",
                   });
                   deletePub({ id: pub._id });
                 });
               }}
-              aria-label="Delete publication"
+              aria-label="Delete pub"
             >
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>

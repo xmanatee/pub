@@ -4,12 +4,12 @@ import {
   getSignalPollDelayMs,
   getTunnelWriteReadinessError,
   shouldRecoverForBrowserAnswerChange,
-} from "./tunnel-daemon.js";
+} from "./tunnel-daemon-shared.js";
 
 describe("getTunnelWriteReadinessError", () => {
   it("blocks writes before browser connection", () => {
     expect(getTunnelWriteReadinessError(false)).toBe(
-      "No browser connected. Ask the user to open the tunnel URL first, then retry.",
+      "No browser connected. Ask the user to open the pub URL first, then retry.",
     );
   });
 

@@ -6,7 +6,7 @@ import {
   getApiKey,
   getOgCardData,
   jsonResponse,
-  mapTunnelError,
+  mapSessionError,
   shouldTouchApiKey,
 } from "./http";
 import { MIME_TYPES } from "./utils";
@@ -94,15 +94,11 @@ describe("getApiKey", () => {
 
 describe("extractSlugFromPath", () => {
   it("extracts slug from API path", () => {
-    expect(extractSlugFromPath("/api/v1/publications/abc123", "/api/v1/publications/")).toBe(
-      "abc123",
-    );
+    expect(extractSlugFromPath("/api/v1/pubs/abc123", "/api/v1/pubs/")).toBe("abc123");
   });
 
   it("strips trailing slash", () => {
-    expect(extractSlugFromPath("/api/v1/publications/abc123/", "/api/v1/publications/")).toBe(
-      "abc123",
-    );
+    expect(extractSlugFromPath("/api/v1/pubs/abc123/", "/api/v1/pubs/")).toBe("abc123");
   });
 
   it("handles slugs with special chars", () => {
@@ -127,9 +123,9 @@ describe("MIME types", () => {
 });
 
 describe("getOgCardData", () => {
-  it("returns generic OG data for private or missing publications", () => {
+  it("returns generic OG data for private or missing pubs", () => {
     expect(getOgCardData(null, "secret-slug")).toEqual({
-      title: "pub.blue publication",
+      title: "pub.blue",
       contentType: "text",
       typeColor: "#6b7280",
       badgeColor: "#3b82f6",
@@ -143,7 +139,7 @@ describe("getOgCardData", () => {
         "secret-slug",
       ),
     ).toEqual({
-      title: "pub.blue publication",
+      title: "pub.blue",
       contentType: "text",
       typeColor: "#6b7280",
       badgeColor: "#3b82f6",
@@ -152,7 +148,7 @@ describe("getOgCardData", () => {
     });
   });
 
-  it("returns publication details for public entries", () => {
+  it("returns pub details for public entries", () => {
     const og = getOgCardData(
       { title: "Hello", slug: "hello", contentType: "markdown", isPublic: true },
       "hello",
@@ -164,28 +160,28 @@ describe("getOgCardData", () => {
   });
 });
 
-describe("mapTunnelError", () => {
-  it("maps known tunnel errors to API statuses", () => {
-    expect(mapTunnelError(new Error("Tunnel not found"))).toEqual({
-      message: "Tunnel not found",
+describe("mapSessionError", () => {
+  it("maps known session errors to API statuses", () => {
+    expect(mapSessionError(new Error("Session not found"))).toEqual({
+      message: "Session not found",
       status: 404,
     });
-    expect(mapTunnelError(new Error("Tunnel closed"))).toEqual({
-      message: "Tunnel closed",
+    expect(mapSessionError(new Error("Session closed"))).toEqual({
+      message: "Session closed",
       status: 409,
     });
-    expect(mapTunnelError(new Error("Tunnel expired"))).toEqual({
-      message: "Tunnel expired",
+    expect(mapSessionError(new Error("Session expired"))).toEqual({
+      message: "Session expired",
       status: 410,
     });
-    expect(mapTunnelError(new Error("Tunnel limit reached (5)"))).toEqual({
-      message: "Tunnel limit reached (5)",
+    expect(mapSessionError(new Error("Session limit reached (5)"))).toEqual({
+      message: "Session limit reached (5)",
       status: 429,
     });
   });
 
   it("returns null for unknown failures", () => {
-    expect(mapTunnelError(new Error("Unexpected failure"))).toBeNull();
+    expect(mapSessionError(new Error("Unexpected failure"))).toBeNull();
   });
 });
 

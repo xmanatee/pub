@@ -1,5 +1,5 @@
 /**
- * Tunnel daemon — background process that holds a WebRTC PeerConnection.
+ * Session daemon — background process that holds a WebRTC PeerConnection.
  */
 
 import { fork } from "node:child_process";
@@ -25,7 +25,7 @@ import {
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
-import { TunnelApiError } from "./tunnel-api.js";
+import { PubApiError } from "./api.js";
 import { generateOffer } from "./tunnel-daemon-offer.js";
 import {
   BRIDGE_CHECK_INTERVAL_MS,
@@ -47,14 +47,8 @@ const IDLE_SLOWDOWN_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 const IDLE_SIGNAL_POLL_MS = 5 * 60 * 1000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
-export {
-  getSignalPollDelayMs,
-  getTunnelWriteReadinessError,
-  shouldRecoverForBrowserAnswerChange,
-} from "./tunnel-daemon-shared.js";
-
 export async function startDaemon(config: DaemonConfig): Promise<void> {
-  const { tunnelId, apiClient, socketPath, infoPath, cliVersion } = config;
+  const { slug, apiClient, socketPath, infoPath, cliVersion } = config;
 
   const ndc = await import("node-datachannel");
 
@@ -105,7 +99,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
                 ? error
                 : JSON.stringify(error)
           }`;
-    console.error(`[pubblue-daemon:${tunnelId}] ${message}${detail}`);
+    console.error(`[pubblue-daemon:${slug}] ${message}${detail}`);
   }
 
   function markError(message: string, error?: unknown): void {
@@ -263,7 +257,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           pendingOutboundAcks.delete(ackKey);
         }
       } catch (error) {
-        // Keep queued acks for a future retry when channels are healthy again.
         markError("failed to flush queued ack on fallback channel", error);
       }
     }
@@ -374,7 +367,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           targetDc.sendMessage(encodeMessage(sticky.msg));
         }
       } catch (error) {
-        // Replay is best-effort; next reconnection can retry.
         debugLog(`sticky outbound replay failed for channel ${channel}`, error);
       }
     }
@@ -399,7 +391,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (localCandidates.length <= lastSentCandidateCount) return;
       const newOnes = localCandidates.slice(lastSentCandidateCount);
       lastSentCandidateCount = localCandidates.length;
-      await apiClient.signal(tunnelId, { candidates: newOnes }).catch((error) => {
+      await apiClient.signal(slug, { candidates: newOnes }).catch((error) => {
         debugLog("failed to publish local ICE candidates", error);
       });
     }, LOCAL_CANDIDATE_FLUSH_MS);
@@ -461,7 +453,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         dc.close();
       } catch (error) {
-        // Ignore close errors while tearing down.
         debugLog("failed to close data channel cleanly", error);
       }
     }
@@ -473,7 +464,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         peer.close();
       } catch (error) {
-        // Ignore close errors while tearing down.
         debugLog("failed to close peer connection cleanly", error);
       }
       peer = null;
@@ -489,10 +479,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function pollSignalingOnce(): Promise<void> {
-    const tunnel = await apiClient.get(tunnelId);
+    const session = await apiClient.getSession(slug);
     if (
       shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: tunnel.browserAnswer,
+        incomingBrowserAnswer: session.browserAnswer,
         lastAppliedBrowserAnswer,
         remoteDescriptionApplied,
       })
@@ -502,14 +492,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       return;
     }
 
-    if (tunnel.browserAnswer && !remoteDescriptionApplied) {
+    if (session.browserAnswer && !remoteDescriptionApplied) {
       if (!peer) return;
 
       try {
-        const answer = JSON.parse(tunnel.browserAnswer);
+        const answer = JSON.parse(session.browserAnswer);
         peer.setRemoteDescription(answer.sdp, answer.type);
         remoteDescriptionApplied = true;
-        lastAppliedBrowserAnswer = tunnel.browserAnswer;
+        lastAppliedBrowserAnswer = session.browserAnswer;
 
         while (pendingRemoteCandidates.length > 0) {
           const next = pendingRemoteCandidates.shift();
@@ -517,19 +507,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           try {
             peer.addRemoteCandidate(next.candidate, next.sdpMid);
           } catch (error) {
-            // Ignore malformed/stale candidates and continue.
             debugLog("failed to apply queued remote ICE candidate", error);
           }
         }
       } catch (error) {
-        // Retry next poll; answer can be stale or temporarily invalid.
         markError("failed to apply browser answer", error);
       }
     }
 
-    if (tunnel.browserCandidates.length > lastBrowserCandidateCount) {
-      const newCandidates = tunnel.browserCandidates.slice(lastBrowserCandidateCount);
-      lastBrowserCandidateCount = tunnel.browserCandidates.length;
+    if (session.browserCandidates.length > lastBrowserCandidateCount) {
+      const newCandidates = session.browserCandidates.slice(lastBrowserCandidateCount);
+      lastBrowserCandidateCount = session.browserCandidates.length;
 
       for (const c of newCandidates) {
         try {
@@ -545,7 +533,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           if (!peer) continue;
           peer.addRemoteCandidate(parsed.candidate, sdpMid);
         } catch (error) {
-          // Ignore malformed candidates and keep processing others.
           debugLog("failed to parse/apply browser ICE candidate", error);
         }
       }
@@ -559,7 +546,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     try {
       await pollSignalingOnce();
     } catch (error) {
-      if (error instanceof TunnelApiError && error.status === 429) {
+      if (error instanceof PubApiError && error.status === 429) {
         retryAfterSeconds = error.retryAfterSeconds;
       }
       markError("signaling poll failed", error);
@@ -578,7 +565,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     resetNegotiationState();
     const offer = await generateOffer(peer, OFFER_TIMEOUT_MS);
-    await apiClient.signal(tunnelId, { offer });
+    await apiClient.signal(slug, { offer });
     startLocalCandidateFlush();
   }
 
@@ -623,7 +610,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         fs.unlinkSync(socketPath);
       } catch (error) {
-        // Ignore stale socket unlink failures.
         debugLog("failed to remove stale daemon socket", error);
       }
     } else {
@@ -673,7 +659,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   fs.writeFileSync(
     infoPath,
-    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime, cliVersion }),
+    JSON.stringify({ pid: process.pid, slug, socketPath, startedAt: startTime, cliVersion }),
   );
 
   startHealthCheckTimer();
@@ -715,7 +701,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         env: {
           ...bridgeProcessEnv,
           PUBBLUE_BRIDGE_MODE: bridgeMode,
-          PUBBLUE_BRIDGE_TUNNEL_ID: tunnelId,
+          PUBBLUE_BRIDGE_SLUG: slug,
           PUBBLUE_BRIDGE_SOCKET: socketPath,
           PUBBLUE_BRIDGE_INFO: bridgeInfoPath,
         },
@@ -730,7 +716,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function checkBridgeLiveness(): void {
     if (stopped || !config.bridge) return;
-    if (!isBridgeRunning(tunnelId)) restartBridge();
+    if (!isBridgeRunning(slug)) restartBridge();
   }
 
   function startBridgeCheckTimer(): void {
@@ -746,7 +732,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function stopBridgeProcess(): Promise<void> {
-    const error = await stopBridge(tunnelId);
+    const error = await stopBridge(slug);
     if (error) debugLog(error);
   }
 
@@ -771,14 +757,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     try {
       fs.unlinkSync(socketPath);
     } catch (error) {
-      // Ignore socket cleanup errors.
       debugLog("failed to remove daemon socket during cleanup", error);
     }
 
     try {
       fs.unlinkSync(infoPath);
     } catch (error) {
-      // Ignore info cleanup errors.
       debugLog("failed to remove daemon info file during cleanup", error);
     }
   }

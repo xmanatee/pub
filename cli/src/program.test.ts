@@ -14,7 +14,21 @@ describe("CLI command surface", () => {
   it("registers top-level commands", () => {
     const program = buildProgram();
     const names = program.commands.map((command) => command.name()).sort();
-    expect(names).toEqual(["configure", "create", "delete", "get", "list", "tunnel", "update"]);
+    expect(names).toEqual([
+      "channels",
+      "close",
+      "configure",
+      "create",
+      "delete",
+      "doctor",
+      "get",
+      "list",
+      "open",
+      "read",
+      "status",
+      "update",
+      "write",
+    ]);
   });
 
   it("keeps create visibility/title options", () => {
@@ -25,17 +39,11 @@ describe("CLI command surface", () => {
     expect(optionFlags).toContain("--private");
   });
 
-  it("keeps tunnel start bridge/foreground options", () => {
-    const tunnelCommand = requireCommand("tunnel");
-    const startCommand = tunnelCommand.commands.find((entry) => entry.name() === "start");
-    if (!startCommand) {
-      throw new Error("expected tunnel start command");
-    }
-
-    const optionFlags = startCommand.options.map((option) => option.long);
+  it("keeps open bridge/foreground options", () => {
+    const openCommand = requireCommand("open");
+    const optionFlags = openCommand.options.map((option) => option.long);
     expect(optionFlags).toContain("--bridge");
     expect(optionFlags).toContain("--foreground");
-    expect(optionFlags).toContain("--tunnel");
     expect(optionFlags).toContain("--new");
   });
 });

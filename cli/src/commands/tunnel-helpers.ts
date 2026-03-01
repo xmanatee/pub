@@ -2,10 +2,10 @@ import type { ChildProcess } from "node:child_process";
 import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type Pub, PubApiClient, PubApiError } from "../lib/api.js";
 import { failCli } from "../lib/cli-error.js";
 import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
-import { TunnelApiClient, TunnelApiError, type TunnelListItem } from "../lib/tunnel-api.js";
 import type { BridgeSessionSource } from "../lib/tunnel-bridge-types.js";
 import { ipcCall } from "../lib/tunnel-ipc.js";
 
@@ -62,7 +62,7 @@ export function getMimeType(filePath: string): string {
 export interface BridgeProcessInfo {
   lastError?: string;
   pid: number;
-  tunnelId: string;
+  slug: string;
   mode: string;
   sessionId?: string;
   sessionKey?: string;
@@ -76,7 +76,7 @@ export interface DaemonProcessInfo {
   pid: number;
   socketPath?: string;
   startedAt?: number;
-  tunnelId: string;
+  slug: string;
 }
 
 export type BridgeMode = "openclaw" | "none";
@@ -85,45 +85,44 @@ export interface DaemonStartTarget {
   createdNew: boolean;
   expiresAt: number;
   mode: "created" | "existing";
-  tunnelId: string;
+  slug: string;
   url: string;
 }
 
-export function tunnelInfoDir(): string {
+export function sessionInfoDir(): string {
   const dir = path.join(
     process.env.HOME || process.env.USERPROFILE || "/tmp",
     ".config",
     "pubblue",
-    "tunnels",
+    "sessions",
   );
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-export function tunnelInfoPath(tunnelId: string): string {
-  return path.join(tunnelInfoDir(), `${tunnelId}.json`);
+export function sessionInfoPath(slug: string): string {
+  return path.join(sessionInfoDir(), `${slug}.json`);
 }
 
-export function tunnelLogPath(tunnelId: string): string {
-  return path.join(tunnelInfoDir(), `${tunnelId}.log`);
+export function sessionLogPath(slug: string): string {
+  return path.join(sessionInfoDir(), `${slug}.log`);
 }
 
-export function bridgeInfoPath(tunnelId: string): string {
-  return path.join(tunnelInfoDir(), `${tunnelId}.bridge.json`);
+export function bridgeInfoPath(slug: string): string {
+  return path.join(sessionInfoDir(), `${slug}.bridge.json`);
 }
 
-export function bridgeLogPath(tunnelId: string): string {
-  return path.join(tunnelInfoDir(), `${tunnelId}.bridge.log`);
+export function bridgeLogPath(slug: string): string {
+  return path.join(sessionInfoDir(), `${slug}.bridge.log`);
 }
 
-export function createApiClient(configOverride?: Config): TunnelApiClient {
+export function createApiClient(configOverride?: Config): PubApiClient {
   const config = configOverride || getConfig();
-  return new TunnelApiClient(config.baseUrl, config.apiKey);
+  return new PubApiClient(config.baseUrl, config.apiKey);
 }
 
 export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
-  if (!bridgeConfig) return env;
 
   const setIfMissing = (key: string, value: string | number | boolean | undefined) => {
     if (value === undefined || value === null) return;
@@ -131,6 +130,10 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
     if (typeof current === "string" && current.length > 0) return;
     env[key] = String(value);
   };
+
+  setIfMissing("PUBBLUE_PROJECT_ROOT", process.cwd());
+
+  if (!bridgeConfig) return env;
 
   setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
   setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
@@ -168,12 +171,12 @@ export async function ensureNodeDatachannelAvailable(): Promise<void> {
   }
 }
 
-export function isDaemonRunning(tunnelId: string): boolean {
-  return readDaemonProcessInfo(tunnelId) !== null;
+export function isDaemonRunning(slug: string): boolean {
+  return readDaemonProcessInfo(slug) !== null;
 }
 
-export function readDaemonProcessInfo(tunnelId: string): DaemonProcessInfo | null {
-  const infoPath = tunnelInfoPath(tunnelId);
+export function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
+  const infoPath = sessionInfoPath(slug);
   if (!fs.existsSync(infoPath)) return null;
 
   try {
@@ -191,8 +194,8 @@ export function readDaemonProcessInfo(tunnelId: string): DaemonProcessInfo | nul
   }
 }
 
-export function readBridgeProcessInfo(tunnelId: string): BridgeProcessInfo | null {
-  const infoPath = bridgeInfoPath(tunnelId);
+export function readBridgeProcessInfo(slug: string): BridgeProcessInfo | null {
+  const infoPath = bridgeInfoPath(slug);
   if (!fs.existsSync(infoPath)) return null;
   try {
     return JSON.parse(fs.readFileSync(infoPath, "utf-8")) as BridgeProcessInfo;
@@ -201,8 +204,8 @@ export function readBridgeProcessInfo(tunnelId: string): BridgeProcessInfo | nul
   }
 }
 
-export function isBridgeRunning(tunnelId: string): boolean {
-  const infoPath = bridgeInfoPath(tunnelId);
+export function isBridgeRunning(slug: string): boolean {
+  const infoPath = bridgeInfoPath(slug);
   if (!fs.existsSync(infoPath)) return false;
   try {
     const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as BridgeProcessInfo;
@@ -219,7 +222,7 @@ export function isBridgeRunning(tunnelId: string): boolean {
 }
 
 export function latestCliVersionPath(): string {
-  return path.join(tunnelInfoDir(), "cli-version.txt");
+  return path.join(sessionInfoDir(), "cli-version.txt");
 }
 
 export function readLatestCliVersion(versionPath?: string): string | null {
@@ -259,8 +262,8 @@ export async function waitForProcessExit(pid: number, timeoutMs: number): Promis
   return !isProcessAlive(pid);
 }
 
-export async function stopBridge(tunnelId: string): Promise<string | null> {
-  const bridge = readBridgeProcessInfo(tunnelId);
+export async function stopBridge(slug: string): Promise<string | null> {
+  const bridge = readBridgeProcessInfo(slug);
   if (!bridge || !Number.isFinite(bridge.pid)) return null;
   if (!isProcessAlive(bridge.pid)) return null;
 
@@ -275,7 +278,7 @@ export async function stopBridge(tunnelId: string): Promise<string | null> {
   return null;
 }
 
-async function stopDaemonForTunnel(info: DaemonProcessInfo): Promise<string | null> {
+async function stopDaemonForSession(info: DaemonProcessInfo): Promise<string | null> {
   const pid = info.pid;
   if (!Number.isFinite(pid) || !isProcessAlive(pid)) return null;
 
@@ -284,7 +287,6 @@ async function stopDaemonForTunnel(info: DaemonProcessInfo): Promise<string | nu
     try {
       await ipcCall(socketPath, { method: "close", params: {} });
     } catch (error) {
-      // Fall back to SIGTERM to ensure strict cleanup before starting a new daemon.
       try {
         process.kill(pid, "SIGTERM");
       } catch (killError) {
@@ -304,30 +306,30 @@ async function stopDaemonForTunnel(info: DaemonProcessInfo): Promise<string | nu
   return null;
 }
 
-export async function stopOtherDaemons(exceptTunnelId?: string): Promise<void> {
-  const dir = tunnelInfoDir();
+export async function stopOtherDaemons(exceptSlug?: string): Promise<void> {
+  const dir = sessionInfoDir();
   const entries = fs
     .readdirSync(dir)
     .filter((name) => name.endsWith(".json") && !name.endsWith(".bridge.json"));
   const failures: string[] = [];
 
   for (const entry of entries) {
-    const tunnelId = entry.replace(/\.json$/, "");
-    if (exceptTunnelId && tunnelId === exceptTunnelId) continue;
+    const slug = entry.replace(/\.json$/, "");
+    if (exceptSlug && slug === exceptSlug) continue;
 
-    const bridgeError = await stopBridge(tunnelId);
-    if (bridgeError) failures.push(`[${tunnelId}] ${bridgeError}`);
+    const bridgeError = await stopBridge(slug);
+    if (bridgeError) failures.push(`[${slug}] ${bridgeError}`);
 
-    const info = readDaemonProcessInfo(tunnelId);
+    const info = readDaemonProcessInfo(slug);
     if (!info) continue;
-    const daemonError = await stopDaemonForTunnel(info);
-    if (daemonError) failures.push(`[${tunnelId}] ${daemonError}`);
+    const daemonError = await stopDaemonForSession(info);
+    if (daemonError) failures.push(`[${slug}] ${daemonError}`);
   }
 
   if (failures.length > 0) {
     throw new Error(
       [
-        "Critical: failed to stop previous tunnel daemon/bridge processes.",
+        "Critical: failed to stop previous session daemon/bridge processes.",
         "Starting a new daemon now would leak resources and increase bandwidth usage.",
         ...failures,
       ].join("\n"),
@@ -344,11 +346,11 @@ export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures:
   return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
 }
 
-export function resolveTunnelIdSelection(
-  tunnelIdArg: string | undefined,
-  tunnelOpt: string | undefined,
+export function resolveSlugSelection(
+  slugArg: string | undefined,
+  slugOpt: string | undefined,
 ): string | undefined {
-  return tunnelOpt || tunnelIdArg;
+  return slugOpt || slugArg;
 }
 
 export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
@@ -388,17 +390,14 @@ export function messageContainsPong(payload: unknown): boolean {
   return type === "text" && typeof data === "string" && data.trim().toLowerCase() === "pong";
 }
 
-export function getPublicTunnelUrl(tunnelId: string): string {
+export function getPublicUrl(slug: string): string {
   const base = process.env.PUBBLUE_PUBLIC_URL || "https://pub.blue";
-  return `${base.replace(/\/$/, "")}/t/${tunnelId}`;
+  return `${base.replace(/\/$/, "")}/p/${slug}`;
 }
 
-export function pickReusableTunnel(
-  tunnels: TunnelListItem[],
-  nowMs = Date.now(),
-): TunnelListItem | null {
-  const active = tunnels
-    .filter((t) => t.status === "active" && t.expiresAt > nowMs)
+export function pickReusableSession(pubs: Pub[], nowMs = Date.now()): Pub | null {
+  const active = pubs
+    .filter((p) => p.session?.status === "active" && p.session.expiresAt > nowMs)
     .sort((a, b) => b.createdAt - a.createdAt);
   return active[0] ?? null;
 }
@@ -415,7 +414,7 @@ export function readLogTail(logPath: string, maxChars = 4_000): string | null {
 }
 
 export function formatApiError(error: unknown): string {
-  if (error instanceof TunnelApiError) {
+  if (error instanceof PubApiError) {
     if (error.status === 429 && error.retryAfterSeconds !== undefined) {
       return `Rate limit exceeded. Retry after ${error.retryAfterSeconds}s.`;
     }
@@ -424,35 +423,33 @@ export function formatApiError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function cleanupCreatedTunnelOnStartFailure(
-  apiClient: TunnelApiClient,
+export async function cleanupSessionOnStartFailure(
+  apiClient: PubApiClient,
   target: DaemonStartTarget,
 ): Promise<void> {
   if (!target.createdNew) return;
   try {
-    await apiClient.close(target.tunnelId);
+    await apiClient.closeSession(target.slug);
   } catch (closeError) {
-    console.error(
-      `Failed to clean up newly created tunnel ${target.tunnelId}: ${formatApiError(closeError)}`,
-    );
+    console.error(`Failed to clean up session for ${target.slug}: ${formatApiError(closeError)}`);
   }
 }
 
-export async function resolveActiveTunnel(): Promise<string> {
-  const dir = tunnelInfoDir();
+export async function resolveActiveSlug(): Promise<string> {
+  const dir = sessionInfoDir();
   const files = fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".json") && !f.endsWith(".bridge.json"));
   const active: string[] = [];
   for (const f of files) {
-    const tunnelId = f.replace(".json", "");
-    if (isDaemonRunning(tunnelId)) active.push(tunnelId);
+    const slug = f.replace(".json", "");
+    if (isDaemonRunning(slug)) active.push(slug);
   }
   if (active.length === 0) {
-    failCli("No active tunnels. Run `pubblue tunnel start` first.");
+    failCli("No active sessions. Run `pubblue open <slug>` first.");
   }
   if (active.length === 1) return active[0];
-  failCli(`Multiple active tunnels: ${active.join(", ")}. Specify one.`);
+  failCli(`Multiple active sessions: ${active.join(", ")}. Specify one with --slug.`);
 }
 
 export interface WaitForDaemonReadyParams {
@@ -519,8 +516,8 @@ export function waitForDaemonReady({
 }
 
 export async function waitForAgentOffer(params: {
-  apiClient: TunnelApiClient;
-  tunnelId: string;
+  apiClient: PubApiClient;
+  slug: string;
   timeoutMs: number;
 }): Promise<WaitForDaemonReadyResult> {
   const startedAt = Date.now();
@@ -528,8 +525,8 @@ export async function waitForAgentOffer(params: {
 
   while (Date.now() - startedAt < params.timeoutMs) {
     try {
-      const tunnel = await params.apiClient.get(params.tunnelId);
-      if (typeof tunnel.agentOffer === "string" && tunnel.agentOffer.length > 0) {
+      const session = await params.apiClient.getSession(params.slug);
+      if (typeof session.agentOffer === "string" && session.agentOffer.length > 0) {
         return { ok: true };
       }
     } catch (error) {
@@ -548,7 +545,7 @@ export async function waitForAgentOffer(params: {
 
 export interface EnsureBridgeReadyParams {
   bridgeMode: BridgeMode;
-  tunnelId: string;
+  slug: string;
   socketPath: string;
   bridgeProcessEnv: NodeJS.ProcessEnv;
   timeoutMs: number;
@@ -561,17 +558,17 @@ export async function ensureBridgeReady(
     return { ok: true };
   }
 
-  const infoPath = bridgeInfoPath(params.tunnelId);
-  if (isBridgeRunning(params.tunnelId)) {
+  const infoPath = bridgeInfoPath(params.slug);
+  if (isBridgeRunning(params.slug)) {
     return waitForBridgeReady({
       infoPath,
-      tunnelId: params.tunnelId,
+      slug: params.slug,
       timeoutMs: params.timeoutMs,
     });
   }
 
   const bridgeScript = path.join(import.meta.dirname, "tunnel-bridge-entry.js");
-  const logPath = bridgeLogPath(params.tunnelId);
+  const logPath = bridgeLogPath(params.slug);
   const logFd = fs.openSync(logPath, "a");
   const child = fork(bridgeScript, [], {
     detached: true,
@@ -579,7 +576,7 @@ export async function ensureBridgeReady(
     env: {
       ...params.bridgeProcessEnv,
       PUBBLUE_BRIDGE_MODE: params.bridgeMode,
-      PUBBLUE_BRIDGE_TUNNEL_ID: params.tunnelId,
+      PUBBLUE_BRIDGE_SLUG: params.slug,
       PUBBLUE_BRIDGE_SOCKET: params.socketPath,
       PUBBLUE_BRIDGE_INFO: infoPath,
     },
@@ -593,7 +590,7 @@ export async function ensureBridgeReady(
   return waitForBridgeReady({
     child,
     infoPath,
-    tunnelId: params.tunnelId,
+    slug: params.slug,
     timeoutMs: params.timeoutMs,
   });
 }
@@ -601,14 +598,14 @@ export async function ensureBridgeReady(
 interface WaitForBridgeReadyParams {
   child?: ChildProcess;
   infoPath: string;
-  tunnelId: string;
+  slug: string;
   timeoutMs: number;
 }
 
 function waitForBridgeReady({
   child,
   infoPath,
-  tunnelId,
+  slug,
   timeoutMs,
 }: WaitForBridgeReadyParams): Promise<WaitForDaemonReadyResult> {
   return new Promise((resolve) => {
@@ -638,11 +635,11 @@ function waitForBridgeReady({
 
     const poll = setInterval(() => {
       if (!fs.existsSync(infoPath)) return;
-      const info = readBridgeProcessInfo(tunnelId);
+      const info = readBridgeProcessInfo(slug);
       if (!info) return;
       lastState = info.status;
       lastError = info.lastError;
-      if (info.status === "ready" && isBridgeRunning(tunnelId)) {
+      if (info.status === "ready" && isBridgeRunning(slug)) {
         done({ ok: true });
         return;
       }

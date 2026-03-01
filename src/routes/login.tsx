@@ -139,7 +139,7 @@ function LoginPage() {
             <PubLogo size={40} />
           </div>
           <CardTitle className="text-2xl">Sign in to Pub</CardTitle>
-          <CardDescription>Authenticate to manage publications and API keys</CardDescription>
+          <CardDescription>Authenticate to manage pubs and API keys</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 pt-4">
           <Button

@@ -68,13 +68,16 @@ function renderControlBar(overrides?: {
     <TooltipProvider>
       <ControlBar
         chatPreview={overrides?.chatPreview ?? null}
-        disabled={false}
+        collapsed={false}
+        sendDisabled={false}
         bridge={null}
         onDismissPreview={vi.fn()}
+        onToggleCollapsed={vi.fn()}
         onSendAudio={vi.fn()}
         onSendChat={vi.fn()}
         onChangeView={vi.fn()}
         viewMode={overrides?.viewMode ?? "canvas"}
+        visualState="idle"
         voiceModeEnabled={overrides?.voiceModeEnabled ?? false}
       />
     </TooltipProvider>,
@@ -120,7 +123,7 @@ describe("ControlBar", () => {
     const html = renderControlBar({ chatPreview: "Hello from agent" });
     expect(html).toContain("Hello from agent");
     expect(html).toContain("Agent message");
-    expect(html).toContain("max-h-16 opacity-100");
+    expect(html).toContain("max-h-14 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
   });
 
@@ -130,7 +133,7 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain('aria-label="Open chat"');
     expect(html).toContain('tabindex="-1"');
-    expect(html).toContain("min-h-16");
+    expect(html).toContain("min-h-12");
   });
 
   it("shows back button only outside canvas mode", () => {

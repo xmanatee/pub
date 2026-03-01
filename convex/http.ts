@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
-import { registerPublicationRoutes } from "./http/publication_routes";
+import { registerPubRoutes } from "./http/pub_routes";
 import {
   corsHeaders,
   errorResponse,
@@ -8,16 +8,14 @@ import {
   getApiKey,
   getOgCardData,
   jsonResponse,
-  mapTunnelError,
+  mapSessionError,
   shouldTouchApiKey,
 } from "./http/shared";
-import { registerTunnelRoutes } from "./http/tunnel_routes";
 
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
-registerPublicationRoutes(http);
-registerTunnelRoutes(http);
+registerPubRoutes(http);
 
 export {
   corsHeaders,
@@ -26,7 +24,7 @@ export {
   getApiKey,
   getOgCardData,
   jsonResponse,
-  mapTunnelError,
+  mapSessionError,
   shouldTouchApiKey,
 };
 

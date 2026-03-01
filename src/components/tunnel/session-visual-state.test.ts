@@ -38,7 +38,7 @@ describe("resolveTunnelSessionVisualState", () => {
     ).toBe("disconnected");
   });
 
-  it("returns agent-replying after recent delivered user message", () => {
+  it("returns agent-thinking after recent delivered user message with no agent activity", () => {
     expect(
       resolveTunnelSessionVisualState({
         bridgeState: "connected",
@@ -47,7 +47,7 @@ describe("resolveTunnelSessionVisualState", () => {
         lastUserDeliveredAt: NOW - 1_000,
         now: NOW,
       }),
-    ).toBe("agent-replying");
+    ).toBe("agent-thinking");
   });
 
   it("returns agent-replying on recent agent activity", () => {
@@ -60,6 +60,18 @@ describe("resolveTunnelSessionVisualState", () => {
         now: NOW,
       }),
     ).toBe("agent-replying");
+  });
+
+  it("returns agent-thinking when user sent recently but agent activity was before", () => {
+    expect(
+      resolveTunnelSessionVisualState({
+        bridgeState: "connected",
+        hasCanvasContent: true,
+        lastAgentActivityAt: NOW - 8_000,
+        lastUserDeliveredAt: NOW - 2_000,
+        now: NOW,
+      }),
+    ).toBe("agent-thinking");
   });
 
   it("returns idle when there is no recent activity", () => {
