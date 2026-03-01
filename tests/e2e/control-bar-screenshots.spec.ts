@@ -33,4 +33,10 @@ test.describe("Control bar screenshots", () => {
     await expect(section).toBeVisible();
     await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-preview.png` });
   });
+
+  test("takeover", async ({ page }) => {
+    const section = page.getByTestId("batch-takeover");
+    await expect(section).toBeVisible();
+    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-takeover.png` });
+  });
 });

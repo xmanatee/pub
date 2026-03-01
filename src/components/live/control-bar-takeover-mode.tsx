@@ -56,6 +56,10 @@ export function ControlBarTakeoverMode({
 
   return (
     <div className={cn(controlBarClass, controlHeightClass)}>
+      <span className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground">
+        {statusText}
+      </span>
+
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -63,17 +67,13 @@ export function ControlBarTakeoverMode({
             size="control"
             className={actionButtonClass}
             onClick={onExit}
-            aria-label="Exit"
+            aria-label="Leave"
           >
             <LogOut />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Exit</TooltipContent>
+        <TooltipContent>Leave</TooltipContent>
       </Tooltip>
-
-      <span className="min-w-0 flex-1 truncate text-center text-xs text-muted-foreground">
-        {statusText}
-      </span>
 
       <Tooltip>
         <TooltipTrigger asChild>

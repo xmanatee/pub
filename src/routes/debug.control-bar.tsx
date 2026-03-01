@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { BatchSection } from "~/components/debug/batch-section";
 import { ControlBar } from "~/components/live/control-bar";
-import type { LiveViewMode, LiveVisualState } from "~/components/live/types";
+import type { LiveViewMode, LiveVisualState, SessionState } from "~/components/live/types";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",
@@ -31,10 +31,14 @@ function StaticControlBar({
   visualState = "idle",
   chatPreview = null,
   collapsed = false,
+  sessionState,
+  lastTakeoverAt,
 }: {
   visualState?: LiveVisualState;
   chatPreview?: string | null;
   collapsed?: boolean;
+  sessionState?: SessionState;
+  lastTakeoverAt?: number;
 }) {
   return (
     <ControlBar
@@ -42,11 +46,14 @@ function StaticControlBar({
       collapsed={collapsed}
       sendDisabled={visualState === "connecting" || visualState === "disconnected"}
       bridge={null}
+      lastTakeoverAt={lastTakeoverAt}
       onClose={noop}
       onDismissPreview={noop}
+      onTakeover={sessionState ? noop : undefined}
       onToggleCollapsed={noop}
       onSendAudio={noop}
       onSendChat={noop}
+      sessionState={sessionState}
       onChangeView={noop}
       viewMode="canvas"
       visualState={visualState}
@@ -106,6 +113,29 @@ function ControlBarDebugPage() {
             },
           ]}
           cellHeight={160}
+        />
+
+        <BatchSection
+          title="Takeover"
+          testId="batch-takeover"
+          items={[
+            {
+              label: "needs takeover",
+              content: <StaticControlBar sessionState="needs-takeover" />,
+            },
+            {
+              label: "taken over — cooldown",
+              content: (
+                <StaticControlBar sessionState="taken-over" lastTakeoverAt={Date.now() - 5_000} />
+              ),
+            },
+            {
+              label: "taken over — expired",
+              content: (
+                <StaticControlBar sessionState="taken-over" lastTakeoverAt={Date.now() - 30_000} />
+              ),
+            },
+          ]}
         />
 
         <details className="mt-10">
