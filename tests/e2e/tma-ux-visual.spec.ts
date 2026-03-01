@@ -43,7 +43,12 @@ test.describe("TMA UX visual snapshots", () => {
 
     // Right-click the message input within this section to expand extended options
     await section.getByLabel("Message").click({ button: "right" });
-    await expect(section.getByRole("menuitem", { name: "Close" })).toBeVisible();
+    // Wait for the backdrop overlay (opacity 0→1 transition) — Playwright correctly
+    // treats opacity:0 as not-visible, unlike the menuitem which has a non-zero
+    // bounding box even when clipped by max-h-0/overflow-hidden on its parent.
+    await expect(section.getByRole("button", { name: "Close control bar menu" })).toBeVisible();
+    // Let the 300ms CSS transition complete
+    await page.waitForTimeout(400);
 
     await section.screenshot({ path: path.join(SCREENSHOT_DIR, "control-bar-with-close.png") });
   });

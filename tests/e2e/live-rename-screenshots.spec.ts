@@ -14,6 +14,13 @@ test.describe("live-rename visual snapshots", () => {
   test("landing page", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /Publish content/i })).toBeVisible();
+    // html has overflow:hidden + height:100% (TMA viewport hardening), so body
+    // scrolls internally and fullPage:true only captures the viewport-sized html.
+    // Temporarily remove the constraint so Playwright can measure the full document.
+    await page.evaluate(() => {
+      document.documentElement.style.overflow = "visible";
+      document.documentElement.style.height = "auto";
+    });
     await page.screenshot({ path: shot("landing"), fullPage: true });
   });
 
