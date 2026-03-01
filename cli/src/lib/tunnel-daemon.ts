@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
+import { latestCliVersionPath, readLatestCliVersion } from "../commands/tunnel-helpers.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -31,6 +32,10 @@ import {
   shouldRecoverForBrowserAnswerChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./tunnel-daemon-shared.js";
+
+const IDLE_SLOWDOWN_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+const IDLE_SIGNAL_POLL_MS = 5 * 60 * 1000;
+const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export {
   getSignalPollDelayMs,
@@ -72,8 +77,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
   let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_TUNNEL_DEBUG === "1";
+  let lastConnectedAt = startTime;
+  const versionFilePath = latestCliVersionPath();
 
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
@@ -128,6 +136,31 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       clearTimeout(recoveryTimer);
       recoveryTimer = null;
     }
+  }
+
+  function clearHealthCheckTimer(): void {
+    if (healthCheckTimer) {
+      clearInterval(healthCheckTimer);
+      healthCheckTimer = null;
+    }
+  }
+
+  function runHealthCheck(): void {
+    if (stopped) return;
+
+    if (cliVersion) {
+      const latest = readLatestCliVersion(versionFilePath);
+      if (latest && latest !== cliVersion) {
+        markError(`detected CLI upgrade (${cliVersion} → ${latest}); shutting down`);
+        void shutdown();
+      }
+    }
+  }
+
+  function startHealthCheckTimer(): void {
+    clearHealthCheckTimer();
+    healthCheckTimer = setInterval(runHealthCheck, HEALTH_CHECK_INTERVAL_MS);
+    runHealthCheck();
   }
 
   function setupChannel(name: string, dc: DataChannel): void {
@@ -377,6 +410,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
       if (state === "connected") {
         connected = true;
+        lastConnectedAt = Date.now();
         flushQueuedAcks();
         void replayStickyOutboundMessages();
         return;
@@ -521,7 +555,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       markError("signaling poll failed", error);
     }
 
-    scheduleNextPoll(getSignalPollDelayMs({ remoteDescriptionApplied, retryAfterSeconds }));
+    const baseDelay = getSignalPollDelayMs({ remoteDescriptionApplied, retryAfterSeconds });
+    const idleSlowdown =
+      !connected && Date.now() - lastConnectedAt >= IDLE_SLOWDOWN_AFTER_MS
+        ? IDLE_SIGNAL_POLL_MS
+        : 0;
+    scheduleNextPoll(Math.max(baseDelay, idleSlowdown));
   }
 
   async function runNegotiationCycle(): Promise<void> {
@@ -627,6 +666,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime, cliVersion }),
   );
 
+  startHealthCheckTimer();
   scheduleNextPoll(0);
 
   async function cleanup(): Promise<void> {
@@ -636,6 +676,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearPollingTimer();
     clearLocalCandidateTimers();
     clearRecoveryTimer();
+    clearHealthCheckTimer();
     closeCurrentPeer();
 
     ipcServer.close();

@@ -214,7 +214,124 @@ export function isBridgeRunning(tunnelId: string): boolean {
     } catch {
       // stale bridge pid cleanup failed
     }
+  }
+  return false;
+}
+
+export function latestCliVersionPath(): string {
+  return path.join(tunnelInfoDir(), "cli-version.txt");
+}
+
+export function readLatestCliVersion(versionPath?: string): string | null {
+  const resolved = versionPath || latestCliVersionPath();
+  if (!fs.existsSync(resolved)) return null;
+  try {
+    const value = fs.readFileSync(resolved, "utf-8").trim();
+    return value.length === 0 ? null : value;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLatestCliVersion(version: string, versionPath?: string): void {
+  if (!version || version.trim().length === 0) return;
+  const resolved = versionPath || latestCliVersionPath();
+  const dir = path.dirname(resolved);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(resolved, version.trim(), "utf-8");
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
     return false;
+  }
+}
+
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (!isProcessAlive(pid)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  return !isProcessAlive(pid);
+}
+
+async function stopBridgeForTunnel(tunnelId: string): Promise<string | null> {
+  const bridge = readBridgeProcessInfo(tunnelId);
+  if (!bridge || !Number.isFinite(bridge.pid)) return null;
+  if (!isProcessAlive(bridge.pid)) return null;
+
+  try {
+    process.kill(bridge.pid, "SIGTERM");
+  } catch (error) {
+    return `bridge ${bridge.pid}: failed to send SIGTERM (${error instanceof Error ? error.message : String(error)})`;
+  }
+
+  const stopped = await waitForProcessExit(bridge.pid, 6_000);
+  if (!stopped) return `bridge ${bridge.pid}: did not exit after SIGTERM`;
+  return null;
+}
+
+async function stopDaemonForTunnel(info: DaemonProcessInfo): Promise<string | null> {
+  const pid = info.pid;
+  if (!Number.isFinite(pid) || !isProcessAlive(pid)) return null;
+
+  const socketPath = info.socketPath;
+  if (socketPath) {
+    try {
+      await ipcCall(socketPath, { method: "close", params: {} });
+    } catch (error) {
+      // Fall back to SIGTERM to ensure strict cleanup before starting a new daemon.
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch (killError) {
+        return `daemon ${pid}: IPC close failed (${error instanceof Error ? error.message : String(error)}); SIGTERM failed (${killError instanceof Error ? killError.message : String(killError)})`;
+      }
+    }
+  } else {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch (error) {
+      return `daemon ${pid}: no socketPath and SIGTERM failed (${error instanceof Error ? error.message : String(error)})`;
+    }
+  }
+
+  const stopped = await waitForProcessExit(pid, 8_000);
+  if (!stopped) return `daemon ${pid}: did not exit after stop request`;
+  return null;
+}
+
+export async function stopOtherDaemons(exceptTunnelId?: string): Promise<void> {
+  const dir = tunnelInfoDir();
+  const entries = fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith(".json") && !name.endsWith(".bridge.json"));
+  const failures: string[] = [];
+
+  for (const entry of entries) {
+    const tunnelId = entry.replace(/\.json$/, "");
+    if (exceptTunnelId && tunnelId === exceptTunnelId) continue;
+
+    const bridgeError = await stopBridgeForTunnel(tunnelId);
+    if (bridgeError) failures.push(`[${tunnelId}] ${bridgeError}`);
+
+    const info = readDaemonProcessInfo(tunnelId);
+    if (!info) continue;
+    const daemonError = await stopDaemonForTunnel(info);
+    if (daemonError) failures.push(`[${tunnelId}] ${daemonError}`);
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      [
+        "Critical: failed to stop previous tunnel daemon/bridge processes.",
+        "Starting a new daemon now would leak resources and increase bandwidth usage.",
+        ...failures,
+      ].join("\n"),
+    );
   }
 }
 

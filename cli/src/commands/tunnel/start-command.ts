@@ -25,10 +25,12 @@ import {
   readLogTail,
   shouldRestartDaemonForCliUpgrade,
   stopBridgeProcess,
+  stopOtherDaemons,
   tunnelInfoPath,
   tunnelLogPath,
   waitForAgentOffer,
   waitForDaemonReady,
+  writeLatestCliVersion,
 } from "../tunnel-helpers.js";
 
 async function waitForStopped(
@@ -62,6 +64,7 @@ export function registerTunnelStartCommand(tunnel: Command): void {
         foreground?: boolean;
       }) => {
         await ensureNodeDatachannelAvailable();
+        writeLatestCliVersion(CLI_VERSION);
         const runtimeConfig = getConfig();
         const apiClient = createApiClient(runtimeConfig);
         let target: DaemonStartTarget | null = null;
@@ -141,6 +144,11 @@ export function registerTunnelStartCommand(tunnel: Command): void {
         const socketPath = getSocketPath(target.tunnelId);
         const infoPath = tunnelInfoPath(target.tunnelId);
         const logPath = tunnelLogPath(target.tunnelId);
+        try {
+          await stopOtherDaemons(target.tunnelId);
+        } catch (error) {
+          failCli(error instanceof Error ? error.message : String(error));
+        }
 
         if (opts.foreground) {
           if (bridgeMode !== "none") {
