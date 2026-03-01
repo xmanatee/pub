@@ -127,7 +127,8 @@ function InteractiveView({
     }
     return <StatusScreen text="This pub is not live." />;
   }
-  if (!model.live.agentOffer && !model.canvasHtml)
+
+  if (model.sessionState === "active" && !model.live.agentOffer && !model.canvasHtml)
     return <StatusScreen text="Waiting for agent..." />;
 
   return (
@@ -191,11 +192,14 @@ function InteractiveView({
         collapsed={controlBarCollapsed}
         sendDisabled={!model.connected}
         bridge={model.bridgeRef.current}
+        lastTakeoverAt={model.lastTakeoverAt}
         onClose={() => navigate({ to: "/dashboard" })}
         onDismissPreview={dismissPreview}
+        onTakeover={() => void model.takeoverLive()}
         onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
+        sessionState={model.sessionState}
         onChangeView={model.setViewMode}
         viewMode={model.viewMode}
         visualState={model.visualState}

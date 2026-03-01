@@ -40,6 +40,8 @@ export default defineSchema({
     browserAnswer: v.optional(v.string()),
     agentCandidates: v.array(v.string()),
     browserCandidates: v.array(v.string()),
+    browserSessionId: v.optional(v.string()),
+    lastTakeoverAt: v.optional(v.number()),
     expiresAt: v.number(),
     createdAt: v.number(),
   })

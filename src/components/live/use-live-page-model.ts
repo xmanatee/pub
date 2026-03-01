@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readCachedCanvasHtml, writeCachedCanvasHtml } from "~/components/live/canvas-live-cache";
 import { useLiveVisualState } from "~/components/live/live-visual-state";
-import type { LiveViewMode } from "~/components/live/types";
+import type { LiveViewMode, SessionState } from "~/components/live/types";
 import { useLiveBridge } from "~/components/live/use-live-bridge";
 import { useLiveChatDelivery } from "~/components/live/use-live-chat-delivery";
 import { useLiveFiles } from "~/components/live/use-live-files";
@@ -15,10 +15,42 @@ import { api } from "../../../convex/_generated/api";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const CHAT_CONFIRM_GRACE_MS = 12_000;
+const SESSION_STORAGE_PREFIX = "pub-live-session:";
+
+function getOrCreateSessionId(slug: string): string {
+  const key = `${SESSION_STORAGE_PREFIX}${slug}`;
+  const existing = sessionStorage.getItem(key);
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  sessionStorage.setItem(key, id);
+  return id;
+}
 
 export function useLivePageModel(slug: string) {
   const live = useQuery(api.pubs.getLiveBySlug, { slug });
-  const storeBrowserSignal = useMutation(api.pubs.storeBrowserSignal);
+  const storeBrowserSignalRaw = useMutation(api.pubs.storeBrowserSignal);
+  const takeoverLiveMutation = useMutation(api.pubs.takeoverLive);
+
+  const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
+
+  const [wasConnected, setWasConnected] = useState(false);
+
+  const sessionState: SessionState = useMemo(() => {
+    if (!live) return "active";
+    if (!live.browserSessionId || live.browserSessionId === browserSessionId) return "active";
+    return wasConnected ? "taken-over" : "needs-takeover";
+  }, [live, browserSessionId, wasConnected]);
+
+  const storeBrowserSignal = useCallback(
+    (input: { slug: string; answer?: string; candidates?: string[] }) => {
+      return storeBrowserSignalRaw({ ...input, sessionId: browserSessionId });
+    },
+    [storeBrowserSignalRaw, browserSessionId],
+  );
+
+  const takeoverLive = useCallback(() => {
+    return takeoverLiveMutation({ slug, sessionId: browserSessionId });
+  }, [takeoverLiveMutation, slug, browserSessionId]);
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(slug));
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
@@ -65,6 +97,7 @@ export function useLivePageModel(slug: string) {
     setViewMode("canvas");
     setLastAgentActivityAt(null);
     setLastUserDeliveredAt(null);
+    setWasConnected(false);
     clearMessages();
     clearFiles();
     pendingChatQueueRef.current = [];
@@ -155,14 +188,18 @@ export function useLivePageModel(slug: string) {
   );
 
   const { bridgeRef, bridgeState } = useLiveBridge({
-    agentCandidates: live?.agentCandidates,
-    agentOffer: live?.agentOffer,
+    agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
+    agentOffer: sessionState === "active" ? live?.agentOffer : undefined,
     onDeliveryAck: handleDeliveryAck,
     onMessage: handleBridgeMessage,
     onTrackActivity: markAgentActivity,
     storeBrowserSignal,
     slug,
   });
+
+  useEffect(() => {
+    if (bridgeState === "connected") setWasConnected(true);
+  }, [bridgeState]);
 
   const visualState = useLiveVisualState({
     bridgeState,
@@ -275,10 +312,12 @@ export function useLivePageModel(slug: string) {
     connected: bridgeState === "connected",
     developerModeEnabled,
     files,
+    lastTakeoverAt: live?.lastTakeoverAt,
     messages,
     messagesEndRef,
     sendAudio,
     sendChat,
+    sessionState,
     setAnimationStyle,
     setAutoOpenCanvas,
     setDeveloperModeEnabled,
@@ -286,6 +325,7 @@ export function useLivePageModel(slug: string) {
     setViewMode,
     setVoiceModeEnabled,
     showDeliveryStatus,
+    takeoverLive,
     live,
     viewMode,
     visualState,

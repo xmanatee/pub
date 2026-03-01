@@ -16,8 +16,9 @@ import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
+import { ControlBarTakeoverMode } from "./control-bar-takeover-mode";
 import { ControlBarVoiceMode } from "./control-bar-voice-mode";
-import type { LiveViewMode, LiveVisualState } from "./types";
+import type { LiveViewMode, LiveVisualState, SessionState } from "./types";
 import { useControlBarAudio } from "./use-control-bar-audio";
 import { useHoldToRecord } from "./use-hold-to-record";
 
@@ -28,11 +29,14 @@ interface ControlBarProps {
   collapsed: boolean;
   sendDisabled: boolean;
   bridge: BrowserBridge | null;
+  lastTakeoverAt?: number;
   onClose: () => void;
   onDismissPreview: () => void;
+  onTakeover?: () => void;
   onToggleCollapsed: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
+  sessionState?: SessionState;
   viewMode: LiveViewMode;
   onChangeView: (view: LiveViewMode) => void;
   visualState: LiveVisualState;
@@ -50,11 +54,14 @@ export function ControlBar({
   collapsed,
   sendDisabled,
   bridge,
+  lastTakeoverAt,
   onClose,
   onDismissPreview,
+  onTakeover,
   onToggleCollapsed,
   onSendChat,
   onSendAudio,
+  sessionState,
   viewMode,
   onChangeView,
   visualState,
@@ -212,6 +219,20 @@ export function ControlBar({
       ))}
     </div>
   );
+
+  if (sessionState && sessionState !== "active" && onTakeover) {
+    return renderFloatingShell(
+      <ControlBarTakeoverMode
+        actionButtonClass={actionButtonClass}
+        controlBarClass={controlBarClass}
+        controlHeightClass={controlHeightClass}
+        lastTakeoverAt={lastTakeoverAt}
+        onExit={onClose}
+        onTakeover={onTakeover}
+        sessionState={sessionState}
+      />,
+    );
+  }
 
   if (mode === "recording" || mode === "recording-paused") {
     const isPaused = mode === "recording-paused";
