@@ -80,13 +80,14 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
       <ControlBar
         chatPreview={previewText}
-        disabled={!model.connected}
+        sendDisabled={!model.connected}
         bridge={model.bridgeRef.current}
         onDismissPreview={dismissPreview}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
         onChangeView={model.setViewMode}
         viewMode={model.viewMode}
+        visualState={model.visualState}
         voiceModeEnabled={model.voiceModeEnabled}
       />
     </div>

@@ -68,13 +68,14 @@ function renderControlBar(overrides?: {
     <TooltipProvider>
       <ControlBar
         chatPreview={overrides?.chatPreview ?? null}
-        disabled={false}
+        sendDisabled={false}
         bridge={null}
         onDismissPreview={vi.fn()}
         onSendAudio={vi.fn()}
         onSendChat={vi.fn()}
         onChangeView={vi.fn()}
         viewMode={overrides?.viewMode ?? "canvas"}
+        visualState="idle"
         voiceModeEnabled={overrides?.voiceModeEnabled ?? false}
       />
     </TooltipProvider>,

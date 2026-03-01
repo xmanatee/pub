@@ -16,7 +16,7 @@ import { ensureChannelReady } from "~/lib/webrtc-channel";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarVoiceMode } from "./control-bar-voice-mode";
-import type { TunnelViewMode } from "./types";
+import type { TunnelSessionVisualState, TunnelViewMode } from "./types";
 import { useControlBarAudio } from "./use-control-bar-audio";
 import { useHoldToRecord } from "./use-hold-to-record";
 
@@ -24,13 +24,14 @@ const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
 interface ControlBarProps {
   chatPreview: string | null;
-  disabled: boolean;
+  sendDisabled: boolean;
   bridge: BrowserBridge | null;
   onDismissPreview: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
   viewMode: TunnelViewMode;
   onChangeView: (view: TunnelViewMode) => void;
+  visualState: TunnelSessionVisualState;
   voiceModeEnabled: boolean;
 }
 
@@ -42,13 +43,14 @@ function formatTime(seconds: number) {
 
 export function ControlBar({
   chatPreview,
-  disabled,
+  sendDisabled,
   bridge,
   onDismissPreview,
   onSendChat,
   onSendAudio,
   viewMode,
   onChangeView,
+  visualState,
   voiceModeEnabled,
 }: ControlBarProps) {
   const [input, setInput] = useState("");
@@ -98,7 +100,7 @@ export function ControlBar({
     startRecording,
     startVoiceMode,
     stopVoiceMode,
-  } = useControlBarAudio({ disabled, bridge, onSendAudio });
+  } = useControlBarAudio({ disabled: false, bridge, onSendAudio });
 
   useEffect(() => {
     if (mode !== "idle" && expanded) {
@@ -107,7 +109,7 @@ export function ControlBar({
   }, [mode, expanded]);
 
   const { pointerHandlers } = useHoldToRecord({
-    disabled,
+    disabled: false,
     mode,
     startRecording,
     sendRecording,
@@ -226,7 +228,6 @@ export function ControlBar({
       chatPreview={chatPreview}
       controlHeightClass={controlHeightClass}
       controlRowClass={controlRowClass}
-      disabled={disabled}
       expanded={expanded}
       fileInputRef={fileInputRef}
       hasText={hasText}
@@ -245,10 +246,12 @@ export function ControlBar({
       onSend={handleSend}
       onStartVoiceMode={startVoiceMode}
       onViewSelect={handleViewSelect}
+      sendDisabled={sendDisabled}
       voiceModeEnabled={voiceModeEnabled}
       pointerHandlers={pointerHandlers}
       shellContentClassName="border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-4xl"
       viewMode={viewMode}
+      visualState={visualState}
     />,
   );
 }
