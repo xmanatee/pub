@@ -15,6 +15,9 @@ firebase-debug.log
 test-results/
 playwright-report/
 
+# Git worktrees
+.worktrees/
+
 # Claude Code local settings
 .claude/settings.local.json
 .claude/do-tasks/

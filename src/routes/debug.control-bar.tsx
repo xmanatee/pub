@@ -29,6 +29,7 @@ function ControlBarDebugPage() {
   const [chatPreview, setChatPreview] = useState<string | null>(null);
   const [showAllStates, setShowAllStates] = useState(false);
   const [activeState, setActiveState] = useState<TunnelSessionVisualState>("idle");
+  const [collapsed, setCollapsed] = useState(false);
   const clearPreview = () => setChatPreview(null);
 
   return (
@@ -90,9 +91,11 @@ function ControlBarDebugPage() {
       ) : (
         <ControlBar
           chatPreview={chatPreview}
+          collapsed={collapsed}
           sendDisabled={activeState === "connecting" || activeState === "disconnected"}
           bridge={null}
           onDismissPreview={clearPreview}
+          onToggleCollapsed={() => setCollapsed((value) => !value)}
           onSendAudio={() => {}}
           onSendChat={() => {}}
           onChangeView={setViewMode}
@@ -118,9 +121,11 @@ function StatePreview({
       <div className="relative h-20">
         <ControlBar
           chatPreview={null}
+          collapsed={false}
           sendDisabled={state === "connecting" || state === "disconnected"}
           bridge={null}
           onDismissPreview={() => {}}
+          onToggleCollapsed={() => {}}
           onSendAudio={() => {}}
           onSendChat={() => {}}
           onChangeView={() => {}}

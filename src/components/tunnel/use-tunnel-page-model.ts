@@ -19,11 +19,11 @@ import { api } from "../../../convex/_generated/api";
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const CHAT_CONFIRM_GRACE_MS = 12_000;
 
-export function useTunnelPageModel(tunnelId: string) {
-  const tunnel = useQuery(api.tunnels.getByTunnelId, { tunnelId });
-  const storeBrowserSignal = useMutation(api.tunnels.storeBrowserSignal);
+export function useTunnelPageModel(slug: string) {
+  const tunnel = useQuery(api.pubs.getSessionBySlug, { slug });
+  const storeBrowserSignal = useMutation(api.pubs.storeBrowserSignal);
 
-  const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(tunnelId));
+  const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(slug));
   const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
@@ -62,7 +62,7 @@ export function useTunnelPageModel(tunnelId: string) {
   }, []);
 
   useEffect(() => {
-    setCanvasHtml(readCachedCanvasHtml(tunnelId));
+    setCanvasHtml(readCachedCanvasHtml(slug));
     setViewMode("canvas");
     setLastAgentActivityAt(null);
     setLastUserDeliveredAt(null);
@@ -70,7 +70,7 @@ export function useTunnelPageModel(tunnelId: string) {
     clearFiles();
     pendingChatQueueRef.current = [];
     pendingAudioQueueRef.current = [];
-  }, [tunnelId, clearFiles, clearMessages]);
+  }, [slug, clearFiles, clearMessages]);
 
   const handleBridgeMessage = useCallback(
     (cm: ChannelMessage) => {
@@ -85,13 +85,13 @@ export function useTunnelPageModel(tunnelId: string) {
         markAgentActivity();
         if (message.type === "html" && message.data) {
           setCanvasHtml(message.data);
-          writeCachedCanvasHtml(tunnelId, message.data);
+          writeCachedCanvasHtml(slug, message.data);
           if (autoOpenCanvas) setViewMode("canvas");
           return;
         }
         if (message.type === "event" && message.data === "hide") {
           setCanvasHtml(null);
-          writeCachedCanvasHtml(tunnelId, null);
+          writeCachedCanvasHtml(slug, null);
         }
         return;
       }
@@ -106,7 +106,7 @@ export function useTunnelPageModel(tunnelId: string) {
         });
       }
     },
-    [addAgentMessage, addReceivedBinaryFile, autoOpenCanvas, markAgentActivity, tunnelId],
+    [addAgentMessage, addReceivedBinaryFile, autoOpenCanvas, markAgentActivity, slug],
   );
 
   const handleDeliveryAck = useCallback(
@@ -125,7 +125,7 @@ export function useTunnelPageModel(tunnelId: string) {
     onMessage: handleBridgeMessage,
     onTrackActivity: markAgentActivity,
     storeBrowserSignal,
-    tunnelId,
+    slug,
   });
 
   const visualState = useTunnelSessionVisualState({
@@ -224,8 +224,8 @@ export function useTunnelPageModel(tunnelId: string) {
 
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);
-    writeCachedCanvasHtml(tunnelId, null);
-  }, [tunnelId]);
+    writeCachedCanvasHtml(slug, null);
+  }, [slug]);
 
   return {
     animationStyle,
@@ -250,7 +250,7 @@ export function useTunnelPageModel(tunnelId: string) {
     setViewMode,
     setVoiceModeEnabled,
     showDeliveryStatus,
-    tunnel,
+    session: tunnel,
     viewMode,
     visualState,
     voiceModeEnabled,

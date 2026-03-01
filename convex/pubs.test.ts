@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildPublicationPatch, isVisibilityEscalation } from "./publications";
+import { buildPubPatch, isVisibilityEscalation } from "./pubs";
 import { inferContentType } from "./utils";
 
 describe("update patch construction", () => {
   it("includes only provided fields plus updatedAt", () => {
-    const patch = buildPublicationPatch({ content: "new" });
+    const patch = buildPubPatch({ content: "new" });
     expect(patch.content).toBe("new");
     expect(patch).toHaveProperty("updatedAt");
     expect(patch).not.toHaveProperty("title");
@@ -12,7 +12,7 @@ describe("update patch construction", () => {
   });
 
   it("includes all fields when all provided", () => {
-    const patch = buildPublicationPatch({
+    const patch = buildPubPatch({
       content: "c",
       contentType: "html",
       title: "t",
@@ -25,7 +25,7 @@ describe("update patch construction", () => {
   });
 
   it("includes slug for rename", () => {
-    const patch = buildPublicationPatch({ slug: "new-slug" });
+    const patch = buildPubPatch({ slug: "new-slug" });
     expect(patch.slug).toBe("new-slug");
   });
 });

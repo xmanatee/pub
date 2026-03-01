@@ -22,8 +22,8 @@ export interface IpcResponse {
   [key: string]: unknown;
 }
 
-export function getSocketPath(tunnelId: string): string {
-  return `/tmp/pubblue-${tunnelId}.sock`;
+export function getSocketPath(slug: string): string {
+  return `/tmp/pubblue-${slug}.sock`;
 }
 
 export async function ipcCall(socketPath: string, request: IpcRequest): Promise<IpcResponse> {

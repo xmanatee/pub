@@ -33,7 +33,7 @@ describe("PubApiClient", () => {
 
       expect(result).toEqual(mockResponse);
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/publications", baseUrl),
+        new URL("/api/v1/pubs", baseUrl),
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -59,7 +59,7 @@ describe("PubApiClient", () => {
   });
 
   describe("list", () => {
-    it("fetches publications list", async () => {
+    it("fetches pubs list", async () => {
       const mockPubs = [
         {
           slug: "abc",
@@ -71,7 +71,7 @@ describe("PubApiClient", () => {
       ];
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ publications: mockPubs }), {
+        new Response(JSON.stringify({ pubs: mockPubs, hasMore: false }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -83,7 +83,7 @@ describe("PubApiClient", () => {
   });
 
   describe("get", () => {
-    it("fetches single publication by slug", async () => {
+    it("fetches single pub by slug", async () => {
       const mockPub = {
         slug: "abc",
         contentType: "html",
@@ -94,7 +94,7 @@ describe("PubApiClient", () => {
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ publication: mockPub }), {
+        new Response(JSON.stringify({ pub: mockPub }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -103,7 +103,7 @@ describe("PubApiClient", () => {
       const result = await client.get("abc");
       expect(result).toEqual(mockPub);
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/publications/abc", baseUrl),
+        new URL("/api/v1/pubs/abc", baseUrl),
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: `Bearer ${apiKey}`,
@@ -138,7 +138,7 @@ describe("PubApiClient", () => {
 
       expect(result).toEqual(mockResult);
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/publications/abc", baseUrl),
+        new URL("/api/v1/pubs/abc", baseUrl),
         expect.objectContaining({
           method: "PATCH",
           headers: expect.objectContaining({
@@ -162,7 +162,68 @@ describe("PubApiClient", () => {
       await client.remove("abc123");
 
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/publications/abc123", baseUrl),
+        new URL("/api/v1/pubs/abc123", baseUrl),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  describe("session methods", () => {
+    it("openSession sends POST to session sub-resource", async () => {
+      const mockResponse = {
+        slug: "abc",
+        url: "https://pub.blue/p/abc",
+        expiresAt: 9999999,
+      };
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify(mockResponse), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await client.openSession("abc", { expiresIn: "24h" });
+      expect(result).toEqual(mockResponse);
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/pubs/abc/session", baseUrl),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("getSession fetches session info", async () => {
+      const mockSession = {
+        slug: "abc",
+        status: "active",
+        agentOffer: "offer",
+        agentCandidates: [],
+        browserCandidates: [],
+        createdAt: 1000,
+        expiresAt: 9999999,
+      };
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ session: mockSession }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await client.getSession("abc");
+      expect(result).toEqual(mockSession);
+    });
+
+    it("closeSession sends DELETE to session sub-resource", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.closeSession("abc");
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/pubs/abc/session", baseUrl),
         expect.objectContaining({ method: "DELETE" }),
       );
     });
