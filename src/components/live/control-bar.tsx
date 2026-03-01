@@ -107,7 +107,7 @@ export function ControlBar({
     startRecording,
     startVoiceMode,
     stopVoiceMode,
-  } = useControlBarAudio({ disabled: false, bridge, onSendAudio });
+  } = useControlBarAudio({ disabled: sendDisabled, bridge, onSendAudio });
 
   useEffect(() => {
     if (mode !== "idle" && expanded) {
@@ -116,7 +116,7 @@ export function ControlBar({
   }, [mode, expanded]);
 
   const { pointerHandlers } = useHoldToRecord({
-    disabled: false,
+    disabled: sendDisabled,
     mode,
     startRecording,
     sendRecording,

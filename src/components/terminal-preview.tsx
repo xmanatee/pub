@@ -1,8 +1,9 @@
 import * as React from "react";
+import { cn } from "~/lib/utils";
 
 export function TerminalPreview({
   children,
-  className = "",
+  className,
   headerRight,
 }: {
   children: React.ReactNode;
@@ -11,7 +12,10 @@ export function TerminalPreview({
 }) {
   return (
     <div
-      className={`rounded-xl border border-border/50 bg-navy text-white overflow-hidden ${className}`}
+      className={cn(
+        "rounded-xl border border-border/50 bg-navy text-white overflow-hidden",
+        className,
+      )}
     >
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-1.5" aria-hidden="true">
