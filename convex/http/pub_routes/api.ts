@@ -22,11 +22,11 @@ import {
   parseExpiresIn,
   parseSlugFromRequest,
   rateLimitResponse,
-  rethrowSessionApiError,
+  rethrowLiveApiError,
 } from "../shared";
 
-const MAX_SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-const DEFAULT_SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const MAX_LIVE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_LIVE_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void {
   const corsPreflightHandler = httpAction(async () => {
@@ -138,14 +138,14 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             limit,
           });
 
-          const sessions = await ctx.runQuery(internal.pubs.listSessionsByUserInternal, {
+          const lives = await ctx.runQuery(internal.pubs.listLivesByUserInternal, {
             userId: auth.userId,
           });
-          const sessionMap = new Map(sessions.map((s) => [s.slug, s]));
+          const liveMap = new Map(lives.map((s) => [s.slug, s]));
 
           return {
             pubs: result.pubs.map((p) => {
-              const session = sessionMap.get(p.slug);
+              const live = liveMap.get(p.slug);
               return {
                 slug: p.slug,
                 contentType: p.contentType,
@@ -154,11 +154,11 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
                 expiresAt: p.expiresAt,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
-                session: session
+                live: live
                   ? {
-                      status: session.status,
-                      hasConnection: session.hasConnection,
-                      expiresAt: session.expiresAt,
+                      status: live.status,
+                      hasConnection: live.hasConnection,
+                      expiresAt: live.expiresAt,
                     }
                   : null,
               };
@@ -185,33 +185,33 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
       const pathParts = pathAfterPubs.split("/");
 
-      // GET /api/v1/pubs/:slug/session
-      if (pathParts.length === 2 && pathParts[1] === "session") {
+      // GET /api/v1/pubs/:slug/live
+      if (pathParts.length === 2 && pathParts[1] === "live") {
         const slug = pathParts[0];
         if (!isValidSlug(slug)) return errorResponse("Invalid slug", 400);
 
         const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "readSession", { key: apiKey });
+        const rl = await rateLimiter.limit(ctx, "readLive", { key: apiKey });
         if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
         return executeAction(
           async () => {
-            const session = await ctx.runQuery(internal.pubs.getSessionBySlugInternal, { slug });
-            if (!session || session.userId !== user.userId) {
-              throw new ApiError("Session not found", 404);
+            const live = await ctx.runQuery(internal.pubs.getLiveBySlugInternal, { slug });
+            if (!live || live.userId !== user.userId) {
+              throw new ApiError("Live not found", 404);
             }
             return {
-              slug: session.slug,
-              status: session.status,
-              agentOffer: session.agentOffer,
-              browserAnswer: session.browserAnswer,
-              agentCandidates: session.agentCandidates,
-              browserCandidates: session.browserCandidates,
-              createdAt: session.createdAt,
-              expiresAt: session.expiresAt,
+              slug: live.slug,
+              status: live.status,
+              agentOffer: live.agentOffer,
+              browserAnswer: live.browserAnswer,
+              agentCandidates: live.agentCandidates,
+              browserCandidates: live.browserCandidates,
+              createdAt: live.createdAt,
+              expiresAt: live.expiresAt,
             };
           },
-          (session) => jsonResponse({ session }),
+          (live) => jsonResponse({ live }),
         );
       }
 
@@ -229,7 +229,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
           if (!pub || pub.userId !== auth.userId) throw new ApiError("Pub not found", 404);
 
-          const session = await ctx.runQuery(internal.pubs.getSessionBySlugInternal, { slug });
+          const live = await ctx.runQuery(internal.pubs.getLiveBySlugInternal, { slug });
 
           return {
             slug: pub.slug,
@@ -240,11 +240,11 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             expiresAt: pub.expiresAt,
             createdAt: pub.createdAt,
             updatedAt: pub.updatedAt,
-            session: session
+            live: live
               ? {
-                  status: session.status,
-                  hasConnection: !!session.browserAnswer,
-                  expiresAt: session.expiresAt,
+                  status: live.status,
+                  hasConnection: !!live.browserAnswer,
+                  expiresAt: live.expiresAt,
                 }
               : null,
           };
@@ -255,7 +255,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
   });
 
   // -- PATCH /api/v1/pubs/:slug  (update) -----------------------------------
-  // -- PATCH /api/v1/pubs/:slug/session/signal  (signal) --------------------
+  // -- PATCH /api/v1/pubs/:slug/live/signal  (signal) ----------------------
 
   http.route({
     pathPrefix: "/api/v1/pubs/",
@@ -268,8 +268,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
       const pathParts = pathAfterPubs.split("/");
 
-      // PATCH /api/v1/pubs/:slug/session/signal
-      if (pathParts.length === 3 && pathParts[1] === "session" && pathParts[2] === "signal") {
+      // PATCH /api/v1/pubs/:slug/live/signal
+      if (pathParts.length === 3 && pathParts[1] === "live" && pathParts[2] === "signal") {
         const slug = pathParts[0];
         if (!isValidSlug(slug)) return errorResponse("Invalid slug", 400);
 
@@ -281,7 +281,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         }
 
         const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "signalSession", { key: apiKey });
+        const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
         if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
         return executeAction(
@@ -294,7 +294,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
                 candidates: body.candidates,
               });
             } catch (error) {
-              rethrowSessionApiError(error);
+              rethrowLiveApiError(error);
             }
           },
           () => jsonResponse({ ok: true }),
@@ -369,7 +369,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
     }),
   });
 
-  // -- POST /api/v1/pubs/:slug/session  (open session) ----------------------
+  // -- POST /api/v1/pubs/:slug/live  (open live) ----------------------------
 
   http.route({
     pathPrefix: "/api/v1/pubs/",
@@ -382,7 +382,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
       const pathParts = pathAfterPubs.split("/");
 
-      if (pathParts.length !== 2 || pathParts[1] !== "session") {
+      if (pathParts.length !== 2 || pathParts[1] !== "live") {
         return errorResponse("Invalid path", 400);
       }
 
@@ -396,18 +396,18 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         body = {};
       }
 
-      let expiresMs = DEFAULT_SESSION_EXPIRY_MS;
+      let expiresMs = DEFAULT_LIVE_EXPIRY_MS;
       if (body.expiresIn !== undefined) {
         const ms = parseExpiresIn(body.expiresIn);
         if (!ms || ms <= 0) return errorResponse("Invalid expiresIn value", 400);
-        if (ms > MAX_SESSION_EXPIRY_MS) {
-          return errorResponse("Session expiry cannot exceed 7 days", 400);
+        if (ms > MAX_LIVE_EXPIRY_MS) {
+          return errorResponse("Live expiry cannot exceed 7 days", 400);
         }
         expiresMs = ms;
       }
 
       const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "openSession", { key: apiKey });
+      const rl = await rateLimiter.limit(ctx, "openLive", { key: apiKey });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       const expiresAt = Date.now() + expiresMs;
@@ -427,13 +427,13 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           }
 
           try {
-            await ctx.runMutation(internal.pubs.openSession, {
+            await ctx.runMutation(internal.pubs.openLive, {
               userId: user.userId,
               slug,
               expiresAt,
             });
           } catch (error) {
-            rethrowSessionApiError(error);
+            rethrowLiveApiError(error);
           }
 
           return { slug, expiresAt };
@@ -447,7 +447,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
   });
 
   // -- DELETE /api/v1/pubs/:slug  (delete pub) ------------------------------
-  // -- DELETE /api/v1/pubs/:slug/session  (close session) -------------------
+  // -- DELETE /api/v1/pubs/:slug/live  (close live) ------------------------
 
   http.route({
     pathPrefix: "/api/v1/pubs/",
@@ -460,24 +460,24 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
       const pathParts = pathAfterPubs.split("/");
 
-      // DELETE /api/v1/pubs/:slug/session
-      if (pathParts.length === 2 && pathParts[1] === "session") {
+      // DELETE /api/v1/pubs/:slug/live
+      if (pathParts.length === 2 && pathParts[1] === "live") {
         const slug = pathParts[0];
         if (!isValidSlug(slug)) return errorResponse("Invalid slug", 400);
 
         const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "closeSession", { key: apiKey });
+        const rl = await rateLimiter.limit(ctx, "closeLive", { key: apiKey });
         if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
         return executeAction(
           async () => {
             try {
-              await ctx.runMutation(internal.pubs.closeSession, {
+              await ctx.runMutation(internal.pubs.closeLive, {
                 slug,
                 userId: user.userId,
               });
             } catch (error) {
-              rethrowSessionApiError(error);
+              rethrowLiveApiError(error);
             }
           },
           () => jsonResponse({ closed: true }),

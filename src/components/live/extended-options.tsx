@@ -1,15 +1,15 @@
 import { Button } from "~/components/ui/button";
-import type { TunnelViewMode } from "./types";
+import type { LiveViewMode } from "./types";
 
-const VIEW_OPTIONS: { label: string; mode: TunnelViewMode }[] = [
+const VIEW_OPTIONS: { label: string; mode: LiveViewMode }[] = [
   { label: "Canvas view", mode: "canvas" },
   { label: "Chat view", mode: "chat" },
   { label: "Settings", mode: "settings" },
 ];
 
 interface ExtendedOptionsProps {
-  viewMode: TunnelViewMode;
-  onSelect: (mode: TunnelViewMode) => void;
+  viewMode: LiveViewMode;
+  onSelect: (mode: LiveViewMode) => void;
 }
 
 export function ExtendedOptions({ viewMode, onSelect }: ExtendedOptionsProps) {

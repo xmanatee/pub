@@ -1,4 +1,4 @@
-import type { TunnelSessionVisualState } from "../types";
+import type { LiveVisualState } from "../types";
 
 export interface Tone {
   coreScale: number;
@@ -11,7 +11,7 @@ export interface Tone {
   saturation: number;
 }
 
-export const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
+export const VISUAL_THEME: Record<LiveVisualState, Tone> = {
   connecting: {
     coreScale: 0.82,
     energy: 0.34,

@@ -17,7 +17,7 @@ import {
   bridgeLogPath,
   buildBridgeProcessEnv,
   buildDaemonForkStdio,
-  cleanupSessionOnStartFailure,
+  cleanupLiveOnStartFailure,
   createApiClient,
   type DaemonStartTarget,
   ensureBridgeReady,
@@ -28,17 +28,17 @@ import {
   getPublicUrl,
   isBridgeRunning,
   isDaemonRunning,
+  liveInfoPath,
+  liveLogPath,
   messageContainsPong,
   parseBridgeMode,
   parsePositiveIntegerOption,
-  pickReusableSession,
+  pickReusableLive,
   readBridgeProcessInfo,
   readDaemonProcessInfo,
   readLogTail,
   resolveActiveSlug,
   resolveSlugSelection,
-  sessionInfoPath,
-  sessionLogPath,
   shouldRestartDaemonForCliUpgrade,
   stopBridge,
   stopOtherDaemons,
@@ -49,7 +49,7 @@ import {
   writeLatestCliVersion,
 } from "./tunnel-helpers.js";
 
-export function registerSessionCommands(program: Command): void {
+export function registerLiveCommands(program: Command): void {
   registerOpenCommand(program);
   registerCloseCommand(program);
   registerStatusCommand(program);
@@ -62,10 +62,10 @@ export function registerSessionCommands(program: Command): void {
 function registerOpenCommand(program: Command): void {
   program
     .command("open")
-    .description("Open an interactive session on a pub (starts WebRTC daemon)")
-    .argument("[slug]", "Pub slug (reuses existing session when possible)")
+    .description("Go live on a pub (starts WebRTC daemon)")
+    .argument("[slug]", "Pub slug (reuses existing live when possible)")
     .option("--expires <duration>", "Auto-close after duration (e.g. 4h, 1d)", "24h")
-    .option("--new", "Always create a new session (skip reuse)")
+    .option("--new", "Always create a new live (skip reuse)")
     .option("--bridge <mode>", "Bridge mode: openclaw|none")
     .option("--foreground", "Run in foreground (don't fork, no managed bridge)")
     .action(
@@ -89,15 +89,15 @@ function registerOpenCommand(program: Command): void {
         if (slugArg && !opts.new) {
           try {
             const pub = await apiClient.get(slugArg);
-            if (pub.session?.status === "active" && pub.session.expiresAt > Date.now()) {
+            if (pub.live?.status === "active" && pub.live.expiresAt > Date.now()) {
               target = {
                 createdNew: false,
-                expiresAt: pub.session.expiresAt,
+                expiresAt: pub.live.expiresAt,
                 mode: "existing",
                 slug: pub.slug,
                 url: getPublicUrl(pub.slug),
               };
-              console.error(`Reusing existing active session for ${pub.slug}.`);
+              console.error(`Reusing existing active live for ${pub.slug}.`);
             }
           } catch (error) {
             if (!(error instanceof PubApiError && error.status === 404)) {
@@ -107,51 +107,51 @@ function registerOpenCommand(program: Command): void {
         } else if (!slugArg && !opts.new) {
           try {
             const pubs = await apiClient.list();
-            const reusable = pickReusableSession(pubs);
+            const reusable = pickReusableLive(pubs);
             if (reusable) {
-              if (!reusable.session) {
-                failCli("Internal error: reusable session is missing from selected pub.");
+              if (!reusable.live) {
+                failCli("Internal error: reusable live is missing from selected pub.");
               }
               target = {
                 createdNew: false,
-                expiresAt: reusable.session.expiresAt,
+                expiresAt: reusable.live.expiresAt,
                 mode: "existing",
                 slug: reusable.slug,
                 url: getPublicUrl(reusable.slug),
               };
-              const activeSessions = pubs.filter(
-                (p) => p.session?.status === "active" && p.session.expiresAt > Date.now(),
+              const activeLives = pubs.filter(
+                (p) => p.live?.status === "active" && p.live.expiresAt > Date.now(),
               );
-              if (activeSessions.length > 1) {
+              if (activeLives.length > 1) {
                 console.error(
                   [
-                    `Multiple active sessions found: ${activeSessions.map((p) => p.slug).join(", ")}`,
+                    `Multiple active lives found: ${activeLives.map((p) => p.slug).join(", ")}`,
                     `Reusing most recent: ${reusable.slug}.`,
                     "Use `pubblue open <slug>` to choose explicitly or --new to force creation.",
                   ].join("\n"),
                 );
               } else {
                 console.error(
-                  `Reusing existing session for ${reusable.slug}. Use --new to force creation.`,
+                  `Reusing existing live for ${reusable.slug}. Use --new to force creation.`,
                 );
               }
             }
           } catch (error) {
-            failCli(`Failed to list pubs for session reuse check: ${formatApiError(error)}`);
+            failCli(`Failed to list pubs for live reuse check: ${formatApiError(error)}`);
           }
         }
 
         if (!target) {
           try {
-            let created: Awaited<ReturnType<typeof apiClient.openSession>>;
+            let created: Awaited<ReturnType<typeof apiClient.openLive>>;
             if (slugArg) {
-              created = await apiClient.openSession(slugArg, {
+              created = await apiClient.openLive(slugArg, {
                 expiresIn: opts.expires,
               });
             } else {
               const newPub = await apiClient.create({});
               try {
-                created = await apiClient.openSession(newPub.slug, {
+                created = await apiClient.openLive(newPub.slug, {
                   expiresIn: opts.expires,
                 });
               } catch (error) {
@@ -173,16 +173,16 @@ function registerOpenCommand(program: Command): void {
               url: created.url,
             };
           } catch (error) {
-            failCli(`Failed to open session: ${formatApiError(error)}`);
+            failCli(`Failed to go live: ${formatApiError(error)}`);
           }
         }
         if (!target) {
-          failCli("Failed to resolve session target.");
+          failCli("Failed to resolve live target.");
         }
 
         const socketPath = getSocketPath(target.slug);
-        const infoPath = sessionInfoPath(target.slug);
-        const logPath = sessionLogPath(target.slug);
+        const infoPath = liveInfoPath(target.slug);
+        const logPath = liveLogPath(target.slug);
         try {
           await stopOtherDaemons(target.slug);
         } catch (error) {
@@ -196,12 +196,12 @@ function registerOpenCommand(program: Command): void {
             );
           }
           const { startDaemon } = await import("../lib/tunnel-daemon.js");
-          console.log(`Session started: ${target.url}`);
+          console.log(`Live started: ${target.url}`);
           const fgTma = getTelegramMiniAppUrl(target.slug);
           if (fgTma) console.log(`Telegram: ${fgTma}`);
           console.log(`Slug: ${target.slug}`);
           console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
-          if (target.mode === "existing") console.log("Mode: attached existing session");
+          if (target.mode === "existing") console.log("Mode: attached existing live");
           console.log("Running in foreground. Press Ctrl+C to stop.");
           try {
             await startDaemon({
@@ -276,7 +276,7 @@ function registerOpenCommand(program: Command): void {
               });
               if (!bridgeReady.ok) {
                 const lines = [
-                  `Bridge failed to start for running session: ${bridgeReady.reason ?? "unknown reason"}`,
+                  `Bridge failed to start for running live: ${bridgeReady.reason ?? "unknown reason"}`,
                 ];
                 const existingBridgeLog = bridgeLogPath(target.slug);
                 if (fs.existsSync(existingBridgeLog)) {
@@ -292,12 +292,12 @@ function registerOpenCommand(program: Command): void {
               }
             }
 
-            console.log(`Session started: ${target.url}`);
+            console.log(`Live started: ${target.url}`);
             const runTma = getTelegramMiniAppUrl(target.slug);
             if (runTma) console.log(`Telegram: ${runTma}`);
             console.log(`Slug: ${target.slug}`);
             console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
-            console.log("Daemon already running for this session.");
+            console.log("Daemon already running for this live.");
             console.log(`Daemon log: ${logPath}`);
             if (bridgeMode !== "none") {
               console.log("Bridge mode: openclaw");
@@ -352,7 +352,7 @@ function registerOpenCommand(program: Command): void {
             lines.push(tail.trimEnd());
             lines.push("---- end daemon log tail ----");
           }
-          await cleanupSessionOnStartFailure(apiClient, target);
+          await cleanupLiveOnStartFailure(apiClient, target);
           failCli(lines.join("\n"));
         }
 
@@ -372,7 +372,7 @@ function registerOpenCommand(program: Command): void {
             lines.push(tail.trimEnd());
             lines.push("---- end daemon log tail ----");
           }
-          await cleanupSessionOnStartFailure(apiClient, target);
+          await cleanupLiveOnStartFailure(apiClient, target);
           failCli(lines.join("\n"));
         }
 
@@ -407,17 +407,17 @@ function registerOpenCommand(program: Command): void {
             if (daemonCloseWarning) {
               lines.push(`Warning: ${daemonCloseWarning}`);
             }
-            await cleanupSessionOnStartFailure(apiClient, target);
+            await cleanupLiveOnStartFailure(apiClient, target);
             failCli(lines.join("\n"));
           }
         }
 
-        console.log(`Session started: ${target.url}`);
+        console.log(`Live started: ${target.url}`);
         const tma = getTelegramMiniAppUrl(target.slug);
         if (tma) console.log(`Telegram: ${tma}`);
         console.log(`Slug: ${target.slug}`);
         console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
-        if (target.mode === "existing") console.log("Mode: attached existing session");
+        if (target.mode === "existing") console.log("Mode: attached existing live");
         console.log("Daemon health: OK");
         console.log(`Daemon log: ${logPath}`);
         if (bridgeMode !== "none") {
@@ -431,7 +431,7 @@ function registerOpenCommand(program: Command): void {
 function registerCloseCommand(program: Command): void {
   program
     .command("close")
-    .description("Close a session and stop its daemon")
+    .description("Close a live and stop its daemon")
     .argument("<slug>", "Pub slug")
     .action(async (slug: string) => {
       const bridgeError = await stopBridge(slug);
@@ -452,11 +452,11 @@ function registerCloseCommand(program: Command): void {
 
       const apiClient = createApiClient();
       try {
-        await apiClient.closeSession(slug);
+        await apiClient.closeLive(slug);
       } catch (error) {
         const message = formatApiError(error);
-        if (!/Session not found/i.test(message)) {
-          failCli(`Failed to close session for ${slug}: ${message}`);
+        if (!/Live not found/i.test(message)) {
+          failCli(`Failed to close live for ${slug}: ${message}`);
         }
       }
 
@@ -467,7 +467,7 @@ function registerCloseCommand(program: Command): void {
 function registerStatusCommand(program: Command): void {
   program
     .command("status")
-    .description("Check session connection status")
+    .description("Check live connection status")
     .argument("[slug]", "Pub slug")
     .option("-s, --slug <slug>", "Pub slug (alternative to positional arg)")
     .action(async (slugArg: string | undefined, opts: { slug?: string }) => {
@@ -484,7 +484,7 @@ function registerStatusCommand(program: Command): void {
       if (typeof response.lastError === "string" && response.lastError.length > 0) {
         console.log(`  Last error: ${response.lastError}`);
       }
-      const logPath = sessionLogPath(slug);
+      const logPath = liveLogPath(slug);
       if (fs.existsSync(logPath)) {
         console.log(`  Log: ${logPath}`);
       }
@@ -516,7 +516,7 @@ function registerStatusCommand(program: Command): void {
 function registerWriteCommand(program: Command): void {
   program
     .command("write")
-    .description("Write data to a session channel")
+    .description("Write data to a live channel")
     .argument("[message]", "Text message (or use --file)")
     .option("-s, --slug <slug>", "Pub slug (auto-detected if one active)")
     .option("-c, --channel <channel>", "Channel name", "chat")
@@ -590,7 +590,7 @@ function registerWriteCommand(program: Command): void {
 function registerReadCommand(program: Command): void {
   program
     .command("read")
-    .description("Read buffered messages from session channels")
+    .description("Read buffered messages from live channels")
     .argument("[slug]", "Pub slug (auto-detected if one active)")
     .option("-s, --slug <slug>", "Pub slug (alternative to positional arg)")
     .option("-c, --channel <channel>", "Filter by channel")
@@ -662,7 +662,7 @@ function registerReadCommand(program: Command): void {
 function registerChannelsCommand(program: Command): void {
   program
     .command("channels")
-    .description("List active session channels")
+    .description("List active live channels")
     .argument("[slug]", "Pub slug")
     .option("-s, --slug <slug>", "Pub slug (alternative to positional arg)")
     .action(async (slugArg: string | undefined, opts: { slug?: string }) => {
@@ -680,7 +680,7 @@ function registerChannelsCommand(program: Command): void {
 function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
-    .description("Run end-to-end session checks (daemon, channels, chat/canvas ping)")
+    .description("Run end-to-end live checks (daemon, channels, chat/canvas ping)")
     .option("-s, --slug <slug>", "Pub slug (auto-detected if one active)")
     .option("--timeout <seconds>", "Timeout for pong wait and repeated reads", "30")
     .option("--wait-pong", "Wait for user to reply with exact text 'pong' on chat channel")
@@ -737,22 +737,22 @@ function registerDoctorCommand(program: Command): void {
         }
         console.log("Daemon/channel check: OK");
 
-        const session = await (async () => {
+        const live = await (async () => {
           try {
-            return await apiClient.getSession(slug);
+            return await apiClient.getLive(slug);
           } catch (error) {
-            fail(`failed to fetch session info from API: ${formatApiError(error)}`);
+            fail(`failed to fetch live info from API: ${formatApiError(error)}`);
           }
           throw new Error("unreachable");
         })();
 
-        if (session.status !== "active") {
-          fail(`API reports session is not active (status: ${session.status})`);
+        if (live.status !== "active") {
+          fail(`API reports live is not active (status: ${live.status})`);
         }
-        if (session.expiresAt <= Date.now()) {
-          fail("API reports session is expired.");
+        if (live.expiresAt <= Date.now()) {
+          fail("API reports live is expired.");
         }
-        if (typeof session.agentOffer !== "string" || session.agentOffer.length === 0) {
+        if (typeof live.agentOffer !== "string" || live.agentOffer.length === 0) {
           fail("agent offer was not published.");
         }
         console.log("API/signaling check: OK");

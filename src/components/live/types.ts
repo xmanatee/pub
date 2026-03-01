@@ -1,10 +1,10 @@
-export type TunnelViewMode = "canvas" | "chat" | "settings";
+export type LiveViewMode = "canvas" | "chat" | "settings";
 
-export const TUNNEL_ANIMATION_STYLES = ["blob", "aurora", "orb"] as const;
-export type TunnelAnimationStyle = (typeof TUNNEL_ANIMATION_STYLES)[number];
+export const LIVE_ANIMATION_STYLES = ["blob", "aurora", "orb"] as const;
+export type LiveAnimationStyle = (typeof LIVE_ANIMATION_STYLES)[number];
 
-export const TUNNEL_ANIMATION_STYLE_META: Record<
-  TunnelAnimationStyle,
+export const LIVE_ANIMATION_STYLE_META: Record<
+  LiveAnimationStyle,
   { description: string; label: string }
 > = {
   aurora: {
@@ -21,7 +21,7 @@ export const TUNNEL_ANIMATION_STYLE_META: Record<
   },
 };
 
-export type TunnelSessionVisualState =
+export type LiveVisualState =
   | "connecting"
   | "disconnected"
   | "waiting-content"
@@ -29,8 +29,8 @@ export type TunnelSessionVisualState =
   | "agent-thinking"
   | "agent-replying";
 
-export function isTunnelAnimationStyle(value: string): value is TunnelAnimationStyle {
-  return TUNNEL_ANIMATION_STYLES.includes(value as TunnelAnimationStyle);
+export function isLiveAnimationStyle(value: string): value is LiveAnimationStyle {
+  return LIVE_ANIMATION_STYLES.includes(value as LiveAnimationStyle);
 }
 
 interface ChatEntryBase {

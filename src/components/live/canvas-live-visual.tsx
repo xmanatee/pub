@@ -1,17 +1,17 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
-import "./canvas-session-visual.css";
-import type { TunnelAnimationStyle, TunnelSessionVisualState } from "./types";
+import "./canvas-live-visual.css";
+import type { LiveAnimationStyle, LiveVisualState } from "./types";
 import { BlobVisual } from "./visuals/blob-visual";
 import { OrbVisual } from "./visuals/orb-visual";
 import { type Tone, VISUAL_THEME, type VisualProps } from "./visuals/shared";
 
-interface CanvasSessionVisualProps {
+interface CanvasLiveVisualProps {
   className?: string;
   fadeOut?: boolean;
   hasCanvasContent: boolean;
-  state: TunnelSessionVisualState;
-  styleType: TunnelAnimationStyle;
+  state: LiveVisualState;
+  styleType: LiveAnimationStyle;
 }
 
 function AuroraLayer({
@@ -36,18 +36,18 @@ function AuroraLayer({
   } as CSSProperties;
 
   return (
-    <div className={cn("tunnel-visual", className)} style={style} aria-hidden>
-      <div className="tunnel-visual__layer tunnel-visual__layer-a" />
-      <div className="tunnel-visual__layer tunnel-visual__layer-b" />
-      <div className="tunnel-visual__layer tunnel-visual__layer-c" />
-      <div className="tunnel-visual__center">
-        <div className="tunnel-visual__center-halo" />
-        <div className="tunnel-visual__center-ring tunnel-visual__center-ring-a" />
-        <div className="tunnel-visual__center-ring tunnel-visual__center-ring-b" />
-        <div className="tunnel-visual__center-glyph" />
+    <div className={cn("live-visual", className)} style={style} aria-hidden>
+      <div className="live-visual__layer live-visual__layer-a" />
+      <div className="live-visual__layer live-visual__layer-b" />
+      <div className="live-visual__layer live-visual__layer-c" />
+      <div className="live-visual__center">
+        <div className="live-visual__center-halo" />
+        <div className="live-visual__center-ring live-visual__center-ring-a" />
+        <div className="live-visual__center-ring live-visual__center-ring-b" />
+        <div className="live-visual__center-glyph" />
       </div>
-      <div className="tunnel-visual__grain" />
-      <div className="tunnel-visual__vignette" />
+      <div className="live-visual__grain" />
+      <div className="live-visual__vignette" />
     </div>
   );
 }
@@ -57,7 +57,7 @@ function VisualForStyle({
   tone,
   hasCanvasContent,
   className,
-}: VisualProps & { styleType: TunnelAnimationStyle }) {
+}: VisualProps & { styleType: LiveAnimationStyle }) {
   switch (styleType) {
     case "aurora":
       return <AuroraLayer className={className} hasCanvasContent={hasCanvasContent} tone={tone} />;
@@ -68,13 +68,13 @@ function VisualForStyle({
   }
 }
 
-export function CanvasSessionVisual({
+export function CanvasLiveVisual({
   className,
   fadeOut = false,
   hasCanvasContent,
   state,
   styleType,
-}: CanvasSessionVisualProps) {
+}: CanvasLiveVisualProps) {
   const tone = VISUAL_THEME[state];
   const previousToneRef = useRef<Tone>(tone);
   const [previousTone, setPreviousTone] = useState<Tone | null>(null);
@@ -98,7 +98,7 @@ export function CanvasSessionVisual({
     <div className={cn("absolute inset-0 pointer-events-none", className)}>
       {isCSS && previousTone ? (
         <VisualForStyle
-          className="tunnel-visual-fade-out"
+          className="live-visual-fade-out"
           hasCanvasContent={hasCanvasContent}
           styleType={styleType}
           tone={previousTone}
@@ -106,7 +106,7 @@ export function CanvasSessionVisual({
       ) : null}
       <VisualForStyle
         className={cn(
-          isCSS && isTransitioning ? "tunnel-visual-fade-in" : undefined,
+          isCSS && isTransitioning ? "live-visual-fade-in" : undefined,
           fadeOut && "opacity-0",
         )}
         hasCanvasContent={hasCanvasContent}

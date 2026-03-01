@@ -17,7 +17,7 @@ import { ensureChannelReady } from "~/lib/webrtc-channel";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarVoiceMode } from "./control-bar-voice-mode";
-import type { TunnelSessionVisualState, TunnelViewMode } from "./types";
+import type { LiveViewMode, LiveVisualState } from "./types";
 import { useControlBarAudio } from "./use-control-bar-audio";
 import { useHoldToRecord } from "./use-hold-to-record";
 
@@ -32,9 +32,9 @@ interface ControlBarProps {
   onToggleCollapsed: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
-  viewMode: TunnelViewMode;
-  onChangeView: (view: TunnelViewMode) => void;
-  visualState: TunnelSessionVisualState;
+  viewMode: LiveViewMode;
+  onChangeView: (view: LiveViewMode) => void;
+  visualState: LiveVisualState;
   voiceModeEnabled: boolean;
 }
 
@@ -78,7 +78,7 @@ export function ControlBar({
   const longPressHandlers = useLongPress({ onActivate: () => setExpanded(true) });
 
   const handleViewSelect = useCallback(
-    (mode: TunnelViewMode) => {
+    (mode: LiveViewMode) => {
       onChangeView(mode);
       setExpanded(false);
     },

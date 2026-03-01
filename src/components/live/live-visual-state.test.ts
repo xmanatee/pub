@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { resolveTunnelSessionVisualState } from "./session-visual-state";
+import { resolveLiveVisualState } from "./live-visual-state";
 
 const NOW = 1_700_000_000_000;
 
-describe("resolveTunnelSessionVisualState", () => {
+describe("resolveLiveVisualState", () => {
   it("returns connecting while bridge is connecting", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "connecting",
         hasCanvasContent: false,
         lastAgentActivityAt: null,
@@ -18,7 +18,7 @@ describe("resolveTunnelSessionVisualState", () => {
 
   it("returns disconnected when bridge is disconnected or closed", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "disconnected",
         hasCanvasContent: true,
         lastAgentActivityAt: NOW,
@@ -28,7 +28,7 @@ describe("resolveTunnelSessionVisualState", () => {
     ).toBe("disconnected");
 
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "closed",
         hasCanvasContent: true,
         lastAgentActivityAt: NOW,
@@ -40,7 +40,7 @@ describe("resolveTunnelSessionVisualState", () => {
 
   it("returns agent-thinking after recent delivered user message with no agent activity", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "connected",
         hasCanvasContent: false,
         lastAgentActivityAt: null,
@@ -52,7 +52,7 @@ describe("resolveTunnelSessionVisualState", () => {
 
   it("returns agent-replying on recent agent activity", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "connected",
         hasCanvasContent: false,
         lastAgentActivityAt: NOW - 500,
@@ -64,7 +64,7 @@ describe("resolveTunnelSessionVisualState", () => {
 
   it("returns agent-thinking when user sent recently but agent activity was before", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "connected",
         hasCanvasContent: true,
         lastAgentActivityAt: NOW - 8_000,
@@ -76,7 +76,7 @@ describe("resolveTunnelSessionVisualState", () => {
 
   it("returns idle when there is no recent activity", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "connected",
         hasCanvasContent: true,
         lastAgentActivityAt: NOW - 20_000,
@@ -88,7 +88,7 @@ describe("resolveTunnelSessionVisualState", () => {
 
   it("returns waiting-content when connected and no canvas content yet", () => {
     expect(
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState: "connected",
         hasCanvasContent: false,
         lastAgentActivityAt: NOW - 20_000,

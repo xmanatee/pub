@@ -8,7 +8,7 @@ import {
   messageContainsPong,
   parseBridgeMode,
   parsePositiveIntegerOption,
-  pickReusableSession,
+  pickReusableLive,
   resolveSlugSelection,
   shouldRestartDaemonForCliUpgrade,
 } from "./tunnel-helpers.js";
@@ -105,21 +105,21 @@ describe("messageContainsPong", () => {
   });
 });
 
-describe("pickReusableSession", () => {
+describe("pickReusableLive", () => {
   const now = Date.UTC(2026, 1, 28, 0, 0, 0);
 
-  function makePub(slug: string, session: Pub["session"], createdAt: number): Pub {
+  function makePub(slug: string, live: Pub["live"], createdAt: number): Pub {
     return {
       slug,
       isPublic: false,
       createdAt,
       updatedAt: createdAt,
-      session,
+      live,
     };
   }
 
   it("returns the only pub with an active session", () => {
-    const result = pickReusableSession(
+    const result = pickReusableLive(
       [
         makePub(
           "abc",
@@ -133,7 +133,7 @@ describe("pickReusableSession", () => {
   });
 
   it("returns most recent pub with active session when multiple exist", () => {
-    const result = pickReusableSession(
+    const result = pickReusableLive(
       [
         makePub(
           "abc",
@@ -152,7 +152,7 @@ describe("pickReusableSession", () => {
   });
 
   it("returns null when only closed or expired sessions exist", () => {
-    const result = pickReusableSession(
+    const result = pickReusableLive(
       [
         makePub(
           "closed",
@@ -171,7 +171,7 @@ describe("pickReusableSession", () => {
   });
 
   it("returns null when no pubs have sessions", () => {
-    const result = pickReusableSession([makePub("nosession", null, now - 1_000)], now);
+    const result = pickReusableLive([makePub("nosession", null, now - 1_000)], now);
     expect(result).toBeNull();
   });
 });

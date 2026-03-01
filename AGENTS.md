@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for publishing content and running interactive WebRTC sessions, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), an interactive session, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for publishing content and going live with interactive WebRTC connections, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), a live interactive mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -31,11 +31,11 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; paginated pubs (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
   - `explore.tsx` — public discovery feed; paginated list of all public pubs
-  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing AND interactive sessions; auth-aware for private pubs; "Go Live" toggle when session is active
+  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing AND interactive live mode; auth-aware for private pubs; "Go Live" toggle when live is active
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
-- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; session-specific components in `src/components/tunnel/`
+- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; live session components in `src/components/live/`
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
@@ -43,10 +43,10 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Path alias**: `~/*` maps to `src/*`
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `sessions` (WebRTC signaling, `by_slug`/`by_user` indexes), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + session management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `openSession`, `getSessionBySlug`, `storeAgentSignal`, `storeBrowserSignal`, `closeSession`; limits (20 public / 100 private); expiring pubs and sessions via scheduler
+- **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling, `by_slug`/`by_user` indexes), `apiKeys`, `linkTokens`, plus auth tables
+- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `openLive`, `getLiveBySlug`, `storeAgentSignal`, `storeBrowserSignal`, `closeLive`; limits (20 public / 100 private); expiring pubs and lives via scheduler
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
-- **HTTP routes** (`http/pub_routes/`): unified REST API at `/api/v1/pubs` with session sub-resource at `/api/v1/pubs/:slug/session`; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
+- **HTTP routes** (`http/pub_routes/`): unified REST API at `/api/v1/pubs` with live sub-resource at `/api/v1/pubs/:slug/live`; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
 - **Analytics** (`analytics.ts`): view counting via `@convex-dev/sharded-counter`
 - **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
@@ -62,16 +62,16 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 ### CLI (`cli/`)
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
-- **Session commands**: `open`, `close`, `status`, `write`, `read`, `channels`, `doctor`
-- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`, `--open` (hint to open session after)
+- **Live commands**: `open`, `close`, `status`, `write`, `read`, `channels`, `doctor`
+- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`, `--open` (hint to go live after)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
-- `list` — auto-paginates through all pages; shows `[live]` for pubs with active sessions
-- `open [slug]` — opens interactive session (WebRTC daemon + bridge), reuses existing sessions when possible
-- `close <slug>` — closes session and stops daemon
-- `write [message]` — write to session channel (`-s <slug>`, `-c <channel>`, `-f <file>`)
+- `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
+- `open [slug]` — goes live (WebRTC daemon + bridge), reuses existing live when possible
+- `close <slug>` — closes live and stops daemon
+- `write [message]` — write to live channel (`-s <slug>`, `-c <channel>`, `-f <file>`)
 - `read [slug]` — read buffered messages (`--follow` for streaming)
-- `doctor` — end-to-end session health checks
+- `doctor` — end-to-end live health checks
 - `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var

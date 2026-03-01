@@ -32,7 +32,7 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_public", ["isPublic", "createdAt"]),
 
-  sessions: defineTable({
+  lives: defineTable({
     slug: v.string(),
     userId: v.id("users"),
     status: v.union(v.literal("active"), v.literal("closed")),
