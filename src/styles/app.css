@@ -53,7 +53,9 @@
 
 /* Light mode — clean white with blue-tinted neutrals */
 :root {
-  --safe-top: calc(var(--tg-viewport-safe-area-inset-top, 0px) + var(--tg-viewport-content-safe-area-inset-top, 0px));
+  --device-safe-top: var(--tg-viewport-safe-area-inset-top, 0px);
+  --content-safe-top: var(--tg-viewport-content-safe-area-inset-top, 0px);
+  --safe-top: calc(var(--device-safe-top) + var(--content-safe-top));
   --safe-bottom: calc(var(--tg-viewport-safe-area-inset-bottom, 0px) + var(--tg-viewport-content-safe-area-inset-bottom, 0px));
   --radius: 0.625rem;
 
@@ -163,7 +165,10 @@
 
 @layer base {
   html, body {
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
+    overflow: hidden;
+    height: 100%;
+    touch-action: manipulation;
   }
   * {
     @apply border-border;
@@ -178,6 +183,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     font-family:
       "Inter",
       -apple-system,

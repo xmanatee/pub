@@ -26,6 +26,7 @@ interface ControlBarProps {
   chatPreview: string | null;
   disabled: boolean;
   bridge: BrowserBridge | null;
+  onClose?: () => void;
   onDismissPreview: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
@@ -44,6 +45,7 @@ export function ControlBar({
   chatPreview,
   disabled,
   bridge,
+  onClose,
   onDismissPreview,
   onSendChat,
   onSendAudio,
@@ -232,6 +234,7 @@ export function ControlBar({
       hasText={hasText}
       input={input}
       longPressHandlers={longPressHandlers}
+      onClose={onClose}
       onCloseExpanded={closeExpanded}
       onFileChange={handleFile}
       onInputChange={setInput}

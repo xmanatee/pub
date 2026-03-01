@@ -1,4 +1,5 @@
 import { Button } from "~/components/ui/button";
+import { Separator } from "~/components/ui/separator";
 import type { TunnelViewMode } from "./types";
 
 const VIEW_OPTIONS: { label: string; mode: TunnelViewMode }[] = [
@@ -9,10 +10,11 @@ const VIEW_OPTIONS: { label: string; mode: TunnelViewMode }[] = [
 
 interface ExtendedOptionsProps {
   viewMode: TunnelViewMode;
+  onClose?: () => void;
   onSelect: (mode: TunnelViewMode) => void;
 }
 
-export function ExtendedOptions({ viewMode, onSelect }: ExtendedOptionsProps) {
+export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptionsProps) {
   const available = VIEW_OPTIONS.filter((o) => o.mode !== viewMode);
 
   return (
@@ -28,6 +30,19 @@ export function ExtendedOptions({ viewMode, onSelect }: ExtendedOptionsProps) {
           {opt.label}
         </Button>
       ))}
+      {onClose ? (
+        <>
+          <Separator className="my-0.5" />
+          <Button
+            variant="ghost"
+            className="h-10 w-full justify-start rounded-xl px-3 text-sm font-medium text-destructive"
+            role="menuitem"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/react";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Link, Outlet } from "@tanstack/react-router";
+import { useSignal } from "@telegram-apps/sdk-react";
 import { useConvexAuth, useQuery } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
@@ -15,7 +16,7 @@ import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
 import { initSentry } from "~/lib/sentry";
-import { IN_TELEGRAM } from "~/lib/telegram";
+import { IN_TELEGRAM, isFullscreen } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 
 initSentry();
@@ -94,76 +95,94 @@ function RootComponent() {
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const fullscreen = useSignal(isFullscreen);
+  const showHeader = !IN_TELEGRAM || fullscreen;
 
   React.useEffect(() => {
     pushAuthDebug("root_auth_state", { isLoading, isAuthenticated });
   }, [isLoading, isAuthenticated]);
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ paddingTop: "var(--safe-top)" }}>
+    <div
+      className="flex flex-col min-h-screen"
+      style={{ paddingTop: IN_TELEGRAM ? "var(--safe-top)" : undefined }}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
       >
         Skip to content
       </a>
-      <header
-        style={{ top: "var(--safe-top)" }}
-        className="sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl"
-      >
-        <div
-          className={`max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center ${IN_TELEGRAM ? "justify-center" : "justify-between"}`}
+      {showHeader ? (
+        <header
+          className={
+            fullscreen
+              ? "fixed inset-x-0 top-0 z-50"
+              : "sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl"
+          }
+          style={fullscreen ? { paddingTop: "var(--device-safe-top)" } : undefined}
         >
-          <Link
-            to={isAuthenticated ? "/dashboard" : "/"}
-            aria-label="Pub home"
-            className="hover:opacity-80 transition-opacity"
+          <div
+            className={
+              fullscreen
+                ? "flex items-center justify-center px-16"
+                : `max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`
+            }
+            style={fullscreen ? { height: "var(--content-safe-top)" } : undefined}
           >
-            <PubWordmark iconSize={22} className="text-foreground" />
-          </Link>
-          {!IN_TELEGRAM && !isLoading && !isAuthenticated && (
-            <nav aria-label="Main navigation" className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" className="pointer-coarse:h-11" asChild>
-                <Link to="/login">Sign in</Link>
-              </Button>
-              <Button size="sm" className="pointer-coarse:h-11" asChild>
-                <Link to="/login">Get started</Link>
-              </Button>
-            </nav>
-          )}
-        </div>
-      </header>
+            <Link
+              to={isAuthenticated ? "/dashboard" : "/"}
+              aria-label="Pub home"
+              className="hover:opacity-80 transition-opacity"
+            >
+              <PubWordmark iconSize={22} className="text-foreground" />
+            </Link>
+            {!IN_TELEGRAM && !isLoading && !isAuthenticated && (
+              <nav aria-label="Main navigation" className="flex items-center gap-3">
+                <Button variant="ghost" size="sm" className="pointer-coarse:h-11" asChild>
+                  <Link to="/login">Sign in</Link>
+                </Button>
+                <Button size="sm" className="pointer-coarse:h-11" asChild>
+                  <Link to="/login">Get started</Link>
+                </Button>
+              </nav>
+            )}
+          </div>
+        </header>
+      ) : null}
       <main id="main" className="flex-1">
         {children}
       </main>
-      <footer style={{ paddingBottom: "var(--safe-bottom)" }} className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <PubWordmark
-                iconSize={18}
-                className="text-muted-foreground text-sm"
-                aria-hidden="true"
-              />
-              <Link
-                to="/explore"
-                className="text-sm text-muted-foreground underline hover:text-foreground transition-colors"
-              >
-                Explore
-              </Link>
+      {!IN_TELEGRAM ? (
+        <footer className="border-t border-border/50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <PubWordmark
+                  iconSize={18}
+                  className="text-muted-foreground text-sm"
+                  aria-hidden="true"
+                />
+                <Link
+                  to="/explore"
+                  className="text-sm text-muted-foreground underline hover:text-foreground transition-colors"
+                >
+                  Explore
+                </Link>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                by{" "}
+                <a
+                  href="https://nemi.love"
+                  className="underline hover:text-foreground transition-colors"
+                >
+                  nemi.love
+                </a>
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              by{" "}
-              <a
-                href="https://nemi.love"
-                className="underline hover:text-foreground transition-colors"
-              >
-                nemi.love
-              </a>
-            </p>
           </div>
-        </div>
-      </footer>
+        </footer>
+      ) : null}
     </div>
   );
 }

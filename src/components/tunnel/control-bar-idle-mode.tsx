@@ -19,6 +19,7 @@ interface ControlBarIdleModeProps {
   hasText: boolean;
   input: string;
   longPressHandlers: React.HTMLAttributes<HTMLDivElement>;
+  onClose?: () => void;
   onCloseExpanded: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onInputChange: (value: string) => void;
@@ -44,6 +45,7 @@ export function ControlBarIdleMode({
   hasText,
   input,
   longPressHandlers,
+  onClose,
   onCloseExpanded,
   onFileChange,
   onInputChange,
@@ -73,7 +75,8 @@ export function ControlBarIdleMode({
       />
 
       <div
-        className={cn("relative z-20 min-h-16 overflow-hidden", shellContentClassName)}
+        className={cn("relative z-20 min-h-16 overflow-hidden select-none", shellContentClassName)}
+        style={{ WebkitTouchCallout: "none" }}
         {...longPressHandlers}
       >
         <div
@@ -83,7 +86,7 @@ export function ControlBarIdleMode({
           )}
           aria-hidden={!expanded}
         >
-          <ExtendedOptions viewMode={viewMode} onSelect={onViewSelect} />
+          <ExtendedOptions viewMode={viewMode} onClose={onClose} onSelect={onViewSelect} />
           <Separator />
         </div>
 

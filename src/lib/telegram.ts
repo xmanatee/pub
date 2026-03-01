@@ -1,6 +1,8 @@
 import {
   backButton,
+  closingBehavior,
   initData,
+  isFullscreen,
   isTMA,
   miniApp,
   openLink,
@@ -12,6 +14,8 @@ import {
   init as tmaInit,
   viewport,
 } from "@telegram-apps/sdk-react";
+
+export { isFullscreen };
 
 function hasWindow(): boolean {
   return typeof window !== "undefined";
@@ -88,6 +92,8 @@ export function initTelegramSdk(): void {
   themeParams.bindCssVars.ifAvailable();
   backButton.mount.ifAvailable();
   swipeBehavior.mount.ifAvailable();
+  closingBehavior.mount.ifAvailable();
+  closingBehavior.enableConfirmation.ifAvailable();
 
   if (viewport.mount.isAvailable()) {
     void viewport.mount().then(() => {
