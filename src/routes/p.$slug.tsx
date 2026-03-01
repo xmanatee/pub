@@ -40,7 +40,6 @@ function PubPage() {
     void recordPublicView({ slug: pub.slug });
   }, [pub, recordPublicView]);
 
-  // Reset interactive mode when slug changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: slug drives the reset
   useEffect(() => {
     setInteractiveMode(false);
@@ -66,7 +65,7 @@ function PubPage() {
 
   const hasContent = Boolean(pub.content && pub.contentType);
 
-  // If authenticated, check for active session
+  // Authenticated — may enter interactive mode
   if (isAuthenticated) {
     // No content — go straight to interactive mode
     if (!hasContent) {

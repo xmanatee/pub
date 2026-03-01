@@ -286,7 +286,7 @@ export function useLivePageModel(slug: string) {
     setViewMode,
     setVoiceModeEnabled,
     showDeliveryStatus,
-    live: live,
+    live,
     viewMode,
     visualState,
     voiceModeEnabled,

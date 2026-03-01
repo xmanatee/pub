@@ -15,7 +15,7 @@ async function readControlMetrics(page: Page) {
     let shell = row.parentElement as HTMLElement | null;
 
     while (shell) {
-      if (shell.classList.contains("min-h-16") && shell.classList.contains("overflow-hidden")) {
+      if (shell.classList.contains("min-h-12") && shell.classList.contains("overflow-hidden")) {
         break;
       }
       shell = shell.parentElement as HTMLElement | null;
@@ -42,11 +42,11 @@ async function sampleShellHeights(page: Page, samples = 8, intervalMs = 40) {
 }
 
 test.describe("Control bar layout", () => {
-  test("idle control row height is 64px", async ({ page }) => {
+  test("idle control row height is 48px", async ({ page }) => {
     await openControlBarDebug(page);
     const { rowHeight, shellHasHardLock } = await readControlMetrics(page);
 
-    expect(rowHeight).toBeCloseTo(64, 0);
+    expect(rowHeight).toBeCloseTo(48, 0);
     expect(shellHasHardLock).toBeFalsy();
   });
 
