@@ -1,6 +1,6 @@
 export type TunnelViewMode = "canvas" | "chat" | "settings";
 
-export const TUNNEL_ANIMATION_STYLES = ["aurora", "orb", "tapes", "blob"] as const;
+export const TUNNEL_ANIMATION_STYLES = ["blob", "aurora", "orb"] as const;
 export type TunnelAnimationStyle = (typeof TUNNEL_ANIMATION_STYLES)[number];
 
 export const TUNNEL_ANIMATION_STYLE_META: Record<
@@ -14,10 +14,6 @@ export const TUNNEL_ANIMATION_STYLE_META: Record<
   orb: {
     label: "Orb",
     description: "Overlapping circles that pulse and breathe.",
-  },
-  tapes: {
-    label: "Tapes",
-    description: "Ribbon curves that weave and morph smoothly.",
   },
   blob: {
     label: "Blob",
