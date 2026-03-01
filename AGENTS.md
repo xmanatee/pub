@@ -44,7 +44,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Backend (`convex/`)
 - **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling, `by_slug`/`by_user` indexes), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `openLive`, `getLiveBySlug`, `storeAgentSignal`, `storeBrowserSignal`, `closeLive`; limits (20 public / 100 private); expiring pubs and lives via scheduler
+- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `openLive`, `getLiveBySlug`, `storeAgentSignal`, `storeBrowserSignal`, `closeLive`; limit: 10 total pubs per user; 1 live per user; expiring pubs and lives via scheduler
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
 - **HTTP routes** (`http/pub_routes/`): unified REST API at `/api/v1/pubs` with live sub-resource at `/api/v1/pubs/:slug/live`; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
 - **Analytics** (`analytics.ts`): view counting via `@convex-dev/sharded-counter`
@@ -55,8 +55,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Default visibility**: pubs are **private by default**
 
 ### Pub Limits
-- **Public**: max 20 per user (enforced on create and toggle)
-- **Private**: max 100 per user (enforced on create)
+- **Total**: max 10 pubs per user (enforced on create)
+- **Live**: max 1 concurrent live per user (reopening the same slug closes the previous live first)
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
