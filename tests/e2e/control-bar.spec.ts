@@ -26,7 +26,7 @@ async function readControlMetrics(page: Page) {
 
     return {
       rowHeight: row.getBoundingClientRect().height,
-      shellHasHardLock: shell.classList.contains("h-16"),
+      shellHasHardLock: shell.classList.contains("h-12"),
       shellHeight: shell.getBoundingClientRect().height,
     };
   });

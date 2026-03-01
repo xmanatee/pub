@@ -309,18 +309,23 @@ function registerOpenCommand(program: Command): void {
 
         const { fork } = await import("node:child_process");
         const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
+        const bridgeScript = path.join(import.meta.dirname, "tunnel-bridge-entry.js");
         const daemonLogFd = fs.openSync(logPath, "a");
         const child = fork(daemonScript, [], {
           detached: true,
           stdio: buildDaemonForkStdio(daemonLogFd),
           env: {
-            ...process.env,
+            ...bridgeProcessEnv,
             PUBBLUE_DAEMON_SLUG: target.slug,
             PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
             PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
             PUBBLUE_DAEMON_SOCKET: socketPath,
             PUBBLUE_DAEMON_INFO: infoPath,
             PUBBLUE_CLI_VERSION: CLI_VERSION,
+            PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
+            PUBBLUE_DAEMON_BRIDGE_SCRIPT: bridgeScript,
+            PUBBLUE_DAEMON_BRIDGE_INFO: bridgeInfoPath(target.slug),
+            PUBBLUE_DAEMON_BRIDGE_LOG: bridgeLogPath(target.slug),
           },
         });
         fs.closeSync(daemonLogFd);

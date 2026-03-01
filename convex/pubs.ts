@@ -202,6 +202,27 @@ export const deleteByUser = mutation({
 // Live queries (browser uses these via reactive subscriptions)
 // ---------------------------------------------------------------------------
 
+export const listActiveLives = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const lives = await ctx.db
+      .query("lives")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    return lives
+      .filter((s) => s.status === "active" && s.expiresAt > Date.now())
+      .map((s) => ({
+        slug: s.slug,
+        hasConnection: !!s.browserAnswer,
+        expiresAt: s.expiresAt,
+      }));
+  },
+});
+
 export const getLiveBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {

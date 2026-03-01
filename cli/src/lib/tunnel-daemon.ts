@@ -2,11 +2,18 @@
  * Session daemon — background process that holds a WebRTC PeerConnection.
  */
 
+import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import { latestCliVersionPath, readLatestCliVersion } from "../commands/tunnel-helpers.js";
+import {
+  buildBridgeForkStdio,
+  isBridgeRunning,
+  latestCliVersionPath,
+  readLatestCliVersion,
+  stopBridge,
+} from "../commands/tunnel-helpers.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -21,6 +28,9 @@ import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
 import { generateOffer } from "./tunnel-daemon-offer.js";
 import {
+  BRIDGE_CHECK_INTERVAL_MS,
+  BRIDGE_MAX_RAPID_RESTARTS,
+  BRIDGE_RAPID_RESTART_WINDOW_MS,
   type ChannelBuffer,
   type DaemonConfig,
   getSignalPollDelayMs,
@@ -655,6 +665,81 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   startHealthCheckTimer();
   scheduleNextPoll(0);
 
+  // -- Bridge liveness monitoring -------------------------------------------
+
+  let bridgeCheckTimer: ReturnType<typeof setInterval> | null = null;
+  const bridgeRestartTimestamps: number[] = [];
+
+  function pruneBridgeRestartTimestamps(): void {
+    const cutoff = Date.now() - BRIDGE_RAPID_RESTART_WINDOW_MS;
+    while (bridgeRestartTimestamps.length > 0 && bridgeRestartTimestamps[0] < cutoff) {
+      bridgeRestartTimestamps.shift();
+    }
+  }
+
+  function restartBridge(): void {
+    if (stopped || !config.bridge) return;
+    const { bridgeMode, bridgeScript, bridgeInfoPath, bridgeLogPath, bridgeProcessEnv } =
+      config.bridge;
+
+    pruneBridgeRestartTimestamps();
+    if (bridgeRestartTimestamps.length >= BRIDGE_MAX_RAPID_RESTARTS) {
+      markError(
+        `bridge crashed ${BRIDGE_MAX_RAPID_RESTARTS} times within ${BRIDGE_RAPID_RESTART_WINDOW_MS / 1000}s; giving up`,
+      );
+      return;
+    }
+
+    bridgeRestartTimestamps.push(Date.now());
+    debugLog("bridge process is dead; restarting");
+
+    try {
+      const logFd = fs.openSync(bridgeLogPath, "a");
+      const child = fork(bridgeScript, [], {
+        detached: true,
+        stdio: buildBridgeForkStdio(logFd),
+        env: {
+          ...bridgeProcessEnv,
+          PUBBLUE_BRIDGE_MODE: bridgeMode,
+          PUBBLUE_BRIDGE_SLUG: slug,
+          PUBBLUE_BRIDGE_SOCKET: socketPath,
+          PUBBLUE_BRIDGE_INFO: bridgeInfoPath,
+        },
+      });
+      fs.closeSync(logFd);
+      if (child.connected) child.disconnect();
+      child.unref();
+    } catch (error) {
+      markError("failed to restart bridge process", error);
+    }
+  }
+
+  function checkBridgeLiveness(): void {
+    if (stopped || !config.bridge) return;
+    if (!isBridgeRunning(slug)) restartBridge();
+  }
+
+  function startBridgeCheckTimer(): void {
+    if (!config.bridge) return;
+    bridgeCheckTimer = setInterval(checkBridgeLiveness, BRIDGE_CHECK_INTERVAL_MS);
+  }
+
+  function clearBridgeCheckTimer(): void {
+    if (bridgeCheckTimer) {
+      clearInterval(bridgeCheckTimer);
+      bridgeCheckTimer = null;
+    }
+  }
+
+  async function stopBridgeProcess(): Promise<void> {
+    const error = await stopBridge(slug);
+    if (error) debugLog(error);
+  }
+
+  startBridgeCheckTimer();
+
+  // -- Cleanup & shutdown ---------------------------------------------------
+
   async function cleanup(): Promise<void> {
     if (stopped) return;
     stopped = true;
@@ -663,6 +748,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearLocalCandidateTimers();
     clearRecoveryTimer();
     clearHealthCheckTimer();
+    clearBridgeCheckTimer();
+    await stopBridgeProcess();
     closeCurrentPeer();
 
     ipcServer.close();
