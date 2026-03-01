@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { getTelegramMiniAppUrl } from "../lib/config.js";
 import {
   createClient,
   formatVisibility,
@@ -57,6 +58,8 @@ export function registerPublicationCommands(program: Command): void {
         });
 
         console.log(`Created: ${result.url}`);
+        const tmaUrl = getTelegramMiniAppUrl("pub", result.slug);
+        if (tmaUrl) console.log(`Telegram: ${tmaUrl}`);
         if (result.expiresAt) {
           console.log(`  Expires: ${new Date(result.expiresAt).toISOString()}`);
         }

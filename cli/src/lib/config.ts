@@ -18,9 +18,16 @@ export interface BridgeConfig {
   attachmentMaxBytes?: number;
 }
 
+export interface TelegramConfig {
+  botToken?: string;
+  botUsername?: string;
+  hasMainWebApp?: boolean;
+}
+
 export interface SavedConfig {
   apiKey: string;
   bridge?: BridgeConfig;
+  telegram?: TelegramConfig;
 }
 
 export interface Config {
@@ -85,4 +92,10 @@ export function getConfig(homeDir?: string): Config {
     baseUrl,
     bridge: saved.bridge,
   };
+}
+
+export function getTelegramMiniAppUrl(type: "pub" | "tunnel", id: string): string | null {
+  const saved = loadConfig();
+  if (!saved?.telegram?.botUsername) return null;
+  return `https://t.me/${saved.telegram.botUsername}?startapp=${type === "pub" ? "p" : "t"}_${id}`;
 }

@@ -4,12 +4,21 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
 import { initAuthDebug } from "./lib/auth-debug";
-import { initTelegramSdk } from "./lib/telegram";
+import { getTelegramStartParam, initTelegramSdk, parseStartParam } from "./lib/telegram";
 import { getRouter } from "./router";
 
-const { router, queryClient, convexClient } = getRouter();
 initAuthDebug();
 initTelegramSdk();
+
+const startParam = getTelegramStartParam();
+if (startParam) {
+  const parsed = parseStartParam(startParam);
+  if (parsed && window.location.pathname !== parsed.path) {
+    window.history.replaceState(null, "", parsed.path);
+  }
+}
+
+const { router, queryClient, convexClient } = getRouter();
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Missing #root element");
 

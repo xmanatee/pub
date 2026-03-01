@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.11"
+  version: "3.4.12"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,11 +17,11 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.4.11+**.
+Use **pubblue CLI 0.4.12+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.11
+npm i -g pubblue@0.4.12
 ```
 
 ## Setup
@@ -142,6 +142,11 @@ Useful env for `openclaw` mode:
 - `OPENCLAW_DELIVER_CHANNEL`, `OPENCLAW_REPLY_TO` (optional channel routing)
 - `OPENCLAW_DELIVER_TIMEOUT_MS` (optional dispatch timeout)
 - `OPENCLAW_CANVAS_REMINDER_EVERY` (optional, default `10`)
+
+## Telegram Mini App
+
+pub.blue supports Telegram Mini App. When configured, `create` and `tunnel start`
+automatically output `t.me` deep links. Check `pubblue configure --show` for status.
 
 ## Troubleshooting
 

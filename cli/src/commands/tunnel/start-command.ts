@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { failCli } from "../../lib/cli-error.js";
-import { getConfig } from "../../lib/config.js";
+import { getConfig, getTelegramMiniAppUrl } from "../../lib/config.js";
 import { getSocketPath, ipcCall } from "../../lib/tunnel-ipc.js";
 import { CLI_VERSION } from "../../lib/version.js";
 import {
@@ -150,6 +150,8 @@ export function registerTunnelStartCommand(tunnel: Command): void {
           }
           const { startDaemon } = await import("../../lib/tunnel-daemon.js");
           console.log(`Tunnel started: ${target.url}`);
+          const fgTma = getTelegramMiniAppUrl("tunnel", target.tunnelId);
+          if (fgTma) console.log(`Telegram: ${fgTma}`);
           console.log(`Tunnel ID: ${target.tunnelId}`);
           console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
           if (target.mode === "existing") console.log("Mode: attached existing tunnel");
@@ -255,6 +257,8 @@ export function registerTunnelStartCommand(tunnel: Command): void {
             }
 
             console.log(`Tunnel started: ${target.url}`);
+            const runTma = getTelegramMiniAppUrl("tunnel", target.tunnelId);
+            if (runTma) console.log(`Telegram: ${runTma}`);
             console.log(`Tunnel ID: ${target.tunnelId}`);
             console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
             console.log("Daemon already running for this tunnel.");
@@ -361,6 +365,8 @@ export function registerTunnelStartCommand(tunnel: Command): void {
         }
 
         console.log(`Tunnel started: ${target.url}`);
+        const tma = getTelegramMiniAppUrl("tunnel", target.tunnelId);
+        if (tma) console.log(`Telegram: ${tma}`);
         console.log(`Tunnel ID: ${target.tunnelId}`);
         console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
         if (target.mode === "existing") console.log("Mode: attached existing tunnel");

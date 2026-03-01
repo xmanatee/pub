@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import type { Command } from "commander";
-import type { BridgeConfig, SavedConfig } from "../lib/config.js";
+import type { BridgeConfig, SavedConfig, TelegramConfig } from "../lib/config.js";
 import { loadConfig, saveConfig } from "../lib/config.js";
 import { readFromStdin } from "./shared.js";
 
@@ -82,7 +82,27 @@ function parsePositiveInteger(raw: string, key: string): number {
   return parsed;
 }
 
-function applyBridgeSet(bridge: BridgeConfig, key: string, value: string): void {
+const SUPPORTED_KEYS = [
+  "bridge.mode",
+  "openclaw.path",
+  "openclaw.sessionId",
+  "openclaw.threadId",
+  "openclaw.canvasReminderEvery",
+  "openclaw.deliver",
+  "openclaw.deliverChannel",
+  "openclaw.replyTo",
+  "openclaw.deliverTimeoutMs",
+  "openclaw.attachmentDir",
+  "openclaw.attachmentMaxBytes",
+  "telegram.botToken",
+];
+
+function applyConfigSet(
+  bridge: BridgeConfig,
+  telegram: TelegramConfig,
+  key: string,
+  value: string,
+): void {
   switch (key) {
     case "bridge.mode":
       bridge.mode = parseBridgeModeValue(value);
@@ -117,28 +137,21 @@ function applyBridgeSet(bridge: BridgeConfig, key: string, value: string): void 
     case "openclaw.attachmentMaxBytes":
       bridge.attachmentMaxBytes = parsePositiveInteger(value, key);
       return;
+    case "telegram.botToken":
+      telegram.botToken = value;
+      return;
     default:
       throw new Error(
         [
           `Unknown config key: ${key}`,
           "Supported keys:",
-          "  bridge.mode",
-          "  openclaw.path",
-          "  openclaw.sessionId",
-          "  openclaw.threadId",
-          "  openclaw.canvasReminderEvery",
-          "  openclaw.deliver",
-          "  openclaw.deliverChannel",
-          "  openclaw.replyTo",
-          "  openclaw.deliverTimeoutMs",
-          "  openclaw.attachmentDir",
-          "  openclaw.attachmentMaxBytes",
+          ...SUPPORTED_KEYS.map((k) => `  ${k}`),
         ].join("\n"),
       );
   }
 }
 
-function applyBridgeUnset(bridge: BridgeConfig, key: string): void {
+function applyConfigUnset(bridge: BridgeConfig, telegram: TelegramConfig, key: string): void {
   switch (key) {
     case "bridge.mode":
       delete bridge.mode;
@@ -173,18 +186,58 @@ function applyBridgeUnset(bridge: BridgeConfig, key: string): void {
     case "openclaw.attachmentMaxBytes":
       delete bridge.attachmentMaxBytes;
       return;
+    case "telegram.botToken":
+      delete telegram.botToken;
+      delete telegram.botUsername;
+      delete telegram.hasMainWebApp;
+      return;
     default:
       throw new Error(`Unknown config key for --unset: ${key}`);
   }
 }
 
-function hasBridgeValues(bridge: BridgeConfig): boolean {
-  return Object.values(bridge).some((value) => value !== undefined);
+function hasValues(obj: object): boolean {
+  return Object.values(obj).some((value) => value !== undefined);
 }
 
-function maskApiKey(apiKey: string): string {
-  if (apiKey.length <= 8) return "********";
-  return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
+function maskSecret(value: string): string {
+  if (value.length <= 8) return "********";
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+interface TelegramBotInfo {
+  username: string;
+  hasMainWebApp: boolean;
+}
+
+async function telegramGetMe(token: string): Promise<TelegramBotInfo> {
+  const resp = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+  const data = (await resp.json()) as {
+    ok: boolean;
+    result?: { username: string; has_main_web_app?: boolean };
+    description?: string;
+  };
+  if (!data.ok || !data.result?.username) {
+    throw new Error(data.description ?? "Invalid bot token");
+  }
+  return {
+    username: data.result.username,
+    hasMainWebApp: data.result.has_main_web_app === true,
+  };
+}
+
+async function telegramSetMenuButton(token: string, url: string): Promise<void> {
+  const resp = await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      menu_button: { type: "web_app", text: "Open", web_app: { url } },
+    }),
+  });
+  const data = (await resp.json()) as { ok: boolean; description?: string };
+  if (!data.ok) {
+    throw new Error(data.description ?? "setChatMenuButton failed");
+  }
 }
 
 function printConfigSummary(saved: SavedConfig | null): void {
@@ -194,29 +247,44 @@ function printConfigSummary(saved: SavedConfig | null): void {
   }
 
   console.log("Saved config:");
-  console.log(`  apiKey: ${maskApiKey(saved.apiKey)}`);
-  if (!saved.bridge || !hasBridgeValues(saved.bridge)) {
+  console.log(`  apiKey: ${maskSecret(saved.apiKey)}`);
+
+  if (saved.bridge && hasValues(saved.bridge)) {
+    console.log(`  bridge.mode: ${saved.bridge.mode ?? "(unset)"}`);
+    if (saved.bridge.openclawPath) console.log(`  openclaw.path: ${saved.bridge.openclawPath}`);
+    if (saved.bridge.sessionId) console.log(`  openclaw.sessionId: ${saved.bridge.sessionId}`);
+    if (saved.bridge.threadId) console.log(`  openclaw.threadId: ${saved.bridge.threadId}`);
+    if (saved.bridge.canvasReminderEvery !== undefined)
+      console.log(`  openclaw.canvasReminderEvery: ${saved.bridge.canvasReminderEvery}`);
+    if (saved.bridge.deliver !== undefined)
+      console.log(`  openclaw.deliver: ${saved.bridge.deliver ? "true" : "false"}`);
+    if (saved.bridge.deliverChannel)
+      console.log(`  openclaw.deliverChannel: ${saved.bridge.deliverChannel}`);
+    if (saved.bridge.replyTo) console.log(`  openclaw.replyTo: ${saved.bridge.replyTo}`);
+    if (saved.bridge.deliverTimeoutMs !== undefined)
+      console.log(`  openclaw.deliverTimeoutMs: ${saved.bridge.deliverTimeoutMs}`);
+    if (saved.bridge.attachmentDir)
+      console.log(`  openclaw.attachmentDir: ${saved.bridge.attachmentDir}`);
+    if (saved.bridge.attachmentMaxBytes !== undefined)
+      console.log(`  openclaw.attachmentMaxBytes: ${saved.bridge.attachmentMaxBytes}`);
+  } else {
     console.log("  bridge: none");
-    return;
   }
 
-  console.log(`  bridge.mode: ${saved.bridge.mode ?? "(unset)"}`);
-  if (saved.bridge.openclawPath) console.log(`  openclaw.path: ${saved.bridge.openclawPath}`);
-  if (saved.bridge.sessionId) console.log(`  openclaw.sessionId: ${saved.bridge.sessionId}`);
-  if (saved.bridge.threadId) console.log(`  openclaw.threadId: ${saved.bridge.threadId}`);
-  if (saved.bridge.canvasReminderEvery !== undefined)
-    console.log(`  openclaw.canvasReminderEvery: ${saved.bridge.canvasReminderEvery}`);
-  if (saved.bridge.deliver !== undefined)
-    console.log(`  openclaw.deliver: ${saved.bridge.deliver ? "true" : "false"}`);
-  if (saved.bridge.deliverChannel)
-    console.log(`  openclaw.deliverChannel: ${saved.bridge.deliverChannel}`);
-  if (saved.bridge.replyTo) console.log(`  openclaw.replyTo: ${saved.bridge.replyTo}`);
-  if (saved.bridge.deliverTimeoutMs !== undefined)
-    console.log(`  openclaw.deliverTimeoutMs: ${saved.bridge.deliverTimeoutMs}`);
-  if (saved.bridge.attachmentDir)
-    console.log(`  openclaw.attachmentDir: ${saved.bridge.attachmentDir}`);
-  if (saved.bridge.attachmentMaxBytes !== undefined)
-    console.log(`  openclaw.attachmentMaxBytes: ${saved.bridge.attachmentMaxBytes}`);
+  if (saved.telegram?.botToken && saved.telegram.botUsername) {
+    console.log(`  telegram.botToken: ${maskSecret(saved.telegram.botToken)}`);
+    console.log(`  telegram.botUsername: @${saved.telegram.botUsername}`);
+    if (!saved.telegram.hasMainWebApp) {
+      console.log("    INFO: Register Mini App in @BotFather for deep links to open in Telegram");
+    }
+  } else if (saved.telegram?.botToken) {
+    console.log(`  telegram.botToken: ${maskSecret(saved.telegram.botToken)}`);
+    console.log("  telegram.botUsername: (not resolved)");
+  } else {
+    console.log("  telegram: not configured");
+    console.log("    INFO: Set telegram.botToken to enable Telegram Mini App links");
+    console.log("    Example: pubblue configure --set telegram.botToken=<BOT_TOKEN>");
+  }
 }
 
 export function registerConfigureCommand(program: Command): void {
@@ -227,11 +295,11 @@ export function registerConfigureCommand(program: Command): void {
     .option("--api-key-stdin", "Read API key from stdin")
     .option(
       "--set <key=value>",
-      "Set advanced config (repeatable). Example: --set openclaw.sessionId=<id>",
+      "Set config key (repeatable). Example: --set telegram.botToken=<token>",
       collectValues,
       [],
     )
-    .option("--unset <key>", "Unset advanced config key (repeatable)", collectValues, [])
+    .option("--unset <key>", "Unset config key (repeatable)", collectValues, [])
     .option("--show", "Show saved configuration")
     .action(
       async (opts: {
@@ -268,17 +336,38 @@ export function registerConfigureCommand(program: Command): void {
         }
 
         const nextBridge: BridgeConfig = { ...(saved?.bridge ?? {}) };
+        const nextTelegram: TelegramConfig = { ...(saved?.telegram ?? {}) };
+        let telegramTokenChanged = false;
+
         for (const entry of opts.set) {
           const { key, value } = parseSetInput(entry);
-          applyBridgeSet(nextBridge, key, value);
+          applyConfigSet(nextBridge, nextTelegram, key, value);
+          if (key === "telegram.botToken") telegramTokenChanged = true;
         }
         for (const key of opts.unset) {
-          applyBridgeUnset(nextBridge, key.trim());
+          applyConfigUnset(nextBridge, nextTelegram, key.trim());
+        }
+
+        if (telegramTokenChanged && nextTelegram.botToken) {
+          console.log("Verifying Telegram bot token...");
+          const bot = await telegramGetMe(nextTelegram.botToken);
+          nextTelegram.botUsername = bot.username;
+          nextTelegram.hasMainWebApp = bot.hasMainWebApp;
+          console.log(`  Bot: @${bot.username}`);
+          await telegramSetMenuButton(nextTelegram.botToken, "https://pub.blue");
+          console.log("  Menu button set to https://pub.blue");
+          if (!bot.hasMainWebApp) {
+            console.log("");
+            console.log("  INFO: For deep links to open inside Telegram, register the Mini App:");
+            console.log("    @BotFather → /mybots → your bot → Bot Settings → Configure Mini App");
+            console.log("    Set Web App URL to: https://pub.blue");
+          }
         }
 
         const nextConfig: SavedConfig = {
           apiKey,
-          bridge: hasBridgeValues(nextBridge) ? nextBridge : undefined,
+          bridge: hasValues(nextBridge) ? nextBridge : undefined,
+          telegram: hasValues(nextTelegram) ? nextTelegram : undefined,
         };
         saveConfig(nextConfig);
         console.log("Configuration saved.");

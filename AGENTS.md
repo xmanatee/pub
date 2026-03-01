@@ -40,6 +40,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
+- **Telegram Mini App**: `@telegram-apps/sdk-react` v3 for TMA detection, theme, back button, deep link routing via `startapp` parameter
 - **Path alias**: `~/*` maps to `src/*`
 
 ### Backend (`convex/`)
@@ -60,12 +61,14 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
-- **`pubblue`** v0.4.11 — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
-- Commands: `configure`, `create`, `get`, `list`, `update`, `delete`
+- **`pubblue`** v0.4.12 — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
+- Commands: `configure`, `create`, `get`, `list`, `update`, `delete`, `tunnel`
 - `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, and `--expires <duration>` (e.g. `1h`, `24h`, `7d`)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages
+- `tunnel` — WebRTC tunnel management (`start`, `close`, `status`, `write`, `read`, `doctor`)
+- `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links on `create` and `tunnel start`
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 

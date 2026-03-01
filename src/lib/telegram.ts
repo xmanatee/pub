@@ -1,91 +1,87 @@
-function hasWindow(): boolean {
-  return typeof window !== "undefined";
-}
+import {
+  backButton,
+  initData,
+  isTMA,
+  miniApp,
+  openLink,
+  popup,
+  retrieveLaunchParams,
+  retrieveRawInitData,
+  swipeBehavior,
+  themeParams,
+  init as tmaInit,
+  viewport,
+} from "@telegram-apps/sdk-react";
 
-function isTelegramWebApp(value: unknown): value is TelegramWebApp {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "ready" in value &&
-    typeof (value as { ready?: unknown }).ready === "function"
-  );
-}
-
-export function getTelegramWebApp(): TelegramWebApp | null {
-  if (!hasWindow()) return null;
-  const candidate = window.Telegram?.WebApp;
-  return isTelegramWebApp(candidate) ? candidate : null;
-}
-
-export const IN_TELEGRAM = getTelegramWebApp() !== null;
+export const IN_TELEGRAM = isTMA();
 
 export function getTelegramInitData(): string | null {
-  return getTelegramWebApp()?.initData ?? null;
-}
-
-function setDocumentCssVar(name: string, value: number) {
-  if (!hasWindow()) return;
-  document.documentElement.style.setProperty(name, `${Math.max(0, value)}px`);
-}
-
-export function applyTelegramThemeClass(): void {
-  const webApp = getTelegramWebApp();
-  if (!webApp || !hasWindow()) return;
-  document.documentElement.classList.toggle("dark", webApp.colorScheme === "dark");
-}
-
-export function applyTelegramSafeAreaVars(): void {
-  const webApp = getTelegramWebApp();
-  if (!webApp) return;
-
-  const safeTop = webApp.safeAreaInset?.top ?? 0;
-  const safeBottom = webApp.safeAreaInset?.bottom ?? 0;
-  const contentTop = webApp.contentSafeAreaInset?.top ?? 0;
-  const contentBottom = webApp.contentSafeAreaInset?.bottom ?? 0;
-
-  setDocumentCssVar("--safe-top", safeTop + contentTop);
-  setDocumentCssVar("--safe-bottom", safeBottom + contentBottom);
+  if (!IN_TELEGRAM) return null;
+  return retrieveRawInitData() ?? null;
 }
 
 export function telegramOpenLink(url: string): void {
-  const webApp = getTelegramWebApp();
-  if (webApp?.openLink) {
-    webApp.openLink(url);
+  if (IN_TELEGRAM && openLink.isAvailable()) {
+    openLink(url);
     return;
   }
-  if (!hasWindow()) return;
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export async function telegramConfirm(message: string): Promise<boolean> {
-  const webApp = getTelegramWebApp();
-  const showPopup = webApp?.showPopup;
-  if (!showPopup) {
-    if (!hasWindow()) return false;
+  if (!IN_TELEGRAM || !popup.show.isAvailable()) return window.confirm(message);
+  try {
+    const id = await popup.show({
+      message,
+      buttons: [
+        { id: "yes", type: "destructive", text: "Yes" },
+        { id: "no", type: "cancel" },
+      ],
+    });
+    return id === "yes";
+  } catch {
     return window.confirm(message);
   }
+}
 
-  return new Promise((resolve) => {
-    showPopup(
-      {
-        message,
-        buttons: [
-          { id: "yes", type: "destructive", text: "Yes" },
-          { id: "no", type: "cancel" },
-        ],
-      },
-      (id: string | null) => resolve(id === "yes"),
-    );
-  });
+export function getTelegramStartParam(): string | null {
+  if (!IN_TELEGRAM) return null;
+  return retrieveLaunchParams().tgWebAppStartParam ?? null;
+}
+
+export function parseStartParam(startParam: string): { path: string } | null {
+  if (startParam.startsWith("p_") && startParam.length > 2)
+    return { path: `/p/${startParam.slice(2)}` };
+  if (startParam.startsWith("t_") && startParam.length > 2)
+    return { path: `/t/${startParam.slice(2)}` };
+  return null;
 }
 
 export function initTelegramSdk(): void {
-  const webApp = getTelegramWebApp();
-  if (!webApp) return;
+  if (!IN_TELEGRAM) return;
 
-  applyTelegramThemeClass();
-  applyTelegramSafeAreaVars();
-  webApp.disableVerticalSwipes?.();
-  webApp.expand?.();
-  webApp.ready();
+  tmaInit();
+  initData.restore();
+
+  miniApp.mountSync.ifAvailable();
+  themeParams.mountSync.ifAvailable();
+  themeParams.bindCssVars.ifAvailable();
+  backButton.mount.ifAvailable();
+  swipeBehavior.mount.ifAvailable();
+
+  if (viewport.mount.isAvailable()) {
+    void viewport.mount().then(() => {
+      viewport.bindCssVars.ifAvailable();
+    });
+  }
+
+  swipeBehavior.disableVertical.ifAvailable();
+  viewport.expand.ifAvailable();
+  if (viewport.requestFullscreen.isAvailable()) {
+    void viewport.requestFullscreen();
+  }
+
+  document.documentElement.classList.toggle("dark", miniApp.isDark());
+
+  miniApp.ready.ifAvailable();
 }
