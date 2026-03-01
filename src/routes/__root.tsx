@@ -8,6 +8,7 @@ import * as React from "react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { useTelegramAuth } from "~/hooks/use-telegram-auth";
 import { useTelegramBackButton } from "~/hooks/use-telegram-back-button";
 import { useTelegramTheme } from "~/hooks/use-telegram-theme";
 import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
@@ -64,6 +65,15 @@ function RootComponent() {
   useIdentifyUser();
   useTelegramBackButton();
   useTelegramTheme();
+  const { telegramPending } = useTelegramAuth();
+
+  if (telegramPending) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground text-sm">Signing in via Telegram…</div>
+      </div>
+    );
+  }
 
   return (
     <PostHogProvider client={posthog}>

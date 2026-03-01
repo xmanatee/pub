@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
+import { IN_TELEGRAM } from "~/lib/telegram";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -26,25 +26,6 @@ function LoginPage() {
   const isStartingSignInRef = React.useRef(false);
   const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);
   const [authError, setAuthError] = React.useState<string | null>(null);
-  const [telegramPending, setTelegramPending] = React.useState(false);
-  const telegramAttemptedRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (!hasConfiguredConvex) return;
-    if (telegramAttemptedRef.current || isLoading || isAuthenticated) return;
-
-    const initData = getTelegramInitData();
-    if (!initData) return;
-
-    telegramAttemptedRef.current = true;
-    setTelegramPending(true);
-    trackSignInStarted("telegram");
-
-    void signIn("telegram", { initData }).catch(() => {
-      setTelegramPending(false);
-      setAuthError("Telegram sign-in failed. Please try again.");
-    });
-  }, [hasConfiguredConvex, isLoading, isAuthenticated, signIn]);
 
   const startOAuthSignIn = React.useCallback(
     async (provider: "github" | "google") => {
@@ -96,17 +77,15 @@ function LoginPage() {
       hasConfiguredConvex,
     });
     if (!effectiveIsLoading && effectiveIsAuthenticated) {
-      trackSignIn(telegramAttemptedRef.current ? "telegram" : "oauth");
+      trackSignIn("oauth");
       navigate({ to: "/dashboard", replace: true });
     }
   }, [effectiveIsAuthenticated, effectiveIsLoading, hasConfiguredConvex, navigate]);
 
-  if (effectiveIsLoading || effectiveIsAuthenticated || telegramPending) {
+  if (effectiveIsLoading || effectiveIsAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <div className="text-muted-foreground text-sm">
-          {telegramPending ? "Signing in via Telegram\u2026" : "Loading\u2026"}
-        </div>
+        <div className="text-muted-foreground text-sm">Loading…</div>
       </div>
     );
   }
@@ -126,7 +105,7 @@ function LoginPage() {
               <p className="text-center text-sm text-destructive">{authError}</p>
             ) : (
               <p className="text-center text-sm text-muted-foreground">
-                Telegram sign-in failed. Please try reopening the app.
+                Telegram sign-in could not be completed. Please try reopening the app.
               </p>
             )}
           </CardContent>
