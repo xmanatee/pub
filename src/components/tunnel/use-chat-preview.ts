@@ -6,6 +6,7 @@ const AUTO_DISMISS_MS = 5_000;
 export function useChatPreview(messages: ChatEntry[], viewMode: TunnelViewMode) {
   const [previewText, setPreviewText] = useState<string | null>(null);
   const lastSeenIdRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -22,6 +23,12 @@ export function useChatPreview(messages: ChatEntry[], viewMode: TunnelViewMode) 
 
   useEffect(() => {
     const lastAgent = findLastAgentMessage(messages);
+
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      lastSeenIdRef.current = lastAgent?.id ?? null;
+      return;
+    }
 
     if (viewMode === "chat") {
       if (lastAgent) lastSeenIdRef.current = lastAgent.id;

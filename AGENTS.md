@@ -114,3 +114,8 @@ Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list.
 - `VITE_CONVEX_URL` — Convex cloud endpoint
 - `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY` — observability
 - Auth secrets (`AUTH_GITHUB_*`, `AUTH_GOOGLE_*`) are set in the Convex dashboard, not in `.env`
+
+## Working Preferences (Corrected)
+
+- Prefer explicit, debuggable failures; avoid silent fallbacks in CLI/daemon/bridge paths.
+- Avoid Tailwind arbitrary-value or arbitrary-selector utility patterns in UI classes (for example `text-[...]`, `[&_...]`) unless there is no practical alternative.
