@@ -16,7 +16,11 @@ export const getUserByApiKey = internalQuery({
     if (!apiKey) return null;
     const user = await ctx.db.get(apiKey.userId);
     if (!user) return null;
-    return { apiKeyId: apiKey._id, userId: user._id };
+    return {
+      apiKeyId: apiKey._id,
+      userId: user._id,
+      lastUsedAt: apiKey.lastUsedAt ?? null,
+    };
   },
 });
 

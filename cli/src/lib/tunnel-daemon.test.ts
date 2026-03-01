@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "./ack-routing.js";
 import {
+  getSignalPollDelayMs,
   getTunnelWriteReadinessError,
   shouldRecoverForBrowserAnswerChange,
 } from "./tunnel-daemon.js";
@@ -78,5 +79,27 @@ describe("resolveAckChannel", () => {
         messageChannel: "chat",
       }),
     ).toBeNull();
+  });
+});
+
+describe("getSignalPollDelayMs", () => {
+  it("returns the base polling delay when retry-after is missing", () => {
+    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false })).toBe(5_000);
+    expect(getSignalPollDelayMs({ remoteDescriptionApplied: true })).toBe(15_000);
+  });
+
+  it("honors retry-after when it exceeds the base delay", () => {
+    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: 12 })).toBe(
+      12_000,
+    );
+  });
+
+  it("ignores non-positive retry-after values", () => {
+    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: 0 })).toBe(
+      5_000,
+    );
+    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: -1 })).toBe(
+      5_000,
+    );
   });
 });

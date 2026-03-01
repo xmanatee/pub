@@ -30,6 +30,7 @@ const HTML_CSP = [
   "sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads",
 ].join("; ");
 const DEFAULT_CSP = "default-src 'none'; sandbox";
+const API_KEY_TOUCH_INTERVAL_MS = 15 * 60 * 1000;
 
 export function corsHeaders() {
   return {
@@ -131,8 +132,20 @@ export function parseSlugFromRequest(request: Request, prefix: string): string |
 export async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {
   const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, { key: apiKey });
   if (!user) throw new ApiError("Invalid API key", 401);
-  await ctx.runMutation(internal.apiKeys.touchApiKey, { apiKeyId: user.apiKeyId });
+  const now = Date.now();
+  if (shouldTouchApiKey(user.lastUsedAt, now)) {
+    await ctx.runMutation(internal.apiKeys.touchApiKey, { apiKeyId: user.apiKeyId });
+  }
   return user;
+}
+
+export function shouldTouchApiKey(
+  lastUsedAt: number | null | undefined,
+  now: number,
+  intervalMs = API_KEY_TOUCH_INTERVAL_MS,
+): boolean {
+  if (typeof lastUsedAt !== "number" || !Number.isFinite(lastUsedAt)) return true;
+  return now - lastUsedAt >= intervalMs;
 }
 
 export function rateLimitResponse(retryAfter: number) {

@@ -773,7 +773,7 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
       }
 
       if (messages.length === 0) {
-        await sleep(400);
+        await sleep(500);
         continue;
       }
 

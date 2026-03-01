@@ -7,6 +7,7 @@ import {
   getOgCardData,
   jsonResponse,
   mapTunnelError,
+  shouldTouchApiKey,
 } from "./http";
 import { MIME_TYPES } from "./utils";
 
@@ -185,5 +186,24 @@ describe("mapTunnelError", () => {
 
   it("returns null for unknown failures", () => {
     expect(mapTunnelError(new Error("Unexpected failure"))).toBeNull();
+  });
+});
+
+describe("shouldTouchApiKey", () => {
+  it("touches when key has never been used", () => {
+    expect(shouldTouchApiKey(undefined, 10_000)).toBe(true);
+    expect(shouldTouchApiKey(null, 10_000)).toBe(true);
+  });
+
+  it("does not touch when inside touch interval", () => {
+    const now = 10 * 60 * 1000;
+    const lastUsedAt = now - 60 * 1000;
+    expect(shouldTouchApiKey(lastUsedAt, now)).toBe(false);
+  });
+
+  it("touches when interval has elapsed", () => {
+    const now = 90 * 60 * 1000;
+    const lastUsedAt = 0;
+    expect(shouldTouchApiKey(lastUsedAt, now)).toBe(true);
   });
 });

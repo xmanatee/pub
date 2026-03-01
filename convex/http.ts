@@ -9,6 +9,7 @@ import {
   getOgCardData,
   jsonResponse,
   mapTunnelError,
+  shouldTouchApiKey,
 } from "./http/shared";
 import { registerTunnelRoutes } from "./http/tunnel_routes";
 
@@ -26,6 +27,7 @@ export {
   getOgCardData,
   jsonResponse,
   mapTunnelError,
+  shouldTouchApiKey,
 };
 
 export default http;

@@ -17,21 +17,23 @@ import {
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
+import { TunnelApiError } from "./tunnel-api.js";
 import { generateOffer } from "./tunnel-daemon-offer.js";
 import {
   type ChannelBuffer,
   type DaemonConfig,
+  getSignalPollDelayMs,
   getTunnelWriteReadinessError,
+  LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
   RECOVERY_DELAY_MS,
-  SIGNAL_POLL_CONNECTED_MS,
-  SIGNAL_POLL_WAITING_MS,
   type StickyOutboundMessage,
   shouldRecoverForBrowserAnswerChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./tunnel-daemon-shared.js";
 
 export {
+  getSignalPollDelayMs,
   getTunnelWriteReadinessError,
   shouldRecoverForBrowserAnswerChange,
 } from "./tunnel-daemon-shared.js";
@@ -357,7 +359,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       await apiClient.signal(tunnelId, { candidates: newOnes }).catch((error) => {
         debugLog("failed to publish local ICE candidates", error);
       });
-    }, 500);
+    }, LOCAL_CANDIDATE_FLUSH_MS);
 
     localCandidateStopTimer = setTimeout(() => {
       clearLocalCandidateTimers();
@@ -509,14 +511,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   async function runPollingLoop(): Promise<void> {
     if (stopped) return;
 
+    let retryAfterSeconds: number | undefined;
     try {
       await pollSignalingOnce();
     } catch (error) {
-      // Poll failures are transient; keep retrying.
+      if (error instanceof TunnelApiError && error.status === 429) {
+        retryAfterSeconds = error.retryAfterSeconds;
+      }
       markError("signaling poll failed", error);
     }
 
-    scheduleNextPoll(remoteDescriptionApplied ? SIGNAL_POLL_CONNECTED_MS : SIGNAL_POLL_WAITING_MS);
+    scheduleNextPoll(getSignalPollDelayMs({ remoteDescriptionApplied, retryAfterSeconds }));
   }
 
   async function runNegotiationCycle(): Promise<void> {

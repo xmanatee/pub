@@ -72,7 +72,7 @@ export function registerTunnelRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "createTunnelV2", { key: apiKey });
+      const rl = await rateLimiter.limit(ctx, "createTunnel", { key: apiKey });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       const tunnelId = generateTunnelId();
@@ -111,7 +111,7 @@ export function registerTunnelRoutes(http: ReturnType<typeof httpRouter>): void 
 
       if (!path) {
         const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "readTunnelV2", { key: apiKey });
+        const rl = await rateLimiter.limit(ctx, "readTunnel", { key: apiKey });
         if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
         return executeAction(
@@ -127,7 +127,7 @@ export function registerTunnelRoutes(http: ReturnType<typeof httpRouter>): void 
       if (!isValidTunnelId(tunnelId)) return errorResponse("Invalid tunnel ID", 400);
 
       const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "readTunnelV2", { key: apiKey });
+      const rl = await rateLimiter.limit(ctx, "readTunnel", { key: apiKey });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       return executeAction(
@@ -173,7 +173,7 @@ export function registerTunnelRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "tunnelSignalV2", { key: apiKey });
+      const rl = await rateLimiter.limit(ctx, "tunnelSignal", { key: apiKey });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       return executeAction(
@@ -206,7 +206,7 @@ export function registerTunnelRoutes(http: ReturnType<typeof httpRouter>): void 
       if (!tunnelId || !isValidTunnelId(tunnelId)) return errorResponse("Invalid tunnel ID", 400);
 
       const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "closeTunnelV2", { key: apiKey });
+      const rl = await rateLimiter.limit(ctx, "closeTunnel", { key: apiKey });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       return executeAction(
