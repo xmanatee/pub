@@ -123,7 +123,6 @@ export function createApiClient(configOverride?: Config): PubApiClient {
 
 export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
-  if (!bridgeConfig) return env;
 
   const setIfMissing = (key: string, value: string | number | boolean | undefined) => {
     if (value === undefined || value === null) return;
@@ -131,6 +130,10 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
     if (typeof current === "string" && current.length > 0) return;
     env[key] = String(value);
   };
+
+  setIfMissing("PUBBLUE_PROJECT_ROOT", process.cwd());
+
+  if (!bridgeConfig) return env;
 
   setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
   setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);

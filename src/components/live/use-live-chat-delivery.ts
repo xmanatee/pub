@@ -31,10 +31,50 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
       setMessages((prev) => [
         ...prev,
         {
+          type: "text",
           id: params.id,
           from: "agent",
           content: params.content,
           timestamp: params.timestamp ?? Date.now(),
+        },
+      ]);
+      scrollToBottom();
+    },
+    [scrollToBottom],
+  );
+
+  const addAgentAudioMessage = useCallback(
+    (params: { audioUrl: string; id: string; mime: string; size: number }) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "audio",
+          id: params.id,
+          from: "agent",
+          audioUrl: params.audioUrl,
+          mime: params.mime,
+          size: params.size,
+          timestamp: Date.now(),
+        },
+      ]);
+      scrollToBottom();
+    },
+    [scrollToBottom],
+  );
+
+  const addAgentImageMessage = useCallback(
+    (params: { height?: number; id: string; imageUrl: string; mime: string; width?: number }) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "image",
+          id: params.id,
+          from: "agent",
+          imageUrl: params.imageUrl,
+          mime: params.mime,
+          width: params.width,
+          height: params.height,
+          timestamp: Date.now(),
         },
       ]);
       scrollToBottom();
@@ -47,6 +87,7 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
       setMessages((prev) => [
         ...prev,
         {
+          type: "text",
           id: params.id,
           from: "user",
           content: params.content,
@@ -149,6 +190,8 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
   }, []);
 
   return {
+    addAgentAudioMessage,
+    addAgentImageMessage,
     addAgentMessage,
     addUserPendingMessage,
     clearMessages,

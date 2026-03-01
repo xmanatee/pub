@@ -32,7 +32,7 @@ export function resolveLiveVisualState({
     typeof lastUserDeliveredAt === "number" &&
     now - lastUserDeliveredAt <= RECENT_USER_DELIVERED_WINDOW_MS &&
     (typeof lastAgentActivityAt !== "number" || lastAgentActivityAt < lastUserDeliveredAt);
-  if (isWaitingForAgentReply) return "agent-replying";
+  if (isWaitingForAgentReply) return "agent-thinking";
 
   if (!hasCanvasContent) return "waiting-content";
 
@@ -42,7 +42,6 @@ export function resolveLiveVisualState({
 interface UseLiveVisualStateParams {
   bridgeState: BridgeState;
   hasCanvasContent: boolean;
-  isActive?: boolean;
   lastAgentActivityAt: number | null;
   lastUserDeliveredAt: number | null;
 }
@@ -50,18 +49,16 @@ interface UseLiveVisualStateParams {
 export function useLiveVisualState({
   bridgeState,
   hasCanvasContent,
-  isActive = true,
   lastAgentActivityAt,
   lastUserDeliveredAt,
 }: UseLiveVisualStateParams): LiveVisualState {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!isActive) return;
     setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(interval);
-  }, [isActive]);
+  }, []);
 
   return useMemo(
     () =>

@@ -477,8 +477,10 @@ async function deliverMessageToOpenClaw(params: {
   }
 
   const invocation = getOpenClawInvocation(params.openclawPath, args);
+  const cwd = process.env.PUBBLUE_PROJECT_ROOT || process.cwd();
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
+      cwd,
       timeout: effectiveTimeoutMs,
     });
   } catch (error) {

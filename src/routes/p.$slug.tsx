@@ -144,6 +144,7 @@ function InteractiveView({
 }) {
   const model = useLivePageModel(slug);
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
+  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
   if (model.live === undefined) return <StatusScreen text="Loading..." />;
   if (model.live === null) {
@@ -168,7 +169,9 @@ function InteractiveView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+      {controlBarCollapsed ? null : (
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+      )}
 
       {onBackToContent ? (
         <button
@@ -222,13 +225,16 @@ function InteractiveView({
 
       <ControlBar
         chatPreview={previewText}
-        disabled={!model.connected}
+        collapsed={controlBarCollapsed}
+        sendDisabled={!model.connected}
         bridge={model.bridgeRef.current}
         onDismissPreview={dismissPreview}
+        onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
         onChangeView={model.setViewMode}
         viewMode={model.viewMode}
+        visualState={model.visualState}
         voiceModeEnabled={model.voiceModeEnabled}
       />
     </div>

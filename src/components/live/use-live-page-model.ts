@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { readCachedCanvasHtml, writeCachedCanvasHtml } from "~/components/live/canvas-live-cache";
 import { useLiveVisualState } from "~/components/live/live-visual-state";
 import type { LiveViewMode } from "~/components/live/types";
@@ -38,6 +38,8 @@ export function useLivePageModel(slug: string) {
   const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   const {
+    addAgentAudioMessage,
+    addAgentImageMessage,
     addAgentMessage,
     addUserPendingMessage,
     clearMessages,
@@ -51,6 +53,9 @@ export function useLivePageModel(slug: string) {
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
+  const pendingChatQueueRef = useRef<Array<{ msg: ReturnType<typeof makeTextMessage> }>>([]);
+  const pendingAudioQueueRef = useRef<Blob[]>([]);
+
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
   }, []);
@@ -62,6 +67,8 @@ export function useLivePageModel(slug: string) {
     setLastUserDeliveredAt(null);
     clearMessages();
     clearFiles();
+    pendingChatQueueRef.current = [];
+    pendingAudioQueueRef.current = [];
   }, [slug, clearFiles, clearMessages]);
 
   const handleBridgeMessage = useCallback(
@@ -96,9 +103,46 @@ export function useLivePageModel(slug: string) {
           id: message.id,
           mime: typeof message.meta?.mime === "string" ? message.meta.mime : undefined,
         });
+        return;
+      }
+
+      if (channel === CHANNELS.AUDIO && message.type === "binary" && cm.binaryData) {
+        markAgentActivity();
+        const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "audio/webm";
+        const blob = new Blob([cm.binaryData], { type: mime });
+        const audioUrl = URL.createObjectURL(blob);
+        addAgentAudioMessage({
+          audioUrl,
+          id: message.id,
+          mime,
+          size: cm.binaryData.byteLength,
+        });
+        return;
+      }
+
+      if (channel === CHANNELS.MEDIA && message.type === "binary" && cm.binaryData) {
+        markAgentActivity();
+        const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "image/png";
+        const blob = new Blob([cm.binaryData], { type: mime });
+        const imageUrl = URL.createObjectURL(blob);
+        addAgentImageMessage({
+          id: message.id,
+          imageUrl,
+          mime,
+          width: typeof message.meta?.width === "number" ? message.meta.width : undefined,
+          height: typeof message.meta?.height === "number" ? message.meta.height : undefined,
+        });
       }
     },
-    [addAgentMessage, addReceivedBinaryFile, autoOpenCanvas, markAgentActivity, slug],
+    [
+      addAgentAudioMessage,
+      addAgentImageMessage,
+      addAgentMessage,
+      addReceivedBinaryFile,
+      autoOpenCanvas,
+      markAgentActivity,
+      slug,
+    ],
   );
 
   const handleDeliveryAck = useCallback(
@@ -123,26 +167,20 @@ export function useLivePageModel(slug: string) {
   const visualState = useLiveVisualState({
     bridgeState,
     hasCanvasContent: Boolean(canvasHtml),
-    isActive: viewMode === "canvas",
     lastAgentActivityAt,
     lastUserDeliveredAt,
   });
 
-  const sendChat = useCallback(
-    (text: string) => {
-      const bridge = bridgeRef.current;
-      if (!bridge) {
-        console.warn("Cannot send chat message: live bridge not ready");
-        return;
-      }
-      const msg = makeTextMessage(text);
-
-      addUserPendingMessage({ id: msg.id, content: text });
-
+  const dispatchChatMessage = useCallback(
+    (msg: ReturnType<typeof makeTextMessage>) => {
       void (async () => {
+        const bridge = bridgeRef.current;
+        if (!bridge) {
+          markMessageFailedIfPending(msg.id);
+          return;
+        }
         const ready = await ensureChannelReady(bridge, CHANNELS.CHAT);
         if (!ready) {
-          console.warn("Cannot send chat message: chat data channel not ready");
           markMessageFailedIfPending(msg.id);
           return;
         }
@@ -157,13 +195,20 @@ export function useLivePageModel(slug: string) {
         markMessageConfirmingIfPending(msg.id);
       })();
     },
-    [
-      addUserPendingMessage,
-      bridgeRef,
-      markMessageConfirmingIfPending,
-      markMessageDelivered,
-      markMessageFailedIfPending,
-    ],
+    [bridgeRef, markMessageConfirmingIfPending, markMessageDelivered, markMessageFailedIfPending],
+  );
+
+  const sendChat = useCallback(
+    (text: string) => {
+      const msg = makeTextMessage(text);
+      addUserPendingMessage({ id: msg.id, content: text });
+      if (bridgeState !== "connected") {
+        pendingChatQueueRef.current.push({ msg });
+        return;
+      }
+      dispatchChatMessage(msg);
+    },
+    [addUserPendingMessage, bridgeState, dispatchChatMessage],
   );
 
   useEffect(() => {
@@ -171,35 +216,47 @@ export function useLivePageModel(slug: string) {
     markSendingMessagesConfirming();
   }, [bridgeState, markSendingMessagesConfirming]);
 
-  const sendAudio = useCallback(
+  const dispatchAudio = useCallback(
     (blob: Blob) => {
       const bridge = bridgeRef.current;
-      if (!bridge) {
-        console.warn("Cannot send audio: live bridge not ready");
-        return;
-      }
+      if (!bridge) return;
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
-        if (!ready) {
-          console.warn("Cannot send audio: audio data channel not ready");
-          return;
-        }
+        if (!ready) return;
         const buffer = await blob.arrayBuffer();
         const sentMeta = bridge.send(
           CHANNELS.AUDIO,
           makeBinaryMetaMessage({ mime: blob.type, size: buffer.byteLength }),
         );
-        if (!sentMeta) {
-          console.warn("Failed to send audio metadata");
-          return;
-        }
-        if (!bridge.sendBinary(CHANNELS.AUDIO, buffer)) {
-          console.warn("Failed to send audio payload");
-        }
+        if (!sentMeta) return;
+        bridge.sendBinary(CHANNELS.AUDIO, buffer);
       })();
     },
     [bridgeRef],
   );
+
+  const sendAudio = useCallback(
+    (blob: Blob) => {
+      if (bridgeState !== "connected") {
+        pendingAudioQueueRef.current.push(blob);
+        return;
+      }
+      dispatchAudio(blob);
+    },
+    [bridgeState, dispatchAudio],
+  );
+
+  useEffect(() => {
+    if (bridgeState !== "connected") return;
+    const chatQueue = pendingChatQueueRef.current.splice(0);
+    for (const { msg } of chatQueue) {
+      dispatchChatMessage(msg);
+    }
+    const audioQueue = pendingAudioQueueRef.current.splice(0);
+    for (const blob of audioQueue) {
+      dispatchAudio(blob);
+    }
+  }, [bridgeState, dispatchChatMessage, dispatchAudio]);
 
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);

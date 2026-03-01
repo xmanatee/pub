@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/test";
 
 const SCREENSHOTS_DIR = join(dirname(fileURLToPath(import.meta.url)), "screenshots");
 const shot = (name: string) => join(SCREENSHOTS_DIR, `${name}.png`);
