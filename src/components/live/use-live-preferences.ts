@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
-import {
-  isTunnelAnimationStyle,
-  TUNNEL_ANIMATION_STYLES,
-  type TunnelAnimationStyle,
-} from "./types";
+import { isLiveAnimationStyle, LIVE_ANIMATION_STYLES, type LiveAnimationStyle } from "./types";
 
 const STORAGE_KEYS = {
-  autoOpenCanvas: "pubblue:tunnel:auto-open-canvas",
-  showDeliveryStatus: "pubblue:tunnel:show-delivery-status",
-  animationStyle: "pubblue:tunnel:animation-style",
-  voiceModeEnabled: "pubblue:tunnel:voice-mode-enabled",
+  autoOpenCanvas: "pubblue:live:auto-open-canvas",
+  showDeliveryStatus: "pubblue:live:show-delivery-status",
+  animationStyle: "pubblue:live:animation-style",
+  voiceModeEnabled: "pubblue:live:voice-mode-enabled",
 } as const;
 
 function readStoredBoolean(key: string, fallback: boolean): boolean {
@@ -20,14 +16,14 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
   return fallback;
 }
 
-function readStoredAnimationStyle(): TunnelAnimationStyle {
-  if (typeof window === "undefined") return TUNNEL_ANIMATION_STYLES[0];
+function readStoredAnimationStyle(): LiveAnimationStyle {
+  if (typeof window === "undefined") return LIVE_ANIMATION_STYLES[0];
   const raw = window.localStorage.getItem(STORAGE_KEYS.animationStyle);
-  if (raw && isTunnelAnimationStyle(raw)) return raw;
-  return TUNNEL_ANIMATION_STYLES[0];
+  if (raw && isLiveAnimationStyle(raw)) return raw;
+  return LIVE_ANIMATION_STYLES[0];
 }
 
-export function useTunnelPreferences() {
+export function useLivePreferences() {
   const [autoOpenCanvas, setAutoOpenCanvas] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.autoOpenCanvas, true),
   );
@@ -35,7 +31,7 @@ export function useTunnelPreferences() {
     readStoredBoolean(STORAGE_KEYS.showDeliveryStatus, true),
   );
   const [animationStyle, setAnimationStyle] =
-    useState<TunnelAnimationStyle>(readStoredAnimationStyle);
+    useState<LiveAnimationStyle>(readStoredAnimationStyle);
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.voiceModeEnabled, false),
   );

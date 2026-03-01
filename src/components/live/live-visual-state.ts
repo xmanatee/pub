@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BridgeState } from "~/lib/webrtc-browser";
-import type { TunnelSessionVisualState } from "./types";
+import type { LiveVisualState } from "./types";
 
 const RECENT_AGENT_ACTIVITY_WINDOW_MS = 4_000;
 const RECENT_USER_DELIVERED_WINDOW_MS = 12_000;
@@ -13,13 +13,13 @@ interface ResolveVisualStateParams {
   now: number;
 }
 
-export function resolveTunnelSessionVisualState({
+export function resolveLiveVisualState({
   bridgeState,
   hasCanvasContent,
   lastAgentActivityAt,
   lastUserDeliveredAt,
   now,
-}: ResolveVisualStateParams): TunnelSessionVisualState {
+}: ResolveVisualStateParams): LiveVisualState {
   if (bridgeState === "connecting") return "connecting";
   if (bridgeState === "disconnected" || bridgeState === "closed") return "disconnected";
 
@@ -39,7 +39,7 @@ export function resolveTunnelSessionVisualState({
   return "idle";
 }
 
-interface UseTunnelSessionVisualStateParams {
+interface UseLiveVisualStateParams {
   bridgeState: BridgeState;
   hasCanvasContent: boolean;
   isActive?: boolean;
@@ -47,13 +47,13 @@ interface UseTunnelSessionVisualStateParams {
   lastUserDeliveredAt: number | null;
 }
 
-export function useTunnelSessionVisualState({
+export function useLiveVisualState({
   bridgeState,
   hasCanvasContent,
   isActive = true,
   lastAgentActivityAt,
   lastUserDeliveredAt,
-}: UseTunnelSessionVisualStateParams): TunnelSessionVisualState {
+}: UseLiveVisualStateParams): LiveVisualState {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export function useTunnelSessionVisualState({
 
   return useMemo(
     () =>
-      resolveTunnelSessionVisualState({
+      resolveLiveVisualState({
         bridgeState,
         hasCanvasContent,
         lastAgentActivityAt,

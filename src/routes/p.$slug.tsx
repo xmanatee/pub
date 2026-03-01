@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { CanvasPanel } from "~/components/tunnel/canvas-panel";
-import { ChatPanel } from "~/components/tunnel/chat-panel";
-import { ControlBar } from "~/components/tunnel/control-bar";
-import { SettingsPanel } from "~/components/tunnel/settings-panel";
-import { useChatPreview } from "~/components/tunnel/use-chat-preview";
-import { useTunnelPageModel } from "~/components/tunnel/use-tunnel-page-model";
+import { CanvasPanel } from "~/components/live/canvas-panel";
+import { ChatPanel } from "~/components/live/chat-panel";
+import { ControlBar } from "~/components/live/control-bar";
+import { SettingsPanel } from "~/components/live/settings-panel";
+import { useChatPreview } from "~/components/live/use-chat-preview";
+import { useLivePageModel } from "~/components/live/use-live-page-model";
 import { trackPubViewed } from "~/lib/analytics";
 import { api } from "../../convex/_generated/api";
 
@@ -80,7 +80,7 @@ function PubPage() {
 
     // Content view with optional "Go Live" button
     return (
-      <ContentWithSessionToggle
+      <ContentWithLiveToggle
         content={pub.content ?? ""}
         contentType={pub.contentType ?? "text"}
         slug={slug}
@@ -105,7 +105,7 @@ function PubPage() {
   return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
 }
 
-function ContentWithSessionToggle({
+function ContentWithLiveToggle({
   content,
   contentType,
   slug,
@@ -116,13 +116,13 @@ function ContentWithSessionToggle({
   slug: string;
   onGoLive: () => void;
 }) {
-  const session = useQuery(api.pubs.getSessionBySlug, { slug });
-  const hasActiveSession = session && session.status === "active";
+  const live = useQuery(api.pubs.getLiveBySlug, { slug });
+  const isLive = live && live.status === "active";
 
   return (
     <>
       <FullScreenContent content={content} contentType={contentType} />
-      {hasActiveSession ? (
+      {isLive ? (
         <button
           type="button"
           onClick={onGoLive}
@@ -142,15 +142,15 @@ function InteractiveView({
   slug: string;
   onBackToContent?: () => void;
 }) {
-  const model = useTunnelPageModel(slug);
+  const model = useLivePageModel(slug);
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
 
-  if (model.session === undefined) return <StatusScreen text="Loading..." />;
-  if (model.session === null) {
+  if (model.live === undefined) return <StatusScreen text="Loading..." />;
+  if (model.live === null) {
     if (onBackToContent) {
       return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
-          <p className="text-muted-foreground text-sm">No active session.</p>
+          <p className="text-muted-foreground text-sm">Not live.</p>
           <button
             type="button"
             onClick={onBackToContent}
@@ -161,9 +161,9 @@ function InteractiveView({
         </div>
       );
     }
-    return <StatusScreen text="No active session for this pub." />;
+    return <StatusScreen text="This pub is not live." />;
   }
-  if (!model.session.agentOffer && !model.canvasHtml)
+  if (!model.live.agentOffer && !model.canvasHtml)
     return <StatusScreen text="Waiting for agent..." />;
 
   return (

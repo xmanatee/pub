@@ -89,31 +89,31 @@ export interface DaemonStartTarget {
   url: string;
 }
 
-export function sessionInfoDir(): string {
+export function liveInfoDir(): string {
   const dir = path.join(
     process.env.HOME || process.env.USERPROFILE || "/tmp",
     ".config",
     "pubblue",
-    "sessions",
+    "lives",
   );
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-export function sessionInfoPath(slug: string): string {
-  return path.join(sessionInfoDir(), `${slug}.json`);
+export function liveInfoPath(slug: string): string {
+  return path.join(liveInfoDir(), `${slug}.json`);
 }
 
-export function sessionLogPath(slug: string): string {
-  return path.join(sessionInfoDir(), `${slug}.log`);
+export function liveLogPath(slug: string): string {
+  return path.join(liveInfoDir(), `${slug}.log`);
 }
 
 export function bridgeInfoPath(slug: string): string {
-  return path.join(sessionInfoDir(), `${slug}.bridge.json`);
+  return path.join(liveInfoDir(), `${slug}.bridge.json`);
 }
 
 export function bridgeLogPath(slug: string): string {
-  return path.join(sessionInfoDir(), `${slug}.bridge.log`);
+  return path.join(liveInfoDir(), `${slug}.bridge.log`);
 }
 
 export function createApiClient(configOverride?: Config): PubApiClient {
@@ -173,7 +173,7 @@ export function isDaemonRunning(slug: string): boolean {
 }
 
 export function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
-  const infoPath = sessionInfoPath(slug);
+  const infoPath = liveInfoPath(slug);
   if (!fs.existsSync(infoPath)) return null;
 
   try {
@@ -219,7 +219,7 @@ export function isBridgeRunning(slug: string): boolean {
 }
 
 export function latestCliVersionPath(): string {
-  return path.join(sessionInfoDir(), "cli-version.txt");
+  return path.join(liveInfoDir(), "cli-version.txt");
 }
 
 export function readLatestCliVersion(versionPath?: string): string | null {
@@ -275,7 +275,7 @@ export async function stopBridge(slug: string): Promise<string | null> {
   return null;
 }
 
-async function stopDaemonForSession(info: DaemonProcessInfo): Promise<string | null> {
+async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null> {
   const pid = info.pid;
   if (!Number.isFinite(pid) || !isProcessAlive(pid)) return null;
 
@@ -304,7 +304,7 @@ async function stopDaemonForSession(info: DaemonProcessInfo): Promise<string | n
 }
 
 export async function stopOtherDaemons(exceptSlug?: string): Promise<void> {
-  const dir = sessionInfoDir();
+  const dir = liveInfoDir();
   const entries = fs
     .readdirSync(dir)
     .filter((name) => name.endsWith(".json") && !name.endsWith(".bridge.json"));
@@ -319,14 +319,14 @@ export async function stopOtherDaemons(exceptSlug?: string): Promise<void> {
 
     const info = readDaemonProcessInfo(slug);
     if (!info) continue;
-    const daemonError = await stopDaemonForSession(info);
+    const daemonError = await stopDaemonForLive(info);
     if (daemonError) failures.push(`[${slug}] ${daemonError}`);
   }
 
   if (failures.length > 0) {
     throw new Error(
       [
-        "Critical: failed to stop previous session daemon/bridge processes.",
+        "Critical: failed to stop previous live daemon/bridge processes.",
         "Starting a new daemon now would leak resources and increase bandwidth usage.",
         ...failures,
       ].join("\n"),
@@ -392,9 +392,9 @@ export function getPublicUrl(slug: string): string {
   return `${base.replace(/\/$/, "")}/p/${slug}`;
 }
 
-export function pickReusableSession(pubs: Pub[], nowMs = Date.now()): Pub | null {
+export function pickReusableLive(pubs: Pub[], nowMs = Date.now()): Pub | null {
   const active = pubs
-    .filter((p) => p.session?.status === "active" && p.session.expiresAt > nowMs)
+    .filter((p) => p.live?.status === "active" && p.live.expiresAt > nowMs)
     .sort((a, b) => b.createdAt - a.createdAt);
   return active[0] ?? null;
 }
@@ -420,20 +420,20 @@ export function formatApiError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function cleanupSessionOnStartFailure(
+export async function cleanupLiveOnStartFailure(
   apiClient: PubApiClient,
   target: DaemonStartTarget,
 ): Promise<void> {
   if (!target.createdNew) return;
   try {
-    await apiClient.closeSession(target.slug);
+    await apiClient.closeLive(target.slug);
   } catch (closeError) {
-    console.error(`Failed to clean up session for ${target.slug}: ${formatApiError(closeError)}`);
+    console.error(`Failed to clean up live for ${target.slug}: ${formatApiError(closeError)}`);
   }
 }
 
 export async function resolveActiveSlug(): Promise<string> {
-  const dir = sessionInfoDir();
+  const dir = liveInfoDir();
   const files = fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".json") && !f.endsWith(".bridge.json"));
@@ -443,10 +443,10 @@ export async function resolveActiveSlug(): Promise<string> {
     if (isDaemonRunning(slug)) active.push(slug);
   }
   if (active.length === 0) {
-    failCli("No active sessions. Run `pubblue open <slug>` first.");
+    failCli("No active lives. Run `pubblue open <slug>` first.");
   }
   if (active.length === 1) return active[0];
-  failCli(`Multiple active sessions: ${active.join(", ")}. Specify one with --slug.`);
+  failCli(`Multiple active lives: ${active.join(", ")}. Specify one with --slug.`);
 }
 
 export interface WaitForDaemonReadyParams {
@@ -522,7 +522,7 @@ export async function waitForAgentOffer(params: {
 
   while (Date.now() - startedAt < params.timeoutMs) {
     try {
-      const session = await params.apiClient.getSession(params.slug);
+      const session = await params.apiClient.getLive(params.slug);
       if (typeof session.agentOffer === "string" && session.agentOffer.length > 0) {
         return { ok: true };
       }

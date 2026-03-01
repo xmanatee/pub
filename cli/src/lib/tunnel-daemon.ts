@@ -469,7 +469,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function pollSignalingOnce(): Promise<void> {
-    const session = await apiClient.getSession(slug);
+    const session = await apiClient.getLive(slug);
     if (
       shouldRecoverForBrowserAnswerChange({
         incomingBrowserAnswer: session.browserAnswer,

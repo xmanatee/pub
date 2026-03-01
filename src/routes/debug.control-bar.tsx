@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { ControlBar } from "~/components/tunnel/control-bar";
-import type { TunnelViewMode } from "~/components/tunnel/types";
+import { ControlBar } from "~/components/live/control-bar";
+import type { LiveViewMode } from "~/components/live/types";
 
 const DEBUG_PREVIEW_TEXT = "Debug preview message";
 const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/debug/control-bar")({
 });
 
 function ControlBarDebugPage() {
-  const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
+  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [chatPreview, setChatPreview] = useState<string | null>(null);
   const clearPreview = () => setChatPreview(null);
 

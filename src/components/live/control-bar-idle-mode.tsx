@@ -6,7 +6,7 @@ import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 import { ExtendedOptions } from "./extended-options";
-import type { TunnelViewMode } from "./types";
+import type { LiveViewMode } from "./types";
 
 interface ControlBarIdleModeProps {
   actionButtonClass: string;
@@ -26,11 +26,11 @@ interface ControlBarIdleModeProps {
   onPreviewClick: () => void;
   onSend: () => void;
   onStartVoiceMode: () => void;
-  onViewSelect: (mode: TunnelViewMode) => void;
+  onViewSelect: (mode: LiveViewMode) => void;
   voiceModeEnabled: boolean;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   shellContentClassName: string;
-  viewMode: TunnelViewMode;
+  viewMode: LiveViewMode;
 }
 
 export function ControlBarIdleMode({

@@ -168,8 +168,8 @@ describe("PubApiClient", () => {
     });
   });
 
-  describe("session methods", () => {
-    it("openSession sends POST to session sub-resource", async () => {
+  describe("live methods", () => {
+    it("openLive sends POST to live sub-resource", async () => {
       const mockResponse = {
         slug: "abc",
         url: "https://pub.blue/p/abc",
@@ -183,16 +183,16 @@ describe("PubApiClient", () => {
         }),
       );
 
-      const result = await client.openSession("abc", { expiresIn: "24h" });
+      const result = await client.openLive("abc", { expiresIn: "24h" });
       expect(result).toEqual(mockResponse);
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/pubs/abc/session", baseUrl),
+        new URL("/api/v1/pubs/abc/live", baseUrl),
         expect.objectContaining({ method: "POST" }),
       );
     });
 
-    it("getSession fetches session info", async () => {
-      const mockSession = {
+    it("getLive fetches live info", async () => {
+      const mockLive = {
         slug: "abc",
         status: "active",
         agentOffer: "offer",
@@ -203,17 +203,17 @@ describe("PubApiClient", () => {
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ session: mockSession }), {
+        new Response(JSON.stringify({ live: mockLive }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
       );
 
-      const result = await client.getSession("abc");
-      expect(result).toEqual(mockSession);
+      const result = await client.getLive("abc");
+      expect(result).toEqual(mockLive);
     });
 
-    it("closeSession sends DELETE to session sub-resource", async () => {
+    it("closeLive sends DELETE to live sub-resource", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ ok: true }), {
           status: 200,
@@ -221,9 +221,9 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.closeSession("abc");
+      await client.closeLive("abc");
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/pubs/abc/session", baseUrl),
+        new URL("/api/v1/pubs/abc/live", baseUrl),
         expect.objectContaining({ method: "DELETE" }),
       );
     });

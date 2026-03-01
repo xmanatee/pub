@@ -6,7 +6,7 @@ import {
   getApiKey,
   getOgCardData,
   jsonResponse,
-  mapSessionError,
+  mapLiveError,
   shouldTouchApiKey,
 } from "./http";
 import { MIME_TYPES } from "./utils";
@@ -160,28 +160,28 @@ describe("getOgCardData", () => {
   });
 });
 
-describe("mapSessionError", () => {
-  it("maps known session errors to API statuses", () => {
-    expect(mapSessionError(new Error("Session not found"))).toEqual({
-      message: "Session not found",
+describe("mapLiveError", () => {
+  it("maps known live errors to API statuses", () => {
+    expect(mapLiveError(new Error("Live not found"))).toEqual({
+      message: "Live not found",
       status: 404,
     });
-    expect(mapSessionError(new Error("Session closed"))).toEqual({
-      message: "Session closed",
+    expect(mapLiveError(new Error("Live closed"))).toEqual({
+      message: "Live closed",
       status: 409,
     });
-    expect(mapSessionError(new Error("Session expired"))).toEqual({
-      message: "Session expired",
+    expect(mapLiveError(new Error("Live expired"))).toEqual({
+      message: "Live expired",
       status: 410,
     });
-    expect(mapSessionError(new Error("Session limit reached (5)"))).toEqual({
-      message: "Session limit reached (5)",
+    expect(mapLiveError(new Error("Live limit reached (5)"))).toEqual({
+      message: "Live limit reached (5)",
       status: 429,
     });
   });
 
   it("returns null for unknown failures", () => {
-    expect(mapSessionError(new Error("Unexpected failure"))).toBeNull();
+    expect(mapLiveError(new Error("Unexpected failure"))).toBeNull();
   });
 });
 

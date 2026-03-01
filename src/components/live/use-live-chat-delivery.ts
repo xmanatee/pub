@@ -3,11 +3,11 @@ import type { ChatEntry } from "./types";
 
 const DEFAULT_CONFIRM_GRACE_MS = 12_000;
 
-interface UseTunnelChatDeliveryOptions {
+interface UseLiveChatDeliveryOptions {
   confirmGraceMs?: number;
 }
 
-export function useTunnelChatDelivery(options?: UseTunnelChatDeliveryOptions) {
+export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
   const confirmGraceMs = options?.confirmGraceMs ?? DEFAULT_CONFIRM_GRACE_MS;
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);

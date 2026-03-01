@@ -8,7 +8,7 @@ import {
   getApiKey,
   getOgCardData,
   jsonResponse,
-  mapSessionError,
+  mapLiveError,
   shouldTouchApiKey,
 } from "./http/shared";
 
@@ -24,7 +24,7 @@ export {
   getApiKey,
   getOgCardData,
   jsonResponse,
-  mapSessionError,
+  mapLiveError,
   shouldTouchApiKey,
 };
 

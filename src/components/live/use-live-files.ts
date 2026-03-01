@@ -8,7 +8,7 @@ interface AddReceivedBinaryFileParams {
   mime?: string;
 }
 
-export function useTunnelFiles() {
+export function useLiveFiles() {
   const [files, setFiles] = useState<ReceivedFile[]>([]);
   const fileUrlsRef = useRef<string[]>([]);
 

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { cn } from "~/lib/utils";
 import { buildCanvasSrcDoc } from "./build-canvas-srcdoc";
-import { CanvasSessionVisual } from "./canvas-session-visual";
-import type { TunnelAnimationStyle, TunnelSessionVisualState } from "./types";
+import { CanvasLiveVisual } from "./canvas-live-visual";
+import type { LiveAnimationStyle, LiveVisualState } from "./types";
 
 interface CanvasPanelProps {
-  animationStyle: TunnelAnimationStyle;
+  animationStyle: LiveAnimationStyle;
   html: string | null;
-  visualState: TunnelSessionVisualState;
+  visualState: LiveVisualState;
 }
 
 type VisualPhase = "visible" | "fading" | "hidden";
@@ -83,7 +83,7 @@ export function CanvasPanel({ animationStyle, html, visualState }: CanvasPanelPr
         </div>
       ) : null}
       {visualPhase === "hidden" ? null : (
-        <CanvasSessionVisual
+        <CanvasLiveVisual
           className="absolute inset-0"
           fadeOut={visualPhase === "fading"}
           hasCanvasContent={hasVisibleCanvasContent}
