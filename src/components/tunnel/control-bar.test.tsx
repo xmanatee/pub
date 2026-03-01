@@ -125,8 +125,8 @@ describe("ControlBar", () => {
 
   it("hides chat preview when chatPreview is null", () => {
     const html = renderControlBar({ chatPreview: null });
-    expect(html).toContain("max-h-0");
-    expect(html).not.toContain("max-h-12");
+    expect(html).not.toContain("Agent message");
+    expect(html).toContain("h-16");
   });
 
   it("shows back button only outside canvas mode", () => {

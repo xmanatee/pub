@@ -74,35 +74,37 @@ export function ControlBarIdleMode({
         tabIndex={expanded ? 0 : -1}
       />
 
-      <div className={cn("relative z-20", shellContentClassName)} {...longPressHandlers}>
-        <div
-          className={cn(
-            "overflow-hidden transition-all duration-300",
-            expanded ? "max-h-36 opacity-100" : "max-h-0 opacity-0",
-          )}
-        >
-          <ExtendedOptions viewMode={viewMode} onSelect={onViewSelect} />
-          <Separator />
-        </div>
-
-        <button
-          type="button"
-          className={cn(
-            "w-full overflow-hidden transition-all duration-300",
-            showPreview ? "max-h-14 opacity-100" : "max-h-0 opacity-0",
-          )}
-          onClick={onPreviewClick}
-          aria-label="Open chat"
-        >
-          <div className="flex items-center gap-2 px-4 py-2.5">
-            <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 text-left">
-              <div className="text-xs leading-none text-muted-foreground">Agent message</div>
-              <div className="truncate text-sm leading-tight text-foreground">{chatPreview}</div>
-            </div>
+      <div
+        className={cn(
+          "relative z-20 overflow-hidden",
+          shellContentClassName,
+        )}
+        {...longPressHandlers}
+      >
+        {expanded ? (
+          <div className="overflow-hidden">
+            <ExtendedOptions viewMode={viewMode} onSelect={onViewSelect} />
+            <Separator />
           </div>
-          <Separator />
-        </button>
+        ) : null}
+
+        {showPreview ? (
+          <button
+            type="button"
+            className="w-full overflow-hidden"
+            onClick={onPreviewClick}
+            aria-label="Open chat"
+          >
+            <div className="flex items-center gap-2 px-4 py-2.5">
+              <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 text-left">
+                <div className="text-xs leading-none text-muted-foreground">Agent message</div>
+                <div className="truncate text-sm leading-tight text-foreground">{chatPreview}</div>
+              </div>
+            </div>
+            <Separator />
+          </button>
+        ) : null}
 
         <div className={cn(controlRowClass, controlHeightClass)}>
           <Tooltip>
