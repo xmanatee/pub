@@ -11,8 +11,8 @@ import {
   buildBridgeForkStdio,
   isBridgeRunning,
   latestCliVersionPath,
-  readBridgeProcessInfo,
   readLatestCliVersion,
+  stopBridge,
 } from "../commands/tunnel-helpers.js";
 import {
   type BridgeMessage,
@@ -745,14 +745,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function stopBridgeProcess(): void {
-    const info = readBridgeProcessInfo(tunnelId);
-    if (!info) return;
-    try {
-      process.kill(info.pid, "SIGTERM");
-    } catch (error) {
-      debugLog("failed to stop bridge process during cleanup", error);
-    }
+  async function stopBridgeProcess(): Promise<void> {
+    const error = await stopBridge(tunnelId);
+    if (error) debugLog(error);
   }
 
   startBridgeCheckTimer();
@@ -768,7 +763,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearRecoveryTimer();
     clearHealthCheckTimer();
     clearBridgeCheckTimer();
-    stopBridgeProcess();
+    await stopBridgeProcess();
     closeCurrentPeer();
 
     ipcServer.close();

@@ -24,9 +24,9 @@ const bridgeMode = process.env.PUBBLUE_DAEMON_BRIDGE_MODE;
 const bridgeScript = process.env.PUBBLUE_DAEMON_BRIDGE_SCRIPT;
 const bridgeInfoPath = process.env.PUBBLUE_DAEMON_BRIDGE_INFO;
 const bridgeLogPath = process.env.PUBBLUE_DAEMON_BRIDGE_LOG;
-if (bridgeMode && bridgeMode !== "none" && bridgeScript && bridgeInfoPath && bridgeLogPath) {
+if (bridgeMode === "openclaw" && bridgeScript && bridgeInfoPath && bridgeLogPath) {
   bridge = {
-    bridgeMode: bridgeMode as "openclaw",
+    bridgeMode,
     bridgeScript,
     bridgeInfoPath,
     bridgeLogPath,

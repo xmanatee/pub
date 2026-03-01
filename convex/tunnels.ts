@@ -36,6 +36,7 @@ export const getByTunnelId = query({
 });
 
 export const listActiveTunnels = query({
+  args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
