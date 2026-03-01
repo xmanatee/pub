@@ -8,16 +8,18 @@ import {
   resolveVisibilityFlags,
 } from "./shared.js";
 
-export function registerPublicationCommands(program: Command): void {
+export function registerPubCommands(program: Command): void {
   program
     .command("create")
-    .description("Create a new publication")
+    .description("Create a new pub")
     .argument("[file]", "Path to the file (reads stdin if omitted)")
     .option("--slug <slug>", "Custom slug for the URL")
-    .option("--title <title>", "Title for the publication")
-    .option("--public", "Make the publication public")
-    .option("--private", "Make the publication private (default)")
+    .option("--title <title>", "Title for the pub")
+    .option("--public", "Make the pub public")
+    .option("--private", "Make the pub private (default)")
     .option("--expires <duration>", "Auto-delete after duration (e.g. 1h, 24h, 7d)")
+    .option("--open", "Also open an interactive session immediately")
+    .option("--bridge <mode>", "Bridge mode if --open (openclaw/none)")
     .action(
       async (
         fileArg: string | undefined,
@@ -27,18 +29,21 @@ export function registerPublicationCommands(program: Command): void {
           public?: boolean;
           private?: boolean;
           expires?: string;
+          open?: boolean;
+          bridge?: string;
         },
       ) => {
         const client = createClient();
 
-        let content: string;
+        let content: string | undefined;
         let filename: string | undefined;
 
         if (fileArg) {
           const file = readFile(fileArg);
           content = file.content;
           filename = file.basename;
-        } else {
+        } else if (!opts.open) {
+          // Only read stdin if not creating an interactive-only pub
           content = await readFromStdin();
         }
 
@@ -58,46 +63,55 @@ export function registerPublicationCommands(program: Command): void {
         });
 
         console.log(`Created: ${result.url}`);
-        const tmaUrl = getTelegramMiniAppUrl("pub", result.slug);
+        const tmaUrl = getTelegramMiniAppUrl(result.slug);
         if (tmaUrl) console.log(`Telegram: ${tmaUrl}`);
         if (result.expiresAt) {
           console.log(`  Expires: ${new Date(result.expiresAt).toISOString()}`);
+        }
+
+        if (opts.open) {
+          console.log(`\nTo open an interactive session, use: pubblue open ${result.slug}`);
         }
       },
     );
 
   program
     .command("get")
-    .description("Get details of a publication")
-    .argument("<slug>", "Slug of the publication")
+    .description("Get details of a pub")
+    .argument("<slug>", "Slug of the pub")
     .option("--content", "Output raw content to stdout (no metadata, pipeable)")
     .action(async (slug: string, opts: { content?: boolean }) => {
       const client = createClient();
       const pub = await client.get(slug);
 
       if (opts.content) {
-        process.stdout.write(pub.content);
+        process.stdout.write(pub.content ?? "");
         return;
       }
 
       console.log(`  Slug:    ${pub.slug}`);
-      console.log(`  Type:    ${pub.contentType}`);
+      if (pub.contentType) console.log(`  Type:    ${pub.contentType}`);
       if (pub.title) console.log(`  Title:   ${pub.title}`);
       console.log(`  Status:  ${formatVisibility(pub.isPublic)}`);
       if (pub.expiresAt) console.log(`  Expires: ${new Date(pub.expiresAt).toISOString()}`);
       console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
       console.log(`  Updated: ${new Date(pub.updatedAt).toLocaleDateString()}`);
-      console.log(`  Size:    ${pub.content.length} bytes`);
+      if (pub.content) console.log(`  Size:    ${pub.content.length} bytes`);
+      if (pub.session) {
+        console.log(`  Session: ${pub.session.status}`);
+        console.log(`    Connected: ${pub.session.hasConnection ? "yes" : "no"}`);
+        console.log(`    Expires:   ${new Date(pub.session.expiresAt).toISOString()}`);
+      }
     });
 
   program
     .command("update")
-    .description("Update a publication's content and/or metadata")
-    .argument("<slug>", "Slug of the publication to update")
+    .description("Update a pub's content and/or metadata")
+    .argument("<slug>", "Slug of the pub to update")
     .option("--file <file>", "New content from file")
     .option("--title <title>", "New title")
-    .option("--public", "Make the publication public")
-    .option("--private", "Make the publication private")
+    .option("--public", "Make the pub public")
+    .option("--private", "Make the pub private")
     .option("--slug <newSlug>", "Rename the slug")
     .action(
       async (
@@ -143,28 +157,30 @@ export function registerPublicationCommands(program: Command): void {
 
   program
     .command("list")
-    .description("List your publications")
+    .description("List your pubs")
     .action(async () => {
       const client = createClient();
       const pubs = await client.list();
       if (pubs.length === 0) {
-        console.log("No publications.");
+        console.log("No pubs.");
         return;
       }
 
       for (const pub of pubs) {
         const date = new Date(pub.createdAt).toLocaleDateString();
         const expires = pub.expiresAt ? ` expires:${new Date(pub.expiresAt).toISOString()}` : "";
+        const contentLabel = pub.contentType ? `[${pub.contentType}]` : "[no content]";
+        const sessionLabel = pub.session?.status === "active" ? " [live]" : "";
         console.log(
-          `  ${pub.slug}  [${pub.contentType}]  ${formatVisibility(pub.isPublic)}  ${date}${expires}`,
+          `  ${pub.slug}  ${contentLabel}  ${formatVisibility(pub.isPublic)}  ${date}${expires}${sessionLabel}`,
         );
       }
     });
 
   program
     .command("delete")
-    .description("Delete a publication")
-    .argument("<slug>", "Slug of the publication to delete")
+    .description("Delete a pub")
+    .argument("<slug>", "Slug of the pub to delete")
     .action(async (slug: string) => {
       const client = createClient();
       await client.remove(slug);

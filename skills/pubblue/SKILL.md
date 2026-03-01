@@ -1,27 +1,27 @@
 ---
 name: pubblue
 description: >-
-  Publish files or generated content via the pubblue CLI, and run encrypted
-  P2P tunnels for live browser communication.
+  Publish files or generated content via the pubblue CLI, and run interactive
+  P2P sessions for live browser communication.
 license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "3.4.12"
+  version: "4.0.0"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
 # pubblue
 
-Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or tunnel/canvas chat.
+Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or interactive sessions/canvas chat.
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.4.12+**.
+Use **pubblue CLI 0.5.0+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@0.4.12
+npm i -g pubblue@latest
 ```
 
 ## Setup
@@ -66,72 +66,65 @@ pubblue delete <slug>
 ```
 
 Notes:
-- Publications are **private by default**.
-- `create` supports `--public/--private`, `--title`, `--slug`, `--expires`.
+- Pubs are **private by default**.
+- `create` supports `--public/--private`, `--title`, `--slug`, `--expires`, `--open`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
+- Content is optional — a pub can be interactive-only.
 
-## OpenClaw Default Flow (Recommended)
+## Interactive Session Flow
 
-`pubblue tunnel start` now owns bridge setup by default.
-- Default bridge mode: `openclaw`
-- To disable managed bridge (manual mode): `--bridge none`
-
-## Tunnel Quick Flow
-
-1. Start (managed bridge enabled by default):
+1. Open session (managed bridge enabled by default):
 ```bash
-pubblue tunnel start --expires 4h
+pubblue open <slug> --expires 4h
 ```
 
 Optional explicit bridge selector:
 ```bash
-pubblue tunnel start --bridge openclaw --expires 4h
-pubblue tunnel start --bridge none --expires 4h
+pubblue open <slug> --bridge openclaw --expires 4h
+pubblue open <slug> --bridge none --expires 4h
 ```
 
 Behavior:
-- Default `tunnel start` runs daemon + managed bridge in background, but only returns after health checks pass.
-- `--foreground` keeps process attached to current shell and does not run managed bridge.
+- `open` runs daemon + managed bridge in background, returns after health checks pass.
+- `--foreground` keeps process attached to current shell (no managed bridge).
+- Reuses existing active session by default; use `--new` to force creation.
 
 2. Wait for browser:
 ```bash
-pubblue tunnel status
+pubblue status <slug>
 ```
 
 3. Send content:
 ```bash
-pubblue tunnel write --tunnel <id> "Hello"
-pubblue tunnel write --tunnel <id> -c canvas -f /tmp/view.html
+pubblue write --slug <slug> "Hello"
+pubblue write --slug <slug> -c canvas -f /tmp/view.html
 ```
 
 4. Read incoming (manual/debug mode):
 ```bash
-pubblue tunnel read <id> --follow -c chat
+pubblue read <slug> --follow -c chat
 ```
 
 5. Close:
 ```bash
-pubblue tunnel close <id>
+pubblue close <slug>
 ```
 
-6. Validate tunnel end-to-end (strict):
+6. Validate session end-to-end (strict):
 ```bash
-pubblue tunnel doctor --tunnel <id>
+pubblue doctor --slug <slug>
 # optional handshake:
-pubblue tunnel doctor --tunnel <id> --wait-pong --timeout 30
+pubblue doctor --slug <slug> --wait-pong --timeout 30
 ```
 
 Important:
-- `tunnel write` uses delivery confirmation; failures should be retried.
+- `write` uses delivery confirmation; failures should be retried.
 - `read` is consumptive. Do not run multiple `read --follow` consumers on the same channel.
-- `tunnel start` is idempotent now:
-  - Reuses the most recent active tunnel by default
-  - Supports `--tunnel <id>` to attach explicitly
-  - Use `--new` to force creating a new tunnel
+- `open` is idempotent — reuses existing sessions when possible.
 
 ## Bridge Modes
 
-`pubblue tunnel start` supports:
+`pubblue open` supports:
 - `--bridge openclaw` (default): managed local bridge process (OpenClaw session delivery)
 - `--bridge none`: no managed bridge; use manual polling or external integration
 
@@ -145,18 +138,18 @@ Useful env for `openclaw` mode:
 
 ## Telegram Mini App
 
-pub.blue supports Telegram Mini App. When configured, `create` and `tunnel start`
+pub.blue supports Telegram Mini App. When configured, `create` and `open`
 automatically output `t.me` deep links. Check `pubblue configure --show` for status.
 
 ## Troubleshooting
 
 - `Rate limit exceeded`:
   - Read and respect retry hints.
-  - Prefer `tunnel start --tunnel <id>` / reuse instead of repeatedly creating new tunnels.
+  - Prefer `open <slug>` (reuse) instead of repeatedly creating new sessions.
 - `No browser connected`:
-  - Ask user to open tunnel URL and wait for `status: connected`.
-- `Tunnel not found or expired` after start:
-  - Check `pubblue tunnel status` and daemon log path from start output.
-  - Restart daemon against existing tunnel with `pubblue tunnel start --tunnel <id>`.
+  - Ask user to open pub URL and wait for `status: connected`.
+- `Session not found or expired` after open:
+  - Check `pubblue status <slug>` and daemon log path from open output.
+  - Restart daemon with `pubblue open <slug>`.
 - Bridge errors:
-  - Use `pubblue tunnel status` and inspect bridge state/log path.
+  - Use `pubblue status <slug>` and inspect bridge state/log path.

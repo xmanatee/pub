@@ -1,50 +1,62 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { trackPublicationViewed } from "~/lib/analytics";
+import { CanvasPanel } from "~/components/tunnel/canvas-panel";
+import { ChatPanel } from "~/components/tunnel/chat-panel";
+import { ControlBar } from "~/components/tunnel/control-bar";
+import { SettingsPanel } from "~/components/tunnel/settings-panel";
+import { useChatPreview } from "~/components/tunnel/use-chat-preview";
+import { useTunnelPageModel } from "~/components/tunnel/use-tunnel-page-model";
+import { trackPubViewed } from "~/lib/analytics";
 import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/p/$slug")({
-  component: FullScreenPublication,
+  component: PubPage,
 });
 
-function FullScreenPublication() {
+function PubPage() {
   const { slug } = Route.useParams();
-  const publication = useQuery(api.publications.getBySlug, { slug });
+  const pub = useQuery(api.pubs.getBySlug, { slug });
+  const { isAuthenticated } = useConvexAuth();
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
+  const [interactiveMode, setInteractiveMode] = useState(false);
 
   useEffect(() => {
-    if (publication && !trackedAnalytics.current) {
+    if (pub && !trackedAnalytics.current) {
       trackedAnalytics.current = true;
-      trackPublicationViewed({
-        slug: publication.slug,
-        contentType: publication.contentType,
-        isPublic: publication.isPublic,
+      trackPubViewed({
+        slug: pub.slug,
+        contentType: pub.contentType ?? "text",
+        isPublic: pub.isPublic,
       });
     }
-  }, [publication]);
+  }, [pub]);
 
   useEffect(() => {
-    if (!publication || !publication.isPublic || trackedViewCount.current) return;
+    if (!pub || !pub.isPublic || trackedViewCount.current) return;
     trackedViewCount.current = true;
-    void recordPublicView({ slug: publication.slug });
-  }, [publication, recordPublicView]);
+    void recordPublicView({ slug: pub.slug });
+  }, [pub, recordPublicView]);
 
-  if (publication === undefined) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <div className="text-muted-foreground text-sm">Loading\u2026</div>
-      </div>
-    );
+  // Reset interactive mode when slug changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: slug drives the reset
+  useEffect(() => {
+    setInteractiveMode(false);
+    trackedAnalytics.current = false;
+    trackedViewCount.current = false;
+  }, [slug]);
+
+  if (pub === undefined) {
+    return <StatusScreen text="Loading..." />;
   }
 
-  if (publication === null) {
+  if (pub === null) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
         <h1 className="text-xl font-bold text-foreground">Not found</h1>
-        <p className="text-muted-foreground">This publication doesn't exist or is not public.</p>
+        <p className="text-muted-foreground">This pub doesn't exist or is not accessible.</p>
         <Link to="/" className="text-primary hover:underline text-sm">
           Go to pub.blue
         </Link>
@@ -52,8 +64,179 @@ function FullScreenPublication() {
     );
   }
 
+  const hasContent = Boolean(pub.content && pub.contentType);
+
+  // If authenticated, check for active session
+  if (isAuthenticated) {
+    // No content — go straight to interactive mode
+    if (!hasContent) {
+      return <InteractiveView slug={slug} />;
+    }
+
+    // Content + interactive mode toggled on
+    if (interactiveMode) {
+      return <InteractiveView slug={slug} onBackToContent={() => setInteractiveMode(false)} />;
+    }
+
+    // Content view with optional "Go Live" button
+    return (
+      <ContentWithSessionToggle
+        content={pub.content ?? ""}
+        contentType={pub.contentType ?? "text"}
+        slug={slug}
+        onGoLive={() => setInteractiveMode(true)}
+      />
+    );
+  }
+
+  // Not authenticated — content only
+  if (!hasContent) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
+        <h1 className="text-xl font-bold text-foreground">No content</h1>
+        <p className="text-muted-foreground">This pub has no static content.</p>
+        <Link to="/" className="text-primary hover:underline text-sm">
+          Go to pub.blue
+        </Link>
+      </div>
+    );
+  }
+
+  return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
+}
+
+function ContentWithSessionToggle({
+  content,
+  contentType,
+  slug,
+  onGoLive,
+}: {
+  content: string;
+  contentType: string;
+  slug: string;
+  onGoLive: () => void;
+}) {
+  const session = useQuery(api.pubs.getSessionBySlug, { slug });
+  const hasActiveSession = session && session.status === "active";
+
   return (
-    <FullScreenContent content={publication.content ?? ""} contentType={publication.contentType} />
+    <>
+      <FullScreenContent content={content} contentType={contentType} />
+      {hasActiveSession ? (
+        <button
+          type="button"
+          onClick={onGoLive}
+          className="fixed top-4 right-4 z-[60] px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg hover:opacity-90 transition-opacity"
+        >
+          Go Live
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function InteractiveView({
+  slug,
+  onBackToContent,
+}: {
+  slug: string;
+  onBackToContent?: () => void;
+}) {
+  const model = useTunnelPageModel(slug);
+  const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
+  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
+
+  if (model.session === undefined) return <StatusScreen text="Loading..." />;
+  if (model.session === null) {
+    if (onBackToContent) {
+      return (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
+          <p className="text-muted-foreground text-sm">No active session.</p>
+          <button
+            type="button"
+            onClick={onBackToContent}
+            className="text-primary hover:underline text-sm"
+          >
+            Back to content
+          </button>
+        </div>
+      );
+    }
+    return <StatusScreen text="No active session for this pub." />;
+  }
+  if (!model.session.agentOffer && !model.canvasHtml)
+    return <StatusScreen text="Waiting for agent..." />;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
+      {controlBarCollapsed ? null : (
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+      )}
+
+      {onBackToContent ? (
+        <button
+          type="button"
+          onClick={onBackToContent}
+          className="fixed top-4 left-4 z-[60] px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+        >
+          Content
+        </button>
+      ) : null}
+
+      <div className="flex-1 min-h-0 relative">
+        {model.viewMode === "canvas" ? (
+          <CanvasPanel
+            animationStyle={model.animationStyle}
+            html={model.canvasHtml}
+            visualState={model.visualState}
+          />
+        ) : null}
+
+        {model.viewMode === "chat" ? (
+          <ChatPanel
+            files={model.files}
+            messages={model.messages}
+            messagesEndRef={model.messagesEndRef}
+            showDeliveryStatus={model.showDeliveryStatus}
+          />
+        ) : null}
+
+        {model.viewMode === "settings" ? (
+          <SettingsPanel
+            autoOpenCanvas={model.autoOpenCanvas}
+            animationStyle={model.animationStyle}
+            developerModeEnabled={model.developerModeEnabled}
+            fileCount={model.files.length}
+            hasCanvasContent={Boolean(model.canvasHtml)}
+            messageCount={model.messages.length}
+            onAutoOpenCanvasChange={model.setAutoOpenCanvas}
+            onAnimationStyleChange={model.setAnimationStyle}
+            onClearCanvas={model.clearCanvas}
+            onClearFiles={model.clearFiles}
+            onClearMessages={model.clearMessages}
+            onDeveloperModeChange={model.setDeveloperModeEnabled}
+            onShowDeliveryStatusChange={model.setShowDeliveryStatus}
+            onVoiceModeEnabledChange={model.setVoiceModeEnabled}
+            showDeliveryStatus={model.showDeliveryStatus}
+            voiceModeEnabled={model.voiceModeEnabled}
+          />
+        ) : null}
+      </div>
+
+      <ControlBar
+        chatPreview={previewText}
+        collapsed={controlBarCollapsed}
+        disabled={!model.connected}
+        bridge={model.bridgeRef.current}
+        onDismissPreview={dismissPreview}
+        onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
+        onSendAudio={model.sendAudio}
+        onSendChat={model.sendChat}
+        onChangeView={model.setViewMode}
+        viewMode={model.viewMode}
+        voiceModeEnabled={model.voiceModeEnabled}
+      />
+    </div>
   );
 }
 
@@ -113,6 +296,14 @@ function FullScreenMarkdown({ content }: { content: string }) {
         className="max-w-[800px] mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: html }}
       />
+    </div>
+  );
+}
+
+function StatusScreen({ text }: { text: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+      <div className="text-muted-foreground text-sm">{text}</div>
     </div>
   );
 }

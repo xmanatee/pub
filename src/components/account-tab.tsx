@@ -76,7 +76,7 @@ export function AccountTab() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Link your GitHub or Google account to access your publications from the web too.
+              Link your GitHub or Google account to access your pubs from the web too.
             </p>
             {linkError ? <p className="text-sm text-destructive">{linkError}</p> : null}
             {linkUrl ? (

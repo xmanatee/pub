@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { registerConfigureCommand } from "./commands/configure.js";
-import { registerPublicationCommands } from "./commands/publications.js";
-import { registerTunnelCommands } from "./commands/tunnel.js";
+import { registerPubCommands } from "./commands/pubs.js";
+import { registerSessionCommands } from "./commands/session.js";
 import { CLI_VERSION } from "./lib/version.js";
 
 export function buildProgram(): Command {
@@ -10,12 +10,12 @@ export function buildProgram(): Command {
 
   program
     .name("pubblue")
-    .description("Publish static content and get shareable URLs")
+    .description("Publish content and run interactive sessions")
     .version(CLI_VERSION);
 
   registerConfigureCommand(program);
-  registerPublicationCommands(program);
-  registerTunnelCommands(program);
+  registerPubCommands(program);
+  registerSessionCommands(program);
 
   return program;
 }

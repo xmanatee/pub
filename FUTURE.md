@@ -107,7 +107,7 @@ pubblue agent message USER_ID --type scheduling_request --payload '...'
 6. CLI commands for contacts
 7. Verification flows for linked accounts
 
-## Tunnel Runtime TODO
+## Session Runtime TODO
 
 - Add a CLI update check path so every `pubblue` command warns when a newer CLI version is available.
 - Add daemon update-awareness behavior: if a newer CLI version is available, stop the daemon only when it has been idle for a configured number of hours.

@@ -6,7 +6,7 @@ import { BrowserBridge } from "~/lib/webrtc-browser";
 interface StoreBrowserSignalInput {
   answer?: string;
   candidates?: string[];
-  tunnelId: string;
+  slug: string;
 }
 
 interface UseTunnelBridgeOptions {
@@ -16,7 +16,7 @@ interface UseTunnelBridgeOptions {
   onMessage: (message: ChannelMessage) => void;
   onTrackActivity: () => void;
   storeBrowserSignal: (input: StoreBrowserSignalInput) => Promise<unknown>;
-  tunnelId: string;
+  slug: string;
 }
 
 export function useTunnelBridge({
@@ -26,7 +26,7 @@ export function useTunnelBridge({
   onMessage,
   onTrackActivity,
   storeBrowserSignal,
-  tunnelId,
+  slug,
 }: UseTunnelBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
@@ -59,7 +59,7 @@ export function useTunnelBridge({
 
   useEffect(() => {
     if (!agentOffer) return;
-    const offerKey = `${tunnelId}:${agentOffer}`;
+    const offerKey = `${slug}:${agentOffer}`;
     if (lastHandledOfferRef.current === offerKey) return;
     lastHandledOfferRef.current = offerKey;
     setBridgeState("connecting");
@@ -75,9 +75,9 @@ export function useTunnelBridge({
     void (async () => {
       try {
         const answer = await bridge.createAnswer(agentOffer);
-        await storeBrowserSignalRef.current({ tunnelId, answer });
+        await storeBrowserSignalRef.current({ slug, answer });
         const candidates = bridge.getIceCandidates();
-        if (candidates.length > 0) await storeBrowserSignalRef.current({ tunnelId, candidates });
+        if (candidates.length > 0) await storeBrowserSignalRef.current({ slug, candidates });
 
         if (localIceFlushIntervalRef.current) clearInterval(localIceFlushIntervalRef.current);
         if (localIceStopTimeoutRef.current) clearTimeout(localIceStopTimeoutRef.current);
@@ -88,7 +88,7 @@ export function useTunnelBridge({
             if (current.length <= candidates.length) return;
             const next = current.slice(candidates.length);
             candidates.push(...next);
-            await storeBrowserSignalRef.current({ tunnelId, candidates: next });
+            await storeBrowserSignalRef.current({ slug, candidates: next });
           } catch (error) {
             // Ignore transient signaling write failures; next interval retries.
             console.warn("Failed to store local ICE candidates", error);
@@ -131,7 +131,7 @@ export function useTunnelBridge({
         bridgeRef.current = null;
       }
     };
-  }, [agentOffer, tunnelId]);
+  }, [agentOffer, slug]);
 
   useEffect(() => {
     const bridge = bridgeRef.current;
