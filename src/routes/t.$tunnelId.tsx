@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { CanvasPanel } from "~/components/tunnel/canvas-panel";
 import { ChatPanel } from "~/components/tunnel/chat-panel";
 import { ControlBar } from "~/components/tunnel/control-bar";
@@ -29,6 +29,7 @@ function TunnelPage() {
 function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
   const model = useTunnelPageModel(tunnelId);
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
+  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
   if (model.tunnel === undefined) return <StatusScreen text="Loading..." />;
   if (model.tunnel === null) return <StatusScreen text="Tunnel not found or expired." />;
@@ -37,7 +38,9 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+      {controlBarCollapsed ? null : (
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+      )}
       <div className="flex-1 min-h-0 relative">
         {model.viewMode === "canvas" ? (
           <CanvasPanel
@@ -80,9 +83,11 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
 
       <ControlBar
         chatPreview={previewText}
+        collapsed={controlBarCollapsed}
         disabled={!model.connected}
         bridge={model.bridgeRef.current}
         onDismissPreview={dismissPreview}
+        onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
         onChangeView={model.setViewMode}

@@ -18,6 +18,7 @@ export const Route = createFileRoute("/debug/control-bar")({
 function ControlBarDebugPage() {
   const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
   const [chatPreview, setChatPreview] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const clearPreview = () => setChatPreview(null);
 
   return (
@@ -50,9 +51,11 @@ function ControlBarDebugPage() {
 
       <ControlBar
         chatPreview={chatPreview}
+        collapsed={collapsed}
         disabled={false}
         bridge={null}
         onDismissPreview={clearPreview}
+        onToggleCollapsed={() => setCollapsed((value) => !value)}
         onSendAudio={() => {}}
         onSendChat={() => {}}
         onChangeView={setViewMode}
