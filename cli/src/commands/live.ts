@@ -31,13 +31,13 @@ import {
   liveInfoPath,
   liveLogPath,
   messageContainsPong,
-  resolveBridgeMode,
   parsePositiveIntegerOption,
   pickReusableLive,
   readBridgeProcessInfo,
   readDaemonProcessInfo,
   readLogTail,
   resolveActiveSlug,
+  resolveBridgeMode,
   resolveSlugSelection,
   shouldRestartDaemonForCliUpgrade,
   stopBridge,
@@ -83,7 +83,7 @@ function registerOpenCommand(program: Command): void {
         const runtimeConfig = getConfig();
         const apiClient = createApiClient(runtimeConfig);
         let target: DaemonStartTarget | null = null;
-        const bridgeMode = resolveBridgeMode(opts);
+        resolveBridgeMode(opts);
         const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
         if (slugArg && !opts.new) {

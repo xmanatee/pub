@@ -373,10 +373,7 @@ export function parseBridgeMode(raw: string): BridgeMode {
   throw new Error(`--bridge must be one of: openclaw, none. Received: ${raw}`);
 }
 
-export function resolveBridgeMode(opts: {
-  bridge?: string;
-  foreground?: boolean;
-}): BridgeMode {
+export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {
   const bridgeMode = parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
   if (bridgeMode === "none" && !opts.foreground) {
     throw new Error("--bridge none is only valid with --foreground.");
