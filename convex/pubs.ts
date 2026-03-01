@@ -245,6 +245,8 @@ export const getLiveBySlug = query({
       browserAnswer: live.browserAnswer,
       agentCandidates: live.agentCandidates,
       browserCandidates: live.browserCandidates,
+      browserSessionId: live.browserSessionId,
+      lastTakeoverAt: live.lastTakeoverAt,
       createdAt: live.createdAt,
       expiresAt: live.expiresAt,
     };
@@ -258,10 +260,11 @@ export const getLiveBySlug = query({
 export const storeBrowserSignal = mutation({
   args: {
     slug: v.string(),
+    sessionId: v.string(),
     answer: v.optional(v.string()),
     candidates: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, { slug, answer, candidates }) => {
+  handler: async (ctx, { slug, sessionId, answer, candidates }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -274,13 +277,48 @@ export const storeBrowserSignal = mutation({
     if (live.expiresAt < Date.now()) throw new Error("Live expired");
     if (live.userId !== userId) throw new Error("Live not found");
 
+    if (live.browserSessionId && live.browserSessionId !== sessionId) {
+      throw new Error("Session mismatch");
+    }
+
     const patch: Record<string, unknown> = {};
+    if (!live.browserSessionId) patch.browserSessionId = sessionId;
     if (answer !== undefined) patch.browserAnswer = answer;
     if (candidates?.length) {
       const merged = [...live.browserCandidates, ...candidates].slice(0, MAX_CANDIDATES);
       patch.browserCandidates = merged;
     }
     await ctx.db.patch(live._id, patch);
+  },
+});
+
+const TAKEOVER_COOLDOWN_MS = 20_000;
+
+export const takeoverLive = mutation({
+  args: { slug: v.string(), sessionId: v.string() },
+  handler: async (ctx, { slug, sessionId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const live = await ctx.db
+      .query("lives")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .order("desc")
+      .first();
+    if (!live || live.status === "closed") throw new Error("Live not found");
+    if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    if (live.userId !== userId) throw new Error("Live not found");
+
+    if (live.lastTakeoverAt && Date.now() - live.lastTakeoverAt < TAKEOVER_COOLDOWN_MS) {
+      throw new Error("Takeover cooldown active");
+    }
+
+    await ctx.db.patch(live._id, {
+      browserSessionId: sessionId,
+      browserAnswer: "",
+      browserCandidates: [],
+      lastTakeoverAt: Date.now(),
+    });
   },
 });
 
