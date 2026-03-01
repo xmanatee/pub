@@ -16,7 +16,7 @@ export const recordPublicView = mutation({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     const pub = await ctx.db
-      .query("publications")
+      .query("pubs")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
     if (!pub || !pub.isPublic) return { recorded: false };
