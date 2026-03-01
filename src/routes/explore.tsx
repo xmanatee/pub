@@ -33,39 +33,37 @@ export const Route = createFileRoute("/explore")({
 
 function ExplorePage() {
   const {
-    results: publications,
+    results: pubs,
     status,
     loadMore,
-  } = usePaginatedQuery(api.publications.listPublic, {}, { initialNumItems: 12 });
+  } = usePaginatedQuery(api.pubs.listPublic, {}, { initialNumItems: 12 });
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Explore</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Browse public publications from the community
-        </p>
+        <p className="text-muted-foreground text-sm mt-1">Browse public pubs from the community</p>
       </div>
 
       {status === "LoadingFirstPage" && (
         <div className="text-muted-foreground py-8">Loading\u2026</div>
       )}
 
-      {status !== "LoadingFirstPage" && publications.length === 0 && (
+      {status !== "LoadingFirstPage" && pubs.length === 0 && (
         <Card className="border-border/50 border-dashed">
           <CardContent className="flex flex-col items-center py-16">
             <div className="rounded-full bg-muted p-4 mb-4">
               <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="font-medium mb-1">No public publications yet</p>
+            <p className="font-medium mb-1">No public pubs yet</p>
             <p className="text-sm text-muted-foreground">Be the first to publish something!</p>
           </CardContent>
         </Card>
       )}
 
-      {publications.length > 0 && (
+      {pubs.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {publications.map((pub) => (
+          {pubs.map((pub) => (
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
                 <div className="aspect-[1200/630] overflow-hidden bg-white">
@@ -80,7 +78,7 @@ function ExplorePage() {
                     />
                   ) : (
                     <iframe
-                      srcDoc={buildTextSrcdoc(pub.contentPreview, pub.contentType)}
+                      srcDoc={buildTextSrcdoc(pub.contentPreview, pub.contentType ?? "text")}
                       sandbox=""
                       loading="lazy"
                       tabIndex={-1}

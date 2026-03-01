@@ -2,14 +2,14 @@ import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { components } from "./_generated/api";
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
-  createPublication: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
-  readPublication: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 10 },
-  listPublications: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 5 },
-  updatePublication: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 5 },
-  deletePublication: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
-  serveContent: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 20 },
-  createTunnel: { kind: "token bucket", rate: 6, period: MINUTE, capacity: 3 },
-  readTunnel: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
-  tunnelSignal: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
-  closeTunnel: { kind: "token bucket", rate: 12, period: MINUTE, capacity: 6 },
+  createPub: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
+  readPub: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 10 },
+  listPubs: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 5 },
+  updatePub: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 5 },
+  deletePub: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 3 },
+  servePub: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 20 },
+  openSession: { kind: "token bucket", rate: 6, period: MINUTE, capacity: 3 },
+  readSession: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
+  signalSession: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
+  closeSession: { kind: "token bucket", rate: 12, period: MINUTE, capacity: 6 },
 });

@@ -150,7 +150,7 @@ function FeaturesSection() {
       icon: Link2,
       title: "Custom slugs",
       description:
-        "Choose your own URL slug or let one be generated. Use `update` to modify existing publications.",
+        "Choose your own URL slug or let one be generated. Use `update` to modify existing pubs.",
     },
     {
       icon: Globe,
@@ -260,7 +260,7 @@ function CodeSection() {
           >
             <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
               <div>
-                <div className="text-white/40 text-xs mb-1"># Create a publication</div>
+                <div className="text-white/40 text-xs mb-1"># Create a pub</div>
                 <div className="text-white/70">
                   <span className="text-primary">$</span> pubblue create index.html
                 </div>

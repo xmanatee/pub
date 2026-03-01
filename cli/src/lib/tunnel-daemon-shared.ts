@@ -1,5 +1,5 @@
+import type { PubApiClient } from "./api.js";
 import type { BridgeMessage } from "./bridge-protocol.js";
-import type { TunnelApiClient } from "./tunnel-api.js";
 
 export interface ChannelBuffer {
   messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
@@ -10,13 +10,26 @@ export interface StickyOutboundMessage {
   msg: BridgeMessage;
 }
 
+export interface BridgeDaemonConfig {
+  bridgeMode: "openclaw";
+  bridgeScript: string;
+  bridgeInfoPath: string;
+  bridgeLogPath: string;
+  bridgeProcessEnv: NodeJS.ProcessEnv;
+}
+
 export interface DaemonConfig {
   cliVersion?: string;
-  tunnelId: string;
-  apiClient: TunnelApiClient;
+  slug: string;
+  apiClient: PubApiClient;
   socketPath: string;
   infoPath: string;
+  bridge?: BridgeDaemonConfig;
 }
+
+export const BRIDGE_CHECK_INTERVAL_MS = 30_000;
+export const BRIDGE_MAX_RAPID_RESTARTS = 3;
+export const BRIDGE_RAPID_RESTART_WINDOW_MS = 5 * 60 * 1000;
 
 export const OFFER_TIMEOUT_MS = 10_000;
 export const SIGNAL_POLL_WAITING_MS = 5_000;
@@ -26,7 +39,7 @@ export const RECOVERY_DELAY_MS = 1_000;
 export const WRITE_ACK_TIMEOUT_MS = 5_000;
 
 const NOT_CONNECTED_WRITE_ERROR =
-  "No browser connected. Ask the user to open the tunnel URL first, then retry.";
+  "No browser connected. Ask the user to open the pub URL first, then retry.";
 
 export function getTunnelWriteReadinessError(isConnected: boolean): string | null {
   return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;

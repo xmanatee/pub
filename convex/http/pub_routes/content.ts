@@ -5,6 +5,7 @@ import { httpAction } from "../../_generated/server";
 import { rateLimiter } from "../../rateLimits";
 import {
   buildOgTags,
+  contentSecurityHeaders,
   errorResponse,
   escapeHtmlAttr,
   escapeXml,
@@ -12,12 +13,11 @@ import {
   getPublicUrl,
   MIME_TYPES,
   parseSlugFromRequest,
-  publicationSecurityHeaders,
   rateLimitResponse,
   truncate,
 } from "../shared";
 
-export function registerPublicationContentRoutes(http: ReturnType<typeof httpRouter>): void {
+export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): void {
   http.route({
     pathPrefix: "/serve/",
     method: "GET",
@@ -26,11 +26,11 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
       if (slug instanceof Response) return slug;
 
       const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-      const rl = await rateLimiter.limit(ctx, "serveContent", { key: clientIp });
+      const rl = await rateLimiter.limit(ctx, "servePub", { key: clientIp });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
-      const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
-      if (!pub || !pub.isPublic) {
+      const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
+      if (!pub || !pub.isPublic || !pub.content || !pub.contentType) {
         return new Response("Not found", { status: 404 });
       }
 
@@ -58,7 +58,7 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
           headers: {
             "Content-Type": "text/html; charset=utf-8",
             "Cache-Control": "public, max-age=60",
-            ...publicationSecurityHeaders("text/html"),
+            ...contentSecurityHeaders("text/html"),
           },
         });
       }
@@ -72,7 +72,7 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
           headers: {
             "Content-Type": mimeType,
             "Cache-Control": "public, max-age=60",
-            ...publicationSecurityHeaders(mimeType),
+            ...contentSecurityHeaders(mimeType),
           },
         });
       }
@@ -84,7 +84,7 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
         headers: {
           "Content-Type": mimeType,
           "Cache-Control": "public, max-age=60",
-          ...publicationSecurityHeaders(mimeType),
+          ...contentSecurityHeaders(mimeType),
         },
       });
     }),
@@ -97,8 +97,11 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
       const slug = parseSlugFromRequest(request, "/og/");
       if (slug instanceof Response) return slug;
 
-      const pub = await ctx.runQuery(internal.publications.getBySlugInternal, { slug });
-      const og = getOgCardData(pub, slug);
+      const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
+      const og = getOgCardData(
+        pub?.contentType ? { ...pub, contentType: pub.contentType } : null,
+        slug,
+      );
 
       const svg = `<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -140,13 +143,13 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
       const publicUrl = getPublicUrl();
       const siteUrl = process.env.CONVEX_SITE_URL ?? "";
 
-      const pubs = await ctx.runQuery(internal.publications.listPublicByUserInternal, {
+      const pubs = await ctx.runQuery(internal.pubs.listPublicByUserInternal, {
         userId,
         limit: 50,
       });
 
       const feed = new Feed({
-        title: "pub.blue publications",
+        title: "pub.blue",
         id: `${publicUrl}/`,
         link: `${publicUrl}/`,
         copyright: "",
@@ -162,7 +165,7 @@ export function registerPublicationContentRoutes(http: ReturnType<typeof httpRou
           id: `${publicUrl}/p/${pub.slug}`,
           link: `${publicUrl}/p/${pub.slug}`,
           date: new Date(pub.createdAt),
-          description: `${pub.contentType} publication`,
+          description: `${pub.contentType ?? "text"} pub`,
         });
       }
 

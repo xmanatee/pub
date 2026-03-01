@@ -52,6 +52,16 @@ export const VISUAL_THEME: Record<TunnelSessionVisualState, Tone> = {
     speedMs: 16_000,
     glow: 0.82,
   },
+  "agent-thinking": {
+    coreScale: 0.96,
+    energy: 0.56,
+    hueA: 220,
+    hueB: 260,
+    hueC: 240,
+    saturation: 0.88,
+    speedMs: 12_000,
+    glow: 0.72,
+  },
   "agent-replying": {
     coreScale: 1.18,
     energy: 0.98,

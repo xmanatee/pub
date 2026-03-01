@@ -1,0 +1,109 @@
+.cb-state-border {
+  position: relative;
+}
+
+.cb-state-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+/* Connecting — slow blue pulse */
+.cb-state-connecting::before {
+  background: linear-gradient(
+    135deg,
+    oklch(0.68 0.14 220) 0%,
+    oklch(0.58 0.12 240) 50%,
+    oklch(0.68 0.14 220) 100%
+  );
+  background-size: 200% 200%;
+  animation: cb-pulse-connecting 3s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+/* Disconnected — static muted red */
+.cb-state-disconnected::before {
+  background: oklch(0.56 0.14 12);
+  opacity: 0.5;
+}
+
+/* Agent thinking — breathing blue-purple gradient */
+.cb-state-agent-thinking::before {
+  background: linear-gradient(
+    135deg,
+    oklch(0.64 0.16 240) 0%,
+    oklch(0.62 0.18 280) 50%,
+    oklch(0.64 0.16 240) 100%
+  );
+  background-size: 200% 200%;
+  animation: cb-pulse-thinking 2s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+/* Agent replying — fast vibrant gradient */
+.cb-state-agent-replying::before {
+  background: linear-gradient(
+    135deg,
+    oklch(0.72 0.2 200) 0%,
+    oklch(0.68 0.22 280) 33%,
+    oklch(0.72 0.2 320) 66%,
+    oklch(0.72 0.2 200) 100%
+  );
+  background-size: 300% 300%;
+  animation: cb-pulse-replying 1.5s ease-in-out infinite;
+  opacity: 1;
+}
+
+/* Waiting content — subtle steady glow */
+.cb-state-waiting-content::before {
+  background: oklch(0.62 0.1 220);
+  opacity: 0.3;
+}
+
+/* Idle — no border animation */
+.cb-state-idle::before {
+  opacity: 0;
+}
+
+@keyframes cb-pulse-connecting {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.5;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 0.8;
+  }
+}
+
+@keyframes cb-pulse-thinking {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.6;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 0.9;
+  }
+}
+
+@keyframes cb-pulse-replying {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

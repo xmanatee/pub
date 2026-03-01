@@ -39,30 +39,26 @@ export function trackSignInStarted(provider: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Publication events
+// Pub events
 // ---------------------------------------------------------------------------
 
-export function trackPublicationViewed(props: {
-  slug: string;
-  contentType: string;
-  isPublic: boolean;
-}) {
-  posthog.capture("publication_viewed", props);
+export function trackPubViewed(props: { slug: string; contentType: string; isPublic: boolean }) {
+  posthog.capture("pub_viewed", props);
 }
 
-export function trackPublicationDeleted(props: { slug: string; contentType: string }) {
-  posthog.capture("publication_deleted", props);
+export function trackPubDeleted(props: { slug: string; contentType: string }) {
+  posthog.capture("pub_deleted", props);
 }
 
 export function trackVisibilityToggled(props: {
   slug: string;
   newVisibility: "public" | "private";
 }) {
-  posthog.capture("publication_visibility_toggled", props);
+  posthog.capture("pub_visibility_toggled", props);
 }
 
-export function trackPublicationLinkCopied(props: { slug: string }) {
-  posthog.capture("publication_link_copied", props);
+export function trackPubLinkCopied(props: { slug: string }) {
+  posthog.capture("pub_link_copied", props);
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +81,7 @@ export function trackApiKeyCopied() {
 // Dashboard events
 // ---------------------------------------------------------------------------
 
-export function trackDashboardTabChanged(props: { tab: "publications" | "keys" | "account" }) {
+export function trackDashboardTabChanged(props: { tab: "pubs" | "keys" | "account" }) {
   posthog.capture("dashboard_tab_changed", props);
 }
 

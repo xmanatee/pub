@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for publishing static content (HTML, Markdown, text) with shareable URLs. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for publishing content and running interactive WebRTC sessions, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), an interactive session, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -29,14 +29,13 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `__root.tsx` — root layout (header with Explore link, footer, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
-  - `dashboard.tsx` — protected; paginated publications (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
-  - `explore.tsx` — public discovery feed; paginated list of all public publications
-  - `p.$slug.tsx` — full-screen content viewer (no app chrome, auth-aware for private pubs)
-  - `t.$tunnelId.tsx` — WebRTC tunnel page (authenticated, fullscreen canvas + chat, ChatGPT-style control bar with voice/record)
+  - `dashboard.tsx` — protected; paginated pubs (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
+  - `explore.tsx` — public discovery feed; paginated list of all public pubs
+  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing AND interactive sessions; auth-aware for private pubs; "Go Live" toggle when session is active
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
-- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; tunnel-specific components in `src/components/tunnel/`
+- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; session-specific components in `src/components/tunnel/`
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
@@ -44,39 +43,44 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Path alias**: `~/*` maps to `src/*`
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `publications` (with `expiresAt`, `by_public` index), `apiKeys`, `linkTokens`, plus auth tables
-- **Publications** (`publications.ts`): CRUD + pagination (`listByUser`, `listPublic`), pub limits (20 public / 100 private), expiring pubs via scheduler, slug rename
+- **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `sessions` (WebRTC signaling, `by_slug`/`by_user` indexes), `apiKeys`, `linkTokens`, plus auth tables
+- **Pubs** (`pubs.ts`): unified CRUD + session management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `openSession`, `getSessionBySlug`, `storeAgentSignal`, `storeBrowserSignal`, `closeSession`; limits (20 public / 100 private); expiring pubs and sessions via scheduler
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
-- **HTTP routes** (`http.ts`): REST API with rate limiting, slug rename, expiry, pagination; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
+- **HTTP routes** (`http/pub_routes/`): unified REST API at `/api/v1/pubs` with session sub-resource at `/api/v1/pubs/:slug/session`; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
 - **Analytics** (`analytics.ts`): view counting via `@convex-dev/sharded-counter`
 - **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Components** (`convex.config.ts`): registers `rateLimiter` and `shardedCounter` components
-- **Default visibility**: publications are **private by default**
+- **Default visibility**: pubs are **private by default**
 
-### Publication Limits
+### Pub Limits
 - **Public**: max 20 per user (enforced on create and toggle)
 - **Private**: max 100 per user (enforced on create)
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
-- **`pubblue`** v0.4.12 — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
-- Commands: `configure`, `create`, `get`, `list`, `update`, `delete`, `tunnel`
-- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, and `--expires <duration>` (e.g. `1h`, `24h`, `7d`)
+- **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
+- **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
+- **Session commands**: `open`, `close`, `status`, `write`, `read`, `channels`, `doctor`
+- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`, `--open` (hint to open session after)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
-- `list` — auto-paginates through all pages
-- `tunnel` — WebRTC tunnel management (`start`, `close`, `status`, `write`, `read`, `doctor`)
-- `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links on `create` and `tunnel start`
+- `list` — auto-paginates through all pages; shows `[live]` for pubs with active sessions
+- `open [slug]` — opens interactive session (WebRTC daemon + bridge), reuses existing sessions when possible
+- `close <slug>` — closes session and stops daemon
+- `write [message]` — write to session channel (`-s <slug>`, `-c <channel>`, `-f <file>`)
+- `read [slug]` — read buffered messages (`--follow` for streaming)
+- `doctor` — end-to-end session health checks
+- `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 
 ### Content Serving
-- **`/p/:slug`** — SPA route → full-screen renderer (no app chrome), auth-aware via `getBySlug` query
+- **`/p/:slug`** — SPA route → unified pub page (content + interactive mode toggle), auth-aware
 - **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** with OG meta tags and view tracking
 - **`/og/:slug`** — Dynamic SVG Open Graph image for social previews
-- **`/rss/:userId`** — RSS 2.0 feed of user's public publications
+- **`/rss/:userId`** — RSS 2.0 feed of user's public pubs
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)

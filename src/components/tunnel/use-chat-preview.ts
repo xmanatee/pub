@@ -39,7 +39,13 @@ export function useChatPreview(messages: ChatEntry[], viewMode: TunnelViewMode) 
     if (!lastAgent || lastAgent.id === lastSeenIdRef.current) return;
 
     lastSeenIdRef.current = lastAgent.id;
-    setPreviewText(lastAgent.content);
+    const preview =
+      lastAgent.type === "text"
+        ? lastAgent.content
+        : lastAgent.type === "audio"
+          ? "Audio message"
+          : "Image";
+    setPreviewText(preview);
     clearTimer();
     timerRef.current = setTimeout(() => setPreviewText(null), AUTO_DISMISS_MS);
   }, [viewMode, messages, clearTimer, dismissPreview]);

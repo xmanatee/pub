@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Pub } from "../lib/api.js";
 import { CLI_VERSION } from "../lib/version.js";
 import {
   buildBridgeForkStdio,
@@ -7,10 +8,10 @@ import {
   messageContainsPong,
   parseBridgeMode,
   parsePositiveIntegerOption,
-  pickReusableTunnel,
-  resolveTunnelIdSelection,
+  pickReusableSession,
+  resolveSlugSelection,
   shouldRestartDaemonForCliUpgrade,
-} from "./tunnel.js";
+} from "./tunnel-helpers.js";
 
 describe("getFollowReadDelayMs", () => {
   it("uses steady polling when daemon is reachable", () => {
@@ -26,17 +27,17 @@ describe("getFollowReadDelayMs", () => {
   });
 });
 
-describe("resolveTunnelIdSelection", () => {
-  it("prefers --tunnel over positional tunnelId", () => {
-    expect(resolveTunnelIdSelection("arg-id", "opt-id")).toBe("opt-id");
+describe("resolveSlugSelection", () => {
+  it("prefers --slug over positional slug", () => {
+    expect(resolveSlugSelection("arg-id", "opt-id")).toBe("opt-id");
   });
 
-  it("uses positional tunnelId when --tunnel is omitted", () => {
-    expect(resolveTunnelIdSelection("arg-id", undefined)).toBe("arg-id");
+  it("uses positional slug when --slug is omitted", () => {
+    expect(resolveSlugSelection("arg-id", undefined)).toBe("arg-id");
   });
 
-  it("returns undefined when neither source provides tunnelId", () => {
-    expect(resolveTunnelIdSelection(undefined, undefined)).toBeUndefined();
+  it("returns undefined when neither source provides slug", () => {
+    expect(resolveSlugSelection(undefined, undefined)).toBeUndefined();
   });
 });
 
@@ -104,69 +105,74 @@ describe("messageContainsPong", () => {
   });
 });
 
-describe("pickReusableTunnel", () => {
+describe("pickReusableSession", () => {
   const now = Date.UTC(2026, 1, 28, 0, 0, 0);
 
-  it("returns the only active tunnel", () => {
-    const tunnel = pickReusableTunnel(
+  function makePub(slug: string, session: Pub["session"], createdAt: number): Pub {
+    return {
+      slug,
+      isPublic: false,
+      createdAt,
+      updatedAt: createdAt,
+      session,
+    };
+  }
+
+  it("returns the only pub with an active session", () => {
+    const result = pickReusableSession(
       [
-        {
-          tunnelId: "abc12345",
-          status: "active",
-          hasConnection: false,
-          createdAt: now - 1_000,
-          expiresAt: now + 60_000,
-        },
+        makePub(
+          "abc",
+          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
+          now - 1_000,
+        ),
       ],
       now,
     );
-    expect(tunnel?.tunnelId).toBe("abc12345");
+    expect(result?.slug).toBe("abc");
   });
 
-  it("returns most recent active tunnel when there are multiple active tunnels", () => {
-    const tunnel = pickReusableTunnel(
+  it("returns most recent pub with active session when multiple exist", () => {
+    const result = pickReusableSession(
       [
-        {
-          tunnelId: "abc12345",
-          status: "active",
-          hasConnection: false,
-          createdAt: now - 2_000,
-          expiresAt: now + 60_000,
-        },
-        {
-          tunnelId: "def67890",
-          status: "active",
-          hasConnection: false,
-          createdAt: now - 1_000,
-          expiresAt: now + 60_000,
-        },
+        makePub(
+          "abc",
+          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
+          now - 2_000,
+        ),
+        makePub(
+          "def",
+          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
+          now - 1_000,
+        ),
       ],
       now,
     );
-    expect(tunnel?.tunnelId).toBe("def67890");
+    expect(result?.slug).toBe("def");
   });
 
-  it("returns null when only closed or expired tunnels exist", () => {
-    const tunnel = pickReusableTunnel(
+  it("returns null when only closed or expired sessions exist", () => {
+    const result = pickReusableSession(
       [
-        {
-          tunnelId: "closed111",
-          status: "closed",
-          hasConnection: false,
-          createdAt: now - 2_000,
-          expiresAt: now + 60_000,
-        },
-        {
-          tunnelId: "expired22",
-          status: "active",
-          hasConnection: false,
-          createdAt: now - 2_000,
-          expiresAt: now - 1,
-        },
+        makePub(
+          "closed",
+          { status: "closed", hasConnection: false, expiresAt: now + 60_000 },
+          now - 2_000,
+        ),
+        makePub(
+          "expired",
+          { status: "active", hasConnection: false, expiresAt: now - 1 },
+          now - 2_000,
+        ),
       ],
       now,
     );
-    expect(tunnel).toBeNull();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no pubs have sessions", () => {
+    const result = pickReusableSession([makePub("nosession", null, now - 1_000)], now);
+    expect(result).toBeNull();
   });
 });
 

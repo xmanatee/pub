@@ -1,12 +1,19 @@
 /**
- * Tunnel daemon — background process that holds a WebRTC PeerConnection.
+ * Session daemon — background process that holds a WebRTC PeerConnection.
  */
 
+import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import { latestCliVersionPath, readLatestCliVersion } from "../commands/tunnel-helpers.js";
+import {
+  buildBridgeForkStdio,
+  isBridgeRunning,
+  latestCliVersionPath,
+  readLatestCliVersion,
+  stopBridge,
+} from "../commands/tunnel-helpers.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -18,9 +25,12 @@ import {
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
-import { TunnelApiError } from "./tunnel-api.js";
+import { PubApiError } from "./api.js";
 import { generateOffer } from "./tunnel-daemon-offer.js";
 import {
+  BRIDGE_CHECK_INTERVAL_MS,
+  BRIDGE_MAX_RAPID_RESTARTS,
+  BRIDGE_RAPID_RESTART_WINDOW_MS,
   type ChannelBuffer,
   type DaemonConfig,
   getSignalPollDelayMs,
@@ -37,14 +47,8 @@ const IDLE_SLOWDOWN_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 const IDLE_SIGNAL_POLL_MS = 5 * 60 * 1000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
-export {
-  getSignalPollDelayMs,
-  getTunnelWriteReadinessError,
-  shouldRecoverForBrowserAnswerChange,
-} from "./tunnel-daemon-shared.js";
-
 export async function startDaemon(config: DaemonConfig): Promise<void> {
-  const { tunnelId, apiClient, socketPath, infoPath, cliVersion } = config;
+  const { slug, apiClient, socketPath, infoPath, cliVersion } = config;
 
   const ndc = await import("node-datachannel");
 
@@ -95,7 +99,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
                 ? error
                 : JSON.stringify(error)
           }`;
-    console.error(`[pubblue-daemon:${tunnelId}] ${message}${detail}`);
+    console.error(`[pubblue-daemon:${slug}] ${message}${detail}`);
   }
 
   function markError(message: string, error?: unknown): void {
@@ -253,7 +257,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           pendingOutboundAcks.delete(ackKey);
         }
       } catch (error) {
-        // Keep queued acks for a future retry when channels are healthy again.
         markError("failed to flush queued ack on fallback channel", error);
       }
     }
@@ -364,7 +367,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           targetDc.sendMessage(encodeMessage(sticky.msg));
         }
       } catch (error) {
-        // Replay is best-effort; next reconnection can retry.
         debugLog(`sticky outbound replay failed for channel ${channel}`, error);
       }
     }
@@ -389,7 +391,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (localCandidates.length <= lastSentCandidateCount) return;
       const newOnes = localCandidates.slice(lastSentCandidateCount);
       lastSentCandidateCount = localCandidates.length;
-      await apiClient.signal(tunnelId, { candidates: newOnes }).catch((error) => {
+      await apiClient.signal(slug, { candidates: newOnes }).catch((error) => {
         debugLog("failed to publish local ICE candidates", error);
       });
     }, LOCAL_CANDIDATE_FLUSH_MS);
@@ -451,7 +453,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         dc.close();
       } catch (error) {
-        // Ignore close errors while tearing down.
         debugLog("failed to close data channel cleanly", error);
       }
     }
@@ -463,7 +464,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         peer.close();
       } catch (error) {
-        // Ignore close errors while tearing down.
         debugLog("failed to close peer connection cleanly", error);
       }
       peer = null;
@@ -479,10 +479,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function pollSignalingOnce(): Promise<void> {
-    const tunnel = await apiClient.get(tunnelId);
+    const session = await apiClient.getSession(slug);
     if (
       shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: tunnel.browserAnswer,
+        incomingBrowserAnswer: session.browserAnswer,
         lastAppliedBrowserAnswer,
         remoteDescriptionApplied,
       })
@@ -492,14 +492,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       return;
     }
 
-    if (tunnel.browserAnswer && !remoteDescriptionApplied) {
+    if (session.browserAnswer && !remoteDescriptionApplied) {
       if (!peer) return;
 
       try {
-        const answer = JSON.parse(tunnel.browserAnswer);
+        const answer = JSON.parse(session.browserAnswer);
         peer.setRemoteDescription(answer.sdp, answer.type);
         remoteDescriptionApplied = true;
-        lastAppliedBrowserAnswer = tunnel.browserAnswer;
+        lastAppliedBrowserAnswer = session.browserAnswer;
 
         while (pendingRemoteCandidates.length > 0) {
           const next = pendingRemoteCandidates.shift();
@@ -507,19 +507,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           try {
             peer.addRemoteCandidate(next.candidate, next.sdpMid);
           } catch (error) {
-            // Ignore malformed/stale candidates and continue.
             debugLog("failed to apply queued remote ICE candidate", error);
           }
         }
       } catch (error) {
-        // Retry next poll; answer can be stale or temporarily invalid.
         markError("failed to apply browser answer", error);
       }
     }
 
-    if (tunnel.browserCandidates.length > lastBrowserCandidateCount) {
-      const newCandidates = tunnel.browserCandidates.slice(lastBrowserCandidateCount);
-      lastBrowserCandidateCount = tunnel.browserCandidates.length;
+    if (session.browserCandidates.length > lastBrowserCandidateCount) {
+      const newCandidates = session.browserCandidates.slice(lastBrowserCandidateCount);
+      lastBrowserCandidateCount = session.browserCandidates.length;
 
       for (const c of newCandidates) {
         try {
@@ -535,7 +533,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           if (!peer) continue;
           peer.addRemoteCandidate(parsed.candidate, sdpMid);
         } catch (error) {
-          // Ignore malformed candidates and keep processing others.
           debugLog("failed to parse/apply browser ICE candidate", error);
         }
       }
@@ -549,7 +546,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     try {
       await pollSignalingOnce();
     } catch (error) {
-      if (error instanceof TunnelApiError && error.status === 429) {
+      if (error instanceof PubApiError && error.status === 429) {
         retryAfterSeconds = error.retryAfterSeconds;
       }
       markError("signaling poll failed", error);
@@ -568,7 +565,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     resetNegotiationState();
     const offer = await generateOffer(peer, OFFER_TIMEOUT_MS);
-    await apiClient.signal(tunnelId, { offer });
+    await apiClient.signal(slug, { offer });
     startLocalCandidateFlush();
   }
 
@@ -613,7 +610,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         fs.unlinkSync(socketPath);
       } catch (error) {
-        // Ignore stale socket unlink failures.
         debugLog("failed to remove stale daemon socket", error);
       }
     } else {
@@ -663,11 +659,86 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   fs.writeFileSync(
     infoPath,
-    JSON.stringify({ pid: process.pid, tunnelId, socketPath, startedAt: startTime, cliVersion }),
+    JSON.stringify({ pid: process.pid, slug, socketPath, startedAt: startTime, cliVersion }),
   );
 
   startHealthCheckTimer();
   scheduleNextPoll(0);
+
+  // -- Bridge liveness monitoring -------------------------------------------
+
+  let bridgeCheckTimer: ReturnType<typeof setInterval> | null = null;
+  const bridgeRestartTimestamps: number[] = [];
+
+  function pruneBridgeRestartTimestamps(): void {
+    const cutoff = Date.now() - BRIDGE_RAPID_RESTART_WINDOW_MS;
+    while (bridgeRestartTimestamps.length > 0 && bridgeRestartTimestamps[0] < cutoff) {
+      bridgeRestartTimestamps.shift();
+    }
+  }
+
+  function restartBridge(): void {
+    if (stopped || !config.bridge) return;
+    const { bridgeMode, bridgeScript, bridgeInfoPath, bridgeLogPath, bridgeProcessEnv } =
+      config.bridge;
+
+    pruneBridgeRestartTimestamps();
+    if (bridgeRestartTimestamps.length >= BRIDGE_MAX_RAPID_RESTARTS) {
+      markError(
+        `bridge crashed ${BRIDGE_MAX_RAPID_RESTARTS} times within ${BRIDGE_RAPID_RESTART_WINDOW_MS / 1000}s; giving up`,
+      );
+      return;
+    }
+
+    bridgeRestartTimestamps.push(Date.now());
+    debugLog("bridge process is dead; restarting");
+
+    try {
+      const logFd = fs.openSync(bridgeLogPath, "a");
+      const child = fork(bridgeScript, [], {
+        detached: true,
+        stdio: buildBridgeForkStdio(logFd),
+        env: {
+          ...bridgeProcessEnv,
+          PUBBLUE_BRIDGE_MODE: bridgeMode,
+          PUBBLUE_BRIDGE_SLUG: slug,
+          PUBBLUE_BRIDGE_SOCKET: socketPath,
+          PUBBLUE_BRIDGE_INFO: bridgeInfoPath,
+        },
+      });
+      fs.closeSync(logFd);
+      if (child.connected) child.disconnect();
+      child.unref();
+    } catch (error) {
+      markError("failed to restart bridge process", error);
+    }
+  }
+
+  function checkBridgeLiveness(): void {
+    if (stopped || !config.bridge) return;
+    if (!isBridgeRunning(slug)) restartBridge();
+  }
+
+  function startBridgeCheckTimer(): void {
+    if (!config.bridge) return;
+    bridgeCheckTimer = setInterval(checkBridgeLiveness, BRIDGE_CHECK_INTERVAL_MS);
+  }
+
+  function clearBridgeCheckTimer(): void {
+    if (bridgeCheckTimer) {
+      clearInterval(bridgeCheckTimer);
+      bridgeCheckTimer = null;
+    }
+  }
+
+  async function stopBridgeProcess(): Promise<void> {
+    const error = await stopBridge(slug);
+    if (error) debugLog(error);
+  }
+
+  startBridgeCheckTimer();
+
+  // -- Cleanup & shutdown ---------------------------------------------------
 
   async function cleanup(): Promise<void> {
     if (stopped) return;
@@ -677,6 +748,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearLocalCandidateTimers();
     clearRecoveryTimer();
     clearHealthCheckTimer();
+    clearBridgeCheckTimer();
+    await stopBridgeProcess();
     closeCurrentPeer();
 
     ipcServer.close();
@@ -684,14 +757,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     try {
       fs.unlinkSync(socketPath);
     } catch (error) {
-      // Ignore socket cleanup errors.
       debugLog("failed to remove daemon socket during cleanup", error);
     }
 
     try {
       fs.unlinkSync(infoPath);
     } catch (error) {
-      // Ignore info cleanup errors.
       debugLog("failed to remove daemon info file during cleanup", error);
     }
   }

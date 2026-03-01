@@ -47,7 +47,7 @@ function baseSecurityHeaders() {
   };
 }
 
-export function publicationSecurityHeaders(mimeType: string) {
+export function contentSecurityHeaders(mimeType: string) {
   return {
     "Cross-Origin-Resource-Policy": "cross-origin",
     "Content-Security-Policy": mimeType.startsWith("text/html") ? HTML_CSP : DEFAULT_CSP,
@@ -81,18 +81,18 @@ export class ApiError extends Error {
   }
 }
 
-export function mapTunnelError(error: unknown): { message: string; status: number } | null {
+export function mapSessionError(error: unknown): { message: string; status: number } | null {
   const message = error instanceof Error ? error.message : String(error);
-  if (message === "Tunnel not found") return { message, status: 404 };
-  if (message === "Tunnel closed") return { message, status: 409 };
-  if (message === "Tunnel expired") return { message, status: 410 };
-  if (message.startsWith("Tunnel limit reached")) return { message, status: 429 };
+  if (message === "Session not found") return { message, status: 404 };
+  if (message === "Session closed") return { message, status: 409 };
+  if (message === "Session expired") return { message, status: 410 };
+  if (message.startsWith("Session limit reached")) return { message, status: 429 };
   return null;
 }
 
-export function rethrowTunnelApiError(error: unknown): never {
+export function rethrowSessionApiError(error: unknown): never {
   if (error instanceof ApiError) throw error;
-  const mapped = mapTunnelError(error);
+  const mapped = mapSessionError(error);
   if (mapped) throw new ApiError(mapped.message, mapped.status);
   throw error;
 }
@@ -162,12 +162,7 @@ export function rateLimitResponse(retryAfter: number) {
 export async function authenticateAndRateLimit(
   ctx: ActionCtx,
   apiKey: string,
-  limitName:
-    | "createPublication"
-    | "readPublication"
-    | "listPublications"
-    | "updatePublication"
-    | "deletePublication",
+  limitName: "createPub" | "readPub" | "listPubs" | "updatePub" | "deletePub",
 ): Promise<{ userId: Id<"users"> } | Response> {
   const user = await authenticateApiKey(ctx, apiKey);
   const rl = await rateLimiter.limit(ctx, limitName, { key: apiKey });
@@ -203,7 +198,7 @@ export function getOgCardData(
 ) {
   if (!pub || !pub.isPublic) {
     return {
-      title: "pub.blue publication",
+      title: "pub.blue",
       contentType: "text",
       typeColor: OG_TYPE_COLORS.text,
       badgeColor: "#3b82f6",

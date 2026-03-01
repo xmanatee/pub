@@ -91,14 +91,17 @@ function ControlBarWithClose() {
     <div className="relative h-80 bg-muted/10">
       <ControlBar
         chatPreview={null}
-        disabled={false}
+        collapsed={false}
+        sendDisabled={false}
         bridge={null}
         onClose={() => {}}
         onDismissPreview={() => {}}
+        onToggleCollapsed={() => {}}
         onSendAudio={() => {}}
         onSendChat={() => {}}
         onChangeView={setViewMode}
         viewMode={viewMode}
+        visualState="idle"
         voiceModeEnabled={false}
       />
     </div>
@@ -111,13 +114,16 @@ function ControlBarIdle() {
     <div className="relative h-48 bg-muted/10">
       <ControlBar
         chatPreview={null}
-        disabled={false}
+        collapsed={false}
+        sendDisabled={false}
         bridge={null}
         onDismissPreview={() => {}}
+        onToggleCollapsed={() => {}}
         onSendAudio={() => {}}
         onSendChat={() => {}}
         onChangeView={setViewMode}
         viewMode={viewMode}
+        visualState="idle"
         voiceModeEnabled
       />
     </div>

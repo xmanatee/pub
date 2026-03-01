@@ -15,7 +15,7 @@ async function readControlMetrics(page: Page) {
     let shell = row.parentElement as HTMLElement | null;
 
     while (shell) {
-      if (shell.classList.contains("min-h-16") && shell.classList.contains("overflow-hidden")) {
+      if (shell.classList.contains("min-h-12") && shell.classList.contains("overflow-hidden")) {
         break;
       }
       shell = shell.parentElement as HTMLElement | null;
@@ -26,7 +26,7 @@ async function readControlMetrics(page: Page) {
 
     return {
       rowHeight: row.getBoundingClientRect().height,
-      shellHasHardLock: shell.classList.contains("h-16"),
+      shellHasHardLock: shell.classList.contains("h-12"),
       shellHeight: shell.getBoundingClientRect().height,
     };
   });
@@ -46,7 +46,7 @@ test.describe("Control bar layout", () => {
     await openControlBarDebug(page);
     const { rowHeight, shellHasHardLock } = await readControlMetrics(page);
 
-    expect(rowHeight).toBeCloseTo(64, 0);
+    expect(rowHeight).toBeCloseTo(48, 0);
     expect(shellHasHardLock).toBeFalsy();
   });
 
