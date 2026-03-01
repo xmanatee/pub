@@ -31,12 +31,10 @@ function StaticControlBar({
   visualState = "idle",
   chatPreview = null,
   collapsed = false,
-  onClose,
 }: {
   visualState?: LiveVisualState;
   chatPreview?: string | null;
   collapsed?: boolean;
-  onClose?: () => void;
 }) {
   return (
     <ControlBar
@@ -44,7 +42,7 @@ function StaticControlBar({
       collapsed={collapsed}
       sendDisabled={visualState === "connecting" || visualState === "disconnected"}
       bridge={null}
-      onClose={onClose}
+      onClose={noop}
       onDismissPreview={noop}
       onToggleCollapsed={noop}
       onSendAudio={noop}
@@ -110,16 +108,6 @@ function ControlBarDebugPage() {
           cellHeight={160}
         />
 
-        <BatchSection
-          title="Close Button"
-          testId="batch-close-button"
-          items={[
-            { label: "without onClose", content: <StaticControlBar /> },
-            { label: "with onClose", content: <StaticControlBar onClose={noop} /> },
-          ]}
-          cellHeight={300}
-        />
-
         <details className="mt-10">
           <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
             Interactive single-state view
@@ -170,6 +158,7 @@ function ControlBarDebugPage() {
               collapsed={collapsed}
               sendDisabled={activeState === "connecting" || activeState === "disconnected"}
               bridge={null}
+              onClose={noop}
               onDismissPreview={() => setChatPreview(null)}
               onToggleCollapsed={() => setCollapsed((v) => !v)}
               onSendAudio={noop}

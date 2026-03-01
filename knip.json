@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": ["tw-animate-css", "tailwindcss"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "shared/*.ts",
+        "convex/**/*.ts",
+        "!convex/**/*.test.ts",
+        "!convex/_generated/**",
+        "src/routes/**/*.tsx"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "convex/**/*.ts", "shared/**/*.ts", "!convex/_generated/**"],
+      "paths": {
+        "~/*": ["./src/*"]
+      }
+    },
+    "cli": {
+      "entry": ["src/tunnel-daemon-entry.ts", "src/tunnel-bridge-entry.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

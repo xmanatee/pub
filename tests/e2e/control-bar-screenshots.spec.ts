@@ -33,12 +33,4 @@ test.describe("Control bar screenshots", () => {
     await expect(section).toBeVisible();
     await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-preview.png` });
   });
-
-  test("close button", async ({ page }) => {
-    const section = page.getByTestId("batch-close-button");
-    await expect(section).toBeVisible();
-    await section.getByLabel("Message").last().click({ button: "right" });
-    await expect(section.getByRole("menuitem", { name: "Close" })).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-close-button.png` });
-  });
 });

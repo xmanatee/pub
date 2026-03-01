@@ -31,6 +31,8 @@ jobs:
       - name: Build (generates route tree + type checks)
         run: pnpm build
       - run: pnpm test
+      - name: Run Knip
+        run: pnpm knip
 
   lint-and-test-cli:
     name: Lint & Test CLI

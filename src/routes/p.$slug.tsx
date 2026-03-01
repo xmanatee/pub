@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { CanvasPanel } from "~/components/live/canvas-panel";
@@ -141,6 +141,7 @@ function InteractiveView({
   slug: string;
   onBackToContent?: () => void;
 }) {
+  const navigate = useNavigate();
   const model = useLivePageModel(slug);
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
@@ -227,6 +228,7 @@ function InteractiveView({
         collapsed={controlBarCollapsed}
         sendDisabled={!model.connected}
         bridge={model.bridgeRef.current}
+        onClose={() => navigate({ to: "/dashboard" })}
         onDismissPreview={dismissPreview}
         onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
         onSendAudio={model.sendAudio}

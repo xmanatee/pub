@@ -22,7 +22,7 @@ interface ControlBarIdleModeProps {
   hasText: boolean;
   input: string;
   longPressHandlers: React.HTMLAttributes<HTMLDivElement>;
-  onClose?: () => void;
+  onClose: () => void;
   onCloseExpanded: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onInputChange: (value: string) => void;
