@@ -126,9 +126,7 @@ export function ControlBarIdleMode({
             onKeyDown={onInputKeyDown}
             disabled={disabled}
             aria-label="Message"
-            autoCapitalize="sentences"
-            autoCorrect="on"
-            spellCheck
+            inputMode="text"
             enterKeyHint="send"
             className="h-14 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
           />
