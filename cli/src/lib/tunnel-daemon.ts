@@ -34,6 +34,7 @@ import {
   type ChannelBuffer,
   type DaemonConfig,
   getSignalPollDelayMs,
+  getStickyCanvasHtml,
   getTunnelWriteReadinessError,
   LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
@@ -46,6 +47,7 @@ import {
 const IDLE_SLOWDOWN_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 const IDLE_SIGNAL_POLL_MS = 5 * 60 * 1000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const PERSIST_TIMEOUT_MS = 3_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { slug, apiClient, socketPath, infoPath, cliVersion } = config;
@@ -738,6 +740,25 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   startBridgeCheckTimer();
 
+  // -- Canvas persistence ----------------------------------------------------
+
+  async function persistCanvasContent(): Promise<void> {
+    const html = getStickyCanvasHtml(stickyOutboundByChannel, CHANNELS.CANVAS);
+    if (!html) return;
+
+    try {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("persist timeout")), PERSIST_TIMEOUT_MS),
+      );
+      await Promise.race([
+        apiClient.update({ slug, content: html, filename: "canvas.html" }),
+        timeout,
+      ]);
+    } catch (error) {
+      debugLog("failed to persist canvas content", error);
+    }
+  }
+
   // -- Cleanup & shutdown ---------------------------------------------------
 
   async function cleanup(): Promise<void> {
@@ -749,6 +770,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearRecoveryTimer();
     clearHealthCheckTimer();
     clearBridgeCheckTimer();
+    await persistCanvasContent();
     await stopBridgeProcess();
     closeCurrentPeer();
 

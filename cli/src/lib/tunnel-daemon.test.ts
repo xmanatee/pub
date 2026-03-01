@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "./ack-routing.js";
 import {
   getSignalPollDelayMs,
+  getStickyCanvasHtml,
   getTunnelWriteReadinessError,
+  MAX_CANVAS_PERSIST_SIZE,
+  type StickyOutboundMessage,
   shouldRecoverForBrowserAnswerChange,
 } from "./tunnel-daemon-shared.js";
 
@@ -101,5 +104,50 @@ describe("getSignalPollDelayMs", () => {
     expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: -1 })).toBe(
       5_000,
     );
+  });
+});
+
+describe("getStickyCanvasHtml", () => {
+  const CANVAS = "canvas";
+
+  function makeSticky(overrides: Partial<StickyOutboundMessage["msg"]>): StickyOutboundMessage {
+    return { msg: { id: "test-1", type: "html", data: "<h1>hi</h1>", ...overrides } };
+  }
+
+  it("returns null for empty map", () => {
+    expect(getStickyCanvasHtml(new Map(), CANVAS)).toBeNull();
+  });
+
+  it("returns null when canvas channel has no entry", () => {
+    const map = new Map<string, StickyOutboundMessage>([["chat", makeSticky({})]]);
+    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
+  });
+
+  it("returns null for non-html type", () => {
+    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ type: "text" })]]);
+    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
+  });
+
+  it("returns null for empty data", () => {
+    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: "" })]]);
+    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
+  });
+
+  it("returns html string for valid entry", () => {
+    const html = "<div>hello world</div>";
+    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: html })]]);
+    expect(getStickyCanvasHtml(map, CANVAS)).toBe(html);
+  });
+
+  it("returns null when content exceeds max size", () => {
+    const html = "x".repeat(MAX_CANVAS_PERSIST_SIZE + 1);
+    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: html })]]);
+    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
+  });
+
+  it("returns content at exactly max size", () => {
+    const html = "x".repeat(MAX_CANVAS_PERSIST_SIZE);
+    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: html })]]);
+    expect(getStickyCanvasHtml(map, CANVAS)).toBe(html);
   });
 });
