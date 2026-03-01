@@ -1,25 +1,18 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import type { GenericDatabaseReader } from "convex/server";
+import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { CONTENT_TYPE_VALIDATOR, MAX_PRIVATE_PUBS, MAX_PUBLIC_PUBS } from "./utils";
+import { CONTENT_TYPE_VALIDATOR, MAX_PUBS } from "./utils";
 
-const MAX_LIVES_PER_USER = 5;
+const MAX_LIVES_PER_USER = 1;
 const MAX_CANDIDATES = 50;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-export function isVisibilityEscalation(
-  currentIsPublic: boolean,
-  nextIsPublic: boolean | undefined,
-): boolean {
-  return currentIsPublic === false && nextIsPublic === true;
-}
 
 export function buildPubPatch(fields: {
   content?: string;
@@ -42,10 +35,19 @@ async function countUserPubs(db: GenericDatabaseReader<DataModel>, userId: Id<"u
     .query("pubs")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
-  return {
-    publicCount: pubs.filter((p) => p.isPublic).length,
-    privateCount: pubs.filter((p) => !p.isPublic).length,
-  };
+  return pubs.length;
+}
+
+async function closeActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slug: string) {
+  const lives = await db
+    .query("lives")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .collect();
+  for (const live of lives) {
+    if (live.status === "active") {
+      await db.patch(live._id, { status: "closed" as const });
+    }
+  }
 }
 
 function mapPub(
@@ -162,13 +164,6 @@ export const toggleVisibility = mutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Not found");
 
-    if (!pub.isPublic) {
-      const { publicCount } = await countUserPubs(ctx.db, userId);
-      if (publicCount >= MAX_PUBLIC_PUBS) {
-        throw new Error(`Public pub limit reached (${MAX_PUBLIC_PUBS})`);
-      }
-    }
-
     await ctx.db.patch(id, { isPublic: !pub.isPublic, updatedAt: Date.now() });
     return { isPublic: !pub.isPublic };
   },
@@ -183,17 +178,7 @@ export const deleteByUser = mutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Not found");
 
-    // Close any active lives for this pub
-    const lives = await ctx.db
-      .query("lives")
-      .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
-      .collect();
-    for (const live of lives) {
-      if (live.status === "active") {
-        await ctx.db.patch(live._id, { status: "closed" as const });
-      }
-    }
-
+    await closeActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
 });
@@ -299,13 +284,9 @@ export const createPub = internalMutation({
     expiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { publicCount, privateCount } = await countUserPubs(ctx.db, args.userId);
-
-    if (args.isPublic && publicCount >= MAX_PUBLIC_PUBS) {
-      throw new Error(`Public pub limit reached (${MAX_PUBLIC_PUBS})`);
-    }
-    if (!args.isPublic && privateCount >= MAX_PRIVATE_PUBS) {
-      throw new Error(`Private pub limit reached (${MAX_PRIVATE_PUBS})`);
+    const count = await countUserPubs(ctx.db, args.userId);
+    if (count >= MAX_PUBS) {
+      throw new Error(`Pub limit reached (${MAX_PUBS})`);
     }
 
     const id = await ctx.db.insert("pubs", {
@@ -334,16 +315,7 @@ export const expirePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub) return;
 
-    const lives = await ctx.db
-      .query("lives")
-      .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
-      .collect();
-    for (const live of lives) {
-      if (live.status === "active") {
-        await ctx.db.patch(live._id, { status: "closed" as const });
-      }
-    }
-
+    await closeActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
 });
@@ -360,13 +332,6 @@ export const updatePub = internalMutation({
   handler: async (ctx, { id, content, contentType, title, isPublic, slug }) => {
     const pub = await ctx.db.get(id);
     if (!pub) throw new Error("Not found");
-
-    if (isVisibilityEscalation(pub.isPublic, isPublic)) {
-      const { publicCount } = await countUserPubs(ctx.db, pub.userId);
-      if (publicCount >= MAX_PUBLIC_PUBS) {
-        throw new Error(`Public pub limit reached (${MAX_PUBLIC_PUBS})`);
-      }
-    }
 
     if (slug !== undefined && slug !== pub.slug) {
       const lives = await ctx.db
@@ -391,16 +356,7 @@ export const deletePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Not found");
 
-    const lives = await ctx.db
-      .query("lives")
-      .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
-      .collect();
-    for (const live of lives) {
-      if (live.status === "active") {
-        await ctx.db.patch(live._id, { status: "closed" as const });
-      }
-    }
-
+    await closeActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
 });
@@ -461,25 +417,18 @@ export const openLive = internalMutation({
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    // Close existing active lives for this slug so reopening doesn't hit the global limit.
-    const existingForSlug = await ctx.db
-      .query("lives")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .collect();
-    for (const live of existingForSlug) {
-      if (live.userId === args.userId && live.status === "active") {
-        await ctx.db.patch(live._id, { status: "closed" as const });
-      }
-    }
-
     const existing = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
-    const active = existing.filter(
-      (s) => s.status === "active" && s.expiresAt > Date.now() && s.slug !== args.slug,
-    );
-    if (active.length >= MAX_LIVES_PER_USER) {
+    const active = existing.filter((s) => s.status === "active" && s.expiresAt > Date.now());
+
+    for (const live of active) {
+      if (live.slug === args.slug) {
+        await ctx.db.patch(live._id, { status: "closed" as const });
+      }
+    }
+    if (active.some((s) => s.slug !== args.slug)) {
       throw new Error(`Live limit reached (${MAX_LIVES_PER_USER})`);
     }
 
