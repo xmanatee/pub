@@ -7,6 +7,7 @@ import { getConfig, getTelegramMiniAppUrl } from "../../lib/config.js";
 import { getSocketPath, ipcCall } from "../../lib/tunnel-ipc.js";
 import { CLI_VERSION } from "../../lib/version.js";
 import {
+  bridgeInfoPath,
   bridgeLogPath,
   buildBridgeProcessEnv,
   buildDaemonForkStdio,
@@ -255,18 +256,23 @@ export function registerTunnelStartCommand(tunnel: Command): void {
         }
 
         const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
+        const bridgeScript = path.join(import.meta.dirname, "tunnel-bridge-entry.js");
         const daemonLogFd = fs.openSync(logPath, "a");
         const child = fork(daemonScript, [], {
           detached: true,
           stdio: buildDaemonForkStdio(daemonLogFd),
           env: {
-            ...process.env,
+            ...bridgeProcessEnv,
             PUBBLUE_DAEMON_TUNNEL_ID: target.tunnelId,
             PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
             PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
             PUBBLUE_DAEMON_SOCKET: socketPath,
             PUBBLUE_DAEMON_INFO: infoPath,
             PUBBLUE_CLI_VERSION: CLI_VERSION,
+            PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
+            PUBBLUE_DAEMON_BRIDGE_SCRIPT: bridgeScript,
+            PUBBLUE_DAEMON_BRIDGE_INFO: bridgeInfoPath(target.tunnelId),
+            PUBBLUE_DAEMON_BRIDGE_LOG: bridgeLogPath(target.tunnelId),
           },
         });
         fs.closeSync(daemonLogFd);

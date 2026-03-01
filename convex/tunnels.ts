@@ -35,6 +35,26 @@ export const getByTunnelId = query({
   },
 });
 
+export const listActiveTunnels = query({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const tunnels = await ctx.db
+      .query("tunnels")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    return tunnels
+      .filter((t) => t.status === "active" && t.expiresAt > Date.now())
+      .map((t) => ({
+        tunnelId: t.tunnelId,
+        hasConnection: !!t.browserAnswer,
+        expiresAt: t.expiresAt,
+      }));
+  },
+});
+
 // -- Public mutations (browser writes signaling data) ------------------------
 
 export const storeBrowserSignal = mutation({

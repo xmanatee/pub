@@ -10,13 +10,26 @@ export interface StickyOutboundMessage {
   msg: BridgeMessage;
 }
 
+export interface BridgeDaemonConfig {
+  bridgeMode: "openclaw";
+  bridgeScript: string;
+  bridgeInfoPath: string;
+  bridgeLogPath: string;
+  bridgeProcessEnv: NodeJS.ProcessEnv;
+}
+
 export interface DaemonConfig {
   cliVersion?: string;
   tunnelId: string;
   apiClient: TunnelApiClient;
   socketPath: string;
   infoPath: string;
+  bridge?: BridgeDaemonConfig;
 }
+
+export const BRIDGE_CHECK_INTERVAL_MS = 30_000;
+export const BRIDGE_MAX_RAPID_RESTARTS = 3;
+export const BRIDGE_RAPID_RESTART_WINDOW_MS = 5 * 60 * 1000;
 
 export const OFFER_TIMEOUT_MS = 10_000;
 export const SIGNAL_POLL_WAITING_MS = 5_000;

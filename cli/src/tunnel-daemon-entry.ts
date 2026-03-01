@@ -5,6 +5,7 @@
 
 import { TunnelApiClient } from "./lib/tunnel-api.js";
 import { startDaemon } from "./lib/tunnel-daemon.js";
+import type { BridgeDaemonConfig } from "./lib/tunnel-daemon-shared.js";
 
 const tunnelId = process.env.PUBBLUE_DAEMON_TUNNEL_ID;
 const baseUrl = process.env.PUBBLUE_DAEMON_BASE_URL;
@@ -18,9 +19,26 @@ if (!tunnelId || !baseUrl || !apiKey || !socketPath || !infoPath) {
   process.exit(1);
 }
 
+let bridge: BridgeDaemonConfig | undefined;
+const bridgeMode = process.env.PUBBLUE_DAEMON_BRIDGE_MODE;
+const bridgeScript = process.env.PUBBLUE_DAEMON_BRIDGE_SCRIPT;
+const bridgeInfoPath = process.env.PUBBLUE_DAEMON_BRIDGE_INFO;
+const bridgeLogPath = process.env.PUBBLUE_DAEMON_BRIDGE_LOG;
+if (bridgeMode && bridgeMode !== "none" && bridgeScript && bridgeInfoPath && bridgeLogPath) {
+  bridge = {
+    bridgeMode: bridgeMode as "openclaw",
+    bridgeScript,
+    bridgeInfoPath,
+    bridgeLogPath,
+    bridgeProcessEnv: { ...process.env },
+  };
+}
+
 const apiClient = new TunnelApiClient(baseUrl, apiKey);
-void startDaemon({ tunnelId, apiClient, socketPath, infoPath, cliVersion }).catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Tunnel daemon failed to start: ${message}`);
-  process.exit(1);
-});
+void startDaemon({ tunnelId, apiClient, socketPath, infoPath, cliVersion, bridge }).catch(
+  (error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Tunnel daemon failed to start: ${message}`);
+    process.exit(1);
+  },
+);
