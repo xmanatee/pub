@@ -28,7 +28,7 @@ interface ControlBarProps {
   collapsed: boolean;
   sendDisabled: boolean;
   bridge: BrowserBridge | null;
-  onClose?: () => void;
+  onClose: () => void;
   onDismissPreview: () => void;
   onToggleCollapsed: () => void;
   onSendChat: (text: string) => void;

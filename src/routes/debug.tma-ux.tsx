@@ -117,6 +117,7 @@ function ControlBarIdle() {
         collapsed={false}
         sendDisabled={false}
         bridge={null}
+        onClose={() => {}}
         onDismissPreview={() => {}}
         onToggleCollapsed={() => {}}
         onSendAudio={() => {}}

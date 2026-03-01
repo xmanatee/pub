@@ -10,7 +10,7 @@ const VIEW_OPTIONS: { label: string; mode: LiveViewMode }[] = [
 
 interface ExtendedOptionsProps {
   viewMode: LiveViewMode;
-  onClose?: () => void;
+  onClose: () => void;
   onSelect: (mode: LiveViewMode) => void;
 }
 
@@ -30,19 +30,15 @@ export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptions
           {opt.label}
         </Button>
       ))}
-      {onClose ? (
-        <>
-          <Separator className="my-0.5" />
-          <Button
-            variant="ghost"
-            className="h-10 w-full justify-start rounded-xl px-3 text-sm font-medium text-destructive"
-            role="menuitem"
-            onClick={onClose}
-          >
-            Close
-          </Button>
-        </>
-      ) : null}
+      <Separator className="my-0.5" />
+      <Button
+        variant="ghost"
+        className="h-10 w-full justify-start rounded-xl px-3 text-sm font-medium text-destructive"
+        role="menuitem"
+        onClick={onClose}
+      >
+        Close
+      </Button>
     </div>
   );
 }

@@ -94,6 +94,7 @@ function ControlBarDebugPage() {
           collapsed={collapsed}
           sendDisabled={activeState === "connecting" || activeState === "disconnected"}
           bridge={null}
+          onClose={() => {}}
           onDismissPreview={clearPreview}
           onToggleCollapsed={() => setCollapsed((value) => !value)}
           onSendAudio={() => {}}
@@ -118,6 +119,7 @@ function StatePreview({ state, viewMode }: { state: LiveVisualState; viewMode: L
           collapsed={false}
           sendDisabled={state === "connecting" || state === "disconnected"}
           bridge={null}
+          onClose={() => {}}
           onDismissPreview={() => {}}
           onToggleCollapsed={() => {}}
           onSendAudio={() => {}}
