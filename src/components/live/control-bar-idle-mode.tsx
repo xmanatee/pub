@@ -5,8 +5,10 @@ import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 import "./control-bar-state.css";
+import { controlBarStyleFromTone } from "./control-bar-theme";
 import { ExtendedOptions } from "./extended-options";
 import type { LiveViewMode, LiveVisualState } from "./types";
+import { VISUAL_THEME } from "./visuals/shared";
 
 const MAX_TEXTAREA_ROWS = 5;
 const TEXTAREA_LINE_HEIGHT = 20;
@@ -38,15 +40,6 @@ interface ControlBarIdleModeProps {
   visualState: LiveVisualState;
   voiceModeEnabled: boolean;
 }
-
-const STATE_CLASS_MAP: Record<LiveVisualState, string> = {
-  connecting: "cb-state-connecting",
-  disconnected: "cb-state-disconnected",
-  "waiting-content": "cb-state-waiting-content",
-  idle: "cb-state-idle",
-  "agent-thinking": "cb-state-agent-thinking",
-  "agent-replying": "cb-state-agent-replying",
-};
 
 export function ControlBarIdleMode({
   actionButtonClass,
@@ -91,6 +84,7 @@ export function ControlBarIdleMode({
 
   const showPreview = !expanded && chatPreview !== null;
   const isConnecting = visualState === "connecting";
+  const cbStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
   return (
     <>
       <button
@@ -108,10 +102,9 @@ export function ControlBarIdleMode({
       <div
         className={cn(
           "cb-state-border relative z-20 min-h-12 overflow-hidden select-none",
-          STATE_CLASS_MAP[visualState],
           shellContentClassName,
         )}
-        style={{ WebkitTouchCallout: "none" }}
+        style={{ WebkitTouchCallout: "none", ...cbStyle }}
         {...longPressHandlers}
       >
         <div
