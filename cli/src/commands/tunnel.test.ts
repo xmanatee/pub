@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Pub } from "../lib/api.js";
 import { CLI_VERSION } from "../lib/version.js";
+import { SUPPORTED_KEYS } from "./configure.js";
 import {
   buildBridgeForkStdio,
   buildDaemonForkStdio,
@@ -9,9 +10,16 @@ import {
   parseBridgeMode,
   parsePositiveIntegerOption,
   pickReusableLive,
+  resolveBridgeMode,
   resolveSlugSelection,
   shouldRestartDaemonForCliUpgrade,
 } from "./tunnel-helpers.js";
+
+describe("SUPPORTED_KEYS", () => {
+  it("does not include bridge.mode", () => {
+    expect(SUPPORTED_KEYS).not.toContain("bridge.mode");
+  });
+});
 
 describe("getFollowReadDelayMs", () => {
   it("uses steady polling when daemon is reachable", () => {
@@ -83,6 +91,34 @@ describe("parseBridgeMode", () => {
 
   it("throws for unsupported bridge modes", () => {
     expect(() => parseBridgeMode("claude-code")).toThrow("--bridge must be one of");
+  });
+});
+
+describe("resolveBridgeMode", () => {
+  it("defaults to openclaw in background mode", () => {
+    expect(resolveBridgeMode({})).toBe("openclaw");
+    expect(resolveBridgeMode({ foreground: false })).toBe("openclaw");
+  });
+
+  it("defaults to none in foreground mode", () => {
+    expect(resolveBridgeMode({ foreground: true })).toBe("none");
+  });
+
+  it("allows explicit --bridge openclaw in background mode", () => {
+    expect(resolveBridgeMode({ bridge: "openclaw" })).toBe("openclaw");
+  });
+
+  it("allows explicit --bridge none in foreground mode", () => {
+    expect(resolveBridgeMode({ bridge: "none", foreground: true })).toBe("none");
+  });
+
+  it("rejects --bridge none without --foreground", () => {
+    expect(() => resolveBridgeMode({ bridge: "none" })).toThrow(
+      "--bridge none is only valid with --foreground",
+    );
+    expect(() => resolveBridgeMode({ bridge: "none", foreground: false })).toThrow(
+      "--bridge none is only valid with --foreground",
+    );
   });
 });
 

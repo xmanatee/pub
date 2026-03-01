@@ -31,13 +31,13 @@ import {
   liveInfoPath,
   liveLogPath,
   messageContainsPong,
-  parseBridgeMode,
   parsePositiveIntegerOption,
   pickReusableLive,
   readBridgeProcessInfo,
   readDaemonProcessInfo,
   readLogTail,
   resolveActiveSlug,
+  resolveBridgeMode,
   resolveSlugSelection,
   shouldRestartDaemonForCliUpgrade,
   stopBridge,
@@ -83,7 +83,7 @@ function registerOpenCommand(program: Command): void {
         const runtimeConfig = getConfig();
         const apiClient = createApiClient(runtimeConfig);
         let target: DaemonStartTarget | null = null;
-        const bridgeMode = parseBridgeMode(opts.bridge || runtimeConfig.bridge?.mode || "openclaw");
+        resolveBridgeMode(opts);
         const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
         if (slugArg && !opts.new) {
@@ -190,11 +190,6 @@ function registerOpenCommand(program: Command): void {
         }
 
         if (opts.foreground) {
-          if (bridgeMode !== "none") {
-            throw new Error(
-              "Foreground mode disables managed bridge process. Use background mode for --bridge openclaw.",
-            );
-          }
           const { startDaemon } = await import("../lib/tunnel-daemon.js");
           console.log(`Live started: ${target.url}`);
           const fgTma = getTelegramMiniAppUrl(target.slug);
@@ -266,30 +261,27 @@ function registerOpenCommand(program: Command): void {
               );
             }
 
-            if (bridgeMode !== "none") {
-              const bridgeReady = await ensureBridgeReady({
-                bridgeMode,
-                slug: target.slug,
-                socketPath,
-                bridgeProcessEnv,
-                timeoutMs: 8_000,
-              });
-              if (!bridgeReady.ok) {
-                const lines = [
-                  `Bridge failed to start for running live: ${bridgeReady.reason ?? "unknown reason"}`,
-                ];
-                const existingBridgeLog = bridgeLogPath(target.slug);
-                if (fs.existsSync(existingBridgeLog)) {
-                  lines.push(`Bridge log: ${existingBridgeLog}`);
-                  const bridgeTail = readLogTail(existingBridgeLog);
-                  if (bridgeTail) {
-                    lines.push("---- bridge log tail ----");
-                    lines.push(bridgeTail.trimEnd());
-                    lines.push("---- end bridge log tail ----");
-                  }
+            const bridgeReady = await ensureBridgeReady({
+              slug: target.slug,
+              socketPath,
+              bridgeProcessEnv,
+              timeoutMs: 8_000,
+            });
+            if (!bridgeReady.ok) {
+              const lines = [
+                `Bridge failed to start for running live: ${bridgeReady.reason ?? "unknown reason"}`,
+              ];
+              const existingBridgeLog = bridgeLogPath(target.slug);
+              if (fs.existsSync(existingBridgeLog)) {
+                lines.push(`Bridge log: ${existingBridgeLog}`);
+                const bridgeTail = readLogTail(existingBridgeLog);
+                if (bridgeTail) {
+                  lines.push("---- bridge log tail ----");
+                  lines.push(bridgeTail.trimEnd());
+                  lines.push("---- end bridge log tail ----");
                 }
-                failCli(lines.join("\n"));
               }
+              failCli(lines.join("\n"));
             }
 
             console.log(`Live started: ${target.url}`);
@@ -299,10 +291,8 @@ function registerOpenCommand(program: Command): void {
             console.log(`Expires: ${new Date(target.expiresAt).toISOString()}`);
             console.log("Daemon already running for this live.");
             console.log(`Daemon log: ${logPath}`);
-            if (bridgeMode !== "none") {
-              console.log("Bridge mode: openclaw");
-              console.log(`Bridge log: ${bridgeLogPath(target.slug)}`);
-            }
+            console.log("Bridge mode: openclaw");
+            console.log(`Bridge log: ${bridgeLogPath(target.slug)}`);
             return;
           }
         }
@@ -322,7 +312,6 @@ function registerOpenCommand(program: Command): void {
             PUBBLUE_DAEMON_SOCKET: socketPath,
             PUBBLUE_DAEMON_INFO: infoPath,
             PUBBLUE_CLI_VERSION: CLI_VERSION,
-            PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
             PUBBLUE_DAEMON_BRIDGE_SCRIPT: bridgeScript,
             PUBBLUE_DAEMON_BRIDGE_INFO: bridgeInfoPath(target.slug),
             PUBBLUE_DAEMON_BRIDGE_LOG: bridgeLogPath(target.slug),
@@ -376,40 +365,37 @@ function registerOpenCommand(program: Command): void {
           failCli(lines.join("\n"));
         }
 
-        if (bridgeMode !== "none") {
-          const bridgeReady = await ensureBridgeReady({
-            bridgeMode,
-            slug: target.slug,
-            socketPath,
-            bridgeProcessEnv,
-            timeoutMs: 8_000,
-          });
-          if (!bridgeReady.ok) {
-            const lines = [`Bridge failed to start: ${bridgeReady.reason ?? "unknown reason"}`];
-            const bridgeLog = bridgeLogPath(target.slug);
-            if (fs.existsSync(bridgeLog)) {
-              lines.push(`Bridge log: ${bridgeLog}`);
-              const bridgeTail = readLogTail(bridgeLog);
-              if (bridgeTail) {
-                lines.push("---- bridge log tail ----");
-                lines.push(bridgeTail.trimEnd());
-                lines.push("---- end bridge log tail ----");
-              }
+        const bridgeReady = await ensureBridgeReady({
+          slug: target.slug,
+          socketPath,
+          bridgeProcessEnv,
+          timeoutMs: 8_000,
+        });
+        if (!bridgeReady.ok) {
+          const lines = [`Bridge failed to start: ${bridgeReady.reason ?? "unknown reason"}`];
+          const bridgeLog = bridgeLogPath(target.slug);
+          if (fs.existsSync(bridgeLog)) {
+            lines.push(`Bridge log: ${bridgeLog}`);
+            const bridgeTail = readLogTail(bridgeLog);
+            if (bridgeTail) {
+              lines.push("---- bridge log tail ----");
+              lines.push(bridgeTail.trimEnd());
+              lines.push("---- end bridge log tail ----");
             }
-            let daemonCloseWarning: string | null = null;
-            try {
-              await ipcCall(socketPath, { method: "close", params: {} });
-            } catch (error) {
-              daemonCloseWarning = `failed to stop daemon after bridge startup failure: ${
-                error instanceof Error ? error.message : String(error)
-              }`;
-            }
-            if (daemonCloseWarning) {
-              lines.push(`Warning: ${daemonCloseWarning}`);
-            }
-            await cleanupLiveOnStartFailure(apiClient, target);
-            failCli(lines.join("\n"));
           }
+          let daemonCloseWarning: string | null = null;
+          try {
+            await ipcCall(socketPath, { method: "close", params: {} });
+          } catch (error) {
+            daemonCloseWarning = `failed to stop daemon after bridge startup failure: ${
+              error instanceof Error ? error.message : String(error)
+            }`;
+          }
+          if (daemonCloseWarning) {
+            lines.push(`Warning: ${daemonCloseWarning}`);
+          }
+          await cleanupLiveOnStartFailure(apiClient, target);
+          failCli(lines.join("\n"));
         }
 
         console.log(`Live started: ${target.url}`);
@@ -420,10 +406,8 @@ function registerOpenCommand(program: Command): void {
         if (target.mode === "existing") console.log("Mode: attached existing live");
         console.log("Daemon health: OK");
         console.log(`Daemon log: ${logPath}`);
-        if (bridgeMode !== "none") {
-          console.log("Bridge mode: openclaw");
-          console.log(`Bridge log: ${bridgeLogPath(target.slug)}`);
-        }
+        console.log("Bridge mode: openclaw");
+        console.log(`Bridge log: ${bridgeLogPath(target.slug)}`);
       },
     );
 }

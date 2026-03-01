@@ -97,6 +97,13 @@ export function rethrowLiveApiError(error: unknown): never {
   throw error;
 }
 
+export function rethrowPubLimitError(error: unknown): never {
+  if (error instanceof ApiError) throw error;
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.startsWith("Pub limit reached")) throw new ApiError(message, 429);
+  throw error;
+}
+
 export async function executeAction<T>(
   fn: () => Promise<T>,
   onSuccess: (result: T) => Response,

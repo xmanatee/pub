@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPubPatch, isVisibilityEscalation } from "./pubs";
+import { buildPubPatch } from "./pubs";
 import { inferContentType } from "./utils";
 
 describe("update patch construction", () => {
@@ -27,19 +27,6 @@ describe("update patch construction", () => {
   it("includes slug for rename", () => {
     const patch = buildPubPatch({ slug: "new-slug" });
     expect(patch.slug).toBe("new-slug");
-  });
-});
-
-describe("visibility escalation guard", () => {
-  it("detects private to public changes", () => {
-    expect(isVisibilityEscalation(false, true)).toBe(true);
-  });
-
-  it("does not flag unchanged or non-public transitions", () => {
-    expect(isVisibilityEscalation(true, true)).toBe(false);
-    expect(isVisibilityEscalation(true, false)).toBe(false);
-    expect(isVisibilityEscalation(false, false)).toBe(false);
-    expect(isVisibilityEscalation(false, undefined)).toBe(false);
   });
 });
 

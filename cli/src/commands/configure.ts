@@ -68,12 +68,6 @@ function parseBooleanValue(raw: string, key: string): boolean {
   throw new Error(`Invalid boolean value for ${key}: ${raw}`);
 }
 
-function parseBridgeModeValue(raw: string): "openclaw" | "none" {
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "none") return normalized;
-  throw new Error(`Invalid bridge mode: ${raw}. Use openclaw or none.`);
-}
-
 function parsePositiveInteger(raw: string, key: string): number {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -82,8 +76,7 @@ function parsePositiveInteger(raw: string, key: string): number {
   return parsed;
 }
 
-const SUPPORTED_KEYS = [
-  "bridge.mode",
+export const SUPPORTED_KEYS = [
   "openclaw.path",
   "openclaw.sessionId",
   "openclaw.threadId",
@@ -104,9 +97,6 @@ function applyConfigSet(
   value: string,
 ): void {
   switch (key) {
-    case "bridge.mode":
-      bridge.mode = parseBridgeModeValue(value);
-      return;
     case "openclaw.path":
       bridge.openclawPath = value;
       return;
@@ -153,9 +143,6 @@ function applyConfigSet(
 
 function applyConfigUnset(bridge: BridgeConfig, telegram: TelegramConfig, key: string): void {
   switch (key) {
-    case "bridge.mode":
-      delete bridge.mode;
-      return;
     case "openclaw.path":
       delete bridge.openclawPath;
       return;
@@ -226,13 +213,11 @@ async function telegramGetMe(token: string): Promise<TelegramBotInfo> {
   };
 }
 
-async function telegramSetMenuButton(token: string, url: string): Promise<void> {
+async function telegramSetMenuButton(token: string, button: object): Promise<void> {
   const resp = await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      menu_button: { type: "web_app", text: "Open", web_app: { url } },
-    }),
+    body: JSON.stringify({ menu_button: button }),
   });
   const data = (await resp.json()) as { ok: boolean; description?: string };
   if (!data.ok) {
@@ -250,7 +235,6 @@ function printConfigSummary(saved: SavedConfig | null): void {
   console.log(`  apiKey: ${maskSecret(saved.apiKey)}`);
 
   if (saved.bridge && hasValues(saved.bridge)) {
-    console.log(`  bridge.mode: ${saved.bridge.mode ?? "(unset)"}`);
     if (saved.bridge.openclawPath) console.log(`  openclaw.path: ${saved.bridge.openclawPath}`);
     if (saved.bridge.sessionId) console.log(`  openclaw.sessionId: ${saved.bridge.sessionId}`);
     if (saved.bridge.threadId) console.log(`  openclaw.threadId: ${saved.bridge.threadId}`);
@@ -345,6 +329,16 @@ export function registerConfigureCommand(program: Command): void {
           if (key === "telegram.botToken") telegramTokenChanged = true;
         }
         for (const key of opts.unset) {
+          if (key.trim() === "telegram.botToken" && nextTelegram.botToken) {
+            try {
+              await telegramSetMenuButton(nextTelegram.botToken, { type: "default" });
+              console.log("Telegram menu button reset to default.");
+            } catch (error) {
+              console.error(
+                `Warning: failed to reset Telegram menu button: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
           applyConfigUnset(nextBridge, nextTelegram, key.trim());
         }
 
@@ -354,7 +348,11 @@ export function registerConfigureCommand(program: Command): void {
           nextTelegram.botUsername = bot.username;
           nextTelegram.hasMainWebApp = bot.hasMainWebApp;
           console.log(`  Bot: @${bot.username}`);
-          await telegramSetMenuButton(nextTelegram.botToken, "https://pub.blue");
+          await telegramSetMenuButton(nextTelegram.botToken, {
+            type: "web_app",
+            text: "Open",
+            web_app: { url: "https://pub.blue" },
+          });
           console.log("  Menu button set to https://pub.blue");
           if (!bot.hasMainWebApp) {
             console.log("");

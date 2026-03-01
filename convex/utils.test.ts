@@ -12,8 +12,7 @@ import {
   MAX_CONTENT_SIZE,
   MAX_EXPIRY_MS,
   MAX_KEY_NAME_LENGTH,
-  MAX_PRIVATE_PUBS,
-  MAX_PUBLIC_PUBS,
+  MAX_PUBS,
   MAX_TITLE_LENGTH,
   parseDuration,
   parseExpiresIn,
@@ -260,8 +259,7 @@ describe("constants", () => {
     expect(MAX_CONTENT_SIZE).toBe(100 * 1024);
     expect(MAX_TITLE_LENGTH).toBe(256);
     expect(MAX_KEY_NAME_LENGTH).toBe(128);
-    expect(MAX_PUBLIC_PUBS).toBe(20);
-    expect(MAX_PRIVATE_PUBS).toBe(100);
+    expect(MAX_PUBS).toBe(10);
     expect(MAX_EXPIRY_MS).toBe(30 * 24 * 60 * 60 * 1000);
   });
 

@@ -198,6 +198,7 @@ export function ControlBarIdleMode({
                     variant="ghost"
                     size="control"
                     className={cn(actionButtonClass, "touch-none long-press-ignore")}
+                    disabled={sendDisabled}
                     aria-label="Hold to record audio"
                     {...pointerHandlers}
                   >

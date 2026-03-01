@@ -373,6 +373,14 @@ export function parseBridgeMode(raw: string): BridgeMode {
   throw new Error(`--bridge must be one of: openclaw, none. Received: ${raw}`);
 }
 
+export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {
+  const bridgeMode = parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
+  if (bridgeMode === "none" && !opts.foreground) {
+    throw new Error("--bridge none is only valid with --foreground.");
+  }
+  return bridgeMode;
+}
+
 export function shouldRestartDaemonForCliUpgrade(
   daemonCliVersion: string | undefined,
   currentCliVersion: string,
@@ -544,7 +552,6 @@ export async function waitForAgentOffer(params: {
 }
 
 export interface EnsureBridgeReadyParams {
-  bridgeMode: BridgeMode;
   slug: string;
   socketPath: string;
   bridgeProcessEnv: NodeJS.ProcessEnv;
@@ -554,10 +561,6 @@ export interface EnsureBridgeReadyParams {
 export async function ensureBridgeReady(
   params: EnsureBridgeReadyParams,
 ): Promise<WaitForDaemonReadyResult> {
-  if (params.bridgeMode === "none") {
-    return { ok: true };
-  }
-
   const infoPath = bridgeInfoPath(params.slug);
   if (isBridgeRunning(params.slug)) {
     return waitForBridgeReady({
@@ -575,7 +578,6 @@ export async function ensureBridgeReady(
     stdio: buildBridgeForkStdio(logFd),
     env: {
       ...params.bridgeProcessEnv,
-      PUBBLUE_BRIDGE_MODE: params.bridgeMode,
       PUBBLUE_BRIDGE_SLUG: params.slug,
       PUBBLUE_BRIDGE_SOCKET: params.socketPath,
       PUBBLUE_BRIDGE_INFO: infoPath,

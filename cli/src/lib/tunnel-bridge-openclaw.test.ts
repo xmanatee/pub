@@ -52,10 +52,10 @@ describe("resolveOpenClawSessionsPath", () => {
 describe("resolveAttachmentMaxBytes", () => {
   it("uses default when env is absent or invalid", () => {
     delete process.env.OPENCLAW_ATTACHMENT_MAX_BYTES;
-    expect(resolveAttachmentMaxBytes()).toBe(25 * 1024 * 1024);
+    expect(resolveAttachmentMaxBytes()).toBe(5 * 1024 * 1024);
 
     process.env.OPENCLAW_ATTACHMENT_MAX_BYTES = "NaN";
-    expect(resolveAttachmentMaxBytes()).toBe(25 * 1024 * 1024);
+    expect(resolveAttachmentMaxBytes()).toBe(5 * 1024 * 1024);
   });
 
   it("uses configured positive value", () => {
