@@ -56,6 +56,21 @@ export function shouldRecoverForBrowserAnswerChange(params: {
   return incomingBrowserAnswer !== lastAppliedBrowserAnswer;
 }
 
+export const MAX_CANVAS_PERSIST_SIZE = 100 * 1024;
+
+export function getStickyCanvasHtml(
+  stickyOutbound: Map<string, StickyOutboundMessage>,
+  canvasChannel: string,
+): string | null {
+  const sticky = stickyOutbound.get(canvasChannel);
+  if (!sticky) return null;
+  if (sticky.msg.type !== "html") return null;
+  const html = sticky.msg.data;
+  if (!html) return null;
+  if (new TextEncoder().encode(html).byteLength > MAX_CANVAS_PERSIST_SIZE) return null;
+  return html;
+}
+
 export function getSignalPollDelayMs(params: {
   remoteDescriptionApplied: boolean;
   retryAfterSeconds?: number;
