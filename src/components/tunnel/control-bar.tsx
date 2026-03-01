@@ -59,11 +59,11 @@ export function ControlBar({
   const floatingShellClass = "pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-3";
   const floatingShellStyle = { paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" } as const;
   const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
-  const controlHeightClass = "h-16 min-h-16";
+  const controlHeightClass = "min-h-12";
   const actionButtonClass = "shrink-0";
   const controlBarClass =
-    "flex w-full items-center gap-2 rounded-full border border-border/70 bg-background/88 px-2 shadow-lg backdrop-blur-xl";
-  const controlRowClass = "flex w-full items-center gap-2 px-2";
+    "flex w-full items-center gap-1.5 rounded-full border border-border/70 bg-background/88 px-1.5 shadow-lg backdrop-blur-xl";
+  const controlRowClass = "flex w-full items-center gap-1.5 px-1.5";
   const recordingToneClass = "border-destructive/40 bg-background/88";
   const backButtonClass = "border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl";
 
@@ -177,7 +177,7 @@ export function ControlBar({
   );
 
   const waveformEl = (
-    <div ref={barsRef} className="flex h-9 items-center gap-0.5">
+    <div ref={barsRef} className="flex h-7 items-center gap-0.5">
       {WAVEFORM_BARS.map((id) => (
         <div
           key={id}
@@ -236,7 +236,7 @@ export function ControlBar({
       onFileChange={handleFile}
       onInputChange={setInput}
       onPreviewClick={handlePreviewClick}
-      onInputKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+      onInputKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
           handleSend();

@@ -32,13 +32,34 @@ export function isTunnelAnimationStyle(value: string): value is TunnelAnimationS
   return TUNNEL_ANIMATION_STYLES.includes(value as TunnelAnimationStyle);
 }
 
-export interface ChatEntry {
+interface ChatEntryBase {
   id: string;
   from: "user" | "agent";
-  content: string;
   timestamp: number;
   delivery?: "sending" | "confirming" | "delivered" | "failed";
 }
+
+export interface TextChatEntry extends ChatEntryBase {
+  type: "text";
+  content: string;
+}
+
+export interface AudioChatEntry extends ChatEntryBase {
+  type: "audio";
+  audioUrl: string;
+  mime: string;
+  size: number;
+}
+
+export interface ImageChatEntry extends ChatEntryBase {
+  type: "image";
+  imageUrl: string;
+  mime: string;
+  width?: number;
+  height?: number;
+}
+
+export type ChatEntry = TextChatEntry | AudioChatEntry | ImageChatEntry;
 
 export interface ReceivedFile {
   id: string;

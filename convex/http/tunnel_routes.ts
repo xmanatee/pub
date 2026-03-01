@@ -11,7 +11,6 @@ import {
   getApiKey,
   getPublicUrl,
   jsonResponse,
-  mapTunnelError,
   parseExpiresIn,
   rateLimitResponse,
   rethrowTunnelApiError,
@@ -225,5 +224,3 @@ export function registerTunnelRoutes(http: ReturnType<typeof httpRouter>): void 
     }),
   });
 }
-
-export { mapTunnelError };

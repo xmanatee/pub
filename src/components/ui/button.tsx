@@ -21,8 +21,8 @@ const buttonVariants = cva(
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
         icon: "h-9 w-9",
-        control: "h-14 w-14 shrink-0 rounded-full [&_svg]:size-6",
-        controlBack: "h-16 w-16 shrink-0 rounded-full [&_svg]:size-6",
+        control: "h-10 w-10 shrink-0 rounded-full [&_svg]:size-5",
+        controlBack: "h-12 w-12 shrink-0 rounded-full [&_svg]:size-5",
       },
     },
     defaultVariants: {

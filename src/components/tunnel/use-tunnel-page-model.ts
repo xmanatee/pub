@@ -41,6 +41,8 @@ export function useTunnelPageModel(tunnelId: string) {
   const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   const {
+    addAgentAudioMessage,
+    addAgentImageMessage,
     addAgentMessage,
     addUserPendingMessage,
     clearMessages,
@@ -99,9 +101,46 @@ export function useTunnelPageModel(tunnelId: string) {
           id: message.id,
           mime: typeof message.meta?.mime === "string" ? message.meta.mime : undefined,
         });
+        return;
+      }
+
+      if (channel === CHANNELS.AUDIO && message.type === "binary" && cm.binaryData) {
+        markAgentActivity();
+        const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "audio/webm";
+        const blob = new Blob([cm.binaryData], { type: mime });
+        const audioUrl = URL.createObjectURL(blob);
+        addAgentAudioMessage({
+          audioUrl,
+          id: message.id,
+          mime,
+          size: cm.binaryData.byteLength,
+        });
+        return;
+      }
+
+      if (channel === CHANNELS.MEDIA && message.type === "binary" && cm.binaryData) {
+        markAgentActivity();
+        const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "image/png";
+        const blob = new Blob([cm.binaryData], { type: mime });
+        const imageUrl = URL.createObjectURL(blob);
+        addAgentImageMessage({
+          id: message.id,
+          imageUrl,
+          mime,
+          width: typeof message.meta?.width === "number" ? message.meta.width : undefined,
+          height: typeof message.meta?.height === "number" ? message.meta.height : undefined,
+        });
       }
     },
-    [addAgentMessage, addReceivedBinaryFile, autoOpenCanvas, markAgentActivity, tunnelId],
+    [
+      addAgentAudioMessage,
+      addAgentImageMessage,
+      addAgentMessage,
+      addReceivedBinaryFile,
+      autoOpenCanvas,
+      markAgentActivity,
+      tunnelId,
+    ],
   );
 
   const handleDeliveryAck = useCallback(
