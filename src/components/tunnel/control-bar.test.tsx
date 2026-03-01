@@ -130,7 +130,7 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain('aria-label="Open chat"');
     expect(html).toContain('tabindex="-1"');
-    expect(html).toContain("h-16");
+    expect(html).toContain("min-h-16");
   });
 
   it("shows back button only outside canvas mode", () => {

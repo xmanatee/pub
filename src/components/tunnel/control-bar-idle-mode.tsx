@@ -73,11 +73,7 @@ export function ControlBarIdleMode({
       />
 
       <div
-        className={cn(
-          "relative z-20 overflow-hidden",
-          !expanded && !showPreview && "h-16",
-          shellContentClassName,
-        )}
+        className={cn("relative z-20 min-h-16 overflow-hidden", shellContentClassName)}
         {...longPressHandlers}
       >
         <div
