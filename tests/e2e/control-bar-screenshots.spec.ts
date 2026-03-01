@@ -2,11 +2,12 @@ import { expect, test } from "@playwright/test";
 
 const SCREENSHOT_DIR = "tests/e2e/screenshots";
 
+test.use({ reducedMotion: "reduce" });
+
 test.describe("Control bar screenshots", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/debug/control-bar");
     await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible();
-    await page.waitForTimeout(500);
   });
 
   test("visual states", async ({ page }) => {
@@ -34,8 +35,6 @@ test.describe("Control bar screenshots", () => {
     const withClose = section.locator('[class*="border"]:has([class*="bg-muted"])').last();
     await withClose.getByLabel("Message").click({ button: "right" });
     await expect(section.getByRole("menuitem", { name: "Close" })).toBeVisible();
-    await page.waitForTimeout(500);
-
     await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-close-button.png` });
   });
 });

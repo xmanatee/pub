@@ -18,6 +18,9 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         headless: true,
+        launchOptions: {
+          args: ["--font-render-hinting=none", "--disable-skia-runtime-opts", "--disable-lcd-text"],
+        },
       },
     },
   ],
