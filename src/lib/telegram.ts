@@ -70,10 +70,11 @@ export function getTelegramStartParam(): string | null {
 }
 
 export function parseStartParam(startParam: string): { path: string } | null {
+  // Legacy prefix format
   if (startParam.startsWith("p_") && startParam.length > 2)
     return { path: `/p/${startParam.slice(2)}` };
-  if (startParam.startsWith("t_") && startParam.length > 2)
-    return { path: `/t/${startParam.slice(2)}` };
+  // New format: just the slug
+  if (startParam.length > 0 && !startParam.includes("/")) return { path: `/p/${startParam}` };
   return null;
 }
 

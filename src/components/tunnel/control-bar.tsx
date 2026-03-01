@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import {
   type ChangeEvent,
   type KeyboardEvent,
@@ -11,12 +11,13 @@ import {
 import { Button } from "~/components/ui/button";
 import { useLongPress } from "~/hooks/use-long-press";
 import { CHANNELS, makeBinaryMetaMessage, makeHtmlMessage } from "~/lib/bridge-protocol";
+import { cn } from "~/lib/utils";
 import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarVoiceMode } from "./control-bar-voice-mode";
-import type { TunnelViewMode } from "./types";
+import type { TunnelSessionVisualState, TunnelViewMode } from "./types";
 import { useControlBarAudio } from "./use-control-bar-audio";
 import { useHoldToRecord } from "./use-hold-to-record";
 
@@ -24,13 +25,16 @@ const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
 interface ControlBarProps {
   chatPreview: string | null;
-  disabled: boolean;
+  collapsed: boolean;
+  sendDisabled: boolean;
   bridge: BrowserBridge | null;
   onDismissPreview: () => void;
+  onToggleCollapsed: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
   viewMode: TunnelViewMode;
   onChangeView: (view: TunnelViewMode) => void;
+  visualState: TunnelSessionVisualState;
   voiceModeEnabled: boolean;
 }
 
@@ -42,13 +46,16 @@ function formatTime(seconds: number) {
 
 export function ControlBar({
   chatPreview,
-  disabled,
+  collapsed,
+  sendDisabled,
   bridge,
   onDismissPreview,
+  onToggleCollapsed,
   onSendChat,
   onSendAudio,
   viewMode,
   onChangeView,
+  visualState,
   voiceModeEnabled,
 }: ControlBarProps) {
   const [input, setInput] = useState("");
@@ -58,7 +65,7 @@ export function ControlBar({
 
   const floatingShellClass = "pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-3";
   const floatingShellStyle = { paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" } as const;
-  const shellContainerClass = "pointer-events-auto mx-auto w-full max-w-4xl";
+  const shellContainerClass = "pointer-events-auto relative mx-auto w-full max-w-4xl";
   const controlHeightClass = "min-h-12";
   const actionButtonClass = "shrink-0";
   const controlBarClass =
@@ -98,7 +105,7 @@ export function ControlBar({
     startRecording,
     startVoiceMode,
     stopVoiceMode,
-  } = useControlBarAudio({ disabled, bridge, onSendAudio });
+  } = useControlBarAudio({ disabled: false, bridge, onSendAudio });
 
   useEffect(() => {
     if (mode !== "idle" && expanded) {
@@ -107,7 +114,7 @@ export function ControlBar({
   }, [mode, expanded]);
 
   const { pointerHandlers } = useHoldToRecord({
-    disabled,
+    disabled: false,
     mode,
     startRecording,
     sendRecording,
@@ -155,9 +162,25 @@ export function ControlBar({
   );
 
   const renderFloatingShell = (children: ReactNode) => (
-    <div className={floatingShellClass} style={floatingShellStyle}>
+    <div
+      className={cn(
+        floatingShellClass,
+        "transition-transform duration-300",
+        collapsed ? "translate-y-full" : null,
+      )}
+      style={floatingShellStyle}
+    >
       <div className={shellContainerClass}>
-        <div className="flex items-end gap-2">
+        <button
+          type="button"
+          className="pointer-events-auto absolute -top-10 right-0 flex size-8 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Show control bar" : "Hide control bar"}
+        >
+          {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+        </button>
+        <div className="flex items-end gap-2" {...(collapsed ? { inert: true } : {})}>
           <div className="min-w-0 flex-1">{children}</div>
           {viewMode !== "canvas" ? (
             <Button
@@ -226,7 +249,6 @@ export function ControlBar({
       chatPreview={chatPreview}
       controlHeightClass={controlHeightClass}
       controlRowClass={controlRowClass}
-      disabled={disabled}
       expanded={expanded}
       fileInputRef={fileInputRef}
       hasText={hasText}
@@ -245,10 +267,12 @@ export function ControlBar({
       onSend={handleSend}
       onStartVoiceMode={startVoiceMode}
       onViewSelect={handleViewSelect}
+      sendDisabled={sendDisabled}
       voiceModeEnabled={voiceModeEnabled}
       pointerHandlers={pointerHandlers}
       shellContentClassName="border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-4xl"
       viewMode={viewMode}
+      visualState={visualState}
     />,
   );
 }

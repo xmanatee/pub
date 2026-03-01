@@ -26,6 +26,7 @@ export type TunnelSessionVisualState =
   | "disconnected"
   | "waiting-content"
   | "idle"
+  | "agent-thinking"
   | "agent-replying";
 
 export function isTunnelAnimationStyle(value: string): value is TunnelAnimationStyle {

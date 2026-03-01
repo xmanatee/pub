@@ -64,11 +64,11 @@ export const completeMerge = mutation({
 
     if (sourceUserId === targetUserId) return;
 
-    const publications = await ctx.db
-      .query("publications")
+    const pubs = await ctx.db
+      .query("pubs")
       .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
       .collect();
-    for (const pub of publications) {
+    for (const pub of pubs) {
       await ctx.db.patch(pub._id, { userId: targetUserId });
     }
 

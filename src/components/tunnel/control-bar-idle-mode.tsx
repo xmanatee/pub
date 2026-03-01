@@ -4,8 +4,9 @@ import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+import "./control-bar-state.css";
 import { ExtendedOptions } from "./extended-options";
-import type { TunnelViewMode } from "./types";
+import type { TunnelSessionVisualState, TunnelViewMode } from "./types";
 
 const MAX_TEXTAREA_ROWS = 5;
 const TEXTAREA_LINE_HEIGHT = 20;
@@ -16,7 +17,6 @@ interface ControlBarIdleModeProps {
   chatPreview: string | null;
   controlHeightClass: string;
   controlRowClass: string;
-  disabled: boolean;
   expanded: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasText: boolean;
@@ -30,18 +30,28 @@ interface ControlBarIdleModeProps {
   onSend: () => void;
   onStartVoiceMode: () => void;
   onViewSelect: (mode: TunnelViewMode) => void;
-  voiceModeEnabled: boolean;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
+  sendDisabled: boolean;
   shellContentClassName: string;
   viewMode: TunnelViewMode;
+  visualState: TunnelSessionVisualState;
+  voiceModeEnabled: boolean;
 }
+
+const STATE_CLASS_MAP: Record<TunnelSessionVisualState, string> = {
+  connecting: "cb-state-connecting",
+  disconnected: "cb-state-disconnected",
+  "waiting-content": "cb-state-waiting-content",
+  idle: "cb-state-idle",
+  "agent-thinking": "cb-state-agent-thinking",
+  "agent-replying": "cb-state-agent-replying",
+};
 
 export function ControlBarIdleMode({
   actionButtonClass,
   chatPreview,
   controlHeightClass,
   controlRowClass,
-  disabled,
   expanded,
   fileInputRef,
   hasText,
@@ -56,8 +66,10 @@ export function ControlBarIdleMode({
   onStartVoiceMode,
   onViewSelect,
   pointerHandlers,
+  sendDisabled,
   shellContentClassName,
   viewMode,
+  visualState,
   voiceModeEnabled,
 }: ControlBarIdleModeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -76,6 +88,7 @@ export function ControlBarIdleMode({
   }, [input, resizeTextarea]);
 
   const showPreview = !expanded && chatPreview !== null;
+  const isConnecting = visualState === "connecting";
   return (
     <>
       <button
@@ -91,7 +104,11 @@ export function ControlBarIdleMode({
       />
 
       <div
-        className={cn("relative z-20 min-h-12 overflow-hidden", shellContentClassName)}
+        className={cn(
+          "cb-state-border relative z-20 min-h-12 overflow-hidden",
+          STATE_CLASS_MAP[visualState],
+          shellContentClassName,
+        )}
         {...longPressHandlers}
       >
         <div
@@ -138,7 +155,7 @@ export function ControlBarIdleMode({
                 size="control"
                 className={actionButtonClass}
                 onClick={() => fileInputRef.current?.click()}
-                disabled={disabled}
+                disabled={sendDisabled}
                 aria-label="Attach file"
               >
                 <Paperclip />
@@ -150,11 +167,10 @@ export function ControlBarIdleMode({
 
           <textarea
             ref={textareaRef}
-            placeholder={disabled ? "Connecting..." : "Message..."}
+            placeholder={isConnecting ? "Connecting..." : "Message..."}
             value={input}
             onChange={(event) => onInputChange(event.target.value)}
             onKeyDown={onInputKeyDown}
-            disabled={disabled}
             aria-label="Message"
             inputMode="text"
             enterKeyHint="send"
@@ -170,7 +186,7 @@ export function ControlBarIdleMode({
                   size="control"
                   className={actionButtonClass}
                   onClick={onSend}
-                  disabled={disabled}
+                  disabled={sendDisabled}
                   aria-label="Send message"
                 >
                   <Send />
@@ -186,7 +202,6 @@ export function ControlBarIdleMode({
                     variant="ghost"
                     size="control"
                     className={cn(actionButtonClass, "touch-none long-press-ignore")}
-                    disabled={disabled}
                     aria-label="Hold to record audio"
                     {...pointerHandlers}
                   >
@@ -204,7 +219,7 @@ export function ControlBarIdleMode({
                       size="control"
                       className={actionButtonClass}
                       onClick={onStartVoiceMode}
-                      disabled={disabled}
+                      disabled={sendDisabled}
                       aria-label="Voice mode"
                     >
                       <AudioLines />

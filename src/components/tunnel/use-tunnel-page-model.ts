@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   readCachedCanvasHtml,
   writeCachedCanvasHtml,
@@ -19,11 +19,11 @@ import { api } from "../../../convex/_generated/api";
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const CHAT_CONFIRM_GRACE_MS = 12_000;
 
-export function useTunnelPageModel(tunnelId: string) {
-  const tunnel = useQuery(api.tunnels.getByTunnelId, { tunnelId });
-  const storeBrowserSignal = useMutation(api.tunnels.storeBrowserSignal);
+export function useTunnelPageModel(slug: string) {
+  const tunnel = useQuery(api.pubs.getSessionBySlug, { slug });
+  const storeBrowserSignal = useMutation(api.pubs.storeBrowserSignal);
 
-  const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(tunnelId));
+  const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(slug));
   const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
@@ -56,18 +56,23 @@ export function useTunnelPageModel(tunnelId: string) {
 
   const { addReceivedBinaryFile, clearFiles, files } = useTunnelFiles();
 
+  const pendingChatQueueRef = useRef<Array<{ msg: ReturnType<typeof makeTextMessage> }>>([]);
+  const pendingAudioQueueRef = useRef<Blob[]>([]);
+
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
   }, []);
 
   useEffect(() => {
-    setCanvasHtml(readCachedCanvasHtml(tunnelId));
+    setCanvasHtml(readCachedCanvasHtml(slug));
     setViewMode("canvas");
     setLastAgentActivityAt(null);
     setLastUserDeliveredAt(null);
     clearMessages();
     clearFiles();
-  }, [tunnelId, clearFiles, clearMessages]);
+    pendingChatQueueRef.current = [];
+    pendingAudioQueueRef.current = [];
+  }, [slug, clearFiles, clearMessages]);
 
   const handleBridgeMessage = useCallback(
     (cm: ChannelMessage) => {
@@ -82,13 +87,13 @@ export function useTunnelPageModel(tunnelId: string) {
         markAgentActivity();
         if (message.type === "html" && message.data) {
           setCanvasHtml(message.data);
-          writeCachedCanvasHtml(tunnelId, message.data);
+          writeCachedCanvasHtml(slug, message.data);
           if (autoOpenCanvas) setViewMode("canvas");
           return;
         }
         if (message.type === "event" && message.data === "hide") {
           setCanvasHtml(null);
-          writeCachedCanvasHtml(tunnelId, null);
+          writeCachedCanvasHtml(slug, null);
         }
         return;
       }
@@ -139,7 +144,7 @@ export function useTunnelPageModel(tunnelId: string) {
       addReceivedBinaryFile,
       autoOpenCanvas,
       markAgentActivity,
-      tunnelId,
+      slug,
     ],
   );
 
@@ -159,32 +164,26 @@ export function useTunnelPageModel(tunnelId: string) {
     onMessage: handleBridgeMessage,
     onTrackActivity: markAgentActivity,
     storeBrowserSignal,
-    tunnelId,
+    slug,
   });
 
   const visualState = useTunnelSessionVisualState({
     bridgeState,
     hasCanvasContent: Boolean(canvasHtml),
-    isActive: viewMode === "canvas",
     lastAgentActivityAt,
     lastUserDeliveredAt,
   });
 
-  const sendChat = useCallback(
-    (text: string) => {
-      const bridge = bridgeRef.current;
-      if (!bridge) {
-        console.warn("Cannot send chat message: tunnel bridge not ready");
-        return;
-      }
-      const msg = makeTextMessage(text);
-
-      addUserPendingMessage({ id: msg.id, content: text });
-
+  const dispatchChatMessage = useCallback(
+    (msg: ReturnType<typeof makeTextMessage>) => {
       void (async () => {
+        const bridge = bridgeRef.current;
+        if (!bridge) {
+          markMessageFailedIfPending(msg.id);
+          return;
+        }
         const ready = await ensureChannelReady(bridge, CHANNELS.CHAT);
         if (!ready) {
-          console.warn("Cannot send chat message: chat data channel not ready");
           markMessageFailedIfPending(msg.id);
           return;
         }
@@ -199,13 +198,20 @@ export function useTunnelPageModel(tunnelId: string) {
         markMessageConfirmingIfPending(msg.id);
       })();
     },
-    [
-      addUserPendingMessage,
-      bridgeRef,
-      markMessageConfirmingIfPending,
-      markMessageDelivered,
-      markMessageFailedIfPending,
-    ],
+    [bridgeRef, markMessageConfirmingIfPending, markMessageDelivered, markMessageFailedIfPending],
+  );
+
+  const sendChat = useCallback(
+    (text: string) => {
+      const msg = makeTextMessage(text);
+      addUserPendingMessage({ id: msg.id, content: text });
+      if (bridgeState !== "connected") {
+        pendingChatQueueRef.current.push({ msg });
+        return;
+      }
+      dispatchChatMessage(msg);
+    },
+    [addUserPendingMessage, bridgeState, dispatchChatMessage],
   );
 
   useEffect(() => {
@@ -213,40 +219,52 @@ export function useTunnelPageModel(tunnelId: string) {
     markSendingMessagesConfirming();
   }, [bridgeState, markSendingMessagesConfirming]);
 
-  const sendAudio = useCallback(
+  const dispatchAudio = useCallback(
     (blob: Blob) => {
       const bridge = bridgeRef.current;
-      if (!bridge) {
-        console.warn("Cannot send audio: tunnel bridge not ready");
-        return;
-      }
+      if (!bridge) return;
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
-        if (!ready) {
-          console.warn("Cannot send audio: audio data channel not ready");
-          return;
-        }
+        if (!ready) return;
         const buffer = await blob.arrayBuffer();
         const sentMeta = bridge.send(
           CHANNELS.AUDIO,
           makeBinaryMetaMessage({ mime: blob.type, size: buffer.byteLength }),
         );
-        if (!sentMeta) {
-          console.warn("Failed to send audio metadata");
-          return;
-        }
-        if (!bridge.sendBinary(CHANNELS.AUDIO, buffer)) {
-          console.warn("Failed to send audio payload");
-        }
+        if (!sentMeta) return;
+        bridge.sendBinary(CHANNELS.AUDIO, buffer);
       })();
     },
     [bridgeRef],
   );
 
+  const sendAudio = useCallback(
+    (blob: Blob) => {
+      if (bridgeState !== "connected") {
+        pendingAudioQueueRef.current.push(blob);
+        return;
+      }
+      dispatchAudio(blob);
+    },
+    [bridgeState, dispatchAudio],
+  );
+
+  useEffect(() => {
+    if (bridgeState !== "connected") return;
+    const chatQueue = pendingChatQueueRef.current.splice(0);
+    for (const { msg } of chatQueue) {
+      dispatchChatMessage(msg);
+    }
+    const audioQueue = pendingAudioQueueRef.current.splice(0);
+    for (const blob of audioQueue) {
+      dispatchAudio(blob);
+    }
+  }, [bridgeState, dispatchChatMessage, dispatchAudio]);
+
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);
-    writeCachedCanvasHtml(tunnelId, null);
-  }, [tunnelId]);
+    writeCachedCanvasHtml(slug, null);
+  }, [slug]);
 
   return {
     animationStyle,
@@ -271,7 +289,7 @@ export function useTunnelPageModel(tunnelId: string) {
     setViewMode,
     setVoiceModeEnabled,
     showDeliveryStatus,
-    tunnel,
+    session: tunnel,
     viewMode,
     visualState,
     voiceModeEnabled,
