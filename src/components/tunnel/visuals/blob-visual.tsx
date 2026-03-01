@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { cn } from "~/lib/utils";
-import { lerp, type VisualProps } from "./shared";
+import { smoothLerp, smoothLerpHue, type VisualProps } from "./shared";
 
 const TAU = Math.PI * 2;
 const POINTS = 7;
@@ -28,6 +28,9 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
   const toneRef = useRef(tone);
   const currentToneRef = useRef({ ...tone });
   const hasContentRef = useRef(hasCanvasContent);
+  const rafRef = useRef<number | null>(null);
+  const drawRef = useRef<((timestamp: number) => void) | null>(null);
+  const lastTimeRef = useRef(0);
 
   useEffect(() => {
     toneRef.current = tone;
@@ -35,6 +38,17 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
 
   useEffect(() => {
     hasContentRef.current = hasCanvasContent;
+    if (hasCanvasContent) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      lastTimeRef.current = 0;
+      return;
+    }
+    if (rafRef.current === null && drawRef.current) {
+      rafRef.current = requestAnimationFrame(drawRef.current);
+    }
   }, [hasCanvasContent]);
 
   useEffect(() => {
@@ -43,6 +57,20 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
 
     let w = 0;
     let h = 0;
+
+    let cachedGrad: CanvasGradient | null = null;
+    let cachedInnerGrad: CanvasGradient | null = null;
+    let cachedHueA = Number.NaN;
+    let cachedHueB = Number.NaN;
+    let cachedHueC = Number.NaN;
+    let cachedSat = Number.NaN;
+    let cachedOpacity = Number.NaN;
+    let cachedCoreScale = Number.NaN;
+
+    const BLUR_SCALE = 0.25;
+    const offscreen = document.createElement("canvas");
+    const offCtx = offscreen.getContext("2d");
+    if (!offCtx) return;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio, 2);
@@ -53,6 +81,10 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       canvas.height = h * dpr;
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.scale(dpr, dpr);
+      offscreen.width = w * BLUR_SCALE;
+      offscreen.height = h * BLUR_SCALE;
+      cachedGrad = null;
+      cachedInnerGrad = null;
     };
 
     resize();
@@ -70,24 +102,27 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       (_, i) => (i / INNER_POINTS) * TAU + Math.random() * 0.8 + 1.0,
     );
 
-    let raf: number;
     let t = 0;
 
-    const draw = () => {
+    const draw = (timestamp: number) => {
+      const dt = lastTimeRef.current
+        ? Math.min((timestamp - lastTimeRef.current) / 1000, 0.1)
+        : 0.016;
+      lastTimeRef.current = timestamp;
+
       const target = toneRef.current;
       const cur = currentToneRef.current;
-      const lerpRate = 0.02;
-      cur.hueA = lerp(cur.hueA, target.hueA, lerpRate);
-      cur.hueB = lerp(cur.hueB, target.hueB, lerpRate);
-      cur.hueC = lerp(cur.hueC, target.hueC, lerpRate);
-      cur.energy = lerp(cur.energy, target.energy, lerpRate);
-      cur.speedMs = lerp(cur.speedMs, target.speedMs, lerpRate);
-      cur.glow = lerp(cur.glow, target.glow, lerpRate);
-      cur.saturation = lerp(cur.saturation, target.saturation, lerpRate);
-      cur.coreScale = lerp(cur.coreScale, target.coreScale, lerpRate);
+      cur.hueA = smoothLerpHue(cur.hueA, target.hueA, 3.0, dt);
+      cur.hueB = smoothLerpHue(cur.hueB, target.hueB, 3.0, dt);
+      cur.hueC = smoothLerpHue(cur.hueC, target.hueC, 3.0, dt);
+      cur.energy = smoothLerp(cur.energy, target.energy, 3.0, dt);
+      cur.speedMs = smoothLerp(cur.speedMs, target.speedMs, 3.0, dt);
+      cur.glow = smoothLerp(cur.glow, target.glow, 3.0, dt);
+      cur.saturation = smoothLerp(cur.saturation, target.saturation, 3.0, dt);
+      cur.coreScale = smoothLerp(cur.coreScale, target.coreScale, 3.0, dt);
 
       const speed = 16_000 / cur.speedMs;
-      t += 0.012 * speed;
+      t += dt * speed;
 
       ctx.globalAlpha = 1;
       ctx.clearRect(0, 0, w, h);
@@ -95,6 +130,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       const cx = w * 0.5;
       const cy = h * 0.48;
       const baseRadius = Math.min(w, h) * 0.22 * cur.coreScale;
+      const innerRadius = baseRadius * 0.5;
       const amp1 = baseRadius * 0.18 * cur.energy;
       const amp2 = baseRadius * 0.1 * cur.energy;
       const amp3 = baseRadius * 0.06 * cur.energy;
@@ -114,27 +150,51 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       const opacity = hasContentRef.current ? 0.24 : 1;
       const sat = cur.saturation * 80;
 
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius * 1.5);
-      grad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 62% / ${0.7 * opacity})`);
-      grad.addColorStop(0.5, `hsl(${cur.hueB} ${sat}% 56% / ${0.5 * opacity})`);
-      grad.addColorStop(1, `hsl(${cur.hueC} ${sat}% 50% / ${0.15 * opacity})`);
+      if (
+        !cachedGrad ||
+        !cachedInnerGrad ||
+        Math.abs(cur.hueA - cachedHueA) > 0.5 ||
+        Math.abs(cur.hueB - cachedHueB) > 0.5 ||
+        Math.abs(cur.hueC - cachedHueC) > 0.5 ||
+        Math.abs(sat - cachedSat) > 0.5 ||
+        Math.abs(opacity - cachedOpacity) > 0.001 ||
+        Math.abs(cur.coreScale - cachedCoreScale) > 0.005
+      ) {
+        cachedGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius * 1.5);
+        cachedGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 62% / ${0.7 * opacity})`);
+        cachedGrad.addColorStop(0.5, `hsl(${cur.hueB} ${sat}% 56% / ${0.5 * opacity})`);
+        cachedGrad.addColorStop(1, `hsl(${cur.hueC} ${sat}% 50% / ${0.15 * opacity})`);
+        cachedInnerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerRadius * 1.4);
+        cachedInnerGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 76% / ${0.6 * opacity})`);
+        cachedInnerGrad.addColorStop(0.6, `hsl(${cur.hueB} ${sat}% 68% / ${0.3 * opacity})`);
+        cachedInnerGrad.addColorStop(1, "transparent");
+        cachedHueA = cur.hueA;
+        cachedHueB = cur.hueB;
+        cachedHueC = cur.hueC;
+        cachedSat = sat;
+        cachedOpacity = opacity;
+        cachedCoreScale = cur.coreScale;
+      }
 
       buildBlobPath(ctx, pts, POINTS);
-      ctx.fillStyle = grad;
+      ctx.fillStyle = cachedGrad;
       ctx.fill();
 
+      offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+      offCtx.save();
+      offCtx.scale(BLUR_SCALE, BLUR_SCALE);
+      buildBlobPath(offCtx, pts, POINTS);
+      offCtx.fillStyle = cachedGrad;
+      offCtx.fill();
+      offCtx.restore();
       ctx.globalAlpha = (0.12 + cur.energy * 0.18) * opacity;
-      ctx.filter = `blur(${24 + cur.energy * 16}px)`;
-      ctx.fill();
-      ctx.filter = "none";
+      ctx.drawImage(offscreen, 0, 0, w, h);
 
-      buildBlobPath(ctx, pts, POINTS);
       ctx.globalAlpha = (0.2 + cur.energy * 0.4) * opacity;
       ctx.strokeStyle = `hsl(${cur.hueA} ${sat}% 74%)`;
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      const innerRadius = baseRadius * 0.5;
       const innerAmp1 = innerRadius * 0.22 * cur.energy;
       const innerAmp2 = innerRadius * 0.12 * cur.energy;
       const innerPts: [number, number][] = [];
@@ -148,23 +208,31 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
         innerPts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
       }
 
-      const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerRadius * 1.4);
-      innerGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 76% / ${0.6 * opacity})`);
-      innerGrad.addColorStop(0.6, `hsl(${cur.hueB} ${sat}% 68% / ${0.3 * opacity})`);
-      innerGrad.addColorStop(1, "transparent");
-
       ctx.globalAlpha = 1;
       buildBlobPath(ctx, innerPts, INNER_POINTS);
-      ctx.fillStyle = innerGrad;
+      ctx.fillStyle = cachedInnerGrad;
       ctx.fill();
 
-      raf = requestAnimationFrame(draw);
+      if (hasContentRef.current) {
+        lastTimeRef.current = 0;
+        rafRef.current = null;
+        return;
+      }
+      rafRef.current = requestAnimationFrame(draw);
     };
 
-    raf = requestAnimationFrame(draw);
+    drawRef.current = draw;
+    if (!hasContentRef.current) {
+      rafRef.current = requestAnimationFrame(draw);
+    }
 
     return () => {
-      cancelAnimationFrame(raf);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      drawRef.current = null;
+      lastTimeRef.current = 0;
       window.removeEventListener("resize", resize);
     };
   }, []);

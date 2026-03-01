@@ -70,6 +70,12 @@ export interface VisualProps {
   className?: string;
 }
 
-export function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
+export function smoothLerp(current: number, target: number, rate: number, dt: number): number {
+  return current + (target - current) * (1 - Math.exp(-rate * dt));
+}
+
+export function smoothLerpHue(current: number, target: number, rate: number, dt: number): number {
+  const delta = ((((target - current) % 360) + 540) % 360) - 180;
+  const result = current + delta * (1 - Math.exp(-rate * dt));
+  return ((result % 360) + 360) % 360;
 }
