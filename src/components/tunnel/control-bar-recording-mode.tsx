@@ -6,7 +6,6 @@ import { cn } from "~/lib/utils";
 
 interface ControlBarRecordingModeProps {
   actionButtonClass: string;
-  actionIconClass: string;
   controlBarClass: string;
   controlHeightClass: string;
   elapsedLabel: string;
@@ -20,7 +19,6 @@ interface ControlBarRecordingModeProps {
 
 export function ControlBarRecordingMode({
   actionButtonClass,
-  actionIconClass,
   controlBarClass,
   controlHeightClass,
   elapsedLabel,
@@ -38,12 +36,12 @@ export function ControlBarRecordingMode({
           <Button
             type="button"
             variant="ghost"
-            size="icon"
+            size="control"
             className={cn(actionButtonClass, "text-destructive")}
             onClick={onCancelRecording}
             aria-label="Delete recording"
           >
-            <Trash2 className={actionIconClass} />
+            <Trash2 />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Delete recording</TooltipContent>
@@ -70,16 +68,12 @@ export function ControlBarRecordingMode({
           <Button
             type="button"
             variant="ghost"
-            size="icon"
+            size="control"
             className={actionButtonClass}
             onClick={onPauseResume}
             aria-label={isPaused ? "Resume recording" : "Pause recording"}
           >
-            {isPaused ? (
-              <Play className={actionIconClass} />
-            ) : (
-              <Pause className={actionIconClass} />
-            )}
+            {isPaused ? <Play /> : <Pause />}
           </Button>
         </TooltipTrigger>
         <TooltipContent>{isPaused ? "Resume" : "Pause"}</TooltipContent>
@@ -90,12 +84,12 @@ export function ControlBarRecordingMode({
           <Button
             type="button"
             variant="default"
-            size="icon"
+            size="control"
             className={actionButtonClass}
             onClick={onSendRecording}
             aria-label="Send recording"
           >
-            <Send className={actionIconClass} />
+            <Send />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Send recording</TooltipContent>

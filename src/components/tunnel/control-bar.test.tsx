@@ -120,12 +120,16 @@ describe("ControlBar", () => {
     const html = renderControlBar({ chatPreview: "Hello from agent" });
     expect(html).toContain("Hello from agent");
     expect(html).toContain("Agent message");
+    expect(html).toContain("max-h-16 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
   });
 
   it("hides chat preview when chatPreview is null", () => {
     const html = renderControlBar({ chatPreview: null });
-    expect(html).not.toContain("Agent message");
+    expect(html).toContain("pointer-events-none max-h-0 opacity-0");
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('aria-label="Open chat"');
+    expect(html).toContain('tabindex="-1"');
     expect(html).toContain("h-16");
   });
 

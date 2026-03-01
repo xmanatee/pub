@@ -74,13 +74,7 @@ export function CanvasPanel({ animationStyle, html, visualState }: CanvasPanelPr
           title="Canvas"
           onLoad={() => setLoadedHtml(html)}
         />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center px-6">
-          <p className="rounded-full border border-border/60 bg-background/70 px-4 py-2 text-center text-xs text-muted-foreground backdrop-blur-md">
-            Waiting for content from the agent...
-          </p>
-        </div>
-      )}
+      ) : null}
       {canvasError ? (
         <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2">
           <p className="rounded-full border border-destructive/40 bg-background/90 px-3 py-1 text-xs text-destructive shadow-sm backdrop-blur">

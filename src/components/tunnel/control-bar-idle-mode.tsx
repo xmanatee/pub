@@ -10,7 +10,6 @@ import type { TunnelViewMode } from "./types";
 
 interface ControlBarIdleModeProps {
   actionButtonClass: string;
-  actionIconClass: string;
   chatPreview: string | null;
   controlHeightClass: string;
   controlRowClass: string;
@@ -36,7 +35,6 @@ interface ControlBarIdleModeProps {
 
 export function ControlBarIdleMode({
   actionButtonClass,
-  actionIconClass,
   chatPreview,
   controlHeightClass,
   controlRowClass,
@@ -77,23 +75,35 @@ export function ControlBarIdleMode({
       <div
         className={cn(
           "relative z-20 overflow-hidden",
+          !expanded && !showPreview && "h-16",
           shellContentClassName,
         )}
         {...longPressHandlers}
       >
-        {expanded ? (
-          <div className="overflow-hidden">
-            <ExtendedOptions viewMode={viewMode} onSelect={onViewSelect} />
-            <Separator />
-          </div>
-        ) : null}
+        <div
+          className={cn(
+            "overflow-hidden transition-all duration-300",
+            expanded ? "max-h-40 opacity-100" : "pointer-events-none max-h-0 opacity-0",
+          )}
+          aria-hidden={!expanded}
+        >
+          <ExtendedOptions viewMode={viewMode} onSelect={onViewSelect} />
+          <Separator />
+        </div>
 
-        {showPreview ? (
+        <div
+          className={cn(
+            "overflow-hidden transition-all duration-300",
+            showPreview ? "max-h-16 opacity-100" : "pointer-events-none max-h-0 opacity-0",
+          )}
+          aria-hidden={!showPreview}
+        >
           <button
             type="button"
             className="w-full overflow-hidden"
             onClick={onPreviewClick}
             aria-label="Open chat"
+            tabIndex={showPreview ? 0 : -1}
           >
             <div className="flex items-center gap-2 px-4 py-2.5">
               <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
@@ -104,20 +114,20 @@ export function ControlBarIdleMode({
             </div>
             <Separator />
           </button>
-        ) : null}
+        </div>
 
         <div className={cn(controlRowClass, controlHeightClass)}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
+                size="control"
                 className={actionButtonClass}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={disabled}
                 aria-label="Attach file"
               >
-                <Paperclip className={actionIconClass} />
+                <Paperclip />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Attach file</TooltipContent>
@@ -141,13 +151,13 @@ export function ControlBarIdleMode({
               <TooltipTrigger asChild>
                 <Button
                   variant="default"
-                  size="icon"
+                  size="control"
                   className={actionButtonClass}
                   onClick={onSend}
                   disabled={disabled}
                   aria-label="Send message"
                 >
-                  <Send className={actionIconClass} />
+                  <Send />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Send</TooltipContent>
@@ -158,13 +168,13 @@ export function ControlBarIdleMode({
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="control"
                     className={cn(actionButtonClass, "touch-none long-press-ignore")}
                     disabled={disabled}
                     aria-label="Hold to record audio"
                     {...pointerHandlers}
                   >
-                    <Mic className={actionIconClass} />
+                    <Mic />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Hold to record</TooltipContent>
@@ -175,13 +185,13 @@ export function ControlBarIdleMode({
                   <TooltipTrigger asChild>
                     <Button
                       variant="default"
-                      size="icon"
+                      size="control"
                       className={actionButtonClass}
                       onClick={onStartVoiceMode}
                       disabled={disabled}
                       aria-label="Voice mode"
                     >
-                      <AudioLines className={actionIconClass} />
+                      <AudioLines />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Voice mode</TooltipContent>

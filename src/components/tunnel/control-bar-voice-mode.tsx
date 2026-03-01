@@ -5,7 +5,6 @@ import { cn } from "~/lib/utils";
 
 interface ControlBarVoiceModeProps {
   actionButtonClass: string;
-  actionIconClass: string;
   controlBarClass: string;
   controlHeightClass: string;
   elapsedLabel: string;
@@ -16,7 +15,6 @@ interface ControlBarVoiceModeProps {
 
 export function ControlBarVoiceMode({
   actionButtonClass,
-  actionIconClass,
   controlBarClass,
   controlHeightClass,
   elapsedLabel,
@@ -35,12 +33,12 @@ export function ControlBarVoiceMode({
       <Button
         type="button"
         variant="ghost"
-        size="icon"
+        size="control"
         className={cn(actionButtonClass, "text-destructive")}
         onClick={onStopVoiceMode}
         aria-label="Stop voice mode"
       >
-        <Square className={actionIconClass} />
+        <Square />
       </Button>
     </div>
   );
