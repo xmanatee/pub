@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { CanvasPanel } from "~/components/live/canvas-panel";
 import { ChatPanel } from "~/components/live/chat-panel";
 import { ControlBar } from "~/components/live/control-bar";
+import { ControlBarGoLiveMode } from "~/components/live/control-bar-go-live-mode";
 import { SettingsPanel } from "~/components/live/settings-panel";
 import { useChatPreview } from "~/components/live/use-chat-preview";
 import { useLivePageModel } from "~/components/live/use-live-page-model";
@@ -17,7 +18,6 @@ export const Route = createFileRoute("/p/$slug")({
 function PubPage() {
   const { slug } = Route.useParams();
   const pub = useQuery(api.pubs.getBySlug, { slug });
-  const { isAuthenticated } = useConvexAuth();
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
@@ -65,30 +65,23 @@ function PubPage() {
 
   const hasContent = Boolean(pub.content && pub.contentType);
 
-  // Authenticated — may enter interactive mode
-  if (isAuthenticated) {
-    // No content — go straight to interactive mode
+  // Owner — always has access to interactive mode
+  if (pub.isOwner) {
     if (!hasContent) {
       return <InteractiveView slug={slug} />;
     }
-
-    // Content + interactive mode toggled on
     if (interactiveMode) {
       return <InteractiveView slug={slug} onBackToContent={() => setInteractiveMode(false)} />;
     }
-
-    // Content view with optional "Go Live" button
     return (
-      <ContentWithLiveToggle
-        content={pub.content ?? ""}
-        contentType={pub.contentType ?? "text"}
-        slug={slug}
-        onGoLive={() => setInteractiveMode(true)}
-      />
+      <>
+        <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />
+        <ControlBarGoLiveMode onGoLive={() => setInteractiveMode(true)} />
+      </>
     );
   }
 
-  // Not authenticated — content only
+  // Non-owner — content only
   if (!hasContent) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
@@ -102,36 +95,6 @@ function PubPage() {
   }
 
   return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
-}
-
-function ContentWithLiveToggle({
-  content,
-  contentType,
-  slug,
-  onGoLive,
-}: {
-  content: string;
-  contentType: string;
-  slug: string;
-  onGoLive: () => void;
-}) {
-  const live = useQuery(api.pubs.getLiveBySlug, { slug });
-  const isLive = live && live.status === "active";
-
-  return (
-    <>
-      <FullScreenContent content={content} contentType={contentType} />
-      {isLive ? (
-        <button
-          type="button"
-          onClick={onGoLive}
-          className="fixed top-4 right-4 z-[60] px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg hover:opacity-90 transition-opacity"
-        >
-          Go Live
-        </button>
-      ) : null}
-    </>
-  );
 }
 
 function InteractiveView({

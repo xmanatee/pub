@@ -101,12 +101,12 @@ export const getBySlug = query({
       .unique();
     if (!pub) return null;
 
-    if (!pub.isPublic) {
-      const userId = await getAuthUserId(ctx);
-      if (!userId || pub.userId !== userId) return null;
-    }
+    const userId = await getAuthUserId(ctx);
+    const isOwner = !!userId && pub.userId === userId;
 
-    return mapPub(pub, true);
+    if (!pub.isPublic && !isOwner) return null;
+
+    return { ...mapPub(pub, true), isOwner };
   },
 });
 
