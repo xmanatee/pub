@@ -24,10 +24,4 @@ test.describe("Page screenshots", () => {
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/login.png`, fullPage: true });
   });
-
-  test("pub loading state", async ({ page }) => {
-    await page.goto("/p/test-slug-nonexistent");
-
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/pub-loading.png`, fullPage: true });
-  });
 });

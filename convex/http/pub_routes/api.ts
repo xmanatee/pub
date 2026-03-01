@@ -23,6 +23,7 @@ import {
   parseSlugFromRequest,
   rateLimitResponse,
   rethrowLiveApiError,
+  rethrowPubLimitError,
 } from "../shared";
 
 const MAX_LIVE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -92,15 +93,19 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           const existing = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug: finalSlug });
           if (existing) throw new ApiError("Slug already taken", 409);
 
-          await ctx.runMutation(internal.pubs.createPub, {
-            userId: auth.userId,
-            slug: finalSlug,
-            contentType,
-            content: body.content,
-            title: body.title,
-            isPublic: body.isPublic ?? false,
-            expiresAt,
-          });
+          try {
+            await ctx.runMutation(internal.pubs.createPub, {
+              userId: auth.userId,
+              slug: finalSlug,
+              contentType,
+              content: body.content,
+              title: body.title,
+              isPublic: body.isPublic ?? false,
+              expiresAt,
+            });
+          } catch (error) {
+            rethrowPubLimitError(error);
+          }
 
           return { slug: finalSlug, expiresAt };
         },
@@ -414,14 +419,17 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
       return executeAction(
         async () => {
-          // Ensure pub exists; create empty one if not
           const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
           if (!pub) {
-            await ctx.runMutation(internal.pubs.createPub, {
-              userId: user.userId,
-              slug,
-              isPublic: false,
-            });
+            try {
+              await ctx.runMutation(internal.pubs.createPub, {
+                userId: user.userId,
+                slug,
+                isPublic: false,
+              });
+            } catch (error) {
+              rethrowPubLimitError(error);
+            }
           } else if (pub.userId !== user.userId) {
             throw new ApiError("Pub not found", 404);
           }

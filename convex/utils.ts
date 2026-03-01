@@ -11,8 +11,7 @@ export const CONTENT_TYPE_VALIDATOR = v.union(
 export const MAX_CONTENT_SIZE = 100 * 1024; // 100KB
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_KEY_NAME_LENGTH = 128;
-export const MAX_PUBLIC_PUBS = 20;
-export const MAX_PRIVATE_PUBS = 100;
+export const MAX_PUBS = 10;
 export const MAX_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
