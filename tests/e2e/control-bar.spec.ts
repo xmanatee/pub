@@ -3,33 +3,41 @@ import { expect, type Page, test } from "@playwright/test";
 async function openControlBarDebug(page: Page) {
   await page.goto("/debug/control-bar");
   await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible();
+  await page.locator("details summary").click();
+  await page.waitForTimeout(200);
+}
+
+function interactiveSection(page: Page) {
+  return page.locator("details[open]");
 }
 
 async function readControlMetrics(page: Page) {
-  return page.getByLabel("Message").evaluate((input) => {
-    const row = input.parentElement as HTMLElement | null;
-    if (!row) {
-      throw new Error("Message input row not found");
-    }
-
-    let shell = row.parentElement as HTMLElement | null;
-
-    while (shell) {
-      if (shell.classList.contains("min-h-12") && shell.classList.contains("overflow-hidden")) {
-        break;
+  return interactiveSection(page)
+    .getByLabel("Message")
+    .evaluate((input) => {
+      const row = input.parentElement as HTMLElement | null;
+      if (!row) {
+        throw new Error("Message input row not found");
       }
-      shell = shell.parentElement as HTMLElement | null;
-    }
-    if (!shell) {
-      throw new Error("Control shell not found");
-    }
 
-    return {
-      rowHeight: row.getBoundingClientRect().height,
-      shellHasHardLock: shell.classList.contains("h-12"),
-      shellHeight: shell.getBoundingClientRect().height,
-    };
-  });
+      let shell = row.parentElement as HTMLElement | null;
+
+      while (shell) {
+        if (shell.classList.contains("min-h-12") && shell.classList.contains("overflow-hidden")) {
+          break;
+        }
+        shell = shell.parentElement as HTMLElement | null;
+      }
+      if (!shell) {
+        throw new Error("Control shell not found");
+      }
+
+      return {
+        rowHeight: row.getBoundingClientRect().height,
+        shellHasHardLock: shell.classList.contains("h-12"),
+        shellHeight: shell.getBoundingClientRect().height,
+      };
+    });
 }
 
 async function sampleShellHeights(page: Page, samples = 8, intervalMs = 40) {
@@ -53,7 +61,7 @@ test.describe("Control bar layout", () => {
   test("preview opens and closes with animated shell height", async ({ page }) => {
     await openControlBarDebug(page);
     const baseline = (await readControlMetrics(page)).shellHeight;
-    await page.getByRole("button", { name: "Show preview" }).click();
+    await interactiveSection(page).getByRole("button", { name: "Show preview" }).click();
 
     const openHeights = await sampleShellHeights(page);
     const endOpen = openHeights[openHeights.length - 1];
@@ -63,7 +71,7 @@ test.describe("Control bar layout", () => {
     ).toBeTruthy();
     expect(endOpen).toBeGreaterThan(baseline + 30);
 
-    await page.getByRole("button", { name: "Hide preview" }).click();
+    await interactiveSection(page).getByRole("button", { name: "Hide preview" }).click();
     const closeHeights = await sampleShellHeights(page);
     const startClose = closeHeights[0];
     const endClose = closeHeights[closeHeights.length - 1];
@@ -78,8 +86,11 @@ test.describe("Control bar layout", () => {
     await openControlBarDebug(page);
     const baseline = (await readControlMetrics(page)).shellHeight;
 
-    await page.getByLabel("Message").click({ button: "right" });
-    await expect(page.getByRole("button", { name: "Close control bar menu" })).toBeVisible();
+    await interactiveSection(page).getByLabel("Message").click({ button: "right" });
+    const closeOverlay = page.locator(
+      'button[aria-label="Close control bar menu"]:not([disabled])',
+    );
+    await expect(closeOverlay).toBeVisible();
 
     const openHeights = await sampleShellHeights(page);
     const endOpen = openHeights[openHeights.length - 1];
@@ -89,7 +100,7 @@ test.describe("Control bar layout", () => {
     ).toBeTruthy();
     expect(endOpen).toBeGreaterThan(baseline + 30);
 
-    await page.getByRole("button", { name: "Close control bar menu" }).click();
+    await closeOverlay.click();
     const closeHeights = await sampleShellHeights(page);
     const startClose = closeHeights[0];
     const endCloseMetrics = await readControlMetrics(page);

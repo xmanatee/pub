@@ -1,10 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
+import { BatchSection } from "~/components/debug/batch-section";
 import { ControlBar } from "~/components/live/control-bar";
 import type { LiveViewMode, LiveVisualState } from "~/components/live/types";
-
-const DEBUG_PREVIEW_TEXT = "Debug preview message";
-const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",
@@ -15,6 +13,11 @@ const ALL_VISUAL_STATES: LiveVisualState[] = [
   "agent-replying",
 ];
 
+const DEBUG_PREVIEW_TEXT = "Debug preview message";
+const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
+
+const noop = () => {};
+
 export const Route = createFileRoute("/debug/control-bar")({
   beforeLoad: () => {
     if (!import.meta.env.DEV) {
@@ -24,109 +27,178 @@ export const Route = createFileRoute("/debug/control-bar")({
   component: ControlBarDebugPage,
 });
 
-function ControlBarDebugPage() {
-  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
-  const [chatPreview, setChatPreview] = useState<string | null>(null);
-  const [showAllStates, setShowAllStates] = useState(false);
-  const [activeState, setActiveState] = useState<LiveVisualState>("idle");
-  const [collapsed, setCollapsed] = useState(false);
-  const clearPreview = () => setChatPreview(null);
-
+function StaticControlBar({
+  visualState = "idle",
+  chatPreview = null,
+  collapsed = false,
+  onClose,
+  voiceModeEnabled = false,
+}: {
+  visualState?: LiveVisualState;
+  chatPreview?: string | null;
+  collapsed?: boolean;
+  onClose?: () => void;
+  voiceModeEnabled?: boolean;
+}) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-xl font-semibold">Control Bar Debug</h1>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={DEBUG_BUTTON_CLASS}
-            onClick={() => setChatPreview(DEBUG_PREVIEW_TEXT)}
-          >
-            Show preview
-          </button>
-          <button type="button" className={DEBUG_BUTTON_CLASS} onClick={clearPreview}>
-            Hide preview
-          </button>
-          <button
-            type="button"
-            className={DEBUG_BUTTON_CLASS}
-            onClick={() => setShowAllStates((v) => !v)}
-          >
-            {showAllStates ? "Single state" : "All states"}
-          </button>
-          <button
-            type="button"
-            className={DEBUG_BUTTON_CLASS}
-            onClick={() => {
-              setViewMode("canvas");
-              clearPreview();
-            }}
-          >
-            Reset
-          </button>
-        </div>
-
-        {!showAllStates && (
-          <div className="mt-4 flex flex-wrap gap-1">
-            {ALL_VISUAL_STATES.map((state) => (
-              <button
-                key={state}
-                type="button"
-                className={`${DEBUG_BUTTON_CLASS} ${activeState === state ? "bg-foreground text-background" : ""}`}
-                onClick={() => setActiveState(state)}
-              >
-                {state}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {showAllStates ? (
-        <div className="mx-auto max-w-3xl space-y-6 px-4 pb-80" data-testid="all-states-grid">
-          {ALL_VISUAL_STATES.map((state) => (
-            <StatePreview key={state} state={state} viewMode={viewMode} />
-          ))}
-        </div>
-      ) : (
-        <ControlBar
-          chatPreview={chatPreview}
-          collapsed={collapsed}
-          sendDisabled={activeState === "connecting" || activeState === "disconnected"}
-          bridge={null}
-          onDismissPreview={clearPreview}
-          onToggleCollapsed={() => setCollapsed((value) => !value)}
-          onSendAudio={() => {}}
-          onSendChat={() => {}}
-          onChangeView={setViewMode}
-          viewMode={viewMode}
-          visualState={activeState}
-          voiceModeEnabled
-        />
-      )}
-    </div>
+    <ControlBar
+      chatPreview={chatPreview}
+      collapsed={collapsed}
+      sendDisabled={visualState === "connecting" || visualState === "disconnected"}
+      bridge={null}
+      onClose={onClose}
+      onDismissPreview={noop}
+      onToggleCollapsed={noop}
+      onSendAudio={noop}
+      onSendChat={noop}
+      onChangeView={noop}
+      viewMode="canvas"
+      visualState={visualState}
+      voiceModeEnabled={voiceModeEnabled}
+    />
   );
 }
 
-function StatePreview({ state, viewMode }: { state: LiveVisualState; viewMode: LiveViewMode }) {
+function ControlBarDebugPage() {
+  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
+  const [chatPreview, setChatPreview] = useState<string | null>(null);
+  const [activeState, setActiveState] = useState<LiveVisualState>("idle");
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <div data-testid={`state-${state}`}>
-      <div className="mb-2 text-xs font-medium text-muted-foreground">{state}</div>
-      <div className="relative h-20">
-        <ControlBar
-          chatPreview={null}
-          collapsed={false}
-          sendDisabled={state === "connecting" || state === "disconnected"}
-          bridge={null}
-          onDismissPreview={() => {}}
-          onToggleCollapsed={() => {}}
-          onSendAudio={() => {}}
-          onSendChat={() => {}}
-          onChangeView={() => {}}
-          viewMode={viewMode}
-          visualState={state}
-          voiceModeEnabled={false}
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto max-w-3xl space-y-10 px-4 py-8">
+        <h1 className="text-xl font-semibold">Control Bar Debug</h1>
+
+        <BatchSection
+          title="Visual States"
+          testId="batch-visual-state"
+          items={ALL_VISUAL_STATES.map((state) => ({
+            label: state,
+            content: <StaticControlBar visualState={state} />,
+          }))}
         />
+
+        <BatchSection
+          title="Collapsed"
+          testId="batch-collapsed"
+          items={[
+            {
+              label: "expanded — mobile",
+              content: <StaticControlBar />,
+              width: 430,
+            },
+            {
+              label: "collapsed — mobile",
+              content: <StaticControlBar collapsed />,
+              width: 430,
+            },
+            {
+              label: "expanded — desktop",
+              content: <StaticControlBar />,
+              width: 1280,
+            },
+            {
+              label: "collapsed — desktop",
+              content: <StaticControlBar collapsed />,
+              width: 1280,
+            },
+          ]}
+          cellHeight={80}
+        />
+
+        <BatchSection
+          title="Chat Preview"
+          testId="batch-preview"
+          items={[
+            {
+              label: "without preview",
+              content: <StaticControlBar />,
+            },
+            {
+              label: "with preview",
+              content: <StaticControlBar chatPreview={DEBUG_PREVIEW_TEXT} />,
+            },
+          ]}
+        />
+
+        <BatchSection
+          title="Close Button"
+          testId="batch-close-button"
+          items={[
+            {
+              label: "without onClose",
+              content: <StaticControlBar />,
+            },
+            {
+              label: "with onClose",
+              content: <StaticControlBar onClose={noop} />,
+            },
+          ]}
+          cellHeight={200}
+        />
+
+        <details className="mt-10">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            Interactive single-state view
+          </summary>
+          <div className="mt-4 space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={DEBUG_BUTTON_CLASS}
+                onClick={() => setChatPreview(DEBUG_PREVIEW_TEXT)}
+              >
+                Show preview
+              </button>
+              <button
+                type="button"
+                className={DEBUG_BUTTON_CLASS}
+                onClick={() => setChatPreview(null)}
+              >
+                Hide preview
+              </button>
+              <button
+                type="button"
+                className={DEBUG_BUTTON_CLASS}
+                onClick={() => {
+                  setViewMode("canvas");
+                  setChatPreview(null);
+                }}
+              >
+                Reset
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {ALL_VISUAL_STATES.map((state) => (
+                <button
+                  key={state}
+                  type="button"
+                  className={`${DEBUG_BUTTON_CLASS} ${activeState === state ? "bg-foreground text-background" : ""}`}
+                  onClick={() => setActiveState(state)}
+                >
+                  {state}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="relative mt-4 h-80">
+            <ControlBar
+              chatPreview={chatPreview}
+              collapsed={collapsed}
+              sendDisabled={activeState === "connecting" || activeState === "disconnected"}
+              bridge={null}
+              onDismissPreview={() => setChatPreview(null)}
+              onToggleCollapsed={() => setCollapsed((v) => !v)}
+              onSendAudio={noop}
+              onSendChat={noop}
+              onChangeView={setViewMode}
+              viewMode={viewMode}
+              visualState={activeState}
+              voiceModeEnabled
+            />
+          </div>
+        </details>
       </div>
     </div>
   );
