@@ -19,20 +19,20 @@ if (!slug || !baseUrl || !apiKey || !socketPath || !infoPath) {
   process.exit(1);
 }
 
-let bridge: BridgeDaemonConfig | undefined;
-const bridgeMode = process.env.PUBBLUE_DAEMON_BRIDGE_MODE;
 const bridgeScript = process.env.PUBBLUE_DAEMON_BRIDGE_SCRIPT;
 const bridgeInfoPath = process.env.PUBBLUE_DAEMON_BRIDGE_INFO;
 const bridgeLogPath = process.env.PUBBLUE_DAEMON_BRIDGE_LOG;
-if (bridgeMode === "openclaw" && bridgeScript && bridgeInfoPath && bridgeLogPath) {
-  bridge = {
-    bridgeMode,
-    bridgeScript,
-    bridgeInfoPath,
-    bridgeLogPath,
-    bridgeProcessEnv: { ...process.env },
-  };
+if (!bridgeScript || !bridgeInfoPath || !bridgeLogPath) {
+  console.error("Missing required bridge env vars for daemon (bridge is mandatory).");
+  process.exit(1);
 }
+const bridge: BridgeDaemonConfig = {
+  bridgeMode: "openclaw",
+  bridgeScript,
+  bridgeInfoPath,
+  bridgeLogPath,
+  bridgeProcessEnv: { ...process.env },
+};
 
 const apiClient = new PubApiClient(baseUrl, apiKey);
 void startDaemon({ slug, apiClient, socketPath, infoPath, cliVersion, bridge }).catch((error) => {

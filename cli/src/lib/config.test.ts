@@ -33,7 +33,6 @@ describe("config", () => {
       {
         apiKey: "pub_test",
         bridge: {
-          mode: "openclaw",
           sessionId: "session-123",
           deliver: true,
         },
@@ -43,7 +42,6 @@ describe("config", () => {
     expect(loadConfig(tmpDir)).toEqual({
       apiKey: "pub_test",
       bridge: {
-        mode: "openclaw",
         sessionId: "session-123",
         deliver: true,
       },
@@ -71,7 +69,7 @@ describe("config", () => {
     saveConfig(
       {
         apiKey: "pub_saved",
-        bridge: { mode: "openclaw", threadId: "thread-a" },
+        bridge: { threadId: "thread-a" },
       },
       tmpDir,
     );
@@ -80,7 +78,7 @@ describe("config", () => {
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_env");
     expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
-    expect(config.bridge).toEqual({ mode: "openclaw", threadId: "thread-a" });
+    expect(config.bridge).toEqual({ threadId: "thread-a" });
   });
 
   it("throws when no config available", () => {

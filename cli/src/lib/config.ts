@@ -5,7 +5,6 @@ import * as path from "node:path";
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
 
 export interface BridgeConfig {
-  mode?: "openclaw" | "none";
   openclawPath?: string;
   sessionId?: string;
   threadId?: string;
