@@ -9,7 +9,7 @@ interface StoreBrowserSignalInput {
   slug: string;
 }
 
-interface UseTunnelBridgeOptions {
+interface UseLiveBridgeOptions {
   agentCandidates: string[] | undefined;
   agentOffer: string | undefined;
   onDeliveryAck: (ack: DeliveryAckPayload) => void;
@@ -19,7 +19,7 @@ interface UseTunnelBridgeOptions {
   slug: string;
 }
 
-export function useTunnelBridge({
+export function useLiveBridge({
   agentCandidates,
   agentOffer,
   onDeliveryAck,
@@ -27,7 +27,7 @@ export function useTunnelBridge({
   onTrackActivity,
   storeBrowserSignal,
   slug,
-}: UseTunnelBridgeOptions) {
+}: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
 
@@ -108,7 +108,7 @@ export function useTunnelBridge({
         }, 30_000);
       } catch (error) {
         // Failed to establish WebRTC answer/signaling for this offer.
-        console.error("Failed to establish tunnel WebRTC bridge", error);
+        console.error("Failed to establish live WebRTC bridge", error);
         bridge.close();
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;

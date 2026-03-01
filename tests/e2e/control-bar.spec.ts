@@ -42,7 +42,7 @@ async function sampleShellHeights(page: Page, samples = 8, intervalMs = 40) {
 }
 
 test.describe("Control bar layout", () => {
-  test("idle control row height is 64px", async ({ page }) => {
+  test("idle control row height is 48px", async ({ page }) => {
     await openControlBarDebug(page);
     const { rowHeight, shellHasHardLock } = await readControlMetrics(page);
 

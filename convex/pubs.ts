@@ -7,7 +7,7 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { CONTENT_TYPE_VALIDATOR, MAX_PRIVATE_PUBS, MAX_PUBLIC_PUBS } from "./utils";
 
-const MAX_SESSIONS_PER_USER = 5;
+const MAX_LIVES_PER_USER = 5;
 const MAX_CANDIDATES = 50;
 
 // ---------------------------------------------------------------------------
@@ -183,14 +183,14 @@ export const deleteByUser = mutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Not found");
 
-    // Close any active sessions for this pub
-    const sessions = await ctx.db
-      .query("sessions")
+    // Close any active lives for this pub
+    const lives = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
       .collect();
-    for (const session of sessions) {
-      if (session.status === "active") {
-        await ctx.db.patch(session._id, { status: "closed" as const });
+    for (const live of lives) {
+      if (live.status === "active") {
+        await ctx.db.patch(live._id, { status: "closed" as const });
       }
     }
 
@@ -199,21 +199,21 @@ export const deleteByUser = mutation({
 });
 
 // ---------------------------------------------------------------------------
-// Session queries (browser uses these via reactive subscriptions)
+// Live queries (browser uses these via reactive subscriptions)
 // ---------------------------------------------------------------------------
 
-export const listActiveSessions = query({
+export const listActiveLives = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
-    const sessions = await ctx.db
-      .query("sessions")
+    const lives = await ctx.db
+      .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    return sessions
+    return lives
       .filter((s) => s.status === "active" && s.expiresAt > Date.now())
       .map((s) => ({
         slug: s.slug,
@@ -223,36 +223,36 @@ export const listActiveSessions = query({
   },
 });
 
-export const getSessionBySlug = query({
+export const getLiveBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const session = await ctx.db
-      .query("sessions")
+    const live = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!session || session.status === "closed") return null;
-    if (session.expiresAt < Date.now()) return null;
-    if (session.userId !== userId) return null;
+    if (!live || live.status === "closed") return null;
+    if (live.expiresAt < Date.now()) return null;
+    if (live.userId !== userId) return null;
 
     return {
-      slug: session.slug,
-      status: session.status,
-      agentOffer: session.agentOffer,
-      browserAnswer: session.browserAnswer,
-      agentCandidates: session.agentCandidates,
-      browserCandidates: session.browserCandidates,
-      createdAt: session.createdAt,
-      expiresAt: session.expiresAt,
+      slug: live.slug,
+      status: live.status,
+      agentOffer: live.agentOffer,
+      browserAnswer: live.browserAnswer,
+      agentCandidates: live.agentCandidates,
+      browserCandidates: live.browserCandidates,
+      createdAt: live.createdAt,
+      expiresAt: live.expiresAt,
     };
   },
 });
 
 // ---------------------------------------------------------------------------
-// Session mutations (browser writes signaling data)
+// Live mutations (browser writes signaling data)
 // ---------------------------------------------------------------------------
 
 export const storeBrowserSignal = mutation({
@@ -265,22 +265,22 @@ export const storeBrowserSignal = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const session = await ctx.db
-      .query("sessions")
+    const live = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!session || session.status === "closed") throw new Error("Session not found");
-    if (session.expiresAt < Date.now()) throw new Error("Session expired");
-    if (session.userId !== userId) throw new Error("Session not found");
+    if (!live || live.status === "closed") throw new Error("Live not found");
+    if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    if (live.userId !== userId) throw new Error("Live not found");
 
     const patch: Record<string, unknown> = {};
     if (answer !== undefined) patch.browserAnswer = answer;
     if (candidates?.length) {
-      const merged = [...session.browserCandidates, ...candidates].slice(0, MAX_CANDIDATES);
+      const merged = [...live.browserCandidates, ...candidates].slice(0, MAX_CANDIDATES);
       patch.browserCandidates = merged;
     }
-    await ctx.db.patch(session._id, patch);
+    await ctx.db.patch(live._id, patch);
   },
 });
 
@@ -334,13 +334,13 @@ export const expirePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub) return;
 
-    const sessions = await ctx.db
-      .query("sessions")
+    const lives = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
       .collect();
-    for (const session of sessions) {
-      if (session.status === "active") {
-        await ctx.db.patch(session._id, { status: "closed" as const });
+    for (const live of lives) {
+      if (live.status === "active") {
+        await ctx.db.patch(live._id, { status: "closed" as const });
       }
     }
 
@@ -369,13 +369,13 @@ export const updatePub = internalMutation({
     }
 
     if (slug !== undefined && slug !== pub.slug) {
-      const sessions = await ctx.db
-        .query("sessions")
+      const lives = await ctx.db
+        .query("lives")
         .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
         .collect();
-      for (const session of sessions) {
-        if (session.userId === pub.userId) {
-          await ctx.db.patch(session._id, { slug });
+      for (const live of lives) {
+        if (live.userId === pub.userId) {
+          await ctx.db.patch(live._id, { slug });
         }
       }
     }
@@ -391,13 +391,13 @@ export const deletePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Not found");
 
-    const sessions = await ctx.db
-      .query("sessions")
+    const lives = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", pub.slug))
       .collect();
-    for (const session of sessions) {
-      if (session.status === "active") {
-        await ctx.db.patch(session._id, { status: "closed" as const });
+    for (const live of lives) {
+      if (live.status === "active") {
+        await ctx.db.patch(live._id, { status: "closed" as const });
       }
     }
 
@@ -451,39 +451,39 @@ export const listPublicByUserInternal = internalQuery({
 });
 
 // ---------------------------------------------------------------------------
-// Internal session mutations (called from HTTP actions)
+// Internal live mutations (called from HTTP actions)
 // ---------------------------------------------------------------------------
 
-export const openSession = internalMutation({
+export const openLive = internalMutation({
   args: {
     userId: v.id("users"),
     slug: v.string(),
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    // Close existing active sessions for this slug so reopening doesn't hit the global limit.
+    // Close existing active lives for this slug so reopening doesn't hit the global limit.
     const existingForSlug = await ctx.db
-      .query("sessions")
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .collect();
-    for (const session of existingForSlug) {
-      if (session.userId === args.userId && session.status === "active") {
-        await ctx.db.patch(session._id, { status: "closed" as const });
+    for (const live of existingForSlug) {
+      if (live.userId === args.userId && live.status === "active") {
+        await ctx.db.patch(live._id, { status: "closed" as const });
       }
     }
 
     const existing = await ctx.db
-      .query("sessions")
+      .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
     const active = existing.filter(
       (s) => s.status === "active" && s.expiresAt > Date.now() && s.slug !== args.slug,
     );
-    if (active.length >= MAX_SESSIONS_PER_USER) {
-      throw new Error(`Session limit reached (${MAX_SESSIONS_PER_USER})`);
+    if (active.length >= MAX_LIVES_PER_USER) {
+      throw new Error(`Live limit reached (${MAX_LIVES_PER_USER})`);
     }
 
-    const id = await ctx.db.insert("sessions", {
+    const id = await ctx.db.insert("lives", {
       slug: args.slug,
       userId: args.userId,
       status: "active",
@@ -493,7 +493,7 @@ export const openSession = internalMutation({
       expiresAt: args.expiresAt,
     });
 
-    await ctx.scheduler.runAt(args.expiresAt, internal.pubs.expireSession, { id });
+    await ctx.scheduler.runAt(args.expiresAt, internal.pubs.expireLive, { id });
     return id;
   },
 });
@@ -506,14 +506,14 @@ export const storeAgentSignal = internalMutation({
     candidates: v.optional(v.array(v.string())),
   },
   handler: async (ctx, { slug, userId, offer, candidates }) => {
-    const session = await ctx.db
-      .query("sessions")
+    const live = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!session || session.userId !== userId) throw new Error("Session not found");
-    if (session.status === "closed") throw new Error("Session closed");
-    if (session.expiresAt < Date.now()) throw new Error("Session expired");
+    if (!live || live.userId !== userId) throw new Error("Live not found");
+    if (live.status === "closed") throw new Error("Live closed");
+    if (live.expiresAt < Date.now()) throw new Error("Live expired");
 
     const patch: Record<string, unknown> = {};
     const resetSignaling = offer !== undefined;
@@ -526,62 +526,62 @@ export const storeAgentSignal = internalMutation({
     }
 
     if (candidates?.length) {
-      const base = resetSignaling ? [] : session.agentCandidates;
+      const base = resetSignaling ? [] : live.agentCandidates;
       const merged = [...base, ...candidates].slice(0, MAX_CANDIDATES);
       patch.agentCandidates = merged;
     }
 
-    await ctx.db.patch(session._id, patch);
+    await ctx.db.patch(live._id, patch);
   },
 });
 
-export const closeSession = internalMutation({
+export const closeLive = internalMutation({
   args: { slug: v.string(), userId: v.id("users") },
   handler: async (ctx, { slug, userId }) => {
-    const session = await ctx.db
-      .query("sessions")
+    const live = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!session || session.userId !== userId) throw new Error("Session not found");
-    await ctx.db.patch(session._id, { status: "closed" as const });
+    if (!live || live.userId !== userId) throw new Error("Live not found");
+    await ctx.db.patch(live._id, { status: "closed" as const });
   },
 });
 
-export const expireSession = internalMutation({
-  args: { id: v.id("sessions") },
+export const expireLive = internalMutation({
+  args: { id: v.id("lives") },
   handler: async (ctx, { id }) => {
-    const session = await ctx.db.get(id);
-    if (session && session.status === "active") {
+    const live = await ctx.db.get(id);
+    if (live && live.status === "active") {
       await ctx.db.patch(id, { status: "closed" as const });
     }
   },
 });
 
-// Internal queries for sessions
+// Internal queries for lives
 
-export const getSessionBySlugInternal = internalQuery({
+export const getLiveBySlugInternal = internalQuery({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
-    const session = await ctx.db
-      .query("sessions")
+    const live = await ctx.db
+      .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!session || session.status === "closed" || session.expiresAt < Date.now()) return null;
-    return session;
+    if (!live || live.status === "closed" || live.expiresAt < Date.now()) return null;
+    return live;
   },
 });
 
-export const listSessionsByUserInternal = internalQuery({
+export const listLivesByUserInternal = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    const sessions = await ctx.db
-      .query("sessions")
+    const lives = await ctx.db
+      .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
-    return sessions
+    return lives
       .filter((s) => s.status === "active" && s.expiresAt > Date.now())
       .map((s) => ({
         slug: s.slug,

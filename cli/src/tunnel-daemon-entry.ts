@@ -37,6 +37,6 @@ if (bridgeMode === "openclaw" && bridgeScript && bridgeInfoPath && bridgeLogPath
 const apiClient = new PubApiClient(baseUrl, apiKey);
 void startDaemon({ slug, apiClient, socketPath, infoPath, cliVersion, bridge }).catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`Session daemon failed to start: ${message}`);
+  console.error(`Daemon failed to start: ${message}`);
   process.exit(1);
 });

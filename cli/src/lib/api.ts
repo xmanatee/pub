@@ -20,7 +20,7 @@ export interface Pub {
   expiresAt?: number;
   createdAt: number;
   updatedAt: number;
-  session?: {
+  live?: {
     status: string;
     hasConnection: boolean;
     expiresAt: number;
@@ -33,7 +33,7 @@ export interface ListResult {
   hasMore: boolean;
 }
 
-export interface SessionInfo {
+export interface LiveInfo {
   slug: string;
   status: string;
   agentOffer?: string;
@@ -44,7 +44,7 @@ export interface SessionInfo {
   expiresAt: number;
 }
 
-export interface SessionCreateResult {
+export interface LiveCreateResult {
   slug: string;
   url: string;
   expiresAt: number;
@@ -169,31 +169,31 @@ export class PubApiClient {
     });
   }
 
-  // -- Session management ---------------------------------------------------
+  // -- Live management -----------------------------------------------------
 
-  async openSession(slug: string, opts: { expiresIn?: string } = {}): Promise<SessionCreateResult> {
-    return this.request<SessionCreateResult>(`/api/v1/pubs/${encodeURIComponent(slug)}/session`, {
+  async openLive(slug: string, opts: { expiresIn?: string } = {}): Promise<LiveCreateResult> {
+    return this.request<LiveCreateResult>(`/api/v1/pubs/${encodeURIComponent(slug)}/live`, {
       method: "POST",
       body: JSON.stringify(opts),
     });
   }
 
-  async getSession(slug: string): Promise<SessionInfo> {
-    const data = await this.request<{ session: SessionInfo }>(
-      `/api/v1/pubs/${encodeURIComponent(slug)}/session`,
+  async getLive(slug: string): Promise<LiveInfo> {
+    const data = await this.request<{ live: LiveInfo }>(
+      `/api/v1/pubs/${encodeURIComponent(slug)}/live`,
     );
-    return data.session;
+    return data.live;
   }
 
   async signal(slug: string, opts: { offer?: string; candidates?: string[] }): Promise<void> {
-    await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}/session/signal`, {
+    await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}/live/signal`, {
       method: "PATCH",
       body: JSON.stringify(opts),
     });
   }
 
-  async closeSession(slug: string): Promise<void> {
-    await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}/session`, {
+  async closeLive(slug: string): Promise<void> {
+    await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}/live`, {
       method: "DELETE",
     });
   }

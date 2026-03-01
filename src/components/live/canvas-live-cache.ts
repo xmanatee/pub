@@ -1,4 +1,4 @@
-const CANVAS_CACHE_KEY_PREFIX = "pubblue:session:canvas:";
+const CANVAS_CACHE_KEY_PREFIX = "pubblue:live:canvas:";
 const MAX_CACHED_CANVAS_HTML_BYTES = 500_000;
 
 function getCanvasCacheKey(slug: string): string {

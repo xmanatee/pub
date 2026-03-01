@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
+import { ControlBar } from "~/components/live/control-bar";
+import type { LiveViewMode } from "~/components/live/types";
 import { PubWordmark } from "~/components/pub-logo";
-import { ControlBar } from "~/components/tunnel/control-bar";
-import type { TunnelViewMode } from "~/components/tunnel/types";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
 
@@ -86,7 +86,7 @@ function HeaderNonFullscreenTma() {
 }
 
 function ControlBarWithClose() {
-  const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
+  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   return (
     <div className="relative h-80 bg-muted/10">
       <ControlBar
@@ -109,7 +109,7 @@ function ControlBarWithClose() {
 }
 
 function ControlBarIdle() {
-  const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
+  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   return (
     <div className="relative h-48 bg-muted/10">
       <ControlBar

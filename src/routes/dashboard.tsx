@@ -180,14 +180,14 @@ function formatRelativeTime(timestamp: number): string {
   return `${minutes}m`;
 }
 
-function ActiveSessions() {
-  const sessions = useQuery(api.pubs.listActiveSessions);
-  if (!sessions || sessions.length === 0) return null;
+function ActiveLives() {
+  const lives = useQuery(api.pubs.listActiveLives);
+  if (!lives || lives.length === 0) return null;
 
   return (
     <div className="space-y-2 mb-6">
-      <h3 className="text-sm font-medium text-muted-foreground">Active Sessions</h3>
-      {sessions.map((s) => (
+      <h3 className="text-sm font-medium text-muted-foreground">Live Now</h3>
+      {lives.map((s) => (
         <a
           key={s.slug}
           href={`/p/${s.slug}`}
@@ -254,7 +254,7 @@ function PubsTab() {
 
   return (
     <div className="space-y-2 mt-4">
-      <ActiveSessions />
+      <ActiveLives />
       {pubs.map((pub) => (
         <div
           key={pub._id}

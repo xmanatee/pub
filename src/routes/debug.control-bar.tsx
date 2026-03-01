@@ -1,12 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { ControlBar } from "~/components/tunnel/control-bar";
-import type { TunnelSessionVisualState, TunnelViewMode } from "~/components/tunnel/types";
+import { ControlBar } from "~/components/live/control-bar";
+import type { LiveViewMode, LiveVisualState } from "~/components/live/types";
 
 const DEBUG_PREVIEW_TEXT = "Debug preview message";
 const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
 
-const ALL_VISUAL_STATES: TunnelSessionVisualState[] = [
+const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",
   "disconnected",
   "waiting-content",
@@ -25,10 +25,10 @@ export const Route = createFileRoute("/debug/control-bar")({
 });
 
 function ControlBarDebugPage() {
-  const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
+  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [chatPreview, setChatPreview] = useState<string | null>(null);
   const [showAllStates, setShowAllStates] = useState(false);
-  const [activeState, setActiveState] = useState<TunnelSessionVisualState>("idle");
+  const [activeState, setActiveState] = useState<LiveVisualState>("idle");
   const [collapsed, setCollapsed] = useState(false);
   const clearPreview = () => setChatPreview(null);
 
@@ -108,13 +108,7 @@ function ControlBarDebugPage() {
   );
 }
 
-function StatePreview({
-  state,
-  viewMode,
-}: {
-  state: TunnelSessionVisualState;
-  viewMode: TunnelViewMode;
-}) {
+function StatePreview({ state, viewMode }: { state: LiveVisualState; viewMode: LiveViewMode }) {
   return (
     <div data-testid={`state-${state}`}>
       <div className="mb-2 text-xs font-medium text-muted-foreground">{state}</div>

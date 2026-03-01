@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatEntry, TunnelViewMode } from "./types";
+import type { ChatEntry, LiveViewMode } from "./types";
 
 const AUTO_DISMISS_MS = 5_000;
 
-export function useChatPreview(messages: ChatEntry[], viewMode: TunnelViewMode) {
+export function useChatPreview(messages: ChatEntry[], viewMode: LiveViewMode) {
   const [previewText, setPreviewText] = useState<string | null>(null);
   const lastSeenIdRef = useRef<string | null>(null);
   const initializedRef = useRef(false);

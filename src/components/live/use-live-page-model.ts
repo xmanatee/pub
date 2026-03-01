@@ -1,15 +1,12 @@
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  readCachedCanvasHtml,
-  writeCachedCanvasHtml,
-} from "~/components/tunnel/canvas-session-cache";
-import { useTunnelSessionVisualState } from "~/components/tunnel/session-visual-state";
-import type { TunnelViewMode } from "~/components/tunnel/types";
-import { useTunnelBridge } from "~/components/tunnel/use-tunnel-bridge";
-import { useTunnelChatDelivery } from "~/components/tunnel/use-tunnel-chat-delivery";
-import { useTunnelFiles } from "~/components/tunnel/use-tunnel-files";
-import { useTunnelPreferences } from "~/components/tunnel/use-tunnel-preferences";
+import { readCachedCanvasHtml, writeCachedCanvasHtml } from "~/components/live/canvas-live-cache";
+import { useLiveVisualState } from "~/components/live/live-visual-state";
+import type { LiveViewMode } from "~/components/live/types";
+import { useLiveBridge } from "~/components/live/use-live-bridge";
+import { useLiveChatDelivery } from "~/components/live/use-live-chat-delivery";
+import { useLiveFiles } from "~/components/live/use-live-files";
+import { useLivePreferences } from "~/components/live/use-live-preferences";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { CHANNELS, makeBinaryMetaMessage, makeTextMessage } from "~/lib/bridge-protocol";
 import type { ChannelMessage } from "~/lib/webrtc-browser";
@@ -19,12 +16,12 @@ import { api } from "../../../convex/_generated/api";
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const CHAT_CONFIRM_GRACE_MS = 12_000;
 
-export function useTunnelPageModel(slug: string) {
-  const tunnel = useQuery(api.pubs.getSessionBySlug, { slug });
+export function useLivePageModel(slug: string) {
+  const live = useQuery(api.pubs.getLiveBySlug, { slug });
   const storeBrowserSignal = useMutation(api.pubs.storeBrowserSignal);
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(slug));
-  const [viewMode, setViewMode] = useState<TunnelViewMode>("canvas");
+  const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
 
@@ -37,7 +34,7 @@ export function useTunnelPageModel(slug: string) {
     setVoiceModeEnabled,
     showDeliveryStatus,
     voiceModeEnabled,
-  } = useTunnelPreferences();
+  } = useLivePreferences();
   const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   const {
@@ -52,9 +49,9 @@ export function useTunnelPageModel(slug: string) {
     markSendingMessagesConfirming,
     messages,
     messagesEndRef,
-  } = useTunnelChatDelivery({ confirmGraceMs: CHAT_CONFIRM_GRACE_MS });
+  } = useLiveChatDelivery({ confirmGraceMs: CHAT_CONFIRM_GRACE_MS });
 
-  const { addReceivedBinaryFile, clearFiles, files } = useTunnelFiles();
+  const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
   const pendingChatQueueRef = useRef<Array<{ msg: ReturnType<typeof makeTextMessage> }>>([]);
   const pendingAudioQueueRef = useRef<Blob[]>([]);
@@ -157,9 +154,9 @@ export function useTunnelPageModel(slug: string) {
     [markMessageDelivered],
   );
 
-  const { bridgeRef, bridgeState } = useTunnelBridge({
-    agentCandidates: tunnel?.agentCandidates,
-    agentOffer: tunnel?.agentOffer,
+  const { bridgeRef, bridgeState } = useLiveBridge({
+    agentCandidates: live?.agentCandidates,
+    agentOffer: live?.agentOffer,
     onDeliveryAck: handleDeliveryAck,
     onMessage: handleBridgeMessage,
     onTrackActivity: markAgentActivity,
@@ -167,7 +164,7 @@ export function useTunnelPageModel(slug: string) {
     slug,
   });
 
-  const visualState = useTunnelSessionVisualState({
+  const visualState = useLiveVisualState({
     bridgeState,
     hasCanvasContent: Boolean(canvasHtml),
     lastAgentActivityAt,
@@ -289,7 +286,7 @@ export function useTunnelPageModel(slug: string) {
     setViewMode,
     setVoiceModeEnabled,
     showDeliveryStatus,
-    session: tunnel,
+    live,
     viewMode,
     visualState,
     voiceModeEnabled,

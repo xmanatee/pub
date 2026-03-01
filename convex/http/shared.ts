@@ -81,18 +81,18 @@ export class ApiError extends Error {
   }
 }
 
-export function mapSessionError(error: unknown): { message: string; status: number } | null {
+export function mapLiveError(error: unknown): { message: string; status: number } | null {
   const message = error instanceof Error ? error.message : String(error);
-  if (message === "Session not found") return { message, status: 404 };
-  if (message === "Session closed") return { message, status: 409 };
-  if (message === "Session expired") return { message, status: 410 };
-  if (message.startsWith("Session limit reached")) return { message, status: 429 };
+  if (message === "Live not found") return { message, status: 404 };
+  if (message === "Live closed") return { message, status: 409 };
+  if (message === "Live expired") return { message, status: 410 };
+  if (message.startsWith("Live limit reached")) return { message, status: 429 };
   return null;
 }
 
-export function rethrowSessionApiError(error: unknown): never {
+export function rethrowLiveApiError(error: unknown): never {
   if (error instanceof ApiError) throw error;
-  const mapped = mapSessionError(error);
+  const mapped = mapLiveError(error);
   if (mapped) throw new ApiError(mapped.message, mapped.status);
   throw error;
 }

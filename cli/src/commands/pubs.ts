@@ -97,10 +97,10 @@ export function registerPubCommands(program: Command): void {
       console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
       console.log(`  Updated: ${new Date(pub.updatedAt).toLocaleDateString()}`);
       if (pub.content) console.log(`  Size:    ${pub.content.length} bytes`);
-      if (pub.session) {
-        console.log(`  Session: ${pub.session.status}`);
-        console.log(`    Connected: ${pub.session.hasConnection ? "yes" : "no"}`);
-        console.log(`    Expires:   ${new Date(pub.session.expiresAt).toISOString()}`);
+      if (pub.live) {
+        console.log(`  Live: ${pub.live.status}`);
+        console.log(`    Connected: ${pub.live.hasConnection ? "yes" : "no"}`);
+        console.log(`    Expires:   ${new Date(pub.live.expiresAt).toISOString()}`);
       }
     });
 
@@ -170,7 +170,7 @@ export function registerPubCommands(program: Command): void {
         const date = new Date(pub.createdAt).toLocaleDateString();
         const expires = pub.expiresAt ? ` expires:${new Date(pub.expiresAt).toISOString()}` : "";
         const contentLabel = pub.contentType ? `[${pub.contentType}]` : "[no content]";
-        const sessionLabel = pub.session?.status === "active" ? " [live]" : "";
+        const sessionLabel = pub.live?.status === "active" ? " [live]" : "";
         console.log(
           `  ${pub.slug}  ${contentLabel}  ${formatVisibility(pub.isPublic)}  ${date}${expires}${sessionLabel}`,
         );

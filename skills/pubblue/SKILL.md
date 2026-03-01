@@ -1,8 +1,8 @@
 ---
 name: pubblue
 description: >-
-  Publish files or generated content via the pubblue CLI, and run interactive
-  P2P sessions for live browser communication.
+  Publish files or generated content via the pubblue CLI, and go live for
+  interactive P2P browser communication.
 license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
@@ -13,7 +13,7 @@ allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 
 # pubblue
 
-Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or interactive sessions/canvas chat.
+Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or going live/canvas chat.
 
 ## Required CLI Version
 
@@ -71,9 +71,9 @@ Notes:
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
 - Content is optional — a pub can be interactive-only.
 
-## Interactive Session Flow
+## Going Live (Interactive Flow)
 
-1. Open session (managed bridge enabled by default):
+1. Go live (managed bridge enabled by default):
 ```bash
 pubblue open <slug> --expires 4h
 ```
@@ -87,7 +87,7 @@ pubblue open <slug> --bridge none --expires 4h
 Behavior:
 - `open` runs daemon + managed bridge in background, returns after health checks pass.
 - `--foreground` keeps process attached to current shell (no managed bridge).
-- Reuses existing active session by default; use `--new` to force creation.
+- Reuses existing active live by default; use `--new` to force creation.
 
 2. Wait for browser:
 ```bash
@@ -110,7 +110,7 @@ pubblue read <slug> --follow -c chat
 pubblue close <slug>
 ```
 
-6. Validate session end-to-end (strict):
+6. Validate live end-to-end (strict):
 ```bash
 pubblue doctor --slug <slug>
 # optional handshake:

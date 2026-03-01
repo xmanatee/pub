@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip
 import { cn } from "~/lib/utils";
 import "./control-bar-state.css";
 import { ExtendedOptions } from "./extended-options";
-import type { TunnelSessionVisualState, TunnelViewMode } from "./types";
+import type { LiveViewMode, LiveVisualState } from "./types";
 
 const MAX_TEXTAREA_ROWS = 5;
 const TEXTAREA_LINE_HEIGHT = 20;
@@ -30,16 +30,16 @@ interface ControlBarIdleModeProps {
   onPreviewClick: () => void;
   onSend: () => void;
   onStartVoiceMode: () => void;
-  onViewSelect: (mode: TunnelViewMode) => void;
+  onViewSelect: (mode: LiveViewMode) => void;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   sendDisabled: boolean;
   shellContentClassName: string;
-  viewMode: TunnelViewMode;
-  visualState: TunnelSessionVisualState;
+  viewMode: LiveViewMode;
+  visualState: LiveVisualState;
   voiceModeEnabled: boolean;
 }
 
-const STATE_CLASS_MAP: Record<TunnelSessionVisualState, string> = {
+const STATE_CLASS_MAP: Record<LiveVisualState, string> = {
   connecting: "cb-state-connecting",
   disconnected: "cb-state-disconnected",
   "waiting-content": "cb-state-waiting-content",

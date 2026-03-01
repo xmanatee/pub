@@ -1,4 +1,4 @@
-.tunnel-visual {
+.live-visual {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -8,22 +8,22 @@
   transition: opacity 320ms ease;
 }
 
-.tunnel-visual-fade-in {
-  animation: tunnel-visual-cross-in 420ms ease;
+.live-visual-fade-in {
+  animation: live-visual-cross-in 420ms ease;
 }
 
-.tunnel-visual-fade-out {
-  animation: tunnel-visual-cross-out 420ms ease forwards;
+.live-visual-fade-out {
+  animation: live-visual-cross-out 420ms ease forwards;
 }
 
-.tunnel-visual__layer,
-.tunnel-visual__grain,
-.tunnel-visual__vignette {
+.live-visual__layer,
+.live-visual__grain,
+.live-visual__vignette {
   position: absolute;
   inset: -16%;
 }
 
-.tunnel-visual__layer {
+.live-visual__layer {
   mix-blend-mode: screen;
   filter: blur(48px) saturate(var(--tv-saturation, 1));
   opacity: calc(0.08 + var(--tv-glow, 1) * 0.18);
@@ -31,28 +31,28 @@
   transition: opacity 600ms ease;
 }
 
-.tunnel-visual__layer-a {
+.live-visual__layer-a {
   background:
     radial-gradient(circle at 22% 30%, hsl(var(--tv-hue-a) 87% 58% / 0.82) 0%, transparent 52%),
     radial-gradient(circle at 72% 70%, hsl(var(--tv-hue-b) 84% 58% / 0.52) 0%, transparent 56%);
   animation: aurora-drift-a var(--tv-speed-ms, 16s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-.tunnel-visual__layer-b {
+.live-visual__layer-b {
   background:
     radial-gradient(circle at 78% 25%, hsl(var(--tv-hue-c) 88% 61% / 0.72) 0%, transparent 52%),
     radial-gradient(circle at 30% 72%, hsl(var(--tv-hue-b) 82% 61% / 0.5) 0%, transparent 58%);
   animation: aurora-drift-b calc(var(--tv-speed-ms, 16s) * 1.25) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-.tunnel-visual__layer-c {
+.live-visual__layer-c {
   background:
     radial-gradient(circle at 50% 55%, hsl(var(--tv-hue-a) 85% 60% / 0.48) 0%, transparent 48%),
     radial-gradient(circle at 45% 30%, hsl(var(--tv-hue-c) 84% 62% / 0.44) 0%, transparent 52%);
   animation: aurora-drift-c calc(var(--tv-speed-ms, 16s) * 0.8) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-.tunnel-visual__center {
+.live-visual__center {
   position: absolute;
   left: 50%;
   top: 48%;
@@ -66,16 +66,16 @@
   animation: aurora-center-breathe calc(var(--tv-speed-ms, 16s) * 0.65) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-.tunnel-visual__center-halo,
-.tunnel-visual__center-ring,
-.tunnel-visual__center-glyph {
+.live-visual__center-halo,
+.live-visual__center-ring,
+.live-visual__center-glyph {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
   mix-blend-mode: screen;
 }
 
-.tunnel-visual__center-halo {
+.live-visual__center-halo {
   background: radial-gradient(
     circle at 50% 50%,
     hsl(var(--tv-hue-a) 92% 68% / 0.64) 0%,
@@ -89,13 +89,13 @@
   animation: aurora-center-halo calc(var(--tv-speed-ms, 16s) * 0.48) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-.tunnel-visual__center-ring {
+.live-visual__center-ring {
   inset: 12%;
   opacity: calc(0.08 + var(--tv-energy, 0.6) * 0.24);
   transition: opacity 600ms ease;
 }
 
-.tunnel-visual__center-ring-a {
+.live-visual__center-ring-a {
   background:
     radial-gradient(circle at center, transparent 54%, hsl(var(--tv-hue-a) 88% 62% / 0.36) 58%, transparent 67%),
     conic-gradient(
@@ -107,10 +107,10 @@
       transparent
     );
   filter: blur(1px);
-  animation: tunnel-center-spin calc(var(--tv-speed-ms, 16s) * 0.56) linear infinite;
+  animation: live-center-spin calc(var(--tv-speed-ms, 16s) * 0.56) linear infinite;
 }
 
-.tunnel-visual__center-ring-b {
+.live-visual__center-ring-b {
   inset: 24%;
   background:
     radial-gradient(circle at center, transparent 50%, hsl(var(--tv-hue-c) 86% 60% / 0.34) 56%, transparent 68%),
@@ -123,10 +123,10 @@
       transparent
     );
   filter: blur(2px);
-  animation: tunnel-center-spin calc(var(--tv-speed-ms, 16s) * 0.82) linear infinite reverse;
+  animation: live-center-spin calc(var(--tv-speed-ms, 16s) * 0.82) linear infinite reverse;
 }
 
-.tunnel-visual__center-glyph {
+.live-visual__center-glyph {
   inset: 27%;
   border-radius: 38% 62% 54% 46% / 50% 42% 58% 50%;
   background:
@@ -144,7 +144,7 @@
   animation: aurora-center-glyph calc(var(--tv-speed-ms, 16s) * 0.6) cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-.tunnel-visual__grain {
+.live-visual__grain {
   inset: 0;
   background-image: radial-gradient(rgb(255 255 255 / 0.08) 0.65px, transparent 0.65px);
   background-size: 3px 3px;
@@ -152,7 +152,7 @@
   opacity: 0.08;
 }
 
-.tunnel-visual__vignette {
+.live-visual__vignette {
   inset: 0;
   background: radial-gradient(
     ellipse at center,
@@ -271,7 +271,7 @@
   }
 }
 
-@keyframes tunnel-center-spin {
+@keyframes live-center-spin {
   0% {
     transform: rotate(0deg) scale(1);
   }
@@ -283,7 +283,7 @@
   }
 }
 
-@keyframes tunnel-visual-cross-in {
+@keyframes live-visual-cross-in {
   0% {
     opacity: 0;
   }
@@ -292,7 +292,7 @@
   }
 }
 
-@keyframes tunnel-visual-cross-out {
+@keyframes live-visual-cross-out {
   0% {
     opacity: var(--tv-opacity, 1);
   }
