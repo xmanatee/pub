@@ -5,6 +5,7 @@ import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { pushAuthDebug } from "~/lib/auth-debug";
 import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/link")({
@@ -24,14 +25,41 @@ function LinkPage() {
   const [error, setError] = React.useState<string | null>(null);
   const mergeAttemptedRef = React.useRef(false);
 
+  const startLinkSignIn = React.useCallback(
+    async (provider: "github" | "google") => {
+      try {
+        pushAuthDebug("link_signin_start", { provider, tokenPresent: Boolean(token) });
+        const result = await signIn(provider, { redirectTo: `/link?token=${token}` });
+        if (!result.redirect && !result.signingIn) {
+          console.warn(`Link sign-in did not start for provider: ${provider}`);
+          pushAuthDebug("link_signin_incomplete", { provider });
+          setError("Could not start sign-in. Please try again.");
+        }
+      } catch (err) {
+        pushAuthDebug("link_signin_error", { provider, err });
+        setError("Could not start sign-in. Please try again.");
+      }
+    },
+    [signIn, token],
+  );
+
   React.useEffect(() => {
+    pushAuthDebug("link_state", {
+      authLoading,
+      isAuthenticated,
+      tokenPresent: Boolean(token),
+      tokenValid: tokenInfo?.valid ?? null,
+    });
     if (!isAuthenticated || mergeAttemptedRef.current || !tokenInfo?.valid) return;
     mergeAttemptedRef.current = true;
 
     completeMerge({ token })
       .then(() => setMerged(true))
-      .catch(() => setError("Failed to link accounts. The token may have expired."));
-  }, [isAuthenticated, tokenInfo, token, completeMerge]);
+      .catch((err) => {
+        pushAuthDebug("link_complete_merge_error", err);
+        setError("Failed to link accounts. The token may have expired.");
+      });
+  }, [authLoading, isAuthenticated, tokenInfo, token, completeMerge]);
 
   if (!token) {
     return (
@@ -102,14 +130,18 @@ function LinkPage() {
         <Button
           variant="outline"
           className="w-full h-11"
-          onClick={() => void signIn("github", { redirectTo: `/link?token=${token}` })}
+          onClick={() => {
+            void startLinkSignIn("github");
+          }}
         >
           Continue with GitHub
         </Button>
         <Button
           variant="outline"
           className="w-full h-11"
-          onClick={() => void signIn("google", { redirectTo: `/link?token=${token}` })}
+          onClick={() => {
+            void startLinkSignIn("google");
+          }}
         >
           Continue with Google
         </Button>

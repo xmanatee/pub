@@ -91,6 +91,14 @@ export class BrowserBridge {
         this.setState("connected");
       } else if (iceState === "disconnected" || iceState === "failed") {
         this.setState("disconnected");
+        console.warn("Peer ICE connection became unhealthy", { iceState });
+      }
+    };
+
+    this.pc.onconnectionstatechange = () => {
+      if (!this.pc) return;
+      if (this.pc.connectionState === "failed" || this.pc.connectionState === "disconnected") {
+        console.warn("Peer connection state issue", { state: this.pc.connectionState });
       }
     };
 
@@ -227,6 +235,8 @@ export class BrowserBridge {
             message: msg,
             timestamp: Date.now(),
           });
+        } else {
+          console.warn("Received non-decodable bridge message", { channel: dc.label });
         }
         return;
       }
@@ -242,9 +252,14 @@ export class BrowserBridge {
         return;
       }
       if (event.data instanceof Blob) {
-        void event.data.arrayBuffer().then((buffer) => {
-          this.emitBinaryMessage(dc.label, buffer);
-        });
+        void event.data
+          .arrayBuffer()
+          .then((buffer) => {
+            this.emitBinaryMessage(dc.label, buffer);
+          })
+          .catch((error) => {
+            console.error("Failed to read binary blob payload", error);
+          });
       }
     };
 

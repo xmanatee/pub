@@ -4,6 +4,9 @@ import * as React from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Switch } from "~/components/ui/switch";
+import { useDeveloperMode } from "~/hooks/use-developer-mode";
+import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 
@@ -17,13 +20,20 @@ export function AccountTab() {
   const providers = useQuery(api.telegram.getLinkedProviders);
   const createLinkToken = useMutation(api.linking.createLinkToken);
   const [linkUrl, setLinkUrl] = React.useState<string | null>(null);
+  const [linkError, setLinkError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   async function handleCreateLink() {
     setLoading(true);
+    setLinkError(null);
     try {
       const { token } = await createLinkToken();
       setLinkUrl(`${window.location.origin}/link?token=${token}`);
+      pushAuthDebug("account_link_token_created");
+    } catch (error) {
+      pushAuthDebug("account_link_token_error", error);
+      setLinkError("Could not generate a link right now. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +78,7 @@ export function AccountTab() {
             <p className="text-sm text-muted-foreground">
               Link your GitHub or Google account to access your publications from the web too.
             </p>
+            {linkError ? <p className="text-sm text-destructive">{linkError}</p> : null}
             {linkUrl ? (
               <div className="space-y-2">
                 <p className="text-sm">Open this link in a browser to complete linking:</p>
@@ -85,6 +96,32 @@ export function AccountTab() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Developer Mode</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm">Enable in-app debug console (Eruda)</p>
+              <p className="text-xs text-muted-foreground">
+                Shows a mobile console in Telegram Mini App and keeps global error logs visible.
+              </p>
+            </div>
+            <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.assign("/debug/auth");
+            }}
+          >
+            Open auth debug log
+          </Button>
+        </CardContent>
+      </Card>
 
       {!IN_TELEGRAM && !hasTelegram && (
         <Card className="border-border/50">

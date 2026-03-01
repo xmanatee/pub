@@ -60,6 +60,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
           <SettingsPanel
             autoOpenCanvas={model.autoOpenCanvas}
             animationStyle={model.animationStyle}
+            developerModeEnabled={model.developerModeEnabled}
             fileCount={model.files.length}
             hasCanvasContent={Boolean(model.canvasHtml)}
             messageCount={model.messages.length}
@@ -68,6 +69,7 @@ function TunnelPageInner({ tunnelId }: { tunnelId: string }) {
             onClearCanvas={model.clearCanvas}
             onClearFiles={model.clearFiles}
             onClearMessages={model.clearMessages}
+            onDeveloperModeChange={model.setDeveloperModeEnabled}
             onShowDeliveryStatusChange={model.setShowDeliveryStatus}
             onVoiceModeEnabledChange={model.setVoiceModeEnabled}
             showDeliveryStatus={model.showDeliveryStatus}

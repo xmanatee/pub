@@ -246,7 +246,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       }
 
       const startMsg = makeStreamStart({ mime });
-      bridge.send(CHANNELS.AUDIO, startMsg);
+      if (!bridge.send(CHANNELS.AUDIO, startMsg)) {
+        console.warn("Failed to send voice stream start event");
+      }
       streamIdRef.current = startMsg.id;
 
       const recorder = mime
@@ -255,7 +257,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       recorder.ondataavailable = async (ev) => {
         if (ev.data.size > 0 && streamIdRef.current) {
           const buf = await ev.data.arrayBuffer();
-          bridge.sendBinary(CHANNELS.AUDIO, buf);
+          if (!bridge.sendBinary(CHANNELS.AUDIO, buf)) {
+            console.warn("Failed to send voice stream chunk");
+          }
         }
       };
       mediaRecorderRef.current = recorder;
@@ -284,7 +288,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     if (state.mode !== "stopping-voice") return;
 
     if (bridge && streamIdRef.current) {
-      bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current));
+      if (!bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current))) {
+        console.warn("Failed to send voice stream end event");
+      }
       streamIdRef.current = null;
     }
     teardownMediaState(true);

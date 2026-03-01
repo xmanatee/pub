@@ -7,7 +7,10 @@ export async function ensureChannelReady(
 ): Promise<boolean> {
   if (bridge.isChannelOpen(channel)) return true;
   const dc = bridge.openChannel(channel);
-  if (!dc) return false;
+  if (!dc) {
+    console.warn(`Failed to open data channel "${channel}"`);
+    return false;
+  }
   if (dc.readyState === "open") return true;
   return await new Promise<boolean>((resolve) => {
     let settled = false;
@@ -17,8 +20,18 @@ export async function ensureChannelReady(
       clearTimeout(timeout);
       resolve(value);
     };
-    const timeout = setTimeout(() => done(false), timeoutMs);
+    const timeout = setTimeout(() => {
+      console.warn(`Data channel "${channel}" did not open within ${timeoutMs}ms`);
+      done(false);
+    }, timeoutMs);
     dc.addEventListener("open", () => done(true), { once: true });
-    dc.addEventListener("close", () => done(false), { once: true });
+    dc.addEventListener(
+      "close",
+      () => {
+        console.warn(`Data channel "${channel}" closed before opening`);
+        done(false);
+      },
+      { once: true },
+    );
   });
 }

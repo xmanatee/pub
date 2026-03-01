@@ -139,7 +139,9 @@ export function useTunnelBridge({
     const nextCandidates = agentCandidates.slice(lastAgentCandidateCountRef.current);
     if (nextCandidates.length === 0) return;
     lastAgentCandidateCountRef.current = agentCandidates.length;
-    void bridge.addRemoteCandidates(nextCandidates);
+    void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
+      console.warn("Failed to add remote ICE candidates", error);
+    });
   }, [agentCandidates]);
 
   return {

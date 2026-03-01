@@ -57,10 +57,11 @@ function LoginPage() {
           setPendingProvider(null);
         }
         if (!result.redirect && !result.signingIn) {
+          console.warn(`OAuth sign-in did not start for provider: ${provider}`);
+          pushAuthDebug("oauth_start_incomplete", { provider });
           setAuthError("Could not start sign-in. Please try again.");
         }
       } catch (error) {
-        console.error("OAuth sign-in failed to start", error);
         pushAuthDebug("oauth_start_error", { provider, error });
         isStartingSignInRef.current = false;
         setPendingProvider(null);

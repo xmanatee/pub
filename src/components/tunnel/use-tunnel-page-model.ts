@@ -10,6 +10,7 @@ import { useTunnelBridge } from "~/components/tunnel/use-tunnel-bridge";
 import { useTunnelChatDelivery } from "~/components/tunnel/use-tunnel-chat-delivery";
 import { useTunnelFiles } from "~/components/tunnel/use-tunnel-files";
 import { useTunnelPreferences } from "~/components/tunnel/use-tunnel-preferences";
+import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { CHANNELS, makeBinaryMetaMessage, makeTextMessage } from "~/lib/bridge-protocol";
 import type { ChannelMessage } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
@@ -37,6 +38,7 @@ export function useTunnelPageModel(tunnelId: string) {
     showDeliveryStatus,
     voiceModeEnabled,
   } = useTunnelPreferences();
+  const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   const {
     addAgentMessage,
@@ -132,7 +134,10 @@ export function useTunnelPageModel(tunnelId: string) {
   const sendChat = useCallback(
     (text: string) => {
       const bridge = bridgeRef.current;
-      if (!bridge) return;
+      if (!bridge) {
+        console.warn("Cannot send chat message: tunnel bridge not ready");
+        return;
+      }
       const msg = makeTextMessage(text);
 
       addUserPendingMessage({ id: msg.id, content: text });
@@ -140,6 +145,7 @@ export function useTunnelPageModel(tunnelId: string) {
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.CHAT);
         if (!ready) {
+          console.warn("Cannot send chat message: chat data channel not ready");
           markMessageFailedIfPending(msg.id);
           return;
         }
@@ -171,16 +177,28 @@ export function useTunnelPageModel(tunnelId: string) {
   const sendAudio = useCallback(
     (blob: Blob) => {
       const bridge = bridgeRef.current;
-      if (!bridge) return;
+      if (!bridge) {
+        console.warn("Cannot send audio: tunnel bridge not ready");
+        return;
+      }
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
-        if (!ready) return;
+        if (!ready) {
+          console.warn("Cannot send audio: audio data channel not ready");
+          return;
+        }
         const buffer = await blob.arrayBuffer();
-        bridge.send(
+        const sentMeta = bridge.send(
           CHANNELS.AUDIO,
           makeBinaryMetaMessage({ mime: blob.type, size: buffer.byteLength }),
         );
-        bridge.sendBinary(CHANNELS.AUDIO, buffer);
+        if (!sentMeta) {
+          console.warn("Failed to send audio metadata");
+          return;
+        }
+        if (!bridge.sendBinary(CHANNELS.AUDIO, buffer)) {
+          console.warn("Failed to send audio payload");
+        }
       })();
     },
     [bridgeRef],
@@ -201,6 +219,7 @@ export function useTunnelPageModel(tunnelId: string) {
     clearFiles,
     clearMessages,
     connected: bridgeState === "connected",
+    developerModeEnabled,
     files,
     messages,
     messagesEndRef,
@@ -208,6 +227,7 @@ export function useTunnelPageModel(tunnelId: string) {
     sendChat,
     setAnimationStyle,
     setAutoOpenCanvas,
+    setDeveloperModeEnabled,
     setShowDeliveryStatus,
     setViewMode,
     setVoiceModeEnabled,
