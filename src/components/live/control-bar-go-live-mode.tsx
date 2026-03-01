@@ -7,7 +7,7 @@ interface ControlBarGoLiveModeProps {
 export function ControlBarGoLiveMode({ onGoLive }: ControlBarGoLiveModeProps) {
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-end px-3"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex justify-end px-3"
       style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
     >
       <button

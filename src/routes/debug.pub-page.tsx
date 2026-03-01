@@ -1,7 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BatchSection } from "~/components/debug/batch-section";
-
-const noop = () => {};
+import { ControlBarGoLiveMode } from "~/components/live/control-bar-go-live-mode";
 
 export const Route = createFileRoute("/debug/pub-page")({
   beforeLoad: () => {
@@ -48,13 +47,7 @@ function PubPageDebug() {
               content: (
                 <>
                   <TextContent text="Hello, world!" />
-                  <button
-                    type="button"
-                    onClick={noop}
-                    className="fixed top-4 right-4 z-[60] px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg hover:opacity-90 transition-opacity"
-                  >
-                    Go Live
-                  </button>
+                  <ControlBarGoLiveMode onGoLive={() => {}} />
                 </>
               ),
             },
