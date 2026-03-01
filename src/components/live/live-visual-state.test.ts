@@ -97,4 +97,48 @@ describe("resolveLiveVisualState", () => {
       }),
     ).toBe("waiting-content");
   });
+
+  it("agent-replying at exact 4s boundary, idle at 4s+1ms", () => {
+    expect(
+      resolveLiveVisualState({
+        bridgeState: "connected",
+        hasCanvasContent: true,
+        lastAgentActivityAt: NOW - 4_000,
+        lastUserDeliveredAt: null,
+        now: NOW,
+      }),
+    ).toBe("agent-replying");
+
+    expect(
+      resolveLiveVisualState({
+        bridgeState: "connected",
+        hasCanvasContent: true,
+        lastAgentActivityAt: NOW - 4_001,
+        lastUserDeliveredAt: null,
+        now: NOW,
+      }),
+    ).toBe("idle");
+  });
+
+  it("agent-thinking at exact 12s boundary, idle at 12s+1ms", () => {
+    expect(
+      resolveLiveVisualState({
+        bridgeState: "connected",
+        hasCanvasContent: true,
+        lastAgentActivityAt: null,
+        lastUserDeliveredAt: NOW - 12_000,
+        now: NOW,
+      }),
+    ).toBe("agent-thinking");
+
+    expect(
+      resolveLiveVisualState({
+        bridgeState: "connected",
+        hasCanvasContent: true,
+        lastAgentActivityAt: null,
+        lastUserDeliveredAt: NOW - 12_001,
+        now: NOW,
+      }),
+    ).toBe("idle");
+  });
 });
