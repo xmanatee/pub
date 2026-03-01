@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const SCREENSHOT_DIR = "tests/e2e/screenshots";
 
-test.use({ reducedMotion: "reduce" });
+test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 test.describe("Control bar screenshots", () => {
   test.beforeEach(async ({ page }) => {
@@ -16,10 +16,16 @@ test.describe("Control bar screenshots", () => {
     await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-visual-state.png` });
   });
 
-  test("collapsed", async ({ page }) => {
-    const section = page.getByTestId("batch-collapsed");
+  test("collapsed mobile", async ({ page }) => {
+    const section = page.getByTestId("batch-collapsed-mobile");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-collapsed.png` });
+    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-collapsed-mobile.png` });
+  });
+
+  test("collapsed desktop", async ({ page }) => {
+    const section = page.getByTestId("batch-collapsed-desktop");
+    await expect(section).toBeVisible();
+    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-collapsed-desktop.png` });
   });
 
   test("chat preview", async ({ page }) => {
@@ -31,9 +37,7 @@ test.describe("Control bar screenshots", () => {
   test("close button", async ({ page }) => {
     const section = page.getByTestId("batch-close-button");
     await expect(section).toBeVisible();
-
-    const withClose = section.locator('[class*="border"]:has([class*="bg-muted"])').last();
-    await withClose.getByLabel("Message").click({ button: "right" });
+    await section.getByLabel("Message").last().click({ button: "right" });
     await expect(section.getByRole("menuitem", { name: "Close" })).toBeVisible();
     await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-close-button.png` });
   });

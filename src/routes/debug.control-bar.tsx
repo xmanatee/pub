@@ -32,13 +32,11 @@ function StaticControlBar({
   chatPreview = null,
   collapsed = false,
   onClose,
-  voiceModeEnabled = false,
 }: {
   visualState?: LiveVisualState;
   chatPreview?: string | null;
   collapsed?: boolean;
   onClose?: () => void;
-  voiceModeEnabled?: boolean;
 }) {
   return (
     <ControlBar
@@ -54,7 +52,7 @@ function StaticControlBar({
       onChangeView={noop}
       viewMode="canvas"
       visualState={visualState}
-      voiceModeEnabled={voiceModeEnabled}
+      voiceModeEnabled={false}
     />
   );
 }
@@ -79,63 +77,47 @@ function ControlBarDebugPage() {
           }))}
         />
 
+        <div className="max-w-md">
+          <BatchSection
+            title="Collapsed — Mobile"
+            testId="batch-collapsed-mobile"
+            items={[
+              { label: "expanded", content: <StaticControlBar /> },
+              { label: "collapsed", content: <StaticControlBar collapsed /> },
+            ]}
+          />
+        </div>
+
         <BatchSection
-          title="Collapsed"
-          testId="batch-collapsed"
+          title="Collapsed — Desktop"
+          testId="batch-collapsed-desktop"
           items={[
-            {
-              label: "expanded — mobile",
-              content: <StaticControlBar />,
-              width: 430,
-            },
-            {
-              label: "collapsed — mobile",
-              content: <StaticControlBar collapsed />,
-              width: 430,
-            },
-            {
-              label: "expanded — desktop",
-              content: <StaticControlBar />,
-              width: 1280,
-            },
-            {
-              label: "collapsed — desktop",
-              content: <StaticControlBar collapsed />,
-              width: 1280,
-            },
+            { label: "expanded", content: <StaticControlBar /> },
+            { label: "collapsed", content: <StaticControlBar collapsed /> },
           ]}
-          cellHeight={80}
         />
 
         <BatchSection
           title="Chat Preview"
           testId="batch-preview"
           items={[
-            {
-              label: "without preview",
-              content: <StaticControlBar />,
-            },
+            { label: "without preview", content: <StaticControlBar /> },
             {
               label: "with preview",
               content: <StaticControlBar chatPreview={DEBUG_PREVIEW_TEXT} />,
             },
           ]}
+          cellHeight={160}
         />
 
         <BatchSection
           title="Close Button"
           testId="batch-close-button"
           items={[
-            {
-              label: "without onClose",
-              content: <StaticControlBar />,
-            },
-            {
-              label: "with onClose",
-              content: <StaticControlBar onClose={noop} />,
-            },
+            { label: "without onClose", content: <StaticControlBar /> },
+            { label: "with onClose", content: <StaticControlBar onClose={noop} /> },
           ]}
-          cellHeight={200}
+          cellHeight={300}
         />
 
         <details className="mt-10">

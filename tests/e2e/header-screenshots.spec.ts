@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const SCREENSHOT_DIR = "tests/e2e/screenshots";
 
-test.use({ reducedMotion: "reduce" });
+test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 test.describe("Header screenshots", () => {
   test("tma state", async ({ page }) => {
