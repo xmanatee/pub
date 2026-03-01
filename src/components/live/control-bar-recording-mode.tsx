@@ -3,41 +3,34 @@ import type { ReactNode } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+import { CB } from "./control-bar-classes";
 
 interface ControlBarRecordingModeProps {
-  actionButtonClass: string;
-  controlBarClass: string;
-  controlHeightClass: string;
   elapsedLabel: string;
   isPaused: boolean;
   onCancelRecording: () => void;
   onPauseResume: () => void;
   onSendRecording: () => void;
-  recordingToneClass: string;
   waveformEl: ReactNode;
 }
 
 export function ControlBarRecordingMode({
-  actionButtonClass,
-  controlBarClass,
-  controlHeightClass,
   elapsedLabel,
   isPaused,
   onCancelRecording,
   onPauseResume,
   onSendRecording,
-  recordingToneClass,
   waveformEl,
 }: ControlBarRecordingModeProps) {
   return (
-    <div className={cn(controlBarClass, controlHeightClass, recordingToneClass)}>
+    <div className={cn(CB.controlBar, CB.controlHeight, CB.recordingTone)}>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             type="button"
             variant="ghost"
             size="control"
-            className={cn(actionButtonClass, "text-destructive")}
+            className={cn(CB.actionButton, "text-destructive")}
             onClick={onCancelRecording}
             aria-label="Delete recording"
           >
@@ -69,7 +62,7 @@ export function ControlBarRecordingMode({
             type="button"
             variant="ghost"
             size="control"
-            className={actionButtonClass}
+            className={CB.actionButton}
             onClick={onPauseResume}
             aria-label={isPaused ? "Resume recording" : "Pause recording"}
           >
@@ -85,7 +78,7 @@ export function ControlBarRecordingMode({
             type="button"
             variant="default"
             size="control"
-            className={actionButtonClass}
+            className={CB.actionButton}
             onClick={onSendRecording}
             aria-label="Send recording"
           >

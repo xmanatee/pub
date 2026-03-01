@@ -4,6 +4,7 @@ import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+import { CB } from "./control-bar-classes";
 import "./control-bar-state.css";
 import { controlBarStyleFromTone } from "./control-bar-theme";
 import { ExtendedOptions } from "./extended-options";
@@ -15,10 +16,7 @@ const TEXTAREA_LINE_HEIGHT = 20;
 const TEXTAREA_PADDING_Y = 10;
 
 interface ControlBarIdleModeProps {
-  actionButtonClass: string;
   chatPreview: string | null;
-  controlHeightClass: string;
-  controlRowClass: string;
   expanded: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasText: boolean;
@@ -35,17 +33,13 @@ interface ControlBarIdleModeProps {
   onViewSelect: (mode: LiveViewMode) => void;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   sendDisabled: boolean;
-  shellContentClassName: string;
   viewMode: LiveViewMode;
   visualState: LiveVisualState;
   voiceModeEnabled: boolean;
 }
 
 export function ControlBarIdleMode({
-  actionButtonClass,
   chatPreview,
-  controlHeightClass,
-  controlRowClass,
   expanded,
   fileInputRef,
   hasText,
@@ -62,7 +56,6 @@ export function ControlBarIdleMode({
   onViewSelect,
   pointerHandlers,
   sendDisabled,
-  shellContentClassName,
   viewMode,
   visualState,
   voiceModeEnabled,
@@ -101,8 +94,9 @@ export function ControlBarIdleMode({
 
       <div
         className={cn(
-          "cb-state-border relative z-20 min-h-12 overflow-hidden select-none",
-          shellContentClassName,
+          "cb-state-border relative z-20 overflow-hidden select-none",
+          CB.controlHeight,
+          CB.shellContent,
         )}
         style={{ WebkitTouchCallout: "none", ...cbStyle }}
         {...longPressHandlers}
@@ -143,13 +137,13 @@ export function ControlBarIdleMode({
           </button>
         </div>
 
-        <div className={cn(controlRowClass, controlHeightClass)}>
+        <div className={cn(CB.controlRow, CB.controlHeight)}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="control"
-                className={actionButtonClass}
+                className={CB.actionButton}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={sendDisabled}
                 aria-label="Attach file"
@@ -180,7 +174,7 @@ export function ControlBarIdleMode({
                 <Button
                   variant="default"
                   size="control"
-                  className={actionButtonClass}
+                  className={CB.actionButton}
                   onClick={onSend}
                   disabled={sendDisabled}
                   aria-label="Send message"
@@ -197,7 +191,7 @@ export function ControlBarIdleMode({
                   <Button
                     variant="ghost"
                     size="control"
-                    className={cn(actionButtonClass, "touch-none long-press-ignore")}
+                    className={cn(CB.actionButton, "touch-none long-press-ignore")}
                     disabled={sendDisabled}
                     aria-label="Hold to record audio"
                     {...pointerHandlers}
@@ -214,7 +208,7 @@ export function ControlBarIdleMode({
                     <Button
                       variant="default"
                       size="control"
-                      className={actionButtonClass}
+                      className={CB.actionButton}
                       onClick={onStartVoiceMode}
                       disabled={sendDisabled}
                       aria-label="Voice mode"

@@ -2,28 +2,21 @@ import { Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
+import { CB } from "./control-bar-classes";
 
 interface ControlBarVoiceModeProps {
-  actionButtonClass: string;
-  controlBarClass: string;
-  controlHeightClass: string;
   elapsedLabel: string;
   onStopVoiceMode: () => void;
-  recordingToneClass: string;
   waveformEl: ReactNode;
 }
 
 export function ControlBarVoiceMode({
-  actionButtonClass,
-  controlBarClass,
-  controlHeightClass,
   elapsedLabel,
   onStopVoiceMode,
-  recordingToneClass,
   waveformEl,
 }: ControlBarVoiceModeProps) {
   return (
-    <div className={cn(controlBarClass, controlHeightClass, recordingToneClass)}>
+    <div className={cn(CB.controlBar, CB.controlHeight, CB.recordingTone)}>
       <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-destructive/12 px-3 py-2">
         <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
         <span className="text-sm font-semibold">{elapsedLabel}</span>
@@ -34,7 +27,7 @@ export function ControlBarVoiceMode({
         type="button"
         variant="ghost"
         size="control"
-        className={cn(actionButtonClass, "text-destructive")}
+        className={cn(CB.actionButton, "text-destructive")}
         onClick={onStopVoiceMode}
         aria-label="Stop voice mode"
       >

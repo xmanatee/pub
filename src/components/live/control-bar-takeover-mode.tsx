@@ -3,14 +3,12 @@ import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+import { CB } from "./control-bar-classes";
 import type { SessionState } from "./types";
 
 const TAKEOVER_COOLDOWN_MS = 20_000;
 
 interface ControlBarTakeoverModeProps {
-  actionButtonClass: string;
-  controlBarClass: string;
-  controlHeightClass: string;
   lastTakeoverAt: number | undefined;
   onExit: () => void;
   onTakeover: () => void;
@@ -18,9 +16,6 @@ interface ControlBarTakeoverModeProps {
 }
 
 export function ControlBarTakeoverMode({
-  actionButtonClass,
-  controlBarClass,
-  controlHeightClass,
   lastTakeoverAt,
   onExit,
   onTakeover,
@@ -55,7 +50,7 @@ export function ControlBarTakeoverMode({
         : "Reclaim";
 
   return (
-    <div className={cn(controlBarClass, controlHeightClass)}>
+    <div className={cn(CB.controlBar, CB.controlHeight)}>
       <span className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground">
         {statusText}
       </span>
@@ -65,7 +60,7 @@ export function ControlBarTakeoverMode({
           <Button
             variant="ghost"
             size="control"
-            className={actionButtonClass}
+            className={CB.actionButton}
             onClick={onExit}
             aria-label="Leave"
           >
@@ -80,7 +75,7 @@ export function ControlBarTakeoverMode({
           <Button
             variant="default"
             size="control"
-            className={actionButtonClass}
+            className={CB.actionButton}
             onClick={onTakeover}
             disabled={cooldownActive}
             aria-label={actionTooltip}
