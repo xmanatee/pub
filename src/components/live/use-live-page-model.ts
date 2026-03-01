@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readCachedCanvasHtml, writeCachedCanvasHtml } from "~/components/live/canvas-live-cache";
 import { useLiveVisualState } from "~/components/live/live-visual-state";
-import type { LiveViewMode } from "~/components/live/types";
+import type { LiveViewMode, SessionState } from "~/components/live/types";
 import { useLiveBridge } from "~/components/live/use-live-bridge";
 import { useLiveChatDelivery } from "~/components/live/use-live-chat-delivery";
 import { useLiveFiles } from "~/components/live/use-live-files";
@@ -16,8 +16,6 @@ import { api } from "../../../convex/_generated/api";
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const CHAT_CONFIRM_GRACE_MS = 12_000;
 const SESSION_STORAGE_PREFIX = "pub-live-session:";
-
-export type SessionState = "active" | "needs-takeover" | "taken-over";
 
 function getOrCreateSessionId(slug: string): string {
   const key = `${SESSION_STORAGE_PREFIX}${slug}`;

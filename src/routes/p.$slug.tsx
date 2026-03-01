@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { CanvasPanel } from "~/components/live/canvas-panel";
 import { ChatPanel } from "~/components/live/chat-panel";
 import { ControlBar } from "~/components/live/control-bar";
-import { TakenOverBanner, TakeoverPrompt } from "~/components/live/live-takeover";
 import { SettingsPanel } from "~/components/live/settings-panel";
 import { useChatPreview } from "~/components/live/use-chat-preview";
 import { useLivePageModel } from "~/components/live/use-live-page-model";
@@ -166,25 +165,7 @@ function InteractiveView({
     return <StatusScreen text="This pub is not live." />;
   }
 
-  if (model.sessionState === "needs-takeover") {
-    return (
-      <TakeoverPrompt
-        onTakeover={() => void model.takeoverLive()}
-        onDismiss={() => navigate({ to: "/dashboard" })}
-      />
-    );
-  }
-
-  if (model.sessionState === "taken-over") {
-    return (
-      <TakenOverBanner
-        lastTakeoverAt={model.lastTakeoverAt}
-        onReclaim={() => void model.takeoverLive()}
-      />
-    );
-  }
-
-  if (!model.live.agentOffer && !model.canvasHtml)
+  if (model.sessionState === "active" && !model.live.agentOffer && !model.canvasHtml)
     return <StatusScreen text="Waiting for agent..." />;
 
   return (
@@ -248,11 +229,14 @@ function InteractiveView({
         collapsed={controlBarCollapsed}
         sendDisabled={!model.connected}
         bridge={model.bridgeRef.current}
+        lastTakeoverAt={model.lastTakeoverAt}
         onClose={() => navigate({ to: "/dashboard" })}
         onDismissPreview={dismissPreview}
+        onTakeover={() => void model.takeoverLive()}
         onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
+        sessionState={model.sessionState}
         onChangeView={model.setViewMode}
         viewMode={model.viewMode}
         visualState={model.visualState}

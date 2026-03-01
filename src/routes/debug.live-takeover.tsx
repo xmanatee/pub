@@ -1,9 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BatchSection } from "~/components/debug/batch-section";
-import { TakenOverBanner, TakeoverPrompt } from "~/components/live/live-takeover";
+import { ControlBarTakeoverMode } from "~/components/live/control-bar-takeover-mode";
 
 const noop = () => {};
-const STATIC_CLASS = "flex items-center justify-center bg-background";
+const CONTROL_BAR_CLASS =
+  "flex w-full items-center gap-1.5 rounded-full border border-border/70 bg-background/88 px-1.5 shadow-lg backdrop-blur-xl";
+const CONTROL_HEIGHT_CLASS = "min-h-12";
+const ACTION_BUTTON_CLASS = "shrink-0";
 
 export const Route = createFileRoute("/debug/live-takeover")({
   beforeLoad: () => {
@@ -27,11 +30,19 @@ function LiveTakeoverDebugPage() {
             {
               label: "needs takeover",
               content: (
-                <TakeoverPrompt className={STATIC_CLASS} onTakeover={noop} onDismiss={noop} />
+                <ControlBarTakeoverMode
+                  actionButtonClass={ACTION_BUTTON_CLASS}
+                  controlBarClass={CONTROL_BAR_CLASS}
+                  controlHeightClass={CONTROL_HEIGHT_CLASS}
+                  lastTakeoverAt={undefined}
+                  onExit={noop}
+                  onTakeover={noop}
+                  sessionState="needs-takeover"
+                />
               ),
             },
           ]}
-          cellHeight={180}
+          cellHeight={80}
         />
 
         <BatchSection
@@ -41,25 +52,33 @@ function LiveTakeoverDebugPage() {
             {
               label: "cooldown active (15s remaining)",
               content: (
-                <TakenOverBanner
-                  className={STATIC_CLASS}
+                <ControlBarTakeoverMode
+                  actionButtonClass={ACTION_BUTTON_CLASS}
+                  controlBarClass={CONTROL_BAR_CLASS}
+                  controlHeightClass={CONTROL_HEIGHT_CLASS}
                   lastTakeoverAt={Date.now() - 5_000}
-                  onReclaim={noop}
+                  onExit={noop}
+                  onTakeover={noop}
+                  sessionState="taken-over"
                 />
               ),
             },
             {
               label: "cooldown expired",
               content: (
-                <TakenOverBanner
-                  className={STATIC_CLASS}
+                <ControlBarTakeoverMode
+                  actionButtonClass={ACTION_BUTTON_CLASS}
+                  controlBarClass={CONTROL_BAR_CLASS}
+                  controlHeightClass={CONTROL_HEIGHT_CLASS}
                   lastTakeoverAt={Date.now() - 30_000}
-                  onReclaim={noop}
+                  onExit={noop}
+                  onTakeover={noop}
+                  sessionState="taken-over"
                 />
               ),
             },
           ]}
-          cellHeight={180}
+          cellHeight={80}
         />
       </div>
     </div>
