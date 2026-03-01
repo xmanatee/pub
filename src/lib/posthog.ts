@@ -40,7 +40,3 @@ export function initPostHog() {
 
   initialized = true;
 }
-
-export function getPostHog() {
-  return initialized ? posthog : null;
-}
