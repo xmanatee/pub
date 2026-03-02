@@ -71,6 +71,10 @@ export function getMimeType(filePath: string): string {
   return MIME_BY_EXT[ext] || "application/octet-stream";
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 interface DaemonProcessInfo {
   cliVersion?: string;
   pid: number;
@@ -132,12 +136,11 @@ export async function ensureNodeDatachannelAvailable(): Promise<void> {
   try {
     await import("node-datachannel");
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
     failCli(
       [
         "node-datachannel native module is not available.",
         "Run `pnpm rebuild node-datachannel` in the cli package and retry.",
-        `Details: ${message}`,
+        `Details: ${errorMessage(error)}`,
       ].join("\n"),
     );
   }
@@ -177,11 +180,12 @@ export function readLatestCliVersion(versionPath?: string): string | null {
 }
 
 export function writeLatestCliVersion(version: string, versionPath?: string): void {
-  if (version.trim().length === 0) return;
+  const trimmed = version.trim();
+  if (trimmed.length === 0) return;
   const resolved = versionPath || latestCliVersionPath();
   const dir = path.dirname(resolved);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(resolved, version.trim(), "utf-8");
+  fs.writeFileSync(resolved, trimmed, "utf-8");
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -214,14 +218,14 @@ async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null
       try {
         process.kill(pid, "SIGTERM");
       } catch (killError) {
-        return `daemon ${pid}: IPC close failed (${error instanceof Error ? error.message : String(error)}); SIGTERM failed (${killError instanceof Error ? killError.message : String(killError)})`;
+        return `daemon ${pid}: IPC close failed (${errorMessage(error)}); SIGTERM failed (${errorMessage(killError)})`;
       }
     }
   } else {
     try {
       process.kill(pid, "SIGTERM");
     } catch (error) {
-      return `daemon ${pid}: no socketPath and SIGTERM failed (${error instanceof Error ? error.message : String(error)})`;
+      return `daemon ${pid}: no socketPath and SIGTERM failed (${errorMessage(error)})`;
     }
   }
 
@@ -309,7 +313,7 @@ export function formatApiError(error: unknown): string {
     }
     return `${error.message} (HTTP ${error.status})`;
   }
-  return error instanceof Error ? error.message : String(error);
+  return errorMessage(error);
 }
 
 export async function resolveActiveSlug(): Promise<string> {
@@ -373,7 +377,7 @@ export function waitForDaemonReady({
           if (status.ok) done({ ok: true });
         })
         .catch((error) => {
-          lastIpcError = error instanceof Error ? error.message : String(error);
+          lastIpcError = errorMessage(error);
         })
         .finally(() => {
           pollInFlight = false;
