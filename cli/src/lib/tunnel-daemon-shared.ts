@@ -24,7 +24,6 @@ export const OFFER_TIMEOUT_MS = 10_000;
 export const SIGNAL_POLL_WAITING_MS = 5_000;
 export const SIGNAL_POLL_CONNECTED_MS = 15_000;
 export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;
-export const RECOVERY_DELAY_MS = 1_000;
 export const WRITE_ACK_TIMEOUT_MS = 5_000;
 
 const NOT_CONNECTED_WRITE_ERROR =

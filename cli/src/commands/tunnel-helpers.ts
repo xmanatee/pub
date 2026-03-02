@@ -1,12 +1,12 @@
 import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type Pub, PubApiClient, PubApiError } from "../lib/api.js";
+import { PubApiClient, PubApiError } from "../lib/api.js";
 import { failCli } from "../lib/cli-error.js";
 import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
 import type { BridgeMode } from "../lib/tunnel-daemon-shared.js";
-import { ipcCall } from "../lib/tunnel-ipc.js";
+import { getAgentSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
 
 export const TEXT_FILE_EXTENSIONS = new Set([
   ".txt",
@@ -58,15 +58,14 @@ export function getMimeType(filePath: string): string {
   return mimeByExt[ext] || "application/octet-stream";
 }
 
-export interface DaemonProcessInfo {
+interface DaemonProcessInfo {
   cliVersion?: string;
   pid: number;
-  slug: string;
   socketPath?: string;
   startedAt?: number;
 }
 
-export function liveInfoDir(): string {
+function liveInfoDir(): string {
   const dir = path.join(
     process.env.HOME || process.env.USERPROFILE || "/tmp",
     ".config",
@@ -144,7 +143,7 @@ export function isDaemonRunning(slug: string): boolean {
   return readDaemonProcessInfo(slug) !== null;
 }
 
-export function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
+function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
   const infoPath = liveInfoPath(slug);
   if (!fs.existsSync(infoPath)) return null;
 
@@ -195,7 +194,7 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-export async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     if (!isProcessAlive(pid)) return true;
@@ -263,13 +262,6 @@ export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures:
   return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
 }
 
-export function resolveSlugSelection(
-  slugArg: string | undefined,
-  slugOpt: string | undefined,
-): string | undefined {
-  return slugOpt || slugArg;
-}
-
 export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
   return ["ignore", logFd, logFd, "ipc"];
 }
@@ -311,18 +303,6 @@ export function messageContainsPong(payload: unknown): boolean {
   return type === "text" && typeof data === "string" && data.trim().toLowerCase() === "pong";
 }
 
-export function getPublicUrl(slug: string): string {
-  const base = process.env.PUBBLUE_PUBLIC_URL || "https://pub.blue";
-  return `${base.replace(/\/$/, "")}/p/${slug}`;
-}
-
-export function pickReusableLive(pubs: Pub[], nowMs = Date.now()): Pub | null {
-  const active = pubs
-    .filter((p) => p.live?.status === "active" && p.live.expiresAt > nowMs)
-    .sort((a, b) => b.createdAt - a.createdAt);
-  return active[0] ?? null;
-}
-
 export function readLogTail(logPath: string, maxChars = 4_000): string | null {
   if (!fs.existsSync(logPath)) return null;
   try {
@@ -345,18 +325,16 @@ export function formatApiError(error: unknown): string {
 }
 
 export async function resolveActiveSlug(): Promise<string> {
-  const dir = liveInfoDir();
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
-  const active: string[] = [];
-  for (const f of files) {
-    const slug = f.replace(".json", "");
-    if (isDaemonRunning(slug)) active.push(slug);
+  const socketPath = getAgentSocketPath();
+  try {
+    const response = await ipcCall(socketPath, { method: "active-slug", params: {} });
+    if (response.ok && typeof response.slug === "string" && response.slug.length > 0) {
+      return response.slug;
+    }
+    failCli("Daemon is running but no live is active. Wait for browser to initiate live.");
+  } catch {
+    failCli("No active daemon. Run `pubblue start` first.");
   }
-  if (active.length === 0) {
-    failCli("No active lives. Run `pubblue open <slug>` first.");
-  }
-  if (active.length === 1) return active[0];
-  failCli(`Multiple active lives: ${active.join(", ")}. Specify one with --slug.`);
 }
 
 export interface WaitForDaemonReadyParams {

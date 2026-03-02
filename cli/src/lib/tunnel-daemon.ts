@@ -74,7 +74,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
-  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_TUNNEL_DEBUG === "1";
@@ -126,13 +125,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (localCandidateStopTimer) {
       clearTimeout(localCandidateStopTimer);
       localCandidateStopTimer = null;
-    }
-  }
-
-  function clearRecoveryTimer(): void {
-    if (recoveryTimer) {
-      clearTimeout(recoveryTimer);
-      recoveryTimer = null;
     }
   }
 
@@ -467,6 +459,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
       await apiClient.signalAnswer({ slug, answer });
       startLocalCandidateFlush(slug);
+      void startBridge();
     } catch (error) {
       markError("failed to handle incoming live request", error);
     } finally {
@@ -663,8 +656,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  void startBridge();
-
   // -- Canvas persistence ---------------------------------------------------
 
   async function persistCanvasContent(): Promise<void> {
@@ -692,7 +683,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     clearPollingTimer();
     clearLocalCandidateTimers();
-    clearRecoveryTimer();
     clearHealthCheckTimer();
     clearHeartbeatTimer();
 
