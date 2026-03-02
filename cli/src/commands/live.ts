@@ -61,11 +61,7 @@ function registerStartCommand(program: Command): void {
       const infoPath = liveInfoPath("agent");
       const logPath = liveLogPath("agent");
 
-      try {
-        await stopOtherDaemons();
-      } catch (error) {
-        failCli(error instanceof Error ? error.message : String(error));
-      }
+      await stopOtherDaemons();
 
       if (opts.foreground) {
         const { startDaemon } = await import("../lib/tunnel-daemon.js");
@@ -145,12 +141,7 @@ function registerStopCommand(program: Command): void {
         return;
       }
 
-      try {
-        await stopOtherDaemons();
-      } catch (error) {
-        failCli(error instanceof Error ? error.message : String(error));
-      }
-
+      await stopOtherDaemons();
       console.log("Agent daemon stopped.");
     });
 }

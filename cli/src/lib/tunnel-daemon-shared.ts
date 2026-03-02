@@ -8,7 +8,6 @@ export interface ChannelBuffer {
 }
 
 export interface StickyOutboundMessage {
-  binaryPayload?: Buffer;
   msg: BridgeMessage;
 }
 

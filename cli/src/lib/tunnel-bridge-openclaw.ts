@@ -368,9 +368,7 @@ function resolveOpenClawPath(): string {
     if (which.length > 0 && existsSync(which)) {
       return which;
     }
-  } catch {
-    // Fall through to explicit candidates.
-  }
+  } catch {}
 
   for (const candidate of OPENCLAW_DISCOVERY_PATHS) {
     if (existsSync(candidate)) return candidate;
@@ -546,8 +544,7 @@ async function handleAttachmentEntry(params: {
     const stream = activeStreams.get(channel);
     if (!stream) return false;
 
-    const requestedStreamId =
-      typeof msg.meta?.streamId === "string" ? (msg.meta.streamId as string) : undefined;
+    const requestedStreamId = readStreamIdFromMeta(msg.meta);
     if (requestedStreamId && requestedStreamId !== stream.streamId) return false;
 
     activeStreams.delete(channel);

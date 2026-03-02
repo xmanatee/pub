@@ -310,11 +310,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
   }
 
-  function maybePersistStickyOutbound(
-    channel: string,
-    msg: BridgeMessage,
-    binaryPayload: Buffer | undefined,
-  ): void {
+  function maybePersistStickyOutbound(channel: string, msg: BridgeMessage): void {
     if (channel !== CHANNELS.CANVAS) return;
     if (msg.type === "event" && msg.data === "hide") {
       stickyOutboundByChannel.delete(channel);
@@ -323,7 +319,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (msg.type !== "html") return;
     stickyOutboundByChannel.set(channel, {
       msg: { ...msg, meta: msg.meta ? { ...msg.meta } : undefined },
-      binaryPayload,
     });
   }
 
@@ -334,18 +329,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         let targetDc = channels.get(channel);
         if (!targetDc) targetDc = openDataChannel(channel);
         await waitForChannelOpen(targetDc, 3_000);
-
-        if (sticky.msg.type === "binary" && sticky.binaryPayload) {
-          targetDc.sendMessage(
-            encodeMessage({
-              ...sticky.msg,
-              meta: { ...(sticky.msg.meta || {}), size: sticky.binaryPayload.length },
-            }),
-          );
-          targetDc.sendMessageBinary(sticky.binaryPayload);
-        } else {
-          targetDc.sendMessage(encodeMessage(sticky.msg));
-        }
+        targetDc.sendMessage(encodeMessage(sticky.msg));
       } catch (error) {
         debugLog(`sticky outbound replay failed for channel ${channel}`, error);
       }
@@ -548,9 +532,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const info = JSON.parse(raw) as { pid: number };
       process.kill(info.pid, 0);
       stale = false;
-    } catch {
-      stale = true;
-    }
+    } catch {}
 
     if (stale) {
       try {
@@ -622,7 +604,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (!targetDc) {
       try {
         targetDc = openDataChannel(channel);
-      } catch {
+      } catch (error) {
+        debugLog(`bridge sendOnChannel: failed to open channel ${channel}`, error);
         return;
       }
     }
@@ -735,9 +718,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
         const msg = req.params.msg as BridgeMessage;
         const binaryBase64 =
-          typeof req.params.binaryBase64 === "string"
-            ? (req.params.binaryBase64 as string)
-            : undefined;
+          typeof req.params.binaryBase64 === "string" ? req.params.binaryBase64 : undefined;
         const binaryPayload =
           msg.type === "binary" && binaryBase64 ? Buffer.from(binaryBase64, "base64") : undefined;
 
@@ -786,7 +767,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           }
         }
 
-        maybePersistStickyOutbound(channel, msg, binaryPayload);
+        maybePersistStickyOutbound(channel, msg);
         return { ok: true, delivered: true };
       }
 

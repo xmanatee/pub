@@ -93,7 +93,7 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   const env: NodeJS.ProcessEnv = { ...process.env };
 
   const setIfMissing = (key: string, value: string | number | boolean | undefined) => {
-    if (value === undefined || value === null) return;
+    if (value === undefined) return;
     const current = env[key];
     if (typeof current === "string" && current.length > 0) return;
     env[key] = String(value);
@@ -150,14 +150,12 @@ function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
   try {
     const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as DaemonProcessInfo;
     if (!Number.isFinite(info.pid)) throw new Error("invalid daemon pid");
-    process.kill(info.pid, 0);
+    if (!isProcessAlive(info.pid)) throw new Error("process not alive");
     return info;
   } catch {
     try {
       fs.unlinkSync(infoPath);
-    } catch {
-      // stale pid file cleanup failed
-    }
+    } catch {}
     return null;
   }
 }
@@ -231,15 +229,13 @@ async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null
   return null;
 }
 
-export async function stopOtherDaemons(exceptSlug?: string): Promise<void> {
+export async function stopOtherDaemons(): Promise<void> {
   const dir = liveInfoDir();
   const entries = fs.readdirSync(dir).filter((name) => name.endsWith(".json"));
   const failures: string[] = [];
 
   for (const entry of entries) {
     const slug = entry.replace(/\.json$/, "");
-    if (exceptSlug && slug === exceptSlug) continue;
-
     const info = readDaemonProcessInfo(slug);
     if (!info) continue;
     const daemonError = await stopDaemonForLive(info);
@@ -326,25 +322,26 @@ export function formatApiError(error: unknown): string {
 
 export async function resolveActiveSlug(): Promise<string> {
   const socketPath = getAgentSocketPath();
+  let response: Record<string, unknown>;
   try {
-    const response = await ipcCall(socketPath, { method: "active-slug", params: {} });
-    if (response.ok && typeof response.slug === "string" && response.slug.length > 0) {
-      return response.slug;
-    }
-    failCli("Daemon is running but no live is active. Wait for browser to initiate live.");
+    response = await ipcCall(socketPath, { method: "active-slug", params: {} });
   } catch {
     failCli("No active daemon. Run `pubblue start` first.");
   }
+  if (response.ok && typeof response.slug === "string" && response.slug.length > 0) {
+    return response.slug;
+  }
+  failCli("Daemon is running but no live is active. Wait for browser to initiate live.");
 }
 
-export interface WaitForDaemonReadyParams {
+interface WaitForDaemonReadyParams {
   child: ChildProcess;
   infoPath: string;
   socketPath: string;
   timeoutMs: number;
 }
 
-export interface WaitForDaemonReadyResult {
+interface WaitForDaemonReadyResult {
   ok: boolean;
   reason?: string;
 }
