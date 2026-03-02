@@ -1,6 +1,10 @@
 import type { PeerConnection } from "node-datachannel";
 
-export function generateOffer(peer: PeerConnection, timeoutMs: number): Promise<string> {
+export function generateAnswer(
+  peer: PeerConnection,
+  browserOffer: string,
+  timeoutMs: number,
+): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     let resolved = false;
     const done = (sdp: string, type: string) => {
@@ -9,6 +13,9 @@ export function generateOffer(peer: PeerConnection, timeoutMs: number): Promise<
       clearTimeout(timeout);
       resolve(JSON.stringify({ sdp, type }));
     };
+
+    const offer = JSON.parse(browserOffer) as { sdp: string; type: string };
+    peer.setRemoteDescription(offer.sdp, offer.type);
 
     peer.onLocalDescription((sdp: string, type: string) => {
       done(sdp, type);
@@ -31,7 +38,5 @@ export function generateOffer(peer: PeerConnection, timeoutMs: number): Promise<
         reject(new Error(`Timed out after ${timeoutMs}ms`));
       }
     }, timeoutMs);
-
-    peer.setLocalDescription();
   });
 }

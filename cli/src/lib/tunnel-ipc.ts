@@ -1,7 +1,7 @@
 /**
  * IPC client — connects to the tunnel daemon's Unix socket.
  *
- * Sends JSON-RPC requests, receives JSON responses.
+ * Sends JSON requests, receives JSON responses.
  */
 
 import * as net from "node:net";
@@ -22,8 +22,8 @@ export interface IpcResponse {
   [key: string]: unknown;
 }
 
-export function getSocketPath(slug: string): string {
-  return `/tmp/pubblue-${slug}.sock`;
+export function getAgentSocketPath(): string {
+  return "/tmp/pubblue-agent.sock";
 }
 
 export async function ipcCall(socketPath: string, request: IpcRequest): Promise<IpcResponse> {
@@ -61,7 +61,7 @@ export async function ipcCall(socketPath: string, request: IpcRequest): Promise<
         (err as NodeJS.ErrnoException).code === "ECONNREFUSED" ||
         (err as NodeJS.ErrnoException).code === "ENOENT"
       ) {
-        finish(() => reject(new Error("Daemon not running. Is the tunnel still active?")));
+        finish(() => reject(new Error("Daemon not running.")));
       } else {
         finish(() => reject(err));
       }

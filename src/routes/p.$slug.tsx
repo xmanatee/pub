@@ -40,7 +40,7 @@ function PubPage() {
     void recordPublicView({ slug: pub.slug });
   }, [pub, recordPublicView]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: slug drives the reset
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
     setInteractiveMode(false);
     trackedAnalytics.current = false;
@@ -65,7 +65,7 @@ function PubPage() {
 
   const hasContent = Boolean(pub.content && pub.contentType);
 
-  // Owner — always has access to interactive mode
+  // Owner — interactive mode when agent is online
   if (pub.isOwner) {
     if (!hasContent) {
       return <InteractiveView slug={slug} />;
@@ -109,12 +109,18 @@ function InteractiveView({
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
-  if (model.live === undefined) return <StatusScreen text="Loading..." />;
-  if (model.live === null) {
+  // Auto-trigger goLive when entering interactive view
+  useEffect(() => {
+    if (model.agentOnline && !model.liveRequested) {
+      model.goLive();
+    }
+  }, [model.agentOnline, model.liveRequested, model.goLive]);
+
+  if (!model.agentOnline && !model.liveRequested && !model.canvasHtml) {
     if (onBackToContent) {
       return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
-          <p className="text-muted-foreground text-sm">Not live.</p>
+          <p className="text-muted-foreground text-sm">Agent offline.</p>
           <button
             type="button"
             onClick={onBackToContent}
@@ -125,11 +131,11 @@ function InteractiveView({
         </div>
       );
     }
-    return <StatusScreen text="This pub is not live." />;
+    return <StatusScreen text="Agent offline." />;
   }
 
-  if (model.sessionState === "active" && !model.live.agentOffer && !model.canvasHtml)
-    return <StatusScreen text="Waiting for agent..." />;
+  if (model.liveRequested && !model.live?.agentAnswer && !model.canvasHtml)
+    return <StatusScreen text="Connecting..." />;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">

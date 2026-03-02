@@ -86,7 +86,6 @@ export function mapLiveError(error: unknown): { message: string; status: number 
   if (message === "Live not found") return { message, status: 404 };
   if (message === "Live closed") return { message, status: 409 };
   if (message === "Live expired") return { message, status: 410 };
-  if (message.startsWith("Live limit reached")) return { message, status: 429 };
   return null;
 }
 
@@ -169,7 +168,7 @@ export function rateLimitResponse(retryAfter: number) {
 export async function authenticateAndRateLimit(
   ctx: ActionCtx,
   apiKey: string,
-  limitName: "createPub" | "readPub" | "listPubs" | "updatePub" | "deletePub",
+  limitName: "createPub" | "readPub" | "listPubs" | "updatePub" | "deletePub" | "agentPollLive",
 ): Promise<{ userId: Id<"users"> } | Response> {
   const user = await authenticateApiKey(ctx, apiKey);
   const rl = await rateLimiter.limit(ctx, limitName, { key: apiKey });

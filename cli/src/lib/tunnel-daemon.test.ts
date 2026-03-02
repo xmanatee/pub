@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "./ack-routing.js";
+import type { BridgeMessage } from "./bridge-protocol.js";
 import {
   getSignalPollDelayMs,
   getStickyCanvasHtml,
   getTunnelWriteReadinessError,
   MAX_CANVAS_PERSIST_SIZE,
-  type StickyOutboundMessage,
-  shouldRecoverForBrowserAnswerChange,
+  shouldRecoverForBrowserOfferChange,
 } from "./tunnel-daemon-shared.js";
 
 describe("getTunnelWriteReadinessError", () => {
@@ -21,33 +21,39 @@ describe("getTunnelWriteReadinessError", () => {
   });
 });
 
-describe("shouldRecoverForBrowserAnswerChange", () => {
-  it("does not trigger before remote description is applied", () => {
+describe("shouldRecoverForBrowserOfferChange", () => {
+  it("does not trigger when incoming offer is undefined", () => {
     expect(
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: "answer-v2",
-        lastAppliedBrowserAnswer: "answer-v1",
-        remoteDescriptionApplied: false,
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: undefined,
+        lastAppliedBrowserOffer: "offer-v1",
       }),
     ).toBe(false);
   });
 
-  it("does not trigger when answer has not changed", () => {
+  it("does not trigger when no previous offer was applied", () => {
     expect(
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: "answer-v1",
-        lastAppliedBrowserAnswer: "answer-v1",
-        remoteDescriptionApplied: true,
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: "offer-v1",
+        lastAppliedBrowserOffer: null,
       }),
     ).toBe(false);
   });
 
-  it("triggers when a new browser answer arrives after apply", () => {
+  it("does not trigger when offer has not changed", () => {
     expect(
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: "answer-v2",
-        lastAppliedBrowserAnswer: "answer-v1",
-        remoteDescriptionApplied: true,
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: "offer-v1",
+        lastAppliedBrowserOffer: "offer-v1",
+      }),
+    ).toBe(false);
+  });
+
+  it("triggers when a new browser offer arrives after a previous one was applied", () => {
+    expect(
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: "offer-v2",
+        lastAppliedBrowserOffer: "offer-v1",
       }),
     ).toBe(true);
   });
@@ -87,31 +93,27 @@ describe("resolveAckChannel", () => {
 
 describe("getSignalPollDelayMs", () => {
   it("returns the base polling delay when retry-after is missing", () => {
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false })).toBe(5_000);
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: true })).toBe(15_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: false })).toBe(5_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: true })).toBe(15_000);
   });
 
   it("honors retry-after when it exceeds the base delay", () => {
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: 12 })).toBe(
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 12 })).toBe(
       12_000,
     );
   });
 
   it("ignores non-positive retry-after values", () => {
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: 0 })).toBe(
-      5_000,
-    );
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: -1 })).toBe(
-      5_000,
-    );
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(5_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(5_000);
   });
 });
 
 describe("getStickyCanvasHtml", () => {
   const CANVAS = "canvas";
 
-  function makeSticky(overrides: Partial<StickyOutboundMessage["msg"]>): StickyOutboundMessage {
-    return { msg: { id: "test-1", type: "html", data: "<h1>hi</h1>", ...overrides } };
+  function makeMsg(overrides: Partial<BridgeMessage>): BridgeMessage {
+    return { id: "test-1", type: "html", data: "<h1>hi</h1>", ...overrides };
   }
 
   it("returns null for empty map", () => {
@@ -119,35 +121,35 @@ describe("getStickyCanvasHtml", () => {
   });
 
   it("returns null when canvas channel has no entry", () => {
-    const map = new Map<string, StickyOutboundMessage>([["chat", makeSticky({})]]);
+    const map = new Map<string, BridgeMessage>([["chat", makeMsg({})]]);
     expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
   });
 
   it("returns null for non-html type", () => {
-    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ type: "text" })]]);
+    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ type: "text" })]]);
     expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
   });
 
   it("returns null for empty data", () => {
-    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: "" })]]);
+    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: "" })]]);
     expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
   });
 
   it("returns html string for valid entry", () => {
     const html = "<div>hello world</div>";
-    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: html })]]);
+    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: html })]]);
     expect(getStickyCanvasHtml(map, CANVAS)).toBe(html);
   });
 
   it("returns null when content exceeds max size", () => {
     const html = "x".repeat(MAX_CANVAS_PERSIST_SIZE + 1);
-    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: html })]]);
+    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: html })]]);
     expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
   });
 
   it("returns content at exactly max size", () => {
     const html = "x".repeat(MAX_CANVAS_PERSIST_SIZE);
-    const map = new Map<string, StickyOutboundMessage>([[CANVAS, makeSticky({ data: html })]]);
+    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: html })]]);
     expect(getStickyCanvasHtml(map, CANVAS)).toBe(html);
   });
 });

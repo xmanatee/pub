@@ -79,17 +79,6 @@ export const CHANNELS = {
   FILE: "file",
 } as const;
 
-export type TunnelStatus = "active" | "closed";
-
-export interface TunnelSignaling {
-  tunnelId: string;
-  status: TunnelStatus;
-  agentOffer?: string;
-  browserAnswer?: string;
-  agentCandidates: string[];
-  browserCandidates: string[];
-}
-
 let idCounter = 0;
 
 export function generateMessageId(): string {
@@ -162,14 +151,3 @@ export function parseAckMessage(msg: BridgeMessage): DeliveryAckPayload | null {
 export function shouldAcknowledgeMessage(channel: string, msg: BridgeMessage): boolean {
   return channel !== CONTROL_CHANNEL && parseAckMessage(msg) === null;
 }
-
-export function generateTunnelId(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-}
-
-export const MAX_TUNNEL_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-export const DEFAULT_TUNNEL_EXPIRY_MS = 24 * 60 * 60 * 1000;
-export const MAX_TUNNELS_PER_USER = 5;

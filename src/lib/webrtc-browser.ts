@@ -8,6 +8,7 @@
 import { resolveAckChannel } from "./ack-routing";
 import type { BridgeMessage } from "./bridge-protocol";
 import {
+  CHANNELS,
   CONTROL_CHANNEL,
   DATACHANNEL_OPTIONS,
   type DeliveryAckPayload,
@@ -51,10 +52,6 @@ export class BrowserBridge {
   >();
   private remoteDescriptionSet = false;
 
-  getState(): BridgeState {
-    return this.state;
-  }
-
   setOnStateChange(handler: StateChangeHandler): void {
     this.onStateChange = handler;
   }
@@ -75,8 +72,33 @@ export class BrowserBridge {
     return [...this.iceCandidates];
   }
 
-  async createAnswer(agentOffer: string): Promise<string> {
+  async createOffer(): Promise<string> {
     this.pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+    this.setupPeerCallbacks();
+
+    this.openChannel(CONTROL_CHANNEL);
+    this.openChannel(CHANNELS.CHAT);
+    this.openChannel(CHANNELS.CANVAS);
+
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    return JSON.stringify(this.pc.localDescription?.toJSON());
+  }
+
+  async applyAnswer(agentAnswer: string): Promise<void> {
+    if (!this.pc) throw new Error("No peer connection");
+    const answer = JSON.parse(agentAnswer) as RTCSessionDescriptionInit;
+    await this.pc.setRemoteDescription(answer);
+    this.remoteDescriptionSet = true;
+
+    for (const candidate of this.pendingRemoteCandidates) {
+      await this.pc.addIceCandidate(JSON.parse(candidate) as RTCIceCandidateInit);
+    }
+    this.pendingRemoteCandidates = [];
+  }
+
+  private setupPeerCallbacks(): void {
+    if (!this.pc) return;
 
     this.pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -109,20 +131,6 @@ export class BrowserBridge {
     this.pc.ontrack = (event) => {
       this.onTrack?.(event.track, event.streams);
     };
-
-    const offer = JSON.parse(agentOffer) as RTCSessionDescriptionInit;
-    await this.pc.setRemoteDescription(offer);
-    this.remoteDescriptionSet = true;
-
-    for (const candidate of this.pendingRemoteCandidates) {
-      await this.pc.addIceCandidate(JSON.parse(candidate) as RTCIceCandidateInit);
-    }
-    this.pendingRemoteCandidates = [];
-
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
-
-    return JSON.stringify(this.pc.localDescription?.toJSON());
   }
 
   async addRemoteCandidates(candidates: string[]): Promise<void> {
@@ -174,14 +182,6 @@ export class BrowserBridge {
     if (!dc || dc.readyState !== "open") return false;
     dc.send(data);
     return true;
-  }
-
-  addMediaTrack(track: MediaStreamTrack, stream: MediaStream): void {
-    this.pc?.addTrack(track, stream);
-  }
-
-  getChannelNames(): string[] {
-    return [...this.channels.keys()];
   }
 
   isChannelOpen(name: string): boolean {

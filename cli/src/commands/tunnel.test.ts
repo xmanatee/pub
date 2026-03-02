@@ -1,18 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Pub } from "../lib/api.js";
-import { CLI_VERSION } from "../lib/version.js";
 import { SUPPORTED_KEYS } from "./configure.js";
 import {
-  buildBridgeForkStdio,
   buildDaemonForkStdio,
   getFollowReadDelayMs,
   messageContainsPong,
   parseBridgeMode,
   parsePositiveIntegerOption,
-  pickReusableLive,
   resolveBridgeMode,
-  resolveSlugSelection,
-  shouldRestartDaemonForCliUpgrade,
 } from "./tunnel-helpers.js";
 
 describe("SUPPORTED_KEYS", () => {
@@ -35,29 +29,9 @@ describe("getFollowReadDelayMs", () => {
   });
 });
 
-describe("resolveSlugSelection", () => {
-  it("prefers --slug over positional slug", () => {
-    expect(resolveSlugSelection("arg-id", "opt-id")).toBe("opt-id");
-  });
-
-  it("uses positional slug when --slug is omitted", () => {
-    expect(resolveSlugSelection("arg-id", undefined)).toBe("arg-id");
-  });
-
-  it("returns undefined when neither source provides slug", () => {
-    expect(resolveSlugSelection(undefined, undefined)).toBeUndefined();
-  });
-});
-
 describe("buildDaemonForkStdio", () => {
   it("includes required IPC channel for fork", () => {
     expect(buildDaemonForkStdio(7)).toEqual(["ignore", 7, 7, "ipc"]);
-  });
-});
-
-describe("buildBridgeForkStdio", () => {
-  it("includes required IPC channel for fork", () => {
-    expect(buildBridgeForkStdio(8)).toEqual(["ignore", 8, 8, "ipc"]);
   });
 });
 
@@ -112,13 +86,9 @@ describe("resolveBridgeMode", () => {
     expect(resolveBridgeMode({ bridge: "none", foreground: true })).toBe("none");
   });
 
-  it("rejects --bridge none without --foreground", () => {
-    expect(() => resolveBridgeMode({ bridge: "none" })).toThrow(
-      "--bridge none is only valid with --foreground",
-    );
-    expect(() => resolveBridgeMode({ bridge: "none", foreground: false })).toThrow(
-      "--bridge none is only valid with --foreground",
-    );
+  it("allows --bridge none in background mode", () => {
+    expect(resolveBridgeMode({ bridge: "none" })).toBe("none");
+    expect(resolveBridgeMode({ bridge: "none", foreground: false })).toBe("none");
   });
 });
 
@@ -138,91 +108,5 @@ describe("messageContainsPong", () => {
     expect(messageContainsPong({ msg: { type: "text", data: "ping" } })).toBe(false);
     expect(messageContainsPong({ msg: { type: "html", data: "pong" } })).toBe(false);
     expect(messageContainsPong(null)).toBe(false);
-  });
-});
-
-describe("pickReusableLive", () => {
-  const now = Date.UTC(2026, 1, 28, 0, 0, 0);
-
-  function makePub(slug: string, live: Pub["live"], createdAt: number): Pub {
-    return {
-      slug,
-      isPublic: false,
-      createdAt,
-      updatedAt: createdAt,
-      live,
-    };
-  }
-
-  it("returns the only pub with an active session", () => {
-    const result = pickReusableLive(
-      [
-        makePub(
-          "abc",
-          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
-          now - 1_000,
-        ),
-      ],
-      now,
-    );
-    expect(result?.slug).toBe("abc");
-  });
-
-  it("returns most recent pub with active session when multiple exist", () => {
-    const result = pickReusableLive(
-      [
-        makePub(
-          "abc",
-          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
-          now - 2_000,
-        ),
-        makePub(
-          "def",
-          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
-          now - 1_000,
-        ),
-      ],
-      now,
-    );
-    expect(result?.slug).toBe("def");
-  });
-
-  it("returns null when only closed or expired sessions exist", () => {
-    const result = pickReusableLive(
-      [
-        makePub(
-          "closed",
-          { status: "closed", hasConnection: false, expiresAt: now + 60_000 },
-          now - 2_000,
-        ),
-        makePub(
-          "expired",
-          { status: "active", hasConnection: false, expiresAt: now - 1 },
-          now - 2_000,
-        ),
-      ],
-      now,
-    );
-    expect(result).toBeNull();
-  });
-
-  it("returns null when no pubs have sessions", () => {
-    const result = pickReusableLive([makePub("nosession", null, now - 1_000)], now);
-    expect(result).toBeNull();
-  });
-});
-
-describe("shouldRestartDaemonForCliUpgrade", () => {
-  it("restarts when daemon version is missing", () => {
-    expect(shouldRestartDaemonForCliUpgrade(undefined, CLI_VERSION)).toBe(true);
-    expect(shouldRestartDaemonForCliUpgrade("", CLI_VERSION)).toBe(true);
-  });
-
-  it("does not restart when versions match", () => {
-    expect(shouldRestartDaemonForCliUpgrade(CLI_VERSION, CLI_VERSION)).toBe(false);
-  });
-
-  it("restarts when versions differ", () => {
-    expect(shouldRestartDaemonForCliUpgrade("0.0.0", CLI_VERSION)).toBe(true);
   });
 });

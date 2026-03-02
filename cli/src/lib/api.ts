@@ -35,18 +35,12 @@ export interface ListResult {
 
 export interface LiveInfo {
   slug: string;
-  status: string;
-  agentOffer?: string;
-  browserAnswer?: string;
+  status?: string;
+  browserOffer?: string;
+  agentAnswer?: string;
   agentCandidates: string[];
   browserCandidates: string[];
   createdAt: number;
-  expiresAt: number;
-}
-
-export interface LiveCreateResult {
-  slug: string;
-  url: string;
   expiresAt: number;
 }
 
@@ -169,35 +163,49 @@ export class PubApiClient {
     });
   }
 
-  // -- Live management -----------------------------------------------------
+  // -- Agent presence -------------------------------------------------------
 
-  async openLive(
-    slug: string,
-    opts: { agentName: string; expiresIn?: string },
-  ): Promise<LiveCreateResult> {
-    return this.request<LiveCreateResult>(`/api/v1/pubs/${encodeURIComponent(slug)}/live`, {
-      method: "POST",
+  async goOnline(): Promise<void> {
+    await this.request("/api/v1/agent/online", { method: "POST" });
+  }
+
+  async heartbeat(): Promise<void> {
+    await this.request("/api/v1/agent/heartbeat", { method: "POST" });
+  }
+
+  async goOffline(): Promise<void> {
+    await this.request("/api/v1/agent/offline", { method: "POST" });
+  }
+
+  // -- Agent live management ------------------------------------------------
+
+  async getPendingLive(): Promise<LiveInfo | null> {
+    const data = await this.request<{ live: LiveInfo | null }>("/api/v1/agent/live");
+    return data.live;
+  }
+
+  async signalAnswer(opts: {
+    slug: string;
+    answer?: string;
+    candidates?: string[];
+    agentName?: string;
+  }): Promise<void> {
+    await this.request("/api/v1/agent/live/signal", {
+      method: "PATCH",
       body: JSON.stringify(opts),
     });
   }
+
+  async closeActiveLive(): Promise<void> {
+    await this.request("/api/v1/agent/live", { method: "DELETE" });
+  }
+
+  // -- Per-slug live info ---------------------------------------------------
 
   async getLive(slug: string): Promise<LiveInfo> {
     const data = await this.request<{ live: LiveInfo }>(
       `/api/v1/pubs/${encodeURIComponent(slug)}/live`,
     );
     return data.live;
-  }
-
-  async signal(slug: string, opts: { offer?: string; candidates?: string[] }): Promise<void> {
-    await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}/live/signal`, {
-      method: "PATCH",
-      body: JSON.stringify(opts),
-    });
-  }
-
-  async closeLive(slug: string): Promise<void> {
-    await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}/live`, {
-      method: "DELETE",
-    });
   }
 }

@@ -13,7 +13,6 @@ import { basename, extname, join } from "node:path";
 import { promisify } from "node:util";
 import { type BridgeMessage, CHANNELS, generateMessageId } from "./bridge-protocol.js";
 import type { BridgeSessionSource } from "./tunnel-bridge-types.js";
-import { ipcCall } from "./tunnel-ipc.js";
 
 const execFileAsync = promisify(execFile);
 const OPENCLAW_DISCOVERY_PATHS = [
@@ -32,23 +31,25 @@ const DEFAULT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_CANVAS_REMINDER_EVERY = 10;
 const MAX_SEEN_IDS = 10_000;
 
-interface BridgeProcessInfo {
-  pid: number;
+export interface BridgeRunnerConfig {
   slug: string;
-  mode: "openclaw";
+  sendMessage: (channel: string, msg: BridgeMessage) => void;
+  debugLog: (message: string, error?: unknown) => void;
+}
+
+export interface BridgeStatus {
+  running: boolean;
   sessionId?: string;
   sessionKey?: string;
   sessionSource?: BridgeSessionSource;
-  startedAt: number;
-  status: "starting" | "ready" | "waiting-daemon" | "error" | "stopped";
   lastError?: string;
-  updatedAt: number;
+  forwardedMessages: number;
 }
 
-interface StartBridgeParams {
-  infoPath: string;
-  socketPath: string;
-  slug: string;
+export interface OpenClawBridgeRunner {
+  enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void;
+  stop(): Promise<void>;
+  status(): BridgeStatus;
 }
 
 interface BufferedEntry {
@@ -74,12 +75,6 @@ export interface StagedAttachment {
   size: number;
   streamId?: string;
   streamStatus: "single" | "complete" | "interrupted";
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 function resolveOpenClawStateDir(): string {
@@ -272,32 +267,11 @@ export function buildAttachmentPrompt(
     .join("\n");
 }
 
-function isBufferedEntry(entry: unknown): entry is BufferedEntry {
-  if (!entry || typeof entry !== "object") return false;
-  const candidate = entry as { channel?: unknown; msg?: unknown };
-  if (typeof candidate.channel !== "string") return false;
-  if (!candidate.msg || typeof candidate.msg !== "object") return false;
-  const msg = candidate.msg as { id?: unknown; type?: unknown };
-  if (typeof msg.id !== "string" || typeof msg.type !== "string") return false;
-  return true;
-}
-
 function readTextChatMessage(entry: BufferedEntry): string | null {
   if (entry.channel !== CHANNELS.CHAT) return null;
   const msg = entry.msg;
   if (msg.type !== "text" || typeof msg.data !== "string") return null;
   return msg.data;
-}
-
-function writeBridgeInfo(
-  infoPath: string,
-  patch: Omit<BridgeProcessInfo, "updatedAt"> & { updatedAt?: number },
-): void {
-  const payload: BridgeProcessInfo = {
-    ...patch,
-    updatedAt: patch.updatedAt ?? Date.now(),
-  };
-  writeFileSync(infoPath, JSON.stringify(payload));
 }
 
 const OPENCLAW_MAIN_SESSION_KEY = "agent:main:main";
@@ -395,7 +369,7 @@ function resolveOpenClawPath(): string {
       return which;
     }
   } catch {
-    // Fall through to explicit candidates.
+    // `which` not found or openclaw not in PATH — fall through to discovery paths
   }
 
   for (const candidate of OPENCLAW_DISCOVERY_PATHS) {
@@ -572,8 +546,7 @@ async function handleAttachmentEntry(params: {
     const stream = activeStreams.get(channel);
     if (!stream) return false;
 
-    const requestedStreamId =
-      typeof msg.meta?.streamId === "string" ? (msg.meta.streamId as string) : undefined;
+    const requestedStreamId = readStreamIdFromMeta(msg.meta);
     if (requestedStreamId && requestedStreamId !== stream.streamId) return false;
 
     activeStreams.delete(channel);
@@ -657,131 +630,76 @@ async function handleAttachmentEntry(params: {
   return true;
 }
 
-export async function startOpenClawBridge(params: StartBridgeParams): Promise<void> {
-  const startedAt = Date.now();
-  const baseInfo: Omit<BridgeProcessInfo, "status" | "updatedAt"> = {
-    pid: process.pid,
-    slug: params.slug,
-    mode: "openclaw",
-    startedAt,
-  };
+export async function createOpenClawBridgeRunner(
+  config: BridgeRunnerConfig,
+): Promise<OpenClawBridgeRunner> {
+  const { slug, debugLog } = config;
 
-  let shuttingDown = false;
-  const shutdown = () => {
-    shuttingDown = true;
-  };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-
-  writeBridgeInfo(params.infoPath, {
-    ...baseInfo,
-    status: "starting",
-  });
-
-  let bridgeSessionId: string | undefined;
-  let bridgeSessionKey: string | undefined;
-  let bridgeSessionSource: BridgeProcessInfo["sessionSource"];
-
-  try {
-    const openclawPath = resolveOpenClawPath();
-    const configuredSessionId = process.env.OPENCLAW_SESSION_ID?.trim();
-    const resolvedSession = configuredSessionId
-      ? {
-          attemptedKeys: [],
-          sessionId: configuredSessionId,
-          sessionKey: "OPENCLAW_SESSION_ID",
-          sessionSource: "env" as const,
-        }
-      : resolveSessionFromOpenClaw(process.env.OPENCLAW_THREAD_ID);
-    if (!resolvedSession.sessionId) {
-      const details = [
-        "OpenClaw session could not be resolved.",
-        resolvedSession.attemptedKeys.length > 0
-          ? `Attempted keys: ${resolvedSession.attemptedKeys.join(", ")}`
-          : "",
-        resolvedSession.readError ? `Session lookup error: ${resolvedSession.readError}` : "",
-        "Configure one of:",
-        "  pubblue configure --set openclaw.sessionId=<session-id>",
-        "  pubblue configure --set openclaw.threadId=<thread-id>",
-        "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-      throw new Error(details);
-    }
-    const sessionId = resolvedSession.sessionId;
-    bridgeSessionId = sessionId;
-    bridgeSessionKey = resolvedSession.sessionKey;
-    bridgeSessionSource = resolvedSession.sessionSource;
-
-    const attachmentRoot = resolveAttachmentRootDir();
-    const attachmentMaxBytes = resolveAttachmentMaxBytes();
-    ensureDirectoryWritable(attachmentRoot);
-
-    await runOpenClawPreflight(openclawPath);
-
-    try {
-      const daemonStatus = await ipcCall(params.socketPath, { method: "status", params: {} });
-      if (!daemonStatus.ok) {
-        throw new Error(String(daemonStatus.error || "daemon status request failed"));
+  const openclawPath = resolveOpenClawPath();
+  const configuredSessionId = process.env.OPENCLAW_SESSION_ID?.trim();
+  const resolvedSession = configuredSessionId
+    ? {
+        attemptedKeys: [],
+        sessionId: configuredSessionId,
+        sessionKey: "OPENCLAW_SESSION_ID",
+        sessionSource: "env" as const,
       }
-    } catch (error) {
-      throw new Error(
-        `Failed to connect to local tunnel daemon socket (${params.socketPath}): ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
+    : resolveSessionFromOpenClaw(process.env.OPENCLAW_THREAD_ID);
 
-    writeBridgeInfo(params.infoPath, {
-      ...baseInfo,
-      sessionId,
-      sessionKey: resolvedSession.sessionKey,
-      sessionSource: resolvedSession.sessionSource,
-      status: "ready",
-    });
+  if (!resolvedSession.sessionId) {
+    const details = [
+      "OpenClaw session could not be resolved.",
+      resolvedSession.attemptedKeys.length > 0
+        ? `Attempted keys: ${resolvedSession.attemptedKeys.join(", ")}`
+        : "",
+      resolvedSession.readError ? `Session lookup error: ${resolvedSession.readError}` : "",
+      "Configure one of:",
+      "  pubblue configure --set openclaw.sessionId=<session-id>",
+      "  pubblue configure --set openclaw.threadId=<thread-id>",
+      "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    throw new Error(details);
+  }
 
-    const seenIds = new Set<string>();
-    const activeStreams = new Map<string, ActiveStream>();
-    const canvasReminderEvery = resolveCanvasReminderEvery();
-    let forwardedMessageCount = 0;
-    let consecutiveReadFailures = 0;
+  const sessionId = resolvedSession.sessionId;
+  const attachmentRoot = resolveAttachmentRootDir();
+  const attachmentMaxBytes = resolveAttachmentMaxBytes();
+  ensureDirectoryWritable(attachmentRoot);
 
-    while (!shuttingDown) {
-      let messages: unknown[] = [];
-      try {
-        const response = await ipcCall(params.socketPath, {
-          method: "read",
-          params: {},
+  await runOpenClawPreflight(openclawPath);
+
+  const seenIds = new Set<string>();
+  const activeStreams = new Map<string, ActiveStream>();
+  const canvasReminderEvery = resolveCanvasReminderEvery();
+  let forwardedMessageCount = 0;
+  let lastError: string | undefined;
+  let stopping = false;
+  let loopDone: Promise<void>;
+
+  const queue: BufferedEntry[] = [];
+  let notify: (() => void) | null = null;
+
+  function enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void {
+    if (stopping) return;
+    queue.push(...entries);
+    notify?.();
+    notify = null;
+  }
+
+  async function processLoop(): Promise<void> {
+    while (!stopping) {
+      if (queue.length === 0) {
+        await new Promise<void>((resolve) => {
+          notify = resolve;
         });
-        if (!response.ok) {
-          throw new Error(String(response.error || "daemon read failed"));
-        }
-        messages = Array.isArray(response.messages) ? response.messages : [];
-        consecutiveReadFailures = 0;
-      } catch (error) {
-        consecutiveReadFailures += 1;
-        writeBridgeInfo(params.infoPath, {
-          ...baseInfo,
-          sessionId,
-          sessionKey: resolvedSession.sessionKey,
-          sessionSource: resolvedSession.sessionSource,
-          status: "waiting-daemon",
-          lastError: error instanceof Error ? error.message : String(error),
-        });
-        const delayMs = Math.min(5_000, 500 * 2 ** Math.min(consecutiveReadFailures, 4));
-        await sleep(delayMs);
-        continue;
+        if (stopping) break;
       }
 
-      if (messages.length === 0) {
-        await sleep(500);
-        continue;
-      }
-
-      for (const rawEntry of messages) {
-        if (!isBufferedEntry(rawEntry)) continue;
-        const entry = rawEntry as BufferedEntry;
+      const batch = queue.splice(0);
+      for (const entry of batch) {
+        if (stopping) break;
         const entryKey = `${entry.channel}:${entry.msg.id}`;
         if (seenIds.has(entryKey)) continue;
         seenIds.add(entryKey);
@@ -799,7 +717,7 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
             await deliverMessageToOpenClaw({
               openclawPath,
               sessionId,
-              text: buildInboundPrompt(params.slug, chat, includeCanvasReminder),
+              text: buildInboundPrompt(slug, chat, includeCanvasReminder),
             });
             forwardedMessageCount += 1;
             continue;
@@ -814,72 +732,50 @@ export async function startOpenClawBridge(params: StartBridgeParams): Promise<vo
             includeCanvasReminder,
             openclawPath,
             sessionId,
-            slug: params.slug,
+            slug,
           });
           if (deliveredAttachment) {
             forwardedMessageCount += 1;
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          console.error(`[pubblue bridge ${params.slug}] ${message}`);
-          writeBridgeInfo(params.infoPath, {
-            ...baseInfo,
-            sessionId,
-            sessionKey: resolvedSession.sessionKey,
-            sessionSource: resolvedSession.sessionSource,
-            status: "ready",
-            lastError: message,
-          });
-        }
-      }
-
-      writeBridgeInfo(params.infoPath, {
-        ...baseInfo,
-        sessionId,
-        sessionKey: resolvedSession.sessionKey,
-        sessionSource: resolvedSession.sessionSource,
-        status: "ready",
-      });
-    }
-
-    writeBridgeInfo(params.infoPath, {
-      ...baseInfo,
-      sessionId,
-      sessionKey: resolvedSession.sessionKey,
-      sessionSource: resolvedSession.sessionSource,
-      status: "stopped",
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    writeBridgeInfo(params.infoPath, {
-      ...baseInfo,
-      status: "error",
-      sessionId: bridgeSessionId,
-      sessionKey: bridgeSessionKey,
-      sessionSource: bridgeSessionSource,
-      lastError: message,
-    });
-    try {
-      await ipcCall(params.socketPath, {
-        method: "write",
-        params: {
-          channel: CHANNELS.CHAT,
-          msg: {
+          lastError = message;
+          debugLog(`bridge entry processing failed: ${message}`, error);
+          config.sendMessage(CHANNELS.CHAT, {
             id: generateMessageId(),
             type: "text",
             data: `Bridge error: ${message}`,
-          } satisfies BridgeMessage,
-        },
-      });
-    } catch (writeError) {
-      const writeMessage = writeError instanceof Error ? writeError.message : String(writeError);
-      console.error(
-        `[pubblue bridge ${params.slug}] failed to report bridge error to tunnel chat: ${writeMessage}`,
-      );
+          });
+        }
+      }
     }
-    throw error;
-  } finally {
-    process.off("SIGINT", shutdown);
-    process.off("SIGTERM", shutdown);
   }
+
+  loopDone = processLoop();
+
+  debugLog(
+    `bridge runner started (session=${sessionId}, key=${resolvedSession.sessionKey || "n/a"})`,
+  );
+
+  return {
+    enqueue,
+
+    async stop(): Promise<void> {
+      stopping = true;
+      notify?.();
+      notify = null;
+      await loopDone;
+    },
+
+    status(): BridgeStatus {
+      return {
+        running: !stopping,
+        sessionId,
+        sessionKey: resolvedSession.sessionKey,
+        sessionSource: resolvedSession.sessionSource,
+        lastError,
+        forwardedMessages: forwardedMessageCount,
+      };
+    },
+  };
 }

@@ -174,10 +174,6 @@ describe("mapLiveError", () => {
       message: "Live expired",
       status: 410,
     });
-    expect(mapLiveError(new Error("Live limit reached (1)"))).toEqual({
-      message: "Live limit reached (1)",
-      status: 429,
-    });
   });
 
   it("returns null for unknown failures", () => {

@@ -43,10 +43,11 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Path alias**: `~/*` maps to `src/*`
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling, `by_slug`/`by_user` indexes), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `openLive`, `getLiveBySlug`, `storeAgentSignal`, `storeBrowserSignal`, `closeLive`; limit: 10 total pubs per user; 1 live per user; expiring pubs and lives via scheduler
+- **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
+- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getPendingLiveForAgent`, `getActiveLiveForAgent`, `closeLive`, `expireLive`; limit: 10 total pubs per user; 1 live per user; expiring pubs and lives via scheduler
+- **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isAgentOnline`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
-- **HTTP routes** (`http/pub_routes/`): unified REST API at `/api/v1/pubs` with live sub-resource at `/api/v1/pubs/:slug/live`; OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
+- **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
 - **Analytics** (`analytics.ts`): view counting via `@convex-dev/sharded-counter`
 - **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
@@ -62,16 +63,16 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 ### CLI (`cli/`)
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
-- **Live commands**: `open`, `close`, `status`, `write`, `read`, `channels`, `doctor`
-- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`, `--open` (hint to go live after)
+- **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
+- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
-- `open [slug]` — goes live (WebRTC daemon + bridge), reuses existing live when possible
-- `close <slug>` — closes live and stops daemon
-- `write [message]` — write to live channel (`-s <slug>`, `-c <channel>`, `-f <file>`)
-- `read [slug]` — read buffered messages (`--follow` for streaming)
-- `doctor` — end-to-end live health checks
+- `start --agent-name <name>` — registers agent presence online, starts per-user daemon + bridge; `--agent-name` is required and shown in browser UI
+- `stop` — deregisters agent presence, closes active live, stops daemon
+- `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
+- `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC
+- `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var

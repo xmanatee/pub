@@ -168,34 +168,125 @@ describe("PubApiClient", () => {
     });
   });
 
-  describe("live methods", () => {
-    it("openLive sends POST to live sub-resource", async () => {
-      const mockResponse = {
-        slug: "abc",
-        url: "https://pub.blue/p/abc",
-        expiresAt: 9999999,
-      };
-
+  describe("agent presence methods", () => {
+    it("goOnline sends POST to agent/online", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify(mockResponse), {
-          status: 201,
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
           headers: { "Content-Type": "application/json" },
         }),
       );
 
-      const result = await client.openLive("abc", { agentName: "Oz", expiresIn: "24h" });
-      expect(result).toEqual(mockResponse);
+      await client.goOnline();
       expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/pubs/abc/live", baseUrl),
+        new URL("/api/v1/agent/online", baseUrl),
         expect.objectContaining({ method: "POST" }),
       );
     });
 
-    it("getLive fetches live info", async () => {
+    it("heartbeat sends POST to agent/heartbeat", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.heartbeat();
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/heartbeat", baseUrl),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("goOffline sends POST to agent/offline", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.goOffline();
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/offline", baseUrl),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+  });
+
+  describe("agent live methods", () => {
+    it("getPendingLive fetches pending live info", async () => {
+      const mockLive = {
+        slug: "abc",
+        browserOffer: "offer-data",
+        agentCandidates: [],
+        browserCandidates: [],
+        createdAt: 1000,
+        expiresAt: 9999999,
+      };
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ live: mockLive }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await client.getPendingLive();
+      expect(result).toEqual(mockLive);
+    });
+
+    it("getPendingLive returns null when no pending live", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ live: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await client.getPendingLive();
+      expect(result).toBeNull();
+    });
+
+    it("signalAnswer sends PATCH to agent/live/signal", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.signalAnswer({ slug: "abc", answer: "answer-data" });
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/live/signal", baseUrl),
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+
+    it("closeActiveLive sends DELETE to agent/live", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.closeActiveLive();
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/live", baseUrl),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  describe("getLive", () => {
+    it("fetches live info by slug", async () => {
       const mockLive = {
         slug: "abc",
         status: "active",
-        agentOffer: "offer",
+        browserOffer: "offer",
+        agentAnswer: "answer",
         agentCandidates: [],
         browserCandidates: [],
         createdAt: 1000,
@@ -211,21 +302,6 @@ describe("PubApiClient", () => {
 
       const result = await client.getLive("abc");
       expect(result).toEqual(mockLive);
-    });
-
-    it("closeLive sends DELETE to live sub-resource", async () => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
-
-      await client.closeLive("abc");
-      expect(fetch).toHaveBeenCalledWith(
-        new URL("/api/v1/pubs/abc/live", baseUrl),
-        expect.objectContaining({ method: "DELETE" }),
-      );
     });
   });
 });

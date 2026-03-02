@@ -1,14 +1,14 @@
 {
   "name": "pubblue",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "CLI tool for publishing content and running interactive sessions via pub.blue",
   "type": "module",
   "bin": {
     "pubblue": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/tunnel-daemon-entry.ts src/tunnel-bridge-entry.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/tunnel-daemon-entry.ts src/tunnel-bridge-entry.ts --format esm --watch",
+    "build": "tsup src/index.ts src/tunnel-daemon-entry.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/tunnel-daemon-entry.ts --format esm --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"

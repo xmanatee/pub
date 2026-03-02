@@ -28,12 +28,15 @@ function getOrCreateSessionId(slug: string): string {
 
 export function useLivePageModel(slug: string) {
   const live = useQuery(api.pubs.getLiveBySlug, { slug });
-  const storeBrowserSignalRaw = useMutation(api.pubs.storeBrowserSignal);
+  const agentOnline = useQuery(api.presence.isAgentOnline, { slug });
+  const requestLiveMutation = useMutation(api.pubs.requestLive);
+  const storeBrowserCandidatesMutation = useMutation(api.pubs.storeBrowserCandidates);
   const takeoverLiveMutation = useMutation(api.pubs.takeoverLive);
 
   const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
 
   const [wasConnected, setWasConnected] = useState(false);
+  const [liveRequested, setLiveRequested] = useState(false);
 
   const sessionState: SessionState = useMemo(() => {
     if (!live) return "active";
@@ -41,16 +44,35 @@ export function useLivePageModel(slug: string) {
     return wasConnected ? "taken-over" : "needs-takeover";
   }, [live, browserSessionId, wasConnected]);
 
-  const storeBrowserSignal = useCallback(
-    (input: { slug: string; answer?: string; candidates?: string[] }) => {
-      return storeBrowserSignalRaw({ ...input, sessionId: browserSessionId });
+  const storeBrowserOffer = useCallback(
+    (input: { slug: string; offer: string }) => {
+      return requestLiveMutation({
+        slug: input.slug,
+        browserSessionId,
+        browserOffer: input.offer,
+      });
     },
-    [storeBrowserSignalRaw, browserSessionId],
+    [requestLiveMutation, browserSessionId],
+  );
+
+  const storeBrowserCandidates = useCallback(
+    (input: { slug: string; candidates: string[] }) => {
+      return storeBrowserCandidatesMutation({
+        slug: input.slug,
+        sessionId: browserSessionId,
+        candidates: input.candidates,
+      });
+    },
+    [storeBrowserCandidatesMutation, browserSessionId],
   );
 
   const takeoverLive = useCallback(() => {
     return takeoverLiveMutation({ slug, sessionId: browserSessionId });
   }, [takeoverLiveMutation, slug, browserSessionId]);
+
+  const goLive = useCallback(() => {
+    setLiveRequested(true);
+  }, []);
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(slug));
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
@@ -98,6 +120,7 @@ export function useLivePageModel(slug: string) {
     setLastAgentActivityAt(null);
     setLastUserDeliveredAt(null);
     setWasConnected(false);
+    setLiveRequested(false);
     clearMessages();
     clearFiles();
     pendingChatQueueRef.current = [];
@@ -188,13 +211,15 @@ export function useLivePageModel(slug: string) {
   );
 
   const { bridgeRef, bridgeState } = useLiveBridge({
+    slug,
+    enabled: liveRequested && sessionState === "active",
+    agentAnswer: sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
-    agentOffer: sessionState === "active" ? live?.agentOffer : undefined,
+    storeBrowserOffer,
+    storeBrowserCandidates,
     onDeliveryAck: handleDeliveryAck,
     onMessage: handleBridgeMessage,
     onTrackActivity: markAgentActivity,
-    storeBrowserSignal,
-    slug,
   });
 
   useEffect(() => {
@@ -302,6 +327,7 @@ export function useLivePageModel(slug: string) {
 
   return {
     agentName: live?.agentName ?? null,
+    agentOnline: agentOnline ?? false,
     animationStyle,
     autoOpenCanvas,
     bridgeRef,
@@ -313,7 +339,10 @@ export function useLivePageModel(slug: string) {
     connected: bridgeState === "connected",
     developerModeEnabled,
     files,
+    goLive,
     lastTakeoverAt: live?.lastTakeoverAt,
+    live,
+    liveRequested,
     messages,
     messagesEndRef,
     sendAudio,
@@ -327,7 +356,6 @@ export function useLivePageModel(slug: string) {
     setVoiceModeEnabled,
     showDeliveryStatus,
     takeoverLive,
-    live,
     viewMode,
     visualState,
     voiceModeEnabled,

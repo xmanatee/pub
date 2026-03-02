@@ -37,8 +37,8 @@ export default defineSchema({
     userId: v.id("users"),
     status: v.union(v.literal("active"), v.literal("closed")),
     agentName: v.optional(v.string()),
-    agentOffer: v.optional(v.string()),
-    browserAnswer: v.optional(v.string()),
+    browserOffer: v.optional(v.string()),
+    agentAnswer: v.optional(v.string()),
     agentCandidates: v.array(v.string()),
     browserCandidates: v.array(v.string()),
     browserSessionId: v.optional(v.string()),
@@ -48,6 +48,13 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_user", ["userId"]),
+
+  agentPresence: defineTable({
+    userId: v.id("users"),
+    status: v.union(v.literal("online"), v.literal("offline")),
+    lastHeartbeatAt: v.number(),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
 
   linkTokens: defineTable({
     userId: v.id("users"),

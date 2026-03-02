@@ -2,13 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   CHANNELS,
   CONTROL_CHANNEL,
-  DEFAULT_TUNNEL_EXPIRY_MS,
   decodeMessage,
   encodeMessage,
   generateMessageId,
-  generateTunnelId,
-  MAX_TUNNEL_EXPIRY_MS,
-  MAX_TUNNELS_PER_USER,
   makeAckMessage,
   makeBinaryMetaMessage,
   makeEventMessage,
@@ -130,23 +126,6 @@ describe("message factories", () => {
   });
 });
 
-describe("generateTunnelId", () => {
-  it("returns 16-character string", () => {
-    const id = generateTunnelId();
-    expect(id).toHaveLength(16);
-  });
-
-  it("contains only lowercase alphanumeric chars", () => {
-    const id = generateTunnelId();
-    expect(id).toMatch(/^[a-z0-9]+$/);
-  });
-
-  it("generates unique IDs", () => {
-    const ids = new Set(Array.from({ length: 50 }, () => generateTunnelId()));
-    expect(ids.size).toBe(50);
-  });
-});
-
 describe("constants", () => {
   it("CONTROL_CHANNEL is _control", () => {
     expect(CONTROL_CHANNEL).toBe("_control");
@@ -158,17 +137,5 @@ describe("constants", () => {
     expect(CHANNELS.AUDIO).toBe("audio");
     expect(CHANNELS.MEDIA).toBe("media");
     expect(CHANNELS.FILE).toBe("file");
-  });
-
-  it("MAX_TUNNEL_EXPIRY_MS is 7 days", () => {
-    expect(MAX_TUNNEL_EXPIRY_MS).toBe(7 * 24 * 60 * 60 * 1000);
-  });
-
-  it("DEFAULT_TUNNEL_EXPIRY_MS is 24 hours", () => {
-    expect(DEFAULT_TUNNEL_EXPIRY_MS).toBe(24 * 60 * 60 * 1000);
-  });
-
-  it("MAX_TUNNELS_PER_USER is 5", () => {
-    expect(MAX_TUNNELS_PER_USER).toBe(5);
   });
 });
