@@ -100,6 +100,26 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
     [scrollToBottom],
   );
 
+  const addUserPendingAudioMessage = useCallback(
+    (params: { audioUrl: string; id: string; mime: string; size: number }) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "audio",
+          id: params.id,
+          from: "user",
+          audioUrl: params.audioUrl,
+          mime: params.mime,
+          size: params.size,
+          timestamp: Date.now(),
+          delivery: "sending",
+        },
+      ]);
+      scrollToBottom();
+    },
+    [scrollToBottom],
+  );
+
   const markMessageDelivered = useCallback(
     (messageId: string) => {
       clearPendingFailureTimer(messageId);
@@ -193,6 +213,7 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
     addAgentAudioMessage,
     addAgentImageMessage,
     addAgentMessage,
+    addUserPendingAudioMessage,
     addUserPendingMessage,
     clearMessages,
     markMessageConfirmingIfPending,

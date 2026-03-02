@@ -102,6 +102,7 @@ export function useLivePageModel(slug: string) {
     addAgentAudioMessage,
     addAgentImageMessage,
     addAgentMessage,
+    addUserPendingAudioMessage,
     addUserPendingMessage,
     clearMessages,
     markMessageConfirmingIfPending,
@@ -319,13 +320,20 @@ export function useLivePageModel(slug: string) {
 
   const sendAudio = useCallback(
     (blob: Blob) => {
+      const audioUrl = URL.createObjectURL(blob);
+      addUserPendingAudioMessage({
+        audioUrl,
+        id: crypto.randomUUID(),
+        mime: blob.type || "audio/webm",
+        size: blob.size,
+      });
       if (bridgeState !== "connected") {
         pendingAudioQueueRef.current.push(blob);
         return;
       }
       dispatchAudio(blob);
     },
-    [bridgeState, dispatchAudio],
+    [addUserPendingAudioMessage, bridgeState, dispatchAudio],
   );
 
   useEffect(() => {
