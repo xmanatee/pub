@@ -7,10 +7,6 @@ export interface ChannelBuffer {
   messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
 }
 
-export interface StickyOutboundMessage {
-  msg: BridgeMessage;
-}
-
 export interface DaemonConfig {
   cliVersion?: string;
   apiClient: PubApiClient;
@@ -45,13 +41,13 @@ export function shouldRecoverForBrowserOfferChange(params: {
 export const MAX_CANVAS_PERSIST_SIZE = 100 * 1024;
 
 export function getStickyCanvasHtml(
-  stickyOutbound: Map<string, StickyOutboundMessage>,
+  stickyOutbound: Map<string, BridgeMessage>,
   canvasChannel: string,
 ): string | null {
-  const sticky = stickyOutbound.get(canvasChannel);
-  if (!sticky) return null;
-  if (sticky.msg.type !== "html") return null;
-  const html = sticky.msg.data;
+  const msg = stickyOutbound.get(canvasChannel);
+  if (!msg) return null;
+  if (msg.type !== "html") return null;
+  const html = msg.data;
   if (!html) return null;
   if (new TextEncoder().encode(html).byteLength > MAX_CANVAS_PERSIST_SIZE) return null;
   return html;

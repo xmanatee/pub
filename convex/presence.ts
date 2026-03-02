@@ -110,7 +110,7 @@ async function closeActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, use
     .collect();
   for (const live of lives) {
     if (live.status === "active") {
-      await db.patch(live._id, { status: "closed" as const });
+      await db.patch(live._id, { status: "closed" });
     }
   }
 }

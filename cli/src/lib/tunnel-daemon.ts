@@ -32,7 +32,6 @@ import {
   getTunnelWriteReadinessError,
   LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
-  type StickyOutboundMessage,
   shouldRecoverForBrowserOfferChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./tunnel-daemon-shared.js";
@@ -59,7 +58,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let lastSentCandidateCount = 0;
 
   const localCandidates: string[] = [];
-  const stickyOutboundByChannel = new Map<string, StickyOutboundMessage>();
+  const stickyOutboundByChannel = new Map<string, BridgeMessage>();
   const pendingOutboundAcks = new Map<string, { channel: string; messageId: string }>();
   const pendingDeliveryAcks = new Map<
     string,
@@ -318,18 +317,19 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
     if (msg.type !== "html") return;
     stickyOutboundByChannel.set(channel, {
-      msg: { ...msg, meta: msg.meta ? { ...msg.meta } : undefined },
+      ...msg,
+      meta: msg.meta ? { ...msg.meta } : undefined,
     });
   }
 
   async function replayStickyOutboundMessages(): Promise<void> {
     if (!connected || recovering || stopped) return;
-    for (const [channel, sticky] of stickyOutboundByChannel) {
+    for (const [channel, msg] of stickyOutboundByChannel) {
       try {
         let targetDc = channels.get(channel);
         if (!targetDc) targetDc = openDataChannel(channel);
         await waitForChannelOpen(targetDc, 3_000);
-        targetDc.sendMessage(encodeMessage(sticky.msg));
+        targetDc.sendMessage(encodeMessage(msg));
       } catch (error) {
         debugLog(`sticky outbound replay failed for channel ${channel}`, error);
       }
@@ -468,7 +468,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       return;
     }
 
-    // New pending live (has browserOffer but no agentAnswer)
     if (live.browserOffer && !live.agentAnswer) {
       if (
         shouldRecoverForBrowserOfferChange({
@@ -482,7 +481,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       }
     }
 
-    // Active live — poll for browser candidates
     if (live.browserOffer && live.agentAnswer && live.slug === activeSlug) {
       if (live.browserCandidates.length > lastBrowserCandidateCount) {
         const newCandidates = live.browserCandidates.slice(lastBrowserCandidateCount);

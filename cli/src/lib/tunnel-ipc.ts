@@ -1,7 +1,7 @@
 /**
  * IPC client — connects to the tunnel daemon's Unix socket.
  *
- * Sends JSON-RPC requests, receives JSON responses.
+ * Sends JSON requests, receives JSON responses.
  */
 
 import * as net from "node:net";

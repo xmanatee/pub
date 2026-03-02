@@ -44,7 +44,7 @@ async function closeActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slu
     .collect();
   for (const live of lives) {
     if (live.status === "active") {
-      await db.patch(live._id, { status: "closed" as const });
+      await db.patch(live._id, { status: "closed" });
     }
   }
 }
@@ -269,7 +269,7 @@ export const requestLive = mutation({
       .collect();
     for (const live of existing) {
       if (live.status === "active") {
-        await ctx.db.patch(live._id, { status: "closed" as const });
+        await ctx.db.patch(live._id, { status: "closed" });
       }
     }
 
@@ -342,7 +342,7 @@ export const takeoverLive = mutation({
 
     await ctx.db.patch(live._id, {
       browserSessionId: sessionId,
-      agentAnswer: "",
+      agentAnswer: undefined,
       agentCandidates: [],
       lastTakeoverAt: Date.now(),
     });
@@ -531,7 +531,7 @@ export const getPendingLiveForAgent = internalQuery({
       (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
     );
 
-    if (!pending || !pending.browserOffer) return null;
+    if (!pending?.browserOffer) return null;
 
     return {
       slug: pending.slug,
@@ -576,7 +576,7 @@ export const closeLive = internalMutation({
       .order("desc")
       .first();
     if (!live || live.userId !== userId) throw new Error("Live not found");
-    await ctx.db.patch(live._id, { status: "closed" as const });
+    await ctx.db.patch(live._id, { status: "closed" });
   },
 });
 
@@ -585,12 +585,10 @@ export const expireLive = internalMutation({
   handler: async (ctx, { id }) => {
     const live = await ctx.db.get(id);
     if (live && live.status === "active") {
-      await ctx.db.patch(id, { status: "closed" as const });
+      await ctx.db.patch(id, { status: "closed" });
     }
   },
 });
-
-// Internal queries for lives
 
 export const getLiveBySlugInternal = internalQuery({
   args: { slug: v.string() },

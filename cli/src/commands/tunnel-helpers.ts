@@ -106,21 +106,16 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
   setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
   setIfMissing("OPENCLAW_THREAD_ID", bridgeConfig.threadId);
-  if (bridgeConfig.canvasReminderEvery !== undefined) {
-    setIfMissing("OPENCLAW_CANVAS_REMINDER_EVERY", bridgeConfig.canvasReminderEvery);
-  }
-  if (bridgeConfig.deliver !== undefined) {
-    setIfMissing("OPENCLAW_DELIVER", bridgeConfig.deliver ? "1" : "0");
-  }
+  setIfMissing("OPENCLAW_CANVAS_REMINDER_EVERY", bridgeConfig.canvasReminderEvery);
+  setIfMissing(
+    "OPENCLAW_DELIVER",
+    bridgeConfig.deliver === undefined ? undefined : bridgeConfig.deliver ? "1" : "0",
+  );
   setIfMissing("OPENCLAW_DELIVER_CHANNEL", bridgeConfig.deliverChannel);
   setIfMissing("OPENCLAW_REPLY_TO", bridgeConfig.replyTo);
-  if (bridgeConfig.deliverTimeoutMs !== undefined) {
-    setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
-  }
+  setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
   setIfMissing("OPENCLAW_ATTACHMENT_DIR", bridgeConfig.attachmentDir);
-  if (bridgeConfig.attachmentMaxBytes !== undefined) {
-    setIfMissing("OPENCLAW_ATTACHMENT_MAX_BYTES", bridgeConfig.attachmentMaxBytes);
-  }
+  setIfMissing("OPENCLAW_ATTACHMENT_MAX_BYTES", bridgeConfig.attachmentMaxBytes);
   return env;
 }
 
@@ -280,14 +275,6 @@ export function parseBridgeMode(raw: string): BridgeMode {
 
 export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {
   return parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
-}
-
-export function shouldRestartDaemonForCliUpgrade(
-  daemonCliVersion: string | undefined,
-  currentCliVersion: string,
-): boolean {
-  if (!daemonCliVersion || daemonCliVersion.trim().length === 0) return true;
-  return daemonCliVersion.trim() !== currentCliVersion;
 }
 
 export function messageContainsPong(payload: unknown): boolean {
