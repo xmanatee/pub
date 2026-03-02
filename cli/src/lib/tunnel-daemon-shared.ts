@@ -32,7 +32,7 @@ export const BRIDGE_RAPID_RESTART_WINDOW_MS = 5 * 60 * 1000;
 
 export const ANSWER_TIMEOUT_MS = 10_000;
 export const HEARTBEAT_INTERVAL_MS = 30_000;
-export const IDLE_POLL_MS = 3_000;
+export const IDLE_POLL_MS = 5_000;
 export const SIGNAL_POLL_CONNECTED_MS = 15_000;
 export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;
 export const RECOVERY_DELAY_MS = 1_000;

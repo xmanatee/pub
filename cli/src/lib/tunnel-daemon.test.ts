@@ -93,7 +93,7 @@ describe("resolveAckChannel", () => {
 
 describe("getSignalPollDelayMs", () => {
   it("returns the base polling delay when retry-after is missing", () => {
-    expect(getSignalPollDelayMs({ hasActiveConnection: false })).toBe(3_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: false })).toBe(5_000);
     expect(getSignalPollDelayMs({ hasActiveConnection: true })).toBe(15_000);
   });
 
@@ -104,9 +104,9 @@ describe("getSignalPollDelayMs", () => {
   });
 
   it("ignores non-positive retry-after values", () => {
-    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(3_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(5_000);
     expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(
-      3_000,
+      5_000,
     );
   });
 });
