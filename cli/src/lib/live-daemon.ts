@@ -23,11 +23,8 @@ import {
 import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
 import { errorMessage } from "./cli-error.js";
-import {
-  type ClaudeCodeBridgeRunner,
-  createClaudeCodeBridgeRunner,
-} from "./live-bridge-claude-code.js";
-import { createOpenClawBridgeRunner, type OpenClawBridgeRunner } from "./live-bridge-openclaw.js";
+import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
+import { type BridgeRunner, createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import { createAnswer } from "./live-daemon-answer.js";
 import {
   type ChannelBuffer,
@@ -82,7 +79,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
-  let bridgeRunner: OpenClawBridgeRunner | ClaudeCodeBridgeRunner | null = null;
+  let bridgeRunner: BridgeRunner | null = null;
 
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;

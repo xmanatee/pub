@@ -7,7 +7,10 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { CONTENT_TYPE_VALIDATOR, MAX_PUBS } from "./utils";
 
+/** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
+
+const LIVE_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -274,7 +277,7 @@ export const requestLive = mutation({
       }
     }
 
-    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    const expiresAt = Date.now() + LIVE_EXPIRY_MS;
     const id = await ctx.db.insert("lives", {
       slug,
       userId,

@@ -36,7 +36,7 @@ const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
 ]);
 const DEFAULT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_CANVAS_REMINDER_EVERY = 10;
-const MAX_SEEN_IDS = 10_000;
+export const MAX_SEEN_IDS = 10_000;
 
 export interface BridgeRunnerConfig {
   slug: string;
@@ -53,7 +53,7 @@ export interface BridgeStatus {
   forwardedMessages: number;
 }
 
-export interface OpenClawBridgeRunner {
+export interface BridgeRunner {
   enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void;
   stop(): Promise<void>;
   status(): BridgeStatus;
@@ -291,7 +291,11 @@ export function parseSessionContextMeta(meta: BridgeMessage["meta"]): SessionCon
   return payload;
 }
 
-export function buildSessionBriefing(slug: string, ctx: SessionContextPayload): string {
+export function buildSessionBriefing(
+  slug: string,
+  ctx: SessionContextPayload,
+  commands?: string[],
+): string {
   const lines: string[] = [`[Pubblue ${slug}] Session started.`, "", "## Pub Context"];
 
   if (ctx.title) lines.push(`- Title: ${ctx.title}`);
@@ -310,12 +314,9 @@ export function buildSessionBriefing(slug: string, ctx: SessionContextPayload): 
     }
   }
 
-  lines.push(
-    "",
-    "## Commands",
-    `Reply: pubblue write --slug ${slug} "<your reply>"`,
-    `Canvas: pubblue write --slug ${slug} -c canvas -f /path/to/file.html`,
-  );
+  if (commands && commands.length > 0) {
+    lines.push("", "## Commands", ...commands);
+  }
 
   return lines.join("\n");
 }
@@ -685,7 +686,7 @@ async function handleAttachmentEntry(params: {
 
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
-): Promise<OpenClawBridgeRunner> {
+): Promise<BridgeRunner> {
   const { slug, debugLog } = config;
 
   const openclawPath = resolveOpenClawPath();
@@ -771,7 +772,10 @@ export async function createOpenClawBridgeRunner(
             const ctx = parseSessionContextMeta(entry.msg.meta);
             if (ctx) {
               sessionBriefingSent = true;
-              const briefing = buildSessionBriefing(slug, ctx);
+              const briefing = buildSessionBriefing(slug, ctx, [
+                `Reply: pubblue write --slug ${slug} "<your reply>"`,
+                `Canvas: pubblue write --slug ${slug} -c canvas -f /path/to/file.html`,
+              ]);
               await deliverMessageToOpenClaw({ openclawPath, sessionId, text: briefing });
               debugLog("session briefing delivered");
             }

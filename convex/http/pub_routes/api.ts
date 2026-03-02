@@ -59,7 +59,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       if (body.content && body.content.length > MAX_CONTENT_SIZE) {
-        return errorResponse("Content exceeds maximum size of 100KB", 400);
+        return errorResponse(`Content exceeds maximum size of ${MAX_CONTENT_SIZE / 1024}KB`, 400);
       }
       if (body.slug && !isValidSlug(body.slug)) {
         return errorResponse(INVALID_SLUG_MESSAGE, 400);
@@ -72,7 +72,10 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       if (body.expiresIn !== undefined) {
         const ms = parseExpiresIn(body.expiresIn);
         if (!ms || ms <= 0) return errorResponse("Invalid expiresIn value", 400);
-        if (ms > MAX_EXPIRY_MS) return errorResponse("Expiry cannot exceed 30 days", 400);
+        if (ms > MAX_EXPIRY_MS) {
+          const maxDays = MAX_EXPIRY_MS / (24 * 60 * 60 * 1000);
+          return errorResponse(`Expiry cannot exceed ${maxDays} days`, 400);
+        }
         expiresAt = Date.now() + ms;
       }
 
@@ -189,7 +192,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       // GET /api/v1/pubs/:slug/live
       if (pathParts.length === 2 && pathParts[1] === "live") {
         const slug = pathParts[0];
-        if (!isValidSlug(slug)) return errorResponse("Invalid slug", 400);
+        if (!isValidSlug(slug)) return errorResponse(INVALID_SLUG_MESSAGE, 400);
 
         const user = await authenticateApiKey(ctx, apiKey);
         const rl = await rateLimiter.limit(ctx, "readLive", { key: apiKey });
@@ -287,7 +290,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       if (body.content && body.content.length > MAX_CONTENT_SIZE) {
-        return errorResponse("Content exceeds maximum size of 100KB", 400);
+        return errorResponse(`Content exceeds maximum size of ${MAX_CONTENT_SIZE / 1024}KB`, 400);
       }
       if (body.title && body.title.length > MAX_TITLE_LENGTH) {
         return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);

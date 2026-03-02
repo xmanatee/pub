@@ -10,21 +10,15 @@ import {
 } from "./bridge-protocol.js";
 import { errorMessage } from "./cli-error.js";
 import {
+  type BridgeRunner,
   type BridgeRunnerConfig,
   type BridgeStatus,
   type BufferedEntry,
   buildSessionBriefing,
+  MAX_SEEN_IDS,
   parseSessionContextMeta,
   readTextChatMessage,
 } from "./live-bridge-openclaw.js";
-
-const MAX_SEEN_IDS = 10_000;
-
-export interface ClaudeCodeBridgeRunner {
-  enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void;
-  stop(): Promise<void>;
-  status(): BridgeStatus;
-}
 
 function resolveClaudeCodePath(): string {
   const configured = process.env.CLAUDE_CODE_PATH?.trim();
@@ -74,7 +68,7 @@ function buildClaudeArgs(prompt: string, sessionId: string | null): string[] {
 
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
-): Promise<ClaudeCodeBridgeRunner> {
+): Promise<BridgeRunner> {
   const { slug, sendMessage, debugLog } = config;
 
   const claudePath = resolveClaudeCodePath();

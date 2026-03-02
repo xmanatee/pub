@@ -241,14 +241,18 @@ describe("resolveSessionFromSessionsData", () => {
 });
 
 describe("buildSessionBriefing", () => {
-  it("includes all pub context fields", () => {
-    const briefing = buildSessionBriefing("my-demo", {
-      title: "My Landing Page",
-      contentType: "html",
-      contentPreview: "<h1>Welcome</h1>",
-      isPublic: true,
-      preferences: { voiceModeEnabled: false },
-    });
+  it("includes all pub context fields and commands when provided", () => {
+    const briefing = buildSessionBriefing(
+      "my-demo",
+      {
+        title: "My Landing Page",
+        contentType: "html",
+        contentPreview: "<h1>Welcome</h1>",
+        isPublic: true,
+        preferences: { voiceModeEnabled: false },
+      },
+      [`Reply: pubblue write --slug my-demo "<your reply>"`],
+    );
 
     expect(briefing).toContain("[Pubblue my-demo] Session started.");
     expect(briefing).toContain("Title: My Landing Page");
@@ -259,12 +263,12 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain('pubblue write --slug my-demo "<your reply>"');
   });
 
-  it("handles minimal context (no optional fields)", () => {
+  it("omits commands section when no commands provided", () => {
     const briefing = buildSessionBriefing("bare-pub", {});
 
     expect(briefing).toContain("[Pubblue bare-pub] Session started.");
     expect(briefing).toContain("## Pub Context");
-    expect(briefing).toContain("## Commands");
+    expect(briefing).not.toContain("## Commands");
     expect(briefing).not.toContain("Title:");
     expect(briefing).not.toContain("Content type:");
     expect(briefing).not.toContain("Visibility:");
