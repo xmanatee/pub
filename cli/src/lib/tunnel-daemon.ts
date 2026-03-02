@@ -10,6 +10,7 @@ import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
 import { latestCliVersionPath, readLatestCliVersion } from "../commands/tunnel-helpers.js";
+import { errorMessage } from "./cli-error.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -728,9 +729,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         try {
           await waitForChannelOpen(targetDc);
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
           markError(`channel "${channel}" failed to open`, error);
-          return { ok: false, error: `Channel "${channel}" not open: ${message}` };
+          return { ok: false, error: `Channel "${channel}" not open: ${errorMessage(error)}` };
         }
 
         const waitForAck = shouldAcknowledgeMessage(channel, msg)
@@ -751,9 +751,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           }
         } catch (error) {
           if (waitForAck) settlePendingAck(msg.id, false);
-          const message = error instanceof Error ? error.message : String(error);
           markError(`failed to send message on channel "${channel}"`, error);
-          return { ok: false, error: `Failed to send on channel "${channel}": ${message}` };
+          return { ok: false, error: `Failed to send on channel "${channel}": ${errorMessage(error)}` };
         }
 
         if (waitForAck) {

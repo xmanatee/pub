@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { homedir } from "node:os";
 import * as path from "node:path";
 import { PubApiClient, PubApiError } from "../lib/api.js";
-import { failCli } from "../lib/cli-error.js";
+import { errorMessage, failCli } from "../lib/cli-error.js";
 import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
 import type { BridgeMode } from "../lib/tunnel-daemon-shared.js";
@@ -69,10 +69,6 @@ const MIME_BY_EXT: Record<string, string> = {
 export function getMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   return MIME_BY_EXT[ext] || "application/octet-stream";
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 interface DaemonProcessInfo {

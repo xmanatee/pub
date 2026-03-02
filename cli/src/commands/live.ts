@@ -7,7 +7,7 @@ import {
   CONTROL_CHANNEL,
   generateMessageId,
 } from "../lib/bridge-protocol.js";
-import { failCli } from "../lib/cli-error.js";
+import { errorMessage, failCli } from "../lib/cli-error.js";
 import { getConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
 import { CLI_VERSION } from "../lib/version.js";
@@ -78,8 +78,7 @@ function registerStartCommand(program: Command): void {
             agentName: opts.agentName,
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          failCli(`Daemon failed: ${message}`);
+          failCli(`Daemon failed: ${errorMessage(error)}`);
         }
         return;
       }
@@ -388,7 +387,7 @@ function registerDoctorCommand(program: Command): void {
           });
         } catch (error) {
           fail(
-            `daemon is unreachable (${error instanceof Error ? error.message : String(error)}).`,
+            `daemon is unreachable (${errorMessage(error)}).`,
           );
         }
         if (!statusResponse) {

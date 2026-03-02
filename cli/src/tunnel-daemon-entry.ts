@@ -1,4 +1,5 @@
 import { PubApiClient } from "./lib/api.js";
+import { errorMessage } from "./lib/cli-error.js";
 import { startDaemon } from "./lib/tunnel-daemon.js";
 import type { BridgeMode } from "./lib/tunnel-daemon-shared.js";
 
@@ -18,8 +19,7 @@ if (!baseUrl || !apiKey || !socketPath || !infoPath) {
 const apiClient = new PubApiClient(baseUrl, apiKey);
 void startDaemon({ apiClient, socketPath, infoPath, cliVersion, bridgeMode, agentName }).catch(
   (error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Daemon failed to start: ${message}`);
+    console.error(`Daemon failed to start: ${errorMessage(error)}`);
     process.exit(1);
   },
 );

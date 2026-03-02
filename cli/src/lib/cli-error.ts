@@ -14,6 +14,10 @@ export function failCli(message: string, exitCode = 1): never {
   throw new CliError(message, exitCode);
 }
 
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function toCliFailure(error: unknown): { exitCode: number; message: string } {
   if (error instanceof CommanderError) {
     return {

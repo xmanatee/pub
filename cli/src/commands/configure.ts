@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import type { Command } from "commander";
+import { errorMessage } from "../lib/cli-error.js";
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../lib/config.js";
 import { loadConfig, saveConfig } from "../lib/config.js";
 import { readFromStdin } from "./shared.js";
@@ -335,7 +336,7 @@ export function registerConfigureCommand(program: Command): void {
               console.log("Telegram menu button reset to default.");
             } catch (error) {
               console.error(
-                `Warning: failed to reset Telegram menu button: ${error instanceof Error ? error.message : String(error)}`,
+                `Warning: failed to reset Telegram menu button: ${errorMessage(error)}`,
               );
             }
           }
