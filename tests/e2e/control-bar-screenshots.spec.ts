@@ -1,42 +1,49 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-
-const SCREENSHOT_DIR = "tests/e2e/screenshots";
+import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "./screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
-test.describe("Control bar screenshots", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/debug/control-bar");
-    await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible();
-  });
+async function setupPage(page: Page) {
+  await page.goto("/debug/control-bar");
+  await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible();
+  await freezeAnimations(page);
+}
 
+test.describe("Control bar screenshots", () => {
   test("visual states", async ({ page }) => {
+    await setupPage(page);
     const section = page.getByTestId("batch-visual-state");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-visual-state.png` });
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-visual-state.png`);
   });
 
   test("collapsed mobile", async ({ page }) => {
+    await setupPage(page);
     const section = page.getByTestId("batch-collapsed-mobile");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-collapsed-mobile.png` });
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-collapsed-mobile.png`);
   });
 
   test("collapsed desktop", async ({ page }) => {
+    await setupPage(page);
     const section = page.getByTestId("batch-collapsed-desktop");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-collapsed-desktop.png` });
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-collapsed-desktop.png`);
   });
 
   test("chat preview", async ({ page }) => {
+    await setupPage(page);
     const section = page.getByTestId("batch-preview");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-preview.png` });
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-preview.png`);
   });
 
   test("takeover", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2025-01-01T00:00:00Z"));
+    await setupPage(page);
     const section = page.getByTestId("batch-takeover");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-takeover.png` });
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-takeover.png`);
   });
 });

@@ -15,6 +15,7 @@ import { useHoldToRecord } from "./use-hold-to-record";
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
 interface ControlBarProps {
+  agentName: string | null;
   chatPreview: string | null;
   collapsed: boolean;
   sendDisabled: boolean;
@@ -40,6 +41,7 @@ function formatTime(seconds: number) {
 }
 
 export function ControlBar({
+  agentName,
   chatPreview,
   collapsed,
   sendDisabled,
@@ -160,6 +162,7 @@ export function ControlBar({
   } else {
     content = (
       <ControlBarIdleMode
+        agentName={agentName}
         chatPreview={chatPreview}
         expanded={expanded}
         fileInputRef={fileInputRef}

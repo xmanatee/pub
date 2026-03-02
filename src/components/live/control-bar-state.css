@@ -7,7 +7,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1px;
+  padding: 2px;
   pointer-events: none;
   mask:
     linear-gradient(#fff 0 0) content-box,

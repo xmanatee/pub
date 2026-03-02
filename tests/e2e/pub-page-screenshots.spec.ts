@@ -1,18 +1,15 @@
 import { expect, test } from "@playwright/test";
-
-const SCREENSHOT_DIR = "tests/e2e/screenshots";
+import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "./screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 test.describe("Pub page screenshots", () => {
-  test.beforeEach(async ({ page }) => {
+  test("pub page states", async ({ page }) => {
     await page.goto("/debug/pub-page");
     await expect(page.getByRole("heading", { name: "Pub Page Debug" })).toBeVisible();
-  });
-
-  test("pub page states", async ({ page }) => {
+    await freezeAnimations(page);
     const section = page.getByTestId("batch-pub-page-states");
     await expect(section).toBeVisible();
-    await section.screenshot({ path: `${SCREENSHOT_DIR}/pub-page-states.png` });
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/pub-page-states.png`);
   });
 });
