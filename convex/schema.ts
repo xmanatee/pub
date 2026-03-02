@@ -39,6 +39,9 @@ export default defineSchema({
     agentName: v.optional(v.string()),
     browserOffer: v.optional(v.string()),
     agentAnswer: v.optional(v.string()),
+    /** @deprecated Legacy fields from agent-initiated signaling flow */
+    agentOffer: v.optional(v.string()),
+    browserAnswer: v.optional(v.string()),
     agentCandidates: v.array(v.string()),
     browserCandidates: v.array(v.string()),
     browserSessionId: v.optional(v.string()),
