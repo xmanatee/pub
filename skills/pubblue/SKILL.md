@@ -67,7 +67,7 @@ pubblue delete <slug>
 
 Notes:
 - Pubs are **private by default**.
-- `create` supports `--public/--private`, `--title`, `--slug`, `--expires`, `--open`.
+- `create` supports `--public/--private`, `--title`, `--slug`, `--expires`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
 - Content is optional — a pub can be interactive-only.
 

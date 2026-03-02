@@ -18,8 +18,6 @@ export function registerPubCommands(program: Command): void {
     .option("--public", "Make the pub public")
     .option("--private", "Make the pub private (default)")
     .option("--expires <duration>", "Auto-delete after duration (e.g. 1h, 24h, 7d)")
-    .option("--open", "Also open an interactive session immediately")
-    .option("--bridge <mode>", "Bridge mode if --open (openclaw/none)")
     .action(
       async (
         fileArg: string | undefined,
@@ -29,8 +27,6 @@ export function registerPubCommands(program: Command): void {
           public?: boolean;
           private?: boolean;
           expires?: string;
-          open?: boolean;
-          bridge?: string;
         },
       ) => {
         const client = createClient();
@@ -42,8 +38,7 @@ export function registerPubCommands(program: Command): void {
           const file = readFile(fileArg);
           content = file.content;
           filename = file.basename;
-        } else if (!opts.open) {
-          // Only read stdin if not creating an interactive-only pub
+        } else {
           content = await readFromStdin();
         }
 
@@ -67,10 +62,6 @@ export function registerPubCommands(program: Command): void {
         if (tmaUrl) console.log(`Telegram: ${tmaUrl}`);
         if (result.expiresAt) {
           console.log(`  Expires: ${new Date(result.expiresAt).toISOString()}`);
-        }
-
-        if (opts.open) {
-          console.log(`\nTo open an interactive session, use: pubblue open ${result.slug}`);
         }
       },
     );
