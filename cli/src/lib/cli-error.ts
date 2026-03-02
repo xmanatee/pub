@@ -33,15 +33,8 @@ export function toCliFailure(error: unknown): { exitCode: number; message: strin
     };
   }
 
-  if (error instanceof Error) {
-    return {
-      exitCode: 1,
-      message: error.message,
-    };
-  }
-
   return {
     exitCode: 1,
-    message: String(error),
+    message: errorMessage(error),
   };
 }
