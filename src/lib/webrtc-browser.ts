@@ -52,10 +52,6 @@ export class BrowserBridge {
   >();
   private remoteDescriptionSet = false;
 
-  getState(): BridgeState {
-    return this.state;
-  }
-
   setOnStateChange(handler: StateChangeHandler): void {
     this.onStateChange = handler;
   }
@@ -186,14 +182,6 @@ export class BrowserBridge {
     if (!dc || dc.readyState !== "open") return false;
     dc.send(data);
     return true;
-  }
-
-  addMediaTrack(track: MediaStreamTrack, stream: MediaStream): void {
-    this.pc?.addTrack(track, stream);
-  }
-
-  getChannelNames(): string[] {
-    return [...this.channels.keys()];
   }
 
   isChannelOpen(name: string): boolean {

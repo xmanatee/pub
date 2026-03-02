@@ -22,7 +22,6 @@ import {
   parseExpiresIn,
   parseSlugFromRequest,
   rateLimitResponse,
-  rethrowLiveApiError,
   rethrowPubLimitError,
 } from "../shared";
 
@@ -337,7 +336,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
   });
 
   // -- DELETE /api/v1/pubs/:slug  (delete pub) ------------------------------
-  // -- DELETE /api/v1/pubs/:slug/live  (close live) ------------------------
 
   http.route({
     pathPrefix: "/api/v1/pubs/",
@@ -345,37 +343,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
     handler: httpAction(async (ctx, request) => {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
-
-      const url = new URL(request.url);
-      const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
-      const pathParts = pathAfterPubs.split("/");
-
-      // DELETE /api/v1/pubs/:slug/live
-      if (pathParts.length === 2 && pathParts[1] === "live") {
-        const slug = pathParts[0];
-        if (!isValidSlug(slug)) return errorResponse("Invalid slug", 400);
-
-        const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "closeLive", { key: apiKey });
-        if (!rl.ok) return rateLimitResponse(rl.retryAfter);
-
-        return executeAction(
-          async () => {
-            try {
-              await ctx.runMutation(internal.pubs.closeLive, {
-                slug,
-                userId: user.userId,
-              });
-            } catch (error) {
-              rethrowLiveApiError(error);
-            }
-          },
-          () => jsonResponse({ closed: true }),
-        );
-      }
-
-      // DELETE /api/v1/pubs/:slug
-      if (pathParts.length !== 1) return errorResponse("Invalid path", 400);
 
       const slug = parseSlugFromRequest(request, "/api/v1/pubs/");
       if (slug instanceof Response) return slug;

@@ -1,5 +1,4 @@
 import type { ChildProcess } from "node:child_process";
-import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { PubApiClient, PubApiError } from "../lib/api.js";
@@ -71,7 +70,7 @@ export interface BridgeProcessInfo {
   status?: string;
 }
 
-export interface DaemonProcessInfo {
+interface DaemonProcessInfo {
   cliVersion?: string;
   pid: number;
   socketPath?: string;
@@ -244,7 +243,7 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-export async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     if (!isProcessAlive(pid)) return true;
@@ -344,11 +343,6 @@ export function messageContainsPong(payload: unknown): boolean {
   return type === "text" && typeof data === "string" && data.trim().toLowerCase() === "pong";
 }
 
-export function getPublicUrl(slug: string): string {
-  const base = process.env.PUBBLUE_PUBLIC_URL || "https://pub.blue";
-  return `${base.replace(/\/$/, "")}/p/${slug}`;
-}
-
 export function readLogTail(logPath: string, maxChars = 4_000): string | null {
   if (!fs.existsSync(logPath)) return null;
   try {
@@ -383,14 +377,14 @@ export async function resolveActiveSlug(): Promise<string> {
   failCli("Agent daemon is running but has no active live session.");
 }
 
-export interface WaitForDaemonReadyParams {
+interface WaitForDaemonReadyParams {
   child: ChildProcess;
   infoPath: string;
   socketPath: string;
   timeoutMs: number;
 }
 
-export interface WaitForDaemonReadyResult {
+interface WaitForDaemonReadyResult {
   ok: boolean;
   reason?: string;
 }
@@ -441,122 +435,6 @@ export function waitForDaemonReady({
       const reason = lastIpcError
         ? `timed out after ${timeoutMs}ms waiting for daemon readiness (last IPC error: ${lastIpcError})`
         : `timed out after ${timeoutMs}ms waiting for daemon readiness`;
-      done({ ok: false, reason });
-    }, timeoutMs);
-  });
-}
-
-export interface EnsureBridgeReadyParams {
-  slug: string;
-  socketPath: string;
-  bridgeProcessEnv: NodeJS.ProcessEnv;
-  timeoutMs: number;
-}
-
-export async function ensureBridgeReady(
-  params: EnsureBridgeReadyParams,
-): Promise<WaitForDaemonReadyResult> {
-  const infoPath = bridgeInfoPath(params.slug);
-  if (isBridgeRunning(params.slug)) {
-    return waitForBridgeReady({
-      infoPath,
-      slug: params.slug,
-      timeoutMs: params.timeoutMs,
-    });
-  }
-
-  const bridgeScript = path.join(import.meta.dirname, "tunnel-bridge-entry.js");
-  const logPath = bridgeLogPath(params.slug);
-  const logFd = fs.openSync(logPath, "a");
-  const child = fork(bridgeScript, [], {
-    detached: true,
-    stdio: buildBridgeForkStdio(logFd),
-    env: {
-      ...params.bridgeProcessEnv,
-      PUBBLUE_BRIDGE_SLUG: params.slug,
-      PUBBLUE_BRIDGE_SOCKET: params.socketPath,
-      PUBBLUE_BRIDGE_INFO: infoPath,
-    },
-  });
-  fs.closeSync(logFd);
-  if (child.connected) {
-    child.disconnect();
-  }
-  child.unref();
-
-  return waitForBridgeReady({
-    child,
-    infoPath,
-    slug: params.slug,
-    timeoutMs: params.timeoutMs,
-  });
-}
-
-interface WaitForBridgeReadyParams {
-  child?: ChildProcess;
-  infoPath: string;
-  slug: string;
-  timeoutMs: number;
-}
-
-function waitForBridgeReady({
-  child,
-  infoPath,
-  slug,
-  timeoutMs,
-}: WaitForBridgeReadyParams): Promise<WaitForDaemonReadyResult> {
-  return new Promise((resolve) => {
-    let settled = false;
-    let lastState: string | undefined;
-    let lastError: string | undefined;
-
-    const done = (result: WaitForDaemonReadyResult) => {
-      if (settled) return;
-      settled = true;
-      clearInterval(poll);
-      clearTimeout(timeout);
-      if (child) {
-        child.off("exit", onExit);
-      }
-      resolve(result);
-    };
-
-    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
-      const suffix = signal ? ` (signal ${signal})` : "";
-      done({ ok: false, reason: `bridge exited with code ${code ?? 0}${suffix}` });
-    };
-
-    if (child) {
-      child.on("exit", onExit);
-    }
-
-    const poll = setInterval(() => {
-      if (!fs.existsSync(infoPath)) return;
-      const info = readBridgeProcessInfo(slug);
-      if (!info) return;
-      lastState = info.status;
-      lastError = info.lastError;
-      if (info.status === "ready" && isBridgeRunning(slug)) {
-        done({ ok: true });
-        return;
-      }
-      if (info.status === "error") {
-        done({
-          ok: false,
-          reason: info.lastError
-            ? `bridge reported startup error: ${info.lastError}`
-            : "bridge reported startup error",
-        });
-      }
-    }, 120);
-
-    const timeout = setTimeout(() => {
-      const reason =
-        lastError && lastError.length > 0
-          ? `timed out after ${timeoutMs}ms waiting for bridge readiness (last error: ${lastError})`
-          : `timed out after ${timeoutMs}ms waiting for bridge readiness (state: ${
-              lastState || "unknown"
-            })`;
       done({ ok: false, reason });
     }, timeoutMs);
   });
