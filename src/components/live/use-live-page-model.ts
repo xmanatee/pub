@@ -8,13 +8,19 @@ import { useLiveChatDelivery } from "~/components/live/use-live-chat-delivery";
 import { useLiveFiles } from "~/components/live/use-live-files";
 import { useLivePreferences } from "~/components/live/use-live-preferences";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
-import { CHANNELS, makeBinaryMetaMessage, makeTextMessage } from "~/lib/bridge-protocol";
+import {
+  CHANNELS,
+  makeBinaryMetaMessage,
+  makeTextMessage,
+  type SessionContextPayload,
+} from "~/lib/bridge-protocol";
 import type { ChannelMessage } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
 import { api } from "../../../convex/_generated/api";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const CHAT_CONFIRM_GRACE_MS = 12_000;
+const CONTENT_PREVIEW_MAX_LENGTH = 500;
 const SESSION_STORAGE_PREFIX = "pub-live-session:";
 
 function getOrCreateSessionId(slug: string): string {
@@ -27,6 +33,7 @@ function getOrCreateSessionId(slug: string): string {
 }
 
 export function useLivePageModel(slug: string) {
+  const pub = useQuery(api.pubs.getBySlug, { slug });
   const live = useQuery(api.pubs.getLiveBySlug, { slug });
   const agentOnline = useQuery(api.presence.isAgentOnline, { slug });
   const requestLiveMutation = useMutation(api.pubs.requestLive);
@@ -104,6 +111,18 @@ export function useLivePageModel(slug: string) {
     messages,
     messagesEndRef,
   } = useLiveChatDelivery({ confirmGraceMs: CHAT_CONFIRM_GRACE_MS });
+
+  const sessionContext: SessionContextPayload | undefined = useMemo(() => {
+    if (!pub) return undefined;
+    const preview = pub.content?.slice(0, CONTENT_PREVIEW_MAX_LENGTH);
+    return {
+      title: pub.title,
+      contentType: pub.contentType,
+      contentPreview: preview,
+      isPublic: pub.isPublic,
+      preferences: { voiceModeEnabled },
+    };
+  }, [pub, voiceModeEnabled]);
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
@@ -215,6 +234,7 @@ export function useLivePageModel(slug: string) {
     enabled: liveRequested && sessionState === "active",
     agentAnswer: sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
+    sessionContext,
     storeBrowserOffer,
     storeBrowserCandidates,
     onDeliveryAck: handleDeliveryAck,

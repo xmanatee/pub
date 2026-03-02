@@ -11,7 +11,13 @@ import {
 import { homedir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { promisify } from "node:util";
-import { type BridgeMessage, CHANNELS, generateMessageId } from "./bridge-protocol.js";
+import {
+  type BridgeMessage,
+  CHANNELS,
+  CONTROL_CHANNEL,
+  generateMessageId,
+  type SessionContextPayload,
+} from "./bridge-protocol.js";
 import type { BridgeSessionSource } from "./tunnel-bridge-types.js";
 
 const execFileAsync = promisify(execFile);
@@ -265,6 +271,52 @@ export function buildAttachmentPrompt(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function parseSessionContextMeta(meta: BridgeMessage["meta"]): SessionContextPayload | null {
+  if (!meta) return null;
+  const payload: SessionContextPayload = {};
+  if (typeof meta.title === "string") payload.title = meta.title;
+  if (typeof meta.contentType === "string") payload.contentType = meta.contentType;
+  if (typeof meta.contentPreview === "string") payload.contentPreview = meta.contentPreview;
+  if (typeof meta.isPublic === "boolean") payload.isPublic = meta.isPublic;
+  if (meta.preferences && typeof meta.preferences === "object") {
+    const prefs = meta.preferences as Record<string, unknown>;
+    payload.preferences = {};
+    if (typeof prefs.voiceModeEnabled === "boolean") {
+      payload.preferences.voiceModeEnabled = prefs.voiceModeEnabled;
+    }
+  }
+  return payload;
+}
+
+export function buildSessionBriefing(slug: string, ctx: SessionContextPayload): string {
+  const lines: string[] = [`[Pubblue ${slug}] Session started.`, "", "## Pub Context"];
+
+  if (ctx.title) lines.push(`- Title: ${ctx.title}`);
+  if (ctx.contentType) lines.push(`- Content type: ${ctx.contentType}`);
+  if (ctx.isPublic !== undefined)
+    lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
+  if (ctx.contentPreview) {
+    lines.push("- Content preview:");
+    lines.push(ctx.contentPreview);
+  }
+
+  if (ctx.preferences) {
+    lines.push("", "## User Preferences");
+    if (ctx.preferences.voiceModeEnabled !== undefined) {
+      lines.push(`- Voice mode: ${ctx.preferences.voiceModeEnabled ? "on" : "off"}`);
+    }
+  }
+
+  lines.push(
+    "",
+    "## Commands",
+    `Reply: pubblue write --slug ${slug} "<your reply>"`,
+    `Canvas: pubblue write --slug ${slug} -c canvas -f /path/to/file.html`,
+  );
+
+  return lines.join("\n");
 }
 
 function readTextChatMessage(entry: BufferedEntry): string | null {
@@ -677,6 +729,7 @@ export async function createOpenClawBridgeRunner(
   let lastError: string | undefined;
   let stopping = false;
   let loopDone: Promise<void>;
+  let sessionBriefingSent = false;
 
   const queue: BufferedEntry[] = [];
   let notify: (() => void) | null = null;
@@ -708,6 +761,22 @@ export async function createOpenClawBridgeRunner(
         }
 
         try {
+          if (
+            !sessionBriefingSent &&
+            entry.channel === CONTROL_CHANNEL &&
+            entry.msg.type === "event" &&
+            entry.msg.data === "session-context"
+          ) {
+            const ctx = parseSessionContextMeta(entry.msg.meta);
+            if (ctx) {
+              sessionBriefingSent = true;
+              const briefing = buildSessionBriefing(slug, ctx);
+              await deliverMessageToOpenClaw({ openclawPath, sessionId, text: briefing });
+              debugLog("session briefing delivered");
+            }
+            continue;
+          }
+
           const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
             forwardedMessageCount + 1,
             canvasReminderEvery,

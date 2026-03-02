@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   buildAttachmentPrompt,
   buildInboundPrompt,
+  buildSessionBriefing,
   resolveAttachmentFilename,
   resolveAttachmentMaxBytes,
   resolveAttachmentRootDir,
@@ -236,5 +237,49 @@ describe("resolveSessionFromSessionsData", () => {
       "agent:main:pubblue",
       "agent:main:main",
     ]);
+  });
+});
+
+describe("buildSessionBriefing", () => {
+  it("includes all pub context fields", () => {
+    const briefing = buildSessionBriefing("my-demo", {
+      title: "My Landing Page",
+      contentType: "html",
+      contentPreview: "<h1>Welcome</h1>",
+      isPublic: true,
+      preferences: { voiceModeEnabled: false },
+    });
+
+    expect(briefing).toContain("[Pubblue my-demo] Session started.");
+    expect(briefing).toContain("Title: My Landing Page");
+    expect(briefing).toContain("Content type: html");
+    expect(briefing).toContain("Visibility: public");
+    expect(briefing).toContain("<h1>Welcome</h1>");
+    expect(briefing).toContain("Voice mode: off");
+    expect(briefing).toContain('pubblue write --slug my-demo "<your reply>"');
+  });
+
+  it("handles minimal context (no optional fields)", () => {
+    const briefing = buildSessionBriefing("bare-pub", {});
+
+    expect(briefing).toContain("[Pubblue bare-pub] Session started.");
+    expect(briefing).toContain("## Pub Context");
+    expect(briefing).toContain("## Commands");
+    expect(briefing).not.toContain("Title:");
+    expect(briefing).not.toContain("Content type:");
+    expect(briefing).not.toContain("Visibility:");
+    expect(briefing).not.toContain("Content preview:");
+  });
+
+  it("shows private visibility", () => {
+    const briefing = buildSessionBriefing("secret", { isPublic: false });
+    expect(briefing).toContain("Visibility: private");
+  });
+
+  it("shows voice mode on", () => {
+    const briefing = buildSessionBriefing("voice-pub", {
+      preferences: { voiceModeEnabled: true },
+    });
+    expect(briefing).toContain("Voice mode: on");
   });
 });

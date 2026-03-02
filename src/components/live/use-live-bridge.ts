@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { DeliveryAckPayload } from "~/lib/bridge-protocol";
+import {
+  type BridgeMessageMeta,
+  CONTROL_CHANNEL,
+  type DeliveryAckPayload,
+  makeEventMessage,
+  type SessionContextPayload,
+} from "~/lib/bridge-protocol";
 import type { BridgeState, ChannelMessage } from "~/lib/webrtc-browser";
 import { BrowserBridge } from "~/lib/webrtc-browser";
 
@@ -8,6 +14,7 @@ interface UseLiveBridgeOptions {
   enabled: boolean;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
+  sessionContext?: SessionContextPayload;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
   storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
   onDeliveryAck: (ack: DeliveryAckPayload) => void;
@@ -20,6 +27,7 @@ export function useLiveBridge({
   enabled,
   agentAnswer,
   agentCandidates,
+  sessionContext,
   storeBrowserOffer,
   storeBrowserCandidates,
   onDeliveryAck,
@@ -28,6 +36,7 @@ export function useLiveBridge({
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
+  const sessionContextSentRef = useRef(false);
 
   const onDeliveryAckRef = useRef(onDeliveryAck);
   const onMessageRef = useRef(onMessage);
@@ -69,6 +78,7 @@ export function useLiveBridge({
     bridgeRef.current = bridge;
     lastAgentCandidateCountRef.current = 0;
     lastHandledAnswerRef.current = null;
+    sessionContextSentRef.current = false;
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage((message) => onMessageRef.current(message));
     bridge.setOnTrack(() => onTrackActivityRef.current());
@@ -164,6 +174,16 @@ export function useLiveBridge({
       console.warn("Failed to add remote ICE candidates", error);
     });
   }, [agentCandidates]);
+
+  // Send session context once after connection
+  useEffect(() => {
+    if (bridgeState !== "connected" || !sessionContext || sessionContextSentRef.current) return;
+    const bridge = bridgeRef.current;
+    if (!bridge) return;
+    const msg = makeEventMessage("session-context", sessionContext as BridgeMessageMeta);
+    const sent = bridge.send(CONTROL_CHANNEL, msg);
+    if (sent) sessionContextSentRef.current = true;
+  }, [bridgeState, sessionContext]);
 
   return {
     bridgeRef,
