@@ -36,6 +36,7 @@ export default defineSchema({
     slug: v.string(),
     userId: v.id("users"),
     status: v.union(v.literal("active"), v.literal("closed")),
+    agentName: v.optional(v.string()),
     agentOffer: v.optional(v.string()),
     browserAnswer: v.optional(v.string()),
     agentCandidates: v.array(v.string()),

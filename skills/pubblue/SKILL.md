@@ -75,14 +75,16 @@ Notes:
 
 1. Go live (managed bridge enabled by default):
 ```bash
-pubblue open <slug> --expires 4h
+pubblue open <slug> --agent-name "Oz" --expires 4h
 ```
 
 Optional explicit bridge selector:
 ```bash
-pubblue open <slug> --bridge openclaw --expires 4h
-pubblue open <slug> --bridge none --expires 4h
+pubblue open <slug> --agent-name "Oz" --bridge openclaw --expires 4h
+pubblue open <slug> --agent-name "Oz" --bridge none --expires 4h
 ```
+
+`--agent-name` is the display name shown to the browser user (defaults to "Agent" if omitted).
 
 Behavior:
 - `open` runs daemon + managed bridge in background, returns after health checks pass.

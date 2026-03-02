@@ -28,12 +28,14 @@ export const Route = createFileRoute("/debug/control-bar")({
 });
 
 function StaticControlBar({
+  agentName = null,
   visualState = "idle",
   chatPreview = null,
   collapsed = false,
   sessionState,
   lastTakeoverAt,
 }: {
+  agentName?: string | null;
   visualState?: LiveVisualState;
   chatPreview?: string | null;
   collapsed?: boolean;
@@ -42,6 +44,7 @@ function StaticControlBar({
 }) {
   return (
     <ControlBar
+      agentName={agentName}
       chatPreview={chatPreview}
       collapsed={collapsed}
       sendDisabled={visualState === "connecting" || visualState === "disconnected"}
@@ -109,7 +112,7 @@ function ControlBarDebugPage() {
             { label: "without preview", content: <StaticControlBar /> },
             {
               label: "with preview",
-              content: <StaticControlBar chatPreview={DEBUG_PREVIEW_TEXT} />,
+              content: <StaticControlBar agentName="Oz" chatPreview={DEBUG_PREVIEW_TEXT} />,
             },
           ]}
           cellHeight={160}
@@ -184,6 +187,7 @@ function ControlBarDebugPage() {
           </div>
           <div className="relative mt-4 h-80">
             <ControlBar
+              agentName="Oz"
               chatPreview={chatPreview}
               collapsed={collapsed}
               sendDisabled={activeState === "connecting" || activeState === "disconnected"}

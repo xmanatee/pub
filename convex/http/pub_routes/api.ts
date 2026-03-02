@@ -394,12 +394,18 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const slug = pathParts[0];
       if (!isValidSlug(slug)) return errorResponse("Invalid slug", 400);
 
-      let body: { expiresIn?: string | number };
+      let body: { agentName?: string; expiresIn?: string | number };
       try {
         body = await request.json();
       } catch {
         body = {};
       }
+
+      if (typeof body.agentName !== "string") {
+        return errorResponse("agentName is required", 400);
+      }
+      const agentName = body.agentName.trim().slice(0, 50);
+      if (!agentName) return errorResponse("agentName cannot be empty", 400);
 
       let expiresMs = DEFAULT_LIVE_EXPIRY_MS;
       if (body.expiresIn !== undefined) {
@@ -438,6 +444,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             await ctx.runMutation(internal.pubs.openLive, {
               userId: user.userId,
               slug,
+              agentName,
               expiresAt,
             });
           } catch (error) {

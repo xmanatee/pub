@@ -188,6 +188,7 @@ function InteractiveView({
       </div>
 
       <ControlBar
+        agentName={model.agentName}
         chatPreview={previewText}
         collapsed={controlBarCollapsed}
         sendDisabled={!model.connected}

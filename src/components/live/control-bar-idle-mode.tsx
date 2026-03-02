@@ -1,4 +1,4 @@
-import { AudioLines, MessageSquare, Mic, Paperclip, Send } from "lucide-react";
+import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
@@ -16,6 +16,7 @@ const TEXTAREA_LINE_HEIGHT = 20;
 const TEXTAREA_PADDING_Y = 10;
 
 interface ControlBarIdleModeProps {
+  agentName: string | null;
   chatPreview: string | null;
   expanded: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -39,6 +40,7 @@ interface ControlBarIdleModeProps {
 }
 
 export function ControlBarIdleMode({
+  agentName,
   chatPreview,
   expanded,
   fileInputRef,
@@ -126,12 +128,10 @@ export function ControlBarIdleMode({
             aria-label="Open chat"
             tabIndex={showPreview ? 0 : -1}
           >
-            <div className="flex items-center gap-2 px-4 py-2.5">
-              <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 text-left">
-                <div className="text-xs leading-none text-muted-foreground">Agent message</div>
-                <div className="truncate text-sm leading-tight text-foreground">{chatPreview}</div>
-              </div>
+            <div className="truncate px-4 py-2.5 text-left text-sm leading-tight">
+              <span className="font-semibold text-primary">{agentName ?? "Agent"}</span>
+              <span className="text-muted-foreground">: </span>
+              <span className="text-foreground">{chatPreview}</span>
             </div>
             <Separator />
           </button>

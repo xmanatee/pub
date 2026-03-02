@@ -226,6 +226,7 @@ export const getLiveBySlug = query({
     return {
       slug: live.slug,
       status: live.status,
+      agentName: live.agentName,
       agentOffer: live.agentOffer,
       browserAnswer: live.browserAnswer,
       agentCandidates: live.agentCandidates,
@@ -452,6 +453,7 @@ export const openLive = internalMutation({
   args: {
     userId: v.id("users"),
     slug: v.string(),
+    agentName: v.optional(v.string()),
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
@@ -474,6 +476,7 @@ export const openLive = internalMutation({
       slug: args.slug,
       userId: args.userId,
       status: "active",
+      agentName: args.agentName,
       agentCandidates: [],
       browserCandidates: [],
       createdAt: Date.now(),

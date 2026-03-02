@@ -65,6 +65,7 @@ function registerOpenCommand(program: Command): void {
     .description("Go live on a pub (starts WebRTC daemon)")
     .argument("[slug]", "Pub slug (reuses existing live when possible)")
     .option("--expires <duration>", "Auto-close after duration (e.g. 4h, 1d)", "24h")
+    .option("--agent-name <name>", "Agent display name shown to the browser user")
     .option("--new", "Always create a new live (skip reuse)")
     .option("--bridge <mode>", "Bridge mode: openclaw|none")
     .option("--foreground", "Run in foreground (don't fork, no managed bridge)")
@@ -72,6 +73,7 @@ function registerOpenCommand(program: Command): void {
       async (
         slugArg: string | undefined,
         opts: {
+          agentName?: string;
           expires: string;
           new?: boolean;
           bridge?: string;
@@ -142,16 +144,19 @@ function registerOpenCommand(program: Command): void {
         }
 
         if (!target) {
+          const agentName = opts.agentName || "Agent";
           try {
             let created: Awaited<ReturnType<typeof apiClient.openLive>>;
             if (slugArg) {
               created = await apiClient.openLive(slugArg, {
+                agentName,
                 expiresIn: opts.expires,
               });
             } else {
               const newPub = await apiClient.create({});
               try {
                 created = await apiClient.openLive(newPub.slug, {
+                  agentName,
                   expiresIn: opts.expires,
                 });
               } catch (error) {

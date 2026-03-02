@@ -183,7 +183,7 @@ describe("PubApiClient", () => {
         }),
       );
 
-      const result = await client.openLive("abc", { expiresIn: "24h" });
+      const result = await client.openLive("abc", { agentName: "Oz", expiresIn: "24h" });
       expect(result).toEqual(mockResponse);
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/pubs/abc/live", baseUrl),

@@ -60,6 +60,7 @@ vi.mock("~/hooks/use-long-press", () => ({
 }));
 
 function renderControlBar(overrides?: {
+  agentName?: string | null;
   chatPreview?: string | null;
   viewMode?: "canvas" | "chat" | "settings";
   voiceModeEnabled?: boolean;
@@ -67,6 +68,7 @@ function renderControlBar(overrides?: {
   return renderToStaticMarkup(
     <TooltipProvider>
       <ControlBar
+        agentName={overrides?.agentName ?? null}
         chatPreview={overrides?.chatPreview ?? null}
         collapsed={false}
         sendDisabled={false}
@@ -121,9 +123,9 @@ describe("ControlBar", () => {
   });
 
   it("shows chat preview when chatPreview is provided", () => {
-    const html = renderControlBar({ chatPreview: "Hello from agent" });
+    const html = renderControlBar({ agentName: "Oz", chatPreview: "Hello from agent" });
     expect(html).toContain("Hello from agent");
-    expect(html).toContain("Agent message");
+    expect(html).toContain("Oz");
     expect(html).toContain("max-h-14 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
   });

@@ -171,7 +171,10 @@ export class PubApiClient {
 
   // -- Live management -----------------------------------------------------
 
-  async openLive(slug: string, opts: { expiresIn?: string } = {}): Promise<LiveCreateResult> {
+  async openLive(
+    slug: string,
+    opts: { agentName: string; expiresIn?: string },
+  ): Promise<LiveCreateResult> {
     return this.request<LiveCreateResult>(`/api/v1/pubs/${encodeURIComponent(slug)}/live`, {
       method: "POST",
       body: JSON.stringify(opts),
