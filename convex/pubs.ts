@@ -533,7 +533,6 @@ export const getPendingLiveForAgent = internalQuery({
     const pending = lives.find(
       (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
     );
-
     if (!pending?.browserOffer) return null;
 
     return {
