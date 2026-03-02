@@ -40,6 +40,7 @@ function PubPage() {
     void recordPublicView({ slug: pub.slug });
   }, [pub, recordPublicView]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
     setInteractiveMode(false);
     trackedAnalytics.current = false;
