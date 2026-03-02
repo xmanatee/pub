@@ -59,12 +59,14 @@ describe("parsePositiveIntegerOption", () => {
 describe("parseBridgeMode", () => {
   it("accepts supported bridge modes", () => {
     expect(parseBridgeMode("openclaw")).toBe("openclaw");
+    expect(parseBridgeMode("claude-code")).toBe("claude-code");
     expect(parseBridgeMode("none")).toBe("none");
     expect(parseBridgeMode("OPENCLAW")).toBe("openclaw");
+    expect(parseBridgeMode("CLAUDE-CODE")).toBe("claude-code");
   });
 
   it("throws for unsupported bridge modes", () => {
-    expect(() => parseBridgeMode("claude-code")).toThrow("--bridge must be one of");
+    expect(() => parseBridgeMode("invalid")).toThrow("--bridge must be one of");
   });
 });
 

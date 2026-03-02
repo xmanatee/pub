@@ -119,6 +119,12 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
   setIfMissing("OPENCLAW_ATTACHMENT_DIR", bridgeConfig.attachmentDir);
   setIfMissing("OPENCLAW_ATTACHMENT_MAX_BYTES", bridgeConfig.attachmentMaxBytes);
+  setIfMissing("CLAUDE_CODE_PATH", bridgeConfig.claudeCodePath);
+  setIfMissing("CLAUDE_CODE_MODEL", bridgeConfig.claudeCodeModel);
+  setIfMissing("CLAUDE_CODE_ALLOWED_TOOLS", bridgeConfig.claudeCodeAllowedTools);
+  setIfMissing("CLAUDE_CODE_APPEND_SYSTEM_PROMPT", bridgeConfig.claudeCodeAppendSystemPrompt);
+  setIfMissing("CLAUDE_CODE_MAX_TURNS", bridgeConfig.claudeCodeMaxTurns);
+  setIfMissing("CLAUDE_CODE_CWD", bridgeConfig.claudeCodeCwd);
   return env;
 }
 
@@ -267,10 +273,10 @@ export function parsePositiveIntegerOption(raw: string, optionName: string): num
 
 export function parseBridgeMode(raw: string): BridgeMode {
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "none") {
+  if (normalized === "openclaw" || normalized === "claude-code" || normalized === "none") {
     return normalized;
   }
-  throw new Error(`--bridge must be one of: openclaw, none. Received: ${raw}`);
+  throw new Error(`--bridge must be one of: openclaw, claude-code, none. Received: ${raw}`);
 }
 
 export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {

@@ -59,7 +59,7 @@ export interface OpenClawBridgeRunner {
   status(): BridgeStatus;
 }
 
-interface BufferedEntry {
+export interface BufferedEntry {
   channel: string;
   msg: BridgeMessage;
 }
@@ -274,7 +274,7 @@ export function buildAttachmentPrompt(
     .join("\n");
 }
 
-function parseSessionContextMeta(meta: BridgeMessage["meta"]): SessionContextPayload | null {
+export function parseSessionContextMeta(meta: BridgeMessage["meta"]): SessionContextPayload | null {
   if (!meta) return null;
   const payload: SessionContextPayload = {};
   if (typeof meta.title === "string") payload.title = meta.title;
@@ -320,7 +320,7 @@ export function buildSessionBriefing(slug: string, ctx: SessionContextPayload): 
   return lines.join("\n");
 }
 
-function readTextChatMessage(entry: BufferedEntry): string | null {
+export function readTextChatMessage(entry: BufferedEntry): string | null {
   if (entry.channel !== CHANNELS.CHAT) return null;
   const msg = entry.msg;
   if (msg.type !== "text" || typeof msg.data !== "string") return null;

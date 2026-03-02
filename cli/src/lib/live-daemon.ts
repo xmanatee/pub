@@ -23,6 +23,10 @@ import {
 import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
 import { errorMessage } from "./cli-error.js";
+import {
+  type ClaudeCodeBridgeRunner,
+  createClaudeCodeBridgeRunner,
+} from "./live-bridge-claude-code.js";
 import { createOpenClawBridgeRunner, type OpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import { createAnswer } from "./live-daemon-answer.js";
 import {
@@ -78,7 +82,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
-  let bridgeRunner: OpenClawBridgeRunner | null = null;
+  let bridgeRunner: OpenClawBridgeRunner | ClaudeCodeBridgeRunner | null = null;
 
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
@@ -610,14 +614,15 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function startBridge(): Promise<void> {
-    if (stopped || config.bridgeMode !== "openclaw" || !activeSlug) return;
+    if (stopped || !activeSlug) return;
+    if (config.bridgeMode !== "openclaw" && config.bridgeMode !== "claude-code") return;
     await stopBridge();
+    const bridgeConfig = { slug: activeSlug, sendMessage: sendOnChannel, debugLog };
     try {
-      bridgeRunner = await createOpenClawBridgeRunner({
-        slug: activeSlug,
-        sendMessage: sendOnChannel,
-        debugLog,
-      });
+      bridgeRunner =
+        config.bridgeMode === "claude-code"
+          ? await createClaudeCodeBridgeRunner(bridgeConfig)
+          : await createOpenClawBridgeRunner(bridgeConfig);
     } catch (error) {
       markError("bridge runner failed to start", error);
     }

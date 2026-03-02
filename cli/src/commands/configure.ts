@@ -88,6 +88,12 @@ export const SUPPORTED_KEYS = [
   "openclaw.deliverTimeoutMs",
   "openclaw.attachmentDir",
   "openclaw.attachmentMaxBytes",
+  "claude-code.path",
+  "claude-code.model",
+  "claude-code.allowedTools",
+  "claude-code.appendSystemPrompt",
+  "claude-code.maxTurns",
+  "claude-code.cwd",
   "telegram.botToken",
 ];
 
@@ -127,6 +133,24 @@ function applyConfigSet(
       return;
     case "openclaw.attachmentMaxBytes":
       bridge.attachmentMaxBytes = parsePositiveInteger(value, key);
+      return;
+    case "claude-code.path":
+      bridge.claudeCodePath = value;
+      return;
+    case "claude-code.model":
+      bridge.claudeCodeModel = value;
+      return;
+    case "claude-code.allowedTools":
+      bridge.claudeCodeAllowedTools = value;
+      return;
+    case "claude-code.appendSystemPrompt":
+      bridge.claudeCodeAppendSystemPrompt = value;
+      return;
+    case "claude-code.maxTurns":
+      bridge.claudeCodeMaxTurns = parsePositiveInteger(value, key);
+      return;
+    case "claude-code.cwd":
+      bridge.claudeCodeCwd = value;
       return;
     case "telegram.botToken":
       telegram.botToken = value;
@@ -173,6 +197,24 @@ function applyConfigUnset(bridge: BridgeConfig, telegram: TelegramConfig, key: s
       return;
     case "openclaw.attachmentMaxBytes":
       delete bridge.attachmentMaxBytes;
+      return;
+    case "claude-code.path":
+      delete bridge.claudeCodePath;
+      return;
+    case "claude-code.model":
+      delete bridge.claudeCodeModel;
+      return;
+    case "claude-code.allowedTools":
+      delete bridge.claudeCodeAllowedTools;
+      return;
+    case "claude-code.appendSystemPrompt":
+      delete bridge.claudeCodeAppendSystemPrompt;
+      return;
+    case "claude-code.maxTurns":
+      delete bridge.claudeCodeMaxTurns;
+      return;
+    case "claude-code.cwd":
+      delete bridge.claudeCodeCwd;
       return;
     case "telegram.botToken":
       delete telegram.botToken;
@@ -252,6 +294,17 @@ function printConfigSummary(saved: SavedConfig | null): void {
       console.log(`  openclaw.attachmentDir: ${saved.bridge.attachmentDir}`);
     if (saved.bridge.attachmentMaxBytes !== undefined)
       console.log(`  openclaw.attachmentMaxBytes: ${saved.bridge.attachmentMaxBytes}`);
+    if (saved.bridge.claudeCodePath)
+      console.log(`  claude-code.path: ${saved.bridge.claudeCodePath}`);
+    if (saved.bridge.claudeCodeModel)
+      console.log(`  claude-code.model: ${saved.bridge.claudeCodeModel}`);
+    if (saved.bridge.claudeCodeAllowedTools)
+      console.log(`  claude-code.allowedTools: ${saved.bridge.claudeCodeAllowedTools}`);
+    if (saved.bridge.claudeCodeAppendSystemPrompt)
+      console.log(`  claude-code.appendSystemPrompt: (set)`);
+    if (saved.bridge.claudeCodeMaxTurns !== undefined)
+      console.log(`  claude-code.maxTurns: ${saved.bridge.claudeCodeMaxTurns}`);
+    if (saved.bridge.claudeCodeCwd) console.log(`  claude-code.cwd: ${saved.bridge.claudeCodeCwd}`);
   } else {
     console.log("  bridge: none");
   }

@@ -15,6 +15,12 @@ export interface BridgeConfig {
   deliverTimeoutMs?: number;
   attachmentDir?: string;
   attachmentMaxBytes?: number;
+  claudeCodePath?: string;
+  claudeCodeModel?: string;
+  claudeCodeAllowedTools?: string;
+  claudeCodeAppendSystemPrompt?: string;
+  claudeCodeMaxTurns?: number;
+  claudeCodeCwd?: string;
 }
 
 export interface TelegramConfig {
