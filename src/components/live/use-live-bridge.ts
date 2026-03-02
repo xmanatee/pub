@@ -3,30 +3,28 @@ import type { DeliveryAckPayload } from "~/lib/bridge-protocol";
 import type { BridgeState, ChannelMessage } from "~/lib/webrtc-browser";
 import { BrowserBridge } from "~/lib/webrtc-browser";
 
-interface StoreBrowserSignalInput {
-  answer?: string;
-  candidates?: string[];
-  slug: string;
-}
-
 interface UseLiveBridgeOptions {
+  slug: string;
+  enabled: boolean;
+  agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
-  agentOffer: string | undefined;
+  storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
+  storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
   onDeliveryAck: (ack: DeliveryAckPayload) => void;
   onMessage: (message: ChannelMessage) => void;
   onTrackActivity: () => void;
-  storeBrowserSignal: (input: StoreBrowserSignalInput) => Promise<unknown>;
-  slug: string;
 }
 
 export function useLiveBridge({
+  slug,
+  enabled,
+  agentAnswer,
   agentCandidates,
-  agentOffer,
+  storeBrowserOffer,
+  storeBrowserCandidates,
   onDeliveryAck,
   onMessage,
   onTrackActivity,
-  storeBrowserSignal,
-  slug,
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
@@ -34,10 +32,11 @@ export function useLiveBridge({
   const onDeliveryAckRef = useRef(onDeliveryAck);
   const onMessageRef = useRef(onMessage);
   const onTrackActivityRef = useRef(onTrackActivity);
-  const storeBrowserSignalRef = useRef(storeBrowserSignal);
+  const storeBrowserOfferRef = useRef(storeBrowserOffer);
+  const storeBrowserCandidatesRef = useRef(storeBrowserCandidates);
 
   const lastAgentCandidateCountRef = useRef(0);
-  const lastHandledOfferRef = useRef<string | null>(null);
+  const lastHandledAnswerRef = useRef<string | null>(null);
   const localIceFlushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localIceStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,19 +53,22 @@ export function useLiveBridge({
   }, [onTrackActivity]);
 
   useEffect(() => {
-    storeBrowserSignalRef.current = storeBrowserSignal;
-  }, [storeBrowserSignal]);
+    storeBrowserOfferRef.current = storeBrowserOffer;
+  }, [storeBrowserOffer]);
 
   useEffect(() => {
-    if (!agentOffer) return;
-    const offerKey = `${slug}:${agentOffer}`;
-    if (lastHandledOfferRef.current === offerKey) return;
-    lastHandledOfferRef.current = offerKey;
+    storeBrowserCandidatesRef.current = storeBrowserCandidates;
+  }, [storeBrowserCandidates]);
+
+  // Create offer when enabled
+  useEffect(() => {
+    if (!enabled) return;
     setBridgeState("connecting");
 
     const bridge = new BrowserBridge();
     bridgeRef.current = bridge;
     lastAgentCandidateCountRef.current = 0;
+    lastHandledAnswerRef.current = null;
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage((message) => onMessageRef.current(message));
     bridge.setOnTrack(() => onTrackActivityRef.current());
@@ -74,10 +76,16 @@ export function useLiveBridge({
 
     void (async () => {
       try {
-        const answer = await bridge.createAnswer(agentOffer);
-        await storeBrowserSignalRef.current({ slug, answer });
-        const candidates = bridge.getIceCandidates();
-        if (candidates.length > 0) await storeBrowserSignalRef.current({ slug, candidates });
+        const offer = await bridge.createOffer();
+        await storeBrowserOfferRef.current({ slug, offer });
+
+        // Start ICE candidate flush
+        const flushedCandidates: string[] = [];
+        const initialCandidates = bridge.getIceCandidates();
+        if (initialCandidates.length > 0) {
+          flushedCandidates.push(...initialCandidates);
+          await storeBrowserCandidatesRef.current({ slug, candidates: initialCandidates });
+        }
 
         if (localIceFlushIntervalRef.current) clearInterval(localIceFlushIntervalRef.current);
         if (localIceStopTimeoutRef.current) clearTimeout(localIceStopTimeoutRef.current);
@@ -85,12 +93,11 @@ export function useLiveBridge({
         const flushLocalCandidates = async () => {
           try {
             const current = bridge.getIceCandidates();
-            if (current.length <= candidates.length) return;
-            const next = current.slice(candidates.length);
-            candidates.push(...next);
-            await storeBrowserSignalRef.current({ slug, candidates: next });
+            if (current.length <= flushedCandidates.length) return;
+            const next = current.slice(flushedCandidates.length);
+            flushedCandidates.push(...next);
+            await storeBrowserCandidatesRef.current({ slug, candidates: next });
           } catch (error) {
-            // Ignore transient signaling write failures; next interval retries.
             console.warn("Failed to store local ICE candidates", error);
           }
         };
@@ -107,8 +114,7 @@ export function useLiveBridge({
           localIceStopTimeoutRef.current = null;
         }, 30_000);
       } catch (error) {
-        // Failed to establish WebRTC answer/signaling for this offer.
-        console.error("Failed to establish live WebRTC bridge", error);
+        console.error("Failed to create live WebRTC offer", error);
         bridge.close();
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;
@@ -131,8 +137,23 @@ export function useLiveBridge({
         bridgeRef.current = null;
       }
     };
-  }, [agentOffer, slug]);
+  }, [enabled, slug]);
 
+  // Apply agent answer when it arrives
+  useEffect(() => {
+    const bridge = bridgeRef.current;
+    if (!agentAnswer || !bridge) return;
+
+    const answerKey = `${slug}:${agentAnswer}`;
+    if (lastHandledAnswerRef.current === answerKey) return;
+    lastHandledAnswerRef.current = answerKey;
+
+    void bridge.applyAnswer(agentAnswer).catch((error) => {
+      console.error("Failed to apply agent answer", error);
+    });
+  }, [agentAnswer, slug]);
+
+  // Add remote ICE candidates
   useEffect(() => {
     const bridge = bridgeRef.current;
     if (!agentCandidates || !bridge) return;

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { Pub } from "../lib/api.js";
 import { CLI_VERSION } from "../lib/version.js";
 import { SUPPORTED_KEYS } from "./configure.js";
 import {
@@ -9,9 +8,7 @@ import {
   messageContainsPong,
   parseBridgeMode,
   parsePositiveIntegerOption,
-  pickReusableLive,
   resolveBridgeMode,
-  resolveSlugSelection,
   shouldRestartDaemonForCliUpgrade,
 } from "./tunnel-helpers.js";
 
@@ -32,20 +29,6 @@ describe("getFollowReadDelayMs", () => {
     expect(getFollowReadDelayMs(true, 2)).toBe(4_000);
     expect(getFollowReadDelayMs(true, 3)).toBe(5_000);
     expect(getFollowReadDelayMs(true, 10)).toBe(5_000);
-  });
-});
-
-describe("resolveSlugSelection", () => {
-  it("prefers --slug over positional slug", () => {
-    expect(resolveSlugSelection("arg-id", "opt-id")).toBe("opt-id");
-  });
-
-  it("uses positional slug when --slug is omitted", () => {
-    expect(resolveSlugSelection("arg-id", undefined)).toBe("arg-id");
-  });
-
-  it("returns undefined when neither source provides slug", () => {
-    expect(resolveSlugSelection(undefined, undefined)).toBeUndefined();
   });
 });
 
@@ -138,77 +121,6 @@ describe("messageContainsPong", () => {
     expect(messageContainsPong({ msg: { type: "text", data: "ping" } })).toBe(false);
     expect(messageContainsPong({ msg: { type: "html", data: "pong" } })).toBe(false);
     expect(messageContainsPong(null)).toBe(false);
-  });
-});
-
-describe("pickReusableLive", () => {
-  const now = Date.UTC(2026, 1, 28, 0, 0, 0);
-
-  function makePub(slug: string, live: Pub["live"], createdAt: number): Pub {
-    return {
-      slug,
-      isPublic: false,
-      createdAt,
-      updatedAt: createdAt,
-      live,
-    };
-  }
-
-  it("returns the only pub with an active session", () => {
-    const result = pickReusableLive(
-      [
-        makePub(
-          "abc",
-          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
-          now - 1_000,
-        ),
-      ],
-      now,
-    );
-    expect(result?.slug).toBe("abc");
-  });
-
-  it("returns most recent pub with active session when multiple exist", () => {
-    const result = pickReusableLive(
-      [
-        makePub(
-          "abc",
-          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
-          now - 2_000,
-        ),
-        makePub(
-          "def",
-          { status: "active", hasConnection: false, expiresAt: now + 60_000 },
-          now - 1_000,
-        ),
-      ],
-      now,
-    );
-    expect(result?.slug).toBe("def");
-  });
-
-  it("returns null when only closed or expired sessions exist", () => {
-    const result = pickReusableLive(
-      [
-        makePub(
-          "closed",
-          { status: "closed", hasConnection: false, expiresAt: now + 60_000 },
-          now - 2_000,
-        ),
-        makePub(
-          "expired",
-          { status: "active", hasConnection: false, expiresAt: now - 1 },
-          now - 2_000,
-        ),
-      ],
-      now,
-    );
-    expect(result).toBeNull();
-  });
-
-  it("returns null when no pubs have sessions", () => {
-    const result = pickReusableLive([makePub("nosession", null, now - 1_000)], now);
-    expect(result).toBeNull();
   });
 });
 

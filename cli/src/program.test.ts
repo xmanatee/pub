@@ -16,16 +16,16 @@ describe("CLI command surface", () => {
     const names = program.commands.map((command) => command.name()).sort();
     expect(names).toEqual([
       "channels",
-      "close",
       "configure",
       "create",
       "delete",
       "doctor",
       "get",
       "list",
-      "open",
       "read",
+      "start",
       "status",
+      "stop",
       "update",
       "write",
     ]);
@@ -39,11 +39,11 @@ describe("CLI command surface", () => {
     expect(optionFlags).toContain("--private");
   });
 
-  it("keeps open bridge/foreground options", () => {
-    const openCommand = requireCommand("open");
-    const optionFlags = openCommand.options.map((option) => option.long);
+  it("keeps start bridge/foreground options", () => {
+    const startCommand = requireCommand("start");
+    const optionFlags = startCommand.options.map((option) => option.long);
     expect(optionFlags).toContain("--bridge");
     expect(optionFlags).toContain("--foreground");
-    expect(optionFlags).toContain("--new");
   });
+
 });

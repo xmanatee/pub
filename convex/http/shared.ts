@@ -169,7 +169,14 @@ export function rateLimitResponse(retryAfter: number) {
 export async function authenticateAndRateLimit(
   ctx: ActionCtx,
   apiKey: string,
-  limitName: "createPub" | "readPub" | "listPubs" | "updatePub" | "deletePub",
+  limitName:
+    | "createPub"
+    | "readPub"
+    | "listPubs"
+    | "updatePub"
+    | "deletePub"
+    | "requestLive"
+    | "agentPollLive",
 ): Promise<{ userId: Id<"users"> } | Response> {
   const user = await authenticateApiKey(ctx, apiKey);
   const rl = await rateLimiter.limit(ctx, limitName, { key: apiKey });

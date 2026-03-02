@@ -1,5 +1,8 @@
 /**
- * Session daemon — background process that holds a WebRTC PeerConnection.
+ * Agent daemon — background process that holds a WebRTC PeerConnection.
+ *
+ * Per-user (not per-slug). Registers presence online, polls for incoming
+ * live requests (browser offers), and responds with answers.
  */
 
 import { fork } from "node:child_process";
@@ -26,8 +29,9 @@ import {
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
-import { generateOffer } from "./tunnel-daemon-offer.js";
+import { generateAnswer } from "./tunnel-daemon-answer.js";
 import {
+  ANSWER_TIMEOUT_MS,
   BRIDGE_CHECK_INTERVAL_MS,
   BRIDGE_MAX_RAPID_RESTARTS,
   BRIDGE_RAPID_RESTART_WINDOW_MS,
@@ -36,21 +40,18 @@ import {
   getSignalPollDelayMs,
   getStickyCanvasHtml,
   getTunnelWriteReadinessError,
+  HEARTBEAT_INTERVAL_MS,
   LOCAL_CANDIDATE_FLUSH_MS,
-  OFFER_TIMEOUT_MS,
-  RECOVERY_DELAY_MS,
   type StickyOutboundMessage,
-  shouldRecoverForBrowserAnswerChange,
+  shouldRecoverForBrowserOfferChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./tunnel-daemon-shared.js";
 
-const IDLE_SLOWDOWN_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
-const IDLE_SIGNAL_POLL_MS = 5 * 60 * 1000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const PERSIST_TIMEOUT_MS = 3_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
-  const { slug, apiClient, socketPath, infoPath, cliVersion } = config;
+  const { apiClient, socketPath, infoPath, cliVersion } = config;
 
   const ndc = await import("node-datachannel");
 
@@ -60,13 +61,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let stopped = false;
   let connected = false;
   let recovering = false;
+  let activeSlug: string | null = null;
 
-  let remoteDescriptionApplied = false;
-  let lastAppliedBrowserAnswer: string | null = null;
+  let lastAppliedBrowserOffer: string | null = null;
   let lastBrowserCandidateCount = 0;
   let lastSentCandidateCount = 0;
 
-  const pendingRemoteCandidates: Array<{ candidate: string; sdpMid: string }> = [];
   const localCandidates: string[] = [];
   const stickyOutboundByChannel = new Map<string, StickyOutboundMessage>();
   const pendingOutboundAcks = new Map<string, { channel: string; messageId: string }>();
@@ -80,13 +80,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
 
   let pollingTimer: ReturnType<typeof setTimeout> | null = null;
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
   let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_TUNNEL_DEBUG === "1";
-  let lastConnectedAt = startTime;
   const versionFilePath = latestCliVersionPath();
 
   function debugLog(message: string, error?: unknown): void {
@@ -101,7 +101,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
                 ? error
                 : JSON.stringify(error)
           }`;
-    console.error(`[pubblue-daemon:${slug}] ${message}${detail}`);
+    console.error(`[pubblue-agent] ${message}${detail}`);
   }
 
   function markError(message: string, error?: unknown): void {
@@ -151,9 +151,15 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
+  function clearHeartbeatTimer(): void {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  }
+
   function runHealthCheck(): void {
     if (stopped) return;
-
     if (cliVersion) {
       const latest = readLatestCliVersion(versionFilePath);
       if (latest && latest !== cliVersion) {
@@ -168,6 +174,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     healthCheckTimer = setInterval(runHealthCheck, HEALTH_CHECK_INTERVAL_MS);
     runHealthCheck();
   }
+
+  // -- Channel / message management -----------------------------------------
 
   function setupChannel(name: string, dc: DataChannel): void {
     channels.set(name, dc);
@@ -228,7 +236,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function flushQueuedAcks(): void {
     const controlDc = channels.get(CONTROL_CHANNEL);
-
     for (const [ackKey, ack] of pendingOutboundAcks) {
       const messageDc = channels.get(ack.channel);
       const targetChannel = resolveAckChannel({
@@ -270,7 +277,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         pendingDeliveryAcks.delete(messageId);
         resolve(false);
       }, timeoutMs);
-
       pendingDeliveryAcks.set(messageId, { resolve, timeout });
     });
   }
@@ -293,10 +299,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function openDataChannel(name: string): DataChannel {
     if (!peer) throw new Error("PeerConnection not initialized");
-
     const existing = channels.get(name);
     if (existing) return existing;
-
     const dc = peer.createDataChannel(name, { ordered: true });
     setupChannel(name, dc);
     return dc;
@@ -304,7 +308,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function waitForChannelOpen(dc: DataChannel, timeoutMs = 5_000): Promise<void> {
     if (dc.isOpen()) return;
-
     await new Promise<void>((resolve, reject) => {
       let settled = false;
       const timeout = setTimeout(() => {
@@ -312,7 +315,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         settled = true;
         reject(new Error("DataChannel open timed out"));
       }, timeoutMs);
-
       dc.onOpen(() => {
         if (settled) return;
         settled = true;
@@ -328,26 +330,19 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     binaryPayload: Buffer | undefined,
   ): void {
     if (channel !== CHANNELS.CANVAS) return;
-
     if (msg.type === "event" && msg.data === "hide") {
       stickyOutboundByChannel.delete(channel);
       return;
     }
-
     if (msg.type !== "html") return;
-
     stickyOutboundByChannel.set(channel, {
-      msg: {
-        ...msg,
-        meta: msg.meta ? { ...msg.meta } : undefined,
-      },
+      msg: { ...msg, meta: msg.meta ? { ...msg.meta } : undefined },
       binaryPayload,
     });
   }
 
   async function replayStickyOutboundMessages(): Promise<void> {
     if (!connected || recovering || stopped) return;
-
     for (const [channel, sticky] of stickyOutboundByChannel) {
       try {
         let targetDc = channels.get(channel);
@@ -358,10 +353,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           targetDc.sendMessage(
             encodeMessage({
               ...sticky.msg,
-              meta: {
-                ...(sticky.msg.meta || {}),
-                size: sticky.binaryPayload.length,
-              },
+              meta: { ...(sticky.msg.meta || {}), size: sticky.binaryPayload.length },
             }),
           );
           targetDc.sendMessageBinary(sticky.binaryPayload);
@@ -374,34 +366,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function resetNegotiationState(): void {
-    connected = false;
-    failPendingAcks();
-    remoteDescriptionApplied = false;
-    lastAppliedBrowserAnswer = null;
-    lastBrowserCandidateCount = 0;
-    lastSentCandidateCount = 0;
-    pendingRemoteCandidates.length = 0;
-    localCandidates.length = 0;
-    clearLocalCandidateTimers();
-  }
-
-  function startLocalCandidateFlush(): void {
-    clearLocalCandidateTimers();
-
-    localCandidateInterval = setInterval(async () => {
-      if (localCandidates.length <= lastSentCandidateCount) return;
-      const newOnes = localCandidates.slice(lastSentCandidateCount);
-      lastSentCandidateCount = localCandidates.length;
-      await apiClient.signal(slug, { candidates: newOnes }).catch((error) => {
-        debugLog("failed to publish local ICE candidates", error);
-      });
-    }, LOCAL_CANDIDATE_FLUSH_MS);
-
-    localCandidateStopTimer = setTimeout(() => {
-      clearLocalCandidateTimers();
-    }, 30_000);
-  }
+  // -- Peer management ------------------------------------------------------
 
   function attachPeerHandlers(currentPeer: PeerConnection): void {
     currentPeer.onLocalCandidate((candidate: string, mid: string) => {
@@ -411,18 +376,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     currentPeer.onStateChange((state: string) => {
       if (stopped || currentPeer !== peer) return;
-
       if (state === "connected") {
         connected = true;
-        lastConnectedAt = Date.now();
         flushQueuedAcks();
         void replayStickyOutboundMessages();
         return;
       }
-
       if (state === "disconnected" || state === "failed" || state === "closed") {
         connected = false;
-        scheduleRecovery();
       }
     });
 
@@ -436,21 +397,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     const nextPeer: PeerConnection = new ndc.PeerConnection("agent", {
       iceServers: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
     });
-
     peer = nextPeer;
     channels = new Map<string, DataChannel>();
     pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
-
     attachPeerHandlers(nextPeer);
-
-    openDataChannel(CONTROL_CHANNEL);
-    openDataChannel(CHANNELS.CHAT);
-    openDataChannel(CHANNELS.CANVAS);
   }
 
   function closeCurrentPeer(): void {
     failPendingAcks();
-
     for (const dc of channels.values()) {
       try {
         dc.close();
@@ -458,10 +412,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         debugLog("failed to close data channel cleanly", error);
       }
     }
-
     channels.clear();
     pendingInboundBinaryMeta.clear();
-
     if (peer) {
       try {
         peer.close();
@@ -472,6 +424,60 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
+  function resetNegotiationState(): void {
+    connected = false;
+    failPendingAcks();
+    lastAppliedBrowserOffer = null;
+    lastBrowserCandidateCount = 0;
+    lastSentCandidateCount = 0;
+    localCandidates.length = 0;
+    clearLocalCandidateTimers();
+  }
+
+  function startLocalCandidateFlush(slug: string): void {
+    clearLocalCandidateTimers();
+    localCandidateInterval = setInterval(async () => {
+      if (localCandidates.length <= lastSentCandidateCount) return;
+      const newOnes = localCandidates.slice(lastSentCandidateCount);
+      lastSentCandidateCount = localCandidates.length;
+      await apiClient.signalAnswer({ slug, candidates: newOnes }).catch((error) => {
+        debugLog("failed to publish local ICE candidates", error);
+      });
+    }, LOCAL_CANDIDATE_FLUSH_MS);
+
+    localCandidateStopTimer = setTimeout(() => {
+      clearLocalCandidateTimers();
+    }, 30_000);
+  }
+
+  // -- Answer incoming live request -----------------------------------------
+
+  async function handleIncomingLive(slug: string, browserOffer: string): Promise<void> {
+    if (recovering) return;
+    recovering = true;
+
+    try {
+      closeCurrentPeer();
+      createPeer();
+      resetNegotiationState();
+
+      if (!peer) throw new Error("PeerConnection not initialized");
+
+      const answer = await generateAnswer(peer, browserOffer, ANSWER_TIMEOUT_MS);
+      lastAppliedBrowserOffer = browserOffer;
+      activeSlug = slug;
+
+      await apiClient.signalAnswer({ slug, answer });
+      startLocalCandidateFlush(slug);
+    } catch (error) {
+      markError("failed to handle incoming live request", error);
+    } finally {
+      recovering = false;
+    }
+  }
+
+  // -- Polling loop ---------------------------------------------------------
+
   function scheduleNextPoll(delayMs: number): void {
     if (stopped) return;
     clearPollingTimer();
@@ -481,61 +487,42 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function pollSignalingOnce(): Promise<void> {
-    const session = await apiClient.getLive(slug);
-    if (
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: session.browserAnswer,
-        lastAppliedBrowserAnswer,
-        remoteDescriptionApplied,
-      })
-    ) {
-      connected = false;
-      scheduleRecovery(0, true);
+    const live = await apiClient.getPendingLive();
+
+    if (!live) {
       return;
     }
 
-    if (session.browserAnswer && !remoteDescriptionApplied) {
-      if (!peer) return;
-
-      try {
-        const answer = JSON.parse(session.browserAnswer);
-        peer.setRemoteDescription(answer.sdp, answer.type);
-        remoteDescriptionApplied = true;
-        lastAppliedBrowserAnswer = session.browserAnswer;
-
-        while (pendingRemoteCandidates.length > 0) {
-          const next = pendingRemoteCandidates.shift();
-          if (!next) break;
-          try {
-            peer.addRemoteCandidate(next.candidate, next.sdpMid);
-          } catch (error) {
-            debugLog("failed to apply queued remote ICE candidate", error);
-          }
-        }
-      } catch (error) {
-        markError("failed to apply browser answer", error);
+    // New pending live (has browserOffer but no agentAnswer)
+    if (live.browserOffer && !live.agentAnswer) {
+      if (
+        shouldRecoverForBrowserOfferChange({
+          incomingBrowserOffer: live.browserOffer,
+          lastAppliedBrowserOffer,
+        }) ||
+        !lastAppliedBrowserOffer
+      ) {
+        await handleIncomingLive(live.slug, live.browserOffer);
+        return;
       }
     }
 
-    if (session.browserCandidates.length > lastBrowserCandidateCount) {
-      const newCandidates = session.browserCandidates.slice(lastBrowserCandidateCount);
-      lastBrowserCandidateCount = session.browserCandidates.length;
+    // Active live — poll for browser candidates
+    if (live.browserOffer && live.agentAnswer && live.slug === activeSlug) {
+      if (live.browserCandidates.length > lastBrowserCandidateCount) {
+        const newCandidates = live.browserCandidates.slice(lastBrowserCandidateCount);
+        lastBrowserCandidateCount = live.browserCandidates.length;
 
-      for (const c of newCandidates) {
-        try {
-          const parsed = JSON.parse(c);
-          if (typeof parsed.candidate !== "string") continue;
-          const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
-
-          if (!remoteDescriptionApplied) {
-            pendingRemoteCandidates.push({ candidate: parsed.candidate, sdpMid });
-            continue;
+        for (const c of newCandidates) {
+          try {
+            const parsed = JSON.parse(c);
+            if (typeof parsed.candidate !== "string") continue;
+            const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
+            if (!peer) continue;
+            peer.addRemoteCandidate(parsed.candidate, sdpMid);
+          } catch (error) {
+            debugLog("failed to parse/apply browser ICE candidate", error);
           }
-
-          if (!peer) continue;
-          peer.addRemoteCandidate(parsed.candidate, sdpMid);
-        } catch (error) {
-          debugLog("failed to parse/apply browser ICE candidate", error);
         }
       }
     }
@@ -554,48 +541,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       markError("signaling poll failed", error);
     }
 
-    const baseDelay = getSignalPollDelayMs({ remoteDescriptionApplied, retryAfterSeconds });
-    const idleSlowdown =
-      !connected && Date.now() - lastConnectedAt >= IDLE_SLOWDOWN_AFTER_MS
-        ? IDLE_SIGNAL_POLL_MS
-        : 0;
-    scheduleNextPoll(Math.max(baseDelay, idleSlowdown));
+    const baseDelay = getSignalPollDelayMs({
+      hasActiveConnection: connected,
+      retryAfterSeconds,
+    });
+    scheduleNextPoll(baseDelay);
   }
 
-  async function runNegotiationCycle(): Promise<void> {
-    if (!peer) throw new Error("PeerConnection not initialized");
-
-    resetNegotiationState();
-    const offer = await generateOffer(peer, OFFER_TIMEOUT_MS);
-    await apiClient.signal(slug, { offer });
-    startLocalCandidateFlush();
-  }
-
-  async function recoverPeer(): Promise<void> {
-    if (stopped || recovering) return;
-    recovering = true;
-
-    try {
-      closeCurrentPeer();
-      createPeer();
-      await runNegotiationCycle();
-    } finally {
-      recovering = false;
-    }
-  }
-
-  function scheduleRecovery(delayMs = RECOVERY_DELAY_MS, force = false): void {
-    if (stopped || recovering || recoveryTimer) return;
-
-    recoveryTimer = setTimeout(() => {
-      recoveryTimer = null;
-      if (stopped || (!force && connected)) return;
-      void recoverPeer().catch((error) => {
-        markError("peer recovery failed", error);
-        if (!stopped) scheduleRecovery(delayMs, force);
-      });
-    }, delayMs);
-  }
+  // -- Socket stale check ---------------------------------------------------
 
   if (fs.existsSync(socketPath)) {
     let stale = true;
@@ -619,11 +572,23 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  createPeer();
+  // -- Register presence online ---------------------------------------------
+
+  await apiClient.goOnline();
+
+  heartbeatTimer = setInterval(async () => {
+    if (stopped) return;
+    try {
+      await apiClient.heartbeat();
+    } catch (error) {
+      markError("heartbeat failed", error);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+
+  // -- IPC server -----------------------------------------------------------
 
   const ipcServer = net.createServer((conn) => {
     let data = "";
-
     conn.on("data", (chunk) => {
       data += chunk.toString();
       const newlineIdx = data.indexOf("\n");
@@ -648,20 +613,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   ipcServer.listen(socketPath);
 
-  try {
-    await runNegotiationCycle();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    markError("initial negotiation failed", error);
-    await cleanup();
-    throw new Error(`Failed to generate WebRTC offer: ${message}`);
-  }
-
   const infoDir = path.dirname(infoPath);
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   fs.writeFileSync(
     infoPath,
-    JSON.stringify({ pid: process.pid, slug, socketPath, startedAt: startTime, cliVersion }),
+    JSON.stringify({ pid: process.pid, socketPath, startedAt: startTime, cliVersion }),
   );
 
   startHealthCheckTimer();
@@ -680,7 +636,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   function restartBridge(): void {
-    if (stopped || !config.bridge) return;
+    if (stopped || !config.bridge || !activeSlug) return;
     const { bridgeMode, bridgeScript, bridgeInfoPath, bridgeLogPath, bridgeProcessEnv } =
       config.bridge;
 
@@ -703,7 +659,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         env: {
           ...bridgeProcessEnv,
           PUBBLUE_BRIDGE_MODE: bridgeMode,
-          PUBBLUE_BRIDGE_SLUG: slug,
+          PUBBLUE_BRIDGE_SLUG: activeSlug,
           PUBBLUE_BRIDGE_SOCKET: socketPath,
           PUBBLUE_BRIDGE_INFO: bridgeInfoPath,
         },
@@ -717,8 +673,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   function checkBridgeLiveness(): void {
-    if (stopped || !config.bridge) return;
-    if (!isBridgeRunning(slug)) restartBridge();
+    if (stopped || !config.bridge || !activeSlug) return;
+    if (!isBridgeRunning(activeSlug)) restartBridge();
   }
 
   function startBridgeCheckTimer(): void {
@@ -734,24 +690,25 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function stopBridgeProcess(): Promise<void> {
-    const error = await stopBridge(slug);
+    if (!activeSlug) return;
+    const error = await stopBridge(activeSlug);
     if (error) debugLog(error);
   }
 
   startBridgeCheckTimer();
 
-  // -- Canvas persistence ----------------------------------------------------
+  // -- Canvas persistence ---------------------------------------------------
 
   async function persistCanvasContent(): Promise<void> {
+    if (!activeSlug) return;
     const html = getStickyCanvasHtml(stickyOutboundByChannel, CHANNELS.CANVAS);
     if (!html) return;
-
     try {
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("persist timeout")), PERSIST_TIMEOUT_MS),
       );
       await Promise.race([
-        apiClient.update({ slug, content: html, filename: "canvas.html" }),
+        apiClient.update({ slug: activeSlug, content: html, filename: "canvas.html" }),
         timeout,
       ]);
     } catch (error) {
@@ -769,11 +726,18 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearLocalCandidateTimers();
     clearRecoveryTimer();
     clearHealthCheckTimer();
+    clearHeartbeatTimer();
     clearBridgeCheckTimer();
+
+    try {
+      await apiClient.goOffline();
+    } catch (error) {
+      debugLog("failed to go offline", error);
+    }
+
     await persistCanvasContent();
     await stopBridgeProcess();
     closeCurrentPeer();
-
     ipcServer.close();
 
     try {
@@ -781,7 +745,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     } catch (error) {
       debugLog("failed to remove daemon socket during cleanup", error);
     }
-
     try {
       fs.unlinkSync(infoPath);
     } catch (error) {
@@ -800,6 +763,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   process.on("SIGINT", () => {
     void shutdown();
   });
+
+  // -- IPC handler ----------------------------------------------------------
 
   async function handleIpcRequest(req: {
     method: string;
@@ -839,10 +804,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
             targetDc.sendMessage(
               encodeMessage({
                 ...msg,
-                meta: {
-                  ...(msg.meta || {}),
-                  size: binaryPayload.length,
-                },
+                meta: { ...(msg.meta || {}), size: binaryPayload.length },
               }),
             );
             targetDc.sendMessageBinary(binaryPayload);
@@ -874,7 +836,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       case "read": {
         const channel = req.params.channel as string | undefined;
         let msgs: ChannelBuffer["messages"];
-
         if (channel) {
           msgs = buffer.messages.filter((m) => m.channel === channel);
           buffer.messages = buffer.messages.filter((m) => m.channel !== channel);
@@ -882,7 +843,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           msgs = [...buffer.messages];
           buffer.messages = [];
         }
-
         return { ok: true, messages: msgs };
       }
 
@@ -895,11 +855,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return {
           ok: true,
           connected,
+          activeSlug,
           uptime: Math.floor((Date.now() - startTime) / 1000),
           channels: [...channels.keys()],
           bufferedMessages: buffer.messages.length,
           lastError,
         };
+      }
+
+      case "active-slug": {
+        return { ok: true, slug: activeSlug };
       }
 
       case "close": {

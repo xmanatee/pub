@@ -20,7 +20,6 @@ export interface BridgeDaemonConfig {
 
 export interface DaemonConfig {
   cliVersion?: string;
-  slug: string;
   apiClient: PubApiClient;
   socketPath: string;
   infoPath: string;
@@ -31,8 +30,9 @@ export const BRIDGE_CHECK_INTERVAL_MS = 30_000;
 export const BRIDGE_MAX_RAPID_RESTARTS = 3;
 export const BRIDGE_RAPID_RESTART_WINDOW_MS = 5 * 60 * 1000;
 
-export const OFFER_TIMEOUT_MS = 10_000;
-export const SIGNAL_POLL_WAITING_MS = 5_000;
+export const ANSWER_TIMEOUT_MS = 10_000;
+export const HEARTBEAT_INTERVAL_MS = 30_000;
+export const IDLE_POLL_MS = 3_000;
 export const SIGNAL_POLL_CONNECTED_MS = 15_000;
 export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;
 export const RECOVERY_DELAY_MS = 1_000;
@@ -45,15 +45,14 @@ export function getTunnelWriteReadinessError(isConnected: boolean): string | nul
   return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;
 }
 
-export function shouldRecoverForBrowserAnswerChange(params: {
-  incomingBrowserAnswer: string | undefined;
-  lastAppliedBrowserAnswer: string | null;
-  remoteDescriptionApplied: boolean;
+export function shouldRecoverForBrowserOfferChange(params: {
+  incomingBrowserOffer: string | undefined;
+  lastAppliedBrowserOffer: string | null;
 }): boolean {
-  const { incomingBrowserAnswer, lastAppliedBrowserAnswer, remoteDescriptionApplied } = params;
-  if (!remoteDescriptionApplied) return false;
-  if (!incomingBrowserAnswer) return false;
-  return incomingBrowserAnswer !== lastAppliedBrowserAnswer;
+  const { incomingBrowserOffer, lastAppliedBrowserOffer } = params;
+  if (!incomingBrowserOffer) return false;
+  if (!lastAppliedBrowserOffer) return false;
+  return incomingBrowserOffer !== lastAppliedBrowserOffer;
 }
 
 export const MAX_CANVAS_PERSIST_SIZE = 100 * 1024;
@@ -72,12 +71,10 @@ export function getStickyCanvasHtml(
 }
 
 export function getSignalPollDelayMs(params: {
-  remoteDescriptionApplied: boolean;
+  hasActiveConnection: boolean;
   retryAfterSeconds?: number;
 }): number {
-  const baseDelay = params.remoteDescriptionApplied
-    ? SIGNAL_POLL_CONNECTED_MS
-    : SIGNAL_POLL_WAITING_MS;
+  const baseDelay = params.hasActiveConnection ? SIGNAL_POLL_CONNECTED_MS : IDLE_POLL_MS;
   if (params.retryAfterSeconds === undefined) return baseDelay;
   if (!Number.isFinite(params.retryAfterSeconds) || params.retryAfterSeconds <= 0) {
     return baseDelay;

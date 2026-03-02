@@ -22,8 +22,8 @@ export interface IpcResponse {
   [key: string]: unknown;
 }
 
-export function getSocketPath(slug: string): string {
-  return `/tmp/pubblue-${slug}.sock`;
+export function getAgentSocketPath(): string {
+  return "/tmp/pubblue-agent.sock";
 }
 
 export async function ipcCall(socketPath: string, request: IpcRequest): Promise<IpcResponse> {

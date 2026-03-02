@@ -6,7 +6,7 @@ import {
   getTunnelWriteReadinessError,
   MAX_CANVAS_PERSIST_SIZE,
   type StickyOutboundMessage,
-  shouldRecoverForBrowserAnswerChange,
+  shouldRecoverForBrowserOfferChange,
 } from "./tunnel-daemon-shared.js";
 
 describe("getTunnelWriteReadinessError", () => {
@@ -21,33 +21,39 @@ describe("getTunnelWriteReadinessError", () => {
   });
 });
 
-describe("shouldRecoverForBrowserAnswerChange", () => {
-  it("does not trigger before remote description is applied", () => {
+describe("shouldRecoverForBrowserOfferChange", () => {
+  it("does not trigger when incoming offer is undefined", () => {
     expect(
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: "answer-v2",
-        lastAppliedBrowserAnswer: "answer-v1",
-        remoteDescriptionApplied: false,
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: undefined,
+        lastAppliedBrowserOffer: "offer-v1",
       }),
     ).toBe(false);
   });
 
-  it("does not trigger when answer has not changed", () => {
+  it("does not trigger when no previous offer was applied", () => {
     expect(
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: "answer-v1",
-        lastAppliedBrowserAnswer: "answer-v1",
-        remoteDescriptionApplied: true,
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: "offer-v1",
+        lastAppliedBrowserOffer: null,
       }),
     ).toBe(false);
   });
 
-  it("triggers when a new browser answer arrives after apply", () => {
+  it("does not trigger when offer has not changed", () => {
     expect(
-      shouldRecoverForBrowserAnswerChange({
-        incomingBrowserAnswer: "answer-v2",
-        lastAppliedBrowserAnswer: "answer-v1",
-        remoteDescriptionApplied: true,
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: "offer-v1",
+        lastAppliedBrowserOffer: "offer-v1",
+      }),
+    ).toBe(false);
+  });
+
+  it("triggers when a new browser offer arrives after a previous one was applied", () => {
+    expect(
+      shouldRecoverForBrowserOfferChange({
+        incomingBrowserOffer: "offer-v2",
+        lastAppliedBrowserOffer: "offer-v1",
       }),
     ).toBe(true);
   });
@@ -87,22 +93,20 @@ describe("resolveAckChannel", () => {
 
 describe("getSignalPollDelayMs", () => {
   it("returns the base polling delay when retry-after is missing", () => {
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false })).toBe(5_000);
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: true })).toBe(15_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: false })).toBe(3_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: true })).toBe(15_000);
   });
 
   it("honors retry-after when it exceeds the base delay", () => {
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: 12 })).toBe(
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 12 })).toBe(
       12_000,
     );
   });
 
   it("ignores non-positive retry-after values", () => {
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: 0 })).toBe(
-      5_000,
-    );
-    expect(getSignalPollDelayMs({ remoteDescriptionApplied: false, retryAfterSeconds: -1 })).toBe(
-      5_000,
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(3_000);
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(
+      3_000,
     );
   });
 });

@@ -84,8 +84,8 @@ export type TunnelStatus = "active" | "closed";
 export interface TunnelSignaling {
   tunnelId: string;
   status: TunnelStatus;
-  agentOffer?: string;
-  browserAnswer?: string;
+  browserOffer?: string;
+  agentAnswer?: string;
   agentCandidates: string[];
   browserCandidates: string[];
 }

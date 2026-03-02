@@ -1,5 +1,6 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
+import { registerAgentRoutes } from "./http/agent_routes";
 import { registerPubRoutes } from "./http/pub_routes";
 import {
   corsHeaders,
@@ -16,6 +17,7 @@ const http = httpRouter();
 
 auth.addHttpRoutes(http);
 registerPubRoutes(http);
+registerAgentRoutes(http);
 
 export {
   corsHeaders,

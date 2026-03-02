@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "4.0.0"
+  version: "5.0.0"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,7 +17,7 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.5.0+**.
+Use **pubblue CLI 0.6.0+**.
 
 ```bash
 pubblue --version
@@ -73,58 +73,60 @@ Notes:
 
 ## Going Live (Interactive Flow)
 
-1. Go live (managed bridge enabled by default):
+Live is browser-initiated. The daemon registers agent presence; the browser creates the WebRTC offer when the pub owner clicks "Go Live".
+
+1. Start the agent daemon (registers presence, no slug needed):
 ```bash
-pubblue open <slug> --expires 4h
+pubblue start
 ```
 
 Optional explicit bridge selector:
 ```bash
-pubblue open <slug> --bridge openclaw --expires 4h
-pubblue open <slug> --bridge none --expires 4h
+pubblue start --bridge openclaw
+pubblue start --bridge none --foreground
 ```
 
 Behavior:
-- `open` runs daemon + managed bridge in background, returns after health checks pass.
+- `start` runs a per-user daemon + managed bridge in background.
 - `--foreground` keeps process attached to current shell (no managed bridge).
-- Reuses existing active live by default; use `--new` to force creation.
+- The daemon polls for incoming live requests from any of the user's pubs.
 
-2. Wait for browser:
+2. Check daemon status:
 ```bash
-pubblue status <slug>
+pubblue status
 ```
 
-3. Send content:
+3. Send content (slug resolved automatically via daemon):
 ```bash
-pubblue write --slug <slug> "Hello"
-pubblue write --slug <slug> -c canvas -f /tmp/view.html
+pubblue write "Hello"
+pubblue write -c canvas -f /tmp/view.html
 ```
 
 4. Read incoming (manual/debug mode):
 ```bash
-pubblue read <slug> --follow -c chat
+pubblue read --follow -c chat
 ```
 
-5. Close:
+5. Stop the daemon:
 ```bash
-pubblue close <slug>
+pubblue stop
 ```
 
 6. Validate live end-to-end (strict):
 ```bash
-pubblue doctor --slug <slug>
+pubblue doctor
 # optional handshake:
-pubblue doctor --slug <slug> --wait-pong --timeout 30
+pubblue doctor --wait-pong --timeout 30
 ```
 
 Important:
 - `write` uses delivery confirmation; failures should be retried.
 - `read` is consumptive. Do not run multiple `read --follow` consumers on the same channel.
-- `open` is idempotent — reuses existing sessions when possible.
+- The browser initiates the live connection; the daemon responds automatically.
 
 ## Bridge Modes
 
-`pubblue open` supports:
+`pubblue start` supports:
 - `--bridge openclaw` (default): managed local bridge process (OpenClaw session delivery)
 - `--bridge none`: no managed bridge; use manual polling or external integration
 
@@ -138,18 +140,19 @@ Useful env for `openclaw` mode:
 
 ## Telegram Mini App
 
-pub.blue supports Telegram Mini App. When configured, `create` and `open`
-automatically output `t.me` deep links. Check `pubblue configure --show` for status.
+pub.blue supports Telegram Mini App. When configured, `create`
+automatically outputs `t.me` deep links. Check `pubblue configure --show` for status.
 
 ## Troubleshooting
 
 - `Rate limit exceeded`:
   - Read and respect retry hints.
-  - Prefer `open <slug>` (reuse) instead of repeatedly creating new sessions.
 - `No browser connected`:
-  - Ask user to open pub URL and wait for `status: connected`.
-- `Session not found or expired` after open:
-  - Check `pubblue status <slug>` and daemon log path from open output.
-  - Restart daemon with `pubblue open <slug>`.
+  - Ask user to open pub URL and click "Go Live", then wait for connection.
+- `Agent offline`:
+  - Make sure `pubblue start` is running. Check `pubblue status`.
+- `Session not found or expired`:
+  - Check `pubblue status` and daemon log path.
+  - Restart with `pubblue stop && pubblue start`.
 - Bridge errors:
-  - Use `pubblue status <slug>` and inspect bridge state/log path.
+  - Use `pubblue status` and inspect bridge state/log path.
