@@ -1,18 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BatchSection } from "~/components/debug/batch-section";
 import { CanvasLiveVisual } from "~/components/live/canvas-live-visual";
-import type { LiveAnimationStyle, LiveVisualState } from "~/components/live/types";
+import { LIVE_ANIMATION_STYLES } from "~/components/live/types";
+import { VISUAL_THEME } from "~/components/live/visuals/shared";
 
-const ALL_VISUAL_STATES: LiveVisualState[] = [
-  "connecting",
-  "disconnected",
-  "waiting-content",
-  "idle",
-  "agent-thinking",
-  "agent-replying",
-];
-
-const ALL_STYLES: LiveAnimationStyle[] = ["aurora", "orb", "blob"];
+const ALL_VISUAL_STATES = Object.keys(VISUAL_THEME) as (keyof typeof VISUAL_THEME)[];
 
 export const Route = createFileRoute("/debug/visuals")({
   beforeLoad: () => {
@@ -29,7 +21,7 @@ function VisualsDebugPage() {
       <div className="mx-auto max-w-4xl space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Visuals Debug</h1>
 
-        {ALL_STYLES.map((style) => (
+        {LIVE_ANIMATION_STYLES.map((style) => (
           <BatchSection
             key={style}
             title={`${style.charAt(0).toUpperCase()}${style.slice(1)} — Visual States`}
