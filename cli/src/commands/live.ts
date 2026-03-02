@@ -382,9 +382,7 @@ function registerDoctorCommand(program: Command): void {
         const statusResponse = await ipcCall(socketPath, {
           method: "status",
           params: {},
-        }).catch((error: unknown) =>
-          fail(`daemon is unreachable (${errorMessage(error)}).`),
-        );
+        }).catch((error: unknown) => fail(`daemon is unreachable (${errorMessage(error)}).`));
 
         if (!statusResponse.ok) {
           fail(`daemon returned non-ok status: ${String(statusResponse.error || "unknown error")}`);
@@ -403,9 +401,11 @@ function registerDoctorCommand(program: Command): void {
         }
         console.log("Daemon/channel check: OK");
 
-        const live = await apiClient.getLive(slug).catch((error: unknown) =>
-          fail(`failed to fetch live info from API: ${formatApiError(error)}`),
-        );
+        const live = await apiClient
+          .getLive(slug)
+          .catch((error: unknown) =>
+            fail(`failed to fetch live info from API: ${formatApiError(error)}`),
+          );
 
         if (live.status !== "active") {
           fail(`API reports live is not active (status: ${live.status})`);

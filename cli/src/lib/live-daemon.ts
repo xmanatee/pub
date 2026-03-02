@@ -10,7 +10,6 @@ import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
 import { latestCliVersionPath, readLatestCliVersion } from "../commands/live-helpers.js";
-import { errorMessage } from "./cli-error.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -23,14 +22,15 @@ import {
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
+import { errorMessage } from "./cli-error.js";
 import { createOpenClawBridgeRunner, type OpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import { createAnswer } from "./live-daemon-answer.js";
 import {
   type ChannelBuffer,
   type DaemonConfig,
+  getLiveWriteReadinessError,
   getSignalPollDelayMs,
   getStickyCanvasHtml,
-  getLiveWriteReadinessError,
   LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
   shouldRecoverForBrowserOfferChange,
@@ -752,7 +752,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         } catch (error) {
           if (waitForAck) settlePendingAck(msg.id, false);
           markError(`failed to send message on channel "${channel}"`, error);
-          return { ok: false, error: `Failed to send on channel "${channel}": ${errorMessage(error)}` };
+          return {
+            ok: false,
+            error: `Failed to send on channel "${channel}": ${errorMessage(error)}`,
+          };
         }
 
         if (waitForAck) {

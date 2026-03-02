@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "./ack-routing.js";
 import type { BridgeMessage } from "./bridge-protocol.js";
 import {
+  getLiveWriteReadinessError,
   getSignalPollDelayMs,
   getStickyCanvasHtml,
-  getLiveWriteReadinessError,
   MAX_CANVAS_PERSIST_SIZE,
   shouldRecoverForBrowserOfferChange,
 } from "./live-daemon-shared.js";
