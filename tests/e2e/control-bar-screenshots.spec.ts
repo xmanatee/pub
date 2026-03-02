@@ -39,4 +39,10 @@ test.describe("Control bar screenshots", () => {
     await expect(section).toBeVisible();
     await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-takeover.png` });
   });
+
+  test("multiline input", async ({ page }) => {
+    const section = page.getByTestId("batch-multiline");
+    await expect(section).toBeVisible();
+    await section.screenshot({ path: `${SCREENSHOT_DIR}/control-bar-multiline.png` });
+  });
 });

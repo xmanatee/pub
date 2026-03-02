@@ -32,6 +32,7 @@ interface ControlBarProps {
   onChangeView: (view: LiveViewMode) => void;
   visualState: LiveVisualState;
   voiceModeEnabled: boolean;
+  initialInput?: string;
 }
 
 function formatTime(seconds: number) {
@@ -58,10 +59,14 @@ export function ControlBar({
   onChangeView,
   visualState,
   voiceModeEnabled,
+  initialInput,
 }: ControlBarProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({ onSendChat });
+  const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
+    onSendChat,
+    initialInput,
+  });
   const { fileInputRef, handleFile } = useFileUpload({ bridge });
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
