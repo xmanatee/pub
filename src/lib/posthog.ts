@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import "posthog-js/dist/recorder";
 
 let initialized = false;
 
@@ -32,6 +33,9 @@ export function initPostHog() {
     // Privacy: mask all inputs by default
     mask_all_text: false,
     mask_all_element_attributes: false,
+
+    // Bundle recorder locally so ad blockers can't block posthog-recorder.js
+    disable_external_dependency_loading: true,
 
     // Bootstrap: don't block rendering
     bootstrap: {},
