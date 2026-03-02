@@ -174,8 +174,8 @@ function stageAttachment(params: {
   slug: string;
   bytes: Buffer;
 }): StagedAttachment {
-  const tunnelDir = join(params.attachmentRoot, sanitizeFilename(params.slug));
-  ensureDirectoryWritable(tunnelDir);
+  const slugDir = join(params.attachmentRoot, sanitizeFilename(params.slug));
+  ensureDirectoryWritable(slugDir);
 
   const mime = (params.mime || "application/octet-stream").trim();
   const resolvedName = resolveAttachmentFilename({
@@ -186,7 +186,7 @@ function stageAttachment(params: {
   });
 
   const collisionSafeName = `${Date.now()}-${sanitizeFilename(params.messageId)}-${resolvedName}`;
-  const targetPath = join(tunnelDir, collisionSafeName);
+  const targetPath = join(slugDir, collisionSafeName);
   const tempPath = `${targetPath}.tmp-${process.pid}`;
 
   writeFileSync(tempPath, params.bytes, { mode: 0o600 });

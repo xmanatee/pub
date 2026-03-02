@@ -120,7 +120,7 @@ describe("buildAttachmentPrompt", () => {
       streamStatus: "complete",
     };
 
-    const prompt = buildAttachmentPrompt("tunnel-1", staged, false);
+    const prompt = buildAttachmentPrompt("test-slug", staged, false);
     expect(prompt).toContain("Incoming user attachment");
     expect(prompt).toContain("channel: audio");
     expect(prompt).toContain("path: /home/node/.openclaw/pubblue-inbox/t1/123-audio.webm");
@@ -131,7 +131,7 @@ describe("buildAttachmentPrompt", () => {
 
 describe("canvas policy reminder helpers", () => {
   it("inserts reminder block in inbound prompt when requested", () => {
-    const prompt = buildInboundPrompt("tunnel-1", "show me a cube", true);
+    const prompt = buildInboundPrompt("test-slug", "show me a cube", true);
     expect(prompt).toContain("Canvas policy reminder");
     expect(prompt).toContain("do not reply to this reminder block");
     expect(prompt).toContain("show me a cube");

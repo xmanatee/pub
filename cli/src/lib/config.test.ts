@@ -8,7 +8,7 @@ describe("config", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pubblue-test-"));
     delete process.env.PUBBLUE_API_KEY;
     delete process.env.PUBBLUE_URL;
   });

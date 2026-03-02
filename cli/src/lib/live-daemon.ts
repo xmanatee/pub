@@ -96,17 +96,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   function markError(message: string, error?: unknown): void {
-    const detail =
-      error === undefined
-        ? message
-        : `${message}: ${
-            error instanceof Error
-              ? error.message
-              : typeof error === "string"
-                ? error
-                : JSON.stringify(error)
-          }`;
-    lastError = detail;
+    lastError = error === undefined ? message : `${message}: ${errorMessage(error)}`;
     debugLog(message, error);
   }
 
