@@ -11,16 +11,20 @@
         "!convex/_generated/**",
         "src/routes/**/*.tsx"
       ],
-      "project": ["src/**/*.{ts,tsx}", "convex/**/*.ts", "shared/**/*.ts", "!convex/_generated/**"],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "convex/**/*.ts",
+        "shared/**/*.ts",
+        "tests/**/*.ts",
+        "!convex/_generated/**"
+      ],
       "paths": {
         "~/*": ["./src/*"]
       }
     },
     "cli": {
       "entry": ["src/index.ts", "src/tunnel-daemon-entry.ts"],
-      "project": ["src/**/*.ts"],
-      "ignoreDependencies": ["tsup"],
-      "ignoreBinaries": ["tsup"]
+      "project": ["src/**/*.ts"]
     }
   }
 }
