@@ -581,7 +581,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
       handleIpcRequest(request)
         .then((response) => conn.write(`${JSON.stringify(response)}\n`))
-        .catch((err) => conn.write(`${JSON.stringify({ ok: false, error: String(err) })}\n`));
+        .catch((err) => conn.write(`${JSON.stringify({ ok: false, error: errorMessage(err) })}\n`));
     });
   });
 
