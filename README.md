@@ -5,12 +5,12 @@ Publish static content (HTML, Markdown, text) with shareable URLs at [pub.blue](
 ## Features
 
 - Publish HTML, Markdown, and plain text with a unique URL
-- Web dashboard with publication management, view counts, and expiry badges
+- Web dashboard with pub management, view counts, and expiry badges
 - Public explore feed for discovering published content
 - CLI tool ([`pubblue`](https://www.npmjs.com/package/pubblue)) for publishing from the terminal
 - Claude Code skill for AI-assisted publishing
 - API key authentication for programmatic access
-- Expiring publications (1h, 24h, 7d, etc.)
+- Expiring pubs (1h, 24h, 7d, etc.)
 - RSS feeds per user
 - Open Graph preview images
 - Telegram account linking

@@ -1,5 +1,5 @@
 /**
- * Bridge protocol — shared types for the pub.blue P2P tunnel.
+ * Bridge protocol — shared types for the pub.blue P2P bridge.
  *
  * This file is source-of-truth for both app and CLI message/schema logic.
  */

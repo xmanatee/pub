@@ -4,20 +4,20 @@ import type { BridgeMessage } from "./bridge-protocol.js";
 import {
   getSignalPollDelayMs,
   getStickyCanvasHtml,
-  getTunnelWriteReadinessError,
+  getLiveWriteReadinessError,
   MAX_CANVAS_PERSIST_SIZE,
   shouldRecoverForBrowserOfferChange,
-} from "./tunnel-daemon-shared.js";
+} from "./live-daemon-shared.js";
 
-describe("getTunnelWriteReadinessError", () => {
+describe("getLiveWriteReadinessError", () => {
   it("blocks writes before browser connection", () => {
-    expect(getTunnelWriteReadinessError(false)).toBe(
+    expect(getLiveWriteReadinessError(false)).toBe(
       "No browser connected. Ask the user to open the pub URL first, then retry.",
     );
   });
 
   it("allows writes after browser connection", () => {
-    expect(getTunnelWriteReadinessError(true)).toBeNull();
+    expect(getLiveWriteReadinessError(true)).toBeNull();
   });
 });
 

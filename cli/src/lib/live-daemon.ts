@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import { latestCliVersionPath, readLatestCliVersion } from "../commands/tunnel-helpers.js";
+import { latestCliVersionPath, readLatestCliVersion } from "../commands/live-helpers.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -22,19 +22,19 @@ import {
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
-import { createOpenClawBridgeRunner, type OpenClawBridgeRunner } from "./tunnel-bridge-openclaw.js";
-import { generateAnswer } from "./tunnel-daemon-answer.js";
+import { createOpenClawBridgeRunner, type OpenClawBridgeRunner } from "./live-bridge-openclaw.js";
+import { createAnswer } from "./live-daemon-answer.js";
 import {
   type ChannelBuffer,
   type DaemonConfig,
   getSignalPollDelayMs,
   getStickyCanvasHtml,
-  getTunnelWriteReadinessError,
+  getLiveWriteReadinessError,
   LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
   shouldRecoverForBrowserOfferChange,
   WRITE_ACK_TIMEOUT_MS,
-} from "./tunnel-daemon-shared.js";
+} from "./live-daemon-shared.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -75,7 +75,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
   let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   let lastError: string | null = null;
-  const debugEnabled = process.env.PUBBLUE_TUNNEL_DEBUG === "1";
+  const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
   let bridgeRunner: OpenClawBridgeRunner | null = null;
 
@@ -437,7 +437,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
       if (!peer) throw new Error("PeerConnection not initialized");
 
-      const answer = await generateAnswer(peer, browserOffer, OFFER_TIMEOUT_MS);
+      const answer = await createAnswer(peer, browserOffer, OFFER_TIMEOUT_MS);
       lastAppliedBrowserOffer = browserOffer;
       activeSlug = slug;
 
@@ -713,7 +713,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     switch (req.method) {
       case "write": {
         const channel = (req.params.channel as string) || CHANNELS.CHAT;
-        const readinessError = getTunnelWriteReadinessError(connected);
+        const readinessError = getLiveWriteReadinessError(connected);
         if (readinessError) return { ok: false, error: readinessError };
 
         const msg = req.params.msg as BridgeMessage;

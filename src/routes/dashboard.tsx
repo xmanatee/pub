@@ -367,7 +367,7 @@ function PubsTab() {
 function ApiKeysTab() {
   const keys = useQuery(api.apiKeys.list);
   const createKey = useMutation(api.apiKeys.create);
-  const removeKey = useMutation(api.apiKeys.remove);
+  const deleteKey = useMutation(api.apiKeys.deleteKey);
   const [newKeyName, setNewKeyName] = React.useState("");
   const [createdKey, setCreatedKey] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -391,7 +391,7 @@ function ApiKeysTab() {
     if (!(await telegramConfirm("Delete this API key? This cannot be undone."))) return;
     const key = keys?.find((k) => k._id === id);
     if (key) trackApiKeyDeleted({ name: key.name });
-    await removeKey({ id });
+    await deleteKey({ id });
   }
 
   const siteUrl = import.meta.env.VITE_CONVEX_URL

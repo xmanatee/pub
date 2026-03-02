@@ -1,6 +1,6 @@
 import type { PeerConnection } from "node-datachannel";
 
-export function generateAnswer(
+export function createAnswer(
   peer: PeerConnection,
   browserOffer: string,
   timeoutMs: number,

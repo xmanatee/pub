@@ -157,7 +157,7 @@ export class PubApiClient {
     });
   }
 
-  async remove(slug: string): Promise<void> {
+  async deletePub(slug: string): Promise<void> {
     await this.request(`/api/v1/pubs/${encodeURIComponent(slug)}`, {
       method: "DELETE",
     });

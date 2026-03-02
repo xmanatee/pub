@@ -11,7 +11,7 @@ import {
   resolveSessionFromSessionsData,
   type StagedAttachment,
   shouldIncludeCanvasPolicyReminder,
-} from "./tunnel-bridge-openclaw.js";
+} from "./live-bridge-openclaw.js";
 
 const originalEnv = {
   OPENCLAW_ATTACHMENT_DIR: process.env.OPENCLAW_ATTACHMENT_DIR,

@@ -18,7 +18,7 @@ import {
   generateMessageId,
   type SessionContextPayload,
 } from "./bridge-protocol.js";
-import type { BridgeSessionSource } from "./tunnel-bridge-types.js";
+import type { BridgeSessionSource } from "./live-bridge-types.js";
 
 const execFileAsync = promisify(execFile);
 const OPENCLAW_DISCOVERY_PATHS = [

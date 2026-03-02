@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_BASE_URL, getConfig, loadConfig, saveConfig } from "./config.js";
+import { DEFAULT_BASE_URL, getConfig, readConfig, saveConfig } from "./config.js";
 
 describe("config", () => {
   let tmpDir: string;
@@ -20,12 +20,12 @@ describe("config", () => {
   });
 
   it("returns null when no config file exists", () => {
-    expect(loadConfig(tmpDir)).toBeNull();
+    expect(readConfig(tmpDir)).toBeNull();
   });
 
   it("saves and loads config with apiKey only", () => {
     saveConfig({ apiKey: "pub_test" }, tmpDir);
-    expect(loadConfig(tmpDir)).toEqual({ apiKey: "pub_test" });
+    expect(readConfig(tmpDir)).toEqual({ apiKey: "pub_test" });
   });
 
   it("saves and loads bridge config", () => {
@@ -39,7 +39,7 @@ describe("config", () => {
       },
       tmpDir,
     );
-    expect(loadConfig(tmpDir)).toEqual({
+    expect(readConfig(tmpDir)).toEqual({
       apiKey: "pub_test",
       bridge: {
         sessionId: "session-123",

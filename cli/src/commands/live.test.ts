@@ -7,7 +7,7 @@ import {
   parseBridgeMode,
   parsePositiveIntegerOption,
   resolveBridgeMode,
-} from "./tunnel-helpers.js";
+} from "./live-helpers.js";
 
 describe("SUPPORTED_KEYS", () => {
   it("does not include bridge.mode", () => {

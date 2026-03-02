@@ -2,12 +2,11 @@ import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
 import * as path from "node:path";
-import { PubApiClient, PubApiError } from "../lib/api.js";
+import { PubApiError } from "../lib/api.js";
 import { failCli } from "../lib/cli-error.js";
-import type { BridgeConfig, Config } from "../lib/config.js";
-import { getConfig } from "../lib/config.js";
-import type { BridgeMode } from "../lib/tunnel-daemon-shared.js";
-import { getAgentSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
+import type { BridgeConfig } from "../lib/config.js";
+import type { BridgeMode } from "../lib/live-daemon-shared.js";
+import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 
 export const TEXT_FILE_EXTENSIONS = new Set([
   ".txt",
@@ -94,11 +93,6 @@ export function liveInfoPath(slug: string): string {
 
 export function liveLogPath(slug: string): string {
   return path.join(liveInfoDir(), `${slug}.log`);
-}
-
-export function createApiClient(configOverride?: Config): PubApiClient {
-  const config = configOverride || getConfig();
-  return new PubApiClient(config.baseUrl, config.apiKey);
 }
 
 export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {

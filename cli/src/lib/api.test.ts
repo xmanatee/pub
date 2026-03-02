@@ -150,7 +150,7 @@ describe("PubApiClient", () => {
     });
   });
 
-  describe("remove", () => {
+  describe("deletePub", () => {
     it("sends DELETE with slug in path", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ deleted: true }), {
@@ -159,7 +159,7 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.remove("abc123");
+      await client.deletePub("abc123");
 
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/pubs/abc123", baseUrl),

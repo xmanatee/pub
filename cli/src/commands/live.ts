@@ -9,12 +9,11 @@ import {
 } from "../lib/bridge-protocol.js";
 import { failCli } from "../lib/cli-error.js";
 import { getConfig } from "../lib/config.js";
-import { getAgentSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
+import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import { CLI_VERSION } from "../lib/version.js";
 import {
   buildBridgeProcessEnv,
   buildDaemonForkStdio,
-  createApiClient,
   ensureNodeDatachannelAvailable,
   formatApiError,
   getFollowReadDelayMs,
@@ -31,7 +30,8 @@ import {
   TEXT_FILE_EXTENSIONS,
   waitForDaemonReady,
   writeLatestCliVersion,
-} from "./tunnel-helpers.js";
+} from "./live-helpers.js";
+import { createClient } from "./shared.js";
 
 export function registerLiveCommands(program: Command): void {
   registerStartCommand(program);
@@ -54,7 +54,7 @@ function registerStartCommand(program: Command): void {
       await ensureNodeDatachannelAvailable();
       writeLatestCliVersion(CLI_VERSION);
       const runtimeConfig = getConfig();
-      const apiClient = createApiClient(runtimeConfig);
+      const apiClient = createClient(runtimeConfig);
       const bridgeMode = resolveBridgeMode(opts);
       const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
@@ -65,7 +65,7 @@ function registerStartCommand(program: Command): void {
       await stopOtherDaemons();
 
       if (opts.foreground) {
-        const { startDaemon } = await import("../lib/tunnel-daemon.js");
+        const { startDaemon } = await import("../lib/live-daemon.js");
         console.log("Agent daemon starting in foreground...");
         console.log("Press Ctrl+C to stop.");
         try {
@@ -85,7 +85,7 @@ function registerStartCommand(program: Command): void {
       }
 
       const { fork } = await import("node:child_process");
-      const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
+      const daemonScript = path.join(import.meta.dirname, "live-daemon-entry.js");
       const daemonLogFd = fs.openSync(logPath, "a");
       const child = fork(daemonScript, [], {
         detached: true,
@@ -374,7 +374,7 @@ function registerDoctorCommand(program: Command): void {
         const timeoutMs = timeoutSeconds * 1_000;
         const socketPath = getAgentSocketPath();
         const slug = await resolveActiveSlug();
-        const apiClient = createApiClient();
+        const apiClient = createClient();
 
         const fail = (message: string): never => failCli(`Doctor failed: ${message}`);
 

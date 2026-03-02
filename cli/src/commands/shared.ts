@@ -2,10 +2,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { PubApiClient } from "../lib/api.js";
 import { failCli } from "../lib/cli-error.js";
+import type { Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
 
-export function createClient(): PubApiClient {
-  const config = getConfig();
+export function createClient(configOverride?: Config): PubApiClient {
+  const config = configOverride || getConfig();
   return new PubApiClient(config.baseUrl, config.apiKey);
 }
 

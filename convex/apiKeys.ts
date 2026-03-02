@@ -35,7 +35,7 @@ export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, { name }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Not authenticated");
 
     if (name.length > MAX_KEY_NAME_LENGTH) {
       throw new Error(`Key name exceeds maximum length of ${MAX_KEY_NAME_LENGTH} characters`);
@@ -77,14 +77,14 @@ export const list = query({
   },
 });
 
-export const remove = mutation({
+export const deleteKey = mutation({
   args: { id: v.id("apiKeys") },
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Not authenticated");
 
     const key = await ctx.db.get(id);
-    if (!key || key.userId !== userId) throw new Error("Not found");
+    if (!key || key.userId !== userId) throw new Error("API key not found");
     await ctx.db.delete(id);
   },
 });

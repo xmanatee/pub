@@ -1,6 +1,6 @@
 import { PubApiClient } from "./lib/api.js";
-import { startDaemon } from "./lib/tunnel-daemon.js";
-import type { BridgeMode } from "./lib/tunnel-daemon-shared.js";
+import { startDaemon } from "./lib/live-daemon.js";
+import type { BridgeMode } from "./lib/live-daemon-shared.js";
 
 const baseUrl = process.env.PUBBLUE_DAEMON_BASE_URL;
 const apiKey = process.env.PUBBLUE_DAEMON_API_KEY;

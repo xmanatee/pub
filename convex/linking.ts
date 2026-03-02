@@ -8,19 +8,19 @@ function generateToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const LINK_TOKEN_TTL = 10 * 60 * 1000;
+const LINK_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
 
 export const createLinkToken = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Not authenticated");
 
     const token = generateToken();
     await ctx.db.insert("linkTokens", {
       userId,
       token,
-      expiresAt: Date.now() + LINK_TOKEN_TTL,
+      expiresAt: Date.now() + LINK_TOKEN_EXPIRY_MS,
     });
 
     return { token };
@@ -48,7 +48,7 @@ export const completeMerge = mutation({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
     const targetUserId = await getAuthUserId(ctx);
-    if (!targetUserId) throw new Error("Unauthorized");
+    if (!targetUserId) throw new Error("Not authenticated");
 
     const record = await ctx.db
       .query("linkTokens")

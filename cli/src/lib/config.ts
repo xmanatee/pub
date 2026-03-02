@@ -51,7 +51,7 @@ function getConfigPath(homeDir?: string): string {
   return path.join(dir, "config.json");
 }
 
-export function loadConfig(homeDir?: string): SavedConfig | null {
+export function readConfig(homeDir?: string): SavedConfig | null {
   const configPath = getConfigPath(homeDir);
   if (!fs.existsSync(configPath)) return null;
   const raw = fs.readFileSync(configPath, "utf-8");
@@ -74,7 +74,7 @@ export function getConfig(homeDir?: string): Config {
   const envKey = process.env.PUBBLUE_API_KEY;
   const envUrl = process.env.PUBBLUE_URL;
   const baseUrl = envUrl || DEFAULT_BASE_URL;
-  const saved = loadConfig(homeDir);
+  const saved = readConfig(homeDir);
 
   if (envKey) {
     return { apiKey: envKey, baseUrl, bridge: saved?.bridge };
@@ -94,7 +94,7 @@ export function getConfig(homeDir?: string): Config {
 }
 
 export function getTelegramMiniAppUrl(slug: string): string | null {
-  const saved = loadConfig();
+  const saved = readConfig();
   if (!saved?.telegram?.botUsername) return null;
   return `https://t.me/${saved.telegram.botUsername}?startapp=${slug}`;
 }

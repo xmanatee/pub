@@ -174,7 +174,7 @@ export function registerPubCommands(program: Command): void {
     .argument("<slug>", "Slug of the pub to delete")
     .action(async (slug: string) => {
       const client = createClient();
-      await client.remove(slug);
+      await client.deletePub(slug);
       console.log(`Deleted: ${slug}`);
     });
 }

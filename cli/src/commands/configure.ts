@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import type { Command } from "commander";
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../lib/config.js";
-import { loadConfig, saveConfig } from "../lib/config.js";
+import { readConfig, saveConfig } from "../lib/config.js";
 import { readFromStdin } from "./shared.js";
 
 function readApiKeyFromPrompt(): Promise<string> {
@@ -293,7 +293,7 @@ export function registerConfigureCommand(program: Command): void {
         unset: string[];
         show?: boolean;
       }) => {
-        const saved = loadConfig();
+        const saved = readConfig();
         const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
         const hasSet = opts.set.length > 0;
         const hasUnset = opts.unset.length > 0;

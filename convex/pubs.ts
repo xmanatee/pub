@@ -158,10 +158,10 @@ export const toggleVisibility = mutation({
   args: { id: v.id("pubs") },
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Not authenticated");
 
     const pub = await ctx.db.get(id);
-    if (!pub || pub.userId !== userId) throw new Error("Not found");
+    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
     await ctx.db.patch(id, { isPublic: !pub.isPublic, updatedAt: Date.now() });
     return { isPublic: !pub.isPublic };
@@ -172,10 +172,10 @@ export const deleteByUser = mutation({
   args: { id: v.id("pubs") },
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Not authenticated");
 
     const pub = await ctx.db.get(id);
-    if (!pub || pub.userId !== userId) throw new Error("Not found");
+    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
     await closeActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
@@ -412,7 +412,7 @@ export const updatePub = internalMutation({
   },
   handler: async (ctx, { id, content, contentType, title, isPublic, slug }) => {
     const pub = await ctx.db.get(id);
-    if (!pub) throw new Error("Not found");
+    if (!pub) throw new Error("Pub not found");
 
     if (slug !== undefined && slug !== pub.slug) {
       const lives = await ctx.db
@@ -435,7 +435,7 @@ export const deletePub = internalMutation({
   args: { id: v.id("pubs"), userId: v.id("users") },
   handler: async (ctx, { id, userId }) => {
     const pub = await ctx.db.get(id);
-    if (!pub || pub.userId !== userId) throw new Error("Not found");
+    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
     await closeActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);

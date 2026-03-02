@@ -49,16 +49,16 @@ action captured via `posthog.capture()`. Below is the complete event taxonomy fo
 | `user_signed_in` | `provider: string` | Authentication completes successfully |
 | `user_signed_out` | — | User clicks sign out |
 
-### 1.3 Custom Events — Publications
+### 1.3 Custom Events — Pubs
 
 | Event | Properties | When Fired |
 |---|---|---|
-| `publication_viewed` | `slug`, `contentType`, `isPublic`, `isOwner` | Publication page loads with data |
-| `publication_created` | `slug`, `contentType`, `isPublic`, `source` | New publication created (via API/CLI) |
-| `publication_deleted` | `slug`, `contentType` | User deletes a publication from dashboard |
-| `publication_visibility_toggled` | `slug`, `newVisibility: "public" \| "private"` | User toggles pub visibility |
-| `publication_link_copied` | `slug` | User copies a publication URL |
-| `publication_raw_viewed` | `slug` | User clicks "Raw" to view raw content |
+| `pub_viewed` | `slug`, `contentType`, `isPublic`, `isOwner` | Pub page loads with data |
+| `pub_created` | `slug`, `contentType`, `isPublic`, `source` | New pub created (via API/CLI) |
+| `pub_deleted` | `slug`, `contentType` | User deletes a pub from dashboard |
+| `pub_visibility_toggled` | `slug`, `newVisibility: "public" \| "private"` | User toggles pub visibility |
+| `pub_link_copied` | `slug` | User copies a pub URL |
+| `pub_raw_viewed` | `slug` | User clicks "Raw" to view raw content |
 
 ### 1.4 Custom Events — API Keys
 
@@ -72,7 +72,7 @@ action captured via `posthog.capture()`. Below is the complete event taxonomy fo
 
 | Event | Properties | When Fired |
 |---|---|---|
-| `dashboard_tab_changed` | `tab: "publications" \| "keys"` | User switches dashboard tab |
+| `dashboard_tab_changed` | `tab: "pubs" \| "keys"` | User switches dashboard tab |
 
 ### 1.6 Custom Events — Landing Page
 
@@ -120,7 +120,7 @@ Register these after authentication via `posthog.register()`:
 | `user_id` | Convex user ID | Unique identifier |
 | `auth_provider` | OAuth provider used at signup | Understand auth preference |
 | `created_at` | First sign-in timestamp | Cohort analysis by signup date |
-| `publication_count` | Updated periodically | Segment by usage level |
+| `pub_count` | Updated periodically | Segment by usage level |
 | `has_api_key` | Boolean | Track API adoption |
 
 ---
@@ -158,7 +158,7 @@ single-user, groups provide future extensibility.
 | Group Type | Group Key | Use Case |
 |---|---|---|
 | `organization` | Organization ID (future) | Team analytics when multi-tenant support lands |
-| `project` | API key name/prefix | Group publications by deployment context |
+| `project` | API key name/prefix | Group pubs by deployment context |
 
 ### When to Implement
 
@@ -177,7 +177,7 @@ debugging UX issues and understanding user behavior.
 
 | Setting | Value | Rationale |
 |---|---|---|
-| `recordCrossOriginIframes` | `false` | Publication iframes contain user HTML — don't record |
+| `recordCrossOriginIframes` | `false` | Pub iframes contain user HTML — don't record |
 | Sample rate | 100% (startup phase) | Capture all sessions while user count is low |
 | Minimum duration | 1 second | Filter out bot hits |
 | Console log capture | Enabled | Debug errors alongside visual replays |
@@ -203,7 +203,7 @@ Feature flags enable progressive rollouts and targeted feature delivery.
 | `enable-markdown-preview` | Boolean | Toggle enhanced Markdown rendering |
 | `enable-custom-domains` | Boolean | Gate custom domain feature (future) |
 | `enable-collaboration` | Boolean | Gate multi-user collaboration (future) |
-| `max-publication-size` | Multivariate | Test different max content sizes (512KB, 1MB, 5MB) |
+| `max-pub-size` | Multivariate | Test different max content sizes (512KB, 1MB, 5MB) |
 | `dashboard-layout` | Multivariate | Test different dashboard layouts |
 | `show-usage-stats` | Boolean | Show API usage statistics to users |
 
@@ -230,8 +230,8 @@ Experiments build on feature flags to run statistically rigorous A/B tests.
 |---|---|---|---|
 | **CTA Copy Test** | "Publish now" converts better than "Start publishing" | `sign_in_started` rate | Control: "Start publishing", Test: "Publish now" |
 | **Social Proof** | Showing usage count increases signups | `user_signed_in` rate | Control: no count, Test: "Join 500+ developers" |
-| **Onboarding Flow** | Guided setup increases first publication rate | `publication_created` within 24h | Control: dashboard only, Test: step-by-step wizard |
-| **Default Visibility** | Public-by-default increases sharing | `publication_link_copied` rate | Control: public default, Test: private default |
+| **Onboarding Flow** | Guided setup increases first pub rate | `pub_created` within 24h | Control: dashboard only, Test: step-by-step wizard |
+| **Default Visibility** | Public-by-default increases sharing | `pub_link_copied` rate | Control: public default, Test: private default |
 
 ---
 
@@ -244,7 +244,7 @@ PostHog surveys collect qualitative feedback at the right moment.
 | Survey | Trigger | Type | Questions |
 |---|---|---|---|
 | **NPS** | After 7th day of usage | Rating (0-10) | "How likely are you to recommend Pub?" |
-| **First Pub Feedback** | After `publication_created` (first time) | Open text | "What did you just publish? What's your use case?" |
+| **First Pub Feedback** | After first `pub_created` | Open text | "What did you just publish? What's your use case?" |
 | **Churn Risk** | User hasn't visited in 14 days (via cohort) | Multiple choice | "What's preventing you from using Pub?" |
 | **Feature Request** | Dashboard, monthly | Open text | "What feature would make Pub more useful?" |
 | **API Experience** | After 5th `api_key_created` event... wait: after 5th API call via CLI | Rating (1-5) | "How easy was it to integrate Pub into your workflow?" |
@@ -261,8 +261,8 @@ insights, funnels, and cohorts.
 | Action Name | Definition | Purpose |
 |---|---|---|
 | **Signed Up** | `user_signed_in` (first time for a person) | Top-of-funnel metric |
-| **Published Content** | `publication_created` | Core activation metric |
-| **Shared Publication** | `publication_link_copied` OR `publication_visibility_toggled` where `newVisibility = public` | Virality signal |
+| **Published Content** | `pub_created` | Core activation metric |
+| **Shared Pub** | `pub_link_copied` OR `pub_visibility_toggled` where `newVisibility = public` | Virality signal |
 | **Used API** | `api_key_created` | Developer adoption |
 | **Engaged Session** | Session with ≥ 3 distinct events | Quality session metric |
 | **Error Encountered** | `client_error` OR `mutation_error` | Reliability tracking |
@@ -279,7 +279,7 @@ Cohorts are reusable user segments for filtering insights and targeting features
 | Cohort | Criteria | Use |
 |---|---|---|
 | **New Users (7d)** | First seen within last 7 days | Monitor onboarding success |
-| **Power Users** | ≥ 10 `publication_created` events in last 30 days | Feature feedback, beta access |
+| **Power Users** | >= 10 `pub_created` events in last 30 days | Feature feedback, beta access |
 | **API Users** | Has `api_key_created` event | Developer-specific analytics |
 | **Dormant Users** | No events in last 30 days, but active in prior 30 | Churn prevention targeting |
 | **Error-Affected** | Has `client_error` or `mutation_error` in last 7 days | Proactive support outreach |
@@ -298,9 +298,9 @@ Insights are individual visualizations. Below are the key metrics to track.
 | Insight | Event | Breakdown | Chart Type |
 |---|---|---|---|
 | Daily Active Users | Any event (unique persons) | — | Line |
-| Publications Created / Day | `publication_created` | `contentType` | Stacked bar |
+| Pubs Created / Day | `pub_created` | `contentType` | Stacked bar |
 | Auth Provider Split | `sign_in_started` | `provider` | Pie |
-| Content Type Distribution | `publication_viewed` | `contentType` | Pie |
+| Content Type Distribution | `pub_viewed` | `contentType` | Pie |
 | CTA Click Rate | `cta_clicked` | `location` | Bar |
 | Error Rate | `client_error` + `mutation_error` | `error_name` | Line |
 | API Key Adoption | `api_key_created` | — | Line |
@@ -310,11 +310,11 @@ Insights are individual visualizations. Below are the key metrics to track.
 
 | Metric | Calculation |
 |---|---|
-| Total Publications | Count of `publication_created` (all time) |
+| Total Pubs | Count of `pub_created` (all time) |
 | WAU | Unique persons with any event in last 7 days |
 | MAU | Unique persons with any event in last 30 days |
 | Signup Rate | `user_signed_in` / `$pageview` on `/login` |
-| Activation Rate | Users with `publication_created` / `user_signed_in` |
+| Activation Rate | Users with `pub_created` / `user_signed_in` |
 | API Adoption Rate | Users with `api_key_created` / `user_signed_in` |
 | Error Rate | (`client_error` + `mutation_error`) / total events |
 
@@ -342,7 +342,7 @@ Landing ($pageview on /)
 Signed In (user_signed_in)
   → Dashboard Visited ($pageview on /dashboard)
     → API Key Created (api_key_created)
-      → First Publication (publication_created)
+      → First Pub (pub_created)
 ```
 
 **Conversion window**: 7 days
@@ -350,10 +350,10 @@ Signed In (user_signed_in)
 ### 12.3 Content Sharing Funnel
 
 ```
-Publication Created (publication_created)
-  → Made Public (publication_visibility_toggled where newVisibility = public)
-    → Link Copied (publication_link_copied)
-      → External View (publication_viewed where isOwner = false)
+Pub Created (pub_created)
+  → Made Public (pub_visibility_toggled where newVisibility = public)
+    → Link Copied (pub_link_copied)
+      → External View (pub_viewed where isOwner = false)
 ```
 
 ### 12.4 API Key Usage Funnel
@@ -362,7 +362,7 @@ Publication Created (publication_created)
 Dashboard Tab Changed to Keys (dashboard_tab_changed where tab = keys)
   → API Key Created (api_key_created)
     → API Key Copied (api_key_copied)
-      → Publication Created via API (publication_created where source = api)
+      → Pub Created via API (pub_created where source = api)
 ```
 
 ---
@@ -377,7 +377,7 @@ Dashboard Tab Changed to Keys (dashboard_tab_changed where tab = keys)
 
 ### 13.2 Feature Retention
 
-- **Publishing retention**: Users who published in Week N and also published in Week N+1
+- **Pub retention**: Users who published in Week N and also published in Week N+1
 - **API retention**: Users who used the API in Week N and also in Week N+1
 
 ### 13.3 Unbounded Retention
@@ -396,7 +396,7 @@ User path analysis shows the actual navigation patterns.
 | Start Point | End Point | Question |
 |---|---|---|
 | `/` (landing) | `user_signed_in` | What paths lead to signup? |
-| `/dashboard` | `publication_created` | What do users do before publishing? |
+| `/dashboard` | `pub_created` | What do users do before publishing? |
 | Any error event | Next event | What do users do after encountering an error? |
 | `/login` | Drop-off | Where do users abandon the login flow? |
 
@@ -436,7 +436,7 @@ PostHog Lifecycle analysis categorizes users into:
 |---|---|---|
 | DAU / WAU / MAU | Number + trend sparkline | Unique users |
 | Signups this week | Number | `user_signed_in` count |
-| Publications this week | Number | `publication_created` count |
+| Pubs this week | Number | `pub_created` count |
 | Signup Funnel | Funnel | Landing → CTA → Login → Sign In |
 | Activation Rate | Number | Users who published / users who signed up (7d) |
 | Error Rate | Line chart | `client_error` + `mutation_error` over time |
@@ -464,9 +464,9 @@ PostHog Lifecycle analysis categorizes users into:
 | Widget | Type | Content |
 |---|---|---|
 | Activation Funnel | Funnel | Signup → Dashboard → API Key → First Publish |
-| Time to First Publish | Distribution | Time from signup to first `publication_created` |
-| Publications per User | Histogram | Distribution of publication count per user |
-| Content Type Breakdown | Pie | `publication_created` by `contentType` |
+| Time to First Publish | Distribution | Time from signup to first `pub_created` |
+| Pubs per User | Histogram | Distribution of pub count per user |
+| Content Type Breakdown | Pie | `pub_created` by `contentType` |
 | API Key Adoption | Line | `api_key_created` trend |
 | Dashboard Tab Usage | Bar | `dashboard_tab_changed` by `tab` |
 | Feature Usage | Bar | Count of each custom event type |
@@ -477,13 +477,13 @@ PostHog Lifecycle analysis categorizes users into:
 
 | Widget | Type | Content |
 |---|---|---|
-| Publications Created | Line | `publication_created` daily trend |
-| Public vs Private | Stacked area | `publication_created` by `isPublic` |
-| Visibility Toggles | Line | `publication_visibility_toggled` trend |
-| Sharing Funnel | Funnel | Created → Made Public → Link Copied → External View |
-| Most Viewed Slugs | Table | `publication_viewed` by `slug` (top 20) |
-| Content Views by Type | Bar | `publication_viewed` by `contentType` |
-| Raw Content Access | Line | `publication_raw_viewed` trend |
+| Pubs Created | Line | `pub_created` daily trend |
+| Public vs Private | Stacked area | `pub_created` by `isPublic` |
+| Visibility Toggles | Line | `pub_visibility_toggled` trend |
+| Sharing Funnel | Funnel | Created -> Made Public -> Link Copied -> External View |
+| Most Viewed Slugs | Table | `pub_viewed` by `slug` (top 20) |
+| Content Views by Type | Bar | `pub_viewed` by `contentType` |
+| Raw Content Access | Line | `pub_raw_viewed` trend |
 
 ### 16.5 Retention & Lifecycle
 
@@ -520,9 +520,9 @@ PostHog Lifecycle analysis categorizes users into:
 | Widget | Type | Content |
 |---|---|---|
 | API Key Creation | Line | `api_key_created` trend |
-| API-Published Content | Line | `publication_created` where `source = api` or `source = cli` |
+| API-Published Pubs | Line | `pub_created` where `source = api` or `source = cli` |
 | API Usage Funnel | Funnel | Key Created → Key Copied → First API Publish |
-| API vs Dashboard Publishes | Stacked bar | `publication_created` by `source` |
+| API vs Dashboard Pubs | Stacked bar | `pub_created` by `source` |
 | API Key Lifecycle | Table | Keys created vs deleted over time |
 
 ---
@@ -536,7 +536,7 @@ PostHog Lifecycle analysis categorizes users into:
 - [x] SPA page view tracking on route change
 - [x] Custom event tracking in `src/lib/analytics.ts`
 - [x] All authentication events instrumented
-- [x] All publication lifecycle events instrumented
+- [x] All pub lifecycle events instrumented
 - [x] All API key events instrumented
 - [x] All CTA click events instrumented
 - [x] Dashboard interaction events instrumented

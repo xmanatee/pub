@@ -25,7 +25,7 @@ export const WRITE_ACK_TIMEOUT_MS = 5_000;
 const NOT_CONNECTED_WRITE_ERROR =
   "No browser connected. Ask the user to open the pub URL first, then retry.";
 
-export function getTunnelWriteReadinessError(isConnected: boolean): string | null {
+export function getLiveWriteReadinessError(isConnected: boolean): string | null {
   return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;
 }
 
