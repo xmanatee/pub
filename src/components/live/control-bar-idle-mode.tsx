@@ -137,7 +137,7 @@ export function ControlBarIdleMode({
           </button>
         </div>
 
-        <div className={cn(CB.controlRow, CB.controlHeight)}>
+        <div className={CB.controlRow}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

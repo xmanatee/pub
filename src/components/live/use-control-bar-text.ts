@@ -3,10 +3,11 @@ import { useCallback, useState } from "react";
 
 interface UseControlBarTextOptions {
   onSendChat: (text: string) => void;
+  initialInput?: string;
 }
 
-export function useControlBarText({ onSendChat }: UseControlBarTextOptions) {
-  const [input, setInput] = useState("");
+export function useControlBarText({ onSendChat, initialInput = "" }: UseControlBarTextOptions) {
+  const [input, setInput] = useState(initialInput);
   const hasText = input.trim().length > 0;
 
   const handleSend = useCallback(() => {

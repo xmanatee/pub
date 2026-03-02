@@ -14,6 +14,8 @@ const ALL_VISUAL_STATES: LiveVisualState[] = [
 ];
 
 const DEBUG_PREVIEW_TEXT = "Debug preview message";
+const DEBUG_MULTILINE_TEXT =
+  "First line of message\nSecond line continues\nThird line here\nAnd a fourth line too";
 const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
 
 const noop = () => {};
@@ -34,6 +36,7 @@ function StaticControlBar({
   collapsed = false,
   sessionState,
   lastTakeoverAt,
+  initialInput,
 }: {
   agentName?: string | null;
   visualState?: LiveVisualState;
@@ -41,6 +44,7 @@ function StaticControlBar({
   collapsed?: boolean;
   sessionState?: SessionState;
   lastTakeoverAt?: number;
+  initialInput?: string;
 }) {
   return (
     <ControlBar
@@ -49,6 +53,7 @@ function StaticControlBar({
       collapsed={collapsed}
       sendDisabled={visualState === "connecting" || visualState === "disconnected"}
       bridge={null}
+      initialInput={initialInput}
       lastTakeoverAt={lastTakeoverAt}
       onClose={noop}
       onDismissPreview={noop}
@@ -139,6 +144,19 @@ function ControlBarDebugPage() {
               ),
             },
           ]}
+        />
+
+        <BatchSection
+          title="Multiline Input"
+          testId="batch-multiline"
+          items={[
+            { label: "single line", content: <StaticControlBar /> },
+            {
+              label: "multiline",
+              content: <StaticControlBar initialInput={DEBUG_MULTILINE_TEXT} />,
+            },
+          ]}
+          cellHeight={160}
         />
 
         <details className="mt-10">
