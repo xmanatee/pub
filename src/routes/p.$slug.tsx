@@ -65,13 +65,9 @@ function PubPage() {
 
   const hasContent = Boolean(pub.content && pub.contentType);
 
-  // Owner — interactive mode when agent is online
   if (pub.isOwner) {
-    if (!hasContent) {
+    if (!hasContent || interactiveMode) {
       return <InteractiveView slug={slug} />;
-    }
-    if (interactiveMode) {
-      return <InteractiveView slug={slug} onBackToContent={() => setInteractiveMode(false)} />;
     }
     return (
       <>
@@ -97,13 +93,7 @@ function PubPage() {
   return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
 }
 
-function InteractiveView({
-  slug,
-  onBackToContent,
-}: {
-  slug: string;
-  onBackToContent?: () => void;
-}) {
+function InteractiveView({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const model = useLivePageModel(slug);
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
@@ -117,20 +107,6 @@ function InteractiveView({
   }, [model.agentOnline, model.liveRequested, model.goLive]);
 
   if (!model.agentOnline && !model.liveRequested && !model.canvasHtml) {
-    if (onBackToContent) {
-      return (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
-          <p className="text-muted-foreground text-sm">Agent offline.</p>
-          <button
-            type="button"
-            onClick={onBackToContent}
-            className="text-primary hover:underline text-sm"
-          >
-            Back to content
-          </button>
-        </div>
-      );
-    }
     return <StatusScreen text="Agent offline." />;
   }
 
@@ -142,16 +118,6 @@ function InteractiveView({
       {controlBarCollapsed ? null : (
         <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
       )}
-
-      {onBackToContent ? (
-        <button
-          type="button"
-          onClick={onBackToContent}
-          className="fixed top-4 left-4 z-[60] px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium hover:opacity-90 transition-opacity"
-        >
-          Content
-        </button>
-      ) : null}
 
       <div className="flex-1 min-h-0 relative">
         {model.viewMode === "canvas" ? (
