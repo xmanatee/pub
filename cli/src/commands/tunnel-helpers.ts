@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import { PubApiClient, PubApiError } from "../lib/api.js";
 import { failCli } from "../lib/cli-error.js";
@@ -100,6 +101,7 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   };
 
   setIfMissing("PUBBLUE_PROJECT_ROOT", process.cwd());
+  setIfMissing("OPENCLAW_HOME", homedir());
 
   if (!bridgeConfig) return env;
 

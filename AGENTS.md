@@ -64,7 +64,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
-- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`, `--open` (hint to go live after)
+- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
