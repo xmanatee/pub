@@ -23,7 +23,7 @@
       }
     },
     "cli": {
-      "entry": ["src/index.ts", "src/tunnel-daemon-entry.ts"],
+      "entry": ["src/tunnel-daemon-entry.ts"],
       "project": ["src/**/*.ts"]
     }
   }

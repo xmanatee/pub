@@ -79,12 +79,7 @@ interface DaemonProcessInfo {
 }
 
 function liveInfoDir(): string {
-  const dir = path.join(
-    homedir(),
-    ".config",
-    "pubblue",
-    "lives",
-  );
+  const dir = path.join(homedir(), ".config", "pubblue", "lives");
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
