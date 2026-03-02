@@ -31,32 +31,44 @@ export const TEXT_FILE_EXTENSIONS = new Set([
   ".log",
 ]);
 
+const MIME_BY_EXT: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
+  ".markdown": "text/markdown; charset=utf-8",
+  ".json": "application/json",
+  ".csv": "text/csv; charset=utf-8",
+  ".xml": "application/xml",
+  ".yaml": "application/x-yaml",
+  ".yml": "application/x-yaml",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".cjs": "text/javascript; charset=utf-8",
+  ".ts": "text/typescript; charset=utf-8",
+  ".tsx": "text/typescript; charset=utf-8",
+  ".jsx": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".scss": "text/x-scss; charset=utf-8",
+  ".sass": "text/x-sass; charset=utf-8",
+  ".less": "text/x-less; charset=utf-8",
+  ".log": "text/plain; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".pdf": "application/pdf",
+  ".zip": "application/zip",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".mp4": "video/mp4",
+};
+
 export function getMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
-  const mimeByExt: Record<string, string> = {
-    ".html": "text/html; charset=utf-8",
-    ".htm": "text/html; charset=utf-8",
-    ".txt": "text/plain; charset=utf-8",
-    ".md": "text/markdown; charset=utf-8",
-    ".markdown": "text/markdown; charset=utf-8",
-    ".json": "application/json",
-    ".csv": "text/csv; charset=utf-8",
-    ".xml": "application/xml",
-    ".yaml": "application/x-yaml",
-    ".yml": "application/x-yaml",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".svg": "image/svg+xml",
-    ".pdf": "application/pdf",
-    ".zip": "application/zip",
-    ".mp3": "audio/mpeg",
-    ".wav": "audio/wav",
-    ".mp4": "video/mp4",
-  };
-  return mimeByExt[ext] || "application/octet-stream";
+  return MIME_BY_EXT[ext] || "application/octet-stream";
 }
 
 interface DaemonProcessInfo {
@@ -68,12 +80,12 @@ interface DaemonProcessInfo {
 
 function liveInfoDir(): string {
   const dir = path.join(
-    process.env.HOME || process.env.USERPROFILE || "/tmp",
+    homedir(),
     ".config",
     "pubblue",
     "lives",
   );
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
@@ -142,8 +154,6 @@ export function isDaemonRunning(slug: string): boolean {
 
 function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
   const infoPath = liveInfoPath(slug);
-  if (!fs.existsSync(infoPath)) return null;
-
   try {
     const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as DaemonProcessInfo;
     if (!Number.isFinite(info.pid)) throw new Error("invalid daemon pid");
@@ -163,7 +173,6 @@ export function latestCliVersionPath(): string {
 
 export function readLatestCliVersion(versionPath?: string): string | null {
   const resolved = versionPath || latestCliVersionPath();
-  if (!fs.existsSync(resolved)) return null;
   try {
     const value = fs.readFileSync(resolved, "utf-8").trim();
     return value.length === 0 ? null : value;
@@ -173,10 +182,10 @@ export function readLatestCliVersion(versionPath?: string): string | null {
 }
 
 export function writeLatestCliVersion(version: string, versionPath?: string): void {
-  if (!version || version.trim().length === 0) return;
+  if (version.trim().length === 0) return;
   const resolved = versionPath || latestCliVersionPath();
   const dir = path.dirname(resolved);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(resolved, version.trim(), "utf-8");
 }
 
@@ -200,7 +209,7 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
 
 async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null> {
   const pid = info.pid;
-  if (!Number.isFinite(pid) || !isProcessAlive(pid)) return null;
+  if (!isProcessAlive(pid)) return null;
 
   const socketPath = info.socketPath;
   if (socketPath) {
@@ -289,7 +298,6 @@ export function messageContainsPong(payload: unknown): boolean {
 }
 
 export function readLogTail(logPath: string, maxChars = 4_000): string | null {
-  if (!fs.existsSync(logPath)) return null;
   try {
     const content = fs.readFileSync(logPath, "utf-8");
     if (content.length <= maxChars) return content;
