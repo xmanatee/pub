@@ -18,6 +18,7 @@ import {
   generateMessageId,
   type SessionContextPayload,
 } from "./bridge-protocol.js";
+import { errorMessage } from "./cli-error.js";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
 
 const execFileAsync = promisify(execFile);
@@ -401,7 +402,7 @@ function resolveSessionFromOpenClaw(threadId?: string): SessionResolution {
     const sessionsData = JSON.parse(readFileSync(sessionsPath, "utf-8")) as unknown;
     return resolveSessionFromSessionsData(sessionsData, threadId);
   } catch (error) {
-    const readError = error instanceof Error ? error.message : String(error);
+    const readError = errorMessage(error);
     return { attemptedKeys, readError, sessionId: null };
   }
 }
@@ -807,7 +808,7 @@ export async function createOpenClawBridgeRunner(
             forwardedMessageCount += 1;
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           lastError = message;
           debugLog(`bridge entry processing failed: ${message}`, error);
           config.sendMessage(CHANNELS.CHAT, {

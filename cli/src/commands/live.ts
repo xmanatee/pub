@@ -7,7 +7,7 @@ import {
   CONTROL_CHANNEL,
   generateMessageId,
 } from "../lib/bridge-protocol.js";
-import { failCli } from "../lib/cli-error.js";
+import { errorMessage, failCli } from "../lib/cli-error.js";
 import { getConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import { CLI_VERSION } from "../lib/version.js";
@@ -78,8 +78,7 @@ function registerStartCommand(program: Command): void {
             agentName: opts.agentName,
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          failCli(`Daemon failed: ${message}`);
+          failCli(`Daemon failed: ${errorMessage(error)}`);
         }
         return;
       }
@@ -380,31 +379,22 @@ function registerDoctorCommand(program: Command): void {
 
         console.log(`Doctor: ${slug}`);
 
-        let statusResponse: Record<string, unknown> | null = null;
-        try {
-          statusResponse = await ipcCall(socketPath, {
-            method: "status",
-            params: {},
-          });
-        } catch (error) {
-          fail(
-            `daemon is unreachable (${error instanceof Error ? error.message : String(error)}).`,
-          );
-        }
-        if (!statusResponse) {
-          fail("daemon status returned no response.");
-        }
-        const daemonStatus = statusResponse as Record<string, unknown>;
+        const statusResponse = await ipcCall(socketPath, {
+          method: "status",
+          params: {},
+        }).catch((error: unknown) =>
+          fail(`daemon is unreachable (${errorMessage(error)}).`),
+        );
 
-        if (!daemonStatus.ok) {
-          fail(`daemon returned non-ok status: ${String(daemonStatus.error || "unknown error")}`);
+        if (!statusResponse.ok) {
+          fail(`daemon returned non-ok status: ${String(statusResponse.error || "unknown error")}`);
         }
-        if (!daemonStatus.connected) {
+        if (!statusResponse.connected) {
           fail("daemon is running but browser is not connected.");
         }
 
-        const channelNames = Array.isArray(daemonStatus.channels)
-          ? daemonStatus.channels.map((entry) => String(entry))
+        const channelNames = Array.isArray(statusResponse.channels)
+          ? statusResponse.channels.map((entry) => String(entry))
           : [];
         for (const required of [CONTROL_CHANNEL, CHANNELS.CHAT, CHANNELS.CANVAS]) {
           if (!channelNames.includes(required)) {
@@ -413,14 +403,9 @@ function registerDoctorCommand(program: Command): void {
         }
         console.log("Daemon/channel check: OK");
 
-        const live = await (async () => {
-          try {
-            return await apiClient.getLive(slug);
-          } catch (error) {
-            fail(`failed to fetch live info from API: ${formatApiError(error)}`);
-          }
-          throw new Error("unreachable");
-        })();
+        const live = await apiClient.getLive(slug).catch((error: unknown) =>
+          fail(`failed to fetch live info from API: ${formatApiError(error)}`),
+        );
 
         if (live.status !== "active") {
           fail(`API reports live is not active (status: ${live.status})`);
