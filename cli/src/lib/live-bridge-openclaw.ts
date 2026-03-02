@@ -101,13 +101,13 @@ export function resolveAttachmentRootDir(): string {
 }
 
 export function resolveAttachmentMaxBytes(): number {
-  const raw = Number.parseInt(process.env.OPENCLAW_ATTACHMENT_MAX_BYTES || "", 10);
+  const raw = Number.parseInt(process.env.OPENCLAW_ATTACHMENT_MAX_BYTES, 10);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_ATTACHMENT_MAX_BYTES;
   return raw;
 }
 
 export function resolveCanvasReminderEvery(): number {
-  const raw = Number.parseInt(process.env.OPENCLAW_CANVAS_REMINDER_EVERY || "", 10);
+  const raw = Number.parseInt(process.env.OPENCLAW_CANVAS_REMINDER_EVERY, 10);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CANVAS_REMINDER_EVERY;
   return raw;
 }
@@ -487,7 +487,7 @@ async function deliverMessageToOpenClaw(params: {
   sessionId: string;
   text: string;
 }): Promise<void> {
-  const timeoutMs = Number.parseInt(process.env.OPENCLAW_DELIVER_TIMEOUT_MS || "120000", 10);
+  const timeoutMs = Number.parseInt(process.env.OPENCLAW_DELIVER_TIMEOUT_MS, 10);
   const effectiveTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000;
 
   const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
