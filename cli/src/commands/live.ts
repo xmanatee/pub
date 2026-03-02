@@ -191,10 +191,10 @@ function registerStatusCommand(program: Command): void {
       if (fs.existsSync(logPath)) {
         console.log(`  Log: ${logPath}`);
       }
-      if (activeSlug) {
-        const bridgeInfo = readBridgeProcessInfo(activeSlug);
+      {
+        const bridgeInfo = readBridgeProcessInfo("agent");
         if (bridgeInfo) {
-          const bridgeRunning = isBridgeRunning(activeSlug);
+          const bridgeRunning = isBridgeRunning("agent");
           const bridgeState = bridgeInfo.status || (bridgeRunning ? "running" : "stopped");
           console.log(`  Bridge: ${bridgeInfo.mode} (${bridgeState})`);
           if (bridgeInfo.sessionId) {
@@ -210,7 +210,7 @@ function registerStatusCommand(program: Command): void {
             console.log(`  Bridge last error: ${bridgeInfo.lastError}`);
           }
         }
-        const bridgeLog = bridgeLogPath(activeSlug);
+        const bridgeLog = bridgeLogPath("agent");
         if (fs.existsSync(bridgeLog)) {
           console.log(`  Bridge log: ${bridgeLog}`);
         }

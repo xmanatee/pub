@@ -12,10 +12,8 @@ import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
 import {
   buildBridgeForkStdio,
-  isBridgeRunning,
   latestCliVersionPath,
   readLatestCliVersion,
-  stopBridge,
 } from "../commands/tunnel-helpers.js";
 import {
   type BridgeMessage,
@@ -383,7 +381,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return;
       }
       if (state === "disconnected" || state === "failed" || state === "closed") {
+        const wasConnected = connected;
         connected = false;
+        if (wasConnected) void persistCanvasContent();
       }
     });
 
@@ -457,6 +457,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     recovering = true;
 
     try {
+      await persistCanvasContent();
+      await stopBridgeProcess();
       closeCurrentPeer();
       createPeer();
       resetNegotiationState();
@@ -672,9 +674,27 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
+  function isBridgeAlive(): boolean {
+    if (!config.bridge) return false;
+    const infoPath = config.bridge.bridgeInfoPath;
+    if (!fs.existsSync(infoPath)) return false;
+    try {
+      const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as { pid: number };
+      process.kill(info.pid, 0);
+      return true;
+    } catch {
+      try {
+        fs.unlinkSync(infoPath);
+      } catch {
+        // stale bridge pid cleanup failed
+      }
+      return false;
+    }
+  }
+
   function checkBridgeLiveness(): void {
     if (stopped || !config.bridge || !activeSlug) return;
-    if (!isBridgeRunning(activeSlug)) restartBridge();
+    if (!isBridgeAlive()) restartBridge();
   }
 
   function startBridgeCheckTimer(): void {
@@ -690,9 +710,29 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function stopBridgeProcess(): Promise<void> {
-    if (!activeSlug) return;
-    const error = await stopBridge(activeSlug);
-    if (error) debugLog(error);
+    if (!config.bridge) return;
+    const infoPath = config.bridge.bridgeInfoPath;
+    if (!fs.existsSync(infoPath)) return;
+    let pid: number;
+    try {
+      const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as { pid: number };
+      if (!Number.isFinite(info.pid)) return;
+      pid = info.pid;
+      process.kill(pid, 0);
+      process.kill(pid, "SIGTERM");
+    } catch {
+      return;
+    }
+    const deadline = Date.now() + 6_000;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    debugLog(`bridge ${pid}: did not exit after SIGTERM`);
   }
 
   startBridgeCheckTimer();
