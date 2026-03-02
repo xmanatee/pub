@@ -225,6 +225,7 @@ export const getLiveBySlug = query({
     return {
       slug: live.slug,
       status: live.status,
+      agentName: live.agentName,
       browserOffer: live.browserOffer,
       agentAnswer: live.agentAnswer,
       agentCandidates: live.agentCandidates,
@@ -496,8 +497,9 @@ export const storeAgentAnswer = internalMutation({
     userId: v.id("users"),
     answer: v.optional(v.string()),
     candidates: v.optional(v.array(v.string())),
+    agentName: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, userId, answer, candidates }) => {
+  handler: async (ctx, { slug, userId, answer, candidates, agentName }) => {
     const live = await ctx.db
       .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -509,6 +511,7 @@ export const storeAgentAnswer = internalMutation({
 
     const patch: Record<string, unknown> = {};
     if (answer !== undefined) patch.agentAnswer = answer;
+    if (agentName !== undefined) patch.agentName = agentName;
     if (candidates?.length) {
       const merged = [...live.agentCandidates, ...candidates].slice(0, MAX_CANDIDATES);
       patch.agentCandidates = merged;

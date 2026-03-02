@@ -13,6 +13,7 @@ export interface DaemonConfig {
   socketPath: string;
   infoPath: string;
   bridgeMode?: BridgeMode;
+  agentName?: string;
 }
 
 export const OFFER_TIMEOUT_MS = 10_000;

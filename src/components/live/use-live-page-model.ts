@@ -326,6 +326,7 @@ export function useLivePageModel(slug: string) {
   }, [slug]);
 
   return {
+    agentName: live?.agentName ?? null,
     agentOnline: agentOnline ?? false,
     animationStyle,
     autoOpenCanvas,

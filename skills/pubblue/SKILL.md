@@ -77,14 +77,16 @@ Live is browser-initiated. The daemon registers agent presence; the browser crea
 
 1. Start the agent daemon (registers presence, no slug needed):
 ```bash
-pubblue start
+pubblue start --agent-name "Oz"
 ```
 
 Optional explicit bridge selector:
 ```bash
-pubblue start --bridge openclaw
-pubblue start --bridge none --foreground
+pubblue start --agent-name "Oz" --bridge openclaw
+pubblue start --agent-name "Oz" --bridge none --foreground
 ```
+
+`--agent-name` is the display name shown to the browser user (required).
 
 Behavior:
 - `start` runs a per-user daemon + managed bridge in background.

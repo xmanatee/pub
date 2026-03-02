@@ -41,7 +41,7 @@ const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const PERSIST_TIMEOUT_MS = 3_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
-  const { apiClient, socketPath, infoPath, cliVersion } = config;
+  const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
 
   const ndc = await import("node-datachannel");
 
@@ -441,7 +441,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lastAppliedBrowserOffer = browserOffer;
       activeSlug = slug;
 
-      await apiClient.signalAnswer({ slug, answer });
+      await apiClient.signalAnswer({ slug, answer, agentName });
       startLocalCandidateFlush(slug);
       void startBridge();
     } catch (error) {

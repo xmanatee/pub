@@ -119,7 +119,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
-      let body: { slug: string; answer?: string; candidates?: string[] };
+      let body: { slug: string; answer?: string; candidates?: string[]; agentName?: string };
       try {
         body = await request.json();
       } catch {
@@ -140,6 +140,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
               userId: user.userId,
               answer: body.answer,
               candidates: body.candidates,
+              agentName: body.agentName,
             });
           } catch (error) {
             rethrowLiveApiError(error);

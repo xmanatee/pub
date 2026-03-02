@@ -188,6 +188,7 @@ export class PubApiClient {
     slug: string;
     answer?: string;
     candidates?: string[];
+    agentName?: string;
   }): Promise<void> {
     await this.request("/api/v1/agent/live/signal", {
       method: "PATCH",

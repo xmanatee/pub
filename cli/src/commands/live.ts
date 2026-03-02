@@ -47,9 +47,10 @@ function registerStartCommand(program: Command): void {
   program
     .command("start")
     .description("Start the agent daemon (registers presence, awaits live requests)")
+    .requiredOption("--agent-name <name>", "Agent display name shown to the browser user")
     .option("--bridge <mode>", "Bridge mode: openclaw|none")
     .option("--foreground", "Run in foreground (don't fork)")
-    .action(async (opts: { bridge?: string; foreground?: boolean }) => {
+    .action(async (opts: { agentName: string; bridge?: string; foreground?: boolean }) => {
       await ensureNodeDatachannelAvailable();
       writeLatestCliVersion(CLI_VERSION);
       const runtimeConfig = getConfig();
@@ -74,6 +75,7 @@ function registerStartCommand(program: Command): void {
             socketPath,
             infoPath,
             bridgeMode,
+            agentName: opts.agentName,
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -94,6 +96,7 @@ function registerStartCommand(program: Command): void {
           PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
           PUBBLUE_DAEMON_SOCKET: socketPath,
           PUBBLUE_DAEMON_INFO: infoPath,
+          PUBBLUE_DAEMON_AGENT_NAME: opts.agentName,
           PUBBLUE_CLI_VERSION: CLI_VERSION,
           PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
         },

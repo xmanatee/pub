@@ -39,9 +39,10 @@ describe("CLI command surface", () => {
     expect(optionFlags).toContain("--private");
   });
 
-  it("keeps start bridge/foreground options", () => {
+  it("keeps start agent-name/bridge/foreground options", () => {
     const startCommand = requireCommand("start");
     const optionFlags = startCommand.options.map((option) => option.long);
+    expect(optionFlags).toContain("--agent-name");
     expect(optionFlags).toContain("--bridge");
     expect(optionFlags).toContain("--foreground");
   });
