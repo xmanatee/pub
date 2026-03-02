@@ -5,36 +5,22 @@
 
 import { PubApiClient } from "./lib/api.js";
 import { startDaemon } from "./lib/tunnel-daemon.js";
-import type { BridgeDaemonConfig } from "./lib/tunnel-daemon-shared.js";
+import type { BridgeMode } from "./lib/tunnel-daemon-shared.js";
 
 const baseUrl = process.env.PUBBLUE_DAEMON_BASE_URL;
 const apiKey = process.env.PUBBLUE_DAEMON_API_KEY;
 const socketPath = process.env.PUBBLUE_DAEMON_SOCKET;
 const infoPath = process.env.PUBBLUE_DAEMON_INFO;
 const cliVersion = process.env.PUBBLUE_CLI_VERSION;
+const bridgeMode = (process.env.PUBBLUE_DAEMON_BRIDGE_MODE || "openclaw") as BridgeMode;
 
 if (!baseUrl || !apiKey || !socketPath || !infoPath) {
   console.error("Missing required env vars for daemon.");
   process.exit(1);
 }
 
-const bridgeScript = process.env.PUBBLUE_DAEMON_BRIDGE_SCRIPT;
-const bridgeInfoPath = process.env.PUBBLUE_DAEMON_BRIDGE_INFO;
-const bridgeLogPath = process.env.PUBBLUE_DAEMON_BRIDGE_LOG;
-if (!bridgeScript || !bridgeInfoPath || !bridgeLogPath) {
-  console.error("Missing required bridge env vars for daemon (bridge is mandatory).");
-  process.exit(1);
-}
-const bridge: BridgeDaemonConfig = {
-  bridgeMode: "openclaw",
-  bridgeScript,
-  bridgeInfoPath,
-  bridgeLogPath,
-  bridgeProcessEnv: { ...process.env },
-};
-
 const apiClient = new PubApiClient(baseUrl, apiKey);
-void startDaemon({ apiClient, socketPath, infoPath, cliVersion, bridge }).catch((error) => {
+void startDaemon({ apiClient, socketPath, infoPath, cliVersion, bridgeMode }).catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`Daemon failed to start: ${message}`);
   process.exit(1);

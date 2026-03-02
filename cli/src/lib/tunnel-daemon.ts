@@ -5,16 +5,11 @@
  * live requests (browser offers), and responds with answers.
  */
 
-import { fork } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import {
-  buildBridgeForkStdio,
-  latestCliVersionPath,
-  readLatestCliVersion,
-} from "../commands/tunnel-helpers.js";
+import { latestCliVersionPath, readLatestCliVersion } from "../commands/tunnel-helpers.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -27,24 +22,22 @@ import {
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
 import { PubApiError } from "./api.js";
+import { createOpenClawBridgeRunner, type OpenClawBridgeRunner } from "./tunnel-bridge-openclaw.js";
 import { generateAnswer } from "./tunnel-daemon-answer.js";
 import {
-  ANSWER_TIMEOUT_MS,
-  BRIDGE_CHECK_INTERVAL_MS,
-  BRIDGE_MAX_RAPID_RESTARTS,
-  BRIDGE_RAPID_RESTART_WINDOW_MS,
   type ChannelBuffer,
   type DaemonConfig,
   getSignalPollDelayMs,
   getStickyCanvasHtml,
   getTunnelWriteReadinessError,
-  HEARTBEAT_INTERVAL_MS,
   LOCAL_CANDIDATE_FLUSH_MS,
+  OFFER_TIMEOUT_MS,
   type StickyOutboundMessage,
   shouldRecoverForBrowserOfferChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./tunnel-daemon-shared.js";
 
+const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const PERSIST_TIMEOUT_MS = 3_000;
 
@@ -86,6 +79,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_TUNNEL_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
+  let bridgeRunner: OpenClawBridgeRunner | null = null;
 
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
@@ -198,6 +192,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           queueAck(msg.id, name);
         }
         buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
+        bridgeRunner?.enqueue([{ channel: name, msg }]);
         return;
       }
 
@@ -220,6 +215,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         queueAck(binMsg.id, name);
       }
       buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
+      bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
     });
   }
 
@@ -458,14 +454,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     try {
       await persistCanvasContent();
-      await stopBridgeProcess();
+      await stopBridge();
       closeCurrentPeer();
       createPeer();
       resetNegotiationState();
 
       if (!peer) throw new Error("PeerConnection not initialized");
 
-      const answer = await generateAnswer(peer, browserOffer, ANSWER_TIMEOUT_MS);
+      const answer = await generateAnswer(peer, browserOffer, OFFER_TIMEOUT_MS);
       lastAppliedBrowserOffer = browserOffer;
       activeSlug = slug;
 
@@ -625,117 +621,49 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   startHealthCheckTimer();
   scheduleNextPoll(0);
 
-  // -- Bridge liveness monitoring -------------------------------------------
+  // -- In-process bridge runner ---------------------------------------------
 
-  let bridgeCheckTimer: ReturnType<typeof setInterval> | null = null;
-  const bridgeRestartTimestamps: number[] = [];
-
-  function pruneBridgeRestartTimestamps(): void {
-    const cutoff = Date.now() - BRIDGE_RAPID_RESTART_WINDOW_MS;
-    while (bridgeRestartTimestamps.length > 0 && bridgeRestartTimestamps[0] < cutoff) {
-      bridgeRestartTimestamps.shift();
-    }
-  }
-
-  function restartBridge(): void {
-    if (stopped || !config.bridge || !activeSlug) return;
-    const { bridgeMode, bridgeScript, bridgeInfoPath, bridgeLogPath, bridgeProcessEnv } =
-      config.bridge;
-
-    pruneBridgeRestartTimestamps();
-    if (bridgeRestartTimestamps.length >= BRIDGE_MAX_RAPID_RESTARTS) {
-      markError(
-        `bridge crashed ${BRIDGE_MAX_RAPID_RESTARTS} times within ${BRIDGE_RAPID_RESTART_WINDOW_MS / 1000}s; giving up`,
-      );
-      return;
-    }
-
-    bridgeRestartTimestamps.push(Date.now());
-    debugLog("bridge process is dead; restarting");
-
-    try {
-      const logFd = fs.openSync(bridgeLogPath, "a");
-      const child = fork(bridgeScript, [], {
-        detached: true,
-        stdio: buildBridgeForkStdio(logFd),
-        env: {
-          ...bridgeProcessEnv,
-          PUBBLUE_BRIDGE_MODE: bridgeMode,
-          PUBBLUE_BRIDGE_SLUG: activeSlug,
-          PUBBLUE_BRIDGE_SOCKET: socketPath,
-          PUBBLUE_BRIDGE_INFO: bridgeInfoPath,
-        },
-      });
-      fs.closeSync(logFd);
-      if (child.connected) child.disconnect();
-      child.unref();
-    } catch (error) {
-      markError("failed to restart bridge process", error);
-    }
-  }
-
-  function isBridgeAlive(): boolean {
-    if (!config.bridge) return false;
-    const infoPath = config.bridge.bridgeInfoPath;
-    if (!fs.existsSync(infoPath)) return false;
-    try {
-      const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as { pid: number };
-      process.kill(info.pid, 0);
-      return true;
-    } catch {
+  function sendOnChannel(channel: string, msg: BridgeMessage): void {
+    if (stopped || !connected) return;
+    let targetDc = channels.get(channel);
+    if (!targetDc) {
       try {
-        fs.unlinkSync(infoPath);
-      } catch {
-        // stale bridge pid cleanup failed
-      }
-      return false;
-    }
-  }
-
-  function checkBridgeLiveness(): void {
-    if (stopped || !config.bridge || !activeSlug) return;
-    if (!isBridgeAlive()) restartBridge();
-  }
-
-  function startBridgeCheckTimer(): void {
-    if (!config.bridge) return;
-    bridgeCheckTimer = setInterval(checkBridgeLiveness, BRIDGE_CHECK_INTERVAL_MS);
-  }
-
-  function clearBridgeCheckTimer(): void {
-    if (bridgeCheckTimer) {
-      clearInterval(bridgeCheckTimer);
-      bridgeCheckTimer = null;
-    }
-  }
-
-  async function stopBridgeProcess(): Promise<void> {
-    if (!config.bridge) return;
-    const infoPath = config.bridge.bridgeInfoPath;
-    if (!fs.existsSync(infoPath)) return;
-    let pid: number;
-    try {
-      const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as { pid: number };
-      if (!Number.isFinite(info.pid)) return;
-      pid = info.pid;
-      process.kill(pid, 0);
-      process.kill(pid, "SIGTERM");
-    } catch {
-      return;
-    }
-    const deadline = Date.now() + 6_000;
-    while (Date.now() < deadline) {
-      try {
-        process.kill(pid, 0);
+        targetDc = openDataChannel(channel);
       } catch {
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, 120));
     }
-    debugLog(`bridge ${pid}: did not exit after SIGTERM`);
+    try {
+      if (targetDc.isOpen()) {
+        targetDc.sendMessage(encodeMessage(msg));
+      }
+    } catch (error) {
+      debugLog(`bridge sendOnChannel failed for ${channel}`, error);
+    }
   }
 
-  startBridgeCheckTimer();
+  async function startBridge(): Promise<void> {
+    if (stopped || config.bridgeMode !== "openclaw" || !activeSlug) return;
+    await stopBridge();
+    try {
+      bridgeRunner = await createOpenClawBridgeRunner({
+        slug: activeSlug,
+        sendMessage: sendOnChannel,
+        debugLog,
+      });
+    } catch (error) {
+      markError("bridge runner failed to start", error);
+    }
+  }
+
+  async function stopBridge(): Promise<void> {
+    if (bridgeRunner) {
+      await bridgeRunner.stop();
+      bridgeRunner = null;
+    }
+  }
+
+  void startBridge();
 
   // -- Canvas persistence ---------------------------------------------------
 
@@ -767,7 +695,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearRecoveryTimer();
     clearHealthCheckTimer();
     clearHeartbeatTimer();
-    clearBridgeCheckTimer();
 
     try {
       await apiClient.goOffline();
@@ -776,7 +703,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
 
     await persistCanvasContent();
-    await stopBridgeProcess();
+    await stopBridge();
     closeCurrentPeer();
     ipcServer.close();
 
@@ -900,6 +827,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           channels: [...channels.keys()],
           bufferedMessages: buffer.messages.length,
           lastError,
+          bridge: bridgeRunner?.status() ?? null,
         };
       }
 

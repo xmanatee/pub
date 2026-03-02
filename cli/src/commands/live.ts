@@ -14,8 +14,6 @@ import { CLI_VERSION } from "../lib/version.js";
 import {
   agentInfoPath,
   agentLogPath,
-  bridgeInfoPath,
-  bridgeLogPath,
   buildBridgeProcessEnv,
   buildDaemonForkStdio,
   createApiClient,
@@ -23,11 +21,9 @@ import {
   formatApiError,
   getFollowReadDelayMs,
   getMimeType,
-  isBridgeRunning,
   isDaemonRunning,
   messageContainsPong,
   parsePositiveIntegerOption,
-  readBridgeProcessInfo,
   readLogTail,
   resolveActiveSlug,
   resolveBridgeMode,
@@ -58,7 +54,7 @@ function registerStartCommand(program: Command): void {
       writeLatestCliVersion(CLI_VERSION);
       const runtimeConfig = getConfig();
       const apiClient = createApiClient(runtimeConfig);
-      resolveBridgeMode(opts);
+      const bridgeMode = resolveBridgeMode(opts);
       const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
       const socketPath = getAgentSocketPath();
@@ -81,6 +77,7 @@ function registerStartCommand(program: Command): void {
             apiClient,
             socketPath,
             infoPath,
+            bridgeMode,
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -91,7 +88,6 @@ function registerStartCommand(program: Command): void {
 
       const { fork } = await import("node:child_process");
       const daemonScript = path.join(import.meta.dirname, "tunnel-daemon-entry.js");
-      const bridgeScript = path.join(import.meta.dirname, "tunnel-bridge-entry.js");
       const daemonLogFd = fs.openSync(logPath, "a");
       const child = fork(daemonScript, [], {
         detached: true,
@@ -103,9 +99,7 @@ function registerStartCommand(program: Command): void {
           PUBBLUE_DAEMON_SOCKET: socketPath,
           PUBBLUE_DAEMON_INFO: infoPath,
           PUBBLUE_CLI_VERSION: CLI_VERSION,
-          PUBBLUE_DAEMON_BRIDGE_SCRIPT: bridgeScript,
-          PUBBLUE_DAEMON_BRIDGE_INFO: bridgeInfoPath("agent"),
-          PUBBLUE_DAEMON_BRIDGE_LOG: bridgeLogPath("agent"),
+          PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
         },
       });
       fs.closeSync(daemonLogFd);
@@ -137,6 +131,7 @@ function registerStartCommand(program: Command): void {
 
       console.log("Agent daemon started. Waiting for browser to initiate live.");
       console.log(`Daemon log: ${logPath}`);
+      console.log(`Bridge mode: ${bridgeMode}`);
     });
 }
 
@@ -191,28 +186,30 @@ function registerStatusCommand(program: Command): void {
       if (fs.existsSync(logPath)) {
         console.log(`  Log: ${logPath}`);
       }
-      {
-        const bridgeInfo = readBridgeProcessInfo("agent");
-        if (bridgeInfo) {
-          const bridgeRunning = isBridgeRunning("agent");
-          const bridgeState = bridgeInfo.status || (bridgeRunning ? "running" : "stopped");
-          console.log(`  Bridge: ${bridgeInfo.mode} (${bridgeState})`);
-          if (bridgeInfo.sessionId) {
-            console.log(`  Bridge session: ${bridgeInfo.sessionId}`);
-          }
-          if (bridgeInfo.sessionSource) {
-            console.log(`  Bridge session source: ${bridgeInfo.sessionSource}`);
-          }
-          if (bridgeInfo.sessionKey) {
-            console.log(`  Bridge session key: ${bridgeInfo.sessionKey}`);
-          }
-          if (bridgeInfo.lastError) {
-            console.log(`  Bridge last error: ${bridgeInfo.lastError}`);
-          }
+      const bridge = response.bridge as {
+        running?: boolean;
+        sessionId?: string;
+        sessionKey?: string;
+        sessionSource?: string;
+        lastError?: string;
+        forwardedMessages?: number;
+      } | null;
+      if (bridge) {
+        console.log(`  Bridge: openclaw (${bridge.running ? "running" : "stopped"})`);
+        if (bridge.sessionId) {
+          console.log(`  Bridge session: ${bridge.sessionId}`);
         }
-        const bridgeLog = bridgeLogPath("agent");
-        if (fs.existsSync(bridgeLog)) {
-          console.log(`  Bridge log: ${bridgeLog}`);
+        if (bridge.sessionSource) {
+          console.log(`  Bridge session source: ${bridge.sessionSource}`);
+        }
+        if (bridge.sessionKey) {
+          console.log(`  Bridge session key: ${bridge.sessionKey}`);
+        }
+        if (bridge.forwardedMessages !== undefined) {
+          console.log(`  Bridge forwarded: ${bridge.forwardedMessages} messages`);
+        }
+        if (bridge.lastError) {
+          console.log(`  Bridge last error: ${bridge.lastError}`);
         }
       }
     });

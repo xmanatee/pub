@@ -1,12 +1,12 @@
 import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { PubApiClient, PubApiError } from "../lib/api.js";
+import { type Pub, PubApiClient, PubApiError } from "../lib/api.js";
 import { failCli } from "../lib/cli-error.js";
 import type { BridgeConfig, Config } from "../lib/config.js";
 import { getConfig } from "../lib/config.js";
-import type { BridgeSessionSource } from "../lib/tunnel-bridge-types.js";
-import { getAgentSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
+import type { BridgeMode } from "../lib/tunnel-daemon-shared.js";
+import { ipcCall } from "../lib/tunnel-ipc.js";
 
 export const TEXT_FILE_EXTENSIONS = new Set([
   ".txt",
@@ -58,26 +58,21 @@ export function getMimeType(filePath: string): string {
   return mimeByExt[ext] || "application/octet-stream";
 }
 
-export interface BridgeProcessInfo {
-  lastError?: string;
-  pid: number;
-  slug: string;
-  mode: string;
-  sessionId?: string;
-  sessionKey?: string;
-  sessionSource?: BridgeSessionSource;
-  startedAt: number;
-  status?: string;
-}
-
-interface DaemonProcessInfo {
+export interface DaemonProcessInfo {
   cliVersion?: string;
   pid: number;
+  slug: string;
   socketPath?: string;
   startedAt?: number;
 }
 
-export type BridgeMode = "openclaw" | "none";
+export interface DaemonStartTarget {
+  createdNew: boolean;
+  expiresAt: number;
+  mode: "created" | "existing";
+  slug: string;
+  url: string;
+}
 
 export function liveInfoDir(): string {
   const dir = path.join(
@@ -90,20 +85,12 @@ export function liveInfoDir(): string {
   return dir;
 }
 
-export function agentInfoPath(): string {
-  return path.join(liveInfoDir(), "agent.json");
+export function liveInfoPath(slug: string): string {
+  return path.join(liveInfoDir(), `${slug}.json`);
 }
 
-export function agentLogPath(): string {
-  return path.join(liveInfoDir(), "agent.log");
-}
-
-export function bridgeInfoPath(slug: string): string {
-  return path.join(liveInfoDir(), `${slug}.bridge.json`);
-}
-
-export function bridgeLogPath(slug: string): string {
-  return path.join(liveInfoDir(), `${slug}.bridge.log`);
+export function liveLogPath(slug: string): string {
+  return path.join(liveInfoDir(), `${slug}.log`);
 }
 
 export function createApiClient(configOverride?: Config): PubApiClient {
@@ -161,12 +148,12 @@ export async function ensureNodeDatachannelAvailable(): Promise<void> {
   }
 }
 
-export function isDaemonRunning(): boolean {
-  return readDaemonProcessInfo() !== null;
+export function isDaemonRunning(slug: string): boolean {
+  return readDaemonProcessInfo(slug) !== null;
 }
 
-export function readDaemonProcessInfo(): DaemonProcessInfo | null {
-  const infoPath = agentInfoPath();
+export function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
+  const infoPath = liveInfoPath(slug);
   if (!fs.existsSync(infoPath)) return null;
 
   try {
@@ -182,33 +169,6 @@ export function readDaemonProcessInfo(): DaemonProcessInfo | null {
     }
     return null;
   }
-}
-
-export function readBridgeProcessInfo(slug: string): BridgeProcessInfo | null {
-  const infoPath = bridgeInfoPath(slug);
-  if (!fs.existsSync(infoPath)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(infoPath, "utf-8")) as BridgeProcessInfo;
-  } catch {
-    return null;
-  }
-}
-
-export function isBridgeRunning(slug: string): boolean {
-  const infoPath = bridgeInfoPath(slug);
-  if (!fs.existsSync(infoPath)) return false;
-  try {
-    const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as BridgeProcessInfo;
-    process.kill(info.pid, 0);
-    return true;
-  } catch {
-    try {
-      fs.unlinkSync(infoPath);
-    } catch {
-      // stale bridge pid cleanup failed
-    }
-  }
-  return false;
 }
 
 export function latestCliVersionPath(): string {
@@ -243,7 +203,7 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+export async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     if (!isProcessAlive(pid)) return true;
@@ -252,50 +212,70 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   return !isProcessAlive(pid);
 }
 
-export async function stopBridge(slug: string): Promise<string | null> {
-  const bridge = readBridgeProcessInfo(slug);
-  if (!bridge || !Number.isFinite(bridge.pid)) return null;
-  if (!isProcessAlive(bridge.pid)) return null;
+async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null> {
+  const pid = info.pid;
+  if (!Number.isFinite(pid) || !isProcessAlive(pid)) return null;
 
-  try {
-    process.kill(bridge.pid, "SIGTERM");
-  } catch (error) {
-    return `bridge ${bridge.pid}: failed to send SIGTERM (${error instanceof Error ? error.message : String(error)})`;
-  }
-
-  const stopped = await waitForProcessExit(bridge.pid, 6_000);
-  if (!stopped) return `bridge ${bridge.pid}: did not exit after SIGTERM`;
-  return null;
-}
-
-export async function stopRunningDaemon(): Promise<void> {
-  const info = readDaemonProcessInfo();
-  if (!info) return;
-
-  const socketPath = info.socketPath || getAgentSocketPath();
-  try {
-    await ipcCall(socketPath, { method: "close", params: {} });
-  } catch {
+  const socketPath = info.socketPath;
+  if (socketPath) {
     try {
-      process.kill(info.pid, "SIGTERM");
-    } catch {
-      // process already dead
+      await ipcCall(socketPath, { method: "close", params: {} });
+    } catch (error) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch (killError) {
+        return `daemon ${pid}: IPC close failed (${error instanceof Error ? error.message : String(error)}); SIGTERM failed (${killError instanceof Error ? killError.message : String(killError)})`;
+      }
+    }
+  } else {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch (error) {
+      return `daemon ${pid}: no socketPath and SIGTERM failed (${error instanceof Error ? error.message : String(error)})`;
     }
   }
 
-  const stopped = await waitForProcessExit(info.pid, 8_000);
-  if (!stopped) {
-    throw new Error(`Daemon ${info.pid} did not exit in time.`);
-  }
+  const stopped = await waitForProcessExit(pid, 8_000);
+  if (!stopped) return `daemon ${pid}: did not exit after stop request`;
+  return null;
 }
 
-export function buildBridgeForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
-  return ["ignore", logFd, logFd, "ipc"];
+export async function stopOtherDaemons(exceptSlug?: string): Promise<void> {
+  const dir = liveInfoDir();
+  const entries = fs.readdirSync(dir).filter((name) => name.endsWith(".json"));
+  const failures: string[] = [];
+
+  for (const entry of entries) {
+    const slug = entry.replace(/\.json$/, "");
+    if (exceptSlug && slug === exceptSlug) continue;
+
+    const info = readDaemonProcessInfo(slug);
+    if (!info) continue;
+    const daemonError = await stopDaemonForLive(info);
+    if (daemonError) failures.push(`[${slug}] ${daemonError}`);
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      [
+        "Critical: failed to stop previous live daemon/bridge processes.",
+        "Starting a new daemon now would leak resources and increase bandwidth usage.",
+        ...failures,
+      ].join("\n"),
+    );
+  }
 }
 
 export function getFollowReadDelayMs(disconnected: boolean, consecutiveFailures: number): number {
   if (!disconnected) return 1_000;
   return Math.min(5_000, 1_000 * 2 ** Math.min(consecutiveFailures, 3));
+}
+
+export function resolveSlugSelection(
+  slugArg: string | undefined,
+  slugOpt: string | undefined,
+): string | undefined {
+  return slugOpt || slugArg;
 }
 
 export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
@@ -319,11 +299,7 @@ export function parseBridgeMode(raw: string): BridgeMode {
 }
 
 export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {
-  const bridgeMode = parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
-  if (bridgeMode === "none" && !opts.foreground) {
-    throw new Error("--bridge none is only valid with --foreground.");
-  }
-  return bridgeMode;
+  return parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
 }
 
 export function shouldRestartDaemonForCliUpgrade(
@@ -341,6 +317,18 @@ export function messageContainsPong(payload: unknown): boolean {
   const type = (message as { type?: unknown }).type;
   const data = (message as { data?: unknown }).data;
   return type === "text" && typeof data === "string" && data.trim().toLowerCase() === "pong";
+}
+
+export function getPublicUrl(slug: string): string {
+  const base = process.env.PUBBLUE_PUBLIC_URL || "https://pub.blue";
+  return `${base.replace(/\/$/, "")}/p/${slug}`;
+}
+
+export function pickReusableLive(pubs: Pub[], nowMs = Date.now()): Pub | null {
+  const active = pubs
+    .filter((p) => p.live?.status === "active" && p.live.expiresAt > nowMs)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  return active[0] ?? null;
 }
 
 export function readLogTail(logPath: string, maxChars = 4_000): string | null {
@@ -364,27 +352,41 @@ export function formatApiError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function resolveActiveSlug(): Promise<string> {
-  const socketPath = getAgentSocketPath();
+export async function cleanupLiveOnStartFailure(
+  apiClient: PubApiClient,
+  target: DaemonStartTarget,
+): Promise<void> {
+  if (!target.createdNew) return;
   try {
-    const response = await ipcCall(socketPath, { method: "active-slug", params: {} });
-    if (response.ok && typeof response.slug === "string" && response.slug.length > 0) {
-      return response.slug as string;
-    }
-  } catch {
-    failCli("Agent daemon is not running. Run `pubblue start` first.");
+    await apiClient.closeLive(target.slug);
+  } catch (closeError) {
+    console.error(`Failed to clean up live for ${target.slug}: ${formatApiError(closeError)}`);
   }
-  failCli("Agent daemon is running but has no active live session.");
 }
 
-interface WaitForDaemonReadyParams {
+export async function resolveActiveSlug(): Promise<string> {
+  const dir = liveInfoDir();
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  const active: string[] = [];
+  for (const f of files) {
+    const slug = f.replace(".json", "");
+    if (isDaemonRunning(slug)) active.push(slug);
+  }
+  if (active.length === 0) {
+    failCli("No active lives. Run `pubblue open <slug>` first.");
+  }
+  if (active.length === 1) return active[0];
+  failCli(`Multiple active lives: ${active.join(", ")}. Specify one with --slug.`);
+}
+
+export interface WaitForDaemonReadyParams {
   child: ChildProcess;
   infoPath: string;
   socketPath: string;
   timeoutMs: number;
 }
 
-interface WaitForDaemonReadyResult {
+export interface WaitForDaemonReadyResult {
   ok: boolean;
   reason?: string;
 }
@@ -438,4 +440,32 @@ export function waitForDaemonReady({
       done({ ok: false, reason });
     }, timeoutMs);
   });
+}
+
+export async function waitForAgentOffer(params: {
+  apiClient: PubApiClient;
+  slug: string;
+  timeoutMs: number;
+}): Promise<WaitForDaemonReadyResult> {
+  const startedAt = Date.now();
+  let lastError: string | null = null;
+
+  while (Date.now() - startedAt < params.timeoutMs) {
+    try {
+      const session = await params.apiClient.getLive(params.slug);
+      if (typeof session.agentOffer === "string" && session.agentOffer.length > 0) {
+        return { ok: true };
+      }
+    } catch (error) {
+      lastError = formatApiError(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  return {
+    ok: false,
+    reason: lastError
+      ? `agent offer was not published in time (last API error: ${lastError})`
+      : "agent offer was not published in time",
+  };
 }

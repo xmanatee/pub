@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { CLI_VERSION } from "../lib/version.js";
 import { SUPPORTED_KEYS } from "./configure.js";
 import {
-  buildBridgeForkStdio,
   buildDaemonForkStdio,
   getFollowReadDelayMs,
   messageContainsPong,
@@ -35,12 +34,6 @@ describe("getFollowReadDelayMs", () => {
 describe("buildDaemonForkStdio", () => {
   it("includes required IPC channel for fork", () => {
     expect(buildDaemonForkStdio(7)).toEqual(["ignore", 7, 7, "ipc"]);
-  });
-});
-
-describe("buildBridgeForkStdio", () => {
-  it("includes required IPC channel for fork", () => {
-    expect(buildBridgeForkStdio(8)).toEqual(["ignore", 8, 8, "ipc"]);
   });
 });
 
@@ -95,13 +88,9 @@ describe("resolveBridgeMode", () => {
     expect(resolveBridgeMode({ bridge: "none", foreground: true })).toBe("none");
   });
 
-  it("rejects --bridge none without --foreground", () => {
-    expect(() => resolveBridgeMode({ bridge: "none" })).toThrow(
-      "--bridge none is only valid with --foreground",
-    );
-    expect(() => resolveBridgeMode({ bridge: "none", foreground: false })).toThrow(
-      "--bridge none is only valid with --foreground",
-    );
+  it("allows --bridge none in background mode", () => {
+    expect(resolveBridgeMode({ bridge: "none" })).toBe("none");
+    expect(resolveBridgeMode({ bridge: "none", foreground: false })).toBe("none");
   });
 });
 
