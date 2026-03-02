@@ -530,7 +530,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const info = JSON.parse(raw) as { pid: number };
       process.kill(info.pid, 0);
       stale = false;
-    } catch {}
+    } catch (error) {
+      debugLog("stale socket check failed (assuming stale)", error);
+    }
 
     if (stale) {
       try {

@@ -105,6 +105,7 @@ pubblue write -c canvas -f /tmp/view.html
 4. Read incoming (manual/debug mode):
 ```bash
 pubblue read --follow -c chat
+pubblue read --all              # read from all channels
 ```
 
 5. Stop the daemon:
@@ -117,6 +118,8 @@ pubblue stop
 pubblue doctor
 # optional handshake:
 pubblue doctor --wait-pong --timeout 30
+# skip specific channels:
+pubblue doctor --skip-chat --skip-canvas
 ```
 
 Important:

@@ -240,7 +240,7 @@ export async function stopOtherDaemons(): Promise<void> {
   if (failures.length > 0) {
     throw new Error(
       [
-        "Critical: failed to stop previous live daemon/bridge processes.",
+        "Critical: failed to stop previous live daemon processes.",
         "Starting a new daemon now would leak resources and increase bandwidth usage.",
         ...failures,
       ].join("\n"),

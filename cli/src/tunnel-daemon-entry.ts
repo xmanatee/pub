@@ -1,8 +1,3 @@
-/**
- * Daemon entry point — forked by `pubblue start`.
- * Reads config from env vars and starts the daemon.
- */
-
 import { PubApiClient } from "./lib/api.js";
 import { startDaemon } from "./lib/tunnel-daemon.js";
 import type { BridgeMode } from "./lib/tunnel-daemon-shared.js";

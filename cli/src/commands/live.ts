@@ -48,7 +48,7 @@ function registerStartCommand(program: Command): void {
     .command("start")
     .description("Start the agent daemon (registers presence, awaits live requests)")
     .option("--bridge <mode>", "Bridge mode: openclaw|none")
-    .option("--foreground", "Run in foreground (don't fork, no managed bridge)")
+    .option("--foreground", "Run in foreground (don't fork)")
     .action(async (opts: { bridge?: string; foreground?: boolean }) => {
       await ensureNodeDatachannelAvailable();
       writeLatestCliVersion(CLI_VERSION);

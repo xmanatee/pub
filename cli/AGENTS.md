@@ -11,7 +11,7 @@
 - Per-user daemon (not per-slug): `pubblue start` registers agent presence, daemon polls for incoming live requests
 - Browser-initiated live: browser creates WebRTC offer, daemon creates answer
 - Socket path: `/tmp/pubblue-agent.sock` (fixed, not slug-dependent)
-- Commands that need the active slug (`write`, `read`, `channels`, `doctor`) resolve it via IPC to the daemon
+- Commands that need the active slug (`write`, `read`, `doctor`) resolve it via IPC to the daemon; `channels` queries daemon state directly
 
 ## Reliability
 

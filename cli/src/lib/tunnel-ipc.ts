@@ -61,7 +61,7 @@ export async function ipcCall(socketPath: string, request: IpcRequest): Promise<
         (err as NodeJS.ErrnoException).code === "ECONNREFUSED" ||
         (err as NodeJS.ErrnoException).code === "ENOENT"
       ) {
-        finish(() => reject(new Error("Daemon not running. Is the tunnel still active?")));
+        finish(() => reject(new Error("Daemon not running.")));
       } else {
         finish(() => reject(err));
       }

@@ -368,7 +368,9 @@ function resolveOpenClawPath(): string {
     if (which.length > 0 && existsSync(which)) {
       return which;
     }
-  } catch {}
+  } catch {
+    // `which` not found or openclaw not in PATH — fall through to discovery paths
+  }
 
   for (const candidate of OPENCLAW_DISCOVERY_PATHS) {
     if (existsSync(candidate)) return candidate;

@@ -29,7 +29,6 @@ export function initPostHog() {
       }
     },
 
-    // Privacy: mask all inputs by default
     mask_all_text: false,
     mask_all_element_attributes: false,
 
