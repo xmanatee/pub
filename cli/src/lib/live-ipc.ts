@@ -1,5 +1,5 @@
 /**
- * IPC client — connects to the tunnel daemon's Unix socket.
+ * IPC client — connects to the agent daemon's Unix socket.
  *
  * Sends JSON requests, receives JSON responses.
  */
