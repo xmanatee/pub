@@ -45,5 +45,4 @@ describe("CLI command surface", () => {
     expect(optionFlags).toContain("--bridge");
     expect(optionFlags).toContain("--foreground");
   });
-
 });

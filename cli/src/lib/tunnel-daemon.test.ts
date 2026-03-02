@@ -105,9 +105,7 @@ describe("getSignalPollDelayMs", () => {
 
   it("ignores non-positive retry-after values", () => {
     expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(5_000);
-    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(
-      5_000,
-    );
+    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(5_000);
   });
 });
 

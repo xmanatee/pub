@@ -66,14 +66,6 @@ export interface DaemonProcessInfo {
   startedAt?: number;
 }
 
-export interface DaemonStartTarget {
-  createdNew: boolean;
-  expiresAt: number;
-  mode: "created" | "existing";
-  slug: string;
-  url: string;
-}
-
 export function liveInfoDir(): string {
   const dir = path.join(
     process.env.HOME || process.env.USERPROFILE || "/tmp",
@@ -352,18 +344,6 @@ export function formatApiError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function cleanupLiveOnStartFailure(
-  apiClient: PubApiClient,
-  target: DaemonStartTarget,
-): Promise<void> {
-  if (!target.createdNew) return;
-  try {
-    await apiClient.closeLive(target.slug);
-  } catch (closeError) {
-    console.error(`Failed to clean up live for ${target.slug}: ${formatApiError(closeError)}`);
-  }
-}
-
 export async function resolveActiveSlug(): Promise<string> {
   const dir = liveInfoDir();
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
@@ -440,32 +420,4 @@ export function waitForDaemonReady({
       done({ ok: false, reason });
     }, timeoutMs);
   });
-}
-
-export async function waitForAgentOffer(params: {
-  apiClient: PubApiClient;
-  slug: string;
-  timeoutMs: number;
-}): Promise<WaitForDaemonReadyResult> {
-  const startedAt = Date.now();
-  let lastError: string | null = null;
-
-  while (Date.now() - startedAt < params.timeoutMs) {
-    try {
-      const session = await params.apiClient.getLive(params.slug);
-      if (typeof session.agentOffer === "string" && session.agentOffer.length > 0) {
-        return { ok: true };
-      }
-    } catch (error) {
-      lastError = formatApiError(error);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  }
-
-  return {
-    ok: false,
-    reason: lastError
-      ? `agent offer was not published in time (last API error: ${lastError})`
-      : "agent offer was not published in time",
-  };
 }

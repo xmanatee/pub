@@ -12,8 +12,6 @@ import { getConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/tunnel-ipc.js";
 import { CLI_VERSION } from "../lib/version.js";
 import {
-  agentInfoPath,
-  agentLogPath,
   buildBridgeProcessEnv,
   buildDaemonForkStdio,
   createApiClient,
@@ -22,12 +20,14 @@ import {
   getFollowReadDelayMs,
   getMimeType,
   isDaemonRunning,
+  liveInfoPath,
+  liveLogPath,
   messageContainsPong,
   parsePositiveIntegerOption,
   readLogTail,
   resolveActiveSlug,
   resolveBridgeMode,
-  stopRunningDaemon,
+  stopOtherDaemons,
   TEXT_FILE_EXTENSIONS,
   waitForDaemonReady,
   writeLatestCliVersion,
@@ -58,11 +58,11 @@ function registerStartCommand(program: Command): void {
       const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
       const socketPath = getAgentSocketPath();
-      const infoPath = agentInfoPath();
-      const logPath = agentLogPath();
+      const infoPath = liveInfoPath("agent");
+      const logPath = liveLogPath("agent");
 
       try {
-        await stopRunningDaemon();
+        await stopOtherDaemons();
       } catch (error) {
         failCli(error instanceof Error ? error.message : String(error));
       }
@@ -140,13 +140,13 @@ function registerStopCommand(program: Command): void {
     .command("stop")
     .description("Stop the agent daemon (deregisters presence, closes active live)")
     .action(async () => {
-      if (!isDaemonRunning()) {
+      if (!isDaemonRunning("agent")) {
         console.log("Agent daemon is not running.");
         return;
       }
 
       try {
-        await stopRunningDaemon();
+        await stopOtherDaemons();
       } catch (error) {
         failCli(error instanceof Error ? error.message : String(error));
       }
@@ -182,7 +182,7 @@ function registerStatusCommand(program: Command): void {
       if (typeof response.lastError === "string" && response.lastError.length > 0) {
         console.log(`  Last error: ${response.lastError}`);
       }
-      const logPath = agentLogPath();
+      const logPath = liveLogPath("agent");
       if (fs.existsSync(logPath)) {
         console.log(`  Log: ${logPath}`);
       }
