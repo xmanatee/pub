@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for publishing content and going live with interactive WebRTC connections, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), a live interactive mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for publishing content and going live with live WebRTC connections, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -31,7 +31,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; paginated pubs (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
   - `explore.tsx` — public discovery feed; paginated list of all public pubs
-  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing AND interactive live mode; auth-aware for private pubs; "Go Live" toggle when live is active
+  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing AND live mode; auth-aware for private pubs; "Go Live" toggle when live is active
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
@@ -78,7 +78,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 
 ### Content Serving
-- **`/p/:slug`** — SPA route → unified pub page (content + interactive mode toggle), auth-aware
+- **`/p/:slug`** — SPA route → unified pub page (content + live mode toggle), auth-aware
 - **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** with OG meta tags and view tracking
 - **`/og/:slug`** — Dynamic SVG Open Graph image for social previews
 - **`/rss/:userId`** — RSS 2.0 feed of user's public pubs

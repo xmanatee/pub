@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   showDeliveryStatus: "pubblue:live:show-delivery-status",
   animationStyle: "pubblue:live:animation-style",
   voiceModeEnabled: "pubblue:live:voice-mode-enabled",
+  micGranted: "pubblue:live:mic-granted",
 } as const;
 
 function readStoredBoolean(key: string, fallback: boolean): boolean {
@@ -35,6 +36,9 @@ export function useLivePreferences() {
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.voiceModeEnabled, false),
   );
+  const [micGranted, setMicGranted] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.micGranted, false),
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -56,6 +60,11 @@ export function useLivePreferences() {
     window.localStorage.setItem(STORAGE_KEYS.voiceModeEnabled, voiceModeEnabled ? "1" : "0");
   }, [voiceModeEnabled]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_KEYS.micGranted, micGranted ? "1" : "0");
+  }, [micGranted]);
+
   return {
     autoOpenCanvas,
     setAutoOpenCanvas,
@@ -65,5 +74,7 @@ export function useLivePreferences() {
     setAnimationStyle,
     voiceModeEnabled,
     setVoiceModeEnabled,
+    micGranted,
+    setMicGranted,
   };
 }

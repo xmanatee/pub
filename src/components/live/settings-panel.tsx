@@ -48,7 +48,10 @@ export function SettingsPanel({
   voiceModeEnabled,
 }: SettingsPanelProps) {
   return (
-    <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
+    <div
+      className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3"
+      style={{ paddingTop: "calc(var(--safe-top) + 1rem)" }}
+    >
       <Card>
         <CardHeader className="px-4 py-3">
           <CardTitle className="text-sm">Behavior</CardTitle>
@@ -70,7 +73,7 @@ export function SettingsPanel({
             <div>
               <div className="text-sm font-medium">Show delivery status in chat</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Show Sending, Confirming, Delivered, or Not delivered under your messages.
+                Show delivery checkmarks under your messages.
               </div>
             </div>
             <Switch checked={showDeliveryStatus} onCheckedChange={onShowDeliveryStatusChange} />

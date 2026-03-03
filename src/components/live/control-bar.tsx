@@ -27,6 +27,8 @@ interface ControlBarProps {
   onToggleCollapsed: () => void;
   onSendChat: (text: string) => void;
   onSendAudio: (blob: Blob) => void;
+  micGranted: boolean;
+  onMicGranted: (granted: boolean) => void;
   sessionState?: SessionState;
   viewMode: LiveViewMode;
   onChangeView: (view: LiveViewMode) => void;
@@ -54,6 +56,8 @@ export function ControlBar({
   onToggleCollapsed,
   onSendChat,
   onSendAudio,
+  micGranted,
+  onMicGranted,
   sessionState,
   viewMode,
   onChangeView,
@@ -100,7 +104,7 @@ export function ControlBar({
     startRecording,
     startVoiceMode,
     stopVoiceMode,
-  } = useControlBarAudio({ disabled: sendDisabled, bridge, onSendAudio });
+  } = useControlBarAudio({ disabled: sendDisabled, bridge, micGranted, onMicGranted, onSendAudio });
 
   useEffect(() => {
     if (mode !== "idle" && expanded) {

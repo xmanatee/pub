@@ -1,7 +1,7 @@
 {
   "name": "pubblue",
   "version": "0.6.4",
-  "description": "CLI tool for publishing content and running interactive sessions via pub.blue",
+  "description": "CLI tool for publishing content and running live sessions via pub.blue",
   "type": "module",
   "bin": {
     "pubblue": "./dist/index.js"

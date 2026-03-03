@@ -21,7 +21,7 @@ function PubPage() {
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
-  const [interactiveMode, setInteractiveMode] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
 
   useEffect(() => {
     if (pub && !trackedAnalytics.current) {
@@ -42,7 +42,7 @@ function PubPage() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
-    setInteractiveMode(false);
+    setLiveMode(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
   }, [slug]);
@@ -53,26 +53,31 @@ function PubPage() {
 
   if (pub === null) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
-        <h1 className="text-xl font-bold text-foreground">Not found</h1>
-        <p className="text-muted-foreground">This pub doesn't exist or is not accessible.</p>
-        <Link to="/" className="text-primary hover:underline text-sm">
-          Go to pub.blue
-        </Link>
-      </div>
+      <MessageScreen
+        title="Not found"
+        description="This pub doesn't exist or is not accessible."
+        showHomeLink
+      />
     );
   }
 
   const hasContent = Boolean(pub.content && pub.contentType);
 
   if (pub.isOwner) {
-    if (!hasContent || interactiveMode) {
-      return <InteractiveView slug={slug} />;
+    if (liveMode) {
+      return <LiveView slug={slug} />;
     }
     return (
       <>
-        <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />
-        <ControlBarGoLiveMode onGoLive={() => setInteractiveMode(true)} />
+        {hasContent ? (
+          <FullScreenContent content={pub.content!} contentType={pub.contentType!} />
+        ) : (
+          <MessageScreen
+            title="No content yet"
+            description="Publish content or go live to get started."
+          />
+        )}
+        <ControlBarGoLiveMode slug={slug} onGoLive={() => setLiveMode(true)} />
       </>
     );
   }
@@ -80,26 +85,24 @@ function PubPage() {
   // Non-owner — content only
   if (!hasContent) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
-        <h1 className="text-xl font-bold text-foreground">No content</h1>
-        <p className="text-muted-foreground">This pub has no static content.</p>
-        <Link to="/" className="text-primary hover:underline text-sm">
-          Go to pub.blue
-        </Link>
-      </div>
+      <MessageScreen
+        title="No content"
+        description="This pub has no static content."
+        showHomeLink
+      />
     );
   }
 
-  return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
+  return <FullScreenContent content={pub.content!} contentType={pub.contentType!} />;
 }
 
-function InteractiveView({ slug }: { slug: string }) {
+function LiveView({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const model = useLivePageModel(slug);
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
-  // Auto-trigger goLive when entering interactive view
+  // Auto-trigger goLive when entering live view
   useEffect(() => {
     if (model.agentOnline && !model.liveRequested) {
       model.goLive();
@@ -170,6 +173,8 @@ function InteractiveView({ slug }: { slug: string }) {
         onDismissPreview={dismissPreview}
         onTakeover={() => void model.takeoverLive()}
         onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
+        micGranted={model.micGranted}
+        onMicGranted={model.setMicGranted}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
         sessionState={model.sessionState}
@@ -238,6 +243,28 @@ function FullScreenMarkdown({ content }: { content: string }) {
         className="max-w-[800px] mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: html }}
       />
+    </div>
+  );
+}
+
+function MessageScreen({
+  title,
+  description,
+  showHomeLink,
+}: {
+  title: string;
+  description: string;
+  showHomeLink?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
+      <h1 className="text-xl font-bold text-foreground">{title}</h1>
+      <p className="text-muted-foreground">{description}</p>
+      {showHomeLink ? (
+        <Link to="/" className="text-primary hover:underline text-sm">
+          Go to pub.blue
+        </Link>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "./screenshot-utils";
+import {
+  ANIMATED_TOLERANCE,
+  freezeAnimations,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "./screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
@@ -15,28 +20,36 @@ test.describe("Control bar screenshots", () => {
     await setupPage(page);
     const section = page.getByTestId("batch-visual-state");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-visual-state.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-visual-state.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("collapsed mobile", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-collapsed-mobile");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-collapsed-mobile.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-collapsed-mobile.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("collapsed desktop", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-collapsed-desktop");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-collapsed-desktop.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-collapsed-desktop.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("chat preview", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-preview");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-preview.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-preview.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("takeover", async ({ page }) => {
@@ -44,13 +57,17 @@ test.describe("Control bar screenshots", () => {
     await setupPage(page);
     const section = page.getByTestId("batch-takeover");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-takeover.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-takeover.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("multiline input", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-multiline");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-multiline.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-multiline.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 });

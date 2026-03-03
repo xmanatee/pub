@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "./screenshot-utils";
+import {
+  ANIMATED_TOLERANCE,
+  freezeAnimations,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "./screenshot-utils";
 
 const STYLES = ["aurora", "orb", "blob"] as const;
 
@@ -17,7 +22,9 @@ test.describe("Visual animation screenshots", () => {
       const section = page.getByTestId(`batch-visual-${style}`);
       await expect(section).toBeVisible();
       await page.waitForTimeout(2000);
-      await stableScreenshot(section, `${SCREENSHOT_DIR}/visual-${style}.png`);
+      await stableScreenshot(section, `${SCREENSHOT_DIR}/visual-${style}.png`, {
+        maxDiffRatio: ANIMATED_TOLERANCE,
+      });
     });
   }
 });

@@ -6,7 +6,8 @@ import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 
 export const SCREENSHOT_DIR = "tests/e2e/screenshots";
-const DEFAULT_MAX_DIFF_RATIO = 0.005;
+const DEFAULT_MAX_DIFF_RATIO = 0;
+export const ANIMATED_TOLERANCE = 0.005;
 
 interface StableScreenshotOptions {
   maxDiffRatio?: number;

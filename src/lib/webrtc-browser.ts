@@ -180,8 +180,12 @@ export class BrowserBridge {
   sendBinary(channel: string, data: ArrayBuffer): boolean {
     const dc = this.channels.get(channel);
     if (!dc || dc.readyState !== "open") return false;
-    dc.send(data);
-    return true;
+    try {
+      dc.send(data);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   isChannelOpen(name: string): boolean {

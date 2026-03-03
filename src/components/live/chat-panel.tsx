@@ -1,31 +1,25 @@
-import { FileDown, ImageIcon, Volume2 } from "lucide-react";
-import type { RefObject } from "react";
+import { AlertCircle, Check, CheckCheck, Clock, FileDown, ImageIcon } from "lucide-react";
+import type { ReactNode, RefObject } from "react";
+import { AudioBubble } from "~/components/live/audio-bubble";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import type { AudioChatEntry, ChatEntry, ImageChatEntry, ReceivedFile } from "./types";
+import type { ChatEntry, ImageChatEntry, ReceivedFile } from "./types";
 
-function getDeliveryLabel(delivery: ChatEntry["delivery"]): string | null {
-  if (!delivery) return null;
-  if (delivery === "sending") return "Sending...";
-  if (delivery === "confirming") return "Confirming...";
-  if (delivery === "delivered") return "Delivered";
-  return "Not delivered";
+function DeliveryIcon({
+  delivery,
+  className = "",
+}: {
+  delivery: NonNullable<ChatEntry["delivery"]>;
+  className?: string;
+}) {
+  const base = `size-3 ${className}`;
+  if (delivery === "sending") return <Clock className={`${base} opacity-70`} />;
+  if (delivery === "confirming") return <Check className={`${base} opacity-70`} />;
+  if (delivery === "delivered") return <CheckCheck className={`${base} opacity-70`} />;
+  return <AlertCircle className={`${base} text-destructive`} />;
 }
 
-function AudioBubble({ entry }: { entry: AudioChatEntry }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Volume2 className="size-4 shrink-0 opacity-70" />
-      {/* biome-ignore lint/a11y/useMediaCaption: live chat audio has no captions */}
-      <audio controls preload="metadata" className="h-8 max-w-56">
-        <source src={entry.audioUrl} type={entry.mime} />
-      </audio>
-      <span className="text-xs opacity-70">{Math.max(1, Math.round(entry.size / 1024))} KB</span>
-    </div>
-  );
-}
-
-function ImageBubble({ entry }: { entry: ImageChatEntry }) {
+function ImageBubble({ entry, suffix }: { entry: ImageChatEntry; suffix?: ReactNode }) {
   return (
     <div className="space-y-1">
       <img
@@ -38,6 +32,7 @@ function ImageBubble({ entry }: { entry: ImageChatEntry }) {
       <div className="flex items-center gap-1 text-xs opacity-70">
         <ImageIcon className="size-3" />
         <span>{entry.mime}</span>
+        {suffix}
       </div>
     </div>
   );
@@ -47,16 +42,29 @@ function ChatBubble({ msg, showDeliveryStatus }: { msg: ChatEntry; showDeliveryS
   const isUser = msg.from === "user";
   const bubbleClass = isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground";
 
+  const delivery = showDeliveryStatus && isUser ? msg.delivery : undefined;
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-4/5 rounded-lg px-3 py-2 text-sm ${bubbleClass}`}>
-        {msg.type === "text" && <div>{msg.content}</div>}
-        {msg.type === "audio" && <AudioBubble entry={msg} />}
-        {msg.type === "image" && <ImageBubble entry={msg} />}
-        {showDeliveryStatus && isUser && msg.delivery && (
-          <div className="mt-1 text-xs leading-none opacity-70">
-            {getDeliveryLabel(msg.delivery)}
+        {msg.type === "text" && (
+          <span>
+            {msg.content}
+            {delivery && (
+              <DeliveryIcon delivery={delivery} className="ml-1 inline-block align-text-bottom" />
+            )}
+          </span>
+        )}
+        {msg.type === "audio" && (
+          <div className="flex items-end gap-1">
+            <div className="min-w-0 flex-1">
+              <AudioBubble entry={msg} />
+            </div>
+            {delivery && <DeliveryIcon delivery={delivery} />}
           </div>
+        )}
+        {msg.type === "image" && (
+          <ImageBubble entry={msg} suffix={delivery && <DeliveryIcon delivery={delivery} />} />
         )}
       </div>
     </div>
@@ -75,7 +83,10 @@ export function ChatPanel({
   showDeliveryStatus: boolean;
 }) {
   return (
-    <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
+    <div
+      className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3"
+      style={{ paddingTop: "calc(var(--safe-top) + 1rem)" }}
+    >
       {messages.length === 0 && files.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="pt-6 text-muted-foreground text-sm text-center">

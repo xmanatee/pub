@@ -52,6 +52,8 @@ export interface AudioChatEntry extends ChatEntryBase {
   audioUrl: string;
   mime: string;
   size: number;
+  duration?: number;
+  waveform?: number[];
 }
 
 export interface ImageChatEntry extends ChatEntryBase {
