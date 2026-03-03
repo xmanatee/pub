@@ -1,7 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Clock, ExternalLink, Radio } from "lucide-react";
-import { PubCard } from "~/components/pub-card";
-import { Badge } from "~/components/ui/badge";
+import { LiveBanners } from "~/components/dashboard/live-banners";
+import { PubsGrid } from "~/components/dashboard/pubs-grid";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/debug/dashboard")({
@@ -62,38 +61,13 @@ const SAMPLE_PUBS = [
   },
 ];
 
-function LiveBanner({
-  slug,
-  hasConnection,
-  expiresLabel,
-}: {
-  slug: string;
-  hasConnection: boolean;
-  expiresLabel: string;
-}) {
-  return (
-    <a
-      href={`/p/${slug}`}
-      className="group flex items-center justify-between rounded-lg border border-emerald-600/20 bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-3 transition-colors hover:border-emerald-600/40"
-    >
-      <div className="flex items-center gap-2">
-        <Radio className="h-4 w-4 text-emerald-600 animate-pulse" aria-hidden="true" />
-        <span className="font-medium text-sm">{slug}</span>
-        <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-600/20 text-xs">
-          {hasConnection ? "Connected" : "Waiting"}
-        </Badge>
-        <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600/20 text-xs">
-          <Clock className="h-3 w-3" aria-hidden="true" />
-          {expiresLabel}
-        </Badge>
-      </div>
-      <ExternalLink
-        className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-        aria-hidden="true"
-      />
-    </a>
-  );
-}
+const SAMPLE_LIVES = [
+  { slug: "hello-world", hasConnection: true, expiresAt: Date.now() + 23 * 3600000 },
+  { slug: "api-docs", hasConnection: false, expiresAt: Date.now() + 45 * 60000 },
+];
+
+const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };
+const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-docs": 8 };
 
 function DashboardDebugPage() {
   return (
@@ -103,48 +77,34 @@ function DashboardDebugPage() {
 
         <section data-testid="batch-dashboard-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {SAMPLE_PUBS.map((pub) => (
-              <PubCard
-                key={pub.slug}
-                pub={pub}
-                viewCount={pub.slug === "hello-world" ? 142 : undefined}
-                onToggleVisibility={noop}
-                onDelete={noop}
-              />
-            ))}
-          </div>
+          <PubsGrid
+            pubs={SAMPLE_PUBS}
+            viewCounts={CARDS_VIEW_COUNTS}
+            status="Exhausted"
+            onLoadMore={noop}
+            onToggleVisibility={noop}
+            onDelete={noop}
+          />
         </section>
 
         <section data-testid="batch-dashboard-live" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Live Banners</div>
-          <div className="space-y-2">
-            <LiveBanner slug="hello-world" hasConnection expiresLabel="23h" />
-            <LiveBanner slug="api-docs" hasConnection={false} expiresLabel="45m" />
-          </div>
+          <LiveBanners lives={SAMPLE_LIVES} />
         </section>
 
         <section data-testid="batch-dashboard-gallery" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">
             Full Gallery — Cards + Live Banner
           </div>
-          <div className="space-y-2 mb-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Live Now</h3>
-            <LiveBanner slug="hello-world" hasConnection expiresLabel="23h" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {SAMPLE_PUBS.map((pub) => (
-              <PubCard
-                key={pub.slug}
-                pub={pub}
-                viewCount={
-                  pub.slug === "hello-world" ? 142 : pub.slug === "api-docs" ? 8 : undefined
-                }
-                onToggleVisibility={noop}
-                onDelete={noop}
-              />
-            ))}
-          </div>
+          <LiveBanners lives={[SAMPLE_LIVES[0]]} />
+          <PubsGrid
+            pubs={SAMPLE_PUBS}
+            viewCounts={GALLERY_VIEW_COUNTS}
+            status="Exhausted"
+            onLoadMore={noop}
+            onToggleVisibility={noop}
+            onDelete={noop}
+          />
         </section>
       </div>
     </div>
