@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Play } from "lucide-react";
 import { BatchSection } from "~/components/debug/batch-section";
-import { ControlBarGoLiveMode } from "~/components/live/control-bar-go-live-mode";
 
 export const Route = createFileRoute("/debug/pub-page")({
   beforeLoad: () => {
@@ -47,7 +47,14 @@ function PubPageDebug() {
               content: (
                 <>
                   <TextContent text="Hello, world!" />
-                  <ControlBarGoLiveMode slug="debug-test" onGoLive={() => {}} />
+                  <div
+                    className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex justify-end px-3"
+                    style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl">
+                      <Play className="size-5 fill-current" />
+                    </div>
+                  </div>
                 </>
               ),
             },

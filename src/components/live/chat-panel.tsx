@@ -1,19 +1,25 @@
-import { FileDown, ImageIcon } from "lucide-react";
-import type { RefObject } from "react";
+import { AlertCircle, Check, CheckCheck, Clock, FileDown, ImageIcon } from "lucide-react";
+import type { ReactNode, RefObject } from "react";
 import { AudioBubble } from "~/components/live/audio-bubble";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import type { ChatEntry, ImageChatEntry, ReceivedFile } from "./types";
 
-function getDeliveryLabel(delivery: ChatEntry["delivery"]): string | null {
-  if (!delivery) return null;
-  if (delivery === "sending") return "Sending...";
-  if (delivery === "confirming") return "Confirming...";
-  if (delivery === "delivered") return "Delivered";
-  return "Not delivered";
+function DeliveryIcon({
+  delivery,
+  className = "",
+}: {
+  delivery: NonNullable<ChatEntry["delivery"]>;
+  className?: string;
+}) {
+  const base = `size-3 ${className}`;
+  if (delivery === "sending") return <Clock className={`${base} opacity-70`} />;
+  if (delivery === "confirming") return <Check className={`${base} opacity-70`} />;
+  if (delivery === "delivered") return <CheckCheck className={`${base} opacity-70`} />;
+  return <AlertCircle className={`${base} text-destructive`} />;
 }
 
-function ImageBubble({ entry }: { entry: ImageChatEntry }) {
+function ImageBubble({ entry, suffix }: { entry: ImageChatEntry; suffix?: ReactNode }) {
   return (
     <div className="space-y-1">
       <img
@@ -26,6 +32,7 @@ function ImageBubble({ entry }: { entry: ImageChatEntry }) {
       <div className="flex items-center gap-1 text-xs opacity-70">
         <ImageIcon className="size-3" />
         <span>{entry.mime}</span>
+        {suffix}
       </div>
     </div>
   );
@@ -35,16 +42,29 @@ function ChatBubble({ msg, showDeliveryStatus }: { msg: ChatEntry; showDeliveryS
   const isUser = msg.from === "user";
   const bubbleClass = isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground";
 
+  const delivery = showDeliveryStatus && isUser ? msg.delivery : undefined;
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-4/5 rounded-lg px-3 py-2 text-sm ${bubbleClass}`}>
-        {msg.type === "text" && <div>{msg.content}</div>}
-        {msg.type === "audio" && <AudioBubble entry={msg} />}
-        {msg.type === "image" && <ImageBubble entry={msg} />}
-        {showDeliveryStatus && isUser && msg.delivery && (
-          <div className="mt-1 text-xs leading-none opacity-70">
-            {getDeliveryLabel(msg.delivery)}
+        {msg.type === "text" && (
+          <span>
+            {msg.content}
+            {delivery && (
+              <DeliveryIcon delivery={delivery} className="ml-1 inline-block align-text-bottom" />
+            )}
+          </span>
+        )}
+        {msg.type === "audio" && (
+          <div className="flex items-end gap-1">
+            <div className="min-w-0 flex-1">
+              <AudioBubble entry={msg} />
+            </div>
+            {delivery && <DeliveryIcon delivery={delivery} />}
           </div>
+        )}
+        {msg.type === "image" && (
+          <ImageBubble entry={msg} suffix={delivery && <DeliveryIcon delivery={delivery} />} />
         )}
       </div>
     </div>

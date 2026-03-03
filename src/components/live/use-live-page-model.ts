@@ -11,7 +11,8 @@ import { useLivePreferences } from "~/components/live/use-live-preferences";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import {
   CHANNELS,
-  makeBinaryMetaMessage,
+  makeStreamEnd,
+  makeStreamStart,
   makeTextMessage,
   type SessionContextPayload,
 } from "~/lib/bridge-protocol";
@@ -312,12 +313,17 @@ export function useLivePageModel(slug: string) {
         const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
         if (!ready) return;
         const buffer = await blob.arrayBuffer();
-        const sentMeta = bridge.send(
-          CHANNELS.AUDIO,
-          makeBinaryMetaMessage({ mime: blob.type, size: buffer.byteLength }),
-        );
-        if (!sentMeta) return;
-        bridge.sendBinary(CHANNELS.AUDIO, buffer);
+        const startMsg = makeStreamStart({ mime: blob.type, size: buffer.byteLength });
+        if (!bridge.send(CHANNELS.AUDIO, startMsg)) return;
+
+        const chunkSize = 48 * 1024;
+        const bytes = new Uint8Array(buffer);
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+          const chunk = bytes.slice(offset, offset + chunkSize);
+          if (!bridge.sendBinary(CHANNELS.AUDIO, chunk.buffer)) return;
+        }
+
+        bridge.send(CHANNELS.AUDIO, makeStreamEnd(startMsg.id));
       })();
     },
     [bridgeRef],

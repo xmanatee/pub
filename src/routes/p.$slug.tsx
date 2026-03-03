@@ -70,7 +70,7 @@ function PubPage() {
     return (
       <>
         {hasContent ? (
-          <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />
+          <FullScreenContent content={pub.content!} contentType={pub.contentType!} />
         ) : (
           <MessageScreen
             title="No content yet"
@@ -93,7 +93,7 @@ function PubPage() {
     );
   }
 
-  return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
+  return <FullScreenContent content={pub.content!} contentType={pub.contentType!} />;
 }
 
 function LiveView({ slug }: { slug: string }) {
