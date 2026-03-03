@@ -7,7 +7,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "5.0.0"
+  version: "5.1.0"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -17,7 +17,7 @@ Use this skill when the user asks about `pubblue`, `pub.blue`, publishing conten
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.6.0+**.
+Use **pubblue CLI 0.6.5+**.
 
 ```bash
 pubblue --version
@@ -39,8 +39,8 @@ Env override: `PUBBLUE_API_KEY`
 
 Optional OpenClaw bridge config (saved in CLI config):
 ```bash
-pubblue configure --set bridge.mode=openclaw
 pubblue configure --set openclaw.path=/app/dist/index.js
+pubblue configure --set openclaw.stateDir=/home/node/.openclaw
 pubblue configure --set openclaw.sessionId=<session-id>
 # or:
 pubblue configure --set openclaw.threadId=<thread-id>
@@ -138,6 +138,7 @@ Important:
 Useful env for `openclaw` mode:
 - `OPENCLAW_SESSION_ID` or `OPENCLAW_THREAD_ID` (recommended for deterministic routing)
 - `OPENCLAW_PATH` (explicit OpenClaw binary/index.js path, if auto-discovery fails)
+- `OPENCLAW_STATE_DIR` (OpenClaw state directory, defaults to `~/.openclaw`)
 - `OPENCLAW_DELIVER=1` (optional, enables OpenClaw `--deliver`)
 - `OPENCLAW_DELIVER_CHANNEL`, `OPENCLAW_REPLY_TO` (optional channel routing)
 - `OPENCLAW_DELIVER_TIMEOUT_MS` (optional dispatch timeout)

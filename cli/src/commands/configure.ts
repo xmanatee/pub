@@ -79,6 +79,7 @@ function parsePositiveInteger(raw: string, key: string): number {
 
 export const SUPPORTED_KEYS = [
   "openclaw.path",
+  "openclaw.stateDir",
   "openclaw.sessionId",
   "openclaw.threadId",
   "openclaw.canvasReminderEvery",
@@ -106,6 +107,9 @@ function applyConfigSet(
   switch (key) {
     case "openclaw.path":
       bridge.openclawPath = value;
+      return;
+    case "openclaw.stateDir":
+      bridge.openclawStateDir = value;
       return;
     case "openclaw.sessionId":
       bridge.sessionId = value;
@@ -170,6 +174,9 @@ function applyConfigUnset(bridge: BridgeConfig, telegram: TelegramConfig, key: s
   switch (key) {
     case "openclaw.path":
       delete bridge.openclawPath;
+      return;
+    case "openclaw.stateDir":
+      delete bridge.openclawStateDir;
       return;
     case "openclaw.sessionId":
       delete bridge.sessionId;
@@ -279,6 +286,8 @@ function printConfigSummary(saved: SavedConfig | null): void {
 
   if (saved.bridge && hasValues(saved.bridge)) {
     if (saved.bridge.openclawPath) console.log(`  openclaw.path: ${saved.bridge.openclawPath}`);
+    if (saved.bridge.openclawStateDir)
+      console.log(`  openclaw.stateDir: ${saved.bridge.openclawStateDir}`);
     if (saved.bridge.sessionId) console.log(`  openclaw.sessionId: ${saved.bridge.sessionId}`);
     if (saved.bridge.threadId) console.log(`  openclaw.threadId: ${saved.bridge.threadId}`);
     if (saved.bridge.canvasReminderEvery !== undefined)
