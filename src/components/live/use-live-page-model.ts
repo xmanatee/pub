@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { analyzeAudioBlob } from "~/components/live/audio-waveform";
 import { readCachedCanvasHtml, writeCachedCanvasHtml } from "~/components/live/canvas-live-cache";
 import { useLiveVisualState } from "~/components/live/live-visual-state";
 import type { LiveViewMode, SessionState } from "~/components/live/types";
@@ -113,6 +114,7 @@ export function useLivePageModel(slug: string) {
     markSendingMessagesConfirming,
     messages,
     messagesEndRef,
+    updateAudioMessageAnalysis,
   } = useLiveChatDelivery({ confirmGraceMs: CHAT_CONFIRM_GRACE_MS });
 
   const sessionContext: SessionContextPayload | undefined = useMemo(() => {
@@ -189,12 +191,12 @@ export function useLivePageModel(slug: string) {
         const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "audio/webm";
         const blob = new Blob([cm.binaryData], { type: mime });
         const audioUrl = URL.createObjectURL(blob);
-        addAgentAudioMessage({
-          audioUrl,
-          id: message.id,
-          mime,
-          size: cm.binaryData.byteLength,
-        });
+        const audioId = message.id;
+        addAgentAudioMessage({ audioUrl, id: audioId, mime, size: cm.binaryData.byteLength });
+        analyzeAudioBlob(blob).then(
+          ({ duration, peaks }) => updateAudioMessageAnalysis(audioId, duration, peaks),
+          () => {},
+        );
         return;
       }
 
@@ -220,6 +222,7 @@ export function useLivePageModel(slug: string) {
       autoOpenCanvas,
       markAgentActivity,
       slug,
+      updateAudioMessageAnalysis,
     ],
   );
 
@@ -323,19 +326,24 @@ export function useLivePageModel(slug: string) {
   const sendAudio = useCallback(
     (blob: Blob) => {
       const audioUrl = URL.createObjectURL(blob);
+      const id = crypto.randomUUID();
       addUserPendingAudioMessage({
         audioUrl,
-        id: crypto.randomUUID(),
+        id,
         mime: blob.type || "audio/webm",
         size: blob.size,
       });
+      analyzeAudioBlob(blob).then(
+        ({ duration, peaks }) => updateAudioMessageAnalysis(id, duration, peaks),
+        () => {},
+      );
       if (bridgeState !== "connected") {
         pendingAudioQueueRef.current.push(blob);
         return;
       }
       dispatchAudio(blob);
     },
-    [addUserPendingAudioMessage, bridgeState, dispatchAudio],
+    [addUserPendingAudioMessage, bridgeState, dispatchAudio, updateAudioMessageAnalysis],
   );
 
   useEffect(() => {
