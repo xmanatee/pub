@@ -1,12 +1,5 @@
 import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
-import {
-  type ChangeEvent,
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
@@ -72,26 +65,21 @@ export function ControlBarIdleMode({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [editing, setEditing] = useState(false);
 
-  const resizeTextarea = useCallback(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: input triggers resize; editing triggers resize on mount
+  useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     const maxHeight = TEXTAREA_LINE_HEIGHT * MAX_TEXTAREA_ROWS + TEXTAREA_PADDING_Y;
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
-  }, []);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: input triggers resize; editing triggers resize on mount
-  useEffect(() => {
-    resizeTextarea();
-  }, [input, editing, resizeTextarea]);
+  }, [input, editing]);
 
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
   }, [editing]);
 
   const showPreview = !expanded && chatPreview !== null;
-  const isConnecting = visualState === "connecting";
-  const placeholder = isConnecting ? "Connecting..." : "Message...";
+  const placeholder = visualState === "connecting" ? "Connecting..." : "Message...";
   const cbStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
   return (
     <>
@@ -180,7 +168,7 @@ export function ControlBarIdleMode({
               inputMode="text"
               enterKeyHint="send"
               rows={1}
-              className="flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base leading-5 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base leading-5 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
             />
           ) : (
             <button
