@@ -1,8 +1,9 @@
-import { FileDown, ImageIcon, Volume2 } from "lucide-react";
+import { FileDown, ImageIcon } from "lucide-react";
 import type { RefObject } from "react";
+import { AudioBubble } from "~/components/live/audio-bubble";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import type { AudioChatEntry, ChatEntry, ImageChatEntry, ReceivedFile } from "./types";
+import type { ChatEntry, ImageChatEntry, ReceivedFile } from "./types";
 
 function getDeliveryLabel(delivery: ChatEntry["delivery"]): string | null {
   if (!delivery) return null;
@@ -10,19 +11,6 @@ function getDeliveryLabel(delivery: ChatEntry["delivery"]): string | null {
   if (delivery === "confirming") return "Confirming...";
   if (delivery === "delivered") return "Delivered";
   return "Not delivered";
-}
-
-function AudioBubble({ entry }: { entry: AudioChatEntry }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Volume2 className="size-4 shrink-0 opacity-70" />
-      {/* biome-ignore lint/a11y/useMediaCaption: live chat audio has no captions */}
-      <audio controls preload="metadata" className="h-8 max-w-56">
-        <source src={entry.audioUrl} type={entry.mime} />
-      </audio>
-      <span className="text-xs opacity-70">{Math.max(1, Math.round(entry.size / 1024))} KB</span>
-    </div>
-  );
 }
 
 function ImageBubble({ entry }: { entry: ImageChatEntry }) {

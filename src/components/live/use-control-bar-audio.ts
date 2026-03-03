@@ -15,6 +15,8 @@ export type { BarMode } from "./control-bar-audio-machine";
 interface UseControlBarAudioOptions {
   disabled: boolean;
   bridge: BrowserBridge | null;
+  micGranted: boolean;
+  onMicGranted: (granted: boolean) => void;
   onSendAudio: (blob: Blob) => void;
 }
 
@@ -25,7 +27,13 @@ function getSupportedMimeType(): string {
   return "";
 }
 
-export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControlBarAudioOptions) {
+export function useControlBarAudio({
+  disabled,
+  bridge,
+  micGranted,
+  onMicGranted,
+  onSendAudio,
+}: UseControlBarAudioOptions) {
   const [state, dispatch] = useReducer(reduceAudioMachine, INITIAL_AUDIO_MACHINE_STATE);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -39,6 +47,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const streamIdRef = useRef<string | null>(null);
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
+  const elapsedRef = useRef(0);
 
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
@@ -114,8 +123,28 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     return stream;
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount to warm mic permission
+  useEffect(() => {
+    if (!micGranted) return;
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        for (const track of stream.getTracks()) track.stop();
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "NotAllowedError") {
+          onMicGranted(false);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    elapsedRef.current = state.elapsed;
+  }, [state.elapsed]);
+
   const stopLocalRecording = useCallback(
     (send: boolean) => {
+      const shouldSend = send && elapsedRef.current >= 1;
       const recorder = mediaRecorderRef.current;
       if (!recorder || recorder.state === "inactive") {
         shouldSendOnStopRef.current = false;
@@ -126,7 +155,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         return;
       }
 
-      shouldSendOnStopRef.current = send;
+      shouldSendOnStopRef.current = shouldSend;
       localStopInProgressRef.current = true;
       stopTimer();
       cancelAnimationFrame(animFrameRef.current);
@@ -152,6 +181,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
 
     try {
       const stream = await setupAudio();
+      onMicGranted(true);
       const mimeType = getSupportedMimeType();
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
@@ -184,6 +214,9 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       return true;
     } catch (error) {
       console.error("Failed to start recording", error);
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        onMicGranted(false);
+      }
       shouldSendOnStopRef.current = false;
       audioChunksRef.current = [];
       localStopInProgressRef.current = false;
@@ -195,6 +228,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     disabled,
     state.mode,
     setupAudio,
+    onMicGranted,
     onSendAudio,
     startTimer,
     animateWaveform,
@@ -236,6 +270,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
 
     try {
       const stream = await setupAudio();
+      onMicGranted(true);
       const mime = getSupportedMimeType();
 
       const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
@@ -269,10 +304,22 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
       animateWaveform();
     } catch (error) {
       console.error("Failed to start voice mode", error);
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        onMicGranted(false);
+      }
       dispatch({ type: "START_VOICE_FAILURE" });
       teardownMediaState(true);
     }
-  }, [disabled, bridge, state.mode, setupAudio, teardownMediaState, startTimer, animateWaveform]);
+  }, [
+    disabled,
+    bridge,
+    state.mode,
+    setupAudio,
+    onMicGranted,
+    teardownMediaState,
+    startTimer,
+    animateWaveform,
+  ]);
 
   const stopVoiceMode = useCallback(() => {
     dispatch({ type: "REQUEST_VOICE_STOP" });

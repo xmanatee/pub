@@ -47,7 +47,7 @@ function PubPageDebug() {
               content: (
                 <>
                   <TextContent text="Hello, world!" />
-                  <ControlBarGoLiveMode onGoLive={() => {}} />
+                  <ControlBarGoLiveMode slug="debug-test" onGoLive={() => {}} />
                 </>
               ),
             },

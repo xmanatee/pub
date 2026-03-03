@@ -59,6 +59,8 @@ function StaticControlBar({
       onDismissPreview={noop}
       onTakeover={sessionState ? noop : undefined}
       onToggleCollapsed={noop}
+      micGranted={false}
+      onMicGranted={noop}
       onSendAudio={noop}
       onSendChat={noop}
       sessionState={sessionState}
@@ -213,6 +215,8 @@ function ControlBarDebugPage() {
               onClose={noop}
               onDismissPreview={() => setChatPreview(null)}
               onToggleCollapsed={() => setCollapsed((v) => !v)}
+              micGranted={false}
+              onMicGranted={noop}
               onSendAudio={noop}
               onSendChat={noop}
               onChangeView={setViewMode}
