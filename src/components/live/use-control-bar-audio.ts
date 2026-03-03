@@ -39,6 +39,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
   const streamIdRef = useRef<string | null>(null);
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
+  const elapsedRef = useRef(0);
 
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
@@ -114,8 +115,13 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
     return stream;
   }, []);
 
+  useEffect(() => {
+    elapsedRef.current = state.elapsed;
+  }, [state.elapsed]);
+
   const stopLocalRecording = useCallback(
     (send: boolean) => {
+      const shouldSend = send && elapsedRef.current >= 1;
       const recorder = mediaRecorderRef.current;
       if (!recorder || recorder.state === "inactive") {
         shouldSendOnStopRef.current = false;
@@ -126,7 +132,7 @@ export function useControlBarAudio({ disabled, bridge, onSendAudio }: UseControl
         return;
       }
 
-      shouldSendOnStopRef.current = send;
+      shouldSendOnStopRef.current = shouldSend;
       localStopInProgressRef.current = true;
       stopTimer();
       cancelAnimationFrame(animFrameRef.current);

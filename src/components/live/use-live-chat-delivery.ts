@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatEntry } from "./types";
+import type { AudioChatEntry, ChatEntry } from "./types";
 
 const DEFAULT_CONFIRM_GRACE_MS = 12_000;
 
@@ -162,6 +162,19 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
     [clearPendingFailureTimer],
   );
 
+  const updateAudioMessageAnalysis = useCallback(
+    (messageId: string, duration: number, waveform: number[]) => {
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.type === "audio" && entry.id === messageId
+            ? ({ ...entry, duration, waveform } satisfies AudioChatEntry)
+            : entry,
+        ),
+      );
+    },
+    [],
+  );
+
   const markSendingMessagesConfirming = useCallback(() => {
     setMessages((prev) =>
       prev.map((entry) =>
@@ -222,5 +235,6 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
     markSendingMessagesConfirming,
     messages,
     messagesEndRef,
+    updateAudioMessageAnalysis,
   };
 }
