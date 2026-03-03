@@ -94,7 +94,7 @@ export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCar
             <span className="tabular-nums"> &middot; {viewCount} views</span>
           )}
         </div>
-        <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5 hover-reveal">
+        <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5">
           <CopyButton
             text={`${window.location.origin}/p/${encodeURIComponent(pub.slug)}`}
             onCopy={() => trackPubLinkCopied({ slug: pub.slug })}
