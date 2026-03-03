@@ -1,5 +1,12 @@
 import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
-import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef } from "react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
@@ -63,6 +70,7 @@ export function ControlBarIdleMode({
   voiceModeEnabled,
 }: ControlBarIdleModeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [editing, setEditing] = useState(false);
 
   const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
@@ -72,13 +80,18 @@ export function ControlBarIdleMode({
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: input triggers resize when text changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: input triggers resize; editing triggers resize on mount
   useEffect(() => {
     resizeTextarea();
-  }, [input, resizeTextarea]);
+  }, [input, editing, resizeTextarea]);
+
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus();
+  }, [editing]);
 
   const showPreview = !expanded && chatPreview !== null;
   const isConnecting = visualState === "connecting";
+  const placeholder = isConnecting ? "Connecting..." : "Message...";
   const cbStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
   return (
     <>
@@ -155,18 +168,34 @@ export function ControlBarIdleMode({
           </Tooltip>
           <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
 
-          <textarea
-            ref={textareaRef}
-            placeholder={isConnecting ? "Connecting..." : "Message..."}
-            value={input}
-            onChange={(event) => onInputChange(event.target.value)}
-            onKeyDown={onInputKeyDown}
-            aria-label="Message"
-            inputMode="text"
-            enterKeyHint="send"
-            rows={1}
-            className="flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base leading-5 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
-          />
+          {editing ? (
+            <textarea
+              ref={textareaRef}
+              placeholder={placeholder}
+              value={input}
+              onChange={(event) => onInputChange(event.target.value)}
+              onKeyDown={onInputKeyDown}
+              onBlur={() => setEditing(false)}
+              aria-label="Message"
+              inputMode="text"
+              enterKeyHint="send"
+              rows={1}
+              className="flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base leading-5 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          ) : (
+            <button
+              type="button"
+              aria-label="Message"
+              onClick={() => setEditing(true)}
+              className="flex-1 cursor-text truncate px-2 py-2.5 text-left text-base leading-5"
+            >
+              {input ? (
+                <span>{input}</span>
+              ) : (
+                <span className="text-muted-foreground">{placeholder}</span>
+              )}
+            </button>
+          )}
 
           {hasText ? (
             <Tooltip>
