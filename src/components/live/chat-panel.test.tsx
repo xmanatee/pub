@@ -100,7 +100,7 @@ describe("ChatPanel snapshots", () => {
     const html = renderPanel([USER_TEXT]);
     expect(html).toContain("Hello from user");
     expect(html).toContain("justify-end");
-    expect(html).toContain("Delivered");
+    expect(html).toContain("opacity-70");
   });
 
   it("renders agent text bubble", () => {
@@ -149,16 +149,15 @@ describe("ChatPanel snapshots", () => {
     expect(html).toContain("Hello from agent");
   });
 
-  it("renders delivery statuses correctly", () => {
+  it("renders delivery status icons for each state", () => {
     const sending: TextChatEntry = { ...USER_TEXT, id: "s1", delivery: "sending" };
     const confirming: TextChatEntry = { ...USER_TEXT, id: "s2", delivery: "confirming" };
     const failed: TextChatEntry = { ...USER_TEXT, id: "s3", delivery: "failed" };
     const delivered: TextChatEntry = { ...USER_TEXT, id: "s4", delivery: "delivered" };
 
     const html = renderPanel([sending, confirming, failed, delivered]);
-    expect(html).toContain("Sending...");
-    expect(html).toContain("Confirming...");
-    expect(html).toContain("Not delivered");
-    expect(html).toContain("Delivered");
+    const deliveryIcons = html.match(/size-3/g);
+    expect(deliveryIcons).toHaveLength(4);
+    expect(html).toContain("text-destructive");
   });
 });

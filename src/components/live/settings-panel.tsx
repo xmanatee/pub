@@ -73,7 +73,7 @@ export function SettingsPanel({
             <div>
               <div className="text-sm font-medium">Show delivery status in chat</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Show Sending, Confirming, Delivered, or Not delivered under your messages.
+                Show delivery checkmarks under your messages.
               </div>
             </div>
             <Switch checked={showDeliveryStatus} onCheckedChange={onShowDeliveryStatusChange} />

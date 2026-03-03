@@ -72,7 +72,7 @@ function PubPage() {
     return (
       <>
         {hasContent ? (
-          <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />
+          <FullScreenContent content={pub.content!} contentType={pub.contentType!} />
         ) : (
           <EmptyPubScreen />
         )}
@@ -94,7 +94,7 @@ function PubPage() {
     );
   }
 
-  return <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />;
+  return <FullScreenContent content={pub.content!} contentType={pub.contentType!} />;
 }
 
 function InteractiveView({ slug }: { slug: string }) {
