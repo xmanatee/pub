@@ -75,7 +75,10 @@ export function ChatPanel({
   showDeliveryStatus: boolean;
 }) {
   return (
-    <div className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3">
+    <div
+      className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3"
+      style={{ paddingTop: "calc(var(--safe-top) + 1rem)" }}
+    >
       {messages.length === 0 && files.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="pt-6 text-muted-foreground text-sm text-center">
