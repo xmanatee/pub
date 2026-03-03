@@ -73,6 +73,8 @@ function renderControlBar(overrides?: {
         collapsed={false}
         sendDisabled={false}
         bridge={null}
+        micGranted={false}
+        onMicGranted={vi.fn()}
         onClose={vi.fn()}
         onDismissPreview={vi.fn()}
         onToggleCollapsed={vi.fn()}

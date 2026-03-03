@@ -170,6 +170,8 @@ function InteractiveView({ slug }: { slug: string }) {
         onDismissPreview={dismissPreview}
         onTakeover={() => void model.takeoverLive()}
         onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
+        micGranted={model.micGranted}
+        onMicGranted={model.setMicGranted}
         onSendAudio={model.sendAudio}
         onSendChat={model.sendChat}
         sessionState={model.sessionState}
