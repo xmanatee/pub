@@ -1,23 +1,12 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import {
-  Clock,
-  ExternalLink,
-  FileText,
-  Key,
-  LogOut,
-  Plus,
-  Radio,
-  Rss,
-  Trash2,
-  User,
-} from "lucide-react";
+import { FileText, Key, LogOut, Plus, Rss, Trash2, User } from "lucide-react";
 import * as React from "react";
 import { AccountTab } from "~/components/account-tab";
 import { CopyButton } from "~/components/copy-button";
-import { PubCard } from "~/components/pub-card";
-import { Badge } from "~/components/ui/badge";
+import { LiveBanners } from "~/components/dashboard/live-banners";
+import { PubsGrid } from "~/components/dashboard/pubs-grid";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -31,7 +20,6 @@ import {
   trackSignOut,
 } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { formatRelativeTime } from "~/lib/pub-preview";
 import { IN_TELEGRAM, telegramConfirm } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -131,43 +119,6 @@ function Dashboard() {
   );
 }
 
-function ActiveLives() {
-  const lives = useQuery(api.pubs.listActiveLives);
-  if (!lives || lives.length === 0) return null;
-
-  return (
-    <div className="space-y-2 mb-6">
-      <h3 className="text-sm font-medium text-muted-foreground">Live Now</h3>
-      {lives.map((s) => (
-        <a
-          key={s.slug}
-          href={`/p/${s.slug}`}
-          className="group flex items-center justify-between rounded-lg border border-emerald-600/20 bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-3 transition-colors hover:border-emerald-600/40"
-        >
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-emerald-600 animate-pulse" aria-hidden="true" />
-            <span className="font-medium text-sm">{s.slug}</span>
-            <Badge
-              variant="outline"
-              className="gap-1 text-emerald-600 border-emerald-600/20 text-xs"
-            >
-              {s.hasConnection ? "Connected" : "Waiting"}
-            </Badge>
-            <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600/20 text-xs">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              {formatRelativeTime(s.expiresAt)}
-            </Badge>
-          </div>
-          <ExternalLink
-            className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-hidden="true"
-          />
-        </a>
-      ))}
-    </div>
-  );
-}
-
 function PubsTab() {
   const {
     results: pubs,
@@ -179,6 +130,7 @@ function PubsTab() {
 
   const slugs = pubs?.map((p) => p.slug) ?? [];
   const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
+  const lives = useQuery(api.pubs.listActiveLives);
 
   if (status === "LoadingFirstPage") {
     return <div className="text-muted-foreground py-8">Loading\u2026</div>;
@@ -205,31 +157,15 @@ function PubsTab() {
 
   return (
     <div className="mt-4">
-      <ActiveLives />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {pubs.map((pub) => (
-          <PubCard
-            key={pub._id}
-            pub={pub}
-            viewCount={viewCounts?.[pub.slug]}
-            onToggleVisibility={(id) => toggleVisibility({ id })}
-            onDelete={(id) => deletePub({ id })}
-          />
-        ))}
-
-        {status === "CanLoadMore" && (
-          <div className="col-span-full text-center pt-4">
-            <Button variant="outline" size="sm" onClick={() => loadMore(12)}>
-              Load more
-            </Button>
-          </div>
-        )}
-        {status === "LoadingMore" && (
-          <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
-            Loading more\u2026
-          </div>
-        )}
-      </div>
+      <LiveBanners lives={lives ?? []} />
+      <PubsGrid
+        pubs={pubs}
+        viewCounts={viewCounts}
+        status={status}
+        onLoadMore={() => loadMore(12)}
+        onToggleVisibility={(id) => toggleVisibility({ id })}
+        onDelete={(id) => deletePub({ id })}
+      />
     </div>
   );
 }
