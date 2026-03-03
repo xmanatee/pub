@@ -107,6 +107,7 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   if (!bridgeConfig) return env;
 
   setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
+  setIfMissing("OPENCLAW_STATE_DIR", bridgeConfig.openclawStateDir);
   setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
   setIfMissing("OPENCLAW_THREAD_ID", bridgeConfig.threadId);
   setIfMissing("OPENCLAW_CANVAS_REMINDER_EVERY", bridgeConfig.canvasReminderEvery);
@@ -317,8 +318,8 @@ export async function resolveActiveSlug(): Promise<string> {
   let response: Record<string, unknown>;
   try {
     response = await ipcCall(socketPath, { method: "active-slug", params: {} });
-  } catch {
-    failCli("No active daemon. Run `pubblue start` first.");
+  } catch (error) {
+    failCli(`No active daemon. Run \`pubblue start\` first. (${errorMessage(error)})`);
   }
   if (response.ok && typeof response.slug === "string" && response.slug.length > 0) {
     return response.slug;

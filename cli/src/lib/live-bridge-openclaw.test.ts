@@ -251,7 +251,7 @@ describe("buildSessionBriefing", () => {
         isPublic: true,
         preferences: { voiceModeEnabled: false },
       },
-      [`Reply: pubblue write --slug my-demo "<your reply>"`],
+      [`Reply: pubblue write "<your reply>"`],
     );
 
     expect(briefing).toContain("[Pubblue my-demo] Session started.");
@@ -260,7 +260,7 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("Visibility: public");
     expect(briefing).toContain("<h1>Welcome</h1>");
     expect(briefing).toContain("Voice mode: off");
-    expect(briefing).toContain('pubblue write --slug my-demo "<your reply>"');
+    expect(briefing).toContain('pubblue write "<your reply>"');
   });
 
   it("omits commands section when no commands provided", () => {

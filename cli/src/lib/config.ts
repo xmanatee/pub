@@ -6,6 +6,7 @@ export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
 
 export interface BridgeConfig {
   openclawPath?: string;
+  openclawStateDir?: string;
   sessionId?: string;
   threadId?: string;
   canvasReminderEvery?: number;

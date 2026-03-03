@@ -196,7 +196,10 @@ export async function createClaudeCodeBridgeRunner(
             const ctx = parseSessionContextMeta(entry.msg.meta);
             if (ctx) {
               sessionBriefingSent = true;
-              const briefing = buildSessionBriefing(slug, ctx);
+              const briefing = buildSessionBriefing(slug, ctx, [
+                `Reply: pubblue write "<your reply>"`,
+                `Canvas: pubblue write -c canvas -f /path/to/file.html`,
+              ]);
               await deliverToClaudeCode(briefing);
               debugLog("session briefing delivered");
             }
@@ -208,6 +211,12 @@ export async function createClaudeCodeBridgeRunner(
             const prompt = `[Pubblue ${slug}] User message:\n\n${chat}`;
             await deliverToClaudeCode(prompt);
             forwardedMessageCount += 1;
+          } else if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {
+            sendMessage(CHANNELS.CHAT, {
+              id: generateMessageId(),
+              type: "text",
+              data: "Attachments are not supported in Claude Code bridge mode.",
+            });
           }
         } catch (error) {
           const message = errorMessage(error);
