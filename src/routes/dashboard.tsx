@@ -2,14 +2,10 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import {
-  Check,
   Clock,
-  Copy,
   ExternalLink,
   FileText,
-  Globe,
   Key,
-  Lock,
   LogOut,
   Plus,
   Radio,
@@ -19,22 +15,20 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { AccountTab } from "~/components/account-tab";
+import { CopyButton } from "~/components/copy-button";
+import { PubCard } from "~/components/pub-card";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { VisibilityBadge } from "~/components/visibility-badge";
 import {
   resetIdentity,
   trackApiKeyCopied,
   trackApiKeyCreated,
   trackApiKeyDeleted,
   trackDashboardTabChanged,
-  trackPubDeleted,
-  trackPubLinkCopied,
   trackSignOut,
-  trackVisibilityToggled,
 } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramConfirm } from "~/lib/telegram";
@@ -136,39 +130,6 @@ function Dashboard() {
   );
 }
 
-function CopyButton({
-  text,
-  onCopy,
-  label = "Copy URL",
-}: {
-  text: string;
-  onCopy?: () => void;
-  label?: string;
-}) {
-  const [copied, setCopied] = React.useState(false);
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        onCopy?.();
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      aria-label={label}
-    >
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-      )}
-    </Button>
-  );
-}
-
 function formatRelativeTime(timestamp: number): string {
   const diff = timestamp - Date.now();
   if (diff <= 0) return "expired";
@@ -222,7 +183,7 @@ function PubsTab() {
     results: pubs,
     status,
     loadMore,
-  } = usePaginatedQuery(api.pubs.listByUser, {}, { initialNumItems: 25 });
+  } = usePaginatedQuery(api.pubs.listByUser, {}, { initialNumItems: 12 });
   const toggleVisibility = useMutation(api.pubs.toggleVisibility);
   const deletePub = useMutation(api.pubs.deleteByUser);
 
@@ -253,113 +214,32 @@ function PubsTab() {
   }
 
   return (
-    <div className="space-y-2 mt-4">
+    <div className="mt-4">
       <ActiveLives />
-      {pubs.map((pub) => (
-        <div
-          key={pub._id}
-          className="group flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:border-primary/20"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <a
-                href={`/p/${pub.slug}`}
-                className="font-medium text-sm hover:text-primary transition-colors truncate"
-              >
-                {pub.title || pub.slug}
-              </a>
-              <Badge variant="secondary" className="text-xs">
-                {pub.contentType}
-              </Badge>
-              <VisibilityBadge isPublic={pub.isPublic} />
-              {pub.expiresAt && (
-                <Badge
-                  variant="outline"
-                  className="gap-1 text-orange-600 border-orange-600/20 text-xs"
-                >
-                  <Clock className="h-3 w-3" aria-hidden="true" />
-                  {formatRelativeTime(pub.expiresAt)}
-                </Badge>
-              )}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
-              {viewCounts?.[pub.slug] !== undefined && (
-                <span className="tabular-nums"> &middot; {viewCounts[pub.slug]} views</span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5 ml-2 hover-reveal">
-            <CopyButton
-              text={`${window.location.origin}/p/${encodeURIComponent(pub.slug)}`}
-              onCopy={() => trackPubLinkCopied({ slug: pub.slug })}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
-              asChild
-            >
-              <a
-                href={`/p/${encodeURIComponent(pub.slug)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open in new tab"
-              >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
-              onClick={() => {
-                trackVisibilityToggled({
-                  slug: pub.slug,
-                  newVisibility: pub.isPublic ? "private" : "public",
-                });
-                toggleVisibility({ id: pub._id });
-              }}
-              aria-label={pub.isPublic ? "Make private" : "Make public"}
-            >
-              {pub.isPublic ? (
-                <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                <Globe className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive"
-              onClick={() => {
-                void telegramConfirm("Delete this pub?").then((ok) => {
-                  if (!ok) return;
-                  trackPubDeleted({
-                    slug: pub.slug,
-                    contentType: pub.contentType ?? "text",
-                  });
-                  deletePub({ id: pub._id });
-                });
-              }}
-              aria-label="Delete pub"
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-      ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {pubs.map((pub) => (
+          <PubCard
+            key={pub._id}
+            pub={pub}
+            viewCount={viewCounts?.[pub.slug]}
+            onToggleVisibility={(id) => toggleVisibility({ id })}
+            onDelete={(id) => deletePub({ id })}
+          />
+        ))}
 
-      {status === "CanLoadMore" && (
-        <div className="text-center pt-4">
-          <Button variant="outline" size="sm" onClick={() => loadMore(25)}>
-            Load more
-          </Button>
-        </div>
-      )}
-      {status === "LoadingMore" && (
-        <div className="text-center pt-4 text-muted-foreground text-sm">Loading more\u2026</div>
-      )}
+        {status === "CanLoadMore" && (
+          <div className="col-span-full text-center pt-4">
+            <Button variant="outline" size="sm" onClick={() => loadMore(12)}>
+              Load more
+            </Button>
+          </div>
+        )}
+        {status === "LoadingMore" && (
+          <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
+            Loading more\u2026
+          </div>
+        )}
+      </div>
     </div>
   );
 }

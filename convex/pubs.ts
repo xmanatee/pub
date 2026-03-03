@@ -126,7 +126,10 @@ export const listByUser = query({
 
     return {
       ...result,
-      page: result.page.map((p) => mapPub(p)),
+      page: result.page.map((p) => ({
+        ...mapPub(p),
+        contentPreview: (p.content ?? "").slice(0, 2000),
+      })),
     };
   },
 });

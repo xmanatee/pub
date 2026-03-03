@@ -4,28 +4,12 @@ import { FileText } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { buildTextSrcdoc } from "~/lib/pub-preview";
 import { api } from "../../convex/_generated/api";
 
 const siteUrl = import.meta.env.VITE_CONVEX_URL
   ? import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")
   : "";
-
-const TEXT_PREVIEW_STYLES = `<style>
-body{margin:0;padding:12px;font-family:system-ui,sans-serif;font-size:11px;line-height:1.5;overflow:hidden;color:#1a1a1a}
-pre{background:#f5f5f5;padding:.5em;overflow:hidden;border-radius:3px;font-size:10px}
-code{background:#f5f5f5;padding:.1em .3em;border-radius:2px;font-size:10px}
-img{max-width:100%;height:auto}
-</style>`;
-
-function buildTextSrcdoc(content: string, contentType: string) {
-  if (contentType === "text")
-    return `${TEXT_PREVIEW_STYLES}<pre style="white-space:pre-wrap;font-size:10px">${escapeHtml(content)}</pre>`;
-  return `${TEXT_PREVIEW_STYLES}<div>${escapeHtml(content)}</div>`;
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 
 export const Route = createFileRoute("/explore")({
   component: ExplorePage,
