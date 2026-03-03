@@ -31,6 +31,7 @@ import {
   trackSignOut,
 } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
+import { formatRelativeTime } from "~/lib/pub-preview";
 import { IN_TELEGRAM, telegramConfirm } from "~/lib/telegram";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -128,17 +129,6 @@ function Dashboard() {
       </Tabs>
     </div>
   );
-}
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = timestamp - Date.now();
-  if (diff <= 0) return "expired";
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d`;
-  if (hours > 0) return `${hours}h`;
-  const minutes = Math.floor(diff / (1000 * 60));
-  return `${minutes}m`;
 }
 
 function ActiveLives() {

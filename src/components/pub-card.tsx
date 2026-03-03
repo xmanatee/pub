@@ -5,7 +5,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { VisibilityBadge } from "~/components/visibility-badge";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
-import { buildHtmlSrcdoc, buildTextSrcdoc } from "~/lib/pub-preview";
+import { buildHtmlSrcdoc, buildTextSrcdoc, formatRelativeTime } from "~/lib/pub-preview";
 import { telegramConfirm } from "~/lib/telegram";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -23,17 +23,6 @@ interface PubCardProps {
   viewCount?: number;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
-}
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = timestamp - Date.now();
-  if (diff <= 0) return "expired";
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d`;
-  if (hours > 0) return `${hours}h`;
-  const minutes = Math.floor(diff / (1000 * 60));
-  return `${minutes}m`;
 }
 
 function PreviewIframe({ pub }: { pub: PubCardProps["pub"] }) {
