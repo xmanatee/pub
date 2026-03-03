@@ -66,13 +66,17 @@ function PubPage() {
   const hasContent = Boolean(pub.content && pub.contentType);
 
   if (pub.isOwner) {
-    if (!hasContent || interactiveMode) {
+    if (interactiveMode) {
       return <InteractiveView slug={slug} />;
     }
     return (
       <>
-        <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />
-        <ControlBarGoLiveMode onGoLive={() => setInteractiveMode(true)} />
+        {hasContent ? (
+          <FullScreenContent content={pub.content ?? ""} contentType={pub.contentType ?? "text"} />
+        ) : (
+          <EmptyPubScreen />
+        )}
+        <ControlBarGoLiveMode slug={slug} onGoLive={() => setInteractiveMode(true)} />
       </>
     );
   }
@@ -238,6 +242,15 @@ function FullScreenMarkdown({ content }: { content: string }) {
         className="max-w-[800px] mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: html }}
       />
+    </div>
+  );
+}
+
+function EmptyPubScreen() {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
+      <h1 className="text-xl font-bold text-foreground">No content yet</h1>
+      <p className="text-muted-foreground">Publish content or go live to get started.</p>
     </div>
   );
 }
