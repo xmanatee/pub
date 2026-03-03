@@ -2,7 +2,7 @@
 name: pubblue
 description: >-
   Publish files or generated content via the pubblue CLI, and go live for
-  interactive P2P browser communication.
+  live P2P browser communication.
 license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
@@ -69,9 +69,9 @@ Notes:
 - Pubs are **private by default**.
 - `create` supports `--public/--private`, `--title`, `--slug`, `--expires`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
-- Content is optional — a pub can be interactive-only.
+- Content is optional — a pub can be live-only.
 
-## Going Live (Interactive Flow)
+## Going Live (Live Flow)
 
 Live is browser-initiated. The daemon registers agent presence; the browser creates the WebRTC offer when the pub owner clicks "Go Live".
 
