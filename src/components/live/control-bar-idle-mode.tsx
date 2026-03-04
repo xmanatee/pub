@@ -65,7 +65,7 @@ export function ControlBarIdleMode({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [editing, setEditing] = useState(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: input triggers resize; editing triggers resize on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: textareaRef is a stable ref
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;

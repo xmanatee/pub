@@ -196,7 +196,7 @@ export function useLivePageModel(slug: string) {
         addAgentAudioMessage({ audioUrl, id: audioId, mime, size: cm.binaryData.byteLength });
         analyzeAudioBlob(blob).then(
           ({ duration, peaks }) => updateAudioMessageAnalysis(audioId, duration, peaks),
-          () => {},
+          (err) => console.warn("Audio analysis failed:", err),
         );
         return;
       }
@@ -341,7 +341,7 @@ export function useLivePageModel(slug: string) {
       });
       analyzeAudioBlob(blob).then(
         ({ duration, peaks }) => updateAudioMessageAnalysis(id, duration, peaks),
-        () => {},
+        (err) => console.warn("Audio analysis failed:", err),
       );
       if (bridgeState !== "connected") {
         pendingAudioQueueRef.current.push(blob);

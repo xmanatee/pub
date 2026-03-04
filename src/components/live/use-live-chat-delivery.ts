@@ -137,9 +137,7 @@ export function useLiveChatDelivery(options?: UseLiveChatDeliveryOptions) {
   const markMessageConfirmingIfPending = useCallback((messageId: string) => {
     setMessages((prev) =>
       prev.map((entry) =>
-        entry.from === "user" &&
-        entry.id === messageId &&
-        (entry.delivery === "sending" || entry.delivery === "confirming")
+        entry.from === "user" && entry.id === messageId && entry.delivery === "sending"
           ? { ...entry, delivery: "confirming" }
           : entry,
       ),

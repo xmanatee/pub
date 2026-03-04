@@ -49,7 +49,7 @@ function collectValues(value: string, previous: string[]): string[] {
   return previous;
 }
 
-function parseSetInput(raw: string): { key: string; value: string } {
+export function parseSetInput(raw: string): { key: string; value: string } {
   const sepIndex = raw.indexOf("=");
   if (sepIndex <= 0 || sepIndex === raw.length - 1) {
     throw new Error(`Invalid --set entry "${raw}". Use key=value.`);
@@ -60,7 +60,7 @@ function parseSetInput(raw: string): { key: string; value: string } {
   };
 }
 
-function parseBooleanValue(raw: string, key: string): boolean {
+export function parseBooleanValue(raw: string, key: string): boolean {
   const normalized = raw.trim().toLowerCase();
   if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on")
     return true;
@@ -69,7 +69,7 @@ function parseBooleanValue(raw: string, key: string): boolean {
   throw new Error(`Invalid boolean value for ${key}: ${raw}`);
 }
 
-function parsePositiveInteger(raw: string, key: string): number {
+export function parsePositiveInteger(raw: string, key: string): number {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`${key} must be a positive integer. Received: ${raw}`);
@@ -77,159 +77,103 @@ function parsePositiveInteger(raw: string, key: string): number {
   return parsed;
 }
 
-export const SUPPORTED_KEYS = [
-  "openclaw.path",
-  "openclaw.stateDir",
-  "openclaw.sessionId",
-  "openclaw.threadId",
-  "openclaw.canvasReminderEvery",
-  "openclaw.deliver",
-  "openclaw.deliverChannel",
-  "openclaw.replyTo",
-  "openclaw.deliverTimeoutMs",
-  "openclaw.attachmentDir",
-  "openclaw.attachmentMaxBytes",
-  "claude-code.path",
-  "claude-code.model",
-  "claude-code.allowedTools",
-  "claude-code.appendSystemPrompt",
-  "claude-code.maxTurns",
-  "claude-code.cwd",
-  "telegram.botToken",
-];
+interface ConfigKeyDef {
+  target: "bridge" | "telegram";
+  field: keyof BridgeConfig | keyof TelegramConfig;
+  type: "string" | "boolean" | "integer";
+  displayAs?: "set-only";
+  cascadeUnset?: Array<keyof TelegramConfig>;
+}
 
-function applyConfigSet(
+const CONFIG_KEY_REGISTRY: Record<string, ConfigKeyDef> = {
+  "openclaw.path": { target: "bridge", field: "openclawPath", type: "string" },
+  "openclaw.stateDir": { target: "bridge", field: "openclawStateDir", type: "string" },
+  "openclaw.sessionId": { target: "bridge", field: "sessionId", type: "string" },
+  "openclaw.threadId": { target: "bridge", field: "threadId", type: "string" },
+  "openclaw.canvasReminderEvery": {
+    target: "bridge",
+    field: "canvasReminderEvery",
+    type: "integer",
+  },
+  "openclaw.deliver": { target: "bridge", field: "deliver", type: "boolean" },
+  "openclaw.deliverChannel": { target: "bridge", field: "deliverChannel", type: "string" },
+  "openclaw.replyTo": { target: "bridge", field: "replyTo", type: "string" },
+  "openclaw.deliverTimeoutMs": { target: "bridge", field: "deliverTimeoutMs", type: "integer" },
+  "openclaw.attachmentDir": { target: "bridge", field: "attachmentDir", type: "string" },
+  "openclaw.attachmentMaxBytes": { target: "bridge", field: "attachmentMaxBytes", type: "integer" },
+  "claude-code.path": { target: "bridge", field: "claudeCodePath", type: "string" },
+  "claude-code.model": { target: "bridge", field: "claudeCodeModel", type: "string" },
+  "claude-code.allowedTools": { target: "bridge", field: "claudeCodeAllowedTools", type: "string" },
+  "claude-code.appendSystemPrompt": {
+    target: "bridge",
+    field: "claudeCodeAppendSystemPrompt",
+    type: "string",
+    displayAs: "set-only",
+  },
+  "claude-code.maxTurns": { target: "bridge", field: "claudeCodeMaxTurns", type: "integer" },
+  "claude-code.cwd": { target: "bridge", field: "claudeCodeCwd", type: "string" },
+  "telegram.botToken": {
+    target: "telegram",
+    field: "botToken",
+    type: "string",
+    cascadeUnset: ["botUsername", "hasMainWebApp"],
+  },
+};
+
+export const SUPPORTED_KEYS = Object.keys(CONFIG_KEY_REGISTRY);
+
+function coerceValue(
+  raw: string,
+  type: ConfigKeyDef["type"],
+  key: string,
+): string | number | boolean {
+  if (type === "integer") return parsePositiveInteger(raw, key);
+  if (type === "boolean") return parseBooleanValue(raw, key);
+  return raw;
+}
+
+export function applyConfigSet(
   bridge: BridgeConfig,
   telegram: TelegramConfig,
   key: string,
   value: string,
 ): void {
-  switch (key) {
-    case "openclaw.path":
-      bridge.openclawPath = value;
-      return;
-    case "openclaw.stateDir":
-      bridge.openclawStateDir = value;
-      return;
-    case "openclaw.sessionId":
-      bridge.sessionId = value;
-      return;
-    case "openclaw.threadId":
-      bridge.threadId = value;
-      return;
-    case "openclaw.canvasReminderEvery":
-      bridge.canvasReminderEvery = parsePositiveInteger(value, key);
-      return;
-    case "openclaw.deliver":
-      bridge.deliver = parseBooleanValue(value, key);
-      return;
-    case "openclaw.deliverChannel":
-      bridge.deliverChannel = value;
-      return;
-    case "openclaw.replyTo":
-      bridge.replyTo = value;
-      return;
-    case "openclaw.deliverTimeoutMs":
-      bridge.deliverTimeoutMs = parsePositiveInteger(value, key);
-      return;
-    case "openclaw.attachmentDir":
-      bridge.attachmentDir = value;
-      return;
-    case "openclaw.attachmentMaxBytes":
-      bridge.attachmentMaxBytes = parsePositiveInteger(value, key);
-      return;
-    case "claude-code.path":
-      bridge.claudeCodePath = value;
-      return;
-    case "claude-code.model":
-      bridge.claudeCodeModel = value;
-      return;
-    case "claude-code.allowedTools":
-      bridge.claudeCodeAllowedTools = value;
-      return;
-    case "claude-code.appendSystemPrompt":
-      bridge.claudeCodeAppendSystemPrompt = value;
-      return;
-    case "claude-code.maxTurns":
-      bridge.claudeCodeMaxTurns = parsePositiveInteger(value, key);
-      return;
-    case "claude-code.cwd":
-      bridge.claudeCodeCwd = value;
-      return;
-    case "telegram.botToken":
-      telegram.botToken = value;
-      return;
-    default:
-      throw new Error(
-        [
-          `Unknown config key: ${key}`,
-          "Supported keys:",
-          ...SUPPORTED_KEYS.map((k) => `  ${k}`),
-        ].join("\n"),
-      );
+  const def = CONFIG_KEY_REGISTRY[key];
+  if (!def) {
+    throw new Error(
+      [
+        `Unknown config key: ${key}`,
+        "Supported keys:",
+        ...SUPPORTED_KEYS.map((k) => `  ${k}`),
+      ].join("\n"),
+    );
+  }
+  const coerced = coerceValue(value, def.type, key);
+  if (def.target === "bridge") {
+    Object.assign(bridge, { [def.field]: coerced });
+  } else {
+    Object.assign(telegram, { [def.field]: coerced });
   }
 }
 
-function applyConfigUnset(bridge: BridgeConfig, telegram: TelegramConfig, key: string): void {
-  switch (key) {
-    case "openclaw.path":
-      delete bridge.openclawPath;
-      return;
-    case "openclaw.stateDir":
-      delete bridge.openclawStateDir;
-      return;
-    case "openclaw.sessionId":
-      delete bridge.sessionId;
-      return;
-    case "openclaw.threadId":
-      delete bridge.threadId;
-      return;
-    case "openclaw.canvasReminderEvery":
-      delete bridge.canvasReminderEvery;
-      return;
-    case "openclaw.deliver":
-      delete bridge.deliver;
-      return;
-    case "openclaw.deliverChannel":
-      delete bridge.deliverChannel;
-      return;
-    case "openclaw.replyTo":
-      delete bridge.replyTo;
-      return;
-    case "openclaw.deliverTimeoutMs":
-      delete bridge.deliverTimeoutMs;
-      return;
-    case "openclaw.attachmentDir":
-      delete bridge.attachmentDir;
-      return;
-    case "openclaw.attachmentMaxBytes":
-      delete bridge.attachmentMaxBytes;
-      return;
-    case "claude-code.path":
-      delete bridge.claudeCodePath;
-      return;
-    case "claude-code.model":
-      delete bridge.claudeCodeModel;
-      return;
-    case "claude-code.allowedTools":
-      delete bridge.claudeCodeAllowedTools;
-      return;
-    case "claude-code.appendSystemPrompt":
-      delete bridge.claudeCodeAppendSystemPrompt;
-      return;
-    case "claude-code.maxTurns":
-      delete bridge.claudeCodeMaxTurns;
-      return;
-    case "claude-code.cwd":
-      delete bridge.claudeCodeCwd;
-      return;
-    case "telegram.botToken":
-      delete telegram.botToken;
-      delete telegram.botUsername;
-      delete telegram.hasMainWebApp;
-      return;
-    default:
-      throw new Error(`Unknown config key for --unset: ${key}`);
+export function applyConfigUnset(
+  bridge: BridgeConfig,
+  telegram: TelegramConfig,
+  key: string,
+): void {
+  const def = CONFIG_KEY_REGISTRY[key];
+  if (!def) {
+    throw new Error(`Unknown config key for --unset: ${key}`);
+  }
+  if (def.target === "bridge") {
+    delete bridge[def.field as keyof BridgeConfig];
+  } else {
+    delete telegram[def.field as keyof TelegramConfig];
+    if (def.cascadeUnset) {
+      for (const cascadeField of def.cascadeUnset) {
+        delete telegram[cascadeField];
+      }
+    }
   }
 }
 
@@ -275,63 +219,51 @@ async function telegramSetMenuButton(token: string, button: object): Promise<voi
   }
 }
 
-function printConfigSummary(saved: SavedConfig | null): void {
-  if (!saved) {
-    console.log("Saved config: none");
+function formatFieldValue(value: unknown, def: ConfigKeyDef): string {
+  if (def.displayAs === "set-only") return "(set)";
+  if (def.type === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function printBridgeConfig(bridge: BridgeConfig): void {
+  if (!hasValues(bridge)) {
+    console.log("  bridge: none");
     return;
   }
-
-  console.log("Saved config:");
-  console.log(`  apiKey: ${maskSecret(saved.apiKey)}`);
-
-  if (saved.bridge && hasValues(saved.bridge)) {
-    if (saved.bridge.openclawPath) console.log(`  openclaw.path: ${saved.bridge.openclawPath}`);
-    if (saved.bridge.openclawStateDir)
-      console.log(`  openclaw.stateDir: ${saved.bridge.openclawStateDir}`);
-    if (saved.bridge.sessionId) console.log(`  openclaw.sessionId: ${saved.bridge.sessionId}`);
-    if (saved.bridge.threadId) console.log(`  openclaw.threadId: ${saved.bridge.threadId}`);
-    if (saved.bridge.canvasReminderEvery !== undefined)
-      console.log(`  openclaw.canvasReminderEvery: ${saved.bridge.canvasReminderEvery}`);
-    if (saved.bridge.deliver !== undefined)
-      console.log(`  openclaw.deliver: ${saved.bridge.deliver ? "true" : "false"}`);
-    if (saved.bridge.deliverChannel)
-      console.log(`  openclaw.deliverChannel: ${saved.bridge.deliverChannel}`);
-    if (saved.bridge.replyTo) console.log(`  openclaw.replyTo: ${saved.bridge.replyTo}`);
-    if (saved.bridge.deliverTimeoutMs !== undefined)
-      console.log(`  openclaw.deliverTimeoutMs: ${saved.bridge.deliverTimeoutMs}`);
-    if (saved.bridge.attachmentDir)
-      console.log(`  openclaw.attachmentDir: ${saved.bridge.attachmentDir}`);
-    if (saved.bridge.attachmentMaxBytes !== undefined)
-      console.log(`  openclaw.attachmentMaxBytes: ${saved.bridge.attachmentMaxBytes}`);
-    if (saved.bridge.claudeCodePath)
-      console.log(`  claude-code.path: ${saved.bridge.claudeCodePath}`);
-    if (saved.bridge.claudeCodeModel)
-      console.log(`  claude-code.model: ${saved.bridge.claudeCodeModel}`);
-    if (saved.bridge.claudeCodeAllowedTools)
-      console.log(`  claude-code.allowedTools: ${saved.bridge.claudeCodeAllowedTools}`);
-    if (saved.bridge.claudeCodeAppendSystemPrompt)
-      console.log(`  claude-code.appendSystemPrompt: (set)`);
-    if (saved.bridge.claudeCodeMaxTurns !== undefined)
-      console.log(`  claude-code.maxTurns: ${saved.bridge.claudeCodeMaxTurns}`);
-    if (saved.bridge.claudeCodeCwd) console.log(`  claude-code.cwd: ${saved.bridge.claudeCodeCwd}`);
-  } else {
-    console.log("  bridge: none");
+  for (const [key, def] of Object.entries(CONFIG_KEY_REGISTRY)) {
+    if (def.target !== "bridge") continue;
+    const value = bridge[def.field as keyof BridgeConfig];
+    if (value === undefined) continue;
+    console.log(`  ${key}: ${formatFieldValue(value, def)}`);
   }
+}
 
-  if (saved.telegram?.botToken && saved.telegram.botUsername) {
-    console.log(`  telegram.botToken: ${maskSecret(saved.telegram.botToken)}`);
-    console.log(`  telegram.botUsername: @${saved.telegram.botUsername}`);
-    if (!saved.telegram.hasMainWebApp) {
+function printTelegramConfig(telegram?: TelegramConfig): void {
+  if (telegram?.botToken && telegram.botUsername) {
+    console.log(`  telegram.botToken: ${maskSecret(telegram.botToken)}`);
+    console.log(`  telegram.botUsername: @${telegram.botUsername}`);
+    if (!telegram.hasMainWebApp) {
       console.log("    INFO: Register Mini App in @BotFather for deep links to open in Telegram");
     }
-  } else if (saved.telegram?.botToken) {
-    console.log(`  telegram.botToken: ${maskSecret(saved.telegram.botToken)}`);
+  } else if (telegram?.botToken) {
+    console.log(`  telegram.botToken: ${maskSecret(telegram.botToken)}`);
     console.log("  telegram.botUsername: (not resolved)");
   } else {
     console.log("  telegram: not configured");
     console.log("    INFO: Set telegram.botToken to enable Telegram Mini App links");
     console.log("    Example: pubblue configure --set telegram.botToken=<BOT_TOKEN>");
   }
+}
+
+function printConfigSummary(saved: SavedConfig | null): void {
+  if (!saved) {
+    console.log("Saved config: none");
+    return;
+  }
+  console.log("Saved config:");
+  console.log(`  apiKey: ${maskSecret(saved.apiKey)}`);
+  printBridgeConfig(saved.bridge ?? {});
+  printTelegramConfig(saved.telegram);
 }
 
 export function registerConfigureCommand(program: Command): void {

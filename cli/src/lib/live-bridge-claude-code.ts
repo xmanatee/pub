@@ -20,7 +20,7 @@ import {
   readTextChatMessage,
 } from "./live-bridge-openclaw.js";
 
-function resolveClaudeCodePath(): string {
+export function resolveClaudeCodePath(): string {
   const configured = process.env.CLAUDE_CODE_PATH?.trim();
   if (configured) return configured;
   try {
@@ -47,7 +47,7 @@ async function runClaudeCodePreflight(claudePath: string): Promise<void> {
   });
 }
 
-function buildClaudeArgs(prompt: string, sessionId: string | null): string[] {
+export function buildClaudeArgs(prompt: string, sessionId: string | null): string[] {
   const args = ["-p", prompt, "--output-format", "stream-json", "--dangerously-skip-permissions"];
   if (sessionId) args.push("--resume", sessionId);
 

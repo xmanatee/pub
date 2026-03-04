@@ -9,17 +9,24 @@ const STORAGE_KEYS = {
   micGranted: "pubblue:live:mic-granted",
 } as const;
 
-function readStoredBoolean(key: string, fallback: boolean): boolean {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
+type GetItem = (key: string) => string | null;
+
+const defaultGetItem: GetItem =
+  typeof window !== "undefined" ? (key) => window.localStorage.getItem(key) : () => null;
+
+export function readStoredBoolean(
+  key: string,
+  fallback: boolean,
+  getItem: GetItem = defaultGetItem,
+): boolean {
+  const raw = getItem(key);
   if (raw === "1") return true;
   if (raw === "0") return false;
   return fallback;
 }
 
-function readStoredAnimationStyle(): LiveAnimationStyle {
-  if (typeof window === "undefined") return LIVE_ANIMATION_STYLES[0];
-  const raw = window.localStorage.getItem(STORAGE_KEYS.animationStyle);
+export function readStoredAnimationStyle(getItem: GetItem = defaultGetItem): LiveAnimationStyle {
+  const raw = getItem(STORAGE_KEYS.animationStyle);
   if (raw && isLiveAnimationStyle(raw)) return raw;
   return LIVE_ANIMATION_STYLES[0];
 }
@@ -41,27 +48,22 @@ export function useLivePreferences() {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEYS.autoOpenCanvas, autoOpenCanvas ? "1" : "0");
   }, [autoOpenCanvas]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEYS.showDeliveryStatus, showDeliveryStatus ? "1" : "0");
   }, [showDeliveryStatus]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEYS.animationStyle, animationStyle);
   }, [animationStyle]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEYS.voiceModeEnabled, voiceModeEnabled ? "1" : "0");
   }, [voiceModeEnabled]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEYS.micGranted, micGranted ? "1" : "0");
   }, [micGranted]);
 
