@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
+import { trackError } from "~/lib/analytics";
 import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/lib/bridge-protocol";
 import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ensureChannelReady } from "~/lib/webrtc-channel";
@@ -163,7 +164,9 @@ export function useControlBarAudio({
       try {
         recorder.stop();
       } catch (error) {
-        console.error("Failed to stop recording cleanly", error);
+        trackError(error instanceof Error ? error : new Error("Failed to stop recording"), {
+          context: "control-bar-audio",
+        });
         shouldSendOnStopRef.current = false;
         audioChunksRef.current = [];
         localStopInProgressRef.current = false;
@@ -213,9 +216,12 @@ export function useControlBarAudio({
       animateWaveform();
       return true;
     } catch (error) {
-      console.error("Failed to start recording", error);
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         onMicGranted(false);
+      } else {
+        trackError(error instanceof Error ? error : new Error("Failed to start recording"), {
+          context: "control-bar-audio",
+        });
       }
       shouldSendOnStopRef.current = false;
       audioChunksRef.current = [];
@@ -303,9 +309,12 @@ export function useControlBarAudio({
       startTimer(true);
       animateWaveform();
     } catch (error) {
-      console.error("Failed to start voice mode", error);
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         onMicGranted(false);
+      } else {
+        trackError(error instanceof Error ? error : new Error("Failed to start voice mode"), {
+          context: "control-bar-audio",
+        });
       }
       dispatch({ type: "START_VOICE_FAILURE" });
       teardownMediaState(true);

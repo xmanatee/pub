@@ -61,16 +61,14 @@ function PubPage() {
     );
   }
 
-  const hasContent = Boolean(pub.content && pub.contentType);
-
   if (pub.isOwner) {
     if (liveMode) {
       return <LiveView slug={slug} />;
     }
     return (
       <>
-        {hasContent ? (
-          <FullScreenContent content={pub.content!} contentType={pub.contentType!} />
+        {pub.content && pub.contentType ? (
+          <FullScreenContent content={pub.content} contentType={pub.contentType} />
         ) : (
           <MessageScreen
             title="No content yet"
@@ -82,8 +80,7 @@ function PubPage() {
     );
   }
 
-  // Non-owner — content only
-  if (!hasContent) {
+  if (!pub.content || !pub.contentType) {
     return (
       <MessageScreen
         title="No content"
@@ -93,7 +90,7 @@ function PubPage() {
     );
   }
 
-  return <FullScreenContent content={pub.content!} contentType={pub.contentType!} />;
+  return <FullScreenContent content={pub.content} contentType={pub.contentType} />;
 }
 
 function LiveView({ slug }: { slug: string }) {

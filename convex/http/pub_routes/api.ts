@@ -328,8 +328,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           return {
             slug: body.slug ?? pub.slug,
             contentType: contentType ?? pub.contentType,
-            title: body.title !== undefined ? body.title : pub.title,
-            isPublic: body.isPublic !== undefined ? body.isPublic : pub.isPublic,
+            title: body.title ?? pub.title,
+            isPublic: body.isPublic ?? pub.isPublic,
             updatedAt: Date.now(),
           };
         },

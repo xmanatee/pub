@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { trackError } from "~/lib/analytics";
 import {
   type BridgeMessageMeta,
   CONTROL_CHANNEL,
@@ -124,7 +125,10 @@ export function useLiveBridge({
           localIceStopTimeoutRef.current = null;
         }, 30_000);
       } catch (error) {
-        console.error("Failed to create live WebRTC offer", error);
+        trackError(
+          error instanceof Error ? error : new Error("Failed to create live WebRTC offer"),
+          { context: "live-bridge" },
+        );
         bridge.close();
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;
@@ -159,7 +163,9 @@ export function useLiveBridge({
     lastHandledAnswerRef.current = answerKey;
 
     void bridge.applyAnswer(agentAnswer).catch((error) => {
-      console.error("Failed to apply agent answer", error);
+      trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
+        context: "live-bridge",
+      });
     });
   }, [agentAnswer, slug]);
 
