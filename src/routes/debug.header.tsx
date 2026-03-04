@@ -15,7 +15,7 @@ export const Route = createFileRoute("/debug/header")({
 function HeaderNonTma() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div className="px-4 sm:px-6 h-14 flex items-center justify-between">
         <PubWordmark iconSize={22} className="text-foreground" />
         <nav className="flex items-center gap-3">
           <Button variant="ghost" size="sm" className="pointer-coarse:h-11">
@@ -66,7 +66,7 @@ function HeaderNonFullscreenTma() {
 function HeaderDebugPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-md space-y-10 px-4 py-8">
+      <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Header Debug</h1>
 
         <BatchSection

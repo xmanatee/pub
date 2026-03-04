@@ -240,7 +240,7 @@ function FullScreenMarkdown({ content }: { content: string }) {
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-background">
       <div
-        className="max-w-[800px] mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
+        className="max-w-4xl mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

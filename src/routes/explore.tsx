@@ -23,7 +23,7 @@ function ExplorePage() {
   } = usePaginatedQuery(api.pubs.listPublic, {}, { initialNumItems: 12 });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+    <div className="px-4 sm:px-6 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Explore</h1>
         <p className="text-muted-foreground text-sm mt-1">Browse public pubs from the community</p>

@@ -30,7 +30,7 @@ function StatusScreen({ text }: { text: string }) {
 function PubPageDebug() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-3xl space-y-10 px-4 py-8">
+      <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Pub Page Debug</h1>
 
         <BatchSection
