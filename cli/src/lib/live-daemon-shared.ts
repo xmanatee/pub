@@ -3,6 +3,31 @@ import type { BridgeMessage } from "./bridge-protocol.js";
 
 export type BridgeMode = "openclaw" | "claude-code";
 
+export interface BridgeInstructions {
+  replyHint: string;
+  canvasHint: string;
+  systemPrompt: string | null;
+}
+
+export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
+  if (mode === "claude-code") {
+    return {
+      replyHint: 'Reply by running: pubblue write "<your reply>"',
+      canvasHint: "Canvas update: pubblue write -c canvas -f /path/to/file.html",
+      systemPrompt: [
+        "You are in a live P2P session with a user.",
+        "The canvas is an iframe visible to the user alongside the chat.",
+        "Always `use pubblue write` for all communication with the user.",
+      ].join("\n"),
+    };
+  }
+  return {
+    replyHint: 'Reply by running: write "<your reply>"',
+    canvasHint: "Canvas update: write -c canvas -f /path/to/file.html",
+    systemPrompt: null,
+  };
+}
+
 export interface ChannelBuffer {
   messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
 }

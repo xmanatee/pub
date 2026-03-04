@@ -27,6 +27,7 @@ import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
 import { type BridgeRunner, createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import { createAnswer } from "./live-daemon-answer.js";
 import {
+  buildBridgeInstructions,
   type ChannelBuffer,
   type DaemonConfig,
   getLiveWriteReadinessError,
@@ -614,7 +615,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (stopped || !activeSlug) return;
     if (!config.bridgeMode) return;
     await stopBridge();
-    const bridgeConfig = { slug: activeSlug, sendMessage: sendOnChannel, debugLog };
+    const instructions = buildBridgeInstructions(config.bridgeMode);
+    const bridgeConfig = { slug: activeSlug, sendMessage: sendOnChannel, debugLog, instructions };
     try {
       bridgeRunner =
         config.bridgeMode === "claude-code"
@@ -792,6 +794,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           channels: [...channels.keys()],
           bufferedMessages: buffer.messages.length,
           lastError,
+          bridgeMode: config.bridgeMode ?? null,
           bridge: bridgeRunner?.status() ?? null,
         };
       }

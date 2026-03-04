@@ -12,11 +12,24 @@ import {
   type BridgeRunnerConfig,
   type BridgeStatus,
   type BufferedEntry,
+  buildInboundPrompt,
   buildSessionBriefing,
   MAX_SEEN_IDS,
   parseSessionContextMeta,
   readTextChatMessage,
+  resolveCanvasReminderEvery,
+  shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-openclaw.js";
+
+export function isClaudeCodeAvailable(): boolean {
+  if (process.env.CLAUDE_CODE_PATH?.trim()) return true;
+  try {
+    const which = execFileSync("which", ["claude"], { timeout: 5_000 }).toString().trim();
+    return which.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function resolveClaudeCodePath(): string {
   const configured = process.env.CLAUDE_CODE_PATH?.trim();
@@ -24,9 +37,7 @@ function resolveClaudeCodePath(): string {
   try {
     const which = execFileSync("which", ["claude"], { timeout: 5_000 }).toString().trim();
     if (which.length > 0) return which;
-  } catch {
-    // `which` not found or claude not in PATH — fall through to default "claude"
-  }
+  } catch {}
   return "claude";
 }
 
@@ -47,15 +58,19 @@ async function runClaudeCodePreflight(claudePath: string): Promise<void> {
   });
 }
 
-const CANVAS_SYSTEM_PROMPT = [
-  "You are in a live pub.blue session. Your text output is sent as a chat message automatically.",
-  "To show visual content, write an HTML file to /tmp/ and run: pubblue write -c canvas -f /tmp/your-file.html",
-  "The canvas is an iframe visible to the user alongside the chat. Use it for any visual, interactive, or rich content.",
-  "Do NOT use pubblue create or pubblue write for chat replies — just output text normally.",
-].join("\n");
-
-function buildClaudeArgs(prompt: string, sessionId: string | null): string[] {
-  const args = ["-p", prompt, "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"];
+function buildClaudeArgs(
+  prompt: string,
+  sessionId: string | null,
+  systemPrompt: string | null,
+): string[] {
+  const args = [
+    "-p",
+    prompt,
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--dangerously-skip-permissions",
+  ];
   if (sessionId) args.push("--resume", sessionId);
 
   const model = process.env.CLAUDE_CODE_MODEL?.trim();
@@ -65,10 +80,8 @@ function buildClaudeArgs(prompt: string, sessionId: string | null): string[] {
   if (allowedTools) args.push("--allowedTools", allowedTools);
 
   const userSystemPrompt = process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
-  const systemPrompt = userSystemPrompt
-    ? `${CANVAS_SYSTEM_PROMPT}\n\n${userSystemPrompt}`
-    : CANVAS_SYSTEM_PROMPT;
-  args.push("--append-system-prompt", systemPrompt);
+  const effectiveSystemPrompt = [systemPrompt, userSystemPrompt].filter(Boolean).join("\n\n");
+  if (effectiveSystemPrompt) args.push("--append-system-prompt", effectiveSystemPrompt);
 
   const maxTurns = process.env.CLAUDE_CODE_MAX_TURNS?.trim();
   if (maxTurns) args.push("--max-turns", maxTurns);
@@ -105,8 +118,10 @@ export async function createClaudeCodeBridgeRunner(
     notify = null;
   }
 
+  const canvasReminderEvery = resolveCanvasReminderEvery();
+
   async function deliverToClaudeCode(prompt: string): Promise<void> {
-    const args = buildClaudeArgs(prompt, sessionId);
+    const args = buildClaudeArgs(prompt, sessionId, config.instructions.systemPrompt);
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 
     const spawnEnv = { ...process.env };
@@ -125,7 +140,6 @@ export async function createClaudeCodeBridgeRunner(
 
     const rl = createInterface({ input: child.stdout, crlfDelay: Number.POSITIVE_INFINITY });
     let capturedSessionId: string | null = null;
-    let resultText: string | null = null;
 
     for await (const line of rl) {
       if (stopping) break;
@@ -140,22 +154,11 @@ export async function createClaudeCodeBridgeRunner(
       }
 
       if (event.type === "result") {
-        const result = event as { session_id?: string; result?: string };
+        const result = event as { session_id?: string };
         if (typeof result.session_id === "string" && result.session_id.length > 0) {
           capturedSessionId = result.session_id;
         }
-        if (typeof result.result === "string" && result.result.length > 0) {
-          resultText = result.result;
-        }
       }
-    }
-
-    if (resultText) {
-      sendMessage(CHANNELS.CHAT, {
-        id: generateMessageId(),
-        type: "text",
-        data: resultText,
-      });
     }
 
     const exitCode = await new Promise<number | null>((resolve) => {
@@ -206,10 +209,7 @@ export async function createClaudeCodeBridgeRunner(
             const ctx = parseSessionContextMeta(entry.msg.meta);
             if (ctx) {
               sessionBriefingSent = true;
-              const briefing = buildSessionBriefing(slug, ctx, [
-                "Reply: Your text output becomes the chat response automatically. Do NOT use pubblue write for chat.",
-                "Canvas: Write an HTML file to /tmp/ then run: pubblue write -c canvas -f /tmp/your-file.html",
-              ]);
+              const briefing = buildSessionBriefing(slug, ctx, config.instructions);
               await deliverToClaudeCode(briefing);
               debugLog("session briefing delivered");
             }
@@ -218,7 +218,16 @@ export async function createClaudeCodeBridgeRunner(
 
           const chat = readTextChatMessage(entry);
           if (chat) {
-            const prompt = `[Pubblue ${slug}] User message:\n\n${chat}`;
+            const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
+              forwardedMessageCount + 1,
+              canvasReminderEvery,
+            );
+            const prompt = buildInboundPrompt(
+              slug,
+              chat,
+              includeCanvasReminder,
+              config.instructions,
+            );
             await deliverToClaudeCode(prompt);
             forwardedMessageCount += 1;
           } else if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {

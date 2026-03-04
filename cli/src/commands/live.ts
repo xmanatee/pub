@@ -167,7 +167,8 @@ function registerStatusCommand(program: Command): void {
         forwardedMessages?: number;
       } | null;
       if (bridge) {
-        console.log(`  Bridge: openclaw (${bridge.running ? "running" : "stopped"})`);
+        const bridgeLabel = response.bridgeMode ?? "unknown";
+        console.log(`  Bridge: ${bridgeLabel} (${bridge.running ? "running" : "stopped"})`);
         if (bridge.sessionId) {
           console.log(`  Bridge session: ${bridge.sessionId}`);
         }
