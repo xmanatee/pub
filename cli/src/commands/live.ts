@@ -48,13 +48,11 @@ function registerStartCommand(program: Command): void {
     .command("start")
     .description("Start the agent daemon (registers presence, awaits live requests)")
     .requiredOption("--agent-name <name>", "Agent display name shown to the browser user")
-    .option("--bridge <mode>", "Bridge mode: openclaw|claude-code|none")
-    .option("--foreground", "Run in foreground (don't fork)")
-    .action(async (opts: { agentName: string; bridge?: string; foreground?: boolean }) => {
+    .option("--bridge <mode>", "Bridge mode: openclaw|claude-code")
+    .action(async (opts: { agentName: string; bridge?: string }) => {
       await ensureNodeDatachannelAvailable();
       writeLatestCliVersion(CLI_VERSION);
       const runtimeConfig = getConfig();
-      const apiClient = createClient(runtimeConfig);
       const bridgeMode = resolveBridgeMode(opts);
       const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
 
@@ -63,25 +61,6 @@ function registerStartCommand(program: Command): void {
       const logPath = liveLogPath("agent");
 
       await stopOtherDaemons();
-
-      if (opts.foreground) {
-        const { startDaemon } = await import("../lib/live-daemon.js");
-        console.log("Agent daemon starting in foreground...");
-        console.log("Press Ctrl+C to stop.");
-        try {
-          await startDaemon({
-            cliVersion: CLI_VERSION,
-            apiClient,
-            socketPath,
-            infoPath,
-            bridgeMode,
-            agentName: opts.agentName,
-          });
-        } catch (error) {
-          failCli(`Daemon failed: ${errorMessage(error)}`);
-        }
-        return;
-      }
 
       const { fork } = await import("node:child_process");
       const daemonScript = path.join(import.meta.dirname, "live-daemon-entry.js");
@@ -188,7 +167,8 @@ function registerStatusCommand(program: Command): void {
         forwardedMessages?: number;
       } | null;
       if (bridge) {
-        console.log(`  Bridge: openclaw (${bridge.running ? "running" : "stopped"})`);
+        const bridgeLabel = response.bridgeMode ?? "unknown";
+        console.log(`  Bridge: ${bridgeLabel} (${bridge.running ? "running" : "stopped"})`);
         if (bridge.sessionId) {
           console.log(`  Bridge session: ${bridge.sessionId}`);
         }

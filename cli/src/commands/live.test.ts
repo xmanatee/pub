@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isClaudeCodeAvailable } from "../lib/live-bridge-claude-code.js";
+import { isOpenClawAvailable } from "../lib/live-bridge-openclaw.js";
 import { SUPPORTED_KEYS } from "./configure.js";
 import {
   buildDaemonForkStdio,
@@ -8,6 +10,13 @@ import {
   parsePositiveIntegerOption,
   resolveBridgeMode,
 } from "./live-helpers.js";
+
+vi.mock("../lib/live-bridge-openclaw.js", () => ({
+  isOpenClawAvailable: vi.fn(() => false),
+}));
+vi.mock("../lib/live-bridge-claude-code.js", () => ({
+  isClaudeCodeAvailable: vi.fn(() => false),
+}));
 
 describe("SUPPORTED_KEYS", () => {
   it("does not include bridge.mode", () => {
@@ -60,37 +69,45 @@ describe("parseBridgeMode", () => {
   it("accepts supported bridge modes", () => {
     expect(parseBridgeMode("openclaw")).toBe("openclaw");
     expect(parseBridgeMode("claude-code")).toBe("claude-code");
-    expect(parseBridgeMode("none")).toBe("none");
     expect(parseBridgeMode("OPENCLAW")).toBe("openclaw");
     expect(parseBridgeMode("CLAUDE-CODE")).toBe("claude-code");
   });
 
   it("throws for unsupported bridge modes", () => {
     expect(() => parseBridgeMode("invalid")).toThrow("--bridge must be one of");
+    expect(() => parseBridgeMode("none")).toThrow("--bridge must be one of");
   });
 });
 
 describe("resolveBridgeMode", () => {
-  it("defaults to openclaw in background mode", () => {
-    expect(resolveBridgeMode({})).toBe("openclaw");
-    expect(resolveBridgeMode({ foreground: false })).toBe("openclaw");
+  beforeEach(() => {
+    vi.mocked(isOpenClawAvailable).mockReturnValue(false);
+    vi.mocked(isClaudeCodeAvailable).mockReturnValue(false);
   });
 
-  it("defaults to none in foreground mode", () => {
-    expect(resolveBridgeMode({ foreground: true })).toBe("none");
-  });
-
-  it("allows explicit --bridge openclaw in background mode", () => {
+  it("uses explicit bridge when specified", () => {
     expect(resolveBridgeMode({ bridge: "openclaw" })).toBe("openclaw");
+    expect(resolveBridgeMode({ bridge: "claude-code" })).toBe("claude-code");
   });
 
-  it("allows explicit --bridge none in foreground mode", () => {
-    expect(resolveBridgeMode({ bridge: "none", foreground: true })).toBe("none");
+  it("auto-detects claude-code when only claude is available", () => {
+    vi.mocked(isClaudeCodeAvailable).mockReturnValue(true);
+    expect(resolveBridgeMode({})).toBe("claude-code");
   });
 
-  it("allows --bridge none in background mode", () => {
-    expect(resolveBridgeMode({ bridge: "none" })).toBe("none");
-    expect(resolveBridgeMode({ bridge: "none", foreground: false })).toBe("none");
+  it("auto-detects openclaw when only openclaw is available", () => {
+    vi.mocked(isOpenClawAvailable).mockReturnValue(true);
+    expect(resolveBridgeMode({})).toBe("openclaw");
+  });
+
+  it("throws when both bridges are available", () => {
+    vi.mocked(isOpenClawAvailable).mockReturnValue(true);
+    vi.mocked(isClaudeCodeAvailable).mockReturnValue(true);
+    expect(() => resolveBridgeMode({})).toThrow("Both openclaw and claude-code");
+  });
+
+  it("throws when no bridge is available", () => {
+    expect(() => resolveBridgeMode({})).toThrow("No bridge detected");
   });
 });
 

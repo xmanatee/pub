@@ -5,8 +5,6 @@ import {
   CHANNELS,
   CONTROL_CHANNEL,
   generateMessageId,
-  makeStreamEnd,
-  makeStreamStart,
 } from "./bridge-protocol.js";
 import { errorMessage } from "./cli-error.js";
 import {
@@ -14,11 +12,24 @@ import {
   type BridgeRunnerConfig,
   type BridgeStatus,
   type BufferedEntry,
+  buildInboundPrompt,
   buildSessionBriefing,
   MAX_SEEN_IDS,
   parseSessionContextMeta,
   readTextChatMessage,
+  resolveCanvasReminderEvery,
+  shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-openclaw.js";
+
+export function isClaudeCodeAvailable(): boolean {
+  if (process.env.CLAUDE_CODE_PATH?.trim()) return true;
+  try {
+    const which = execFileSync("which", ["claude"], { timeout: 5_000 }).toString().trim();
+    return which.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 export function resolveClaudeCodePath(): string {
   const configured = process.env.CLAUDE_CODE_PATH?.trim();
@@ -26,15 +37,15 @@ export function resolveClaudeCodePath(): string {
   try {
     const which = execFileSync("which", ["claude"], { timeout: 5_000 }).toString().trim();
     if (which.length > 0) return which;
-  } catch {
-    // `which` not found or claude not in PATH — fall through to default "claude"
-  }
+  } catch {}
   return "claude";
 }
 
 async function runClaudeCodePreflight(claudePath: string): Promise<void> {
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
   return new Promise((resolve, reject) => {
-    const child = spawn(claudePath, ["--version"], { timeout: 10_000, stdio: "pipe" });
+    const child = spawn(claudePath, ["--version"], { timeout: 10_000, stdio: "pipe", env });
     let stderr = "";
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();
@@ -47,8 +58,19 @@ async function runClaudeCodePreflight(claudePath: string): Promise<void> {
   });
 }
 
-export function buildClaudeArgs(prompt: string, sessionId: string | null): string[] {
-  const args = ["-p", prompt, "--output-format", "stream-json", "--dangerously-skip-permissions"];
+export function buildClaudeArgs(
+  prompt: string,
+  sessionId: string | null,
+  systemPrompt: string | null,
+): string[] {
+  const args = [
+    "-p",
+    prompt,
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--dangerously-skip-permissions",
+  ];
   if (sessionId) args.push("--resume", sessionId);
 
   const model = process.env.CLAUDE_CODE_MODEL?.trim();
@@ -57,8 +79,9 @@ export function buildClaudeArgs(prompt: string, sessionId: string | null): strin
   const allowedTools = process.env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
   if (allowedTools) args.push("--allowedTools", allowedTools);
 
-  const appendSystemPrompt = process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
-  if (appendSystemPrompt) args.push("--append-system-prompt", appendSystemPrompt);
+  const userSystemPrompt = process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
+  const effectiveSystemPrompt = [systemPrompt, userSystemPrompt].filter(Boolean).join("\n\n");
+  if (effectiveSystemPrompt) args.push("--append-system-prompt", effectiveSystemPrompt);
 
   const maxTurns = process.env.CLAUDE_CODE_MAX_TURNS?.trim();
   if (maxTurns) args.push("--max-turns", maxTurns);
@@ -95,12 +118,17 @@ export async function createClaudeCodeBridgeRunner(
     notify = null;
   }
 
+  const canvasReminderEvery = resolveCanvasReminderEvery();
+
   async function deliverToClaudeCode(prompt: string): Promise<void> {
-    const args = buildClaudeArgs(prompt, sessionId);
+    const args = buildClaudeArgs(prompt, sessionId, config.instructions.systemPrompt);
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 
+    const spawnEnv = { ...process.env };
+    delete spawnEnv.CLAUDECODE;
     const child = spawn(claudePath, args, {
       cwd,
+      env: spawnEnv,
       stdio: ["ignore", "pipe", "pipe"],
     });
     activeChild = child;
@@ -109,9 +137,6 @@ export async function createClaudeCodeBridgeRunner(
     child.stderr.on("data", (chunk: Buffer) => {
       stderrChunks.push(chunk.toString());
     });
-
-    const streamStartMsg = makeStreamStart();
-    sendMessage(CHANNELS.CHAT, streamStartMsg);
 
     const rl = createInterface({ input: child.stdout, crlfDelay: Number.POSITIVE_INFINITY });
     let capturedSessionId: string | null = null;
@@ -128,25 +153,13 @@ export async function createClaudeCodeBridgeRunner(
         continue;
       }
 
-      if (event.type === "content_block_delta") {
-        const delta = event.delta as { type?: string; text?: string } | undefined;
-        if (delta?.type === "text_delta" && typeof delta.text === "string") {
-          sendMessage(CHANNELS.CHAT, {
-            id: generateMessageId(),
-            type: "stream-data",
-            data: delta.text,
-            meta: { streamId: streamStartMsg.id },
-          });
-        }
-      } else if (event.type === "result") {
-        const resultSessionId = (event as { session_id?: string }).session_id;
-        if (typeof resultSessionId === "string" && resultSessionId.length > 0) {
-          capturedSessionId = resultSessionId;
+      if (event.type === "result") {
+        const result = event as { session_id?: string };
+        if (typeof result.session_id === "string" && result.session_id.length > 0) {
+          capturedSessionId = result.session_id;
         }
       }
     }
-
-    sendMessage(CHANNELS.CHAT, makeStreamEnd(streamStartMsg.id));
 
     const exitCode = await new Promise<number | null>((resolve) => {
       if (child.exitCode !== null) {
@@ -196,10 +209,7 @@ export async function createClaudeCodeBridgeRunner(
             const ctx = parseSessionContextMeta(entry.msg.meta);
             if (ctx) {
               sessionBriefingSent = true;
-              const briefing = buildSessionBriefing(slug, ctx, [
-                `Reply: pubblue write "<your reply>"`,
-                `Canvas: pubblue write -c canvas -f /path/to/file.html`,
-              ]);
+              const briefing = buildSessionBriefing(slug, ctx, config.instructions);
               await deliverToClaudeCode(briefing);
               debugLog("session briefing delivered");
             }
@@ -208,7 +218,16 @@ export async function createClaudeCodeBridgeRunner(
 
           const chat = readTextChatMessage(entry);
           if (chat) {
-            const prompt = `[Pubblue ${slug}] User message:\n\n${chat}`;
+            const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
+              forwardedMessageCount + 1,
+              canvasReminderEvery,
+            );
+            const prompt = buildInboundPrompt(
+              slug,
+              chat,
+              includeCanvasReminder,
+              config.instructions,
+            );
             await deliverToClaudeCode(prompt);
             forwardedMessageCount += 1;
           } else if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {

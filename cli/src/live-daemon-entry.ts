@@ -9,7 +9,12 @@ const socketPath = process.env.PUBBLUE_DAEMON_SOCKET;
 const infoPath = process.env.PUBBLUE_DAEMON_INFO;
 const cliVersion = process.env.PUBBLUE_CLI_VERSION;
 const agentName = process.env.PUBBLUE_DAEMON_AGENT_NAME;
-const bridgeMode = (process.env.PUBBLUE_DAEMON_BRIDGE_MODE || "openclaw") as BridgeMode;
+const bridgeModeRaw = process.env.PUBBLUE_DAEMON_BRIDGE_MODE;
+if (!bridgeModeRaw) {
+  console.error("Missing PUBBLUE_DAEMON_BRIDGE_MODE env var.");
+  process.exit(1);
+}
+const bridgeMode = bridgeModeRaw as BridgeMode;
 
 if (!baseUrl || !apiKey || !socketPath || !infoPath) {
   console.error("Missing required env vars for daemon.");

@@ -13,6 +13,10 @@ import {
   type StagedAttachment,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-openclaw.js";
+import { buildBridgeInstructions } from "./live-daemon-shared.js";
+
+const openclawInstructions = buildBridgeInstructions("openclaw");
+const claudeCodeInstructions = buildBridgeInstructions("claude-code");
 
 const originalEnv = {
   OPENCLAW_ATTACHMENT_DIR: process.env.OPENCLAW_ATTACHMENT_DIR,
@@ -121,7 +125,7 @@ describe("buildAttachmentPrompt", () => {
       streamStatus: "complete",
     };
 
-    const prompt = buildAttachmentPrompt("test-slug", staged, false);
+    const prompt = buildAttachmentPrompt("test-slug", staged, false, openclawInstructions);
     expect(prompt).toContain("Incoming user attachment");
     expect(prompt).toContain("channel: audio");
     expect(prompt).toContain("path: /home/node/.openclaw/pubblue-inbox/t1/123-audio.webm");
@@ -132,7 +136,7 @@ describe("buildAttachmentPrompt", () => {
 
 describe("canvas policy reminder helpers", () => {
   it("inserts reminder block in inbound prompt when requested", () => {
-    const prompt = buildInboundPrompt("test-slug", "show me a cube", true);
+    const prompt = buildInboundPrompt("test-slug", "show me a cube", true, openclawInstructions);
     expect(prompt).toContain("Canvas policy reminder");
     expect(prompt).toContain("do not reply to this reminder block");
     expect(prompt).toContain("show me a cube");
@@ -295,7 +299,7 @@ describe("parseSessionContextMeta", () => {
 });
 
 describe("buildSessionBriefing", () => {
-  it("includes all pub context fields and commands when provided", () => {
+  it("includes all pub context fields and how-to-respond section", () => {
     const briefing = buildSessionBriefing(
       "my-demo",
       {
@@ -305,24 +309,27 @@ describe("buildSessionBriefing", () => {
         isPublic: true,
         preferences: { voiceModeEnabled: false },
       },
-      [`Reply: pubblue write "<your reply>"`],
+      openclawInstructions,
     );
 
-    expect(briefing).toContain("[Pubblue my-demo] Session started.");
+    expect(briefing).toContain("[Live: my-demo] Session started.");
+    expect(briefing).toContain("live P2P session on pub.blue");
     expect(briefing).toContain("Title: My Landing Page");
     expect(briefing).toContain("Content type: html");
     expect(briefing).toContain("Visibility: public");
     expect(briefing).toContain("<h1>Welcome</h1>");
     expect(briefing).toContain("Voice mode: off");
-    expect(briefing).toContain('pubblue write "<your reply>"');
+    expect(briefing).toContain("## How to respond");
+    expect(briefing).toContain(openclawInstructions.replyHint);
+    expect(briefing).toContain(openclawInstructions.canvasHint);
   });
 
-  it("omits commands section when no commands provided", () => {
-    const briefing = buildSessionBriefing("bare-pub", {});
+  it("always includes how-to-respond section even with minimal context", () => {
+    const briefing = buildSessionBriefing("bare-pub", {}, openclawInstructions);
 
-    expect(briefing).toContain("[Pubblue bare-pub] Session started.");
+    expect(briefing).toContain("[Live: bare-pub] Session started.");
     expect(briefing).toContain("## Pub Context");
-    expect(briefing).not.toContain("## Commands");
+    expect(briefing).toContain("## How to respond");
     expect(briefing).not.toContain("Title:");
     expect(briefing).not.toContain("Content type:");
     expect(briefing).not.toContain("Visibility:");
@@ -330,14 +337,22 @@ describe("buildSessionBriefing", () => {
   });
 
   it("shows private visibility", () => {
-    const briefing = buildSessionBriefing("secret", { isPublic: false });
+    const briefing = buildSessionBriefing("secret", { isPublic: false }, openclawInstructions);
     expect(briefing).toContain("Visibility: private");
   });
 
   it("shows voice mode on", () => {
-    const briefing = buildSessionBriefing("voice-pub", {
-      preferences: { voiceModeEnabled: true },
-    });
+    const briefing = buildSessionBriefing(
+      "voice-pub",
+      { preferences: { voiceModeEnabled: true } },
+      openclawInstructions,
+    );
     expect(briefing).toContain("Voice mode: on");
+  });
+
+  it("uses claude-code instructions when given claude-code mode", () => {
+    const briefing = buildSessionBriefing("cc-pub", {}, claudeCodeInstructions);
+    expect(briefing).toContain(claudeCodeInstructions.replyHint);
+    expect(briefing).toContain(claudeCodeInstructions.canvasHint);
   });
 });

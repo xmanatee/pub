@@ -32,7 +32,7 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("hello", null);
+    const args = buildClaudeArgs("hello", null, null);
     expect(args).toContain("-p");
     expect(args).toContain("hello");
     expect(args).toContain("--output-format");
@@ -46,7 +46,7 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("hello", "session-abc");
+    const args = buildClaudeArgs("hello", "session-abc", null);
     expect(args).toContain("--resume");
     expect(args).toContain("session-abc");
   });
@@ -57,7 +57,7 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("hello", null);
+    const args = buildClaudeArgs("hello", null, null);
     expect(args).not.toContain("--resume");
   });
 
@@ -67,7 +67,7 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("test", null);
+    const args = buildClaudeArgs("test", null, null);
     expect(args).toContain("--model");
     expect(args).toContain("opus");
   });
@@ -78,18 +78,42 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("test", null);
+    const args = buildClaudeArgs("test", null, null);
     expect(args).toContain("--allowedTools");
     expect(args).toContain("Bash,Read,Write");
   });
 
-  it("includes --append-system-prompt from env", () => {
+  it("includes systemPrompt in --append-system-prompt", () => {
+    delete process.env.CLAUDE_CODE_MODEL;
+    delete process.env.CLAUDE_CODE_ALLOWED_TOOLS;
+    delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
+    delete process.env.CLAUDE_CODE_MAX_TURNS;
+
+    const args = buildClaudeArgs("test", null, "You are helpful.");
+    expect(args).toContain("--append-system-prompt");
+    expect(args).toContain("You are helpful.");
+  });
+
+  it("merges systemPrompt with env CLAUDE_CODE_APPEND_SYSTEM_PROMPT", () => {
     delete process.env.CLAUDE_CODE_MODEL;
     delete process.env.CLAUDE_CODE_ALLOWED_TOOLS;
     process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT = "Be concise.";
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("test", null);
+    const args = buildClaudeArgs("test", null, "You are helpful.");
+    const idx = args.indexOf("--append-system-prompt");
+    expect(idx).toBeGreaterThan(-1);
+    expect(args[idx + 1]).toContain("You are helpful.");
+    expect(args[idx + 1]).toContain("Be concise.");
+  });
+
+  it("includes --append-system-prompt from env when systemPrompt is null", () => {
+    delete process.env.CLAUDE_CODE_MODEL;
+    delete process.env.CLAUDE_CODE_ALLOWED_TOOLS;
+    process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT = "Be concise.";
+    delete process.env.CLAUDE_CODE_MAX_TURNS;
+
+    const args = buildClaudeArgs("test", null, null);
     expect(args).toContain("--append-system-prompt");
     expect(args).toContain("Be concise.");
   });
@@ -100,7 +124,7 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     process.env.CLAUDE_CODE_MAX_TURNS = "5";
 
-    const args = buildClaudeArgs("test", null);
+    const args = buildClaudeArgs("test", null, null);
     expect(args).toContain("--max-turns");
     expect(args).toContain("5");
   });
@@ -111,7 +135,7 @@ describe("buildClaudeArgs", () => {
     delete process.env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT;
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("test", null);
+    const args = buildClaudeArgs("test", null, null);
     expect(args).not.toContain("--model");
   });
 });

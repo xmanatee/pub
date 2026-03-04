@@ -5,6 +5,8 @@ import * as path from "node:path";
 import { PubApiError } from "../lib/api.js";
 import { errorMessage, failCli } from "../lib/cli-error.js";
 import type { BridgeConfig } from "../lib/config.js";
+import { isClaudeCodeAvailable } from "../lib/live-bridge-claude-code.js";
+import { isOpenClawAvailable } from "../lib/live-bridge-openclaw.js";
 import type { BridgeMode } from "../lib/live-daemon-shared.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 
@@ -274,14 +276,30 @@ export function parsePositiveIntegerOption(raw: string, optionName: string): num
 
 export function parseBridgeMode(raw: string): BridgeMode {
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "claude-code" || normalized === "none") {
+  if (normalized === "openclaw" || normalized === "claude-code") {
     return normalized;
   }
-  throw new Error(`--bridge must be one of: openclaw, claude-code, none. Received: ${raw}`);
+  throw new Error(`--bridge must be one of: openclaw, claude-code. Received: ${raw}`);
 }
 
-export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {
-  return parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
+export function resolveBridgeMode(opts: { bridge?: string }): BridgeMode {
+  if (opts.bridge) return parseBridgeMode(opts.bridge);
+  return autoDetectBridgeMode();
+}
+
+export function autoDetectBridgeMode(): BridgeMode {
+  const openclaw = isOpenClawAvailable();
+  const claudeCode = isClaudeCodeAvailable();
+
+  if (openclaw && !claudeCode) return "openclaw";
+  if (claudeCode && !openclaw) return "claude-code";
+
+  if (openclaw && claudeCode) {
+    throw new Error("Both openclaw and claude-code bridges detected. Specify --bridge explicitly.");
+  }
+  throw new Error(
+    "No bridge detected. Install openclaw or claude-code, or specify --bridge explicitly.",
+  );
 }
 
 export function messageContainsPong(payload: unknown): boolean {
