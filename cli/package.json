@@ -1,6 +1,6 @@
 {
   "name": "pubblue",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "CLI tool for publishing content and running live sessions via pub.blue",
   "type": "module",
   "bin": {

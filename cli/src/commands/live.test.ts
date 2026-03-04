@@ -60,37 +60,27 @@ describe("parseBridgeMode", () => {
   it("accepts supported bridge modes", () => {
     expect(parseBridgeMode("openclaw")).toBe("openclaw");
     expect(parseBridgeMode("claude-code")).toBe("claude-code");
-    expect(parseBridgeMode("none")).toBe("none");
     expect(parseBridgeMode("OPENCLAW")).toBe("openclaw");
     expect(parseBridgeMode("CLAUDE-CODE")).toBe("claude-code");
   });
 
   it("throws for unsupported bridge modes", () => {
     expect(() => parseBridgeMode("invalid")).toThrow("--bridge must be one of");
+    expect(() => parseBridgeMode("none")).toThrow("--bridge must be one of");
   });
 });
 
 describe("resolveBridgeMode", () => {
-  it("defaults to openclaw in background mode", () => {
-    expect(resolveBridgeMode({})).toBe("openclaw");
-    expect(resolveBridgeMode({ foreground: false })).toBe("openclaw");
+  it("defaults to claude-code", () => {
+    expect(resolveBridgeMode({})).toBe("claude-code");
   });
 
-  it("defaults to none in foreground mode", () => {
-    expect(resolveBridgeMode({ foreground: true })).toBe("none");
-  });
-
-  it("allows explicit --bridge openclaw in background mode", () => {
+  it("allows explicit --bridge openclaw", () => {
     expect(resolveBridgeMode({ bridge: "openclaw" })).toBe("openclaw");
   });
 
-  it("allows explicit --bridge none in foreground mode", () => {
-    expect(resolveBridgeMode({ bridge: "none", foreground: true })).toBe("none");
-  });
-
-  it("allows --bridge none in background mode", () => {
-    expect(resolveBridgeMode({ bridge: "none" })).toBe("none");
-    expect(resolveBridgeMode({ bridge: "none", foreground: false })).toBe("none");
+  it("allows explicit --bridge claude-code", () => {
+    expect(resolveBridgeMode({ bridge: "claude-code" })).toBe("claude-code");
   });
 });
 

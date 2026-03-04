@@ -274,14 +274,14 @@ export function parsePositiveIntegerOption(raw: string, optionName: string): num
 
 export function parseBridgeMode(raw: string): BridgeMode {
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "claude-code" || normalized === "none") {
+  if (normalized === "openclaw" || normalized === "claude-code") {
     return normalized;
   }
-  throw new Error(`--bridge must be one of: openclaw, claude-code, none. Received: ${raw}`);
+  throw new Error(`--bridge must be one of: openclaw, claude-code. Received: ${raw}`);
 }
 
-export function resolveBridgeMode(opts: { bridge?: string; foreground?: boolean }): BridgeMode {
-  return parseBridgeMode(opts.bridge || (opts.foreground ? "none" : "openclaw"));
+export function resolveBridgeMode(opts: { bridge: string }): BridgeMode {
+  return parseBridgeMode(opts.bridge);
 }
 
 export function messageContainsPong(payload: unknown): boolean {

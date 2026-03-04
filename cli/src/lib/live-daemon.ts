@@ -612,7 +612,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function startBridge(): Promise<void> {
     if (stopped || !activeSlug) return;
-    if (config.bridgeMode !== "openclaw" && config.bridgeMode !== "claude-code") return;
+    if (!config.bridgeMode) return;
     await stopBridge();
     const bridgeConfig = { slug: activeSlug, sendMessage: sendOnChannel, debugLog };
     try {

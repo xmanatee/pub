@@ -1,7 +1,7 @@
 import type { PubApiClient } from "./api.js";
 import type { BridgeMessage } from "./bridge-protocol.js";
 
-export type BridgeMode = "openclaw" | "claude-code" | "none";
+export type BridgeMode = "openclaw" | "claude-code";
 
 export interface ChannelBuffer {
   messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
