@@ -32,7 +32,7 @@ function AuthDebugPage() {
   }, [refresh]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-4">
+    <div className="px-4 sm:px-6 py-8 space-y-4">
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Auth Debug Log</CardTitle>

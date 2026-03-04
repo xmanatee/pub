@@ -3,6 +3,7 @@ import {
   buildAttachmentPrompt,
   buildInboundPrompt,
   buildSessionBriefing,
+  parseSessionContextMeta,
   resolveAttachmentFilename,
   resolveAttachmentMaxBytes,
   resolveAttachmentRootDir,
@@ -241,6 +242,59 @@ describe("resolveSessionFromSessionsData", () => {
       "agent:main:pubblue",
       "agent:main:main",
     ]);
+  });
+});
+
+describe("parseSessionContextMeta", () => {
+  it("returns null for undefined meta", () => {
+    expect(parseSessionContextMeta(undefined)).toBeNull();
+  });
+
+  it("extracts string fields", () => {
+    const result = parseSessionContextMeta({
+      title: "My Pub",
+      contentType: "html",
+      contentPreview: "<h1>Hi</h1>",
+    });
+    expect(result).toEqual({
+      title: "My Pub",
+      contentType: "html",
+      contentPreview: "<h1>Hi</h1>",
+    });
+  });
+
+  it("extracts boolean isPublic", () => {
+    expect(parseSessionContextMeta({ isPublic: true })).toEqual({ isPublic: true });
+    expect(parseSessionContextMeta({ isPublic: false })).toEqual({ isPublic: false });
+  });
+
+  it("ignores fields with wrong types", () => {
+    const meta = { title: 123, isPublic: "yes" } as unknown as Record<string, unknown>;
+    const result = parseSessionContextMeta(meta);
+    expect(result).toEqual({});
+  });
+
+  it("extracts preferences.voiceModeEnabled", () => {
+    const result = parseSessionContextMeta({
+      preferences: { voiceModeEnabled: true },
+    });
+    expect(result?.preferences).toEqual({ voiceModeEnabled: true });
+  });
+
+  it("ignores preferences with wrong structure", () => {
+    const result = parseSessionContextMeta({ preferences: "invalid" });
+    expect(result?.preferences).toBeUndefined();
+  });
+
+  it("ignores non-boolean voiceModeEnabled in preferences", () => {
+    const result = parseSessionContextMeta({
+      preferences: { voiceModeEnabled: "yes" },
+    });
+    expect(result?.preferences).toEqual({});
+  });
+
+  it("returns empty payload for empty meta object", () => {
+    expect(parseSessionContextMeta({})).toEqual({});
   });
 });
 

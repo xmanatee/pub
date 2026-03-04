@@ -104,7 +104,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="flex flex-col min-h-screen"
+      className="flex flex-col min-h-screen max-w-4xl mx-auto w-full"
       style={{ paddingTop: IN_TELEGRAM ? "var(--safe-top)" : undefined }}
     >
       <a
@@ -126,7 +126,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             className={
               fullscreen
                 ? "flex items-center justify-center px-16"
-                : `max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`
+                : `px-4 sm:px-6 h-14 flex items-center justify-between`
             }
             style={fullscreen ? { height: "var(--content-safe-top)" } : undefined}
           >
@@ -155,7 +155,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
       {!IN_TELEGRAM ? (
         <footer className="border-t border-border/50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+          <div className="px-4 sm:px-6 py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <PubWordmark

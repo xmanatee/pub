@@ -72,7 +72,7 @@ const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-d
 function DashboardDebugPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-4xl space-y-10 px-4 py-8">
+      <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Dashboard Debug</h1>
 
         <section data-testid="batch-dashboard-cards" className="bg-white p-6">

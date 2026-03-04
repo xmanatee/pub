@@ -31,7 +31,7 @@ export function isClaudeCodeAvailable(): boolean {
   }
 }
 
-function resolveClaudeCodePath(): string {
+export function resolveClaudeCodePath(): string {
   const configured = process.env.CLAUDE_CODE_PATH?.trim();
   if (configured) return configured;
   try {
@@ -58,7 +58,7 @@ async function runClaudeCodePreflight(claudePath: string): Promise<void> {
   });
 }
 
-function buildClaudeArgs(
+export function buildClaudeArgs(
   prompt: string,
   sessionId: string | null,
   systemPrompt: string | null,

@@ -89,7 +89,7 @@ function PanelsDebugPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-3xl space-y-10 px-4 py-8">
+      <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Panels Debug</h1>
 
         <BatchSection

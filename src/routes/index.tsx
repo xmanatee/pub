@@ -46,7 +46,7 @@ function HeroSection() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/8 rounded-full blur-3xl" />
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="px-4 sm:px-6">
         <div className="pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
           <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs font-medium gap-1.5">
             <Zap className="h-3 w-3" aria-hidden="true" />
@@ -106,7 +106,7 @@ function HeroSection() {
 function LogoBar() {
   return (
     <section className="border-y border-border/50 bg-muted/30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div className="px-4 sm:px-6 py-8">
         <p className="text-center text-xs font-medium text-muted-foreground uppercase tracking-widest mb-6">
           Works with your tools
         </p>
@@ -162,7 +162,7 @@ function FeaturesSection() {
 
   return (
     <section className="py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Everything you need to publish
@@ -213,7 +213,7 @@ function HowItWorksSection() {
 
   return (
     <section id="how-it-works" className="py-24 bg-muted/30 border-y border-border/50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Three steps. That's it.
@@ -221,7 +221,7 @@ function HowItWorksSection() {
           <p className="text-muted-foreground text-lg">From zero to published in under a minute.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {steps.map((step) => (
             <div key={step.number} className="text-center">
               <div className="text-4xl font-bold text-primary/20 mb-3">{step.number}</div>
@@ -238,7 +238,7 @@ function HowItWorksSection() {
 function CodeSection() {
   return (
     <section className="py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="px-4 sm:px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Simple as one command
@@ -295,7 +295,7 @@ function CodeSection() {
 function CtaSection() {
   return (
     <section className="py-24 border-t border-border/50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+      <div className="px-4 sm:px-6 text-center">
         <PubLogo size={48} className="mx-auto mb-6" />
         <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">Ready to publish?</h2>
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
