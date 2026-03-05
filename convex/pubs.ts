@@ -5,7 +5,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { CONTENT_TYPE_VALIDATOR, MAX_PUBS } from "./utils";
+import { CONTENT_TYPE_VALIDATOR, hashApiKey, MAX_PUBS } from "./utils";
 
 /** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
@@ -240,6 +240,53 @@ export const getLiveBySlug = query({
       lastTakeoverAt: live.lastTakeoverAt,
       createdAt: live.createdAt,
       expiresAt: live.expiresAt,
+    };
+  },
+});
+
+/**
+ * Daemon signaling query.
+ *
+ * Uses API key authentication (for non-browser agent process) and returns the
+ * currently relevant live snapshot:
+ * - pending live first (browser offer exists, agent answer missing)
+ * - otherwise latest active live.
+ */
+export const getLiveForAgentByApiKey = query({
+  args: { apiKey: v.string() },
+  handler: async (ctx, { apiKey }) => {
+    const keyHash = await hashApiKey(apiKey);
+    const key = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
+      .unique();
+    if (!key) throw new Error("Invalid API key");
+
+    const lives = await ctx.db
+      .query("lives")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .order("desc")
+      .collect();
+
+    const pending = lives.find(
+      (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
+    );
+    const active =
+      pending ??
+      lives.find((s) => {
+        return s.status === "active" && s.expiresAt > Date.now();
+      });
+    if (!active) return null;
+
+    return {
+      slug: active.slug,
+      status: active.status,
+      browserOffer: active.browserOffer,
+      agentAnswer: active.agentAnswer,
+      browserCandidates: active.browserCandidates,
+      agentCandidates: active.agentCandidates,
+      createdAt: active.createdAt,
+      expiresAt: active.expiresAt,
     };
   },
 });

@@ -61,6 +61,14 @@ export class PubApiClient {
     private apiKey: string,
   ) {}
 
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  getApiKey(): string {
+    return this.apiKey;
+  }
+
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = new URL(path, this.baseUrl);
     const res = await fetch(url, {

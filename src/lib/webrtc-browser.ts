@@ -5,6 +5,11 @@
  * Signaling happens through Convex (reactive queries + mutations).
  */
 
+import {
+  createBrowserOffer,
+  parseSessionDescription,
+  type SessionDescriptionPayload,
+} from "../../shared/webrtc-negotiation-core";
 import { resolveAckChannel } from "./ack-routing";
 import type { BridgeMessage } from "./bridge-protocol";
 import {
@@ -34,6 +39,21 @@ type StateChangeHandler = (state: BridgeState) => void;
 type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
 type DeliveryAckHandler = (ack: DeliveryAckPayload) => void;
+
+function toSessionDescription(
+  description:
+    | {
+        sdp?: string | null;
+        type?: string | null;
+      }
+    | null
+    | undefined,
+): SessionDescriptionPayload | null {
+  if (!description) return null;
+  if (typeof description.sdp !== "string" || description.sdp.length === 0) return null;
+  if (typeof description.type !== "string" || description.type.length === 0) return null;
+  return { sdp: description.sdp, type: description.type };
+}
 
 export class BrowserBridge {
   private pc: RTCPeerConnection | null = null;
@@ -73,22 +93,34 @@ export class BrowserBridge {
   }
 
   async createOffer(): Promise<string> {
-    this.pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+    this.pc = pc;
     this.setupPeerCallbacks();
 
     this.openChannel(CONTROL_CHANNEL);
     this.openChannel(CHANNELS.CHAT);
     this.openChannel(CHANNELS.CANVAS);
 
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    return JSON.stringify(this.pc.localDescription?.toJSON());
+    return await createBrowserOffer({
+      createOffer: async () => {
+        const offer = await pc.createOffer();
+        const normalized = toSessionDescription(offer);
+        if (!normalized) {
+          throw new Error("Browser offer is missing sdp/type");
+        }
+        return normalized;
+      },
+      setLocalDescription: async (description) => {
+        await pc.setLocalDescription(description as RTCSessionDescriptionInit);
+      },
+      getLocalDescription: () => toSessionDescription(pc.localDescription),
+    });
   }
 
   async applyAnswer(agentAnswer: string): Promise<void> {
     if (!this.pc) throw new Error("No peer connection");
-    const answer = JSON.parse(agentAnswer) as RTCSessionDescriptionInit;
-    await this.pc.setRemoteDescription(answer);
+    const answer = parseSessionDescription(agentAnswer, "Agent answer");
+    await this.pc.setRemoteDescription(answer as RTCSessionDescriptionInit);
     this.remoteDescriptionSet = true;
 
     for (const candidate of this.pendingRemoteCandidates) {

@@ -3,7 +3,6 @@ import { resolveAckChannel } from "./ack-routing.js";
 import type { BridgeMessage } from "./bridge-protocol.js";
 import {
   getLiveWriteReadinessError,
-  getSignalPollDelayMs,
   getStickyCanvasHtml,
   MAX_CANVAS_PERSIST_SIZE,
   shouldRecoverForBrowserOfferChange,
@@ -88,24 +87,6 @@ describe("resolveAckChannel", () => {
         messageChannel: "chat",
       }),
     ).toBeNull();
-  });
-});
-
-describe("getSignalPollDelayMs", () => {
-  it("returns the base polling delay when retry-after is missing", () => {
-    expect(getSignalPollDelayMs({ hasActiveConnection: false })).toBe(5_000);
-    expect(getSignalPollDelayMs({ hasActiveConnection: true })).toBe(15_000);
-  });
-
-  it("honors retry-after when it exceeds the base delay", () => {
-    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 12 })).toBe(
-      12_000,
-    );
-  });
-
-  it("ignores non-positive retry-after values", () => {
-    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(5_000);
-    expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(5_000);
   });
 });
 
