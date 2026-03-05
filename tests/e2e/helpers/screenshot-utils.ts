@@ -16,7 +16,7 @@ interface StableScreenshotOptions {
 
 /**
  * Take a screenshot and only overwrite the committed file when the pixel
- * difference exceeds `maxDiffRatio` (default 0.5%).
+ * difference exceeds `maxDiffRatio` (default 0 — exact match).
  *
  * This absorbs tiny GPU-compositing jitter (backdrop-filter, mask-composite,
  * translateZ layers) that is visually imperceptible but produces different

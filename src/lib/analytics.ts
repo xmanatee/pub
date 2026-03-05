@@ -1,16 +1,5 @@
-/**
- * Centralized analytics event definitions and tracking wrapper.
- *
- * All custom PostHog events are defined here as a single source of truth.
- * Components call these typed functions instead of raw posthog.capture().
- */
-
 import * as Sentry from "@sentry/react";
 import posthog from "posthog-js";
-
-// ---------------------------------------------------------------------------
-// User identity
-// ---------------------------------------------------------------------------
 
 export function identifyUser(userId: string, traits?: Record<string, unknown>) {
   posthog.identify(userId, traits);
@@ -21,10 +10,6 @@ export function resetIdentity() {
   posthog.reset();
   Sentry.setUser(null);
 }
-
-// ---------------------------------------------------------------------------
-// Authentication events
-// ---------------------------------------------------------------------------
 
 export function trackSignIn(provider: string) {
   posthog.capture("user_signed_in", { provider });
@@ -37,10 +22,6 @@ export function trackSignOut() {
 export function trackSignInStarted(provider: string) {
   posthog.capture("sign_in_started", { provider });
 }
-
-// ---------------------------------------------------------------------------
-// Pub events
-// ---------------------------------------------------------------------------
 
 export function trackPubViewed(props: { slug: string; contentType: string; isPublic: boolean }) {
   posthog.capture("pub_viewed", props);
@@ -61,10 +42,6 @@ export function trackPubLinkCopied(props: { slug: string }) {
   posthog.capture("pub_link_copied", props);
 }
 
-// ---------------------------------------------------------------------------
-// API key events
-// ---------------------------------------------------------------------------
-
 export function trackApiKeyCreated(props: { name: string }) {
   posthog.capture("api_key_created", props);
 }
@@ -77,25 +54,13 @@ export function trackApiKeyCopied() {
   posthog.capture("api_key_copied");
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard events
-// ---------------------------------------------------------------------------
-
 export function trackDashboardTabChanged(props: { tab: "pubs" | "keys" | "account" }) {
   posthog.capture("dashboard_tab_changed", props);
 }
 
-// ---------------------------------------------------------------------------
-// Landing page events
-// ---------------------------------------------------------------------------
-
 export function trackCtaClicked(props: { cta: string; location: string }) {
   posthog.capture("cta_clicked", props);
 }
-
-// ---------------------------------------------------------------------------
-// Error tracking (reported to both PostHog and Sentry)
-// ---------------------------------------------------------------------------
 
 export function trackError(error: Error, context?: Record<string, unknown>) {
   posthog.capture("client_error", {

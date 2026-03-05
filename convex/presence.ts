@@ -137,8 +137,6 @@ async function deleteActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, us
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   for (const live of lives) {
-    if (live.status === "active") {
-      await db.delete(live._id);
-    }
+    await db.delete(live._id);
   }
 }

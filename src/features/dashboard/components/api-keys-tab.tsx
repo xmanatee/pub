@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { CopyButton } from "~/features/dashboard/components/copy-button";
 import { trackApiKeyCopied, trackApiKeyCreated, trackApiKeyDeleted } from "~/lib/analytics";
+import { getConvexSiteUrl } from "~/lib/convex-url";
 import { telegramConfirm } from "~/lib/telegram";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -40,10 +41,7 @@ export function ApiKeysTab() {
     await deleteKey({ id });
   }
 
-  const siteUrl = import.meta.env.VITE_CONVEX_URL
-    ? import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")
-    : "";
-  const rssUrl = user?._id ? `${siteUrl}/rss/${user._id}` : null;
+  const rssUrl = user?._id ? `${getConvexSiteUrl()}/rss/${user._id}` : null;
 
   return (
     <div className="mt-4 space-y-4">

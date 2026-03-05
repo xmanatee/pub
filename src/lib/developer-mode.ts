@@ -1,4 +1,5 @@
 import eruda from "eruda";
+import { hasWindow } from "./has-window";
 
 const STORAGE_KEY = "pub.developer-mode";
 const CHANGE_EVENT = "pub:developer-mode";
@@ -10,10 +11,6 @@ declare global {
 }
 
 let erudaMounted = false;
-
-function hasWindow() {
-  return typeof window !== "undefined";
-}
 
 function emitDeveloperModeChange(enabled: boolean) {
   if (!hasWindow()) return;

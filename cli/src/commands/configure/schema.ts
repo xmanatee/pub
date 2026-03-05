@@ -1,6 +1,5 @@
 import type { BridgeConfig, TelegramConfig } from "../../lib/config.js";
 import { parsePositiveInteger } from "../../lib/number.js";
-export { parsePositiveInteger };
 
 export function parseSetInput(raw: string): { key: string; value: string } {
   const sepIndex = raw.indexOf("=");

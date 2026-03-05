@@ -104,3 +104,8 @@ export interface IpcResponseMap {
 }
 
 export type IpcResponseFor<T extends keyof IpcResponseMap> = IpcResponseMap[T];
+
+export interface RawIpcRequest {
+  method: string;
+  params: Record<string, unknown>;
+}

@@ -1,23 +1,24 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { useNavigate } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { useEffectiveAuth } from "~/hooks/use-effective-auth";
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
 
 export function LoginPage() {
   const { signIn } = useAuthActions();
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const hasConfiguredConvex = Boolean(import.meta.env.VITE_CONVEX_URL);
+  const {
+    isAuthenticated: effectiveIsAuthenticated,
+    isLoading: effectiveIsLoading,
+    hasConfiguredConvex,
+    hasE2EFallback,
+  } = useEffectiveAuth();
   const e2eAuthBaseUrl = import.meta.env.VITE_E2E_AUTH_BASE_URL;
-  const hasE2EFallback = Boolean(e2eAuthBaseUrl);
-  const effectiveIsLoading = hasConfiguredConvex ? isLoading : false;
-  const effectiveIsAuthenticated = hasConfiguredConvex ? isAuthenticated : false;
   const navigate = useNavigate();
   const isStartingSignInRef = React.useRef(false);
   const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);

@@ -5,17 +5,13 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
 import { CONTENT_TYPE_VALIDATOR, hashApiKey, MAX_PUBS } from "./utils";
 
 /** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
 
 const LIVE_EXPIRY_MS = 24 * 60 * 60 * 1000;
-const PRESENCE_MAX_AGE_MS = 90_000;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 export function buildPubPatch(fields: {
   content?: string;
@@ -47,9 +43,7 @@ async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, sl
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .collect();
   for (const live of lives) {
-    if (live.status === "active") {
-      await db.delete(live._id);
-    }
+    await db.delete(live._id);
   }
 }
 
@@ -90,10 +84,6 @@ function mapPub(
   if (includeContent) dto.content = pub.content;
   return dto;
 }
-
-// ---------------------------------------------------------------------------
-// Public queries
-// ---------------------------------------------------------------------------
 
 export const getBySlug = query({
   args: { slug: v.string() },
@@ -157,10 +147,6 @@ export const listPublic = query({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Public mutations
-// ---------------------------------------------------------------------------
-
 export const toggleVisibility = mutation({
   args: { id: v.id("pubs") },
   handler: async (ctx, { id }) => {
@@ -189,10 +175,6 @@ export const deleteByUser = mutation({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Live queries (browser uses these via reactive subscriptions)
-// ---------------------------------------------------------------------------
-
 export const listActiveLives = query({
   args: {},
   handler: async (ctx) => {
@@ -205,7 +187,7 @@ export const listActiveLives = query({
       .collect();
 
     return lives
-      .filter((s) => s.status === "active" && s.expiresAt > Date.now())
+      .filter((s) => s.expiresAt > Date.now())
       .map((s) => ({
         slug: s.slug,
         hasConnection: !!s.agentAnswer,
@@ -225,8 +207,7 @@ export const getLiveBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed") return null;
-    if (live.expiresAt < Date.now()) return null;
+    if (!live || live.expiresAt < Date.now()) return null;
     if (live.userId !== userId) return null;
 
     return {
@@ -269,13 +250,11 @@ export const getLiveForAgentByApiKey = query({
       .order("desc")
       .collect();
 
-    const pending = lives.find(
-      (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
-    );
+    const pending = lives.find((s) => s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer);
     const active =
       pending ??
       lives.find((s) => {
-        return s.status === "active" && s.expiresAt > Date.now();
+        return s.expiresAt > Date.now();
       });
     if (!active) return null;
 
@@ -291,10 +270,6 @@ export const getLiveForAgentByApiKey = query({
     };
   },
 });
-
-// ---------------------------------------------------------------------------
-// Live mutations (browser writes signaling data)
-// ---------------------------------------------------------------------------
 
 export const requestLive = mutation({
   args: {
@@ -317,7 +292,7 @@ export const requestLive = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     if (!presence || presence.status !== "online") throw new Error("Agent offline");
-    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_MAX_AGE_MS) {
+    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_STALENESS_THRESHOLD_MS) {
       throw new Error("Agent offline");
     }
 
@@ -326,9 +301,7 @@ export const requestLive = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     for (const live of existing) {
-      if (live.status === "active") {
-        await ctx.db.delete(live._id);
-      }
+      await ctx.db.delete(live._id);
     }
 
     const expiresAt = Date.now() + LIVE_EXPIRY_MS;
@@ -364,8 +337,7 @@ export const storeBrowserCandidates = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed") throw new Error("Live not found");
-    if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    if (!live || live.expiresAt < Date.now()) throw new Error("Live not found");
     if (live.userId !== userId) throw new Error("Live not found");
 
     if (live.browserSessionId && live.browserSessionId !== sessionId) {
@@ -390,8 +362,7 @@ export const takeoverLive = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed") throw new Error("Live not found");
-    if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    if (!live || live.expiresAt < Date.now()) throw new Error("Live not found");
     if (live.userId !== userId) throw new Error("Live not found");
 
     if (live.lastTakeoverAt && Date.now() - live.lastTakeoverAt < TAKEOVER_COOLDOWN_MS) {
@@ -406,10 +377,6 @@ export const takeoverLive = mutation({
     });
   },
 });
-
-// ---------------------------------------------------------------------------
-// Internal mutations (called from HTTP actions)
-// ---------------------------------------------------------------------------
 
 export const createPub = internalMutation({
   args: {
@@ -544,10 +511,6 @@ export const listPublicByUserInternal = internalQuery({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Internal live mutations (called from HTTP actions)
-// ---------------------------------------------------------------------------
-
 export const storeAgentAnswer = internalMutation({
   args: {
     slug: v.string(),
@@ -563,7 +526,6 @@ export const storeAgentAnswer = internalMutation({
       .order("desc")
       .first();
     if (!live || live.userId !== userId) throw new Error("Live not found");
-    if (live.status === "closed") throw new Error("Live closed");
     if (live.expiresAt < Date.now()) throw new Error("Live expired");
 
     const patch: Record<string, unknown> = {};
@@ -587,9 +549,7 @@ export const getPendingLiveForAgent = internalQuery({
       .order("desc")
       .collect();
 
-    const pending = lives.find(
-      (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
-    );
+    const pending = lives.find((s) => s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer);
     if (!pending?.browserOffer) return null;
 
     return {
@@ -611,7 +571,7 @@ export const getActiveLiveForAgent = internalQuery({
       .order("desc")
       .collect();
 
-    const active = lives.find((s) => s.status === "active" && s.expiresAt > Date.now());
+    const active = lives.find((s) => s.expiresAt > Date.now());
     if (!active) return null;
 
     return {
@@ -643,7 +603,7 @@ export const expireLive = internalMutation({
   args: { id: v.id("lives") },
   handler: async (ctx, { id }) => {
     const live = await ctx.db.get(id);
-    if (live && live.status === "active") {
+    if (live) {
       await ctx.db.delete(id);
     }
   },
@@ -657,7 +617,7 @@ export const getLiveBySlugInternal = internalQuery({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed" || live.expiresAt < Date.now()) return null;
+    if (!live || live.expiresAt < Date.now()) return null;
     return live;
   },
 });
@@ -671,7 +631,7 @@ export const listLivesByUserInternal = internalQuery({
       .order("desc")
       .collect();
     return lives
-      .filter((s) => s.status === "active" && s.expiresAt > Date.now())
+      .filter((s) => s.expiresAt > Date.now())
       .map((s) => ({
         slug: s.slug,
         status: s.status,
