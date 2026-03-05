@@ -13,6 +13,7 @@ declare module "node-datachannel" {
     onMessage(cb: (data: string | Buffer) => void): void;
     onOpen(cb: () => void): void;
     onClosed(cb: () => void): void;
+    onError(cb: (error: string) => void): void;
     sendMessage(msg: string): void;
     sendMessageBinary(data: Buffer): void;
     close(): void;
@@ -25,6 +26,7 @@ declare module "node-datachannel" {
     onLocalDescription(cb: (sdp: string, type: string) => void): void;
     onLocalCandidate(cb: (candidate: string, mid: string) => void): void;
     onStateChange(cb: (state: string) => void): void;
+    onIceStateChange(cb: (state: string) => void): void;
     onGatheringStateChange(cb: (state: string) => void): void;
     onDataChannel(cb: (dc: DataChannel) => void): void;
     setLocalDescription(type?: string): void;

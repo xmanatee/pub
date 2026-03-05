@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isClaudeCodeAvailable } from "../lib/live-bridge-claude-code.js";
 import { isOpenClawAvailable } from "../lib/live-bridge-openclaw.js";
-import { SUPPORTED_KEYS } from "./configure.js";
 import {
-  buildDaemonForkStdio,
+  autoDetectBridgeMode,
+  parseBridgeMode,
+  resolveBridgeMode,
+} from "../lib/live-runtime/bridge-runtime.js";
+import {
   getFollowReadDelayMs,
   messageContainsPong,
-  parseBridgeMode,
   parsePositiveIntegerOption,
-  resolveBridgeMode,
-} from "./live-helpers.js";
+} from "../lib/live-runtime/command-utils.js";
+import { buildDaemonForkStdio } from "../lib/live-runtime/daemon-process.js";
+import { SUPPORTED_KEYS } from "./configure.js";
 
 vi.mock("../lib/live-bridge-openclaw.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
@@ -92,11 +95,13 @@ describe("resolveBridgeMode", () => {
 
   it("auto-detects claude-code when only claude is available", () => {
     vi.mocked(isClaudeCodeAvailable).mockReturnValue(true);
+    expect(autoDetectBridgeMode()).toBe("claude-code");
     expect(resolveBridgeMode({})).toBe("claude-code");
   });
 
   it("auto-detects openclaw when only openclaw is available", () => {
     vi.mocked(isOpenClawAvailable).mockReturnValue(true);
+    expect(autoDetectBridgeMode()).toBe("openclaw");
     expect(resolveBridgeMode({})).toBe("openclaw");
   });
 

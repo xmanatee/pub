@@ -1,43 +1,36 @@
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import {
-  type BridgeMessage,
   CHANNELS,
   CONTROL_CHANNEL,
   generateMessageId,
-} from "./bridge-protocol.js";
+} from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
+import { resolveCommandFromPath } from "./command-path.js";
+import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
   buildSessionBriefing,
-  MAX_SEEN_IDS,
   parseSessionContextMeta,
   readTextChatMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
-} from "./live-bridge-openclaw.js";
+  type BridgeRunner,
+  type BridgeRunnerConfig,
+  type BridgeStatus,
+} from "./live-bridge-shared.js";
 
 export function isClaudeCodeAvailable(): boolean {
   if (process.env.CLAUDE_CODE_PATH?.trim()) return true;
-  try {
-    const which = execFileSync("which", ["claude"], { timeout: 5_000 }).toString().trim();
-    return which.length > 0;
-  } catch {
-    return false;
-  }
+  return resolveCommandFromPath("claude") !== null;
 }
 
 export function resolveClaudeCodePath(): string {
   const configured = process.env.CLAUDE_CODE_PATH?.trim();
   if (configured) return configured;
-  try {
-    const which = execFileSync("which", ["claude"], { timeout: 5_000 }).toString().trim();
-    if (which.length > 0) return which;
-  } catch {}
+  const pathFromShell = resolveCommandFromPath("claude");
+  if (pathFromShell) return pathFromShell;
   return "claude";
 }
 
@@ -99,24 +92,12 @@ export async function createClaudeCodeBridgeRunner(
 
   await runClaudeCodePreflight(claudePath);
 
-  const seenIds = new Set<string>();
   let sessionId: string | null = null;
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
-  let stopping = false;
+  let stopped = false;
   let activeChild: ReturnType<typeof spawn> | null = null;
   let sessionBriefingSent = false;
-  let loopDone: Promise<void>;
-
-  const queue: BufferedEntry[] = [];
-  let notify: (() => void) | null = null;
-
-  function enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void {
-    if (stopping) return;
-    queue.push(...entries);
-    notify?.();
-    notify = null;
-  }
 
   const canvasReminderEvery = resolveCanvasReminderEvery();
 
@@ -142,7 +123,7 @@ export async function createClaudeCodeBridgeRunner(
     let capturedSessionId: string | null = null;
 
     for await (const line of rl) {
-      if (stopping) break;
+      if (stopped) break;
       const trimmed = line.trim();
       if (trimmed.length === 0) continue;
 
@@ -176,100 +157,77 @@ export async function createClaudeCodeBridgeRunner(
       debugLog(`captured session_id: ${sessionId}`);
     }
 
-    if (exitCode !== null && exitCode !== 0 && !stopping) {
+    if (exitCode !== null && exitCode !== 0 && !stopped) {
       const detail = stderrChunks.join("").trim() || `exit code ${exitCode}`;
       throw new Error(`Claude Code exited with error: ${detail}`);
     }
   }
-
-  async function processLoop(): Promise<void> {
-    while (!stopping) {
-      if (queue.length === 0) {
-        await new Promise<void>((resolve) => {
-          notify = resolve;
-        });
-        if (stopping) break;
-      }
-
-      const batch = queue.splice(0);
-      for (const entry of batch) {
-        if (stopping) break;
-        const entryKey = `${entry.channel}:${entry.msg.id}`;
-        if (seenIds.has(entryKey)) continue;
-        seenIds.add(entryKey);
-        if (seenIds.size > MAX_SEEN_IDS) seenIds.clear();
-
-        try {
-          if (
-            !sessionBriefingSent &&
-            entry.channel === CONTROL_CHANNEL &&
-            entry.msg.type === "event" &&
-            entry.msg.data === "session-context"
-          ) {
-            const ctx = parseSessionContextMeta(entry.msg.meta);
-            if (ctx) {
-              sessionBriefingSent = true;
-              const briefing = buildSessionBriefing(slug, ctx, config.instructions);
-              await deliverToClaudeCode(briefing);
-              debugLog("session briefing delivered");
-            }
-            continue;
-          }
-
-          const chat = readTextChatMessage(entry);
-          if (chat) {
-            const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-              forwardedMessageCount + 1,
-              canvasReminderEvery,
-            );
-            const prompt = buildInboundPrompt(
-              slug,
-              chat,
-              includeCanvasReminder,
-              config.instructions,
-            );
-            await deliverToClaudeCode(prompt);
-            forwardedMessageCount += 1;
-          } else if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {
-            sendMessage(CHANNELS.CHAT, {
-              id: generateMessageId(),
-              type: "text",
-              data: "Attachments are not supported in Claude Code bridge mode.",
-            });
-          }
-        } catch (error) {
-          const message = errorMessage(error);
-          lastError = message;
-          debugLog(`bridge entry processing failed: ${message}`, error);
-          sendMessage(CHANNELS.CHAT, {
-            id: generateMessageId(),
-            type: "text",
-            data: `Bridge error: ${message}`,
-          });
+  const queue = createBridgeEntryQueue({
+    onEntry: async (entry: BufferedEntry) => {
+      if (
+        !sessionBriefingSent &&
+        entry.channel === CONTROL_CHANNEL &&
+        entry.msg.type === "event" &&
+        entry.msg.data === "session-context"
+      ) {
+        const ctx = parseSessionContextMeta(entry.msg.meta);
+        if (ctx) {
+          sessionBriefingSent = true;
+          const briefing = buildSessionBriefing(slug, ctx, config.instructions);
+          await deliverToClaudeCode(briefing);
+          debugLog("session briefing delivered");
         }
+        return;
       }
-    }
-  }
 
-  loopDone = processLoop();
+      const chat = readTextChatMessage(entry);
+      if (chat) {
+        const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
+          forwardedMessageCount + 1,
+          canvasReminderEvery,
+        );
+        const prompt = buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions);
+        await deliverToClaudeCode(prompt);
+        forwardedMessageCount += 1;
+        return;
+      }
+
+      if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {
+        sendMessage(CHANNELS.CHAT, {
+          id: generateMessageId(),
+          type: "text",
+          data: "Attachments are not supported in Claude Code bridge mode.",
+        });
+      }
+    },
+    onError: (error) => {
+      const message = errorMessage(error);
+      lastError = message;
+      debugLog(`bridge entry processing failed: ${message}`, error);
+      sendMessage(CHANNELS.CHAT, {
+        id: generateMessageId(),
+        type: "text",
+        data: `Bridge error: ${message}`,
+      });
+    },
+  });
   debugLog(`claude-code bridge runner started (path=${claudePath})`);
 
   return {
-    enqueue,
+    enqueue: (entries) => queue.enqueue(entries),
 
     async stop(): Promise<void> {
-      stopping = true;
-      notify?.();
-      notify = null;
+      if (stopped) return;
+      stopped = true;
       if (activeChild) {
         activeChild.kill("SIGINT");
       }
-      await loopDone;
+      await queue.stop();
     },
 
     status(): BridgeStatus {
       return {
-        running: !stopping,
+        running: !stopped,
         sessionId: sessionId ?? undefined,
         lastError,
         forwardedMessages: forwardedMessageCount,

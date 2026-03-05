@@ -317,7 +317,7 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
 
     // Import bridge protocol helpers (these are pure functions, no native deps)
     const { encodeMessage, decodeMessage, makeTextMessage, makeHtmlMessage } = await import(
-      "../../../src/lib/bridge-protocol.js"
+      "../../../shared/bridge-protocol-core"
     );
 
     peerA = new ndc.PeerConnection("peerA", { iceServers: [] });
