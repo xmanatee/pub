@@ -1,6 +1,6 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ControlBar } from "~/features/live/components/control-bar/control-bar";
 import { ControlBarGoLiveMode } from "~/features/live/components/control-bar/control-bar-go-live-mode";
 import { CanvasPanel } from "~/features/live/components/panels/canvas-panel";
@@ -15,11 +15,21 @@ import { api } from "../../../../convex/_generated/api";
 
 export function PubRoutePage({ slug }: { slug: string }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
+  const model = useLivePageModel(slug);
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
   const [liveMode, setLiveMode] = useState(false);
-  const contentHtml = useContentHtml(pub?.content, pub?.contentType);
+  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
+  const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
+  const viewMode = liveMode ? model.viewMode : "canvas";
+  const effectiveCanvasHtml = liveMode ? (model.canvasHtml ?? baseContentHtml) : baseContentHtml;
+  const { previewText, dismissPreview } = useChatPreview(model.messages, viewMode);
+  const isOwner = pub?.isOwner === true;
+  const isLoading = pub === undefined;
+  const isNotFound = pub === null;
+  const hasCanvasContent = Boolean(effectiveCanvasHtml);
+  const canShowNoContent = !isLoading && !isNotFound && !liveMode && !hasCanvasContent;
 
   useEffect(() => {
     if (pub && !trackedAnalytics.current) {
@@ -41,40 +51,17 @@ export function PubRoutePage({ slug }: { slug: string }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
     setLiveMode(false);
+    setControlBarCollapsed(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
+    dismissPreview();
+    model.stopLive();
+    model.clearCanvas();
+    model.clearFiles();
+    model.clearMessages();
+    model.clearSessionError();
+    model.setViewMode("canvas");
   }, [slug]);
-
-  if (pub?.isOwner && liveMode) {
-    return <LiveView slug={slug} />;
-  }
-
-  const animationStyle = readStoredAnimationStyle();
-  const visualState = pub === null ? "disconnected" : contentHtml ? "idle" : "waiting-content";
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      <div className="flex-1 min-h-0 relative">
-        <CanvasPanel animationStyle={animationStyle} html={contentHtml} visualState={visualState} />
-      </div>
-      {pub?.isOwner ? (
-        <ControlBarGoLiveMode slug={slug} onGoLive={() => setLiveMode(true)} />
-      ) : null}
-    </div>
-  );
-}
-
-function LiveView({ slug }: { slug: string }) {
-  const navigate = useNavigate();
-  const model = useLivePageModel(slug);
-  const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
-  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
-
-  useEffect(() => {
-    if (model.agentOnline && !model.liveRequested) {
-      model.goLive();
-    }
-  }, [model.agentOnline, model.liveRequested, model.goLive]);
 
   const settingsPanelModel = {
     behavior: {
@@ -86,7 +73,7 @@ function LiveView({ slug }: { slug: string }) {
     },
     stats: {
       fileCount: model.files.length,
-      hasCanvasContent: Boolean(model.canvasHtml),
+      hasCanvasContent,
       messageCount: model.messages.length,
     },
   };
@@ -121,33 +108,62 @@ function LiveView({ slug }: { slug: string }) {
 
   const controlBarActions = {
     onChangeView: model.setViewMode,
-    onClose: () => navigate({ to: "/dashboard" }),
+    onClose: () => {
+      setLiveMode(false);
+      setControlBarCollapsed(false);
+      dismissPreview();
+      model.stopLive();
+      model.clearCanvas();
+      model.clearFiles();
+      model.clearMessages();
+      model.clearSessionError();
+      model.setViewMode("canvas");
+    },
     onDismissPreview: dismissPreview,
     onMicGranted: model.setMicGranted,
     onSendAudio: model.sendAudio,
     onSendChat: model.sendChat,
     onTakeover: () => {
-      void model.takeoverLive();
+      void model.takeoverLive().then(
+        () => {
+          model.startLive();
+        },
+        () => {
+          // session errors are surfaced via model.sessionError
+        },
+      );
     },
     onToggleCollapsed: () => setControlBarCollapsed((c) => !c),
   };
 
+  const staticAnimationStyle = useMemo(() => readStoredAnimationStyle(), []);
+  const canvasAnimationStyle = liveMode ? model.animationStyle : staticAnimationStyle;
+  const canvasVisualState = liveMode
+    ? model.visualState
+    : hasCanvasContent
+      ? "idle"
+      : "waiting-content";
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      {controlBarCollapsed ? null : (
+      {liveMode && controlBarCollapsed ? null : (
         <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
       )}
 
       <div className="flex-1 min-h-0 relative">
-        {model.viewMode === "canvas" ? (
+        {isLoading ? <StatusScreen text="Loading..." /> : null}
+        {isNotFound ? <NotFoundScreen /> : null}
+        {canShowNoContent ? <NoContentScreen /> : null}
+
+        {!isLoading && !isNotFound && !canShowNoContent && viewMode === "canvas" ? (
           <CanvasPanel
-            animationStyle={model.animationStyle}
-            html={model.canvasHtml}
-            visualState={model.visualState}
+            animationStyle={canvasAnimationStyle}
+            html={effectiveCanvasHtml}
+            visualState={canvasVisualState}
           />
         ) : null}
 
-        {model.viewMode === "chat" ? (
+        {liveMode && viewMode === "chat" ? (
           <ChatPanel
             files={model.files}
             messages={model.messages}
@@ -156,16 +172,74 @@ function LiveView({ slug }: { slug: string }) {
           />
         ) : null}
 
-        {model.viewMode === "settings" ? (
+        {liveMode && viewMode === "settings" ? (
           <SettingsPanel model={settingsPanelModel} actions={settingsPanelActions} />
+        ) : null}
+
+        {liveMode && model.sessionError ? (
+          <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2">
+            <p className="rounded-full border border-destructive/40 bg-background/90 px-3 py-1 text-xs text-destructive shadow-sm backdrop-blur">
+              {model.sessionError}
+            </p>
+          </div>
         ) : null}
       </div>
 
-      <ControlBar
-        model={controlBarModel}
-        transport={controlBarTransport}
-        actions={controlBarActions}
-      />
+      {isOwner && !liveMode ? (
+        <ControlBarGoLiveMode
+          slug={slug}
+          onGoLive={() => {
+            setLiveMode(true);
+            setControlBarCollapsed(false);
+            dismissPreview();
+            model.clearCanvas();
+            model.clearFiles();
+            model.clearMessages();
+            model.clearSessionError();
+            model.setViewMode("canvas");
+            model.startLive();
+          }}
+        />
+      ) : null}
+
+      {isOwner && liveMode ? (
+        <ControlBar
+          model={controlBarModel}
+          transport={controlBarTransport}
+          actions={controlBarActions}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function StatusScreen({ text }: { text: string }) {
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function NotFoundScreen() {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center">
+      <h1 className="text-xl font-semibold">Not found</h1>
+      <p className="text-sm text-muted-foreground">
+        This pub doesn&apos;t exist or is not accessible.
+      </p>
+      <Link to="/" className="text-sm text-primary hover:underline">
+        Go to pub.blue
+      </Link>
+    </div>
+  );
+}
+
+function NoContentScreen() {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center">
+      <h1 className="text-xl font-semibold">No content</h1>
+      <p className="text-sm text-muted-foreground">This pub has no static content yet.</p>
     </div>
   );
 }

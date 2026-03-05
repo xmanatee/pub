@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import { latestCliVersionPath, readLatestCliVersion } from "./live-runtime/daemon-files.js";
+import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -20,15 +20,13 @@ import {
   parseAckMessage,
   shouldAcknowledgeMessage,
 } from "../../../shared/bridge-protocol-core";
-import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
-import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
-import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
 import { createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import type { BridgeRunner } from "./live-bridge-shared.js";
 import { createAnswer } from "./live-daemon-answer.js";
-import { createSignalingController } from "./live-daemon-signaling.js";
+import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
+import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
 import {
   buildBridgeInstructions,
   type ChannelBuffer,
@@ -40,9 +38,12 @@ import {
   PONG_TIMEOUT_MS,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
+import { createSignalingController } from "./live-daemon-signaling.js";
+import { latestCliVersionPath, readLatestCliVersion } from "./live-runtime/daemon-files.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const MAX_BUFFERED_MESSAGES = 200;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
@@ -62,7 +63,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let lastSentCandidateCount = 0;
 
   const localCandidates: string[] = [];
-  const stickyOutboundByChannel = new Map<string, BridgeMessage>();
   const pendingOutboundAcks = new Map<string, { channel: string; messageId: string }>();
   const pendingDeliveryAcks = new Map<
     string,
@@ -186,6 +186,19 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     runHealthCheck();
   }
 
+  function appendBufferedMessage(entry: {
+    channel: string;
+    msg: BridgeMessage;
+    timestamp: number;
+  }): void {
+    // Canvas payloads can be large; keep runtime buffering scoped to operational chat/file reads.
+    if (entry.channel === CHANNELS.CANVAS) return;
+    buffer.messages.push(entry);
+    if (buffer.messages.length > MAX_BUFFERED_MESSAGES) {
+      buffer.messages.splice(0, buffer.messages.length - MAX_BUFFERED_MESSAGES);
+    }
+  }
+
   // -- Channel / message management -----------------------------------------
 
   function setupChannel(name: string, dc: DataChannel): void {
@@ -227,7 +240,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         if (shouldAcknowledgeMessage(name, msg)) {
           queueAck(msg.id, name);
         }
-        buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
+        appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });
         bridgeRunner?.enqueue([{ channel: name, msg }]);
         return;
       }
@@ -250,7 +263,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (shouldAcknowledgeMessage(name, binMsg)) {
         queueAck(binMsg.id, name);
       }
-      buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
+      appendBufferedMessage({ channel: name, msg: binMsg, timestamp: Date.now() });
       bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
     });
   }
@@ -354,31 +367,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
   }
 
-  function maybePersistStickyOutbound(channel: string, msg: BridgeMessage): void {
-    if (channel !== CHANNELS.CANVAS) return;
-    if (msg.type === "event" && msg.data === "hide") {
-      stickyOutboundByChannel.delete(channel);
-      return;
-    }
-    if (msg.type !== "html") return;
-    stickyOutboundByChannel.set(channel, {
-      ...msg,
-      meta: msg.meta ? { ...msg.meta } : undefined,
-    });
-  }
-
-  async function replayStickyOutboundMessages(): Promise<void> {
-    if (!connected || recovering || stopped) return;
-    for (const [channel, msg] of stickyOutboundByChannel) {
-      try {
-        let targetDc = channels.get(channel);
-        if (!targetDc) targetDc = openDataChannel(channel);
-        await waitForChannelOpen(targetDc, 3_000);
-        targetDc.sendMessage(encodeMessage(msg));
-      } catch (error) {
-        debugLog(`sticky outbound replay failed for channel ${channel}`, error);
-      }
-    }
+  function maybePersistStickyOutbound(_channel: string, _msg: BridgeMessage): void {
+    // Intentionally disabled: live runtime should not persist/replay canvas/message state.
   }
 
   // -- Peer management ------------------------------------------------------
@@ -394,12 +384,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (state === "connected") {
         connected = true;
         flushQueuedAcks();
-        void replayStickyOutboundMessages();
         startPingPong();
         return;
       }
       if (state === "disconnected" || state === "failed" || state === "closed") {
         connected = false;
+        buffer.messages = [];
         failPendingAcks();
         stopPingPong();
       }
@@ -410,6 +400,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       debugLog(`ICE state: ${state}`);
       if ((state === "disconnected" || state === "failed") && connected) {
         connected = false;
+        buffer.messages = [];
         failPendingAcks();
         stopPingPong();
       }
@@ -454,6 +445,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function resetNegotiationState(): void {
     connected = false;
+    buffer.messages = [];
     failPendingAcks();
     stopPingPong();
     lastAppliedBrowserOffer = null;
@@ -710,5 +702,4 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   process.on("SIGINT", () => {
     void shutdown();
   });
-
 }

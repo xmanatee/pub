@@ -1,6 +1,6 @@
 export type LiveViewMode = "canvas" | "chat" | "settings";
 
-export type SessionState = "active" | "needs-takeover" | "taken-over";
+export type SessionState = "inactive" | "active" | "needs-takeover" | "taken-over";
 
 export const LIVE_ANIMATION_STYLES = ["blob", "aurora", "orb"] as const;
 export type LiveAnimationStyle = (typeof LIVE_ANIMATION_STYLES)[number];
