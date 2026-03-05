@@ -9,9 +9,25 @@ import {
 } from "../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../lib/cli-error.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
-import { formatApiError, getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
-import { liveInfoPath, liveLogPath, readLogTail, writeLatestCliVersion } from "../lib/live-runtime/daemon-files.js";
-import { buildDaemonForkStdio, isDaemonRunning, resolveActiveSlug, stopOtherDaemons, waitForDaemonReady } from "../lib/live-runtime/daemon-process.js";
+import type { StatusResponse } from "../lib/live-ipc-protocol.js";
+import {
+  formatApiError,
+  getFollowReadDelayMs,
+  messageContainsPong,
+} from "../lib/live-runtime/command-utils.js";
+import {
+  liveInfoPath,
+  liveLogPath,
+  readLogTail,
+  writeLatestCliVersion,
+} from "../lib/live-runtime/daemon-files.js";
+import {
+  buildDaemonForkStdio,
+  isDaemonRunning,
+  resolveActiveSlug,
+  stopOtherDaemons,
+  waitForDaemonReady,
+} from "../lib/live-runtime/daemon-process.js";
 import { getMimeType, TEXT_FILE_EXTENSIONS } from "../lib/live-runtime/file-payload.js";
 import { runStartPreflight } from "../lib/live-runtime/start-preflight.js";
 import { parsePositiveInteger } from "../lib/number.js";
@@ -124,7 +140,7 @@ function registerStatusCommand(program: Command): void {
     .description("Check agent daemon and live connection status")
     .action(async () => {
       const socketPath = getAgentSocketPath();
-      let response;
+      let response: StatusResponse;
       try {
         response = await ipcCall(socketPath, { method: "status", params: {} });
       } catch (error) {

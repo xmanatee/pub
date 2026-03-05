@@ -99,7 +99,11 @@ export class PubApiClient {
         if (res.status === 429) {
           const retrySuffix =
             retryAfterSeconds !== undefined ? ` Retry after ${retryAfterSeconds}s.` : "";
-          throw new PubApiError(`Rate limit exceeded.${retrySuffix}`, res.status, retryAfterSeconds);
+          throw new PubApiError(
+            `Rate limit exceeded.${retrySuffix}`,
+            res.status,
+            retryAfterSeconds,
+          );
         }
         throw new PubApiError(
           `Invalid JSON response from server (HTTP ${res.status}).`,

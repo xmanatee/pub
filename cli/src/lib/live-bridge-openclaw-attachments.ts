@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 import { mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { type BridgeMessage } from "../../../shared/bridge-protocol-core";
-import { buildCanvasPolicyReminderBlock, type BufferedEntry } from "./live-bridge-shared.js";
-import type { BridgeInstructions } from "./live-daemon-shared.js";
 import { resolveOpenClawStateDir } from "./live-bridge-openclaw-session.js";
+import { type BufferedEntry, buildCanvasPolicyReminderBlock } from "./live-bridge-shared.js";
+import type { BridgeInstructions } from "./live-daemon-shared.js";
 
 const DEFAULT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 

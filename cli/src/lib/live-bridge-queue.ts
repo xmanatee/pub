@@ -1,5 +1,5 @@
 import { errorMessage } from "./cli-error.js";
-import { MAX_SEEN_IDS, type BufferedEntry } from "./live-bridge-shared.js";
+import { type BufferedEntry, MAX_SEEN_IDS } from "./live-bridge-shared.js";
 
 interface BridgeEntryQueueParams {
   onEntry: (entry: BufferedEntry) => Promise<void>;

@@ -1,6 +1,6 @@
 import { ConvexClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
-import type { PubApiClient, LiveInfo } from "./api.js";
+import type { LiveInfo, PubApiClient } from "./api.js";
 import { decideSignalingUpdate } from "./live-signaling.js";
 
 const LIVE_SIGNAL_QUERY = makeFunctionReference<"query", { apiKey: string }, LiveInfo | null>(

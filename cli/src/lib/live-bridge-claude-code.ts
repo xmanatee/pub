@@ -19,10 +19,6 @@ import {
 } from "./live-bridge-shared.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 
-export function isClaudeCodeAvailable(): boolean {
-  return isClaudeCodeAvailableInEnv(process.env);
-}
-
 export function isClaudeCodeAvailableInEnv(env: NodeJS.ProcessEnv): boolean {
   const configured = env.CLAUDE_CODE_PATH?.trim();
   if (configured) {

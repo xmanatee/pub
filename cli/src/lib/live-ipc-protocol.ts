@@ -94,15 +94,6 @@ export type IpcRequest =
   | ActiveSlugRequest
   | CloseRequest;
 
-export type IpcResponse =
-  | WriteResponse
-  | ReadResponse
-  | ChannelsResponse
-  | StatusResponse
-  | ActiveSlugResponse
-  | CloseResponse
-  | { ok: false; error: string };
-
 export interface IpcResponseMap {
   "active-slug": ActiveSlugResponse;
   channels: ChannelsResponse;

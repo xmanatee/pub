@@ -91,7 +91,9 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await expect(client.listPage()).rejects.toThrow("Invalid JSON response from server (HTTP 200).");
+      await expect(client.listPage()).rejects.toThrow(
+        "Invalid JSON response from server (HTTP 200).",
+      );
     });
 
     it("keeps rate-limit messaging when 429 response body is not JSON", async () => {

@@ -3,15 +3,15 @@ import { errorMessage } from "../cli-error.js";
 import type { Config } from "../config.js";
 import { getConfig } from "../config.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
-import { formatApiError } from "./command-utils.js";
-import { stopOtherDaemons } from "./daemon-process.js";
 import {
+  type BridgeSelection,
   buildBridgeProcessEnv,
   ensureNodeDatachannelAvailable,
   resolveBridgeSelection,
   runBridgeStartupPreflight,
-  type BridgeSelection,
 } from "./bridge-runtime.js";
+import { formatApiError } from "./command-utils.js";
+import { stopOtherDaemons } from "./daemon-process.js";
 
 export interface StartPreflightResult {
   runtimeConfig: Config;
@@ -50,9 +50,7 @@ function formatPreflightError(params: {
   return lines.join("\n");
 }
 
-export async function runStartPreflight(opts: {
-  bridge?: string;
-}): Promise<StartPreflightResult> {
+export async function runStartPreflight(opts: { bridge?: string }): Promise<StartPreflightResult> {
   const passed: CheckOutcome[] = [];
   const failures: CheckOutcome[] = [];
   const skipped: CheckOutcome[] = [];

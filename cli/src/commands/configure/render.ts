@@ -1,5 +1,5 @@
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
-import { CONFIG_KEY_REGISTRY, hasValues, type ConfigKeyDef } from "./schema.js";
+import { CONFIG_KEY_REGISTRY, type ConfigKeyDef, hasValues } from "./schema.js";
 
 function maskSecret(value: string): string {
   if (value.length <= 8) return "********";

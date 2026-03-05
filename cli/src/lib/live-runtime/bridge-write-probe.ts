@@ -93,7 +93,7 @@ export async function runAgentWritePongProbe(params: {
     }
 
     throw new Error(
-      `${params.label} ping/pong preflight failed: did not observe \`pubblue write \"pong\"\` within ${timeoutMs}ms.`,
+      `${params.label} ping/pong preflight failed: did not observe \`pubblue write "pong"\` within ${timeoutMs}ms.`,
     );
   } finally {
     await cleanup();

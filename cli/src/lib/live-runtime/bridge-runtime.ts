@@ -4,10 +4,7 @@ import {
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
 } from "../live-bridge-claude-code.js";
-import {
-  isOpenClawAvailable,
-  runOpenClawBridgeStartupProbe,
-} from "../live-bridge-openclaw.js";
+import { isOpenClawAvailable, runOpenClawBridgeStartupProbe } from "../live-bridge-openclaw.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
 
 export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {

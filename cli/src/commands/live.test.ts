@@ -6,10 +6,7 @@ import {
   parseBridgeMode,
   resolveBridgeMode,
 } from "../lib/live-runtime/bridge-runtime.js";
-import {
-  getFollowReadDelayMs,
-  messageContainsPong,
-} from "../lib/live-runtime/command-utils.js";
+import { getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
 import { buildDaemonForkStdio } from "../lib/live-runtime/daemon-process.js";
 import { parsePositiveInteger } from "../lib/number.js";
 import { SUPPORTED_KEYS } from "./configure/schema.js";
