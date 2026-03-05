@@ -1,11 +1,11 @@
-import { ChatPanel } from "~/components/live/chat-panel";
+import { BatchSection } from "~/devtools/components/batch-section";
+import { ChatPanel } from "~/features/live/components/panels/chat-panel";
 import type {
   AudioChatEntry,
   ChatEntry,
   ImageChatEntry,
   TextChatEntry,
-} from "~/components/live/types";
-import { BatchSection } from "~/devtools/components/batch-section";
+} from "~/features/live/types/live-types";
 
 const SAMPLE_WAVEFORM = Array.from({ length: 40 }, (_, i) => {
   const t = i / 39;

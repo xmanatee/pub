@@ -1,7 +1,7 @@
-import { CanvasLiveVisual } from "~/components/live/canvas-live-visual";
-import { LIVE_ANIMATION_STYLES } from "~/components/live/types";
-import { VISUAL_THEME } from "~/components/live/visuals/shared";
 import { BatchSection } from "~/devtools/components/batch-section";
+import { CanvasLiveVisual } from "~/features/live/components/panels/canvas-live-visual";
+import { VISUAL_THEME } from "~/features/live/components/visuals/shared";
+import { LIVE_ANIMATION_STYLES } from "~/features/live/types/live-types";
 
 const ALL_VISUAL_STATES = Object.keys(VISUAL_THEME) as (keyof typeof VISUAL_THEME)[];
 

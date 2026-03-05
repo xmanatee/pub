@@ -1,8 +1,8 @@
 import { createRef } from "react";
-import { ChatPanel } from "~/components/live/chat-panel";
-import { SettingsPanel } from "~/components/live/settings-panel";
-import type { ChatEntry, ReceivedFile } from "~/components/live/types";
 import { BatchSection } from "~/devtools/components/batch-section";
+import { ChatPanel } from "~/features/live/components/panels/chat-panel";
+import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
+import type { ChatEntry, ReceivedFile } from "~/features/live/types/live-types";
 
 const SAMPLE_MESSAGES: ChatEntry[] = [
   { id: "1", from: "user", type: "text", content: "Hello!", timestamp: 1, delivery: "delivered" },
