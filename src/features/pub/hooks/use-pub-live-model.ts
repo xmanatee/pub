@@ -10,7 +10,7 @@ import { useDeveloperMode } from "~/hooks/use-developer-mode";
 
 const CONTENT_PREVIEW_MAX_LENGTH = 500;
 
-export function useLivePageModel(slug: string) {
+export function usePubLiveModel(slug: string) {
   const {
     agentOnline,
     clearSessionError,
