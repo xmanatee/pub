@@ -34,6 +34,17 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 
 const NEAR_BOTTOM_PX = 72;
+const JUMP_MIN_DISTANCE_PX = 96;
+const JUMP_FAR_DISTANCE_PX = 240;
+const ESTIMATED_MESSAGE_HEIGHT_PX = 56;
+const MIN_HIDDEN_MESSAGES = 2;
+
+function shouldShowJumpToLatest(distanceFromBottom: number): boolean {
+  if (distanceFromBottom <= JUMP_MIN_DISTANCE_PX) return false;
+  if (distanceFromBottom >= JUMP_FAR_DISTANCE_PX) return true;
+  const hiddenMessages = Math.floor(distanceFromBottom / ESTIMATED_MESSAGE_HEIGHT_PX);
+  return hiddenMessages >= MIN_HIDDEN_MESSAGES;
+}
 
 function deliveryLabel(delivery: ChatDeliveryState): string {
   if (delivery === "sending") return "Sending";
@@ -197,12 +208,21 @@ export function ChatPanel({
   const messageCount = messages.length;
   const fileCount = files.length;
 
-  const isNearBottom = useCallback(() => {
+  const getDistanceFromBottom = useCallback(() => {
     const container = containerRef.current;
-    if (!container) return true;
-    const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
-    return distance <= NEAR_BOTTOM_PX;
+    if (!container) return 0;
+    return Math.max(0, container.scrollHeight - container.scrollTop - container.clientHeight);
   }, []);
+
+  const isNearBottom = useCallback(
+    () => getDistanceFromBottom() <= NEAR_BOTTOM_PX,
+    [getDistanceFromBottom],
+  );
+
+  const shouldShowJump = useCallback(
+    () => shouldShowJumpToLatest(getDistanceFromBottom()),
+    [getDistanceFromBottom],
+  );
 
   const scrollToLatest = useCallback(
     (behavior: ScrollBehavior) => {
@@ -218,13 +238,13 @@ export function ChatPanel({
     if (!container) return;
 
     const onScroll = () => {
-      setShowJumpToLatest(!isNearBottom());
+      setShowJumpToLatest(shouldShowJump());
     };
 
     onScroll();
     container.addEventListener("scroll", onScroll);
     return () => container.removeEventListener("scroll", onScroll);
-  }, [isNearBottom]);
+  }, [shouldShowJump]);
 
   useEffect(() => {
     if (messageCount === 0 && fileCount === 0) {
@@ -236,8 +256,8 @@ export function ChatPanel({
       setShowJumpToLatest(false);
       return;
     }
-    setShowJumpToLatest(true);
-  }, [fileCount, isNearBottom, messageCount, scrollToLatest]);
+    setShowJumpToLatest(shouldShowJump());
+  }, [fileCount, isNearBottom, messageCount, scrollToLatest, shouldShowJump]);
 
   const rows: ReactNode[] = [];
   for (let i = 0; i < messages.length; i += 1) {
@@ -296,12 +316,12 @@ export function ChatPanel({
       )}
 
       {showJumpToLatest ? (
-        <div className="sticky bottom-30 z-10 flex justify-end">
+        <div className="pointer-events-none absolute right-4 bottom-30 z-20">
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             size="sm"
-            className="gap-1 rounded-full shadow"
+            className="pointer-events-auto gap-1 rounded-full border-border/70 bg-background/88 shadow-lg backdrop-blur-xl hover:bg-background/95"
             onClick={() => {
               scrollToLatest("smooth");
               setShowJumpToLatest(false);
