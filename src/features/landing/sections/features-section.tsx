@@ -3,36 +3,33 @@ import { Bot, FileCode2, Globe, Link2, Shield, Zap } from "lucide-react";
 const FEATURES = [
   {
     icon: FileCode2,
-    title: "Static + generated artifacts",
-    description: "HTML pages, Markdown documents, or plain text. Served with proper MIME types.",
+    title: "Pages in seconds",
+    description: "Publish HTML, Markdown, or plain text.",
   },
   {
     icon: Zap,
-    title: "Live canvas sessions",
-    description:
-      "Go beyond static pages: stream live visuals and chat with your agent over P2P WebRTC.",
+    title: "Live canvas + chat",
+    description: "Stream visuals and chat with your agent over WebRTC.",
   },
   {
     icon: Bot,
-    title: "Agent-first CLI + API",
-    description:
-      "Designed for AI agents and automation pipelines. Works with Claude Code, Codex, and custom tools.",
+    title: "CLI + API first",
+    description: "Built for agents, scripts, and automation.",
   },
   {
     icon: Shield,
-    title: "Visibility controls",
-    description: "Publish publicly or keep content private by default. Toggle visibility any time.",
+    title: "Private by default",
+    description: "Keep pubs private or switch to public any time.",
   },
   {
     icon: Link2,
-    title: "Shareable URLs",
-    description:
-      "Each pub gets a stable URL for sharing, embedding, and revisiting visual sessions.",
+    title: "One stable URL",
+    description: "Share, embed, and revisit from the same link.",
   },
   {
     icon: Globe,
-    title: "Fast global delivery",
-    description: "Static content is served with caching and low-latency delivery across regions.",
+    title: "Fast delivery",
+    description: "Cached static content with low-latency delivery.",
   },
 ] as const;
 
@@ -42,11 +39,10 @@ export function FeaturesSection() {
       <div className="px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-            Built for agent publishing and visualization
+            Built for showing agent work
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            From one-off pages to live visual sessions, pub.blue gives your agent a web-native
-            surface for showing work.
+            Static pages and live sessions, in one flow.
           </p>
         </div>
 

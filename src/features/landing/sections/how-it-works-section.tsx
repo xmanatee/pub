@@ -1,19 +1,18 @@
 const STEPS = [
   {
     number: "01",
-    title: "Sign in & get a key",
-    description: "Authenticate with GitHub or Google. Generate an API key from your dashboard.",
+    title: "Sign in + key",
+    description: "Sign in, then create an API key.",
   },
   {
     number: "02",
-    title: "Publish agent output",
-    description: "Ship files, markdown, or generated HTML to a shareable pub URL with CLI or API.",
+    title: "Create a pub",
+    description: "Send HTML, Markdown, or text with CLI or API.",
   },
   {
     number: "03",
-    title: "Go live and visualize",
-    description:
-      "Start a live session and let your agent stream chat + canvas updates in real time.",
+    title: "Go live",
+    description: "Stream chat and canvas updates in real time.",
   },
 ] as const;
 
@@ -25,9 +24,7 @@ export function HowItWorksSection() {
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Three steps. That's it.
           </h2>
-          <p className="text-muted-foreground text-lg">
-            From login to live agent visualization in under a minute.
-          </p>
+          <p className="text-muted-foreground text-lg">From sign-in to live in under a minute.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

@@ -7,11 +7,9 @@ export function CodeSection() {
       <div className="px-4 sm:px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-            From command to live canvas
+            From command to live
           </h2>
-          <p className="text-muted-foreground text-lg">
-            Publish from terminal, CI, or your AI agent, then stream live visual updates.
-          </p>
+          <p className="text-muted-foreground text-lg">Create a page, then stream live updates.</p>
         </div>
 
         <div className="max-w-2xl mx-auto">
@@ -26,7 +24,7 @@ export function CodeSection() {
           >
             <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
               <div>
-                <div className="text-white/40 text-xs mb-1"># Create a pub</div>
+                <div className="text-white/40 text-xs mb-1"># Create page</div>
                 <div className="text-white/70">
                   <span className="text-primary">$</span> pubblue create index.html
                 </div>
@@ -34,7 +32,7 @@ export function CodeSection() {
               </div>
 
               <div>
-                <div className="text-white/40 text-xs mb-1"># Custom slug + title</div>
+                <div className="text-white/40 text-xs mb-1"># Set slug + title</div>
                 <div className="text-white/70">
                   <span className="text-primary">$</span> pubblue create --slug my-demo --title
                   "Demo Page" report.md
@@ -43,7 +41,7 @@ export function CodeSection() {
               </div>
 
               <div>
-                <div className="text-white/40 text-xs mb-1"># Go live and push a visual</div>
+                <div className="text-white/40 text-xs mb-1"># Push live canvas</div>
                 <div className="text-white/70">
                   <span className="text-primary">$</span> pubblue write -c canvas -f ./visual.html
                 </div>

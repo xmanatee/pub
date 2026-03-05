@@ -24,13 +24,12 @@ export function HeroSection() {
             Show what your AI agent built.
             <br />
             <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Publish and visualize instantly.
+              Go live in one link.
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Turn agent output into shareable pages, then go live for interactive chat and canvas
-            visualizations in the same URL.
+            Post pages fast, then stream chat and canvas updates in real time.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
