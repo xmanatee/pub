@@ -14,26 +14,38 @@ import { ControlBarVoiceMode } from "./control-bar-voice-mode";
 
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
-interface ControlBarProps {
+export interface ControlBarModel {
   agentName: string | null;
   chatPreview: string | null;
   collapsed: boolean;
-  sendDisabled: boolean;
-  bridge: BrowserBridge | null;
   lastTakeoverAt?: number;
-  onClose: () => void;
-  onDismissPreview: () => void;
-  onTakeover?: () => void;
-  onToggleCollapsed: () => void;
-  onSendChat: (text: string) => void;
-  onSendAudio: (blob: Blob) => void;
-  micGranted: boolean;
-  onMicGranted: (granted: boolean) => void;
+  sendDisabled: boolean;
   sessionState?: SessionState;
   viewMode: LiveViewMode;
-  onChangeView: (view: LiveViewMode) => void;
   visualState: LiveVisualState;
   voiceModeEnabled: boolean;
+}
+
+export interface ControlBarTransport {
+  bridge: BrowserBridge | null;
+  micGranted: boolean;
+}
+
+export interface ControlBarActions {
+  onChangeView: (view: LiveViewMode) => void;
+  onClose: () => void;
+  onDismissPreview: () => void;
+  onMicGranted: (granted: boolean) => void;
+  onSendAudio: (blob: Blob) => void;
+  onSendChat: (text: string) => void;
+  onTakeover?: () => void;
+  onToggleCollapsed: () => void;
+}
+
+interface ControlBarProps {
+  model: ControlBarModel;
+  transport: ControlBarTransport;
+  actions: ControlBarActions;
   initialInput?: string;
 }
 
@@ -43,28 +55,29 @@ function formatTime(seconds: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export function ControlBar({
-  agentName,
-  chatPreview,
-  collapsed,
-  sendDisabled,
-  bridge,
-  lastTakeoverAt,
-  onClose,
-  onDismissPreview,
-  onTakeover,
-  onToggleCollapsed,
-  onSendChat,
-  onSendAudio,
-  micGranted,
-  onMicGranted,
-  sessionState,
-  viewMode,
-  onChangeView,
-  visualState,
-  voiceModeEnabled,
-  initialInput,
-}: ControlBarProps) {
+export function ControlBar({ model, transport, actions, initialInput }: ControlBarProps) {
+  const {
+    agentName,
+    chatPreview,
+    collapsed,
+    lastTakeoverAt,
+    sendDisabled,
+    sessionState,
+    viewMode,
+    visualState,
+    voiceModeEnabled,
+  } = model;
+  const { bridge, micGranted } = transport;
+  const {
+    onChangeView,
+    onClose,
+    onDismissPreview,
+    onMicGranted,
+    onSendAudio,
+    onSendChat,
+    onTakeover,
+    onToggleCollapsed,
+  } = actions;
   const [expanded, setExpanded] = useState(false);
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({

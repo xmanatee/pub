@@ -10,13 +10,22 @@ import {
   type LiveAnimationStyle,
 } from "~/features/live/types/live-types";
 
-interface SettingsPanelProps {
-  autoOpenCanvas: boolean;
-  animationStyle: LiveAnimationStyle;
-  developerModeEnabled: boolean;
-  fileCount: number;
-  hasCanvasContent: boolean;
-  messageCount: number;
+export interface SettingsPanelModel {
+  behavior: {
+    autoOpenCanvas: boolean;
+    animationStyle: LiveAnimationStyle;
+    developerModeEnabled: boolean;
+    showDeliveryStatus: boolean;
+    voiceModeEnabled: boolean;
+  };
+  stats: {
+    fileCount: number;
+    hasCanvasContent: boolean;
+    messageCount: number;
+  };
+}
+
+export interface SettingsPanelActions {
   onAutoOpenCanvasChange: (value: boolean) => void;
   onAnimationStyleChange: (value: LiveAnimationStyle) => void;
   onClearCanvas: () => void;
@@ -25,28 +34,35 @@ interface SettingsPanelProps {
   onDeveloperModeChange: (value: boolean) => void;
   onShowDeliveryStatusChange: (value: boolean) => void;
   onVoiceModeEnabledChange: (value: boolean) => void;
-  showDeliveryStatus: boolean;
-  voiceModeEnabled: boolean;
 }
 
-export function SettingsPanel({
-  autoOpenCanvas,
-  animationStyle,
-  developerModeEnabled,
-  fileCount,
-  hasCanvasContent,
-  messageCount,
-  onAutoOpenCanvasChange,
-  onAnimationStyleChange,
-  onClearCanvas,
-  onClearFiles,
-  onClearMessages,
-  onDeveloperModeChange,
-  onShowDeliveryStatusChange,
-  onVoiceModeEnabledChange,
-  showDeliveryStatus,
-  voiceModeEnabled,
-}: SettingsPanelProps) {
+interface SettingsPanelProps {
+  model: SettingsPanelModel;
+  actions: SettingsPanelActions;
+}
+
+export function SettingsPanel({ model, actions }: SettingsPanelProps) {
+  const { behavior, stats } = model;
+  const {
+    onAutoOpenCanvasChange,
+    onAnimationStyleChange,
+    onClearCanvas,
+    onClearFiles,
+    onClearMessages,
+    onDeveloperModeChange,
+    onShowDeliveryStatusChange,
+    onVoiceModeEnabledChange,
+  } = actions;
+
+  const {
+    autoOpenCanvas,
+    animationStyle,
+    developerModeEnabled,
+    showDeliveryStatus,
+    voiceModeEnabled,
+  } = behavior;
+  const { fileCount, hasCanvasContent, messageCount } = stats;
+
   return (
     <div
       className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3"

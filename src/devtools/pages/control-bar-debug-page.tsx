@@ -36,29 +36,36 @@ function StaticControlBar({
   lastTakeoverAt?: number;
   initialInput?: string;
 }) {
+  const model = {
+    agentName,
+    chatPreview,
+    collapsed,
+    lastTakeoverAt,
+    sendDisabled: visualState === "connecting" || visualState === "disconnected",
+    sessionState,
+    viewMode: "canvas" as const,
+    visualState,
+    voiceModeEnabled: false,
+  };
+
+  const transport = {
+    bridge: null,
+    micGranted: false,
+  };
+
+  const actions = {
+    onChangeView: noop,
+    onClose: noop,
+    onDismissPreview: noop,
+    onMicGranted: noop,
+    onSendAudio: noop,
+    onSendChat: noop,
+    onTakeover: sessionState ? noop : undefined,
+    onToggleCollapsed: noop,
+  };
+
   return (
-    <ControlBar
-      agentName={agentName}
-      chatPreview={chatPreview}
-      collapsed={collapsed}
-      sendDisabled={visualState === "connecting" || visualState === "disconnected"}
-      bridge={null}
-      initialInput={initialInput}
-      lastTakeoverAt={lastTakeoverAt}
-      onClose={noop}
-      onDismissPreview={noop}
-      onTakeover={sessionState ? noop : undefined}
-      onToggleCollapsed={noop}
-      micGranted={false}
-      onMicGranted={noop}
-      onSendAudio={noop}
-      onSendChat={noop}
-      sessionState={sessionState}
-      onChangeView={noop}
-      viewMode="canvas"
-      visualState={visualState}
-      voiceModeEnabled={false}
-    />
+    <ControlBar model={model} transport={transport} actions={actions} initialInput={initialInput} />
   );
 }
 
@@ -67,6 +74,33 @@ export function ControlBarDebugPage() {
   const [chatPreview, setChatPreview] = useState<string | null>(null);
   const [activeState, setActiveState] = useState<LiveVisualState>("idle");
   const [collapsed, setCollapsed] = useState(false);
+
+  const interactiveModel = {
+    agentName: "Oz",
+    chatPreview,
+    collapsed,
+    sendDisabled: activeState === "connecting" || activeState === "disconnected",
+    sessionState: undefined,
+    viewMode,
+    visualState: activeState,
+    voiceModeEnabled: true,
+  };
+
+  const interactiveTransport = {
+    bridge: null,
+    micGranted: false,
+  };
+
+  const interactiveActions = {
+    onChangeView: setViewMode,
+    onClose: noop,
+    onDismissPreview: () => setChatPreview(null),
+    onMicGranted: noop,
+    onSendAudio: noop,
+    onSendChat: noop,
+    onTakeover: undefined,
+    onToggleCollapsed: () => setCollapsed((v) => !v),
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -197,22 +231,9 @@ export function ControlBarDebugPage() {
           </div>
           <div className="relative mt-4 h-80">
             <ControlBar
-              agentName="Oz"
-              chatPreview={chatPreview}
-              collapsed={collapsed}
-              sendDisabled={activeState === "connecting" || activeState === "disconnected"}
-              bridge={null}
-              onClose={noop}
-              onDismissPreview={() => setChatPreview(null)}
-              onToggleCollapsed={() => setCollapsed((v) => !v)}
-              micGranted={false}
-              onMicGranted={noop}
-              onSendAudio={noop}
-              onSendChat={noop}
-              onChangeView={setViewMode}
-              viewMode={viewMode}
-              visualState={activeState}
-              voiceModeEnabled
+              model={interactiveModel}
+              transport={interactiveTransport}
+              actions={interactiveActions}
             />
           </div>
         </details>

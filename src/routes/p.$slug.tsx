@@ -81,6 +81,62 @@ function LiveView({ slug }: { slug: string }) {
     }
   }, [model.agentOnline, model.liveRequested, model.goLive]);
 
+  const settingsPanelModel = {
+    behavior: {
+      autoOpenCanvas: model.autoOpenCanvas,
+      animationStyle: model.animationStyle,
+      developerModeEnabled: model.developerModeEnabled,
+      showDeliveryStatus: model.showDeliveryStatus,
+      voiceModeEnabled: model.voiceModeEnabled,
+    },
+    stats: {
+      fileCount: model.files.length,
+      hasCanvasContent: Boolean(model.canvasHtml),
+      messageCount: model.messages.length,
+    },
+  };
+
+  const settingsPanelActions = {
+    onAutoOpenCanvasChange: model.setAutoOpenCanvas,
+    onAnimationStyleChange: model.setAnimationStyle,
+    onClearCanvas: model.clearCanvas,
+    onClearFiles: model.clearFiles,
+    onClearMessages: model.clearMessages,
+    onDeveloperModeChange: model.setDeveloperModeEnabled,
+    onShowDeliveryStatusChange: model.setShowDeliveryStatus,
+    onVoiceModeEnabledChange: model.setVoiceModeEnabled,
+  };
+
+  const controlBarModel = {
+    agentName: model.agentName,
+    chatPreview: previewText,
+    collapsed: controlBarCollapsed,
+    lastTakeoverAt: model.lastTakeoverAt,
+    sendDisabled: !model.connected,
+    sessionState: model.sessionState,
+    viewMode: model.viewMode,
+    visualState: model.visualState,
+    voiceModeEnabled: model.voiceModeEnabled,
+  };
+
+  const controlBarTransport = {
+    bridge: model.bridgeRef.current,
+    micGranted: model.micGranted,
+  };
+
+  const controlBarActions = {
+    onChangeView: model.setViewMode,
+    onClose: () => navigate({ to: "/dashboard" }),
+    onDismissPreview: dismissPreview,
+    onMicGranted: model.setMicGranted,
+    onSendAudio: model.sendAudio,
+    onSendChat: model.sendChat,
+    onTakeover: () => {
+      void model.takeoverLive();
+    },
+    onToggleCollapsed: () => setControlBarCollapsed((c) => !c),
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
       {controlBarCollapsed ? null : (
@@ -106,47 +162,14 @@ function LiveView({ slug }: { slug: string }) {
         ) : null}
 
         {model.viewMode === "settings" ? (
-          <SettingsPanel
-            autoOpenCanvas={model.autoOpenCanvas}
-            animationStyle={model.animationStyle}
-            developerModeEnabled={model.developerModeEnabled}
-            fileCount={model.files.length}
-            hasCanvasContent={Boolean(model.canvasHtml)}
-            messageCount={model.messages.length}
-            onAutoOpenCanvasChange={model.setAutoOpenCanvas}
-            onAnimationStyleChange={model.setAnimationStyle}
-            onClearCanvas={model.clearCanvas}
-            onClearFiles={model.clearFiles}
-            onClearMessages={model.clearMessages}
-            onDeveloperModeChange={model.setDeveloperModeEnabled}
-            onShowDeliveryStatusChange={model.setShowDeliveryStatus}
-            onVoiceModeEnabledChange={model.setVoiceModeEnabled}
-            showDeliveryStatus={model.showDeliveryStatus}
-            voiceModeEnabled={model.voiceModeEnabled}
-          />
+          <SettingsPanel model={settingsPanelModel} actions={settingsPanelActions} />
         ) : null}
       </div>
 
       <ControlBar
-        agentName={model.agentName}
-        chatPreview={previewText}
-        collapsed={controlBarCollapsed}
-        sendDisabled={!model.connected}
-        bridge={model.bridgeRef.current}
-        lastTakeoverAt={model.lastTakeoverAt}
-        onClose={() => navigate({ to: "/dashboard" })}
-        onDismissPreview={dismissPreview}
-        onTakeover={() => void model.takeoverLive()}
-        onToggleCollapsed={() => setControlBarCollapsed((c) => !c)}
-        micGranted={model.micGranted}
-        onMicGranted={model.setMicGranted}
-        onSendAudio={model.sendAudio}
-        onSendChat={model.sendChat}
-        sessionState={model.sessionState}
-        onChangeView={model.setViewMode}
-        viewMode={model.viewMode}
-        visualState={model.visualState}
-        voiceModeEnabled={model.voiceModeEnabled}
+        model={controlBarModel}
+        transport={controlBarTransport}
+        actions={controlBarActions}
       />
     </div>
   );

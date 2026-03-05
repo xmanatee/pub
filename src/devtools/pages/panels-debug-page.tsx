@@ -58,22 +58,30 @@ export function PanelsDebugPage() {
 
   const settingsPanel = (
     <SettingsPanel
-      autoOpenCanvas
-      animationStyle="aurora"
-      developerModeEnabled={false}
-      fileCount={1}
-      hasCanvasContent
-      messageCount={3}
-      onAutoOpenCanvasChange={noop}
-      onAnimationStyleChange={noop}
-      onClearCanvas={noop}
-      onClearFiles={noop}
-      onClearMessages={noop}
-      onDeveloperModeChange={noop}
-      onShowDeliveryStatusChange={noop}
-      onVoiceModeEnabledChange={noop}
-      showDeliveryStatus
-      voiceModeEnabled={false}
+      model={{
+        behavior: {
+          autoOpenCanvas: true,
+          animationStyle: "aurora",
+          developerModeEnabled: false,
+          showDeliveryStatus: true,
+          voiceModeEnabled: false,
+        },
+        stats: {
+          fileCount: 1,
+          hasCanvasContent: true,
+          messageCount: 3,
+        },
+      }}
+      actions={{
+        onAutoOpenCanvasChange: noop,
+        onAnimationStyleChange: noop,
+        onClearCanvas: noop,
+        onClearFiles: noop,
+        onClearMessages: noop,
+        onDeveloperModeChange: noop,
+        onShowDeliveryStatusChange: noop,
+        onVoiceModeEnabledChange: noop,
+      }}
     />
   );
 

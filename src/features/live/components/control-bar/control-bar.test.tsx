@@ -65,26 +65,36 @@ function renderControlBar(overrides?: {
   viewMode?: "canvas" | "chat" | "settings";
   voiceModeEnabled?: boolean;
 }) {
+  const model = {
+    agentName: overrides?.agentName ?? null,
+    chatPreview: overrides?.chatPreview ?? null,
+    collapsed: false,
+    sendDisabled: false,
+    sessionState: undefined,
+    viewMode: overrides?.viewMode ?? "canvas",
+    visualState: "idle" as const,
+    voiceModeEnabled: overrides?.voiceModeEnabled ?? false,
+  };
+
+  const transport = {
+    bridge: null,
+    micGranted: false,
+  };
+
+  const actions = {
+    onChangeView: vi.fn(),
+    onClose: vi.fn(),
+    onDismissPreview: vi.fn(),
+    onMicGranted: vi.fn(),
+    onSendAudio: vi.fn(),
+    onSendChat: vi.fn(),
+    onTakeover: undefined,
+    onToggleCollapsed: vi.fn(),
+  };
+
   return renderToStaticMarkup(
     <TooltipProvider>
-      <ControlBar
-        agentName={overrides?.agentName ?? null}
-        chatPreview={overrides?.chatPreview ?? null}
-        collapsed={false}
-        sendDisabled={false}
-        bridge={null}
-        micGranted={false}
-        onMicGranted={vi.fn()}
-        onClose={vi.fn()}
-        onDismissPreview={vi.fn()}
-        onToggleCollapsed={vi.fn()}
-        onSendAudio={vi.fn()}
-        onSendChat={vi.fn()}
-        onChangeView={vi.fn()}
-        viewMode={overrides?.viewMode ?? "canvas"}
-        visualState="idle"
-        voiceModeEnabled={overrides?.voiceModeEnabled ?? false}
-      />
+      <ControlBar model={model} transport={transport} actions={actions} />
     </TooltipProvider>,
   );
 }
