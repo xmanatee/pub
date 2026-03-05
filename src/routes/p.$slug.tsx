@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { CanvasPanel } from "~/components/live/canvas-panel";
@@ -7,7 +7,9 @@ import { ControlBar } from "~/components/live/control-bar";
 import { ControlBarGoLiveMode } from "~/components/live/control-bar-go-live-mode";
 import { SettingsPanel } from "~/components/live/settings-panel";
 import { useChatPreview } from "~/components/live/use-chat-preview";
+import { useContentHtml } from "~/components/live/use-content-html";
 import { useLivePageModel } from "~/components/live/use-live-page-model";
+import { readStoredAnimationStyle } from "~/components/live/use-live-preferences";
 import { trackPubViewed } from "~/lib/analytics";
 import { api } from "../../convex/_generated/api";
 
@@ -22,6 +24,7 @@ function PubPage() {
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
   const [liveMode, setLiveMode] = useState(false);
+  const contentHtml = useContentHtml(pub?.content, pub?.contentType);
 
   useEffect(() => {
     if (pub && !trackedAnalytics.current) {
@@ -47,50 +50,23 @@ function PubPage() {
     trackedViewCount.current = false;
   }, [slug]);
 
-  if (pub === undefined) {
-    return <StatusScreen text="Loading..." />;
+  if (pub?.isOwner && liveMode) {
+    return <LiveView slug={slug} />;
   }
 
-  if (pub === null) {
-    return (
-      <MessageScreen
-        title="Not found"
-        description="This pub doesn't exist or is not accessible."
-        showHomeLink
-      />
-    );
-  }
+  const animationStyle = readStoredAnimationStyle();
+  const visualState = pub === null ? "disconnected" : contentHtml ? "idle" : "waiting-content";
 
-  if (pub.isOwner) {
-    if (liveMode) {
-      return <LiveView slug={slug} />;
-    }
-    return (
-      <>
-        {pub.content && pub.contentType ? (
-          <FullScreenContent content={pub.content} contentType={pub.contentType} />
-        ) : (
-          <MessageScreen
-            title="No content yet"
-            description="Publish content or go live to get started."
-          />
-        )}
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
+      <div className="flex-1 min-h-0 relative">
+        <CanvasPanel animationStyle={animationStyle} html={contentHtml} visualState={visualState} />
+      </div>
+      {pub?.isOwner ? (
         <ControlBarGoLiveMode slug={slug} onGoLive={() => setLiveMode(true)} />
-      </>
-    );
-  }
-
-  if (!pub.content || !pub.contentType) {
-    return (
-      <MessageScreen
-        title="No content"
-        description="This pub has no static content."
-        showHomeLink
-      />
-    );
-  }
-
-  return <FullScreenContent content={pub.content} contentType={pub.contentType} />;
+      ) : null}
+    </div>
+  );
 }
 
 function LiveView({ slug }: { slug: string }) {
@@ -99,19 +75,11 @@ function LiveView({ slug }: { slug: string }) {
   const { previewText, dismissPreview } = useChatPreview(model.messages, model.viewMode);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
-  // Auto-trigger goLive when entering live view
   useEffect(() => {
     if (model.agentOnline && !model.liveRequested) {
       model.goLive();
     }
   }, [model.agentOnline, model.liveRequested, model.goLive]);
-
-  if (!model.agentOnline && !model.liveRequested && !model.canvasHtml) {
-    return <StatusScreen text="Agent offline." />;
-  }
-
-  if (model.liveRequested && !model.live?.agentAnswer && !model.canvasHtml)
-    return <StatusScreen text="Connecting..." />;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
@@ -180,96 +148,6 @@ function LiveView({ slug }: { slug: string }) {
         visualState={model.visualState}
         voiceModeEnabled={model.voiceModeEnabled}
       />
-    </div>
-  );
-}
-
-function FullScreenContent({ content, contentType }: { content: string; contentType: string }) {
-  switch (contentType) {
-    case "html":
-      return <FullScreenHtml content={content} />;
-    case "markdown":
-      return <FullScreenMarkdown content={content} />;
-    default:
-      return (
-        <div className="fixed inset-0 z-50 overflow-auto bg-background">
-          <pre className="p-6 text-sm whitespace-pre-wrap font-mono text-foreground">{content}</pre>
-        </div>
-      );
-  }
-}
-
-function FullScreenHtml({ content }: { content: string }) {
-  const srcDoc = `<base target="_blank">${content}`;
-  return (
-    <iframe
-      srcDoc={srcDoc}
-      sandbox="allow-scripts allow-popups"
-      className="fixed inset-0 z-50 w-full h-full border-none"
-      title="Published HTML content"
-    />
-  );
-}
-
-function FullScreenMarkdown({ content }: { content: string }) {
-  const [html, setHtml] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void Promise.all([import("marked"), import("dompurify")]).then(
-      ([{ marked }, { default: DOMPurify }]) => {
-        void Promise.resolve(marked.parse(content)).then((unsafeHtml) => {
-          if (cancelled) return;
-          const safeHtml = DOMPurify.sanitize(unsafeHtml, {
-            USE_PROFILES: { html: true },
-          });
-          setHtml(safeHtml);
-        });
-      },
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, [content]);
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-background">
-      <div
-        className="max-w-4xl mx-auto px-8 py-12 prose prose-sm dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    </div>
-  );
-}
-
-function MessageScreen({
-  title,
-  description,
-  showHomeLink,
-}: {
-  title: string;
-  description: string;
-  showHomeLink?: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-4">
-      <h1 className="text-xl font-bold text-foreground">{title}</h1>
-      <p className="text-muted-foreground">{description}</p>
-      {showHomeLink ? (
-        <Link to="/" className="text-primary hover:underline text-sm">
-          Go to pub.blue
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
-function StatusScreen({ text }: { text: string }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      <div className="text-muted-foreground text-sm">{text}</div>
     </div>
   );
 }

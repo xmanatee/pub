@@ -56,18 +56,7 @@
       "semicolons": "always"
     }
   },
-  "overrides": [
-    {
-      "includes": ["src/routes/p.$slug.tsx"],
-      "linter": {
-        "rules": {
-          "security": {
-            "noDangerouslySetInnerHtml": "off"
-          }
-        }
-      }
-    }
-  ],
+  "overrides": [],
   "assist": {
     "actions": {
       "source": {
