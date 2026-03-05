@@ -227,6 +227,11 @@ export class BrowserBridge {
             return;
           }
 
+          if (msg.type === "event" && msg.data === "ping") {
+            dc.send(encodeMessage(makeEventMessage("pong")));
+            return;
+          }
+
           if (msg.type === "binary" && !msg.data) {
             this.pendingBinaryMeta.set(dc.label, msg);
             return;

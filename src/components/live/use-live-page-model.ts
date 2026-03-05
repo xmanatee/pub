@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { analyzeAudioBlob } from "~/components/live/audio-waveform";
-import { readCachedCanvasHtml, writeCachedCanvasHtml } from "~/components/live/canvas-live-cache";
 import { useLiveVisualState } from "~/components/live/live-visual-state";
 import type { LiveViewMode, SessionState } from "~/components/live/types";
 import { useLiveBridge } from "~/components/live/use-live-bridge";
@@ -83,7 +82,7 @@ export function useLivePageModel(slug: string) {
     setLiveRequested(true);
   }, []);
 
-  const [canvasHtml, setCanvasHtml] = useState<string | null>(() => readCachedCanvasHtml(slug));
+  const [canvasHtml, setCanvasHtml] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
@@ -139,8 +138,9 @@ export function useLivePageModel(slug: string) {
     setLastAgentActivityAt(Date.now());
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: slug triggers state reset on navigation
   useEffect(() => {
-    setCanvasHtml(readCachedCanvasHtml(slug));
+    setCanvasHtml(null);
     setViewMode("canvas");
     setLastAgentActivityAt(null);
     setLastUserDeliveredAt(null);
@@ -165,13 +165,11 @@ export function useLivePageModel(slug: string) {
         markAgentActivity();
         if (message.type === "html" && message.data) {
           setCanvasHtml(message.data);
-          writeCachedCanvasHtml(slug, message.data);
           if (autoOpenCanvas) setViewMode("canvas");
           return;
         }
         if (message.type === "event" && message.data === "hide") {
           setCanvasHtml(null);
-          writeCachedCanvasHtml(slug, null);
         }
         return;
       }
@@ -222,7 +220,6 @@ export function useLivePageModel(slug: string) {
       addReceivedBinaryFile,
       autoOpenCanvas,
       markAgentActivity,
-      slug,
       updateAudioMessageAnalysis,
     ],
   );
@@ -366,8 +363,7 @@ export function useLivePageModel(slug: string) {
 
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);
-    writeCachedCanvasHtml(slug, null);
-  }, [slug]);
+  }, []);
 
   return {
     agentName: live?.agentName ?? null,

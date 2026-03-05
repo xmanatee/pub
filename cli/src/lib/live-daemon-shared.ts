@@ -46,6 +46,8 @@ export const SIGNAL_POLL_WAITING_MS = 5_000;
 export const SIGNAL_POLL_CONNECTED_MS = 15_000;
 export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;
 export const WRITE_ACK_TIMEOUT_MS = 5_000;
+export const PING_INTERVAL_MS = 10_000;
+export const PONG_TIMEOUT_MS = 15_000;
 
 const NOT_CONNECTED_WRITE_ERROR =
   "No browser connected. Ask the user to open the pub URL first, then retry.";
@@ -62,21 +64,6 @@ export function shouldRecoverForBrowserOfferChange(params: {
   if (!incomingBrowserOffer) return false;
   if (!lastAppliedBrowserOffer) return false;
   return incomingBrowserOffer !== lastAppliedBrowserOffer;
-}
-
-export const MAX_CANVAS_PERSIST_SIZE = 100 * 1024;
-
-export function getStickyCanvasHtml(
-  stickyOutbound: Map<string, BridgeMessage>,
-  canvasChannel: string,
-): string | null {
-  const msg = stickyOutbound.get(canvasChannel);
-  if (!msg) return null;
-  if (msg.type !== "html") return null;
-  const html = msg.data;
-  if (!html) return null;
-  if (new TextEncoder().encode(html).byteLength > MAX_CANVAS_PERSIST_SIZE) return null;
-  return html;
 }
 
 export function getSignalPollDelayMs(params: {

@@ -17,6 +17,7 @@ import {
   decodeMessage,
   encodeMessage,
   makeAckMessage,
+  makeEventMessage,
   parseAckMessage,
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
@@ -32,16 +33,16 @@ import {
   type DaemonConfig,
   getLiveWriteReadinessError,
   getSignalPollDelayMs,
-  getStickyCanvasHtml,
   LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
+  PING_INTERVAL_MS,
+  PONG_TIMEOUT_MS,
   shouldRecoverForBrowserOfferChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const PERSIST_TIMEOUT_MS = 3_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
@@ -77,6 +78,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
   let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
+  let pongTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastError: string | null = null;
   const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
@@ -134,6 +137,42 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
+  function startPingPong(): void {
+    stopPingPong();
+    pingTimer = setInterval(() => {
+      if (!connected || stopped) {
+        stopPingPong();
+        return;
+      }
+      const controlDc = channels.get(CONTROL_CHANNEL);
+      if (!controlDc) return;
+      try {
+        controlDc.sendMessage(encodeMessage(makeEventMessage("ping")));
+        if (pongTimeout) clearTimeout(pongTimeout);
+        pongTimeout = setTimeout(() => {
+          if (!connected || stopped) return;
+          debugLog("pong timeout — treating as disconnected");
+          connected = false;
+          failPendingAcks();
+          stopPingPong();
+        }, PONG_TIMEOUT_MS);
+      } catch (error) {
+        debugLog("ping send failed", error);
+      }
+    }, PING_INTERVAL_MS);
+  }
+
+  function stopPingPong(): void {
+    if (pingTimer) {
+      clearInterval(pingTimer);
+      pingTimer = null;
+    }
+    if (pongTimeout) {
+      clearTimeout(pongTimeout);
+      pongTimeout = null;
+    }
+  }
+
   function runHealthCheck(): void {
     if (stopped) return;
     if (cliVersion) {
@@ -159,6 +198,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (name === CONTROL_CHANNEL) flushQueuedAcks();
     });
 
+    dc.onClosed(() => {
+      channels.delete(name);
+      pendingInboundBinaryMeta.delete(name);
+      debugLog(`datachannel "${name}" closed`);
+    });
+
+    dc.onError((err: string) => {
+      debugLog(`datachannel "${name}" error: ${err}`);
+    });
+
     dc.onMessage((data: string | Buffer) => {
       if (typeof data === "string") {
         const msg = decodeMessage(data);
@@ -166,6 +215,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         const ack = parseAckMessage(msg);
         if (ack) {
           settlePendingAck(ack.messageId, true);
+          return;
+        }
+        if (msg.type === "event" && msg.data === "pong") {
+          if (pongTimeout) {
+            clearTimeout(pongTimeout);
+            pongTimeout = null;
+          }
           return;
         }
         if (msg.type === "binary" && !msg.data) {
@@ -343,12 +399,23 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         connected = true;
         flushQueuedAcks();
         void replayStickyOutboundMessages();
+        startPingPong();
         return;
       }
       if (state === "disconnected" || state === "failed" || state === "closed") {
-        const wasConnected = connected;
         connected = false;
-        if (wasConnected) void persistCanvasContent();
+        failPendingAcks();
+        stopPingPong();
+      }
+    });
+
+    currentPeer.onIceStateChange((state: string) => {
+      if (stopped || currentPeer !== peer) return;
+      debugLog(`ICE state: ${state}`);
+      if ((state === "disconnected" || state === "failed") && connected) {
+        connected = false;
+        failPendingAcks();
+        stopPingPong();
       }
     });
 
@@ -392,6 +459,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   function resetNegotiationState(): void {
     connected = false;
     failPendingAcks();
+    stopPingPong();
     lastAppliedBrowserOffer = null;
     lastBrowserCandidateCount = 0;
     lastSentCandidateCount = 0;
@@ -422,7 +490,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     recovering = true;
 
     try {
-      await persistCanvasContent();
       await stopBridge();
       closeCurrentPeer();
       createPeer();
@@ -634,25 +701,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  // -- Canvas persistence ---------------------------------------------------
-
-  async function persistCanvasContent(): Promise<void> {
-    if (!activeSlug) return;
-    const html = getStickyCanvasHtml(stickyOutboundByChannel, CHANNELS.CANVAS);
-    if (!html) return;
-    try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("persist timeout")), PERSIST_TIMEOUT_MS),
-      );
-      await Promise.race([
-        apiClient.update({ slug: activeSlug, content: html, filename: "canvas.html" }),
-        timeout,
-      ]);
-    } catch (error) {
-      debugLog("failed to persist canvas content", error);
-    }
-  }
-
   // -- Cleanup & shutdown ---------------------------------------------------
 
   async function cleanup(): Promise<void> {
@@ -663,6 +711,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearLocalCandidateTimers();
     clearHealthCheckTimer();
     clearHeartbeatTimer();
+    stopPingPong();
 
     try {
       await apiClient.goOffline();
@@ -670,7 +719,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       debugLog("failed to go offline", error);
     }
 
-    await persistCanvasContent();
     await stopBridge();
     closeCurrentPeer();
     ipcServer.close();

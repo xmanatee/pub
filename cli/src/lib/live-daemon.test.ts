@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "./ack-routing.js";
-import type { BridgeMessage } from "./bridge-protocol.js";
 import {
   getLiveWriteReadinessError,
   getSignalPollDelayMs,
-  getStickyCanvasHtml,
-  MAX_CANVAS_PERSIST_SIZE,
   shouldRecoverForBrowserOfferChange,
 } from "./live-daemon-shared.js";
 
@@ -106,50 +103,5 @@ describe("getSignalPollDelayMs", () => {
   it("ignores non-positive retry-after values", () => {
     expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: 0 })).toBe(5_000);
     expect(getSignalPollDelayMs({ hasActiveConnection: false, retryAfterSeconds: -1 })).toBe(5_000);
-  });
-});
-
-describe("getStickyCanvasHtml", () => {
-  const CANVAS = "canvas";
-
-  function makeMsg(overrides: Partial<BridgeMessage>): BridgeMessage {
-    return { id: "test-1", type: "html", data: "<h1>hi</h1>", ...overrides };
-  }
-
-  it("returns null for empty map", () => {
-    expect(getStickyCanvasHtml(new Map(), CANVAS)).toBeNull();
-  });
-
-  it("returns null when canvas channel has no entry", () => {
-    const map = new Map<string, BridgeMessage>([["chat", makeMsg({})]]);
-    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
-  });
-
-  it("returns null for non-html type", () => {
-    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ type: "text" })]]);
-    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
-  });
-
-  it("returns null for empty data", () => {
-    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: "" })]]);
-    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
-  });
-
-  it("returns html string for valid entry", () => {
-    const html = "<div>hello world</div>";
-    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: html })]]);
-    expect(getStickyCanvasHtml(map, CANVAS)).toBe(html);
-  });
-
-  it("returns null when content exceeds max size", () => {
-    const html = "x".repeat(MAX_CANVAS_PERSIST_SIZE + 1);
-    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: html })]]);
-    expect(getStickyCanvasHtml(map, CANVAS)).toBeNull();
-  });
-
-  it("returns content at exactly max size", () => {
-    const html = "x".repeat(MAX_CANVAS_PERSIST_SIZE);
-    const map = new Map<string, BridgeMessage>([[CANVAS, makeMsg({ data: html })]]);
-    expect(getStickyCanvasHtml(map, CANVAS)).toBe(html);
   });
 });
