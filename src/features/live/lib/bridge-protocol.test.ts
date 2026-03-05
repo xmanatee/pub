@@ -180,6 +180,7 @@ describe("constants", () => {
   it("CHANNELS has expected keys", () => {
     expect(CHANNELS.CHAT).toBe("chat");
     expect(CHANNELS.CANVAS).toBe("canvas");
+    expect(CHANNELS.RENDER_ERROR).toBe("render-error");
     expect(CHANNELS.AUDIO).toBe("audio");
     expect(CHANNELS.MEDIA).toBe("media");
     expect(CHANNELS.FILE).toBe("file");

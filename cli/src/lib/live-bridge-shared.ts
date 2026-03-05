@@ -86,6 +86,27 @@ export function buildInboundPrompt(
     .join("\n");
 }
 
+export function buildRenderErrorPrompt(
+  slug: string,
+  errorText: string,
+  instructions: BridgeInstructions,
+): string {
+  return [
+    `[Live: ${slug}] Canvas render error report:`,
+    "",
+    errorText,
+    "",
+    "---",
+    "Treat this as silent maintenance:",
+    "- Fix by sending an updated canvas payload.",
+    "- Do not send user-facing chat about this unless blocked or clarifying requirements.",
+    "",
+    "Respond using:",
+    `- ${instructions.canvasHint}`,
+    `- ${instructions.replyHint} (only if blocked)`,
+  ].join("\n");
+}
+
 export function parseSessionContextMeta(meta: BridgeMessage["meta"]): SessionContextPayload | null {
   if (!meta) return null;
   const payload: SessionContextPayload = {};
@@ -147,4 +168,12 @@ export function readTextChatMessage(entry: BufferedEntry): string | null {
   const msg = entry.msg;
   if (msg.type !== "text" || typeof msg.data !== "string") return null;
   return msg.data;
+}
+
+export function readRenderErrorMessage(entry: BufferedEntry): string | null {
+  if (entry.channel !== CHANNELS.RENDER_ERROR) return null;
+  const msg = entry.msg;
+  if (msg.type !== "text" || typeof msg.data !== "string") return null;
+  const value = msg.data.trim();
+  return value.length > 0 ? value : null;
 }

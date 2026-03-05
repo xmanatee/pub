@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
-import type { LiveAnimationStyle, LiveVisualState } from "~/features/live/types/live-types";
+import { useEffect, useRef, useState } from "react";
+import type {
+  LiveAnimationStyle,
+  LiveRenderErrorPayload,
+  LiveVisualState,
+} from "~/features/live/types/live-types";
 import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
 import { cn } from "~/lib/utils";
 import { CanvasLiveVisual } from "./canvas-live-visual";
@@ -7,15 +11,23 @@ import { CanvasLiveVisual } from "./canvas-live-visual";
 interface CanvasPanelProps {
   animationStyle: LiveAnimationStyle;
   html: string | null;
+  onRenderError?: (error: LiveRenderErrorPayload) => void;
   visualState: LiveVisualState;
 }
 
 type VisualPhase = "visible" | "fading" | "hidden";
+const RENDER_ERROR_REPORT_DEDUPE_MS = 2_500;
 
-export function CanvasPanel({ animationStyle, html, visualState }: CanvasPanelProps) {
+export function CanvasPanel({
+  animationStyle,
+  html,
+  onRenderError,
+  visualState,
+}: CanvasPanelProps) {
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("visible");
   const [canvasError, setCanvasError] = useState<string | null>(null);
+  const lastReportedErrorRef = useRef<{ key: string; timestamp: number } | null>(null);
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
 
   useEffect(() => {
@@ -55,10 +67,29 @@ export function CanvasPanel({ animationStyle, html, visualState }: CanvasPanelPr
           ? ` (line ${data.lineno}${typeof data.colno === "number" && data.colno > 0 ? `:${data.colno}` : ""})`
           : "";
       setCanvasError(`${message}${lineInfo}`);
+
+      if (!onRenderError) return;
+      const keyParts = [
+        message,
+        typeof data.filename === "string" ? data.filename : "",
+        typeof data.lineno === "number" ? String(data.lineno) : "",
+        typeof data.colno === "number" ? String(data.colno) : "",
+      ];
+      const key = keyParts.join("|");
+      const now = Date.now();
+      const last = lastReportedErrorRef.current;
+      if (last && last.key === key && now - last.timestamp < RENDER_ERROR_REPORT_DEDUPE_MS) return;
+      lastReportedErrorRef.current = { key, timestamp: now };
+      onRenderError({
+        message,
+        filename: typeof data.filename === "string" ? data.filename : undefined,
+        lineno: typeof data.lineno === "number" ? data.lineno : undefined,
+        colno: typeof data.colno === "number" ? data.colno : undefined,
+      });
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [onRenderError]);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-background">

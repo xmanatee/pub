@@ -85,6 +85,7 @@ export function usePubLiveModel(slug: string) {
     sendAudio,
     sendChat,
     sendFile,
+    sendRenderError,
     setViewMode,
     viewMode,
   } = useLiveTransport({
@@ -156,6 +157,7 @@ export function usePubLiveModel(slug: string) {
     sendAudio,
     sendChat,
     sendFile,
+    sendRenderError,
     sessionState,
     sessionError,
     startLive,

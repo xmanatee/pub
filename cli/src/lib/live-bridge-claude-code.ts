@@ -11,8 +11,10 @@ import {
   type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
+  buildRenderErrorPrompt,
   buildSessionBriefing,
   parseSessionContextMeta,
+  readRenderErrorMessage,
   readTextChatMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
@@ -266,6 +268,19 @@ export async function createClaudeCodeBridgeRunner(
           canvasReminderEvery,
         );
         const prompt = buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions);
+        await deliverToClaudeCode(prompt);
+        forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
+        return;
+      }
+
+      const renderError = readRenderErrorMessage(entry);
+      if (renderError) {
+        const prompt = buildRenderErrorPrompt(slug, renderError, config.instructions);
         await deliverToClaudeCode(prompt);
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({

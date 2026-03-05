@@ -11,10 +11,11 @@ import {
 } from "~/features/live/lib/bridge-protocol";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
-import type { LiveViewMode } from "~/features/live/types/live-types";
+import type { LiveRenderErrorPayload, LiveViewMode } from "~/features/live/types/live-types";
 import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
+const RENDER_ERROR_ACK_TIMEOUT_MS = 4_000;
 const STREAM_ACK_TIMEOUT_MS = 10_000;
 const STREAM_CHUNK_SIZE = 48 * 1024;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -315,6 +316,37 @@ export function useLiveTransport({
       dispatchChatMessage(msg);
     },
     [addUserPendingMessage, bridgeState, dispatchChatMessage],
+  );
+
+  const sendRenderError = useCallback(
+    (payload: LiveRenderErrorPayload) => {
+      if (bridgeState !== "connected") return;
+      const bridge = bridgeRef.current;
+      if (!bridge) return;
+
+      const normalizedMessage = payload.message.trim();
+      if (normalizedMessage.length === 0) return;
+      const location =
+        typeof payload.lineno === "number" && payload.lineno > 0
+          ? `${payload.lineno}${typeof payload.colno === "number" && payload.colno > 0 ? `:${payload.colno}` : ""}`
+          : undefined;
+
+      const detailLines = [
+        `message: ${normalizedMessage.slice(0, 2_000)}`,
+        typeof payload.filename === "string" && payload.filename.length > 0
+          ? `filename: ${payload.filename}`
+          : null,
+        location ? `location: ${location}` : null,
+      ].filter((line): line is string => line !== null);
+
+      const msg = makeTextMessage(detailLines.join("\n"));
+      void (async () => {
+        const ready = await ensureChannelReady(bridge, CHANNELS.RENDER_ERROR);
+        if (!ready) return;
+        await bridge.sendWithAck(CHANNELS.RENDER_ERROR, msg, RENDER_ERROR_ACK_TIMEOUT_MS);
+      })();
+    },
+    [bridgeRef, bridgeState],
   );
 
   const dispatchAudio = useCallback(
@@ -619,6 +651,7 @@ export function useLiveTransport({
     sendAudio,
     sendChat,
     sendFile,
+    sendRenderError,
     setViewMode,
     viewMode,
   };

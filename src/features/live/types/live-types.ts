@@ -1,5 +1,12 @@
 export type LiveViewMode = "canvas" | "chat" | "settings";
 
+export interface LiveRenderErrorPayload {
+  message: string;
+  filename?: string;
+  lineno?: number;
+  colno?: number;
+}
+
 export type SessionState = "inactive" | "active" | "needs-takeover" | "taken-over";
 
 export const LIVE_ANIMATION_STYLES = ["blob", "aurora", "orb"] as const;

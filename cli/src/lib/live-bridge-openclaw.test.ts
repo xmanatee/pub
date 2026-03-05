@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { CHANNELS } from "../../../shared/bridge-protocol-core";
 import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
@@ -12,8 +13,10 @@ import {
 } from "./live-bridge-openclaw-session.js";
 import {
   buildInboundPrompt,
+  buildRenderErrorPrompt,
   buildSessionBriefing,
   parseSessionContextMeta,
+  readRenderErrorMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-shared.js";
@@ -152,6 +155,65 @@ describe("canvas policy reminder helpers", () => {
     expect(shouldIncludeCanvasPolicyReminder(10, 10)).toBe(true);
     expect(shouldIncludeCanvasPolicyReminder(20, 10)).toBe(true);
     expect(shouldIncludeCanvasPolicyReminder(5, 0)).toBe(false);
+  });
+});
+
+describe("render error helpers", () => {
+  it("formats render error prompt for silent canvas maintenance", () => {
+    const prompt = buildRenderErrorPrompt(
+      "test-slug",
+      "message: Script error\nlocation: 12:4",
+      openclawInstructions,
+    );
+    expect(prompt).toContain("Canvas render error report");
+    expect(prompt).toContain("Treat this as silent maintenance");
+    expect(prompt).toContain("Do not send user-facing chat");
+    expect(prompt).toContain(openclawInstructions.canvasHint);
+  });
+
+  it("reads render-error text messages only", () => {
+    const result = readRenderErrorMessage({
+      channel: CHANNELS.RENDER_ERROR,
+      msg: {
+        id: "m1",
+        type: "text",
+        data: "message: boom",
+      },
+    });
+    expect(result).toBe("message: boom");
+  });
+
+  it("ignores non render-error entries and blank text", () => {
+    expect(
+      readRenderErrorMessage({
+        channel: CHANNELS.CHAT,
+        msg: {
+          id: "m2",
+          type: "text",
+          data: "hello",
+        },
+      }),
+    ).toBeNull();
+    expect(
+      readRenderErrorMessage({
+        channel: CHANNELS.RENDER_ERROR,
+        msg: {
+          id: "m3",
+          type: "text",
+          data: "   ",
+        },
+      }),
+    ).toBeNull();
+    expect(
+      readRenderErrorMessage({
+        channel: CHANNELS.RENDER_ERROR,
+        msg: {
+          id: "m4",
+          type: "event",
+          data: "status",
+        },
+      }),
+    ).toBeNull();
   });
 });
 

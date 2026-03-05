@@ -21,8 +21,10 @@ import {
   type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
+  buildRenderErrorPrompt,
   buildSessionBriefing,
   parseSessionContextMeta,
+  readRenderErrorMessage,
   readTextChatMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
@@ -283,6 +285,22 @@ export async function createOpenClawBridgeRunner(
           openclawPath,
           sessionId,
           text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
+        });
+        forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
+        return;
+      }
+
+      const renderError = readRenderErrorMessage(entry);
+      if (renderError) {
+        await deliverMessageToOpenClaw({
+          openclawPath,
+          sessionId,
+          text: buildRenderErrorPrompt(slug, renderError, config.instructions),
         });
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({

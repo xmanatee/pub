@@ -45,6 +45,7 @@ export function PubRoutePage({ slug }: { slug: string }) {
           <CanvasPanel
             animationStyle={controller.canvasAnimationStyle}
             html={controller.effectiveCanvasHtml}
+            onRenderError={controller.onRenderError}
             visualState={controller.canvasVisualState}
           />
         ) : null}

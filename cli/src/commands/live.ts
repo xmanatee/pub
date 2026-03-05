@@ -409,7 +409,12 @@ function registerDoctorCommand(program: Command): void {
         const channelNames = Array.isArray(statusResponse.channels)
           ? statusResponse.channels.map((entry) => String(entry))
           : [];
-        for (const required of [CONTROL_CHANNEL, CHANNELS.CHAT, CHANNELS.CANVAS]) {
+        for (const required of [
+          CONTROL_CHANNEL,
+          CHANNELS.CHAT,
+          CHANNELS.CANVAS,
+          CHANNELS.RENDER_ERROR,
+        ]) {
           if (!channelNames.includes(required)) {
             fail(`required channel is missing: ${required}`);
           }

@@ -211,6 +211,7 @@ export function usePubRouteController({
       resetLiveSurface();
       model.startLive();
     },
+    onRenderError: liveMode ? model.sendRenderError : undefined,
     settingsPanelActions,
     settingsPanelModel,
     viewMode,
