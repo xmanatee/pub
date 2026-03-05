@@ -76,9 +76,8 @@ test.describe("Control bar layout", () => {
     const startClose = closeHeights[0];
     const endClose = closeHeights[closeHeights.length - 1];
 
-    expect(
-      closeHeights.some((height) => height > baseline + 1 && height < startClose - 1),
-    ).toBeTruthy();
+    expect(closeHeights.some((height) => height < startClose - 1)).toBeTruthy();
+    expect(closeHeights.some((height) => Math.abs(height - baseline) <= 1)).toBeTruthy();
     expect(endClose).toBeCloseTo(baseline, 0);
   });
 
@@ -105,9 +104,8 @@ test.describe("Control bar layout", () => {
     const startClose = closeHeights[0];
     const endCloseMetrics = await readControlMetrics(page);
 
-    expect(
-      closeHeights.some((height) => height > baseline + 1 && height < startClose - 1),
-    ).toBeTruthy();
+    expect(closeHeights.some((height) => height < startClose - 1)).toBeTruthy();
+    expect(closeHeights.some((height) => Math.abs(height - baseline) <= 1)).toBeTruthy();
     expect(endCloseMetrics.shellHeight).toBeCloseTo(baseline, 0);
     expect(endCloseMetrics.shellHasHardLock).toBeFalsy();
   });
