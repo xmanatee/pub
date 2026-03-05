@@ -72,7 +72,6 @@ export type ChatEntry =
   | SystemChatEntry;
 
 export type UserChatEntry = Extract<ChatEntry, { from: "user" }>;
-export type AgentChatEntry = Extract<ChatEntry, { from: "agent" }>;
 
 export interface ReceivedFile {
   id: string;
