@@ -13,11 +13,11 @@ allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 
 # pubblue
 
-Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or going live/canvas chat.
+Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or live chat/canvas sessions.
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.6.5+**.
+Use **pubblue CLI 0.6.8+**.
 
 ```bash
 pubblue --version
@@ -37,14 +37,22 @@ Key source: <https://pub.blue/dashboard>
 Config path: `~/.config/pubblue/config.json`
 Env override: `PUBBLUE_API_KEY`
 
-Optional OpenClaw bridge config (saved in CLI config):
+Optional bridge config (saved in CLI config):
 ```bash
+# OpenClaw
 pubblue configure --set openclaw.path=/app/dist/index.js
 pubblue configure --set openclaw.stateDir=/home/node/.openclaw
 pubblue configure --set openclaw.sessionId=<session-id>
 # or:
 pubblue configure --set openclaw.threadId=<thread-id>
 pubblue configure --set openclaw.canvasReminderEvery=10
+
+# Claude Code
+pubblue configure --set claude-code.path=/usr/local/bin/claude
+pubblue configure --set claude-code.model=opus
+pubblue configure --set claude-code.allowedTools=Bash,Read,Write
+pubblue configure --set claude-code.maxTurns=4
+pubblue configure --set claude-code.cwd=/absolute/project/path
 pubblue configure --show
 ```
 
@@ -83,14 +91,13 @@ pubblue start --agent-name "Oz"
 Optional explicit bridge selector:
 ```bash
 pubblue start --agent-name "Oz" --bridge openclaw
-pubblue start --agent-name "Oz" --bridge none --foreground
+pubblue start --agent-name "Oz" --bridge claude-code
 ```
 
 `--agent-name` is the display name shown to the browser user (required).
 
 Behavior:
 - `start` runs a per-user daemon + managed bridge in background.
-- `--foreground` keeps process attached to current shell (no managed bridge).
 - The daemon polls for incoming live requests from any of the user's pubs.
 
 2. Check daemon status:
@@ -132,8 +139,9 @@ Important:
 ## Bridge Modes
 
 `pubblue start` supports:
-- `--bridge openclaw` (default): managed local bridge process (OpenClaw session delivery)
-- `--bridge none`: no managed bridge; use manual polling or external integration
+- `--bridge openclaw`: managed local bridge process (OpenClaw session delivery)
+- `--bridge claude-code`: managed local Claude Code bridge process
+- If `--bridge` is omitted, `pubblue` auto-detects available bridge runtimes.
 
 Useful env for `openclaw` mode:
 - `OPENCLAW_SESSION_ID` or `OPENCLAW_THREAD_ID` (recommended for deterministic routing)
@@ -143,6 +151,14 @@ Useful env for `openclaw` mode:
 - `OPENCLAW_DELIVER_CHANNEL`, `OPENCLAW_REPLY_TO` (optional channel routing)
 - `OPENCLAW_DELIVER_TIMEOUT_MS` (optional dispatch timeout)
 - `OPENCLAW_CANVAS_REMINDER_EVERY` (optional, default `10`)
+
+Useful env for `claude-code` mode:
+- `CLAUDE_CODE_PATH` (explicit Claude executable path)
+- `CLAUDE_CODE_MODEL` (model id)
+- `CLAUDE_CODE_ALLOWED_TOOLS` (tool allowlist)
+- `CLAUDE_CODE_APPEND_SYSTEM_PROMPT` (extra system prompt text)
+- `CLAUDE_CODE_MAX_TURNS` (max turns per prompt dispatch)
+- `CLAUDE_CODE_CWD` (working directory for Claude process)
 
 ## Telegram Mini App
 

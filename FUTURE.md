@@ -1,24 +1,22 @@
-# Publish Platform — Future Plans
+# Future Plans
 
-## Agent Identity & Contact Layer
+## Contact and Agent Identity Layer
 
-Allow users to store contact/identity information on their profile, turning Publish into an identity resolution layer for AI agents.
+Goal: let users publish a searchable contact profile so agents can resolve a person to a trusted contact channel or agent endpoint.
 
-### Use Case
+## Primary Use Case
 
-User tells their AI agent:
-> "I want to schedule something with Zhenya."
+User asks their agent: "Schedule with Zhenya."
 
-The agent can:
-1. Look up "Zhenya" in the Publish platform contact registry
-2. Find Zhenya's profile with linked social accounts (Telegram, Instagram, email, phone)
-3. Discover Zhenya's own AI agent endpoint
-4. Communicate with Zhenya's agent to negotiate/schedule
+Agent workflow:
+1. Search contacts by name/handle.
+2. Resolve the matched profile.
+3. Discover available channels (Telegram, email, etc.) and optional agent endpoint.
+4. Send a structured request to the remote agent endpoint when available.
 
-### Data Model Extension
+## Proposed Data Model
 
-```typescript
-// New table: user profiles with contact information
+```ts
 userProfiles: defineTable({
   userId: v.id("users"),
   displayName: v.string(),
@@ -34,28 +32,26 @@ userProfiles: defineTable({
       v.literal("website"),
       v.literal("agent_endpoint"),
     ),
-    value: v.string(),        // @username, email, phone, URL
-    isPublic: v.boolean(),    // visible to other users/agents
-    isVerified: v.boolean(),  // verified ownership
+    value: v.string(),
+    isPublic: v.boolean(),
+    isVerified: v.boolean(),
   })),
-  agentEndpoint: v.optional(v.string()), // URL where agent can be reached
+  agentEndpoint: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
   .index("by_user", ["userId"])
-  .searchIndex("search_name", { searchField: "displayName" }),
+  .searchIndex("search_name", { searchField: "displayName" });
 ```
 
-### API Extensions
+## Proposed API Surface
 
-- `GET /api/v1/contacts/search?q=zhenya` — Search by name/handle
-- `GET /api/v1/contacts/:userId` — Get public profile
-- `POST /api/v1/contacts/resolve` — Resolve a contact by identifier (e.g. Telegram handle → agent endpoint)
-- `POST /api/v1/agent/message` — Send a message to another user's agent
+- `GET /api/v1/contacts/search?q=<query>`
+- `GET /api/v1/contacts/:userId`
+- `POST /api/v1/contacts/resolve`
+- `POST /api/v1/agent/message`
 
-### Agent-to-Agent Protocol
-
-Define a simple protocol for inter-agent communication:
+## Agent-to-Agent Message Shape
 
 ```json
 {
@@ -64,50 +60,39 @@ Define a simple protocol for inter-agent communication:
   "type": "scheduling_request",
   "payload": {
     "action": "schedule_meeting",
-    "proposed_times": ["2025-01-20T10:00:00Z", "2025-01-20T14:00:00Z"],
+    "proposed_times": ["2026-01-20T10:00:00Z", "2026-01-20T14:00:00Z"],
     "topic": "Project discussion"
   }
 }
 ```
 
-### Web App Extensions
+## Product Additions
 
-- Profile settings page where users add/edit contact information
-- Contact directory (searchable)
-- Agent configuration (set agent endpoint URL)
-- Incoming agent requests queue
+- Profile settings for contact fields and visibility.
+- Contact directory search.
+- Agent endpoint registration.
+- Inbox for incoming agent requests.
+- CLI contact/resolve/message commands.
 
-### CLI Extensions
+## Privacy and Abuse Controls
 
-```bash
-# Search for a contact
-pubblue contacts search "Zhenya"
+- Field-level visibility (`isPublic`).
+- Verified ownership per contact method (`isVerified`).
+- Consent gate before cross-agent messaging.
+- Rate limits on search and resolve.
+- Blocklist support.
 
-# Get agent endpoint for a user
-pubblue contacts resolve --telegram @zhenya
+## Suggested Delivery Order
 
-# Send a message to another user's agent
-pubblue agent message USER_ID --type scheduling_request --payload '...'
-```
+1. `userProfiles` schema + CRUD.
+2. Dashboard profile settings UI.
+3. Contact search/resolve APIs.
+4. Agent endpoint registration.
+5. Agent-to-agent messaging endpoint.
+6. CLI contact commands.
+7. Verification flows.
 
-### Privacy Considerations
+## Runtime TODO
 
-- All contact info marked as public/private per field
-- Agent endpoint access requires mutual consent (both users must have profiles)
-- Rate limiting on search and resolve endpoints
-- Ability to block specific users/agents
-
-### Implementation Order
-
-1. User profile data model and basic CRUD
-2. Profile settings UI in dashboard
-3. Contact search API
-4. Agent endpoint registration
-5. Agent-to-agent messaging protocol
-6. CLI commands for contacts
-7. Verification flows for linked accounts
-
-## Session Runtime TODO
-
-- Add a CLI update check path so every `pubblue` command warns when a newer CLI version is available.
-- Add daemon update-awareness behavior: if a newer CLI version is available, stop the daemon only when it has been idle for a configured number of hours.
+- CLI update check so every `pubblue` command can warn when a newer version exists.
+- Daemon update-awareness: stop for upgrade only after configured idle time.

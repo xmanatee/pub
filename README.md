@@ -1,6 +1,6 @@
 # Pub
 
-Publish static content (HTML, Markdown, text) with shareable URLs at [pub.blue](https://pub.blue).
+Publish static content (HTML, Markdown, text) and run live browser sessions at [pub.blue](https://pub.blue).
 
 ## Features
 
@@ -8,7 +8,7 @@ Publish static content (HTML, Markdown, text) with shareable URLs at [pub.blue](
 - Web dashboard with pub management, view counts, and expiry badges
 - Public explore feed for discovering published content
 - CLI tool ([`pubblue`](https://www.npmjs.com/package/pubblue)) for publishing from the terminal
-- Claude Code skill for AI-assisted publishing
+- Claude Code and OpenClaw bridge support for live agent sessions
 - API key authentication for programmatic access
 - Expiring pubs (1h, 24h, 7d, etc.)
 - RSS feeds per user
@@ -71,7 +71,7 @@ pnpm dev          # Start web + Convex backend
 pnpm lint         # Biome check + TypeScript
 pnpm test         # Run tests
 pnpm build        # Production build
-pnpm check        # All of the above
+pnpm check        # lint + test + build + knip
 ```
 
 ## Tech Stack

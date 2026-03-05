@@ -12,18 +12,19 @@ export interface BridgeInstructions {
 export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
   if (mode === "claude-code") {
     return {
-      replyHint: 'Reply by running: pubblue write "<your reply>"',
-      canvasHint: "Canvas update: pubblue write -c canvas -f /path/to/file.html",
+      replyHint: 'Reply command: pubblue write "<your reply>"',
+      canvasHint: "Canvas command: pubblue write -c canvas -f /path/to/file.html",
       systemPrompt: [
-        "You are in a live P2P session with a user.",
-        "The canvas is an iframe visible to the user alongside the chat.",
-        "Always `use pubblue write` for all communication with the user.",
+        "You are in a live pub.blue session with a user.",
+        "The user sees chat and a canvas iframe.",
+        "Always communicate by running `pubblue write` commands.",
+        "Use canvas for output; use chat for short replies.",
       ].join("\n"),
     };
   }
   return {
-    replyHint: 'Reply by running: write "<your reply>"',
-    canvasHint: "Canvas update: write -c canvas -f /path/to/file.html",
+    replyHint: 'Reply command: write "<your reply>"',
+    canvasHint: "Canvas command: write -c canvas -f /path/to/file.html",
     systemPrompt: null,
   };
 }
