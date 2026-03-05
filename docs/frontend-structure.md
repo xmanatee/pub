@@ -23,7 +23,7 @@ This document defines where frontend code lives and how modules are allowed to d
 Each route file should primarily:
 
 1. define `createFileRoute(...)`
-2. import one page component from `src/features/*/page/*`
+2. import one page component from `src/features/*/page/*` (or `src/devtools/pages/*` for debug routes)
 3. render it
 
 Allowed extras in route files:
@@ -36,6 +36,10 @@ Not allowed in route files:
 - large local component trees
 - feature state machines
 - long orchestration hooks
+
+Debug-route exception:
+
+- `/debug/*` routes may import from `src/devtools/pages/*` and use `requireDevRoute`.
 
 ## Feature folder template
 

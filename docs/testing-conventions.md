@@ -27,7 +27,7 @@ This document defines test placement, naming, and scope.
 
 Examples:
 
-- `src/features/live/components/chat-panel.test.tsx`
+- `src/features/live/components/panels/chat-panel.test.tsx`
 - `tests/e2e/specs/control-bar-screenshots.spec.ts`
 
 ## Snapshot and screenshot policy
