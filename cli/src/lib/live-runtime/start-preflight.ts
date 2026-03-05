@@ -1,11 +1,13 @@
 import { PubApiClient } from "../api.js";
 import { errorMessage } from "../cli-error.js";
-import type { Config } from "../config.js";
+import type { BridgeConfig, Config } from "../config.js";
 import { getConfig } from "../config.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
 import {
+  type BridgeAvailability,
   type BridgeSelection,
   buildBridgeProcessEnv,
+  detectBridgeAvailability,
   ensureNodeDatachannelAvailable,
   resolveBridgeSelection,
   runBridgeStartupPreflight,
@@ -24,6 +26,68 @@ export interface StartPreflightResult {
 interface CheckOutcome {
   label: string;
   detail: string;
+}
+
+const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> = [
+  { field: "openclawPath", label: "openclaw.path" },
+  { field: "openclawStateDir", label: "openclaw.stateDir" },
+  { field: "sessionId", label: "openclaw.sessionId" },
+  { field: "threadId", label: "openclaw.threadId" },
+  { field: "canvasReminderEvery", label: "openclaw.canvasReminderEvery" },
+  { field: "deliver", label: "openclaw.deliver" },
+  { field: "deliverChannel", label: "openclaw.deliverChannel" },
+  { field: "replyTo", label: "openclaw.replyTo" },
+  { field: "deliverTimeoutMs", label: "openclaw.deliverTimeoutMs" },
+  { field: "attachmentDir", label: "openclaw.attachmentDir" },
+  { field: "attachmentMaxBytes", label: "openclaw.attachmentMaxBytes" },
+  { field: "claudeCodePath", label: "claude-code.path" },
+  { field: "claudeCodeModel", label: "claude-code.model" },
+  { field: "claudeCodeAllowedTools", label: "claude-code.allowedTools" },
+  { field: "claudeCodeAppendSystemPrompt", label: "claude-code.appendSystemPrompt" },
+  { field: "claudeCodeMaxTurns", label: "claude-code.maxTurns" },
+  { field: "claudeCodeCwd", label: "claude-code.cwd" },
+];
+
+const BRIDGE_ENV_OVERRIDE_KEYS = [
+  "OPENCLAW_PATH",
+  "OPENCLAW_STATE_DIR",
+  "OPENCLAW_SESSION_ID",
+  "OPENCLAW_THREAD_ID",
+  "OPENCLAW_CANVAS_REMINDER_EVERY",
+  "OPENCLAW_DELIVER",
+  "OPENCLAW_DELIVER_CHANNEL",
+  "OPENCLAW_REPLY_TO",
+  "OPENCLAW_DELIVER_TIMEOUT_MS",
+  "OPENCLAW_ATTACHMENT_DIR",
+  "OPENCLAW_ATTACHMENT_MAX_BYTES",
+  "CLAUDE_CODE_PATH",
+  "CLAUDE_CODE_MODEL",
+  "CLAUDE_CODE_ALLOWED_TOOLS",
+  "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
+  "CLAUDE_CODE_MAX_TURNS",
+  "CLAUDE_CODE_CWD",
+] as const;
+
+function listSavedBridgeConfigKeys(bridgeConfig?: BridgeConfig): string[] {
+  if (!bridgeConfig) return [];
+  return BRIDGE_CONFIG_FIELDS.filter(({ field }) => bridgeConfig[field] !== undefined).map(
+    ({ label }) => label,
+  );
+}
+
+function listBridgeEnvOverrides(env: NodeJS.ProcessEnv = process.env): string[] {
+  return BRIDGE_ENV_OVERRIDE_KEYS.filter((key) => {
+    const value = env[key];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+}
+
+function formatBridgeAvailability(entries: BridgeAvailability[]): string {
+  return entries
+    .map(
+      (entry) => `${entry.mode}=${entry.available ? "available" : "unavailable"} (${entry.detail})`,
+    )
+    .join(" | ");
 }
 
 function formatPreflightError(params: {
@@ -46,6 +110,10 @@ function formatPreflightError(params: {
     lines.push("", "Skipped checks:");
     lines.push(...skipped.map((entry) => `- [${entry.label}] ${entry.detail}`));
   }
+
+  lines.push("", "Debug tips:");
+  lines.push("- Run `pubblue configure --show` to inspect saved CLI configuration.");
+  lines.push("- Use `pubblue start --bridge openclaw|claude-code` to force a bridge mode.");
 
   return lines.join("\n");
 }
@@ -71,10 +139,22 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     const source = process.env.PUBBLUE_API_KEY?.trim() ? "PUBBLUE_API_KEY env" : "saved config";
     passed.push({ label: "config", detail: `API key configured (${source})` });
     bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
+    const savedBridgeConfig = listSavedBridgeConfigKeys(runtimeConfig.bridge);
+    const envOverrides = listBridgeEnvOverrides();
+    passed.push({
+      label: "bridge.config",
+      detail: `saved: ${savedBridgeConfig.join(", ") || "(none)"} | env overrides: ${envOverrides.join(", ") || "(none)"}`,
+    });
   } catch (error) {
     failures.push({ label: "config", detail: errorMessage(error) });
     bridgeProcessEnv = buildBridgeProcessEnv();
   }
+
+  const bridgeAvailability = detectBridgeAvailability(bridgeProcessEnv);
+  passed.push({
+    label: "bridge.available",
+    detail: formatBridgeAvailability(bridgeAvailability),
+  });
 
   try {
     bridgeSelection = resolveBridgeSelection(opts, bridgeProcessEnv);

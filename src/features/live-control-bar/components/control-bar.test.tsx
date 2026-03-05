@@ -135,9 +135,9 @@ describe("ControlBar", () => {
   });
 
   it("shows chat preview when chatPreview is provided", () => {
-    const html = renderControlBar({ agentName: "Oz", chatPreview: "Hello from agent" });
+    const html = renderControlBar({ agentName: "Agent", chatPreview: "Hello from agent" });
     expect(html).toContain("Hello from agent");
-    expect(html).toContain("Oz");
+    expect(html).toContain("Agent");
     expect(html).toContain("max-h-14 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
   });

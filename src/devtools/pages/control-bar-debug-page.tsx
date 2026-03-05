@@ -76,7 +76,7 @@ export function ControlBarDebugPage() {
   const [collapsed, setCollapsed] = useState(false);
 
   const interactiveModel = {
-    agentName: "Oz",
+    agentName: "Agent",
     chatPreview,
     collapsed,
     sendDisabled: activeState === "connecting" || activeState === "disconnected",
@@ -143,7 +143,7 @@ export function ControlBarDebugPage() {
             { label: "without preview", content: <StaticControlBar /> },
             {
               label: "with preview",
-              content: <StaticControlBar agentName="Oz" chatPreview={DEBUG_PREVIEW_TEXT} />,
+              content: <StaticControlBar agentName="Agent" chatPreview={DEBUG_PREVIEW_TEXT} />,
             },
           ]}
           cellHeight={160}
