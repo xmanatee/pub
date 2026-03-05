@@ -3,15 +3,14 @@ import { describe, expect, it } from "vitest";
 import { PubPreviewIframe } from "./pub-preview-iframe";
 
 describe("PubPreviewIframe", () => {
-  it("renders locked html srcDoc preview by default", () => {
+  it("renders html srcDoc preview with script sandbox by default", () => {
     const html = renderToStaticMarkup(
       <PubPreviewIframe contentPreview="<h1>Hello</h1>" contentType="html" title="Hello" />,
     );
 
     expect(html).toContain("srcDoc=");
     expect(html).toContain("Hello");
-    expect(html).toContain('sandbox=""');
-    expect(html).not.toContain("allow-scripts");
+    expect(html).toContain('sandbox="allow-scripts"');
   });
 
   it("renders html URL preview with script sandbox when htmlSrc is provided", () => {

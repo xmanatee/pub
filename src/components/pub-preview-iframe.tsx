@@ -32,7 +32,7 @@ export function PubPreviewIframe({
     return (
       <iframe
         srcDoc={buildHtmlSrcdoc(contentPreview)}
-        sandbox=""
+        sandbox={htmlSandbox}
         loading="lazy"
         tabIndex={-1}
         title={title}
