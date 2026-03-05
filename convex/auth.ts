@@ -11,24 +11,8 @@ const telegram = ConvexCredentials<DataModel>({
     const initData = credentials.initData as string | undefined;
     if (!initData) throw new Error("Missing initData");
 
-    /*
-     * Telegram initData validation is intentionally disabled for now.
-     *
-     * Proper implementation plan (per-user/per-agent bot token):
-     * 1) CLI: extend `pubblue configure --set telegram.botToken=<token>` to optionally
-     *    upload the token to Pub using the user's API key (new authenticated endpoint).
-     * 2) Convex schema: add a table for encrypted Telegram bot credentials, scoped by
-     *    `userId` and optional `agentId` (or another stable CLI instance identifier).
-     * 3) Convex mutations/actions: add set/revoke/get-active-token helpers; never return
-     *    raw token via queries and redact in logs.
-     * 4) Telegram sign-in: resolve the owning user/agent token (e.g. from start_param
-     *    binding), then validate with `@telegram-apps/init-data-node` before accepting auth:
-     *    `import { validate, parse, type InitData } from "@telegram-apps/init-data-node";`
-     * 5) Migration: once per-user token resolution exists, re-enable strict validation
-     *    and remove this temporary bypass.
-     */
-    // TODO: Re-enable after token source-of-truth is moved from local CLI config
-    // to per-user/per-agent server-side storage.
+    // TODO: Re-enable initData validation once bot tokens are stored server-side
+    // (per-user/per-agent) instead of in local CLI config.
     // await validate(initData, botToken, { expiresIn: 86400 });
 
     const user = parseInitDataUser(initData);

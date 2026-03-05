@@ -49,8 +49,8 @@ export function buildCanvasPolicyReminderBlock(): string {
   ].join("\n");
 }
 
-export function resolveCanvasReminderEvery(): number {
-  const raw = Number.parseInt(process.env.OPENCLAW_CANVAS_REMINDER_EVERY ?? "", 10);
+export function resolveCanvasReminderEvery(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number.parseInt(env.OPENCLAW_CANVAS_REMINDER_EVERY ?? "", 10);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CANVAS_REMINDER_EVERY;
   return raw;
 }

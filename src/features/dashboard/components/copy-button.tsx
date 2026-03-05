@@ -19,7 +19,7 @@ export function CopyButton({
       size="icon"
       className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
       onClick={() => {
-        navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(text).catch(() => {});
         onCopy?.();
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);

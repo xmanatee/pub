@@ -1,6 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
 import { FileText, Key, LogOut, User } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
@@ -8,16 +7,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { AccountTab } from "~/features/dashboard/components/account-tab";
 import { ApiKeysTab } from "~/features/dashboard/components/api-keys-tab";
 import { PubsTab } from "~/features/dashboard/components/pubs-tab";
+import { useEffectiveAuth } from "~/hooks/use-effective-auth";
 import { resetIdentity, trackDashboardTabChanged, trackSignOut } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
 
 export function DashboardPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const hasConfiguredConvex = Boolean(import.meta.env.VITE_CONVEX_URL);
-  const hasE2EFallback = Boolean(import.meta.env.VITE_E2E_AUTH_BASE_URL);
-  const effectiveIsLoading = hasConfiguredConvex ? isLoading : false;
-  const effectiveIsAuthenticated = hasConfiguredConvex ? isAuthenticated : false;
+  const {
+    isAuthenticated: effectiveIsAuthenticated,
+    isLoading: effectiveIsLoading,
+    hasConfiguredConvex,
+    hasE2EFallback,
+  } = useEffectiveAuth();
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
 

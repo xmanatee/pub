@@ -35,7 +35,7 @@ export default defineSchema({
   lives: defineTable({
     slug: v.string(),
     userId: v.id("users"),
-    status: v.union(v.literal("active"), v.literal("closed")),
+    status: v.literal("active"),
     agentName: v.optional(v.string()),
     browserOffer: v.optional(v.string()),
     agentAnswer: v.optional(v.string()),

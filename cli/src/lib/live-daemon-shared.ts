@@ -48,11 +48,10 @@ export const WRITE_ACK_TIMEOUT_MS = 5_000;
 export const PING_INTERVAL_MS = 10_000;
 export const PONG_TIMEOUT_MS = 15_000;
 
-const NOT_CONNECTED_WRITE_ERROR =
-  "No browser connected. Ask the user to open the pub URL first, then retry.";
-
 export function getLiveWriteReadinessError(isConnected: boolean): string | null {
-  return isConnected ? null : NOT_CONNECTED_WRITE_ERROR;
+  return isConnected
+    ? null
+    : "No browser connected. Ask the user to open the pub URL first, then retry.";
 }
 
 export function shouldRecoverForBrowserOfferChange(params: {

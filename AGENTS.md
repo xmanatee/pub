@@ -111,7 +111,6 @@ Biome handles linting and formatting:
 - `noUnusedImports` and `noUnusedVariables`: error
 - `noNonNullAssertion` and `noExplicitAny`: warn
 - Auto-organized imports via Biome assist
-- `noDangerouslySetInnerHtml` disabled for `p.$slug.tsx`
 
 ## Environment Variables
 

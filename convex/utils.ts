@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
-export const CONTENT_TYPES = ["html", "markdown", "text"] as const;
-export type ContentType = (typeof CONTENT_TYPES)[number];
+const CONTENT_TYPES = ["html", "markdown", "text"] as const;
+type ContentType = (typeof CONTENT_TYPES)[number];
 export const CONTENT_TYPE_VALIDATOR = v.union(
   v.literal("html"),
   v.literal("markdown"),

@@ -1,5 +1,6 @@
 import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
+import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const noop = () => {};
@@ -97,6 +98,7 @@ export function DashboardDebugPage() {
           />
         </section>
       </div>
+      <ControlBarGoLiveMode agentOnline={true} onGoLive={noop} />
     </div>
   );
 }
