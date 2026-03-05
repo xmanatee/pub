@@ -1,9 +1,10 @@
 import { Clock, ExternalLink, FileText, Globe, Lock, Trash2 } from "lucide-react";
+import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
-import { buildHtmlSrcdoc, buildTextSrcdoc, formatRelativeTime } from "~/lib/pub-preview";
+import { formatRelativeTime } from "~/lib/pub-preview";
 import { telegramConfirm } from "~/lib/telegram";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { CopyButton } from "./copy-button";
@@ -25,46 +26,22 @@ interface PubCardProps {
   onDelete: (id: Id<"pubs">) => void;
 }
 
-function PreviewIframe({ pub }: { pub: PubCardProps["pub"] }) {
-  if (!pub.contentPreview && !pub.contentType) {
-    return (
-      <div className="h-full w-full flex items-center justify-center bg-muted/30">
-        <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
-      </div>
-    );
-  }
-
-  if (pub.contentType === "html") {
-    return (
-      <iframe
-        srcDoc={buildHtmlSrcdoc(pub.contentPreview)}
-        sandbox=""
-        loading="lazy"
-        tabIndex={-1}
-        title={pub.title || pub.slug}
-        className="h-full w-full border-none pointer-events-none"
-      />
-    );
-  }
-
-  return (
-    <iframe
-      srcDoc={buildTextSrcdoc(pub.contentPreview, pub.contentType ?? "text")}
-      sandbox=""
-      loading="lazy"
-      tabIndex={-1}
-      title={pub.title || pub.slug}
-      className="h-full w-full border-none pointer-events-none"
-    />
-  );
-}
-
 export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <a href={`/p/${pub.slug}`} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white">
-          <PreviewIframe pub={pub} />
+          {!pub.contentPreview && !pub.contentType ? (
+            <div className="h-full w-full flex items-center justify-center bg-muted/30">
+              <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
+            </div>
+          ) : (
+            <PubPreviewIframe
+              contentPreview={pub.contentPreview}
+              contentType={pub.contentType}
+              title={pub.title || pub.slug}
+            />
+          )}
         </div>
       </a>
       <CardContent className="px-4 py-3 space-y-2">

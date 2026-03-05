@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery } from "convex/react";
 import { FileText } from "lucide-react";
+import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { buildTextSrcdoc } from "~/lib/pub-preview";
 import { api } from "../../../../convex/_generated/api";
 
 const siteUrl = import.meta.env.VITE_CONVEX_URL
@@ -45,25 +45,12 @@ export function ExplorePage() {
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
                 <div className="aspect-[1200/630] overflow-hidden bg-white">
-                  {pub.contentType === "html" ? (
-                    <iframe
-                      src={`${siteUrl}/serve/${pub.slug}?preview=1`}
-                      sandbox="allow-scripts"
-                      loading="lazy"
-                      tabIndex={-1}
-                      title={pub.title || pub.slug}
-                      className="h-full w-full border-none pointer-events-none"
-                    />
-                  ) : (
-                    <iframe
-                      srcDoc={buildTextSrcdoc(pub.contentPreview, pub.contentType ?? "text")}
-                      sandbox=""
-                      loading="lazy"
-                      tabIndex={-1}
-                      title={pub.title || pub.slug}
-                      className="h-full w-full border-none pointer-events-none"
-                    />
-                  )}
+                  <PubPreviewIframe
+                    contentPreview={pub.contentPreview}
+                    contentType={pub.contentType}
+                    htmlSrc={`${siteUrl}/serve/${pub.slug}?preview=1`}
+                    title={pub.title || pub.slug}
+                  />
                 </div>
                 <CardContent className="px-4 py-3">
                   <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
