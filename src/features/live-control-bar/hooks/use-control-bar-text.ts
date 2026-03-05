@@ -2,19 +2,24 @@ import type { KeyboardEvent } from "react";
 import { useCallback, useState } from "react";
 
 interface UseControlBarTextOptions {
+  disabled: boolean;
   onSendChat: (text: string) => void;
   initialInput?: string;
 }
 
-export function useControlBarText({ onSendChat, initialInput = "" }: UseControlBarTextOptions) {
+export function useControlBarText({
+  disabled,
+  onSendChat,
+  initialInput = "",
+}: UseControlBarTextOptions) {
   const [input, setInput] = useState(initialInput);
   const hasText = input.trim().length > 0;
 
   const handleSend = useCallback(() => {
-    if (!hasText) return;
+    if (disabled || !hasText) return;
     onSendChat(input.trim());
     setInput("");
-  }, [input, hasText, onSendChat]);
+  }, [disabled, input, hasText, onSendChat]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {

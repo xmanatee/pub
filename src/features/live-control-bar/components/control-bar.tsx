@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
+import type { SystemMessageSeverity } from "~/features/live-chat/types/live-chat-types";
 import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
@@ -17,6 +18,8 @@ const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 export interface ControlBarModel {
   agentName: string | null;
   chatPreview: string | null;
+  chatPreviewSeverity?: SystemMessageSeverity | null;
+  chatPreviewSource?: "agent" | "system" | null;
   collapsed: boolean;
   lastTakeoverAt?: number;
   sendDisabled: boolean;
@@ -36,6 +39,12 @@ export interface ControlBarActions {
   onClose: () => void;
   onDismissPreview: () => void;
   onMicGranted: (granted: boolean) => void;
+  onSystemMessage?: (params: {
+    content: string;
+    cooldownMs?: number;
+    dedupeKey?: string;
+    severity: SystemMessageSeverity;
+  }) => void;
   onSendAudio: (blob: Blob) => void;
   onSendChat: (text: string) => void;
   onSendFile?: (file: File) => void;
@@ -60,6 +69,8 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
   const {
     agentName,
     chatPreview,
+    chatPreviewSeverity,
+    chatPreviewSource,
     collapsed,
     lastTakeoverAt,
     sendDisabled,
@@ -74,6 +85,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     onClose,
     onDismissPreview,
     onMicGranted,
+    onSystemMessage,
     onSendAudio,
     onSendChat,
     onSendFile,
@@ -83,6 +95,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
   const [expanded, setExpanded] = useState(false);
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
+    disabled: sendDisabled,
     onSendChat,
     initialInput,
   });
@@ -119,7 +132,14 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     startRecording,
     startVoiceMode,
     stopVoiceMode,
-  } = useControlBarAudio({ disabled: sendDisabled, bridge, micGranted, onMicGranted, onSendAudio });
+  } = useControlBarAudio({
+    disabled: sendDisabled,
+    bridge,
+    micGranted,
+    onMicGranted,
+    onSendAudio,
+    onSystemMessage,
+  });
 
   useEffect(() => {
     if (mode !== "idle" && expanded) {
@@ -188,6 +208,8 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
       <ControlBarIdleMode
         agentName={agentName}
         chatPreview={chatPreview}
+        chatPreviewSeverity={chatPreviewSeverity ?? null}
+        chatPreviewSource={chatPreviewSource ?? null}
         expanded={expanded}
         fileInputRef={fileInputRef}
         hasText={hasText}

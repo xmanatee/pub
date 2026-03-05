@@ -44,6 +44,7 @@ export function usePubLiveModel(slug: string) {
     addAgentAudioMessage,
     addAgentImageMessage,
     addAgentMessage,
+    addSystemMessage,
     addUserPendingAttachmentMessage,
     addUserPendingAudioMessage,
     addUserPendingImageMessage,
@@ -103,6 +104,7 @@ export function usePubLiveModel(slug: string) {
     addUserPendingAudioMessage,
     addUserPendingImageMessage,
     addUserPendingMessage,
+    addSystemMessage,
     failSentMessages,
     markMessageConfirmed,
     markMessageFailed,
@@ -131,7 +133,8 @@ export function usePubLiveModel(slug: string) {
 
   return {
     agentName: live?.agentName ?? null,
-    agentOnline: agentOnline ?? false,
+    agentOnline,
+    addSystemMessage,
     animationStyle,
     autoOpenCanvas,
     bridgeRef,

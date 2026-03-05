@@ -1,7 +1,8 @@
 const CANVAS_DEBUG_BRIDGE_SCRIPT = [
   "<script>",
   "(function(){",
-  'function notify(payload){try{parent.postMessage(payload,"*");}catch(_error){}}',
+  "var notifyFailed=false;",
+  'function notify(payload){if(notifyFailed){return;}try{parent.postMessage(payload,"*");}catch(error){notifyFailed=true;if(typeof console!=="undefined"&&typeof console.warn==="function"){console.warn("pubblue canvas bridge postMessage failed",error);}}}',
   "function emit(type,details){",
   'var payload={source:"pubblue-canvas",type:type};',
   'if(details&&typeof details==="object"){',

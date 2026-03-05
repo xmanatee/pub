@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  AlertTriangle,
   Check,
   CheckCheck,
   Clock,
@@ -16,6 +17,7 @@ import type {
   ChatEntry,
   ImageChatEntry,
   ReceivedFile,
+  SystemChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
 
 function DeliveryIcon({
@@ -75,7 +77,29 @@ function AttachmentBubble({ entry }: { entry: AttachmentChatEntry }) {
   );
 }
 
+function SystemBubble({ entry }: { entry: SystemChatEntry }) {
+  const isError = entry.severity === "error";
+  return (
+    <div className="flex justify-center">
+      <div
+        className={
+          isError
+            ? "flex max-w-full items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            : "flex max-w-full items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground"
+        }
+      >
+        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+        <span>
+          <span className="font-medium">{isError ? "Error" : "Warning"}:</span> {entry.content}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ChatBubble({ msg }: { msg: ChatEntry }) {
+  if (msg.type === "system") return <SystemBubble entry={msg} />;
+
   const isUser = msg.from === "user";
   const bubbleClass = isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground";
 

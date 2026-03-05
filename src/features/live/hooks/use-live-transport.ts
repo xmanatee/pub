@@ -70,6 +70,12 @@ interface UseLiveTransportOptions {
     width?: number;
   }) => void;
   addUserPendingMessage: (params: { content: string; id: string; timestamp?: number }) => void;
+  addSystemMessage: (params: {
+    content: string;
+    cooldownMs?: number;
+    dedupeKey?: string;
+    severity: "warning" | "error";
+  }) => void;
   failSentMessages: () => void;
   markMessageConfirmed: (messageId: string) => void;
   markMessageFailed: (messageId: string) => void;
@@ -96,6 +102,7 @@ export function useLiveTransport({
   addUserPendingAudioMessage,
   addUserPendingImageMessage,
   addUserPendingMessage,
+  addSystemMessage,
   failSentMessages,
   markMessageConfirmed,
   markMessageFailed,
@@ -122,6 +129,13 @@ export function useLiveTransport({
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
   }, []);
+
+  const emitSystemMessage = useCallback(
+    (params: { content: string; dedupeKey?: string; severity: "warning" | "error" }) => {
+      addSystemMessage({ ...params, cooldownMs: 4_000 });
+    },
+    [addSystemMessage],
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset transport state on slug navigation
   useEffect(() => {
@@ -245,6 +259,7 @@ export function useLiveTransport({
     storeBrowserCandidates,
     onDeliveryReceipt: handleDeliveryReceipt,
     onMessage: handleBridgeMessage,
+    onSystemMessage: emitSystemMessage,
     onTrackActivity: markAgentActivity,
   });
 
@@ -254,11 +269,21 @@ export function useLiveTransport({
         const bridge = bridgeRef.current;
         if (!bridge) {
           markMessageFailedIfPending(msg.id);
+          emitSystemMessage({
+            content: "Message failed to send because the live bridge is unavailable.",
+            dedupeKey: "chat-send-no-bridge",
+            severity: "error",
+          });
           return;
         }
         const ready = await ensureChannelReady(bridge, CHANNELS.CHAT);
         if (!ready) {
           markMessageFailedIfPending(msg.id);
+          emitSystemMessage({
+            content: "Message failed to send because the chat channel is not ready.",
+            dedupeKey: "chat-channel-not-ready",
+            severity: "error",
+          });
           return;
         }
 
@@ -269,9 +294,14 @@ export function useLiveTransport({
         }
 
         markMessageFailedIfPending(msg.id);
+        emitSystemMessage({
+          content: "Message delivery timed out. Please retry.",
+          dedupeKey: "chat-send-timeout",
+          severity: "error",
+        });
       })();
     },
-    [bridgeRef, markMessageFailedIfPending, markMessageSentIfPending],
+    [bridgeRef, emitSystemMessage, markMessageFailedIfPending, markMessageSentIfPending],
   );
 
   const sendChat = useCallback(
@@ -292,18 +322,33 @@ export function useLiveTransport({
       const bridge = bridgeRef.current;
       if (!bridge) {
         markMessageFailedIfPending(id);
+        emitSystemMessage({
+          content: "Audio failed to send because the live bridge is unavailable.",
+          dedupeKey: "audio-send-no-bridge",
+          severity: "error",
+        });
         return;
       }
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
         if (!ready) {
           markMessageFailedIfPending(id);
+          emitSystemMessage({
+            content: "Audio failed to send because the audio channel is not ready.",
+            dedupeKey: "audio-channel-not-ready",
+            severity: "error",
+          });
           return;
         }
         const buffer = await blob.arrayBuffer();
         const startMsg = makeStreamStart({ mime: blob.type, size: buffer.byteLength }, id);
         if (!bridge.send(CHANNELS.AUDIO, startMsg)) {
           markMessageFailedIfPending(id);
+          emitSystemMessage({
+            content: "Audio stream failed to start. Please retry.",
+            dedupeKey: "audio-stream-start-failed",
+            severity: "error",
+          });
           return;
         }
 
@@ -312,6 +357,11 @@ export function useLiveTransport({
           const chunk = bytes.slice(offset, offset + STREAM_CHUNK_SIZE);
           if (!bridge.sendBinary(CHANNELS.AUDIO, chunk.buffer)) {
             markMessageFailedIfPending(id);
+            emitSystemMessage({
+              content: "Audio upload was interrupted while streaming.",
+              dedupeKey: "audio-stream-chunk-failed",
+              severity: "error",
+            });
             return;
           }
         }
@@ -323,13 +373,18 @@ export function useLiveTransport({
         );
         if (!ended) {
           markMessageFailedIfPending(id);
+          emitSystemMessage({
+            content: "Audio upload did not complete in time.",
+            dedupeKey: "audio-stream-end-timeout",
+            severity: "error",
+          });
           return;
         }
 
         markMessageSentIfPending(id);
       })();
     },
-    [bridgeRef, markMessageFailedIfPending, markMessageSentIfPending],
+    [bridgeRef, emitSystemMessage, markMessageFailedIfPending, markMessageSentIfPending],
   );
 
   const sendAudio = useCallback(
@@ -360,6 +415,11 @@ export function useLiveTransport({
       const bridge = bridgeRef.current;
       if (!bridge) {
         markMessageFailedIfPending(id);
+        emitSystemMessage({
+          content: "File failed to send because the live bridge is unavailable.",
+          dedupeKey: "file-send-no-bridge",
+          severity: "error",
+        });
         return;
       }
 
@@ -367,6 +427,11 @@ export function useLiveTransport({
         const ready = await ensureChannelReady(bridge, channel);
         if (!ready) {
           markMessageFailedIfPending(id);
+          emitSystemMessage({
+            content: "File failed to send because its data channel is not ready.",
+            dedupeKey: "file-channel-not-ready",
+            severity: "error",
+          });
           return;
         }
         const buffer = await file.arrayBuffer();
@@ -380,6 +445,11 @@ export function useLiveTransport({
         );
         if (!bridge.send(channel, startMsg)) {
           markMessageFailedIfPending(id);
+          emitSystemMessage({
+            content: "File stream failed to start. Please retry.",
+            dedupeKey: "file-stream-start-failed",
+            severity: "error",
+          });
           return;
         }
 
@@ -388,6 +458,11 @@ export function useLiveTransport({
           const chunk = bytes.slice(offset, offset + STREAM_CHUNK_SIZE);
           if (!bridge.sendBinary(channel, chunk.buffer)) {
             markMessageFailedIfPending(id);
+            emitSystemMessage({
+              content: "File upload was interrupted while streaming.",
+              dedupeKey: "file-stream-chunk-failed",
+              severity: "error",
+            });
             return;
           }
         }
@@ -399,13 +474,18 @@ export function useLiveTransport({
         );
         if (!ended) {
           markMessageFailedIfPending(id);
+          emitSystemMessage({
+            content: "File upload did not complete in time.",
+            dedupeKey: "file-stream-end-timeout",
+            severity: "error",
+          });
           return;
         }
 
         markMessageSentIfPending(id);
       })();
     },
-    [bridgeRef, markMessageFailedIfPending, markMessageSentIfPending],
+    [bridgeRef, emitSystemMessage, markMessageFailedIfPending, markMessageSentIfPending],
   );
 
   const sendFile = useCallback(
@@ -414,6 +494,11 @@ export function useLiveTransport({
         console.warn(
           `File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)} MB, max 10 MB)`,
         );
+        emitSystemMessage({
+          content: `File "${file.name}" is too large. Max size is 10 MB.`,
+          dedupeKey: "file-too-large",
+          severity: "warning",
+        });
         return;
       }
 
@@ -422,6 +507,11 @@ export function useLiveTransport({
         const bridge = bridgeRef.current;
         if (!bridge) {
           console.warn("Cannot send HTML file: bridge not connected");
+          emitSystemMessage({
+            content: "HTML update failed because live connection is not ready.",
+            dedupeKey: "html-send-no-bridge",
+            severity: "warning",
+          });
           return;
         }
         void (async () => {
@@ -429,9 +519,20 @@ export function useLiveTransport({
           const ready = await ensureChannelReady(bridge, CHANNELS.CANVAS);
           if (!ready) {
             console.warn("Cannot send HTML file: canvas channel not ready");
+            emitSystemMessage({
+              content: "HTML update failed because the canvas channel is not ready.",
+              dedupeKey: "html-channel-not-ready",
+              severity: "warning",
+            });
             return;
           }
-          bridge.send(CHANNELS.CANVAS, makeHtmlMessage(text, file.name));
+          if (!bridge.send(CHANNELS.CANVAS, makeHtmlMessage(text, file.name))) {
+            emitSystemMessage({
+              content: "HTML update failed to send to canvas.",
+              dedupeKey: "html-send-failed",
+              severity: "error",
+            });
+          }
         })();
         return;
       }
@@ -470,6 +571,7 @@ export function useLiveTransport({
       bridgeRef,
       bridgeState,
       dispatchFile,
+      emitSystemMessage,
     ],
   );
 
@@ -495,8 +597,13 @@ export function useLiveTransport({
   useEffect(() => {
     if (bridgeState === "disconnected") {
       failSentMessages();
+      emitSystemMessage({
+        content: "Live connection dropped. Pending messages may have failed.",
+        dedupeKey: "bridge-disconnected",
+        severity: "warning",
+      });
     }
-  }, [bridgeState, failSentMessages]);
+  }, [bridgeState, emitSystemMessage, failSentMessages]);
 
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);

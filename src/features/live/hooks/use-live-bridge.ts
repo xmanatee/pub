@@ -20,6 +20,11 @@ interface UseLiveBridgeOptions {
   storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
   onDeliveryReceipt: (receipt: DeliveryReceiptPayload) => void;
   onMessage: (message: ChannelMessage) => void;
+  onSystemMessage?: (params: {
+    content: string;
+    dedupeKey?: string;
+    severity: "warning" | "error";
+  }) => void;
   onTrackActivity: () => void;
 }
 
@@ -33,6 +38,7 @@ export function useLiveBridge({
   storeBrowserCandidates,
   onDeliveryReceipt,
   onMessage,
+  onSystemMessage,
   onTrackActivity,
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
@@ -41,6 +47,7 @@ export function useLiveBridge({
 
   const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
+  const onSystemMessageRef = useRef(onSystemMessage);
   const onTrackActivityRef = useRef(onTrackActivity);
   const storeBrowserOfferRef = useRef(storeBrowserOffer);
   const storeBrowserCandidatesRef = useRef(storeBrowserCandidates);
@@ -57,6 +64,10 @@ export function useLiveBridge({
   useEffect(() => {
     onMessageRef.current = onMessage;
   }, [onMessage]);
+
+  useEffect(() => {
+    onSystemMessageRef.current = onSystemMessage;
+  }, [onSystemMessage]);
 
   useEffect(() => {
     onTrackActivityRef.current = onTrackActivity;
@@ -110,6 +121,11 @@ export function useLiveBridge({
             await storeBrowserCandidatesRef.current({ slug, candidates: next });
           } catch (error) {
             console.warn("Failed to store local ICE candidates", error);
+            onSystemMessageRef.current?.({
+              content: "Realtime signaling is unstable. Local connection updates are failing.",
+              dedupeKey: "local-ice-store-failed",
+              severity: "warning",
+            });
           }
         };
 
@@ -129,6 +145,11 @@ export function useLiveBridge({
           error instanceof Error ? error : new Error("Failed to create live WebRTC offer"),
           { context: "live-bridge" },
         );
+        onSystemMessageRef.current?.({
+          content: "Live connection setup failed before streaming could start.",
+          dedupeKey: "bridge-offer-failed",
+          severity: "error",
+        });
         bridge.close();
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;
@@ -166,6 +187,11 @@ export function useLiveBridge({
       trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
         context: "live-bridge",
       });
+      onSystemMessageRef.current?.({
+        content: "Live connection could not apply the remote answer. Reconnect and try again.",
+        dedupeKey: "bridge-answer-failed",
+        severity: "error",
+      });
     });
   }, [agentAnswer, slug]);
 
@@ -178,6 +204,11 @@ export function useLiveBridge({
     lastAgentCandidateCountRef.current = agentCandidates.length;
     void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
       console.warn("Failed to add remote ICE candidates", error);
+      onSystemMessageRef.current?.({
+        content: "Connection updates from the agent were rejected. Stream quality may degrade.",
+        dedupeKey: "remote-ice-add-failed",
+        severity: "warning",
+      });
     });
   }, [agentCandidates]);
 

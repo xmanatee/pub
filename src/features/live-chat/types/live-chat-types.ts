@@ -1,6 +1,6 @@
 interface ChatEntryBase {
   id: string;
-  from: "user" | "agent";
+  from: "user" | "agent" | "system";
   timestamp: number;
   delivery?: "sending" | "sent" | "received" | "confirmed" | "failed";
 }
@@ -36,7 +36,21 @@ export interface AttachmentChatEntry extends ChatEntryBase {
   fileUrl?: string;
 }
 
-export type ChatEntry = TextChatEntry | AudioChatEntry | ImageChatEntry | AttachmentChatEntry;
+export type SystemMessageSeverity = "warning" | "error";
+
+export interface SystemChatEntry extends ChatEntryBase {
+  type: "system";
+  from: "system";
+  content: string;
+  severity: SystemMessageSeverity;
+}
+
+export type ChatEntry =
+  | TextChatEntry
+  | AudioChatEntry
+  | ImageChatEntry
+  | AttachmentChatEntry
+  | SystemChatEntry;
 
 export interface ReceivedFile {
   id: string;

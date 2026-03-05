@@ -4,6 +4,7 @@ import type {
   AudioChatEntry,
   ChatEntry,
   ImageChatEntry,
+  SystemChatEntry,
   TextChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
 import { ChatPanel } from "./chat-panel";
@@ -90,6 +91,15 @@ const AGENT_IMAGE: ImageChatEntry = {
   timestamp: 1006,
 };
 
+const SYSTEM_WARNING: SystemChatEntry = {
+  id: "sys-warning",
+  type: "system",
+  from: "system",
+  content: "Connection quality degraded",
+  severity: "warning",
+  timestamp: 1007,
+};
+
 describe("ChatPanel snapshots", () => {
   it("renders empty state", () => {
     const html = renderPanel([]);
@@ -147,6 +157,12 @@ describe("ChatPanel snapshots", () => {
     expect(html).toContain("blob:agent-audio");
     expect(html).toContain("blob:user-image");
     expect(html).toContain("Hello from agent");
+  });
+
+  it("renders system warning messages", () => {
+    const html = renderPanel([SYSTEM_WARNING]);
+    expect(html).toContain("Warning:");
+    expect(html).toContain("Connection quality degraded");
   });
 
   it("renders delivery status icons for each state", () => {

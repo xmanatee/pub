@@ -1,15 +1,38 @@
-import { useCallback, useRef, useState } from "react";
-import type { AudioChatEntry, ChatEntry } from "~/features/live-chat/types/live-chat-types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  AudioChatEntry,
+  ChatEntry,
+  SystemMessageSeverity,
+} from "~/features/live-chat/types/live-chat-types";
+
+const SYSTEM_MESSAGE_COOLDOWN_MS = 4_000;
 
 export function useLiveChatDelivery() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const objectUrlsRef = useRef<Set<string>>(new Set());
+  const systemMessageCounterRef = useRef(0);
+  const systemMessageDedupRef = useRef<Map<string, number>>(new Map());
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     });
   }, []);
+
+  const trackObjectUrl = useCallback((url: string | undefined) => {
+    if (!url || !url.startsWith("blob:")) return;
+    objectUrlsRef.current.add(url);
+  }, []);
+
+  const revokeObjectUrls = useCallback(() => {
+    for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
+    objectUrlsRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    return () => revokeObjectUrls();
+  }, [revokeObjectUrls]);
 
   const addAgentMessage = useCallback(
     (params: { content: string; id: string; timestamp?: number }) => {
@@ -30,6 +53,7 @@ export function useLiveChatDelivery() {
 
   const addAgentAudioMessage = useCallback(
     (params: { audioUrl: string; id: string; mime: string; size: number }) => {
+      trackObjectUrl(params.audioUrl);
       setMessages((prev) => [
         ...prev,
         {
@@ -44,11 +68,12 @@ export function useLiveChatDelivery() {
       ]);
       scrollToBottom();
     },
-    [scrollToBottom],
+    [scrollToBottom, trackObjectUrl],
   );
 
   const addAgentImageMessage = useCallback(
     (params: { height?: number; id: string; imageUrl: string; mime: string; width?: number }) => {
+      trackObjectUrl(params.imageUrl);
       setMessages((prev) => [
         ...prev,
         {
@@ -64,7 +89,7 @@ export function useLiveChatDelivery() {
       ]);
       scrollToBottom();
     },
-    [scrollToBottom],
+    [scrollToBottom, trackObjectUrl],
   );
 
   const addUserPendingMessage = useCallback(
@@ -87,6 +112,7 @@ export function useLiveChatDelivery() {
 
   const addUserPendingAudioMessage = useCallback(
     (params: { audioUrl: string; id: string; mime: string; size: number }) => {
+      trackObjectUrl(params.audioUrl);
       setMessages((prev) => [
         ...prev,
         {
@@ -102,7 +128,7 @@ export function useLiveChatDelivery() {
       ]);
       scrollToBottom();
     },
-    [scrollToBottom],
+    [scrollToBottom, trackObjectUrl],
   );
 
   const addUserPendingImageMessage = useCallback(
@@ -114,6 +140,7 @@ export function useLiveChatDelivery() {
       width?: number;
       height?: number;
     }) => {
+      trackObjectUrl(params.imageUrl);
       setMessages((prev) => [
         ...prev,
         {
@@ -131,11 +158,12 @@ export function useLiveChatDelivery() {
       ]);
       scrollToBottom();
     },
-    [scrollToBottom],
+    [scrollToBottom, trackObjectUrl],
   );
 
   const addUserPendingAttachmentMessage = useCallback(
     (params: { fileUrl?: string; filename: string; id: string; mime: string; size: number }) => {
+      trackObjectUrl(params.fileUrl);
       setMessages((prev) => [
         ...prev,
         {
@@ -148,6 +176,42 @@ export function useLiveChatDelivery() {
           fileUrl: params.fileUrl,
           timestamp: Date.now(),
           delivery: "sending",
+        },
+      ]);
+      scrollToBottom();
+    },
+    [scrollToBottom, trackObjectUrl],
+  );
+
+  const addSystemMessage = useCallback(
+    (params: {
+      content: string;
+      severity: SystemMessageSeverity;
+      dedupeKey?: string;
+      cooldownMs?: number;
+    }) => {
+      const content = params.content.trim();
+      if (content.length === 0) return;
+
+      const now = Date.now();
+      const cooldownMs = params.cooldownMs ?? SYSTEM_MESSAGE_COOLDOWN_MS;
+      if (params.dedupeKey) {
+        const dedupeId = `${params.severity}:${params.dedupeKey}`;
+        const lastShownAt = systemMessageDedupRef.current.get(dedupeId);
+        if (lastShownAt && now - lastShownAt < cooldownMs) return;
+        systemMessageDedupRef.current.set(dedupeId, now);
+      }
+
+      systemMessageCounterRef.current += 1;
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "system",
+          id: `sys-${now}-${systemMessageCounterRef.current}`,
+          from: "system",
+          content,
+          severity: params.severity,
+          timestamp: now,
         },
       ]);
       scrollToBottom();
@@ -234,8 +298,10 @@ export function useLiveChatDelivery() {
   );
 
   const clearMessages = useCallback(() => {
+    revokeObjectUrls();
+    systemMessageDedupRef.current.clear();
     setMessages([]);
-  }, []);
+  }, [revokeObjectUrls]);
 
   return {
     addAgentAudioMessage,
@@ -245,6 +311,7 @@ export function useLiveChatDelivery() {
     addUserPendingAudioMessage,
     addUserPendingImageMessage,
     addUserPendingMessage,
+    addSystemMessage,
     clearMessages,
     failSentMessages,
     markMessageConfirmed,
