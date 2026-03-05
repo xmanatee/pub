@@ -3,26 +3,9 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import {
-  CHANNELS,
-  CONTROL_CHANNEL,
-  generateMessageId,
-} from "../../../shared/bridge-protocol-core";
-import { resolveCommandFromPath } from "./command-path.js";
+import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
-import { createBridgeEntryQueue } from "./live-bridge-queue.js";
-import {
-  type BufferedEntry,
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
-  buildInboundPrompt,
-  buildSessionBriefing,
-  parseSessionContextMeta,
-  readTextChatMessage,
-  resolveCanvasReminderEvery,
-  shouldIncludeCanvasPolicyReminder,
-} from "./live-bridge-shared.js";
+import { resolveCommandFromPath } from "./command-path.js";
 import {
   type ActiveStream,
   ensureDirectoryWritable,
@@ -30,9 +13,20 @@ import {
   resolveAttachmentMaxBytes,
   resolveAttachmentRootDir,
 } from "./live-bridge-openclaw-attachments.js";
+import { resolveSessionFromOpenClaw } from "./live-bridge-openclaw-session.js";
+import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
-  resolveSessionFromOpenClaw,
-} from "./live-bridge-openclaw-session.js";
+  type BridgeRunner,
+  type BridgeRunnerConfig,
+  type BridgeStatus,
+  type BufferedEntry,
+  buildInboundPrompt,
+  buildSessionBriefing,
+  parseSessionContextMeta,
+  readTextChatMessage,
+  resolveCanvasReminderEvery,
+  shouldIncludeCanvasPolicyReminder,
+} from "./live-bridge-shared.js";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 
@@ -291,6 +285,11 @@ export async function createOpenClawBridgeRunner(
           text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
         });
         forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
@@ -309,13 +308,34 @@ export async function createOpenClawBridgeRunner(
       });
       if (deliveredAttachment) {
         forwardedMessageCount += 1;
+        const deliveryMessageId =
+          entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+            ? entry.msg.meta.streamId
+            : entry.msg.id;
+        if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
+        }
       }
     },
-    onError: (error) => {
+    onError: (error, entry) => {
       const message = errorMessage(error);
       lastError = message;
       debugLog(`bridge entry processing failed: ${message}`, error);
-      config.sendMessage(CHANNELS.CHAT, {
+      const deliveryMessageId =
+        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+          ? entry.msg.meta.streamId
+          : entry.msg.id;
+      config.onDeliveryUpdate?.({
+        channel: entry.channel,
+        messageId: deliveryMessageId,
+        stage: "failed",
+        error: message,
+      });
+      void config.sendMessage(CHANNELS.CHAT, {
         id: generateMessageId(),
         type: "text",
         data: `Bridge error: ${message}`,
@@ -323,9 +343,7 @@ export async function createOpenClawBridgeRunner(
     },
   });
 
-  debugLog(
-    `bridge runner started (session=${sessionId}, key=${runtime.sessionKey || "n/a"})`,
-  );
+  debugLog(`bridge runner started (session=${sessionId}, key=${runtime.sessionKey || "n/a"})`);
 
   return {
     enqueue: (entries) => queue.enqueue(entries),

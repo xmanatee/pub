@@ -39,7 +39,7 @@ interface ChatEntryBase {
   id: string;
   from: "user" | "agent";
   timestamp: number;
-  delivery?: "sending" | "confirming" | "delivered" | "failed";
+  delivery?: "sending" | "sent" | "received" | "confirmed" | "failed";
 }
 
 export interface TextChatEntry extends ChatEntryBase {
@@ -60,11 +60,20 @@ export interface ImageChatEntry extends ChatEntryBase {
   type: "image";
   imageUrl: string;
   mime: string;
+  size?: number;
   width?: number;
   height?: number;
 }
 
-export type ChatEntry = TextChatEntry | AudioChatEntry | ImageChatEntry;
+export interface AttachmentChatEntry extends ChatEntryBase {
+  type: "attachment";
+  filename: string;
+  mime: string;
+  size: number;
+  fileUrl?: string;
+}
+
+export type ChatEntry = TextChatEntry | AudioChatEntry | ImageChatEntry | AttachmentChatEntry;
 
 export interface ReceivedFile {
   id: string;

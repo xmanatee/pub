@@ -1,16 +1,15 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
-import {
-  CHANNELS,
-  CONTROL_CHANNEL,
-  generateMessageId,
-} from "../../../shared/bridge-protocol-core";
+import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 import {
+  type BridgeRunner,
+  type BridgeRunnerConfig,
+  type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
   buildSessionBriefing,
@@ -18,9 +17,6 @@ import {
   readTextChatMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
 } from "./live-bridge-shared.js";
 
 export function isClaudeCodeAvailable(): boolean {
@@ -276,22 +272,54 @@ export async function createClaudeCodeBridgeRunner(
         const prompt = buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions);
         await deliverToClaudeCode(prompt);
         forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
-      if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {
-        sendMessage(CHANNELS.CHAT, {
-          id: generateMessageId(),
-          type: "text",
-          data: "Attachments are not supported in Claude Code bridge mode.",
+      if (
+        entry.msg.type === "binary" ||
+        entry.msg.type === "stream-start" ||
+        entry.msg.type === "stream-end"
+      ) {
+        const streamId =
+          typeof entry.msg.meta?.streamId === "string" ? entry.msg.meta.streamId : undefined;
+        if (entry.msg.type === "binary" && streamId) return;
+        const deliveryMessageId =
+          entry.msg.type === "stream-end" && streamId ? streamId : entry.msg.id;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: deliveryMessageId,
+          stage: "failed",
+          error: "Attachments are not supported in Claude Code bridge mode.",
         });
+        if (entry.msg.type !== "stream-end") {
+          void sendMessage(CHANNELS.CHAT, {
+            id: generateMessageId(),
+            type: "text",
+            data: "Attachments are not supported in Claude Code bridge mode.",
+          });
+        }
       }
     },
-    onError: (error) => {
+    onError: (error, entry) => {
       const message = errorMessage(error);
       lastError = message;
       debugLog(`bridge entry processing failed: ${message}`, error);
-      sendMessage(CHANNELS.CHAT, {
+      const deliveryMessageId =
+        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+          ? entry.msg.meta.streamId
+          : entry.msg.id;
+      config.onDeliveryUpdate?.({
+        channel: entry.channel,
+        messageId: deliveryMessageId,
+        stage: "failed",
+        error: message,
+      });
+      void sendMessage(CHANNELS.CHAT, {
         id: generateMessageId(),
         type: "text",
         data: `Bridge error: ${message}`,

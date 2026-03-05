@@ -8,7 +8,6 @@ import type { SessionContextPayload } from "~/features/live/lib/bridge-protocol"
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 
-const CHAT_CONFIRM_GRACE_MS = 12_000;
 const CONTENT_PREVIEW_MAX_LENGTH = 500;
 
 export function useLivePageModel(slug: string) {
@@ -47,17 +46,21 @@ export function useLivePageModel(slug: string) {
     addAgentAudioMessage,
     addAgentImageMessage,
     addAgentMessage,
+    addUserPendingAttachmentMessage,
     addUserPendingAudioMessage,
+    addUserPendingImageMessage,
     addUserPendingMessage,
     clearMessages,
-    markMessageConfirmingIfPending,
-    markMessageDelivered,
+    failSentMessages,
+    markMessageConfirmed,
+    markMessageFailed,
     markMessageFailedIfPending,
-    markSendingMessagesConfirming,
+    markMessageReceived,
+    markMessageSentIfPending,
     messages,
     messagesEndRef,
     updateAudioMessageAnalysis,
-  } = useLiveChatDelivery({ confirmGraceMs: CHAT_CONFIRM_GRACE_MS });
+  } = useLiveChatDelivery();
 
   const sessionContext: SessionContextPayload | undefined = useMemo(() => {
     if (!pub) return undefined;
@@ -82,6 +85,7 @@ export function useLivePageModel(slug: string) {
     lastUserDeliveredAt,
     sendAudio,
     sendChat,
+    sendFile,
     setViewMode,
     viewMode,
   } = useLiveTransport({
@@ -97,12 +101,16 @@ export function useLivePageModel(slug: string) {
     addAgentImageMessage,
     addAgentMessage,
     addReceivedBinaryFile,
+    addUserPendingAttachmentMessage,
     addUserPendingAudioMessage,
+    addUserPendingImageMessage,
     addUserPendingMessage,
-    markMessageConfirmingIfPending,
-    markMessageDelivered,
+    failSentMessages,
+    markMessageConfirmed,
+    markMessageFailed,
     markMessageFailedIfPending,
-    markSendingMessagesConfirming,
+    markMessageReceived,
+    markMessageSentIfPending,
     updateAudioMessageAnalysis,
   });
 
@@ -146,6 +154,7 @@ export function useLivePageModel(slug: string) {
     micGranted,
     sendAudio,
     sendChat,
+    sendFile,
     sessionState,
     sessionError,
     startLive,

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   type BridgeMessageMeta,
   CONTROL_CHANNEL,
-  type DeliveryAckPayload,
+  type DeliveryReceiptPayload,
   makeEventMessage,
   type SessionContextPayload,
 } from "~/features/live/lib/bridge-protocol";
@@ -18,7 +18,7 @@ interface UseLiveBridgeOptions {
   sessionContext?: SessionContextPayload;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
   storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
-  onDeliveryAck: (ack: DeliveryAckPayload) => void;
+  onDeliveryReceipt: (receipt: DeliveryReceiptPayload) => void;
   onMessage: (message: ChannelMessage) => void;
   onTrackActivity: () => void;
 }
@@ -31,7 +31,7 @@ export function useLiveBridge({
   sessionContext,
   storeBrowserOffer,
   storeBrowserCandidates,
-  onDeliveryAck,
+  onDeliveryReceipt,
   onMessage,
   onTrackActivity,
 }: UseLiveBridgeOptions) {
@@ -39,7 +39,7 @@ export function useLiveBridge({
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
   const sessionContextSentRef = useRef(false);
 
-  const onDeliveryAckRef = useRef(onDeliveryAck);
+  const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
   const onTrackActivityRef = useRef(onTrackActivity);
   const storeBrowserOfferRef = useRef(storeBrowserOffer);
@@ -51,8 +51,8 @@ export function useLiveBridge({
   const localIceStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    onDeliveryAckRef.current = onDeliveryAck;
-  }, [onDeliveryAck]);
+    onDeliveryReceiptRef.current = onDeliveryReceipt;
+  }, [onDeliveryReceipt]);
 
   useEffect(() => {
     onMessageRef.current = onMessage;
@@ -83,7 +83,7 @@ export function useLiveBridge({
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage((message) => onMessageRef.current(message));
     bridge.setOnTrack(() => onTrackActivityRef.current());
-    bridge.setOnDeliveryAck((ack) => onDeliveryAckRef.current(ack));
+    bridge.setOnDeliveryReceipt((receipt) => onDeliveryReceiptRef.current(receipt));
 
     void (async () => {
       try {

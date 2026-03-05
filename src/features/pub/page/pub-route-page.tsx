@@ -123,6 +123,7 @@ export function PubRoutePage({ slug }: { slug: string }) {
     onMicGranted: model.setMicGranted,
     onSendAudio: model.sendAudio,
     onSendChat: model.sendChat,
+    onSendFile: model.sendFile,
     onTakeover: () => {
       void model.takeoverLive().then(
         () => {
