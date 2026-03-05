@@ -85,7 +85,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)
-- **`pubblue`** — Claude Code skill for publishing content via the CLI
+- **`pubblue`** — Claude Code skill for publishing and visualizing agent output via the CLI
 - Each skill has a `SKILL.md` (instructions) and `claw.json` (ClawHub manifest)
 - Published to ClawHub automatically on push to `main` (see `.github/workflows/clawhub.yml`)
 

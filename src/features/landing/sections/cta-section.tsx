@@ -13,7 +13,7 @@ export function CtaSection() {
           Ready to let your agent show work?
         </h2>
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
-          Sign in, get your API key, and start publishing pages and live visual sessions.
+          Sign in, get your API key, and start sharing pages and live visual sessions.
         </p>
         <Button
           size="lg"

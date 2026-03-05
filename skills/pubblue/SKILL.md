@@ -12,7 +12,7 @@ allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 
 # pubblue
 
-Use this skill when the user asks to publish some content, show or visualize anything.
+Use this skill when the user asks about publishing, showing, or visualizing agent output on pub.blue.
 
 ## Required CLI Version
 
@@ -52,7 +52,7 @@ pubblue delete <slug>
 ```
 
 Notes:
-- Pub is built for agent-driven publishing and live visualization.
+- Pub is built for agent-driven output sharing and live visualization.
 - Pubs are **private by default**.
 - `create` supports `--public/--private`, `--title`, `--slug`, `--expires`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
