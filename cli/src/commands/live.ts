@@ -145,6 +145,9 @@ function registerStatusCommand(program: Command): void {
       console.log(`  Daemon: running`);
       console.log(`  Active slug: ${activeSlug || "(none)"}`);
       console.log(`  Status: ${response.connected ? "connected" : "waiting"}`);
+      if (typeof response.signalingConnected === "boolean") {
+        console.log(`  Signaling: ${response.signalingConnected ? "connected" : "reconnecting"}`);
+      }
       console.log(`  Uptime: ${response.uptime}s`);
       const chNames = Array.isArray(response.channels)
         ? response.channels.map((c: unknown) => (typeof c === "string" ? c : String(c)))

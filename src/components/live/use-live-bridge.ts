@@ -70,7 +70,7 @@ export function useLiveBridge({
     storeBrowserCandidatesRef.current = storeBrowserCandidates;
   }, [storeBrowserCandidates]);
 
-  // Create offer when enabled
+  // Browser is the offerer in this signaling flow.
   useEffect(() => {
     if (!enabled) return;
     setBridgeState("connecting");

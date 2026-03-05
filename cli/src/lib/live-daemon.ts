@@ -1,13 +1,15 @@
 /**
  * Agent daemon — background process that holds a WebRTC PeerConnection.
  *
- * Per-user (not per-slug). Registers presence online, polls for incoming
- * live requests (browser offers), and responds with answers.
+ * Per-user (not per-slug). Registers presence online, subscribes to
+ * Convex signaling updates, and responds with answers.
  */
 
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
+import { ConvexClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
 import type { DataChannel, PeerConnection } from "node-datachannel";
 import { latestCliVersionPath, readLatestCliVersion } from "../commands/live-helpers.js";
 import {
@@ -22,7 +24,7 @@ import {
   shouldAcknowledgeMessage,
 } from "../lib/bridge-protocol.js";
 import { resolveAckChannel } from "./ack-routing.js";
-import { PubApiError } from "./api.js";
+import { type LiveInfo } from "./api.js";
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
 import { type BridgeRunner, createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
@@ -32,17 +34,19 @@ import {
   type ChannelBuffer,
   type DaemonConfig,
   getLiveWriteReadinessError,
-  getSignalPollDelayMs,
   LOCAL_CANDIDATE_FLUSH_MS,
   OFFER_TIMEOUT_MS,
   PING_INTERVAL_MS,
   PONG_TIMEOUT_MS,
-  shouldRecoverForBrowserOfferChange,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
+import { decideSignalingUpdate } from "./live-signaling.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const LIVE_SIGNAL_QUERY = makeFunctionReference<"query", { apiKey: string }, LiveInfo | null>(
+  "pubs:getLiveForAgentByApiKey",
+);
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
@@ -73,7 +77,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let channels = new Map<string, DataChannel>();
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
 
-  let pollingTimer: ReturnType<typeof setTimeout> | null = null;
+  let signalingClient: ConvexClient | null = null;
+  let signalingUnsubscribe: (() => void) | null = null;
+  let connectionStateUnsubscribe: (() => void) | null = null;
+  let signalingQueue: Promise<void> = Promise.resolve();
+  let signalingConnectionKnown = false;
+  let signalingConnectionOpen = false;
+
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
   let localCandidateStopTimer: ReturnType<typeof setTimeout> | null = null;
@@ -103,13 +113,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   function markError(message: string, error?: unknown): void {
     lastError = error === undefined ? message : `${message}: ${errorMessage(error)}`;
     debugLog(message, error);
-  }
-
-  function clearPollingTimer(): void {
-    if (pollingTimer) {
-      clearTimeout(pollingTimer);
-      pollingTimer = null;
-    }
   }
 
   function clearLocalCandidateTimers(): void {
@@ -483,7 +486,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }, 30_000);
   }
 
-  // -- Answer incoming live request -----------------------------------------
+  // -- Answer incoming live request (agent is the answerer) -----------------
 
   async function handleIncomingLive(slug: string, browserOffer: string): Promise<void> {
     if (recovering) return;
@@ -511,74 +514,160 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  // -- Polling loop ---------------------------------------------------------
+  // -- Signaling subscription (Convex onUpdate) -----------------------------
 
-  function scheduleNextPoll(delayMs: number): void {
-    if (stopped) return;
-    clearPollingTimer();
-    pollingTimer = setTimeout(() => {
-      void runPollingLoop();
-    }, delayMs);
+  function parseLiveSnapshot(result: unknown): LiveInfo | null {
+    if (result === null || result === undefined) return null;
+    if (typeof result !== "object") {
+      throw new Error("Invalid signaling snapshot: expected object or null");
+    }
+    const live = result as Partial<LiveInfo>;
+    if (typeof live.slug !== "string") throw new Error("Invalid signaling snapshot: missing slug");
+    if (!Array.isArray(live.browserCandidates)) {
+      throw new Error("Invalid signaling snapshot: missing browserCandidates");
+    }
+    if (!Array.isArray(live.agentCandidates)) {
+      throw new Error("Invalid signaling snapshot: missing agentCandidates");
+    }
+    if (typeof live.createdAt !== "number" || typeof live.expiresAt !== "number") {
+      throw new Error("Invalid signaling snapshot: missing timestamps");
+    }
+    return {
+      slug: live.slug,
+      status: live.status,
+      browserOffer: live.browserOffer,
+      agentAnswer: live.agentAnswer,
+      browserCandidates: live.browserCandidates,
+      agentCandidates: live.agentCandidates,
+      createdAt: live.createdAt,
+      expiresAt: live.expiresAt,
+    };
   }
 
-  async function pollSignalingOnce(): Promise<void> {
-    const live = await apiClient.getPendingLive();
+  async function applyBrowserCandidates(candidatePayloads: string[]): Promise<void> {
+    for (const c of candidatePayloads) {
+      try {
+        const parsed = JSON.parse(c) as { candidate?: unknown; sdpMid?: unknown };
+        if (typeof parsed.candidate !== "string") continue;
+        const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
+        if (!peer) continue;
+        peer.addRemoteCandidate(parsed.candidate, sdpMid);
+      } catch (error) {
+        debugLog("failed to parse/apply browser ICE candidate", error);
+      }
+    }
+  }
 
-    if (!live) {
+  async function handleSignalingSnapshot(live: LiveInfo | null): Promise<void> {
+    const decision = decideSignalingUpdate({
+      live,
+      activeSlug,
+      lastAppliedBrowserOffer,
+      lastBrowserCandidateCount,
+    });
+
+    lastBrowserCandidateCount = decision.nextBrowserCandidateCount;
+
+    if (decision.type === "recover") {
+      await handleIncomingLive(decision.slug, decision.browserOffer);
       return;
     }
 
-    if (live.browserOffer && !live.agentAnswer) {
-      if (
-        shouldRecoverForBrowserOfferChange({
-          incomingBrowserOffer: live.browserOffer,
-          lastAppliedBrowserOffer,
-        }) ||
-        !lastAppliedBrowserOffer
-      ) {
-        await handleIncomingLive(live.slug, live.browserOffer);
-        return;
-      }
+    if (decision.type === "apply-browser-candidates") {
+      await applyBrowserCandidates(decision.candidatePayloads);
+    }
+  }
+
+  function enqueueSignalingSnapshot(live: LiveInfo | null): void {
+    signalingQueue = signalingQueue
+      .then(async () => {
+        if (stopped) return;
+        await handleSignalingSnapshot(live);
+      })
+      .catch((error) => {
+        markError("failed to process signaling snapshot", error);
+      });
+  }
+
+  function observeSignalingConnectionState(state: {
+    isWebSocketConnected: boolean;
+    connectionCount: number;
+    connectionRetries: number;
+  }): void {
+    if (!signalingConnectionKnown) {
+      signalingConnectionKnown = true;
+      signalingConnectionOpen = state.isWebSocketConnected;
+      debugLog(
+        `signaling websocket initial state: ${state.isWebSocketConnected ? "connected" : "disconnected"}`,
+      );
+      return;
     }
 
-    if (live.browserOffer && live.agentAnswer && live.slug === activeSlug) {
-      if (live.browserCandidates.length > lastBrowserCandidateCount) {
-        const newCandidates = live.browserCandidates.slice(lastBrowserCandidateCount);
-        lastBrowserCandidateCount = live.browserCandidates.length;
-
-        for (const c of newCandidates) {
-          try {
-            const parsed = JSON.parse(c);
-            if (typeof parsed.candidate !== "string") continue;
-            const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
-            if (!peer) continue;
-            peer.addRemoteCandidate(parsed.candidate, sdpMid);
-          } catch (error) {
-            debugLog("failed to parse/apply browser ICE candidate", error);
-          }
-        }
+    if (state.isWebSocketConnected !== signalingConnectionOpen) {
+      signalingConnectionOpen = state.isWebSocketConnected;
+      if (state.isWebSocketConnected) {
+        debugLog("signaling websocket reconnected");
+      } else {
+        markError(
+          `signaling websocket disconnected (retries=${state.connectionRetries}, connections=${state.connectionCount})`,
+        );
       }
     }
   }
 
-  async function runPollingLoop(): Promise<void> {
-    if (stopped) return;
-
-    let retryAfterSeconds: number | undefined;
-    try {
-      await pollSignalingOnce();
-    } catch (error) {
-      if (error instanceof PubApiError && error.status === 429) {
-        retryAfterSeconds = error.retryAfterSeconds;
-      }
-      markError("signaling poll failed", error);
-    }
-
-    const baseDelay = getSignalPollDelayMs({
-      hasActiveConnection: connected,
-      retryAfterSeconds,
+  function startSignalingSubscription(): void {
+    if (signalingClient) return;
+    signalingClient = new ConvexClient(apiClient.getBaseUrl(), {
+      onServerDisconnectError: (message) => {
+        markError(`signaling server disconnect: ${message}`);
+      },
     });
-    scheduleNextPoll(baseDelay);
+
+    connectionStateUnsubscribe = signalingClient.subscribeToConnectionState((state) => {
+      observeSignalingConnectionState({
+        isWebSocketConnected: state.isWebSocketConnected,
+        connectionCount: state.connectionCount,
+        connectionRetries: state.connectionRetries,
+      });
+    });
+
+    const unsubscribe = signalingClient.onUpdate(
+      LIVE_SIGNAL_QUERY,
+      { apiKey: apiClient.getApiKey() },
+      (result) => {
+        let live: LiveInfo | null;
+        try {
+          live = parseLiveSnapshot(result);
+        } catch (error) {
+          markError("received malformed signaling snapshot", error);
+          return;
+        }
+        enqueueSignalingSnapshot(live);
+      },
+      (error) => {
+        markError("signaling subscription failed", error);
+      },
+    );
+    signalingUnsubscribe = () => unsubscribe();
+  }
+
+  async function stopSignalingSubscription(): Promise<void> {
+    if (signalingUnsubscribe) {
+      signalingUnsubscribe();
+      signalingUnsubscribe = null;
+    }
+    if (connectionStateUnsubscribe) {
+      connectionStateUnsubscribe();
+      connectionStateUnsubscribe = null;
+    }
+    if (signalingClient) {
+      await signalingClient.close().catch((error) => {
+        debugLog("failed to close signaling client cleanly", error);
+      });
+      signalingClient = null;
+    }
+    signalingConnectionKnown = false;
+    signalingConnectionOpen = false;
   }
 
   // -- Socket stale check ---------------------------------------------------
@@ -654,7 +743,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   );
 
   startHealthCheckTimer();
-  scheduleNextPoll(0);
+  startSignalingSubscription();
 
   // -- In-process bridge runner ---------------------------------------------
 
@@ -707,11 +796,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (stopped) return;
     stopped = true;
 
-    clearPollingTimer();
     clearLocalCandidateTimers();
     clearHealthCheckTimer();
     clearHeartbeatTimer();
     stopPingPong();
+    await stopSignalingSubscription();
 
     try {
       await apiClient.goOffline();
@@ -837,6 +926,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return {
           ok: true,
           connected,
+          signalingConnected: signalingConnectionKnown ? signalingConnectionOpen : null,
           activeSlug,
           uptime: Math.floor((Date.now() - startTime) / 1000),
           channels: [...channels.keys()],
