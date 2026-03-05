@@ -34,9 +34,7 @@ export function useLivePageModel(slug: string) {
     setAnimationStyle,
     setAutoOpenCanvas,
     setMicGranted,
-    setShowDeliveryStatus,
     setVoiceModeEnabled,
-    showDeliveryStatus,
     voiceModeEnabled,
   } = useLivePreferences();
 
@@ -163,10 +161,8 @@ export function useLivePageModel(slug: string) {
     setAutoOpenCanvas,
     setDeveloperModeEnabled,
     setMicGranted,
-    setShowDeliveryStatus,
     setViewMode,
     setVoiceModeEnabled,
-    showDeliveryStatus,
     takeoverLive,
     viewMode,
     visualState,

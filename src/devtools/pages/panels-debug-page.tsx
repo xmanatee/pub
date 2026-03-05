@@ -13,7 +13,14 @@ const SAMPLE_MESSAGES: ChatEntry[] = [
     content: "Hi there! How can I help you today?",
     timestamp: 2,
   },
-  { id: "3", from: "user", type: "text", content: "Show me something", timestamp: 3 },
+  {
+    id: "3",
+    from: "user",
+    type: "text",
+    content: "Show me something",
+    timestamp: 3,
+    delivery: "sent",
+  },
 ];
 
 const SAMPLE_FILES: ReceivedFile[] = [
@@ -48,12 +55,7 @@ function TmaWrapper({ children }: { children: React.ReactNode }) {
 
 export function PanelsDebugPage() {
   const chatPanel = (
-    <ChatPanel
-      files={SAMPLE_FILES}
-      messages={SAMPLE_MESSAGES}
-      messagesEndRef={messagesEndRef}
-      showDeliveryStatus
-    />
+    <ChatPanel files={SAMPLE_FILES} messages={SAMPLE_MESSAGES} messagesEndRef={messagesEndRef} />
   );
 
   const settingsPanel = (
@@ -63,7 +65,6 @@ export function PanelsDebugPage() {
           autoOpenCanvas: true,
           animationStyle: "aurora",
           developerModeEnabled: false,
-          showDeliveryStatus: true,
           voiceModeEnabled: false,
         },
         stats: {
@@ -79,7 +80,6 @@ export function PanelsDebugPage() {
         onClearFiles: noop,
         onClearMessages: noop,
         onDeveloperModeChange: noop,
-        onShowDeliveryStatusChange: noop,
         onVoiceModeEnabledChange: noop,
       }}
     />

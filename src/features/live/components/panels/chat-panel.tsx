@@ -7,7 +7,7 @@ import {
   ImageIcon,
   Paperclip,
 } from "lucide-react";
-import type { ReactNode, RefObject } from "react";
+import type { RefObject } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { AudioBubble } from "~/features/live/components/audio/audio-bubble";
@@ -29,11 +29,11 @@ function DeliveryIcon({
   if (delivery === "sending") return <Clock className={`${base} opacity-70`} />;
   if (delivery === "sent") return <Check className={`${base} opacity-70`} />;
   if (delivery === "received") return <CheckCheck className={`${base} opacity-70`} />;
-  if (delivery === "confirmed") return <CheckCheck className={`${base} text-primary`} />;
+  if (delivery === "confirmed") return <CheckCheck className={base} />;
   return <AlertCircle className={`${base} text-destructive`} />;
 }
 
-function ImageBubble({ entry, suffix }: { entry: ImageChatEntry; suffix?: ReactNode }) {
+function ImageBubble({ entry }: { entry: ImageChatEntry }) {
   return (
     <div className="space-y-1">
       <img
@@ -46,13 +46,12 @@ function ImageBubble({ entry, suffix }: { entry: ImageChatEntry; suffix?: ReactN
       <div className="flex items-center gap-1 text-xs opacity-70">
         <ImageIcon className="size-3" />
         <span>{entry.mime}</span>
-        {suffix}
       </div>
     </div>
   );
 }
 
-function AttachmentBubble({ entry, suffix }: { entry: AttachmentChatEntry; suffix?: ReactNode }) {
+function AttachmentBubble({ entry }: { entry: AttachmentChatEntry }) {
   const content = (
     <>
       <Paperclip className="size-4 shrink-0" />
@@ -62,7 +61,6 @@ function AttachmentBubble({ entry, suffix }: { entry: AttachmentChatEntry; suffi
           {entry.mime} - {Math.max(1, Math.round(entry.size / 1024))} KB
         </div>
       </div>
-      {suffix}
     </>
   );
 
@@ -77,11 +75,11 @@ function AttachmentBubble({ entry, suffix }: { entry: AttachmentChatEntry; suffi
   );
 }
 
-function ChatBubble({ msg, showDeliveryStatus }: { msg: ChatEntry; showDeliveryStatus: boolean }) {
+function ChatBubble({ msg }: { msg: ChatEntry }) {
   const isUser = msg.from === "user";
   const bubbleClass = isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground";
 
-  const delivery = showDeliveryStatus && isUser ? msg.delivery : undefined;
+  const delivery = isUser ? (msg.delivery ?? "sending") : undefined;
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -102,11 +100,12 @@ function ChatBubble({ msg, showDeliveryStatus }: { msg: ChatEntry; showDeliveryS
             {delivery && <DeliveryIcon delivery={delivery} />}
           </div>
         )}
-        {msg.type === "image" && (
-          <ImageBubble entry={msg} suffix={delivery && <DeliveryIcon delivery={delivery} />} />
-        )}
-        {msg.type === "attachment" && (
-          <AttachmentBubble entry={msg} suffix={delivery && <DeliveryIcon delivery={delivery} />} />
+        {msg.type === "image" && <ImageBubble entry={msg} />}
+        {msg.type === "attachment" && <AttachmentBubble entry={msg} />}
+        {delivery && (msg.type === "image" || msg.type === "attachment") && (
+          <div className="flex justify-end mt-1">
+            <DeliveryIcon delivery={delivery} />
+          </div>
         )}
       </div>
     </div>
@@ -117,12 +116,10 @@ export function ChatPanel({
   files,
   messages,
   messagesEndRef,
-  showDeliveryStatus,
 }: {
   files: ReceivedFile[];
   messages: ChatEntry[];
   messagesEndRef: RefObject<HTMLDivElement | null>;
-  showDeliveryStatus: boolean;
 }) {
   return (
     <div
@@ -138,7 +135,7 @@ export function ChatPanel({
       )}
 
       {messages.map((msg) => (
-        <ChatBubble key={msg.id} msg={msg} showDeliveryStatus={showDeliveryStatus} />
+        <ChatBubble key={msg.id} msg={msg} />
       ))}
 
       {files.length > 0 && (

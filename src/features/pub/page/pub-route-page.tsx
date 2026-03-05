@@ -68,7 +68,6 @@ export function PubRoutePage({ slug }: { slug: string }) {
       autoOpenCanvas: model.autoOpenCanvas,
       animationStyle: model.animationStyle,
       developerModeEnabled: model.developerModeEnabled,
-      showDeliveryStatus: model.showDeliveryStatus,
       voiceModeEnabled: model.voiceModeEnabled,
     },
     stats: {
@@ -85,7 +84,6 @@ export function PubRoutePage({ slug }: { slug: string }) {
     onClearFiles: model.clearFiles,
     onClearMessages: model.clearMessages,
     onDeveloperModeChange: model.setDeveloperModeEnabled,
-    onShowDeliveryStatusChange: model.setShowDeliveryStatus,
     onVoiceModeEnabledChange: model.setVoiceModeEnabled,
   };
 
@@ -169,7 +167,6 @@ export function PubRoutePage({ slug }: { slug: string }) {
             files={model.files}
             messages={model.messages}
             messagesEndRef={model.messagesEndRef}
-            showDeliveryStatus={model.showDeliveryStatus}
           />
         ) : null}
 

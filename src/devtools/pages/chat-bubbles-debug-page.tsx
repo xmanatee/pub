@@ -104,12 +104,7 @@ const messagesEndRef = { current: null };
 function StaticChat({ messages }: { messages: ChatEntry[] }) {
   return (
     <div className="relative h-full bg-background">
-      <ChatPanel
-        files={[]}
-        messages={messages}
-        messagesEndRef={messagesEndRef}
-        showDeliveryStatus={true}
-      />
+      <ChatPanel files={[]} messages={messages} messagesEndRef={messagesEndRef} />
     </div>
   );
 }

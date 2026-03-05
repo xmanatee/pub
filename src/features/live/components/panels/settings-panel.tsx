@@ -15,7 +15,6 @@ export interface SettingsPanelModel {
     autoOpenCanvas: boolean;
     animationStyle: LiveAnimationStyle;
     developerModeEnabled: boolean;
-    showDeliveryStatus: boolean;
     voiceModeEnabled: boolean;
   };
   stats: {
@@ -32,7 +31,6 @@ export interface SettingsPanelActions {
   onClearFiles: () => void;
   onClearMessages: () => void;
   onDeveloperModeChange: (value: boolean) => void;
-  onShowDeliveryStatusChange: (value: boolean) => void;
   onVoiceModeEnabledChange: (value: boolean) => void;
 }
 
@@ -50,17 +48,10 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
     onClearFiles,
     onClearMessages,
     onDeveloperModeChange,
-    onShowDeliveryStatusChange,
     onVoiceModeEnabledChange,
   } = actions;
 
-  const {
-    autoOpenCanvas,
-    animationStyle,
-    developerModeEnabled,
-    showDeliveryStatus,
-    voiceModeEnabled,
-  } = behavior;
+  const { autoOpenCanvas, animationStyle, developerModeEnabled, voiceModeEnabled } = behavior;
   const { fileCount, hasCanvasContent, messageCount } = stats;
 
   return (
@@ -81,18 +72,6 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
               </div>
             </div>
             <Switch checked={autoOpenCanvas} onCheckedChange={onAutoOpenCanvasChange} />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium">Show delivery status in chat</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Show delivery checkmarks under your messages.
-              </div>
-            </div>
-            <Switch checked={showDeliveryStatus} onCheckedChange={onShowDeliveryStatusChange} />
           </div>
 
           <Separator />

@@ -12,12 +12,7 @@ const messagesEndRef = { current: null };
 
 function renderPanel(messages: ChatEntry[]) {
   return renderToStaticMarkup(
-    <ChatPanel
-      files={[]}
-      messages={messages}
-      messagesEndRef={messagesEndRef}
-      showDeliveryStatus={true}
-    />,
+    <ChatPanel files={[]} messages={messages} messagesEndRef={messagesEndRef} />,
   );
 }
 

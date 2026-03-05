@@ -7,7 +7,6 @@ import {
 
 const STORAGE_KEYS = {
   autoOpenCanvas: "pubblue:live:auto-open-canvas",
-  showDeliveryStatus: "pubblue:live:show-delivery-status",
   animationStyle: "pubblue:live:animation-style",
   voiceModeEnabled: "pubblue:live:voice-mode-enabled",
   micGranted: "pubblue:live:mic-granted",
@@ -39,9 +38,6 @@ export function useLivePreferences() {
   const [autoOpenCanvas, setAutoOpenCanvas] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.autoOpenCanvas, true),
   );
-  const [showDeliveryStatus, setShowDeliveryStatus] = useState(() =>
-    readStoredBoolean(STORAGE_KEYS.showDeliveryStatus, true),
-  );
   const [animationStyle, setAnimationStyle] =
     useState<LiveAnimationStyle>(readStoredAnimationStyle);
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
@@ -54,10 +50,6 @@ export function useLivePreferences() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.autoOpenCanvas, autoOpenCanvas ? "1" : "0");
   }, [autoOpenCanvas]);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.showDeliveryStatus, showDeliveryStatus ? "1" : "0");
-  }, [showDeliveryStatus]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.animationStyle, animationStyle);
@@ -74,8 +66,6 @@ export function useLivePreferences() {
   return {
     autoOpenCanvas,
     setAutoOpenCanvas,
-    showDeliveryStatus,
-    setShowDeliveryStatus,
     animationStyle,
     setAnimationStyle,
     voiceModeEnabled,
