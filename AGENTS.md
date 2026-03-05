@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for publishing content and running WebRTC live sessions, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for helping an AI agent show and visualize output over the web. A pub can have static content (HTML, Markdown, text), a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 

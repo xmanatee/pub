@@ -17,20 +17,20 @@ export function HeroSection() {
         <div className="pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
           <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs font-medium gap-1.5">
             <Zap className="h-3 w-3" aria-hidden="true" />
-            Built for developers and AI agents
+            Built for AI agents and developers
           </Badge>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.05] mb-6 text-balance">
-            Publish content.
+            Show what your AI agent built.
             <br />
             <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Get a URL instantly.
+              Publish and visualize instantly.
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Push HTML, Markdown, or text to the web in one command. Built for quick demos, previews,
-            and agent-generated content.
+            Turn agent output into shareable pages, then go live for interactive chat and canvas
+            visualizations in the same URL.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -38,10 +38,10 @@ export function HeroSection() {
               size="lg"
               className="h-12 px-8 text-base"
               asChild
-              onClick={() => trackCtaClicked({ cta: "start_publishing", location: "hero" })}
+              onClick={() => trackCtaClicked({ cta: "start_visualizing", location: "hero" })}
             >
               <Link to="/login">
-                Start publishing
+                Start visualizing
                 <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
               </Link>
             </Button>

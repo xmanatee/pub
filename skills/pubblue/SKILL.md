@@ -1,19 +1,18 @@
 ---
 name: pubblue
 description: >-
-  Publish files or generated content via the pubblue CLI, and go live for
-  live P2P browser communication.
+  Publish and visualize output via the pubblue CLI, with live P2P browser sessions.
 license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "5.1.0"
+  version: "5.1.1"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
 # pubblue
 
-Use this skill when the user asks about `pubblue`, `pub.blue`, publishing content, or live chat/canvas sessions.
+Use this skill when the user asks to publish some content, show or visualize anything.
 
 ## Required CLI Version
 
@@ -35,7 +34,7 @@ echo "pub_KEY" | pubblue configure --api-key-stdin
 
 Key source: <https://pub.blue/dashboard>
 
-## Core Publish Commands
+## Core Commands
 
 ```bash
 pubblue create page.html
@@ -53,6 +52,7 @@ pubblue delete <slug>
 ```
 
 Notes:
+- Pub is built for agent-driven publishing and live visualization.
 - Pubs are **private by default**.
 - `create` supports `--public/--private`, `--title`, `--slug`, `--expires`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
