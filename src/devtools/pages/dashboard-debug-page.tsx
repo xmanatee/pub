@@ -1,3 +1,5 @@
+import { FileText, Key, User } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -64,6 +66,29 @@ export function DashboardDebugPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Dashboard Debug</h1>
+
+        <section data-testid="batch-dashboard-tabs" className="bg-white p-6">
+          <div className="mb-5 text-center text-sm font-semibold">Dashboard Tabs</div>
+          <Tabs defaultValue="keys">
+            <TabsList>
+              <TabsTrigger value="pubs">
+                <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Pubs
+              </TabsTrigger>
+              <TabsTrigger value="keys">
+                <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Agent and Keys
+                <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
+                  3
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="account">
+                <User className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Account
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </section>
 
         <section data-testid="batch-dashboard-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>

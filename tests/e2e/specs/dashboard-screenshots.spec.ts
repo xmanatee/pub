@@ -10,6 +10,12 @@ test.describe("Dashboard screenshots", () => {
     await freezeAnimations(page);
   });
 
+  test("tabs with agent count", async ({ page }) => {
+    const section = page.getByTestId("batch-dashboard-tabs");
+    await expect(section).toBeVisible();
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-tabs-agent-and-keys.png`);
+  });
+
   test("pub cards", async ({ page }) => {
     const section = page.getByTestId("batch-dashboard-cards");
     await expect(section).toBeVisible();
