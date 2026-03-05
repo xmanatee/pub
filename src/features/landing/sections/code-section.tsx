@@ -1,0 +1,59 @@
+import { Terminal } from "lucide-react";
+import { TerminalPreview } from "~/components/terminal-preview";
+
+export function CodeSection() {
+  return (
+    <section className="py-24">
+      <div className="px-4 sm:px-6">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
+            Simple as one command
+          </h2>
+          <p className="text-muted-foreground text-lg">
+            Publish from terminal, CI, or your AI agent.
+          </p>
+        </div>
+
+        <div className="max-w-2xl mx-auto">
+          <TerminalPreview
+            className="shadow-2xl shadow-primary/5"
+            headerRight={
+              <div className="ml-auto flex items-center gap-1.5 text-white/40">
+                <Terminal className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="text-xs font-mono">terminal</span>
+              </div>
+            }
+          >
+            <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
+              <div>
+                <div className="text-white/40 text-xs mb-1"># Create a pub</div>
+                <div className="text-white/70">
+                  <span className="text-primary">$</span> pubblue create index.html
+                </div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/k8f2m9</div>
+              </div>
+
+              <div>
+                <div className="text-white/40 text-xs mb-1"># Custom slug + title</div>
+                <div className="text-white/70">
+                  <span className="text-primary">$</span> pubblue create --slug my-demo --title
+                  "Demo Page" report.md
+                </div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/my-demo</div>
+              </div>
+
+              <div>
+                <div className="text-white/40 text-xs mb-1"># Pipe from stdin</div>
+                <div className="text-white/70">
+                  <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" |
+                  pubblue create
+                </div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/w3n7q1</div>
+              </div>
+            </div>
+          </TerminalPreview>
+        </div>
+      </div>
+    </section>
+  );
+}
