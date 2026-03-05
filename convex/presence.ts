@@ -67,7 +67,7 @@ export const goOffline = internalMutation({
 
     await ctx.db.patch(presence._id, { status: "offline" });
 
-    await closeActiveLivesForUser(ctx.db, userId);
+    await deleteActiveLivesForUser(ctx.db, userId);
   },
 });
 
@@ -80,7 +80,7 @@ export const checkStaleness = internalMutation({
     const elapsed = Date.now() - presence.lastHeartbeatAt;
     if (elapsed >= STALENESS_THRESHOLD_MS) {
       await ctx.db.patch(presenceId, { status: "offline" });
-      await closeActiveLivesForUser(ctx.db, presence.userId);
+      await deleteActiveLivesForUser(ctx.db, presence.userId);
     }
   },
 });
@@ -103,14 +103,14 @@ export const isAgentOnline = query({
   },
 });
 
-async function closeActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, userId: Id<"users">) {
+async function deleteActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, userId: Id<"users">) {
   const lives = await db
     .query("lives")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   for (const live of lives) {
     if (live.status === "active") {
-      await db.patch(live._id, { status: "closed" });
+      await db.delete(live._id);
     }
   }
 }
