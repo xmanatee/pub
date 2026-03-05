@@ -6,11 +6,11 @@ import * as React from "react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { AccountTab } from "~/features/dashboard/components/account-tab";
+import { ApiKeysTab } from "~/features/dashboard/components/api-keys-tab";
+import { PubsTab } from "~/features/dashboard/components/pubs-tab";
 import { resetIdentity, trackDashboardTabChanged, trackSignOut } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
-import { ApiKeysTab } from "./api-keys-tab";
-import { PubsTab } from "./pubs-tab";
 
 export function DashboardPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
