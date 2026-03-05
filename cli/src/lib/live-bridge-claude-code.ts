@@ -5,7 +5,6 @@ import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/br
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
-import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 import {
   type BridgeRunner,
   type BridgeRunnerConfig,
@@ -18,6 +17,7 @@ import {
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-shared.js";
+import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 
 export function isClaudeCodeAvailable(): boolean {
   return isClaudeCodeAvailableInEnv(process.env);
