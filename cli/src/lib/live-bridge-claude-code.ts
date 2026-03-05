@@ -198,7 +198,11 @@ export async function createClaudeCodeBridgeRunner(
         return;
       }
 
-      if (entry.msg.type === "binary" || entry.msg.type === "stream-start") {
+      if (
+        entry.msg.type === "binary" ||
+        entry.msg.type === "stream-start" ||
+        entry.msg.type === "stream-end"
+      ) {
         const streamId =
           typeof entry.msg.meta?.streamId === "string" ? entry.msg.meta.streamId : undefined;
         if (entry.msg.type === "binary" && streamId) return;
@@ -210,11 +214,13 @@ export async function createClaudeCodeBridgeRunner(
           stage: "failed",
           error: "Attachments are not supported in Claude Code bridge mode.",
         });
-        void sendMessage(CHANNELS.CHAT, {
-          id: generateMessageId(),
-          type: "text",
-          data: "Attachments are not supported in Claude Code bridge mode.",
-        });
+        if (entry.msg.type !== "stream-end") {
+          void sendMessage(CHANNELS.CHAT, {
+            id: generateMessageId(),
+            type: "text",
+            data: "Attachments are not supported in Claude Code bridge mode.",
+          });
+        }
       }
     },
     onError: (error, entry) => {

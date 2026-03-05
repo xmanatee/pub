@@ -122,6 +122,7 @@ export function useLiveChatDelivery() {
           from: "user",
           imageUrl: params.imageUrl,
           mime: params.mime,
+          size: params.size,
           width: params.width,
           height: params.height,
           timestamp: Date.now(),
@@ -169,11 +170,8 @@ export function useLiveChatDelivery() {
       prev.map((entry) =>
         entry.from === "user" &&
         entry.id === messageId &&
-        (entry.delivery === "sending" ||
-          entry.delivery === "sent" ||
-          entry.delivery === "received" ||
-          entry.delivery === "confirmed")
-          ? { ...entry, delivery: entry.delivery === "confirmed" ? "confirmed" : "received" }
+        (entry.delivery === "sending" || entry.delivery === "sent")
+          ? { ...entry, delivery: "received" }
           : entry,
       ),
     );

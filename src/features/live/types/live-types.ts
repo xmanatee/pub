@@ -60,6 +60,7 @@ export interface ImageChatEntry extends ChatEntryBase {
   type: "image";
   imageUrl: string;
   mime: string;
+  size?: number;
   width?: number;
   height?: number;
 }

@@ -205,7 +205,11 @@ export function useLiveTransport({
   );
 
   const handleDeliveryReceipt = useCallback(
-    (receipt: { channel: string; messageId: string; stage: "received" | "confirmed" | "failed" }) => {
+    (receipt: {
+      channel: string;
+      messageId: string;
+      stage: "received" | "confirmed" | "failed";
+    }) => {
       if (
         receipt.channel !== CHANNELS.CHAT &&
         receipt.channel !== CHANNELS.AUDIO &&
@@ -328,7 +332,7 @@ export function useLiveTransport({
   const sendAudio = useCallback(
     (blob: Blob) => {
       const audioUrl = URL.createObjectURL(blob);
-      const id = crypto.randomUUID();
+      const id = generateMessageId();
       addUserPendingAudioMessage({
         audioUrl,
         id,
@@ -385,7 +389,11 @@ export function useLiveTransport({
           }
         }
 
-        const ended = await bridge.sendWithAck(channel, makeStreamEnd(startMsg.id), STREAM_ACK_TIMEOUT_MS);
+        const ended = await bridge.sendWithAck(
+          channel,
+          makeStreamEnd(startMsg.id),
+          STREAM_ACK_TIMEOUT_MS,
+        );
         if (!ended) {
           markMessageFailedIfPending(id);
           return;
@@ -402,11 +410,17 @@ export function useLiveTransport({
       const isHtml = file.name.endsWith(".html") || file.name.endsWith(".htm");
       if (isHtml) {
         const bridge = bridgeRef.current;
-        if (!bridge) return;
+        if (!bridge) {
+          console.warn("Cannot send HTML file: bridge not connected");
+          return;
+        }
         void (async () => {
           const text = await file.text();
           const ready = await ensureChannelReady(bridge, CHANNELS.CANVAS);
-          if (!ready) return;
+          if (!ready) {
+            console.warn("Cannot send HTML file: canvas channel not ready");
+            return;
+          }
           bridge.send(CHANNELS.CANVAS, makeHtmlMessage(text, file.name));
         })();
         return;
