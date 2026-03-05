@@ -3,9 +3,9 @@ import { useControlBarAudio } from "~/features/live/hooks/use-control-bar-audio"
 import { useControlBarText } from "~/features/live/hooks/use-control-bar-text";
 import { useFileUpload } from "~/features/live/hooks/use-file-upload";
 import { useHoldToRecord } from "~/features/live/hooks/use-hold-to-record";
+import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
 import { useLongPress } from "~/hooks/use-long-press";
-import type { BrowserBridge } from "~/lib/webrtc-browser";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarShell } from "./control-bar-shell";

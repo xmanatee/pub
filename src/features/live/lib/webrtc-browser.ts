@@ -9,7 +9,7 @@ import {
   createBrowserOffer,
   parseSessionDescription,
   type SessionDescriptionPayload,
-} from "../../shared/webrtc-negotiation-core";
+} from "../../../../shared/webrtc-negotiation-core";
 import { resolveAckChannel } from "./ack-routing";
 import type { BridgeMessage } from "./bridge-protocol";
 import {

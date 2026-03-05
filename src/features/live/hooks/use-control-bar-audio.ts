@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
+import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
+import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
+import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 import {
   canStartRecording,
   canStartVoice,
@@ -7,9 +10,6 @@ import {
   toBarMode,
 } from "~/features/live/model/control-bar-audio-machine";
 import { trackError } from "~/lib/analytics";
-import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/lib/bridge-protocol";
-import type { BrowserBridge } from "~/lib/webrtc-browser";
-import { ensureChannelReady } from "~/lib/webrtc-channel";
 
 export type { BarMode } from "~/features/live/model/control-bar-audio-machine";
 

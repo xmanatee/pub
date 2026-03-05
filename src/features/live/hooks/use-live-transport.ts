@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveBridge } from "~/features/live/hooks/use-live-bridge";
-import type { LiveViewMode } from "~/features/live/types/live-types";
-import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 import {
   CHANNELS,
   makeStreamEnd,
   makeStreamStart,
   makeTextMessage,
   type SessionContextPayload,
-} from "~/lib/bridge-protocol";
-import type { ChannelMessage } from "~/lib/webrtc-browser";
-import { ensureChannelReady } from "~/lib/webrtc-channel";
+} from "~/features/live/lib/bridge-protocol";
+import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
+import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
+import type { LiveViewMode } from "~/features/live/types/live-types";
+import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 

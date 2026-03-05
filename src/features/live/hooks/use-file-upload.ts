@@ -1,7 +1,11 @@
 import { type ChangeEvent, useCallback, useRef } from "react";
-import { CHANNELS, makeBinaryMetaMessage, makeHtmlMessage } from "~/lib/bridge-protocol";
-import type { BrowserBridge } from "~/lib/webrtc-browser";
-import { ensureChannelReady } from "~/lib/webrtc-channel";
+import {
+  CHANNELS,
+  makeBinaryMetaMessage,
+  makeHtmlMessage,
+} from "~/features/live/lib/bridge-protocol";
+import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
+import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 
 interface UseFileUploadOptions {
   bridge: BrowserBridge | null;

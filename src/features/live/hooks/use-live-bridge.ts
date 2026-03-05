@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { trackError } from "~/lib/analytics";
 import {
   type BridgeMessageMeta,
   CONTROL_CHANNEL,
   type DeliveryAckPayload,
   makeEventMessage,
   type SessionContextPayload,
-} from "~/lib/bridge-protocol";
-import type { BridgeState, ChannelMessage } from "~/lib/webrtc-browser";
-import { BrowserBridge } from "~/lib/webrtc-browser";
+} from "~/features/live/lib/bridge-protocol";
+import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-browser";
+import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
+import { trackError } from "~/lib/analytics";
 
 interface UseLiveBridgeOptions {
   slug: string;

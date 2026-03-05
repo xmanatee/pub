@@ -4,9 +4,9 @@ import { useLiveFiles } from "~/features/live/hooks/use-live-files";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
+import type { SessionContextPayload } from "~/features/live/lib/bridge-protocol";
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
-import type { SessionContextPayload } from "~/lib/bridge-protocol";
 
 const CHAT_CONFIRM_GRACE_MS = 12_000;
 const CONTENT_PREVIEW_MAX_LENGTH = 500;

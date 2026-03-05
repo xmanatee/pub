@@ -1,4 +1,4 @@
-export * from "../../shared/bridge-protocol-core";
+export * from "../../../../shared/bridge-protocol-core";
 
 export const STUN_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveAckChannel as resolveCliAckChannel } from "../../cli/src/lib/ack-routing";
-import * as cliBridgeProtocol from "../../cli/src/lib/bridge-protocol";
+import { resolveAckChannel as resolveCliAckChannel } from "../../../../cli/src/lib/ack-routing";
+import * as cliBridgeProtocol from "../../../../cli/src/lib/bridge-protocol";
 import { resolveAckChannel as resolveAppAckChannel } from "./ack-routing";
 import * as appBridgeProtocol from "./bridge-protocol";
 

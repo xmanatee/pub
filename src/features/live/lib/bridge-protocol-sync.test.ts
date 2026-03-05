@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as cliProtocol from "../../cli/src/lib/bridge-protocol";
+import * as cliProtocol from "../../../../cli/src/lib/bridge-protocol";
 import * as webProtocol from "./bridge-protocol";
 
 describe("bridge protocol sync (web <-> cli)", () => {

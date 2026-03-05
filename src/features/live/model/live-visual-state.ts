@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import type { BridgeState } from "~/features/live/lib/webrtc-browser";
 import type { LiveVisualState } from "~/features/live/types/live-types";
-import type { BridgeState } from "~/lib/webrtc-browser";
 
 const RECENT_AGENT_ACTIVITY_WINDOW_MS = 4_000;
 const RECENT_USER_DELIVERED_WINDOW_MS = 12_000;
