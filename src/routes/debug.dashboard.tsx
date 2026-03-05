@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { LiveBanners } from "~/components/dashboard/live-banners";
-import { PubsGrid } from "~/components/dashboard/pubs-grid";
+import { LiveBanners } from "~/features/dashboard/components/live-banners";
+import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/debug/dashboard")({

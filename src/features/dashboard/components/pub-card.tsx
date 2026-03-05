@@ -1,13 +1,13 @@
 import { Clock, ExternalLink, FileText, Globe, Lock, Trash2 } from "lucide-react";
-import { CopyButton } from "~/components/copy-button";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { VisibilityBadge } from "~/components/visibility-badge";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
 import { buildHtmlSrcdoc, buildTextSrcdoc, formatRelativeTime } from "~/lib/pub-preview";
 import { telegramConfirm } from "~/lib/telegram";
-import type { Id } from "../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { CopyButton } from "./copy-button";
+import { VisibilityBadge } from "./visibility-badge";
 
 interface PubCardProps {
   pub: {

@@ -1,10 +1,10 @@
 import { useMutation, useQuery } from "convex/react";
 import { Key, Plus, Rss, Trash2 } from "lucide-react";
 import * as React from "react";
-import { CopyButton } from "~/components/copy-button";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { CopyButton } from "~/features/dashboard/components/copy-button";
 import { trackApiKeyCopied, trackApiKeyCreated, trackApiKeyDeleted } from "~/lib/analytics";
 import { telegramConfirm } from "~/lib/telegram";
 import { api } from "../../../../convex/_generated/api";

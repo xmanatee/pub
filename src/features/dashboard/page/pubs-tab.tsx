@@ -1,8 +1,8 @@
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileText } from "lucide-react";
-import { LiveBanners } from "~/components/dashboard/live-banners";
-import { PubsGrid } from "~/components/dashboard/pubs-grid";
 import { Card, CardContent } from "~/components/ui/card";
+import { LiveBanners } from "~/features/dashboard/components/live-banners";
+import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import { api } from "../../../../convex/_generated/api";
 
 export function PubsTab() {

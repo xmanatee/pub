@@ -8,7 +8,7 @@ import { Switch } from "~/components/ui/switch";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 
 const PROVIDER_LABELS: Record<string, string> = {
   github: "GitHub",

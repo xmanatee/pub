@@ -1,6 +1,6 @@
-import { PubCard } from "~/components/pub-card";
 import { Button } from "~/components/ui/button";
-import type { Id } from "../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { PubCard } from "./pub-card";
 
 export interface PubGridItem {
   _id: Id<"pubs">;
