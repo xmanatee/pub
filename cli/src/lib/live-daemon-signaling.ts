@@ -138,14 +138,11 @@ export function createSignalingController(params: SignalingControllerParams): Si
 
   function start(): void {
     if (signalingClient) return;
-    signalingClient = new ConvexClient(
-      apiClient.getConvexCloudUrl(),
-      {
-        onServerDisconnectError: (message) => {
-          markError(`signaling server disconnect: ${message}`);
-        },
+    signalingClient = new ConvexClient(apiClient.getConvexCloudUrl(), {
+      onServerDisconnectError: (message) => {
+        markError(`signaling server disconnect: ${message}`);
       },
-    );
+    });
 
     connectionStateUnsubscribe = signalingClient.subscribeToConnectionState((state) => {
       observeSignalingConnectionState({
