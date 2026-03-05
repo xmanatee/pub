@@ -1,15 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ControlBar } from "~/features/live/components/control-bar/control-bar";
-import { ControlBarGoLiveMode } from "~/features/live/components/control-bar/control-bar-go-live-mode";
 import { CanvasPanel } from "~/features/live/components/panels/canvas-panel";
-import { ChatPanel } from "~/features/live/components/panels/chat-panel";
 import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
-import { useChatPreview } from "~/features/live/hooks/use-chat-preview";
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { useLivePageModel } from "~/features/live/hooks/use-live-page-model";
 import { readStoredAnimationStyle } from "~/features/live/hooks/use-live-preferences";
+import { ChatPanel } from "~/features/live-chat/components/chat-panel";
+import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
+import { ControlBar } from "~/features/live-control-bar/components/control-bar";
+import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
 import { trackPubViewed } from "~/lib/analytics";
 import { api } from "../../../../convex/_generated/api";
 

@@ -1,6 +1,6 @@
 import { Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AudioChatEntry } from "~/features/live/types/live-types";
+import type { AudioChatEntry } from "~/features/live-chat/types/live-chat-types";
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);

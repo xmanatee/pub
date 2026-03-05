@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReceivedFile } from "~/features/live/types/live-types";
+import type { ReceivedFile } from "~/features/live-chat/types/live-chat-types";
 
 interface AddReceivedBinaryFileParams {
   binaryData: ArrayBuffer;

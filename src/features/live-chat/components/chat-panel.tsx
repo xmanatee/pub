@@ -10,13 +10,13 @@ import {
 import type { RefObject } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { AudioBubble } from "~/features/live/components/audio/audio-bubble";
+import { AudioBubble } from "~/features/live-chat/components/audio-bubble";
 import type {
   AttachmentChatEntry,
   ChatEntry,
   ImageChatEntry,
   ReceivedFile,
-} from "~/features/live/types/live-types";
+} from "~/features/live-chat/types/live-chat-types";
 
 function DeliveryIcon({
   delivery,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BatchSection } from "~/devtools/components/batch-section";
-import { ControlBar } from "~/features/live/components/control-bar/control-bar";
 import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
+import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",

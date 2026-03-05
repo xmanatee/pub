@@ -4,7 +4,7 @@ import {
   cleanupHoldListeners,
   shouldStartHold,
   shouldStartKeyboardCapture,
-} from "~/features/live/utils/hold-to-record-logic";
+} from "~/features/live-control-bar/utils/hold-to-record-logic";
 
 describe("hold-to-record logic", () => {
   it("ignores non-primary mouse button pointerdown", () => {

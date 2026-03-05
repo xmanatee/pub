@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatEntry, LiveViewMode } from "~/features/live/types/live-types";
+import type { LiveViewMode } from "~/features/live/types/live-types";
+import type { ChatEntry } from "~/features/live-chat/types/live-chat-types";
 
 const AUTO_DISMISS_MS = 5_000;
 

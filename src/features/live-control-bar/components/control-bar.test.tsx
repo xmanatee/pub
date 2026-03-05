@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "~/components/ui/tooltip";
-import type { BarMode } from "~/features/live/hooks/use-control-bar-audio";
+import type { BarMode } from "~/features/live-control-bar/hooks/use-control-bar-audio";
 import { ControlBar } from "./control-bar";
 
 type MockAudioState = {
@@ -24,7 +24,7 @@ const mockAudioState: MockAudioState = {
   mode: "idle",
 };
 
-vi.mock("~/features/live/hooks/use-control-bar-audio", () => ({
+vi.mock("~/features/live-control-bar/hooks/use-control-bar-audio", () => ({
   useControlBarAudio: () => ({
     barsRef: { current: null },
     cancelRecording: mockAudioHandlers.cancelRecording,
@@ -39,7 +39,7 @@ vi.mock("~/features/live/hooks/use-control-bar-audio", () => ({
   }),
 }));
 
-vi.mock("~/features/live/hooks/use-hold-to-record", () => ({
+vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
   useHoldToRecord: () => ({
     pointerHandlers: {
       onClick: vi.fn(),

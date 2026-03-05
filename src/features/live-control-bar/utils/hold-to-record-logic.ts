@@ -1,4 +1,4 @@
-import type { BarMode } from "~/features/live/model/control-bar-audio-machine";
+import type { BarMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
 interface ShouldStartHoldInput {
   button: number;

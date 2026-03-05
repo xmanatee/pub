@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { AudioChatEntry, ChatEntry } from "~/features/live/types/live-types";
+import type { AudioChatEntry, ChatEntry } from "~/features/live-chat/types/live-chat-types";
 
 export function useLiveChatDelivery() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);

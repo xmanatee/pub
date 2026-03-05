@@ -5,7 +5,7 @@ import type {
   ChatEntry,
   ImageChatEntry,
   TextChatEntry,
-} from "~/features/live/types/live-types";
+} from "~/features/live-chat/types/live-chat-types";
 import { ChatPanel } from "./chat-panel";
 
 const messagesEndRef = { current: null };

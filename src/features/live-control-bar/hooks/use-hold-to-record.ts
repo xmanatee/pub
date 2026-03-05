@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { BarMode } from "~/features/live/hooks/use-control-bar-audio";
+import type { BarMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 import {
   classifyHoldGesture,
   cleanupHoldListeners,
   type HoldListeners,
   shouldStartHold,
   shouldStartKeyboardCapture,
-} from "~/features/live/utils/hold-to-record-logic";
+} from "~/features/live-control-bar/utils/hold-to-record-logic";
 
 const LOCK_THRESHOLD_PX = 70;
 const CANCEL_THRESHOLD_PX = 100;

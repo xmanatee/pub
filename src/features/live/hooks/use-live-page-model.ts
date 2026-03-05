@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from "react";
-import { useLiveChatDelivery } from "~/features/live/hooks/use-live-chat-delivery";
-import { useLiveFiles } from "~/features/live/hooks/use-live-files";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
 import type { SessionContextPayload } from "~/features/live/lib/bridge-protocol";
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
+import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
+import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 
 const CONTENT_PREVIEW_MAX_LENGTH = 500;

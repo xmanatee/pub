@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INITIAL_AUDIO_MACHINE_STATE,
   reduceAudioMachine,
-} from "~/features/live/model/control-bar-audio-machine";
+} from "~/features/live-control-bar/model/control-bar-audio-machine";
 
 describe("control bar audio machine", () => {
   it("preserves clean startup path after a failed start with pending send", () => {

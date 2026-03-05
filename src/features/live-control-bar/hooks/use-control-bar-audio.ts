@@ -8,10 +8,10 @@ import {
   INITIAL_AUDIO_MACHINE_STATE,
   reduceAudioMachine,
   toBarMode,
-} from "~/features/live/model/control-bar-audio-machine";
+} from "~/features/live-control-bar/model/control-bar-audio-machine";
 import { trackError } from "~/lib/analytics";
 
-export type { BarMode } from "~/features/live/model/control-bar-audio-machine";
+export type { BarMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
 interface UseControlBarAudioOptions {
   disabled: boolean;

@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { Loader2, Play } from "lucide-react";
-import { api } from "../../../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 
 interface ControlBarGoLiveModeProps {
   slug: string;
