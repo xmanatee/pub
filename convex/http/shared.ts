@@ -72,6 +72,7 @@ export function mapLiveError(error: unknown): { message: string; status: number 
   const message = error instanceof Error ? error.message : String(error);
   if (message === "Live not found") return { message, status: 404 };
   if (message === "Live expired") return { message, status: 410 };
+  if (message === "Live assigned to another agent") return { message, status: 409 };
   return null;
 }
 

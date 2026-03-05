@@ -10,12 +10,15 @@ import { useDeveloperMode } from "~/hooks/use-developer-mode";
 export function usePubLiveModel(slug: string, _baseContentHtml?: string | null) {
   const {
     agentOnline,
+    availableAgents,
     clearSessionError,
     live,
     liveRequested,
     markBridgeConnected,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     storeBrowserCandidates,
@@ -118,6 +121,7 @@ export function usePubLiveModel(slug: string, _baseContentHtml?: string | null) 
   return {
     agentName: live?.agentName ?? null,
     agentOnline,
+    availableAgents,
     addSystemMessage,
     animationStyle,
     autoOpenCanvas,
@@ -143,6 +147,8 @@ export function usePubLiveModel(slug: string, _baseContentHtml?: string | null) 
     sendRenderError,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     setAnimationStyle,

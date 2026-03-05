@@ -195,27 +195,43 @@ export class PubApiClient {
 
   // -- Agent presence -------------------------------------------------------
 
-  async goOnline(): Promise<void> {
-    await this.request("/api/v1/agent/online", { method: "POST" });
+  async goOnline(opts: { daemonSessionId: string; agentName?: string }): Promise<void> {
+    await this.request("/api/v1/agent/online", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
   }
 
-  async heartbeat(): Promise<void> {
-    await this.request("/api/v1/agent/heartbeat", { method: "POST" });
+  async heartbeat(opts: { daemonSessionId: string }): Promise<void> {
+    await this.request("/api/v1/agent/heartbeat", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
   }
 
-  async goOffline(): Promise<void> {
-    await this.request("/api/v1/agent/offline", { method: "POST" });
+  async goOffline(opts: { daemonSessionId: string }): Promise<void> {
+    await this.request("/api/v1/agent/offline", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
   }
 
   // -- Agent live management ------------------------------------------------
 
-  async getPendingLive(): Promise<LiveInfo | null> {
-    const data = await this.request<{ live: LiveInfo | null }>("/api/v1/agent/live");
+  async getPendingLive(daemonSessionId?: string): Promise<LiveInfo | null> {
+    const params = new URLSearchParams();
+    if (daemonSessionId) {
+      params.set("daemonSessionId", daemonSessionId);
+    }
+    const query = params.toString();
+    const path = query ? `/api/v1/agent/live?${query}` : "/api/v1/agent/live";
+    const data = await this.request<{ live: LiveInfo | null }>(path);
     return data.live;
   }
 
   async signalAnswer(opts: {
     slug: string;
+    daemonSessionId: string;
     answer?: string;
     candidates?: string[];
     agentName?: string;
@@ -226,8 +242,14 @@ export class PubApiClient {
     });
   }
 
-  async closeActiveLive(): Promise<void> {
-    await this.request("/api/v1/agent/live", { method: "DELETE" });
+  async closeActiveLive(daemonSessionId?: string): Promise<void> {
+    const params = new URLSearchParams();
+    if (daemonSessionId) {
+      params.set("daemonSessionId", daemonSessionId);
+    }
+    const query = params.toString();
+    const path = query ? `/api/v1/agent/live?${query}` : "/api/v1/agent/live";
+    await this.request(path, { method: "DELETE" });
   }
 
   // -- Per-slug live info ---------------------------------------------------

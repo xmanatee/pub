@@ -3,9 +3,11 @@ import { makeFunctionReference } from "convex/server";
 import type { LiveInfo, PubApiClient } from "./api.js";
 import { decideSignalingUpdate } from "./live-signaling.js";
 
-const LIVE_SIGNAL_QUERY = makeFunctionReference<"query", { apiKey: string }, LiveInfo | null>(
-  "pubs:getLiveForAgentByApiKey",
-);
+const LIVE_SIGNAL_QUERY = makeFunctionReference<
+  "query",
+  { apiKey: string; daemonSessionId: string },
+  LiveInfo | null
+>("pubs:getLiveForAgentByApiKey");
 
 export function parseLiveSnapshot(result: unknown): LiveInfo | null {
   if (result === null || result === undefined) return null;
@@ -37,6 +39,7 @@ export function parseLiveSnapshot(result: unknown): LiveInfo | null {
 
 interface SignalingControllerParams {
   apiClient: PubApiClient;
+  daemonSessionId: string;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   isStopped: () => boolean;
@@ -57,6 +60,7 @@ export interface SignalingController {
 export function createSignalingController(params: SignalingControllerParams): SignalingController {
   const {
     apiClient,
+    daemonSessionId,
     debugLog,
     markError,
     isStopped,
@@ -154,7 +158,7 @@ export function createSignalingController(params: SignalingControllerParams): Si
 
     const unsubscribe = signalingClient.onUpdate(
       LIVE_SIGNAL_QUERY,
-      { apiKey: apiClient.getApiKey() },
+      { apiKey: apiClient.getApiKey(), daemonSessionId },
       (result) => {
         let live: LiveInfo | null;
         try {
