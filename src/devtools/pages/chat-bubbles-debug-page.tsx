@@ -4,6 +4,7 @@ import type {
   AudioChatEntry,
   ChatEntry,
   ImageChatEntry,
+  SystemChatEntry,
   TextChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
 
@@ -99,6 +100,24 @@ const FAILED_TEXT: TextChatEntry = {
   delivery: "failed",
 };
 
+const SYSTEM_WARNING: SystemChatEntry = {
+  id: "s-warning",
+  type: "system",
+  from: "system",
+  content: "Connection quality degraded",
+  severity: "warning",
+  timestamp: 1007,
+};
+
+const SYSTEM_ERROR: SystemChatEntry = {
+  id: "s-error",
+  type: "system",
+  from: "system",
+  content: "Live connection dropped. Reconnect to continue.",
+  severity: "error",
+  timestamp: 1008,
+};
+
 const messagesEndRef = { current: null };
 
 function StaticChat({ messages }: { messages: ChatEntry[] }) {
@@ -163,6 +182,16 @@ export function ChatBubblesDebugPage() {
         />
 
         <BatchSection
+          title="System Messages"
+          testId="batch-system-messages"
+          cellHeight={100}
+          items={[
+            { label: "warning", content: <StaticChat messages={[SYSTEM_WARNING]} /> },
+            { label: "error", content: <StaticChat messages={[SYSTEM_ERROR]} /> },
+          ]}
+        />
+
+        <BatchSection
           title="Mixed Conversation"
           testId="batch-mixed-conversation"
           cellHeight={360}
@@ -178,6 +207,7 @@ export function ChatBubblesDebugPage() {
                     AGENT_AUDIO,
                     USER_IMAGE,
                     AGENT_IMAGE,
+                    SYSTEM_WARNING,
                   ]}
                 />
               ),

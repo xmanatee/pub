@@ -3,6 +3,7 @@ import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } fro
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
+import type { SystemMessageSeverity } from "~/features/live-chat/types/live-chat-types";
 import { cn } from "~/lib/utils";
 import { CB } from "./control-bar-classes";
 import "./control-bar-state.css";
@@ -18,6 +19,8 @@ const TEXTAREA_PADDING_Y = 10;
 interface ControlBarIdleModeProps {
   agentName: string | null;
   chatPreview: string | null;
+  chatPreviewSeverity: SystemMessageSeverity | null;
+  chatPreviewSource: "agent" | "system" | null;
   expanded: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasText: boolean;
@@ -42,6 +45,8 @@ interface ControlBarIdleModeProps {
 export function ControlBarIdleMode({
   agentName,
   chatPreview,
+  chatPreviewSeverity,
+  chatPreviewSource,
   expanded,
   fileInputRef,
   hasText,
@@ -81,6 +86,14 @@ export function ControlBarIdleMode({
   const showPreview = !expanded && chatPreview !== null;
   const placeholder = visualState === "connecting" ? "Connecting..." : "Message...";
   const cbStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
+  const previewLabel = chatPreviewSource === "system" ? "System" : (agentName ?? "Agent");
+  const previewLabelClass =
+    chatPreviewSource === "system"
+      ? chatPreviewSeverity === "error"
+        ? "text-destructive"
+        : "text-amber-600"
+      : "text-primary";
+
   return (
     <>
       <button
@@ -130,7 +143,7 @@ export function ControlBarIdleMode({
             tabIndex={showPreview ? 0 : -1}
           >
             <div className="truncate px-4 py-2.5 text-left text-sm leading-tight">
-              <span className="font-semibold text-primary">{agentName ?? "Agent"}</span>
+              <span className={cn("font-semibold", previewLabelClass)}>{previewLabel}</span>
               <span className="text-muted-foreground">: </span>
               <span className="text-foreground">{chatPreview}</span>
             </div>

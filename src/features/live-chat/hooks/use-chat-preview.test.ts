@@ -1,51 +1,107 @@
 import { describe, expect, it } from "vitest";
-import type { ChatEntry } from "~/features/live-chat/types/live-chat-types";
-import { buildChatPreviewText } from "./use-chat-preview";
+import type {
+  AttachmentChatEntry,
+  AudioChatEntry,
+  SystemChatEntry,
+  TextChatEntry,
+} from "~/features/live-chat/types/live-chat-types";
+import {
+  buildChatPreviewText,
+  findLastPreviewEntry,
+  previewFromChatEntry,
+} from "./use-chat-preview";
 
-describe("buildChatPreviewText", () => {
-  it("returns text content for text messages", () => {
-    const entry: ChatEntry = {
-      id: "t-1",
-      type: "text",
-      from: "agent",
-      content: "hello world",
-      timestamp: 1,
-    };
-    expect(buildChatPreviewText(entry)).toBe("hello world");
+const USER_TEXT: TextChatEntry = {
+  id: "u1",
+  type: "text",
+  from: "user",
+  content: "hello",
+  timestamp: 1,
+  delivery: "sent",
+};
+
+const AGENT_TEXT: TextChatEntry = {
+  id: "a1",
+  type: "text",
+  from: "agent",
+  content: "agent reply",
+  timestamp: 2,
+};
+
+const AGENT_AUDIO: AudioChatEntry = {
+  id: "a2",
+  type: "audio",
+  from: "agent",
+  audioUrl: "blob:audio",
+  mime: "audio/webm",
+  size: 100,
+  timestamp: 3,
+};
+
+const AGENT_ATTACHMENT: AttachmentChatEntry = {
+  id: "f1",
+  type: "attachment",
+  from: "agent",
+  filename: "report.pdf",
+  mime: "application/pdf",
+  size: 120,
+  timestamp: 3,
+};
+
+const SYSTEM_ERROR: SystemChatEntry = {
+  id: "s1",
+  type: "system",
+  from: "system",
+  content: "connection failed",
+  severity: "error",
+  timestamp: 4,
+};
+
+describe("useChatPreview helpers", () => {
+  it("finds the latest preview-eligible message", () => {
+    const last = findLastPreviewEntry([USER_TEXT, AGENT_TEXT, AGENT_AUDIO, SYSTEM_ERROR]);
+    expect(last?.id).toBe("s1");
   });
 
-  it("returns semantic labels for audio and image messages", () => {
-    const audio: ChatEntry = {
-      id: "a-1",
-      type: "audio",
-      from: "agent",
-      audioUrl: "blob:audio",
-      mime: "audio/webm",
-      size: 10,
-      timestamp: 1,
-    };
-    const image: ChatEntry = {
-      id: "i-1",
-      type: "image",
-      from: "agent",
-      imageUrl: "blob:image",
-      mime: "image/png",
-      timestamp: 2,
-    };
-    expect(buildChatPreviewText(audio)).toBe("Audio message");
-    expect(buildChatPreviewText(image)).toBe("Image");
+  it("returns null when no preview-eligible messages exist", () => {
+    const last = findLastPreviewEntry([USER_TEXT]);
+    expect(last).toBeNull();
   });
 
-  it("includes filename for attachment messages", () => {
-    const attachment: ChatEntry = {
-      id: "f-1",
-      type: "attachment",
-      from: "agent",
-      filename: "report.pdf",
-      mime: "application/pdf",
-      size: 100,
-      timestamp: 3,
-    };
-    expect(buildChatPreviewText(attachment)).toBe("File: report.pdf");
+  it("maps agent media messages to concise preview text", () => {
+    const preview = previewFromChatEntry(AGENT_AUDIO);
+    expect(preview).toEqual({
+      source: "agent",
+      text: "Audio message",
+    });
+  });
+
+  it("maps system messages with severity", () => {
+    const preview = previewFromChatEntry(SYSTEM_ERROR);
+    expect(preview).toEqual({
+      source: "system",
+      severity: "error",
+      text: "connection failed",
+    });
+  });
+
+  it("includes filename for attachment previews", () => {
+    const preview = previewFromChatEntry(AGENT_ATTACHMENT);
+    expect(preview).toEqual({
+      source: "agent",
+      text: "File: report.pdf",
+    });
+  });
+
+  it("ignores user-originated entries", () => {
+    const preview = previewFromChatEntry(USER_TEXT);
+    expect(preview).toBeNull();
+  });
+
+  it("formats text for each supported message type", () => {
+    expect(buildChatPreviewText(AGENT_TEXT)).toBe("agent reply");
+    expect(buildChatPreviewText(AGENT_AUDIO)).toBe("Audio message");
+    expect(buildChatPreviewText(AGENT_ATTACHMENT)).toBe("File: report.pdf");
+    expect(buildChatPreviewText(SYSTEM_ERROR)).toBe("connection failed");
   });
 });

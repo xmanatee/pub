@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
 import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
+import type { SystemMessageSeverity } from "~/features/live-chat/types/live-chat-types";
 import {
   canStartRecording,
   canStartVoice,
@@ -18,6 +19,12 @@ interface UseControlBarAudioOptions {
   bridge: BrowserBridge | null;
   micGranted: boolean;
   onMicGranted: (granted: boolean) => void;
+  onSystemMessage?: (params: {
+    content: string;
+    cooldownMs?: number;
+    dedupeKey?: string;
+    severity: SystemMessageSeverity;
+  }) => void;
   onSendAudio: (blob: Blob) => void;
 }
 
@@ -33,6 +40,7 @@ export function useControlBarAudio({
   bridge,
   micGranted,
   onMicGranted,
+  onSystemMessage,
   onSendAudio,
 }: UseControlBarAudioOptions) {
   const [state, dispatch] = useReducer(reduceAudioMachine, INITIAL_AUDIO_MACHINE_STATE);
@@ -49,6 +57,14 @@ export function useControlBarAudio({
   const shouldSendOnStopRef = useRef(false);
   const localStopInProgressRef = useRef(false);
   const elapsedRef = useRef(0);
+  const voiceSendFailedRef = useRef(false);
+
+  const emitSystemMessage = useCallback(
+    (params: { content: string; dedupeKey?: string; severity: SystemMessageSeverity }) => {
+      onSystemMessage?.({ ...params, cooldownMs: 4_000 });
+    },
+    [onSystemMessage],
+  );
 
   const animateWaveform = useCallback(() => {
     const analyser = analyserRef.current;
@@ -167,6 +183,11 @@ export function useControlBarAudio({
         trackError(error instanceof Error ? error : new Error("Failed to stop recording"), {
           context: "control-bar-audio",
         });
+        emitSystemMessage({
+          content: "Recording failed to stop cleanly. Please try again.",
+          dedupeKey: "recording-stop-failed",
+          severity: "error",
+        });
         shouldSendOnStopRef.current = false;
         audioChunksRef.current = [];
         localStopInProgressRef.current = false;
@@ -174,7 +195,7 @@ export function useControlBarAudio({
         dispatch({ type: "RECORDING_STOP_FINISHED" });
       }
     },
-    [releaseMediaResources, stopTimer],
+    [emitSystemMessage, releaseMediaResources, stopTimer],
   );
 
   const startRecording = useCallback(async (): Promise<boolean> => {
@@ -218,9 +239,19 @@ export function useControlBarAudio({
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         onMicGranted(false);
+        emitSystemMessage({
+          content: "Microphone access is blocked. Allow mic access to record audio.",
+          dedupeKey: "mic-denied-recording",
+          severity: "warning",
+        });
       } else {
         trackError(error instanceof Error ? error : new Error("Failed to start recording"), {
           context: "control-bar-audio",
+        });
+        emitSystemMessage({
+          content: "Recording could not start. Please try again.",
+          dedupeKey: "recording-start-failed",
+          severity: "error",
         });
       }
       shouldSendOnStopRef.current = false;
@@ -236,6 +267,7 @@ export function useControlBarAudio({
     setupAudio,
     onMicGranted,
     onSendAudio,
+    emitSystemMessage,
     startTimer,
     animateWaveform,
     teardownMediaState,
@@ -281,6 +313,11 @@ export function useControlBarAudio({
 
       const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
       if (!ready) {
+        emitSystemMessage({
+          content: "Voice mode is unavailable right now. Audio channel is not ready.",
+          dedupeKey: "voice-channel-not-ready",
+          severity: "warning",
+        });
         dispatch({ type: "START_VOICE_FAILURE" });
         teardownMediaState(true);
         return;
@@ -288,9 +325,17 @@ export function useControlBarAudio({
 
       const startMsg = makeStreamStart({ mime });
       if (!bridge.send(CHANNELS.AUDIO, startMsg)) {
-        console.warn("Failed to send voice stream start event");
+        emitSystemMessage({
+          content: "Voice mode could not start. Failed to open the audio stream.",
+          dedupeKey: "voice-start-send-failed",
+          severity: "error",
+        });
+        dispatch({ type: "START_VOICE_FAILURE" });
+        teardownMediaState(true);
+        return;
       }
       streamIdRef.current = startMsg.id;
+      voiceSendFailedRef.current = false;
 
       const recorder = mime
         ? new MediaRecorder(stream, { mimeType: mime })
@@ -299,7 +344,14 @@ export function useControlBarAudio({
         if (ev.data.size > 0 && streamIdRef.current) {
           const buf = await ev.data.arrayBuffer();
           if (!bridge.sendBinary(CHANNELS.AUDIO, buf)) {
-            console.warn("Failed to send voice stream chunk");
+            if (voiceSendFailedRef.current) return;
+            voiceSendFailedRef.current = true;
+            emitSystemMessage({
+              content: "Voice stream was interrupted while sending audio.",
+              dedupeKey: "voice-chunk-send-failed",
+              severity: "error",
+            });
+            dispatch({ type: "REQUEST_VOICE_STOP" });
           }
         }
       };
@@ -311,9 +363,19 @@ export function useControlBarAudio({
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         onMicGranted(false);
+        emitSystemMessage({
+          content: "Microphone access is blocked. Allow mic access to use voice mode.",
+          dedupeKey: "mic-denied-voice",
+          severity: "warning",
+        });
       } else {
         trackError(error instanceof Error ? error : new Error("Failed to start voice mode"), {
           context: "control-bar-audio",
+        });
+        emitSystemMessage({
+          content: "Voice mode failed to start. Please try again.",
+          dedupeKey: "voice-start-failed",
+          severity: "error",
         });
       }
       dispatch({ type: "START_VOICE_FAILURE" });
@@ -325,6 +387,7 @@ export function useControlBarAudio({
     state.mode,
     setupAudio,
     onMicGranted,
+    emitSystemMessage,
     teardownMediaState,
     startTimer,
     animateWaveform,
@@ -342,16 +405,21 @@ export function useControlBarAudio({
 
   useEffect(() => {
     if (state.mode !== "stopping-voice") return;
+    voiceSendFailedRef.current = false;
 
     if (bridge && streamIdRef.current) {
       if (!bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current))) {
-        console.warn("Failed to send voice stream end event");
+        emitSystemMessage({
+          content: "Voice stream stopped, but the close event did not send cleanly.",
+          dedupeKey: "voice-end-send-failed",
+          severity: "warning",
+        });
       }
       streamIdRef.current = null;
     }
     teardownMediaState(true);
     dispatch({ type: "VOICE_STOP_FINISHED" });
-  }, [state.mode, bridge, teardownMediaState]);
+  }, [state.mode, bridge, emitSystemMessage, teardownMediaState]);
 
   useEffect(() => {
     return () => {

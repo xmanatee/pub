@@ -1,16 +1,18 @@
-import { useQuery } from "convex/react";
 import { Loader2, Play } from "lucide-react";
-import { api } from "../../../../convex/_generated/api";
 
 interface ControlBarGoLiveModeProps {
-  slug: string;
+  agentOnline: boolean | undefined;
   onGoLive: () => void;
 }
 
-export function ControlBarGoLiveMode({ slug, onGoLive }: ControlBarGoLiveModeProps) {
-  const agentOnline = useQuery(api.presence.isAgentOnline, { slug });
-
-  if (agentOnline === false) return null;
+export function ControlBarGoLiveMode({ agentOnline, onGoLive }: ControlBarGoLiveModeProps) {
+  const disabled = agentOnline !== true;
+  const ariaLabel =
+    agentOnline === undefined
+      ? "Checking agent availability"
+      : disabled
+        ? "Agent offline"
+        : "Go live";
 
   return (
     <div
@@ -20,9 +22,10 @@ export function ControlBarGoLiveMode({ slug, onGoLive }: ControlBarGoLiveModePro
       <button
         type="button"
         onClick={onGoLive}
-        disabled={agentOnline === undefined}
+        disabled={disabled}
         className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl transition-opacity hover:opacity-90 disabled:opacity-50"
-        aria-label="Go live"
+        aria-label={ariaLabel}
+        title={disabled ? "Agent is offline" : "Go live"}
       >
         {agentOnline === undefined ? (
           <Loader2 className="size-5 animate-spin" />

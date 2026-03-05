@@ -62,12 +62,16 @@ vi.mock("~/hooks/use-long-press", () => ({
 function renderControlBar(overrides?: {
   agentName?: string | null;
   chatPreview?: string | null;
+  chatPreviewSeverity?: "warning" | "error" | null;
+  chatPreviewSource?: "agent" | "system" | null;
   viewMode?: "canvas" | "chat" | "settings";
   voiceModeEnabled?: boolean;
 }) {
   const model = {
     agentName: overrides?.agentName ?? null,
     chatPreview: overrides?.chatPreview ?? null,
+    chatPreviewSeverity: overrides?.chatPreviewSeverity ?? null,
+    chatPreviewSource: overrides?.chatPreviewSource ?? null,
     collapsed: false,
     sendDisabled: false,
     sessionState: undefined,
@@ -140,6 +144,17 @@ describe("ControlBar", () => {
     expect(html).toContain("Oz");
     expect(html).toContain("max-h-14 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
+  });
+
+  it("shows system preview label for system messages", () => {
+    const html = renderControlBar({
+      chatPreview: "Connection dropped",
+      chatPreviewSource: "system",
+      chatPreviewSeverity: "error",
+    });
+    expect(html).toContain("Connection dropped");
+    expect(html).toContain("System");
+    expect(html).toContain("text-destructive");
   });
 
   it("hides chat preview when chatPreview is null", () => {

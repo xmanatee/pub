@@ -3,8 +3,11 @@ import type {
   AudioChatEntry,
   ChatDeliveryState,
   ChatEntry,
+  SystemMessageSeverity,
   UserChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
+
+const SYSTEM_MESSAGE_COOLDOWN_MS = 4_000;
 
 export interface LiveChatDeliveryState {
   indexById: Record<string, number>;
@@ -133,11 +136,12 @@ function updateUserDelivery(
 }
 
 function getBlobUrls(entry: ChatEntry): string[] {
-  const urls: string[] = [];
-  if (entry.type === "audio" && entry.audioUrl.startsWith("blob:")) urls.push(entry.audioUrl);
-  if (entry.type === "image" && entry.imageUrl.startsWith("blob:")) urls.push(entry.imageUrl);
-  if (entry.type === "attachment" && entry.fileUrl?.startsWith("blob:")) urls.push(entry.fileUrl);
-  return urls;
+  if (entry.type === "audio") return entry.audioUrl.startsWith("blob:") ? [entry.audioUrl] : [];
+  if (entry.type === "image") return entry.imageUrl.startsWith("blob:") ? [entry.imageUrl] : [];
+  if (entry.type === "attachment") {
+    return entry.fileUrl?.startsWith("blob:") ? [entry.fileUrl] : [];
+  }
+  return [];
 }
 
 function revokeUrls(urls: string[]) {
@@ -152,6 +156,8 @@ export function useLiveChatDelivery() {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const entryUrlsRef = useRef<Map<string, string[]>>(new Map());
+  const systemMessageCounterRef = useRef(0);
+  const systemMessageDedupRef = useRef<Map<string, number>>(new Map());
 
   const trackEntryUrls = useCallback((entry: ChatEntry) => {
     const nextUrls = getBlobUrls(entry);
@@ -188,10 +194,7 @@ export function useLiveChatDelivery() {
         timestamp: params.timestamp ?? Date.now(),
       };
       trackEntryUrls(entry);
-      dispatch({
-        type: "UPSERT_MESSAGE",
-        entry,
-      });
+      dispatch({ type: "UPSERT_MESSAGE", entry });
     },
     [trackEntryUrls],
   );
@@ -242,10 +245,7 @@ export function useLiveChatDelivery() {
         delivery: "sending",
       };
       trackEntryUrls(entry);
-      dispatch({
-        type: "UPSERT_MESSAGE",
-        entry,
-      });
+      dispatch({ type: "UPSERT_MESSAGE", entry });
     },
     [trackEntryUrls],
   );
@@ -314,6 +314,39 @@ export function useLiveChatDelivery() {
     [trackEntryUrls],
   );
 
+  const addSystemMessage = useCallback(
+    (params: {
+      content: string;
+      severity: SystemMessageSeverity;
+      dedupeKey?: string;
+      cooldownMs?: number;
+    }) => {
+      const content = params.content.trim();
+      if (content.length === 0) return;
+
+      const now = Date.now();
+      const cooldownMs = params.cooldownMs ?? SYSTEM_MESSAGE_COOLDOWN_MS;
+      if (params.dedupeKey) {
+        const dedupeId = `${params.severity}:${params.dedupeKey}`;
+        const lastShownAt = systemMessageDedupRef.current.get(dedupeId);
+        if (lastShownAt && now - lastShownAt < cooldownMs) return;
+        systemMessageDedupRef.current.set(dedupeId, now);
+      }
+
+      systemMessageCounterRef.current += 1;
+      const entry: ChatEntry = {
+        type: "system",
+        id: `sys-${now}-${systemMessageCounterRef.current}`,
+        from: "system",
+        content,
+        severity: params.severity,
+        timestamp: now,
+      };
+      dispatch({ type: "UPSERT_MESSAGE", entry });
+    },
+    [],
+  );
+
   const markMessageSentIfPending = useCallback((messageId: string) => {
     dispatch({ type: "MARK_MESSAGE_SENT_IF_PENDING", messageId });
   }, []);
@@ -352,6 +385,7 @@ export function useLiveChatDelivery() {
 
   const clearMessages = useCallback(() => {
     clearTrackedUrls();
+    systemMessageDedupRef.current.clear();
     dispatch({ type: "CLEAR_MESSAGES" });
   }, [clearTrackedUrls]);
 
@@ -359,6 +393,7 @@ export function useLiveChatDelivery() {
     addAgentAudioMessage,
     addAgentImageMessage,
     addAgentMessage,
+    addSystemMessage,
     addUserPendingAttachmentMessage,
     addUserPendingAudioMessage,
     addUserPendingImageMessage,

@@ -43,6 +43,13 @@ test.describe("Chat bubble screenshots", () => {
     await stableScreenshot(section, `${SCREENSHOT_DIR}/chat-bubble-delivery.png`);
   });
 
+  test("system messages", async ({ page }) => {
+    await setupPage(page);
+    const section = page.getByTestId("batch-system-messages");
+    await expect(section).toBeVisible();
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/chat-bubble-system.png`);
+  });
+
   test("mixed conversation", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-mixed-conversation");

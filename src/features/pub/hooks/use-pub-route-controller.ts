@@ -31,12 +31,13 @@ export function usePubRouteController({
 }: UsePubRouteControllerOptions) {
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
+  const lastSessionErrorRef = useRef<string | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
   const viewMode = liveMode ? model.viewMode : "canvas";
   const effectiveCanvasHtml = liveMode ? (model.canvasHtml ?? baseContentHtml) : baseContentHtml;
-  const { previewText, dismissPreview } = useChatPreview(model.messages, viewMode);
+  const { preview, dismissPreview } = useChatPreview(model.messages, viewMode);
 
   const isOwner = pub?.isOwner === true;
   const isLoading = pub === undefined;
@@ -63,6 +64,7 @@ export function usePubRouteController({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
+    lastSessionErrorRef.current = null;
     setLiveMode(false);
     setControlBarCollapsed(false);
     trackedAnalytics.current = false;
@@ -75,6 +77,18 @@ export function usePubRouteController({
     model.clearSessionError();
     model.setViewMode("canvas");
   }, [slug]);
+
+  useEffect(() => {
+    if (!liveMode) return;
+    const nextError = model.sessionError;
+    if (!nextError || nextError === lastSessionErrorRef.current) return;
+    lastSessionErrorRef.current = nextError;
+    model.addSystemMessage({
+      content: nextError,
+      dedupeKey: `session-error:${nextError}`,
+      severity: "error",
+    });
+  }, [liveMode, model.addSystemMessage, model.sessionError]);
 
   const resetLiveSurface = () => {
     dismissPreview();
@@ -111,7 +125,9 @@ export function usePubRouteController({
 
   const controlBarModel = {
     agentName: model.agentName,
-    chatPreview: previewText,
+    chatPreview: preview?.text ?? null,
+    chatPreviewSeverity: preview?.severity ?? null,
+    chatPreviewSource: preview?.source ?? null,
     collapsed: controlBarCollapsed,
     lastTakeoverAt: model.lastTakeoverAt,
     sendDisabled: !model.connected,
@@ -136,18 +152,27 @@ export function usePubRouteController({
     },
     onDismissPreview: dismissPreview,
     onMicGranted: model.setMicGranted,
+    onSystemMessage: model.addSystemMessage,
     onSendAudio: model.sendAudio,
     onSendChat: model.sendChat,
     onSendFile: model.sendFile,
     onTakeover: () => {
-      void model.takeoverLive().then(
-        () => {
+      void model
+        .takeoverLive()
+        .then(() => {
           model.startLive();
-        },
-        () => {
-          // session errors are surfaced via model.sessionError
-        },
-      );
+        })
+        .catch((error: unknown) => {
+          const content =
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "Failed to take over live session";
+          model.addSystemMessage({
+            content,
+            dedupeKey: `session-error:${content}`,
+            severity: "error",
+          });
+        });
     },
     onToggleCollapsed: () => setControlBarCollapsed((collapsed) => !collapsed),
   };
@@ -162,6 +187,7 @@ export function usePubRouteController({
 
   return {
     canShowNoContent,
+    agentOnline: model.agentOnline,
     canvasAnimationStyle,
     canvasVisualState,
     chatPanelModel: {
@@ -185,7 +211,6 @@ export function usePubRouteController({
       resetLiveSurface();
       model.startLive();
     },
-    sessionError: model.sessionError,
     settingsPanelActions,
     settingsPanelModel,
     viewMode,

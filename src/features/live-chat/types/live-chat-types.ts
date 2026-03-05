@@ -14,7 +14,11 @@ interface AgentChatEntryBase extends ChatEntryBase {
   from: "agent";
 }
 
-type ChatIdentity = UserChatEntryBase | AgentChatEntryBase;
+interface SystemChatEntryBase extends ChatEntryBase {
+  from: "system";
+}
+
+type UserOrAgentChatIdentity = UserChatEntryBase | AgentChatEntryBase;
 
 interface TextChatPayload {
   type: "text";
@@ -47,12 +51,26 @@ interface AttachmentChatPayload {
   fileUrl?: string;
 }
 
-export type TextChatEntry = ChatIdentity & TextChatPayload;
-export type AudioChatEntry = ChatIdentity & AudioChatPayload;
-export type ImageChatEntry = ChatIdentity & ImageChatPayload;
-export type AttachmentChatEntry = ChatIdentity & AttachmentChatPayload;
+export type TextChatEntry = UserOrAgentChatIdentity & TextChatPayload;
+export type AudioChatEntry = UserOrAgentChatIdentity & AudioChatPayload;
+export type ImageChatEntry = UserOrAgentChatIdentity & ImageChatPayload;
+export type AttachmentChatEntry = UserOrAgentChatIdentity & AttachmentChatPayload;
 
-export type ChatEntry = TextChatEntry | AudioChatEntry | ImageChatEntry | AttachmentChatEntry;
+export type SystemMessageSeverity = "warning" | "error";
+
+export interface SystemChatEntry extends SystemChatEntryBase {
+  type: "system";
+  content: string;
+  severity: SystemMessageSeverity;
+}
+
+export type ChatEntry =
+  | TextChatEntry
+  | AudioChatEntry
+  | ImageChatEntry
+  | AttachmentChatEntry
+  | SystemChatEntry;
+
 export type UserChatEntry = Extract<ChatEntry, { from: "user" }>;
 export type AgentChatEntry = Extract<ChatEntry, { from: "agent" }>;
 
