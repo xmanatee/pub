@@ -5,6 +5,7 @@
  * Convex signaling updates, and responds with answers.
  */
 
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
@@ -56,6 +57,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const buffer: ChannelBuffer = { messages: [] };
   const startTime = Date.now();
+  const daemonSessionId = randomUUID();
 
   let stopped = false;
   let connected = false;
@@ -680,9 +682,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (localCandidates.length <= lastSentCandidateCount) return;
       const newOnes = localCandidates.slice(lastSentCandidateCount);
       lastSentCandidateCount = localCandidates.length;
-      await apiClient.signalAnswer({ slug, candidates: newOnes }).catch((error) => {
-        debugLog("failed to publish local ICE candidates", error);
-      });
+      await apiClient
+        .signalAnswer({ slug, daemonSessionId, candidates: newOnes })
+        .catch((error) => {
+          debugLog("failed to publish local ICE candidates", error);
+        });
     }, LOCAL_CANDIDATE_FLUSH_MS);
 
     localCandidateStopTimer = setTimeout(() => {
@@ -712,7 +716,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lastAppliedBrowserOffer = browserOffer;
       activeSlug = slug;
 
-      await apiClient.signalAnswer({ slug, answer, agentName });
+      await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });
       startLocalCandidateFlush(slug);
       void startBridge();
     } catch (error) {
@@ -740,6 +744,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const signaling = createSignalingController({
     apiClient,
+    daemonSessionId,
     debugLog,
     markError,
     isStopped: () => stopped,
@@ -779,12 +784,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- Register presence online ---------------------------------------------
 
-  await apiClient.goOnline();
+  await apiClient.goOnline({ daemonSessionId, agentName });
 
   heartbeatTimer = setInterval(async () => {
     if (stopped) return;
     try {
-      await apiClient.heartbeat();
+      await apiClient.heartbeat({ daemonSessionId });
     } catch (error) {
       markError("heartbeat failed", error);
     }
@@ -905,7 +910,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     await queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), "daemon-shutdown");
 
     try {
-      await apiClient.goOffline();
+      await apiClient.goOffline({ daemonSessionId });
     } catch (error) {
       debugLog("failed to go offline", error);
     }

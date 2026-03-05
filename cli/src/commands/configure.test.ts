@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BridgeConfig, TelegramConfig } from "../lib/config.js";
+import { parsePositiveInteger } from "../lib/number.js";
 import {
   applyConfigSet,
   applyConfigUnset,
   parseBooleanValue,
-  parsePositiveInteger,
   parseSetInput,
   SUPPORTED_KEYS,
 } from "./configure/schema.js";

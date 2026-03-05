@@ -186,6 +186,7 @@ export function usePubRouteController({
       : "waiting-content";
 
   return {
+    availableAgents: model.availableAgents,
     canShowNoContent,
     agentOnline: model.agentOnline,
     canvasAnimationStyle,
@@ -211,9 +212,11 @@ export function usePubRouteController({
       resetLiveSurface();
       model.startLive();
     },
+    onSelectedPresenceChange: model.setSelectedPresenceId,
     onRenderError: liveMode ? model.sendRenderError : undefined,
     settingsPanelActions,
     settingsPanelModel,
+    selectedPresenceId: model.selectedPresenceId,
     viewMode,
   };
 }

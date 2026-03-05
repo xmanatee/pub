@@ -13,6 +13,7 @@ const CONTENT_PREVIEW_MAX_LENGTH = 500;
 export function usePubLiveModel(slug: string) {
   const {
     agentOnline,
+    availableAgents,
     clearSessionError,
     live,
     liveRequested,
@@ -20,6 +21,8 @@ export function usePubLiveModel(slug: string) {
     pub,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     storeBrowserCandidates,
@@ -135,6 +138,7 @@ export function usePubLiveModel(slug: string) {
   return {
     agentName: live?.agentName ?? null,
     agentOnline,
+    availableAgents,
     addSystemMessage,
     animationStyle,
     autoOpenCanvas,
@@ -160,6 +164,8 @@ export function usePubLiveModel(slug: string) {
     sendRenderError,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     setAnimationStyle,

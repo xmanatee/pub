@@ -47,6 +47,42 @@ async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, sl
   }
 }
 
+function listFreshOnlinePresences(
+  presences: Array<{
+    _id: Id<"agentPresence">;
+    status: "online" | "offline";
+    lastHeartbeatAt: number;
+    agentName?: string;
+  }>,
+  now: number,
+) {
+  return presences
+    .filter(
+      (presence) =>
+        presence.status === "online" &&
+        now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+    )
+    .sort((a, b) => b.lastHeartbeatAt - a.lastHeartbeatAt);
+}
+
+function pickTargetPresence(
+  presences: Array<{ _id: Id<"agentPresence">; agentName?: string; lastHeartbeatAt: number }>,
+  preferredPresenceId?: Id<"agentPresence">,
+) {
+  if (preferredPresenceId) {
+    return presences.find((presence) => presence._id === preferredPresenceId) ?? null;
+  }
+  return presences[0] ?? null;
+}
+
+function liveMatchesTargetPresence(
+  live: { targetPresenceId?: Id<"agentPresence"> },
+  targetPresenceId?: Id<"agentPresence">,
+) {
+  if (!targetPresenceId) return true;
+  return live.targetPresenceId === targetPresenceId;
+}
+
 function mapPub(
   pub: {
     _id: Id<"pubs">;
@@ -213,6 +249,7 @@ export const getLiveBySlug = query({
     return {
       slug: live.slug,
       status: live.status,
+      targetPresenceId: live.targetPresenceId,
       agentName: live.agentName,
       browserOffer: live.browserOffer,
       agentAnswer: live.agentAnswer,
@@ -235,14 +272,35 @@ export const getLiveBySlug = query({
  * - otherwise latest active live.
  */
 export const getLiveForAgentByApiKey = query({
-  args: { apiKey: v.string() },
-  handler: async (ctx, { apiKey }) => {
+  args: { apiKey: v.string(), daemonSessionId: v.string() },
+  handler: async (ctx, { apiKey, daemonSessionId }) => {
     const keyHash = await hashApiKey(apiKey);
     const key = await ctx.db
       .query("apiKeys")
       .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
       .unique();
     if (!key) throw new Error("Invalid API key");
+    const now = Date.now();
+    const byApiKey = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
+      .collect();
+    const presence = byApiKey.find(
+      (entry) =>
+        entry.daemonSessionId === daemonSessionId &&
+        entry.status === "online" &&
+        now - entry.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+    );
+    if (!presence) return null;
+    const allPresences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .collect();
+    const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
+    const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
+      if (live.targetPresenceId) return live.targetPresenceId === presence._id;
+      return freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === presence._id;
+    };
 
     const lives = await ctx.db
       .query("lives")
@@ -250,11 +308,13 @@ export const getLiveForAgentByApiKey = query({
       .order("desc")
       .collect();
 
-    const pending = lives.find((s) => s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer);
+    const pending = lives.find(
+      (s) => s.expiresAt > now && matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer,
+    );
     const active =
       pending ??
       lives.find((s) => {
-        return s.expiresAt > Date.now();
+        return s.expiresAt > now && matchesCurrentAgent(s);
       });
     if (!active) return null;
 
@@ -276,8 +336,9 @@ export const requestLive = mutation({
     slug: v.string(),
     browserSessionId: v.string(),
     browserOffer: v.string(),
+    targetPresenceId: v.optional(v.id("agentPresence")),
   },
-  handler: async (ctx, { slug, browserSessionId, browserOffer }) => {
+  handler: async (ctx, { slug, browserSessionId, browserOffer, targetPresenceId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -287,13 +348,18 @@ export const requestLive = mutation({
       .unique();
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
-    const presence = await ctx.db
+    const presences = await ctx.db
       .query("agentPresence")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-    if (!presence || presence.status !== "online") throw new Error("Agent offline");
-    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_STALENESS_THRESHOLD_MS) {
+      .collect();
+    const now = Date.now();
+    const freshOnlinePresences = listFreshOnlinePresences(presences, now);
+    if (freshOnlinePresences.length === 0) {
       throw new Error("Agent offline");
+    }
+    const targetPresence = pickTargetPresence(freshOnlinePresences, targetPresenceId);
+    if (!targetPresence) {
+      throw new Error("Selected agent unavailable");
     }
 
     const existing = await ctx.db
@@ -309,6 +375,8 @@ export const requestLive = mutation({
       slug,
       userId,
       status: "active",
+      targetPresenceId: targetPresence._id,
+      agentName: targetPresence.agentName,
       browserOffer,
       browserSessionId,
       agentCandidates: [],
@@ -368,9 +436,19 @@ export const takeoverLive = mutation({
     if (live.lastTakeoverAt && Date.now() - live.lastTakeoverAt < TAKEOVER_COOLDOWN_MS) {
       throw new Error("Takeover cooldown active");
     }
+    const presences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const freshOnlinePresences = listFreshOnlinePresences(presences, Date.now());
+    if (freshOnlinePresences.length === 0) throw new Error("Agent offline");
+    const targetPresence = pickTargetPresence(freshOnlinePresences, live.targetPresenceId);
+    if (!targetPresence) throw new Error("Agent offline");
 
     await ctx.db.patch(live._id, {
       browserSessionId: sessionId,
+      targetPresenceId: targetPresence._id,
+      agentName: targetPresence.agentName,
       agentAnswer: undefined,
       agentCandidates: [],
       lastTakeoverAt: Date.now(),
@@ -531,11 +609,16 @@ export const storeAgentAnswer = internalMutation({
   args: {
     slug: v.string(),
     userId: v.id("users"),
+    apiKeyId: v.id("apiKeys"),
+    daemonSessionId: v.string(),
     answer: v.optional(v.string()),
     candidates: v.optional(v.array(v.string())),
     agentName: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, userId, answer, candidates, agentName }) => {
+  handler: async (
+    ctx,
+    { slug, userId, apiKeyId, daemonSessionId, answer, candidates, agentName },
+  ) => {
     const live = await ctx.db
       .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -543,10 +626,35 @@ export const storeAgentAnswer = internalMutation({
       .first();
     if (!live || live.userId !== userId) throw new Error("Live not found");
     if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    const now = Date.now();
+
+    let targetPresenceName: string | undefined;
+    if (live.targetPresenceId) {
+      const targetPresence = await ctx.db.get(live.targetPresenceId);
+      const isAssignedAgent =
+        !!targetPresence &&
+        targetPresence.apiKeyId === apiKeyId &&
+        targetPresence.daemonSessionId === daemonSessionId;
+      if (!isAssignedAgent) throw new Error("Live assigned to another agent");
+      targetPresenceName = targetPresence.agentName;
+    } else {
+      const byApiKey = await ctx.db
+        .query("agentPresence")
+        .withIndex("by_api_key", (q) => q.eq("apiKeyId", apiKeyId))
+        .collect();
+      const hasMatchingPresence = byApiKey.some(
+        (presence) =>
+          presence.daemonSessionId === daemonSessionId &&
+          presence.status === "online" &&
+          now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+      );
+      if (!hasMatchingPresence) throw new Error("Live assigned to another agent");
+    }
 
     const patch: Record<string, unknown> = {};
     if (answer !== undefined) patch.agentAnswer = answer;
-    if (agentName !== undefined) patch.agentName = agentName;
+    const resolvedAgentName = targetPresenceName ?? agentName;
+    if (resolvedAgentName !== undefined) patch.agentName = resolvedAgentName;
     if (candidates?.length) {
       const merged = [...live.agentCandidates, ...candidates].slice(0, MAX_CANDIDATES);
       patch.agentCandidates = merged;
@@ -557,15 +665,21 @@ export const storeAgentAnswer = internalMutation({
 });
 
 export const getPendingLiveForAgent = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+  args: { userId: v.id("users"), targetPresenceId: v.optional(v.id("agentPresence")) },
+  handler: async (ctx, { userId, targetPresenceId }) => {
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
 
-    const pending = lives.find((s) => s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer);
+    const pending = lives.find(
+      (s) =>
+        s.expiresAt > Date.now() &&
+        liveMatchesTargetPresence(s, targetPresenceId) &&
+        s.browserOffer &&
+        !s.agentAnswer,
+    );
     if (!pending?.browserOffer) return null;
 
     return {
@@ -579,15 +693,17 @@ export const getPendingLiveForAgent = internalQuery({
 });
 
 export const getActiveLiveForAgent = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+  args: { userId: v.id("users"), targetPresenceId: v.optional(v.id("agentPresence")) },
+  handler: async (ctx, { userId, targetPresenceId }) => {
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
 
-    const active = lives.find((s) => s.expiresAt > Date.now());
+    const active = lives.find(
+      (s) => s.expiresAt > Date.now() && liveMatchesTargetPresence(s, targetPresenceId),
+    );
     if (!active) return null;
 
     return {

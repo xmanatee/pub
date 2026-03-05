@@ -63,7 +63,13 @@ export function PubRoutePage({ slug }: { slug: string }) {
       </div>
 
       {controller.isOwner && !controller.liveMode ? (
-        <ControlBarGoLiveMode agentOnline={controller.agentOnline} onGoLive={controller.onGoLive} />
+        <ControlBarGoLiveMode
+          agentOnline={controller.agentOnline}
+          availableAgents={controller.availableAgents}
+          selectedPresenceId={controller.selectedPresenceId}
+          onSelectedPresenceChange={controller.onSelectedPresenceChange}
+          onGoLive={controller.onGoLive}
+        />
       ) : null}
 
       {controller.isOwner && controller.liveMode ? (

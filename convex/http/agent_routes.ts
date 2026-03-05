@@ -1,8 +1,10 @@
 import { httpRouter } from "convex/server";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { httpAction } from "../_generated/server";
 import { rateLimiter } from "../rateLimits";
 import {
+  ApiError,
   authenticateApiKey,
   corsHeaders,
   errorResponse,
@@ -14,6 +16,41 @@ import {
 } from "./shared";
 
 export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
+  function rethrowPresenceApiError(error: unknown): never {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "API key already in use") {
+      throw new ApiError(message, 409);
+    }
+    throw error;
+  }
+
+  async function readPresenceBody(
+    request: Request,
+  ): Promise<{ daemonSessionId: string; agentName?: string } | Response> {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400);
+    }
+
+    if (!body || typeof body !== "object") {
+      return errorResponse("Invalid JSON body", 400);
+    }
+
+    const payload = body as { daemonSessionId?: unknown; agentName?: unknown };
+
+    const daemonSessionId =
+      typeof payload.daemonSessionId === "string" ? payload.daemonSessionId.trim() : "";
+    if (!daemonSessionId) return errorResponse("Missing daemonSessionId", 400);
+
+    const agentNameRaw = typeof payload.agentName === "string" ? payload.agentName.trim() : "";
+    return {
+      daemonSessionId,
+      agentName: agentNameRaw.length > 0 ? agentNameRaw : undefined,
+    };
+  }
+
   const corsPreflightHandler = httpAction(async () => {
     return new Response(null, { status: 204, headers: corsHeaders() });
   });
@@ -27,6 +64,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     handler: httpAction(async (ctx, request) => {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
+      const body = await readPresenceBody(request);
+      if (body instanceof Response) return body;
 
       const user = await authenticateApiKey(ctx, apiKey);
       const rl = await rateLimiter.limit(ctx, "presenceHeartbeat", { key: apiKey });
@@ -34,7 +73,16 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
 
       return executeAction(
         async () => {
-          await ctx.runMutation(internal.presence.goOnline, { userId: user.userId });
+          try {
+            await ctx.runMutation(internal.presence.goOnline, {
+              userId: user.userId,
+              apiKeyId: user.apiKeyId,
+              daemonSessionId: body.daemonSessionId,
+              agentName: body.agentName,
+            });
+          } catch (error) {
+            rethrowPresenceApiError(error);
+          }
         },
         () => jsonResponse({ online: true }),
       );
@@ -48,6 +96,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     handler: httpAction(async (ctx, request) => {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
+      const body = await readPresenceBody(request);
+      if (body instanceof Response) return body;
 
       const user = await authenticateApiKey(ctx, apiKey);
       const rl = await rateLimiter.limit(ctx, "presenceHeartbeat", { key: apiKey });
@@ -55,7 +105,10 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
 
       return executeAction(
         async () => {
-          await ctx.runMutation(internal.presence.heartbeat, { userId: user.userId });
+          await ctx.runMutation(internal.presence.heartbeat, {
+            apiKeyId: user.apiKeyId,
+            daemonSessionId: body.daemonSessionId,
+          });
         },
         () => jsonResponse({ ok: true }),
       );
@@ -69,12 +122,17 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     handler: httpAction(async (ctx, request) => {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
+      const body = await readPresenceBody(request);
+      if (body instanceof Response) return body;
 
       const user = await authenticateApiKey(ctx, apiKey);
 
       return executeAction(
         async () => {
-          await ctx.runMutation(internal.presence.goOffline, { userId: user.userId });
+          await ctx.runMutation(internal.presence.goOffline, {
+            apiKeyId: user.apiKeyId,
+            daemonSessionId: body.daemonSessionId,
+          });
         },
         () => jsonResponse({ offline: true }),
       );
@@ -95,12 +153,26 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
 
       return executeAction(
         async () => {
+          const url = new URL(request.url);
+          const daemonSessionId = url.searchParams.get("daemonSessionId")?.trim();
+          let targetPresenceId: Id<"agentPresence"> | undefined;
+          if (daemonSessionId) {
+            const presence = await ctx.runQuery(internal.presence.getPresenceByApiKeySession, {
+              apiKeyId: user.apiKeyId,
+              daemonSessionId,
+            });
+            if (!presence) return { live: null };
+            targetPresenceId = presence._id;
+          }
+
           const pending = await ctx.runQuery(internal.pubs.getPendingLiveForAgent, {
             userId: user.userId,
+            targetPresenceId,
           });
           if (!pending) {
             const active = await ctx.runQuery(internal.pubs.getActiveLiveForAgent, {
               userId: user.userId,
+              targetPresenceId,
             });
             return { live: active };
           }
@@ -119,7 +191,13 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
-      let body: { slug: string; answer?: string; candidates?: string[]; agentName?: string };
+      let body: {
+        slug: string;
+        daemonSessionId?: string;
+        answer?: string;
+        candidates?: string[];
+        agentName?: string;
+      };
       try {
         body = await request.json();
       } catch {
@@ -127,6 +205,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       }
 
       if (!body.slug) return errorResponse("Missing slug", 400);
+      const daemonSessionId = body.daemonSessionId?.trim();
+      if (!daemonSessionId) return errorResponse("Missing daemonSessionId", 400);
 
       const user = await authenticateApiKey(ctx, apiKey);
       const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
@@ -138,6 +218,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
             await ctx.runMutation(internal.pubs.storeAgentAnswer, {
               slug: body.slug,
               userId: user.userId,
+              apiKeyId: user.apiKeyId,
+              daemonSessionId,
               answer: body.answer,
               candidates: body.candidates,
               agentName: body.agentName,
@@ -165,8 +247,21 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
 
       return executeAction(
         async () => {
+          const url = new URL(request.url);
+          const daemonSessionId = url.searchParams.get("daemonSessionId")?.trim();
+          let targetPresenceId: Id<"agentPresence"> | undefined;
+          if (daemonSessionId) {
+            const presence = await ctx.runQuery(internal.presence.getPresenceByApiKeySession, {
+              apiKeyId: user.apiKeyId,
+              daemonSessionId,
+            });
+            if (!presence) return;
+            targetPresenceId = presence._id;
+          }
+
           const active = await ctx.runQuery(internal.pubs.getActiveLiveForAgent, {
             userId: user.userId,
+            targetPresenceId,
           });
           if (!active) return;
           try {
