@@ -11,7 +11,11 @@ test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 async function setupPage(page: Page) {
   await page.goto("/debug/control-bar");
-  await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveURL(/\/debug\/control-bar(?:\?.*)?$/);
+  await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible({
+    timeout: 15_000,
+  });
   await freezeAnimations(page);
 }
 

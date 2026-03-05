@@ -1,45 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { resolveAckChannel as resolveCliAckChannel } from "../../../../cli/src/lib/ack-routing";
-import * as cliBridgeProtocol from "../../../../cli/src/lib/bridge-protocol";
+import { resolveAckChannel as resolveCoreAckChannel } from "../../../../shared/ack-routing-core";
+import * as coreBridgeProtocol from "../../../../shared/bridge-protocol-core";
 import { resolveAckChannel as resolveAppAckChannel } from "./ack-routing";
 import * as appBridgeProtocol from "./bridge-protocol";
 
-describe("bridge protocol parity (app vs cli)", () => {
+describe("bridge protocol parity (app vs shared core)", () => {
   it("keeps core constants aligned", () => {
-    expect(appBridgeProtocol.CONTROL_CHANNEL).toBe(cliBridgeProtocol.CONTROL_CHANNEL);
-    expect(appBridgeProtocol.CHANNELS).toEqual(cliBridgeProtocol.CHANNELS);
+    expect(appBridgeProtocol.CONTROL_CHANNEL).toBe(coreBridgeProtocol.CONTROL_CHANNEL);
+    expect(appBridgeProtocol.CHANNELS).toEqual(coreBridgeProtocol.CHANNELS);
   });
 
   it("keeps ack message builder output aligned", () => {
     const appAck = appBridgeProtocol.makeAckMessage("msg-1", appBridgeProtocol.CHANNELS.CHAT);
-    const cliAck = cliBridgeProtocol.makeAckMessage("msg-1", cliBridgeProtocol.CHANNELS.CHAT);
+    const coreAck = coreBridgeProtocol.makeAckMessage("msg-1", coreBridgeProtocol.CHANNELS.CHAT);
     expect(appAck.type).toBe("event");
-    expect(cliAck.type).toBe("event");
+    expect(coreAck.type).toBe("event");
     expect(appAck.data).toBe("ack");
-    expect(cliAck.data).toBe("ack");
+    expect(coreAck.data).toBe("ack");
     expect(appAck.meta?.messageId).toBe("msg-1");
-    expect(cliAck.meta?.messageId).toBe("msg-1");
+    expect(coreAck.meta?.messageId).toBe("msg-1");
     expect(appAck.meta?.channel).toBe(appBridgeProtocol.CHANNELS.CHAT);
-    expect(cliAck.meta?.channel).toBe(cliBridgeProtocol.CHANNELS.CHAT);
+    expect(coreAck.meta?.channel).toBe(coreBridgeProtocol.CHANNELS.CHAT);
     expect(typeof appAck.id).toBe("string");
-    expect(typeof cliAck.id).toBe("string");
+    expect(typeof coreAck.id).toBe("string");
     expect(typeof appAck.meta?.receivedAt).toBe("number");
-    expect(typeof cliAck.meta?.receivedAt).toBe("number");
+    expect(typeof coreAck.meta?.receivedAt).toBe("number");
   });
 
   it("keeps codec behavior aligned", () => {
     const msg = appBridgeProtocol.makeTextMessage("hello");
     const appEncoded = appBridgeProtocol.encodeMessage(msg);
-    const cliEncoded = cliBridgeProtocol.encodeMessage(msg);
+    const coreEncoded = coreBridgeProtocol.encodeMessage(msg);
 
-    expect(appEncoded).toBe(cliEncoded);
+    expect(appEncoded).toBe(coreEncoded);
     expect(appBridgeProtocol.decodeMessage(appEncoded)).toEqual(
-      cliBridgeProtocol.decodeMessage(cliEncoded),
+      coreBridgeProtocol.decodeMessage(coreEncoded),
     );
   });
 });
 
-describe("ack routing parity (app vs cli)", () => {
+describe("ack routing parity (app vs shared core)", () => {
   it("resolves target channel identically", () => {
     const samples = [
       {
@@ -65,7 +65,7 @@ describe("ack routing parity (app vs cli)", () => {
     ] as const;
 
     for (const sample of samples) {
-      expect(resolveAppAckChannel(sample)).toBe(resolveCliAckChannel(sample));
+      expect(resolveAppAckChannel(sample)).toBe(resolveCoreAckChannel(sample));
     }
   });
 });

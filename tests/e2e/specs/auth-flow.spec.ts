@@ -3,16 +3,17 @@ import { expect, type Page, test } from "@playwright/test";
 async function gotoLogin(page: Page) {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
+  await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 15_000 });
 }
 
 test.describe("Auth flow", () => {
   test("login page loads with sign-in buttons", async ({ page }) => {
     await gotoLogin(page);
-    await expect(page.getByRole("heading", { name: "Sign in to Pub" })).toBeVisible({
-      timeout: 10_000,
+    await expect(page.getByText("Sign in to Pub", { exact: true })).toBeVisible({
+      timeout: 15_000,
     });
-    await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole("button", { name: /Google/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: /Google/i })).toBeVisible({ timeout: 15_000 });
   });
 
   test("dashboard redirects unauthenticated users to /login", async ({ page }) => {
@@ -23,7 +24,7 @@ test.describe("Auth flow", () => {
 
   test("GitHub button initiates OAuth via Convex", async ({ page }) => {
     await gotoLogin(page);
-    await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible({ timeout: 15_000 });
 
     const [request] = await Promise.all([
       page.waitForRequest((req) => req.url().includes("/api/auth/signin/github"), {

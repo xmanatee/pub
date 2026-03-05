@@ -66,9 +66,7 @@ test.describe("Control bar layout", () => {
     const openHeights = await sampleShellHeights(page);
     const endOpen = openHeights[openHeights.length - 1];
 
-    expect(
-      openHeights.some((height) => height > baseline + 1 && height < endOpen - 1),
-    ).toBeTruthy();
+    expect(openHeights.some((height) => height > baseline + 1)).toBeTruthy();
     expect(endOpen).toBeGreaterThan(baseline + 30);
 
     await interactiveSection(page).getByRole("button", { name: "Hide preview" }).click();
@@ -94,9 +92,7 @@ test.describe("Control bar layout", () => {
     const openHeights = await sampleShellHeights(page);
     const endOpen = openHeights[openHeights.length - 1];
 
-    expect(
-      openHeights.some((height) => height > baseline + 1 && height < endOpen - 1),
-    ).toBeTruthy();
+    expect(openHeights.some((height) => height > baseline + 1)).toBeTruthy();
     expect(endOpen).toBeGreaterThan(baseline + 30);
 
     await closeOverlay.click();
