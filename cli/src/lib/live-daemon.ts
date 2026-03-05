@@ -37,6 +37,7 @@ import {
   OFFER_TIMEOUT_MS,
   PING_INTERVAL_MS,
   PONG_TIMEOUT_MS,
+  readCanvasHtmlFromOutbound,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
 import { createSignalingController } from "./live-daemon-signaling.js";
@@ -77,6 +78,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
   let inboundStreams = new Map<string, { streamId: string }>();
   let seenInboundMessageKeys = new Set<string>();
+  let lastCanvasSnapshot: { slug: string; html: string } | null = null;
+  let lastPersistedCanvasSnapshot: { slug: string; html: string } | null = null;
+  let persistCanvasQueue: Promise<void> = Promise.resolve();
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
@@ -149,9 +153,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         pongTimeout = setTimeout(() => {
           if (!connected || stopped) return;
           debugLog("pong timeout — treating as disconnected");
-          connected = false;
-          failPendingAcks();
-          stopPingPong();
+          handleConnectionClosed("pong-timeout");
         }, PONG_TIMEOUT_MS);
       } catch (error) {
         debugLog("ping send failed", error);
@@ -202,6 +204,65 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (buffer.messages.length > MAX_BUFFERED_MESSAGES) {
       buffer.messages.splice(0, buffer.messages.length - MAX_BUFFERED_MESSAGES);
     }
+  }
+
+  function getActiveCanvasSnapshot(): { slug: string; html: string } | null {
+    if (!activeSlug || !lastCanvasSnapshot) return null;
+    if (lastCanvasSnapshot.slug !== activeSlug) return null;
+    return lastCanvasSnapshot;
+  }
+
+  function isSameCanvasSnapshot(
+    a: { slug: string; html: string } | null,
+    b: { slug: string; html: string } | null,
+  ): boolean {
+    if (!a || !b) return false;
+    return a.slug === b.slug && a.html === b.html;
+  }
+
+  function queuePersistCanvasSnapshot(
+    snapshot: { slug: string; html: string } | null,
+    reason: string,
+  ): Promise<void> {
+    if (!snapshot) return Promise.resolve();
+    if (isSameCanvasSnapshot(lastPersistedCanvasSnapshot, snapshot)) return Promise.resolve();
+
+    persistCanvasQueue = persistCanvasQueue.then(async () => {
+      if (isSameCanvasSnapshot(lastPersistedCanvasSnapshot, snapshot)) return;
+      try {
+        await apiClient.update({
+          slug: snapshot.slug,
+          content: snapshot.html,
+          filename: "live-canvas.html",
+        });
+        lastPersistedCanvasSnapshot = snapshot;
+        debugLog(`persisted latest canvas for "${snapshot.slug}" (${reason})`);
+      } catch (error) {
+        markError(`failed to persist latest canvas for "${snapshot.slug}" (${reason})`, error);
+        if (!debugEnabled) {
+          console.error(
+            `[pubblue-agent] failed to persist latest canvas for "${snapshot.slug}" (${reason}): ${errorMessage(error)}`,
+          );
+        }
+      }
+    });
+
+    return persistCanvasQueue;
+  }
+
+  function trackOutboundMessage(channel: string, msg: BridgeMessage): void {
+    const html = readCanvasHtmlFromOutbound({ channel, msg });
+    if (!html || !activeSlug) return;
+    lastCanvasSnapshot = { slug: activeSlug, html };
+  }
+
+  function handleConnectionClosed(reason: string): void {
+    void queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), reason);
+    if (!connected) return;
+    connected = false;
+    buffer.messages = [];
+    failPendingAcks();
+    stopPingPong();
   }
 
   // -- Channel / message management -----------------------------------------
@@ -529,10 +590,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     return false;
   }
 
-  function maybePersistStickyOutbound(_channel: string, _msg: BridgeMessage): void {
-    // Intentionally disabled: live runtime should not persist/replay canvas/message state.
-  }
-
   // -- Peer management ------------------------------------------------------
 
   function attachPeerHandlers(currentPeer: PeerConnection): void {
@@ -550,10 +607,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         return;
       }
       if (state === "disconnected" || state === "failed" || state === "closed") {
-        connected = false;
-        buffer.messages = [];
-        failPendingAcks();
-        stopPingPong();
+        handleConnectionClosed(`peer-state:${state}`);
       }
     });
 
@@ -561,10 +615,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (stopped || currentPeer !== peer) return;
       debugLog(`ICE state: ${state}`);
       if ((state === "disconnected" || state === "failed") && connected) {
-        connected = false;
-        buffer.messages = [];
-        failPendingAcks();
-        stopPingPong();
+        handleConnectionClosed(`ice-state:${state}`);
       }
     });
 
@@ -646,6 +697,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     recovering = true;
 
     try {
+      const previousCanvasSnapshot = getActiveCanvasSnapshot();
+      if (previousCanvasSnapshot && previousCanvasSnapshot.slug !== slug) {
+        void queuePersistCanvasSnapshot(previousCanvasSnapshot, `session-switch:${slug}`);
+      }
       await stopBridge();
       closeCurrentPeer();
       createPeer();
@@ -758,7 +813,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     waitForChannelOpen,
     waitForDeliveryAck,
     settlePendingAck,
-    maybePersistStickyOutbound,
+    trackOutboundMessage,
     markError,
     shutdown: () => {
       void shutdown();
@@ -790,7 +845,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
     });
     if (sent) {
-      maybePersistStickyOutbound(channel, msg);
+      trackOutboundMessage(channel, msg);
     }
     return sent;
   }
@@ -847,6 +902,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearHeartbeatTimer();
     stopPingPong();
     await signaling.stop();
+    await queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), "daemon-shutdown");
 
     try {
       await apiClient.goOffline();
@@ -870,15 +926,27 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  async function shutdown(): Promise<void> {
+  let shuttingDown = false;
+
+  async function shutdown(exitCode = 0): Promise<void> {
+    if (shuttingDown) return;
+    shuttingDown = true;
     await cleanup();
-    process.exit(0);
+    process.exit(exitCode);
   }
 
   process.on("SIGTERM", () => {
-    void shutdown();
+    void shutdown(0);
   });
   process.on("SIGINT", () => {
-    void shutdown();
+    void shutdown(0);
+  });
+  process.on("uncaughtException", (error) => {
+    markError("uncaught exception in daemon", error);
+    void shutdown(1);
+  });
+  process.on("unhandledRejection", (reason) => {
+    markError("unhandled rejection in daemon", reason);
+    void shutdown(1);
   });
 }

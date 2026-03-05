@@ -22,7 +22,7 @@ interface DaemonIpcHandlerParams {
   waitForChannelOpen: (channel: DataChannel, timeoutMs?: number) => Promise<void>;
   waitForDeliveryAck: (messageId: string, channel: string, timeoutMs: number) => Promise<boolean>;
   settlePendingAck: (messageId: string, channel: string, received: boolean) => void;
-  maybePersistStickyOutbound: (channel: string, msg: BridgeMessage) => void;
+  trackOutboundMessage: (channel: string, msg: BridgeMessage) => void;
   markError: (message: string, error?: unknown) => void;
   shutdown: () => void;
   writeAckTimeoutMs: number;
@@ -106,7 +106,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
             }
           }
 
-          params.maybePersistStickyOutbound(channel, msg);
+          params.trackOutboundMessage(channel, msg);
           return { ok: true, delivered: true };
         }
 
