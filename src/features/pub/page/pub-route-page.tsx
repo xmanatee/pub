@@ -16,9 +16,9 @@ import { api } from "../../../../convex/_generated/api";
 
 export function PubRoutePage({ slug }: { slug: string }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
-  const model = usePubLiveModel(slug);
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
+  const model = usePubLiveModel(slug, baseContentHtml);
   const controller = usePubRouteController({
     baseContentHtml,
     model,

@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  type BridgeMessageMeta,
-  CONTROL_CHANNEL,
-  type DeliveryReceiptPayload,
-  makeEventMessage,
-  type SessionContextPayload,
-} from "~/features/live/lib/bridge-protocol";
+import { type DeliveryReceiptPayload } from "~/features/live/lib/bridge-protocol";
 import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { trackError } from "~/lib/analytics";
@@ -15,7 +9,6 @@ interface UseLiveBridgeOptions {
   enabled: boolean;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
-  sessionContext?: SessionContextPayload;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
   storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
   onDeliveryReceipt: (receipt: DeliveryReceiptPayload) => void;
@@ -33,7 +26,6 @@ export function useLiveBridge({
   enabled,
   agentAnswer,
   agentCandidates,
-  sessionContext,
   storeBrowserOffer,
   storeBrowserCandidates,
   onDeliveryReceipt,
@@ -43,7 +35,6 @@ export function useLiveBridge({
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
-  const sessionContextSentRef = useRef(false);
 
   const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
@@ -90,7 +81,6 @@ export function useLiveBridge({
     bridgeRef.current = bridge;
     lastAgentCandidateCountRef.current = 0;
     lastHandledAnswerRef.current = null;
-    sessionContextSentRef.current = false;
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage((message) => onMessageRef.current(message));
     bridge.setOnTrack(() => onTrackActivityRef.current());
@@ -211,16 +201,6 @@ export function useLiveBridge({
       });
     });
   }, [agentCandidates]);
-
-  // Send session context once after connection
-  useEffect(() => {
-    if (bridgeState !== "connected" || !sessionContext || sessionContextSentRef.current) return;
-    const bridge = bridgeRef.current;
-    if (!bridge) return;
-    const msg = makeEventMessage("session-context", sessionContext as BridgeMessageMeta);
-    const sent = bridge.send(CONTROL_CHANNEL, msg);
-    if (sent) sessionContextSentRef.current = true;
-  }, [bridgeState, sessionContext]);
 
   return {
     bridgeRef,

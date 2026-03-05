@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/bridge-protocol-core";
+import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import {
@@ -22,8 +22,6 @@ import {
   type BufferedEntry,
   buildInboundPrompt,
   buildRenderErrorPrompt,
-  buildSessionBriefing,
-  parseSessionContextMeta,
   readRenderErrorMessage,
   readTextChatMessage,
   resolveCanvasReminderEvery,
@@ -241,7 +239,7 @@ export async function runOpenClawBridgeStartupProbe(
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
 ): Promise<BridgeRunner> {
-  const { slug, debugLog } = config;
+  const { slug, debugLog, sessionBriefing } = config;
 
   const runtime = resolveOpenClawRuntime(process.env);
   const { openclawPath, sessionId } = runtime;
@@ -256,25 +254,11 @@ export async function createOpenClawBridgeRunner(
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
   let stopped = false;
-  let sessionBriefingSent = false;
+  await deliverMessageToOpenClaw({ openclawPath, sessionId, text: sessionBriefing });
+  debugLog("session briefing delivered");
+
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
-      if (
-        !sessionBriefingSent &&
-        entry.channel === CONTROL_CHANNEL &&
-        entry.msg.type === "event" &&
-        entry.msg.data === "session-context"
-      ) {
-        const ctx = parseSessionContextMeta(entry.msg.meta);
-        if (ctx) {
-          sessionBriefingSent = true;
-          const briefing = buildSessionBriefing(slug, ctx, config.instructions);
-          await deliverMessageToOpenClaw({ openclawPath, sessionId, text: briefing });
-          debugLog("session briefing delivered");
-        }
-        return;
-      }
-
       const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
         forwardedMessageCount + 1,
         canvasReminderEvery,

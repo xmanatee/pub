@@ -7,7 +7,6 @@ import {
   makeStreamEnd,
   makeStreamStart,
   makeTextMessage,
-  type SessionContextPayload,
 } from "~/features/live/lib/bridge-protocol";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
@@ -25,7 +24,6 @@ interface UseLiveTransportOptions {
   enabled: boolean;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
-  sessionContext: SessionContextPayload | undefined;
   autoOpenCanvas: boolean;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
   storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
@@ -91,7 +89,6 @@ export function useLiveTransport({
   enabled,
   agentAnswer,
   agentCandidates,
-  sessionContext,
   autoOpenCanvas,
   storeBrowserOffer,
   storeBrowserCandidates,
@@ -255,7 +252,6 @@ export function useLiveTransport({
     enabled,
     agentAnswer,
     agentCandidates,
-    sessionContext,
     storeBrowserOffer,
     storeBrowserCandidates,
     onDeliveryReceipt: handleDeliveryReceipt,

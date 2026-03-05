@@ -37,23 +37,12 @@ export type ControlEvent =
   | "capabilities"
   | "channel.open"
   | "channel.close"
-  | "session-context"
   | "status"
   | "error"
   | "delivery"
   | "ping"
   | "pong"
   | "ack";
-
-export interface SessionContextPayload {
-  title?: string;
-  contentType?: string;
-  contentPreview?: string;
-  isPublic?: boolean;
-  preferences?: {
-    voiceModeEnabled?: boolean;
-  };
-}
 
 export type BridgeCapability = "text" | "html" | "audio" | "video" | "binary" | "stream";
 
