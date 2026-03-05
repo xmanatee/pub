@@ -7,7 +7,7 @@ import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-de
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 
-export function usePubLiveModel(slug: string, _baseContentHtml?: string | null) {
+export function usePubLiveModel(slug: string) {
   const {
     agentOnline,
     availableAgents,

@@ -18,7 +18,7 @@ export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLiv
   const pub = useQuery(api.pubs.getBySlug, { slug });
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
-  const model = usePubLiveModel(slug, baseContentHtml);
+  const model = usePubLiveModel(slug);
   const controller = usePubRouteController({
     autoLive,
     baseContentHtml,
