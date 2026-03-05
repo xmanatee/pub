@@ -1,0 +1,102 @@
+import { LiveBanners } from "~/features/dashboard/components/live-banners";
+import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
+import type { Id } from "../../../convex/_generated/dataModel";
+
+const noop = () => {};
+const fakeId = (n: number) => `fake_${n}` as Id<"pubs">;
+
+const HTML_PREVIEW = `<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1>
+<p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>`;
+
+const TEXT_PREVIEW = `# Meeting Notes\n\n- Discussed project timeline\n- Assigned tasks to team\n- Next meeting: Friday`;
+
+const MARKDOWN_PREVIEW = `## API Documentation\n\n\`\`\`javascript\nconst response = await fetch("/api/v1/pubs");\nconst data = await response.json();\n\`\`\``;
+
+const SAMPLE_PUBS = [
+  {
+    _id: fakeId(1),
+    slug: "hello-world",
+    title: "Hello World",
+    contentType: "html" as const,
+    isPublic: true,
+    createdAt: Date.now() - 86400000 * 3,
+    contentPreview: HTML_PREVIEW,
+  },
+  {
+    _id: fakeId(2),
+    slug: "meeting-notes",
+    title: "Meeting Notes",
+    contentType: "text" as const,
+    isPublic: false,
+    createdAt: Date.now() - 86400000,
+    contentPreview: TEXT_PREVIEW,
+  },
+  {
+    _id: fakeId(3),
+    slug: "api-docs",
+    title: "API Documentation",
+    contentType: "markdown" as const,
+    isPublic: true,
+    expiresAt: Date.now() + 3600000 * 12,
+    createdAt: Date.now() - 3600000 * 6,
+    contentPreview: MARKDOWN_PREVIEW,
+  },
+  {
+    _id: fakeId(4),
+    slug: "empty-pub",
+    contentType: undefined,
+    isPublic: false,
+    createdAt: Date.now() - 86400000 * 7,
+    contentPreview: "",
+  },
+];
+
+const SAMPLE_LIVES = [
+  { slug: "hello-world", hasConnection: true, expiresAt: Date.now() + 23 * 3600000 },
+  { slug: "api-docs", hasConnection: false, expiresAt: Date.now() + 45 * 60000 },
+];
+
+const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };
+const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-docs": 8 };
+
+export function DashboardDebugPage() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="space-y-10 px-4 py-8">
+        <h1 className="text-xl font-semibold">Dashboard Debug</h1>
+
+        <section data-testid="batch-dashboard-cards" className="bg-white p-6">
+          <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
+          <PubsGrid
+            pubs={SAMPLE_PUBS}
+            viewCounts={CARDS_VIEW_COUNTS}
+            status="Exhausted"
+            onLoadMore={noop}
+            onToggleVisibility={noop}
+            onDelete={noop}
+          />
+        </section>
+
+        <section data-testid="batch-dashboard-live" className="bg-white p-6">
+          <div className="mb-5 text-center text-sm font-semibold">Live Banners</div>
+          <LiveBanners lives={SAMPLE_LIVES} />
+        </section>
+
+        <section data-testid="batch-dashboard-gallery" className="bg-white p-6">
+          <div className="mb-5 text-center text-sm font-semibold">
+            Full Gallery — Cards + Live Banner
+          </div>
+          <LiveBanners lives={[SAMPLE_LIVES[0]]} />
+          <PubsGrid
+            pubs={SAMPLE_PUBS}
+            viewCounts={GALLERY_VIEW_COUNTS}
+            status="Exhausted"
+            onLoadMore={noop}
+            onToggleVisibility={noop}
+            onDelete={noop}
+          />
+        </section>
+      </div>
+    </div>
+  );
+}
