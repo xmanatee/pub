@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for publishing content and going live with live WebRTC connections, all unified under a single "pub" concept. A pub can have static content (HTML, Markdown, text), a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for helping an AI agent show and visualize output over the web. A pub can have static content (HTML, Markdown, text), a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -12,7 +12,7 @@ pnpm dev              # Start both web + Convex backend (runs convex dev --once 
 pnpm dev:web          # Vite dev server only
 pnpm dev:db           # Convex backend dev server only
 
-# Validation (run all three with `pnpm check`)
+# Validation (`pnpm check` runs lint + test + build + knip)
 pnpm lint             # Biome check + tsc --noEmit
 pnpm test             # vitest run
 pnpm build            # vite build + tsc --noEmit
@@ -68,7 +68,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
-- `start --agent-name <name>` — registers agent presence online, starts per-user daemon + bridge; `--agent-name` is required and shown in browser UI
+- `start --agent-name <name>` — registers agent presence and starts the per-user daemon; optional `--bridge openclaw|claude-code`; `--agent-name` is required and shown in browser UI
 - `stop` — deregisters agent presence, closes active live, stops daemon
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC
@@ -85,7 +85,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)
-- **`pubblue`** — Claude Code skill for publishing content via the CLI
+- **`pubblue`** — Claude Code skill for publishing and visualizing agent output via the CLI
 - Each skill has a `SKILL.md` (instructions) and `claw.json` (ClawHub manifest)
 - Published to ClawHub automatically on push to `main` (see `.github/workflows/clawhub.yml`)
 

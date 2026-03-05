@@ -223,7 +223,7 @@ export async function runOpenClawBridgeStartupProbe(
           openclawPath: runtime.openclawPath,
           sessionId: runtime.sessionId,
           text: [
-            "[pubblue-start-preflight] Startup connectivity probe.",
+            "[pubblue preflight] Connectivity probe.",
             "Run this exact command now:",
             'pubblue write "pong"',
             "Do not explain. Just execute it.",

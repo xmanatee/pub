@@ -8,8 +8,10 @@ import {
   generateMessageId,
 } from "../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../lib/cli-error.js";
+import { DEFAULT_BASE_URL, readConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import type { StatusResponse } from "../lib/live-ipc-protocol.js";
+import { detectBridgeAvailability } from "../lib/live-runtime/bridge-runtime.js";
 import {
   formatApiError,
   getFollowReadDelayMs,
@@ -42,6 +44,31 @@ export function registerLiveCommands(program: Command): void {
   registerReadCommand(program);
   registerChannelsCommand(program);
   registerDoctorCommand(program);
+}
+
+function printLocalRuntimeSummary(): void {
+  const saved = readConfig();
+  const hasEnvApiKey =
+    typeof process.env.PUBBLUE_API_KEY === "string" &&
+    process.env.PUBBLUE_API_KEY.trim().length > 0;
+  const apiSource = hasEnvApiKey
+    ? "PUBBLUE_API_KEY env"
+    : saved?.apiKey
+      ? "saved config"
+      : "not configured";
+  const baseUrl = process.env.PUBBLUE_URL?.trim() || DEFAULT_BASE_URL;
+
+  console.log("Local runtime configuration:");
+  console.log(`  API key source: ${apiSource}`);
+  console.log(`  Base URL: ${baseUrl}`);
+
+  const availability = detectBridgeAvailability();
+  console.log("Bridge runtime availability:");
+  for (const bridge of availability) {
+    console.log(
+      `  ${bridge.mode}: ${bridge.available ? "available" : "unavailable"} (${bridge.detail})`,
+    );
+  }
 }
 
 function registerStartCommand(program: Command): void {
@@ -148,6 +175,7 @@ function registerStatusCommand(program: Command): void {
           failCli(`Failed to fetch daemon status: ${errorMessage(error)}`);
         }
         console.log("Agent daemon is not running.");
+        printLocalRuntimeSummary();
         return;
       }
       if (!response.ok) {

@@ -34,7 +34,9 @@ export function ExplorePage() {
               <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="font-medium mb-1">No public pubs yet</p>
-            <p className="text-sm text-muted-foreground">Be the first to publish something!</p>
+            <p className="text-sm text-muted-foreground">
+              Be the first to share an agent page or visual!
+            </p>
           </CardContent>
         </Card>
       )}

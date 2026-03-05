@@ -9,9 +9,11 @@ export function CtaSection() {
     <section className="py-24 border-t border-border/50">
       <div className="px-4 sm:px-6 text-center">
         <PubLogo size={48} className="mx-auto mb-6" />
-        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">Ready to publish?</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
+          Ready to let your agent show work?
+        </h2>
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
-          Sign up in seconds. Get your API key. Start publishing.
+          Sign in, get your API key, and start sharing pages and live visual sessions.
         </p>
         <Button
           size="lg"

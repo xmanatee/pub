@@ -1,6 +1,6 @@
 # Testing Conventions
 
-This document defines test placement, naming, and scope.
+This document defines test placement, naming, and scope for Pub.
 
 ## Test levels
 
@@ -47,20 +47,18 @@ Rules:
 - Must live under `src/devtools` for implementation, with route wrappers under `src/routes`.
 - Must not contain production-only business logic.
 
-## Required validation for migration phases
+## Required Validation
 
 For each phase:
 
 1. Run targeted tests for touched scope.
-2. Run `pnpm lint`.
-3. Run `pnpm test`.
-4. Run `pnpm build`.
+2. Run `pnpm check` (lint + typecheck + unit tests + knip).
 
 For phases touching e2e harness or debug pages, also run:
 
 1. `pnpm test:e2e`
 
-## Completion bar
+## Completion Bar
 
 A phase is not complete if it leaves:
 

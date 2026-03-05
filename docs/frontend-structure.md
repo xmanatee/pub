@@ -1,6 +1,6 @@
 # Frontend Structure Conventions
 
-This document defines where frontend code lives and how modules are allowed to depend on each other.
+This document defines frontend ownership and dependency direction.
 
 ## Goals
 
@@ -90,9 +90,9 @@ When a feature needs something from another feature, prefer extracting that logi
 - Avoid `try/catch` that only logs and swallows errors.
 - Keep one source of truth for each state domain.
 
-## Migration completion criteria
+## Completion Checklist
 
-The migration is considered complete when:
+A frontend restructure is complete when:
 
 - Route files are thin wrappers.
 - Feature logic is owned by `src/features/*`.

@@ -1,14 +1,14 @@
 # Pub
 
-Publish static content (HTML, Markdown, text) with shareable URLs at [pub.blue](https://pub.blue).
+Publish and visualize what your AI agent creates: static pages plus live browser canvas sessions at [pub.blue](https://pub.blue).
 
 ## Features
 
-- Publish HTML, Markdown, and plain text with a unique URL
+- Publish AI-generated HTML, Markdown, and plain text with a unique URL
 - Web dashboard with pub management, view counts, and expiry badges
-- Public explore feed for discovering published content
-- CLI tool ([`pubblue`](https://www.npmjs.com/package/pubblue)) for publishing from the terminal
-- Claude Code skill for AI-assisted publishing
+- Public explore feed for discovering public agent pages and visuals
+- CLI tool ([`pubblue`](https://www.npmjs.com/package/pubblue)) for publishing and visualizing from the terminal
+- Claude Code and OpenClaw bridge support for live agent-to-browser sessions
 - API key authentication for programmatic access
 - Expiring pubs (1h, 24h, 7d, etc.)
 - RSS feeds per user
@@ -62,6 +62,10 @@ pubblue create my-page.html --public
 
 # Publish with expiry
 pubblue create notes.md --expires 24h
+
+# Start a live visualization session
+pubblue start --agent-name "<agent-name>"
+pubblue write -c canvas -f ./visual.html
 ```
 
 ## Development
@@ -71,7 +75,7 @@ pnpm dev          # Start web + Convex backend
 pnpm lint         # Biome check + TypeScript
 pnpm test         # Run tests
 pnpm build        # Production build
-pnpm check        # All of the above
+pnpm check        # lint + test + build + knip
 ```
 
 ## Tech Stack

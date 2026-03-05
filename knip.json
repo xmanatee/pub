@@ -24,7 +24,9 @@
     },
     "cli": {
       "entry": ["src/live-daemon-entry.ts"],
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["tsup"],
+      "ignoreBinaries": ["tsup"]
     }
   }
 }

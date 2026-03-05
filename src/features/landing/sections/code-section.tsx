@@ -7,10 +7,10 @@ export function CodeSection() {
       <div className="px-4 sm:px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-            Simple as one command
+            From command to live canvas
           </h2>
           <p className="text-muted-foreground text-lg">
-            Publish from terminal, CI, or your AI agent.
+            Publish from terminal, CI, or your AI agent, then stream live visual updates.
           </p>
         </div>
 
@@ -43,12 +43,11 @@ export function CodeSection() {
               </div>
 
               <div>
-                <div className="text-white/40 text-xs mb-1"># Pipe from stdin</div>
+                <div className="text-white/40 text-xs mb-1"># Go live and push a visual</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> echo "&lt;h1&gt;Hello&lt;/h1&gt;" |
-                  pubblue create
+                  <span className="text-primary">$</span> pubblue write -c canvas -f ./visual.html
                 </div>
-                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/w3n7q1</div>
+                <div className="text-emerald-400 mt-0.5">Delivered: canvas update confirmed</div>
               </div>
             </div>
           </TerminalPreview>

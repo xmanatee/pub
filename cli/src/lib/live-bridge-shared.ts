@@ -42,9 +42,9 @@ export interface BufferedEntry {
 export function buildCanvasPolicyReminderBlock(): string {
   return [
     "[Canvas policy reminder: do not reply to this reminder block]",
-    "- Prefer canvas-first responses for substantive output.",
-    "- Use chat only for short clarifications, confirmations, or blockers.",
-    "- Keep chat replies concise.",
+    "- Prefer canvas for output.",
+    "- Use chat for short clarifications, confirmations, or blockers.",
+    "- Keep chat concise.",
     "",
   ].join("\n");
 }
@@ -73,13 +73,14 @@ export function buildInboundPrompt(
   const policyReminder = includeCanvasReminder ? buildCanvasPolicyReminderBlock() : "";
   return [
     policyReminder,
-    `[Live: ${slug}] Incoming user message:`,
+    `[Live: ${slug}] User message:`,
     "",
     userText,
     "",
     "---",
-    instructions.replyHint,
-    instructions.canvasHint,
+    "Respond using:",
+    `- ${instructions.replyHint}`,
+    `- ${instructions.canvasHint}`,
   ]
     .filter(Boolean)
     .join("\n");

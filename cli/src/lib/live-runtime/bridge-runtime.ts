@@ -88,7 +88,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       if (available) {
         return {
           available: true,
-          detail: "OpenClaw runtime detected",
+          detail: `OpenClaw runtime detected (${describeConfiguredPath("OPENCLAW_PATH", env)})`,
         };
       }
       return {
@@ -113,7 +113,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       if (available) {
         return {
           available: true,
-          detail: "Claude Code runtime detected",
+          detail: `Claude Code runtime detected (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
         };
       }
       return {
@@ -145,6 +145,25 @@ export interface BridgeSelection {
   mode: BridgeMode;
   source: "explicit" | "auto";
   detail: string;
+}
+
+export interface BridgeAvailability {
+  mode: BridgeMode;
+  available: boolean;
+  detail: string;
+}
+
+export function detectBridgeAvailability(
+  env: NodeJS.ProcessEnv = process.env,
+): BridgeAvailability[] {
+  return BRIDGE_PROVIDERS.map((provider) => {
+    const detection = provider.detect(env);
+    return {
+      mode: provider.mode,
+      available: detection.available,
+      detail: detection.detail,
+    };
+  });
 }
 
 export function resolveBridgeSelection(

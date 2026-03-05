@@ -3,38 +3,36 @@ import { Bot, FileCode2, Globe, Link2, Shield, Zap } from "lucide-react";
 const FEATURES = [
   {
     icon: FileCode2,
-    title: "Any static content",
+    title: "Static + generated artifacts",
     description: "HTML pages, Markdown documents, or plain text. Served with proper MIME types.",
   },
   {
     icon: Zap,
-    title: "Instant URLs",
+    title: "Live canvas sessions",
     description:
-      "Every file gets a unique URL immediately. Share it, embed it, or open it in a browser. No deploy step.",
+      "Go beyond static pages: stream live visuals and chat with your agent over P2P WebRTC.",
   },
   {
     icon: Bot,
-    title: "Agent-friendly API",
+    title: "Agent-first CLI + API",
     description:
-      "CLI tool and REST API designed for AI agents. Publish from Claude Code, Codex, or any automation pipeline.",
+      "Designed for AI agents and automation pipelines. Works with Claude Code, Codex, and custom tools.",
   },
   {
     icon: Shield,
-    title: "Public & private",
-    description:
-      "Control who sees your content. Publish publicly or keep it private. Toggle visibility anytime.",
+    title: "Visibility controls",
+    description: "Publish publicly or keep content private by default. Toggle visibility any time.",
   },
   {
     icon: Link2,
-    title: "Custom slugs",
+    title: "Shareable URLs",
     description:
-      "Choose your own URL slug or let one be generated. Use `update` to modify existing pubs.",
+      "Each pub gets a stable URL for sharing, embedding, and revisiting visual sessions.",
   },
   {
     icon: Globe,
-    title: "Edge delivery",
-    description:
-      "Content served globally with proper caching. Fast load times for your audience, wherever they are.",
+    title: "Fast global delivery",
+    description: "Static content is served with caching and low-latency delivery across regions.",
   },
 ] as const;
 
@@ -44,10 +42,11 @@ export function FeaturesSection() {
       <div className="px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-            Everything you need to publish
+            Built for agent publishing and visualization
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            A simple, powerful platform for getting your content on the web.
+            From one-off pages to live visual sessions, pub.blue gives your agent a web-native
+            surface for showing work.
           </p>
         </div>
 

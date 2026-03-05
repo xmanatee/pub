@@ -6,14 +6,14 @@ const STEPS = [
   },
   {
     number: "02",
-    title: "Configure the CLI",
-    description:
-      "Run one command to set up the CLI with your API key. Or use the REST API directly.",
+    title: "Publish agent output",
+    description: "Ship files, markdown, or generated HTML to a shareable pub URL with CLI or API.",
   },
   {
     number: "03",
-    title: "Publish & share",
-    description: "Publish any file. Get back a URL. Share it with anyone, anywhere.",
+    title: "Go live and visualize",
+    description:
+      "Start a live session and let your agent stream chat + canvas updates in real time.",
   },
 ] as const;
 
@@ -25,7 +25,9 @@ export function HowItWorksSection() {
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
             Three steps. That's it.
           </h2>
-          <p className="text-muted-foreground text-lg">From zero to published in under a minute.</p>
+          <p className="text-muted-foreground text-lg">
+            From login to live agent visualization in under a minute.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
