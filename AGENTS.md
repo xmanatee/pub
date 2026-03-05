@@ -124,3 +124,10 @@ Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list.
 
 - Prefer explicit, debuggable failures; avoid silent fallbacks in CLI/daemon/bridge paths.
 - Avoid Tailwind arbitrary-value or arbitrary-selector utility patterns in UI classes (for example `text-[...]`, `[&_...]`) unless there is no practical alternative.
+
+## Frontend Structure and Testing References
+
+- Frontend structure conventions: `@docs/frontend-structure.md`
+- Testing layout and naming conventions: `@docs/testing-conventions.md`
+
+Use the docs above as the authoritative source for migration behavior and conventions. Keep `AGENTS.md` high-level and avoid copying detailed policy text from those docs here.
