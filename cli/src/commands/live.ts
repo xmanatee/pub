@@ -8,13 +8,12 @@ import {
   generateMessageId,
 } from "../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../lib/cli-error.js";
-import { getConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
-import { buildBridgeProcessEnv, ensureNodeDatachannelAvailable, resolveBridgeMode } from "../lib/live-runtime/bridge-runtime.js";
 import { formatApiError, getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
 import { liveInfoPath, liveLogPath, readLogTail, writeLatestCliVersion } from "../lib/live-runtime/daemon-files.js";
 import { buildDaemonForkStdio, isDaemonRunning, resolveActiveSlug, stopOtherDaemons, waitForDaemonReady } from "../lib/live-runtime/daemon-process.js";
 import { getMimeType, TEXT_FILE_EXTENSIONS } from "../lib/live-runtime/file-payload.js";
+import { runStartPreflight } from "../lib/live-runtime/start-preflight.js";
 import { parsePositiveInteger } from "../lib/number.js";
 import { CLI_VERSION } from "../lib/version.js";
 import { createClient } from "./shared.js";
@@ -36,17 +35,18 @@ function registerStartCommand(program: Command): void {
     .requiredOption("--agent-name <name>", "Agent display name shown to the browser user")
     .option("--bridge <mode>", "Bridge mode: openclaw|claude-code")
     .action(async (opts: { agentName: string; bridge?: string }) => {
-      await ensureNodeDatachannelAvailable();
       writeLatestCliVersion(CLI_VERSION);
-      const runtimeConfig = getConfig();
-      const bridgeMode = resolveBridgeMode(opts);
-      const bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
+      const preflight = await runStartPreflight({ bridge: opts.bridge });
+      const { runtimeConfig, bridgeMode, bridgeProcessEnv } = preflight;
+
+      console.log("Preflight checks passed:");
+      for (const line of preflight.passedChecks) {
+        console.log(`  ${line}`);
+      }
 
       const socketPath = getAgentSocketPath();
       const infoPath = liveInfoPath("agent");
       const logPath = liveLogPath("agent");
-
-      await stopOtherDaemons();
 
       const { fork } = await import("node:child_process");
       const daemonScript = path.join(import.meta.dirname, "live-daemon-entry.js");

@@ -33,6 +33,8 @@ import {
 import {
   resolveSessionFromOpenClaw,
 } from "./live-bridge-openclaw-session.js";
+import type { BridgeSessionSource } from "./live-bridge-types.js";
+import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 
 const execFileAsync = promisify(execFile);
 const OPENCLAW_DISCOVERY_PATHS = [
@@ -43,8 +45,8 @@ const OPENCLAW_DISCOVERY_PATHS = [
   "/opt/homebrew/bin/openclaw",
 ];
 
-export function isOpenClawAvailable(): boolean {
-  const configured = process.env.OPENCLAW_PATH?.trim();
+export function isOpenClawAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
+  const configured = env.OPENCLAW_PATH?.trim();
   if (configured) return existsSync(configured);
   const pathFromShell = resolveCommandFromPath("openclaw");
   if (pathFromShell) return true;
@@ -57,8 +59,8 @@ const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
   CHANNELS.MEDIA,
 ]);
 
-function resolveOpenClawPath(): string {
-  const configuredPath = process.env.OPENCLAW_PATH;
+export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): string {
+  const configuredPath = env.OPENCLAW_PATH?.trim();
   if (configuredPath) {
     if (!existsSync(configuredPath)) {
       throw new Error(`OPENCLAW_PATH does not exist: ${configuredPath}`);
@@ -114,58 +116,71 @@ function formatExecFailure(prefix: string, error: unknown): Error {
   return new Error(`${prefix}: ${detail}`);
 }
 
-async function runOpenClawPreflight(openclawPath: string): Promise<void> {
+export async function runOpenClawPreflight(
+  openclawPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   const invocation = getOpenClawInvocation(openclawPath, ["agent", "--help"]);
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
       timeout: 10_000,
+      env,
     });
   } catch (error) {
     throw formatExecFailure("OpenClaw preflight failed", error);
   }
 }
 
-async function deliverMessageToOpenClaw(params: {
-  openclawPath: string;
-  sessionId: string;
-  text: string;
-}): Promise<void> {
-  const timeoutMs = Number.parseInt(process.env.OPENCLAW_DELIVER_TIMEOUT_MS ?? "", 10);
+export async function deliverMessageToOpenClaw(
+  params: {
+    openclawPath: string;
+    sessionId: string;
+    text: string;
+  },
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const timeoutMs = Number.parseInt(env.OPENCLAW_DELIVER_TIMEOUT_MS ?? "", 10);
   const effectiveTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000;
 
   const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
 
   const shouldDeliver =
-    process.env.OPENCLAW_DELIVER === "1" ||
-    Boolean(process.env.OPENCLAW_DELIVER_CHANNEL) ||
-    Boolean(process.env.OPENCLAW_REPLY_TO);
+    env.OPENCLAW_DELIVER === "1" ||
+    Boolean(env.OPENCLAW_DELIVER_CHANNEL) ||
+    Boolean(env.OPENCLAW_REPLY_TO);
   if (shouldDeliver) args.push("--deliver");
-  if (process.env.OPENCLAW_DELIVER_CHANNEL) {
-    args.push("--channel", process.env.OPENCLAW_DELIVER_CHANNEL);
+  if (env.OPENCLAW_DELIVER_CHANNEL) {
+    args.push("--channel", env.OPENCLAW_DELIVER_CHANNEL);
   }
-  if (process.env.OPENCLAW_REPLY_TO) {
-    args.push("--reply-to", process.env.OPENCLAW_REPLY_TO);
+  if (env.OPENCLAW_REPLY_TO) {
+    args.push("--reply-to", env.OPENCLAW_REPLY_TO);
   }
 
   const invocation = getOpenClawInvocation(params.openclawPath, args);
-  const cwd = process.env.PUBBLUE_PROJECT_ROOT || process.cwd();
+  const cwd = env.PUBBLUE_PROJECT_ROOT || process.cwd();
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
       cwd,
       timeout: effectiveTimeoutMs,
+      env,
     });
   } catch (error) {
     throw formatExecFailure("OpenClaw delivery failed", error);
   }
 }
 
-export async function createOpenClawBridgeRunner(
-  config: BridgeRunnerConfig,
-): Promise<BridgeRunner> {
-  const { slug, debugLog } = config;
+export interface OpenClawRuntimeResolution {
+  openclawPath: string;
+  sessionId: string;
+  sessionKey?: string;
+  sessionSource?: BridgeSessionSource;
+}
 
-  const openclawPath = resolveOpenClawPath();
-  const configuredSessionId = process.env.OPENCLAW_SESSION_ID?.trim();
+export function resolveOpenClawRuntime(
+  env: NodeJS.ProcessEnv = process.env,
+): OpenClawRuntimeResolution {
+  const openclawPath = resolveOpenClawPath(env);
+  const configuredSessionId = env.OPENCLAW_SESSION_ID?.trim();
   const resolvedSession = configuredSessionId
     ? {
         attemptedKeys: [],
@@ -173,7 +188,7 @@ export async function createOpenClawBridgeRunner(
         sessionKey: "OPENCLAW_SESSION_ID",
         sessionSource: "env" as const,
       }
-    : resolveSessionFromOpenClaw(process.env.OPENCLAW_THREAD_ID);
+    : resolveSessionFromOpenClaw(env.OPENCLAW_THREAD_ID, env);
 
   if (!resolvedSession.sessionId) {
     const details = [
@@ -192,12 +207,53 @@ export async function createOpenClawBridgeRunner(
     throw new Error(details);
   }
 
-  const sessionId = resolvedSession.sessionId;
+  return {
+    openclawPath,
+    sessionId: resolvedSession.sessionId,
+    sessionKey: resolvedSession.sessionKey,
+    sessionSource: resolvedSession.sessionSource,
+  };
+}
+
+export async function runOpenClawBridgeStartupProbe(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<OpenClawRuntimeResolution> {
+  const runtime = resolveOpenClawRuntime(env);
+  await runOpenClawPreflight(runtime.openclawPath, env);
+  await runAgentWritePongProbe({
+    label: "OpenClaw",
+    baseEnv: env,
+    execute: async (probeEnv) => {
+      await deliverMessageToOpenClaw(
+        {
+          openclawPath: runtime.openclawPath,
+          sessionId: runtime.sessionId,
+          text: [
+            "[pubblue-start-preflight] Startup connectivity probe.",
+            "Run this exact command now:",
+            'pubblue write "pong"',
+            "Do not explain. Just execute it.",
+          ].join("\n"),
+        },
+        probeEnv,
+      );
+    },
+  });
+  return runtime;
+}
+
+export async function createOpenClawBridgeRunner(
+  config: BridgeRunnerConfig,
+): Promise<BridgeRunner> {
+  const { slug, debugLog } = config;
+
+  const runtime = resolveOpenClawRuntime(process.env);
+  const { openclawPath, sessionId } = runtime;
   const attachmentRoot = resolveAttachmentRootDir();
   const attachmentMaxBytes = resolveAttachmentMaxBytes();
   ensureDirectoryWritable(attachmentRoot);
 
-  await runOpenClawPreflight(openclawPath);
+  await runOpenClawPreflight(openclawPath, process.env);
 
   const activeStreams = new Map<string, ActiveStream>();
   const canvasReminderEvery = resolveCanvasReminderEvery();
@@ -268,7 +324,7 @@ export async function createOpenClawBridgeRunner(
   });
 
   debugLog(
-    `bridge runner started (session=${sessionId}, key=${resolvedSession.sessionKey || "n/a"})`,
+    `bridge runner started (session=${sessionId}, key=${runtime.sessionKey || "n/a"})`,
   );
 
   return {
@@ -284,8 +340,8 @@ export async function createOpenClawBridgeRunner(
       return {
         running: !stopped,
         sessionId,
-        sessionKey: resolvedSession.sessionKey,
-        sessionSource: resolvedSession.sessionSource,
+        sessionKey: runtime.sessionKey,
+        sessionSource: runtime.sessionSource,
         lastError,
         forwardedMessages: forwardedMessageCount,
       };
