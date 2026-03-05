@@ -11,6 +11,7 @@ import { CONTENT_TYPE_VALIDATOR, hashApiKey, MAX_PUBS } from "./utils";
 const MAX_CANDIDATES = 50;
 
 const LIVE_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const PRESENCE_MAX_AGE_MS = 90_000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -316,6 +317,9 @@ export const requestLive = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     if (!presence || presence.status !== "online") throw new Error("Agent offline");
+    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_MAX_AGE_MS) {
+      throw new Error("Agent offline");
+    }
 
     const existing = await ctx.db
       .query("lives")

@@ -2,7 +2,6 @@ import { LogOut, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import type { SessionState } from "~/features/live/types/live-types";
 import { cn } from "~/lib/utils";
 import { CB } from "./control-bar-classes";
 
@@ -12,7 +11,7 @@ interface ControlBarTakeoverModeProps {
   lastTakeoverAt: number | undefined;
   onExit: () => void;
   onTakeover: () => void;
-  sessionState: Exclude<SessionState, "active">;
+  sessionState: "needs-takeover" | "taken-over";
 }
 
 export function ControlBarTakeoverMode({
