@@ -40,13 +40,7 @@ export function useChatPreview(messages: ChatEntry[], viewMode: LiveViewMode) {
     if (!lastAgent || lastAgent.id === lastSeenIdRef.current) return;
 
     lastSeenIdRef.current = lastAgent.id;
-    const preview =
-      lastAgent.type === "text"
-        ? lastAgent.content
-        : lastAgent.type === "audio"
-          ? "Audio message"
-          : "Image";
-    setPreviewText(preview);
+    setPreviewText(buildChatPreviewText(lastAgent));
     clearTimer();
     timerRef.current = setTimeout(() => setPreviewText(null), AUTO_DISMISS_MS);
   }, [viewMode, messages, clearTimer, dismissPreview]);
@@ -61,4 +55,11 @@ function findLastAgentMessage(messages: ChatEntry[]): ChatEntry | null {
     if (messages[i].from === "agent") return messages[i];
   }
   return null;
+}
+
+export function buildChatPreviewText(entry: ChatEntry): string {
+  if (entry.type === "text") return entry.content;
+  if (entry.type === "audio") return "Audio message";
+  if (entry.type === "image") return "Image";
+  return entry.filename ? `File: ${entry.filename}` : "File";
 }
