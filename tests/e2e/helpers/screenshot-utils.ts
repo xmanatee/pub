@@ -5,7 +5,7 @@ import type { Locator, Page } from "@playwright/test";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 
-export const SCREENSHOT_DIR = "tests/e2e/screenshots";
+export const SCREENSHOT_DIR = "tests/e2e/snapshots";
 const DEFAULT_MAX_DIFF_RATIO = 0;
 export const ANIMATED_TOLERANCE = 0.005;
 

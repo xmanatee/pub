@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "./screenshot-utils";
+import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
 
 test.use({ reducedMotion: "reduce" });
 

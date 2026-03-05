@@ -5,7 +5,7 @@ import {
   freezeAnimations,
   SCREENSHOT_DIR,
   stableScreenshot,
-} from "./screenshot-utils";
+} from "../helpers/screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 

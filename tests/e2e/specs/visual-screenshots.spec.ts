@@ -4,7 +4,7 @@ import {
   freezeAnimations,
   SCREENSHOT_DIR,
   stableScreenshot,
-} from "./screenshot-utils";
+} from "../helpers/screenshot-utils";
 
 const STYLES = ["aurora", "orb", "blob"] as const;
 
