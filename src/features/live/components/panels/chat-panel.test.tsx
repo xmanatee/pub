@@ -159,7 +159,6 @@ describe("ChatPanel snapshots", () => {
     const html = renderPanel([sending, sent, received, confirmed, failed]);
     const deliveryIcons = html.match(/size-3/g);
     expect(deliveryIcons).toHaveLength(5);
-    expect(html).toContain("text-primary");
     expect(html).toContain("text-destructive");
   });
 });

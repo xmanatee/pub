@@ -65,6 +65,10 @@ export class PubApiClient {
     return this.baseUrl;
   }
 
+  getConvexCloudUrl(): string {
+    return this.baseUrl.replace(/\.convex\.site$/, ".convex.cloud");
+  }
+
   getApiKey(): string {
     return this.apiKey;
   }
