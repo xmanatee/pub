@@ -1,14 +1,13 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import {
-  CHANNELS,
-  CONTROL_CHANNEL,
-  generateMessageId,
-} from "../../../shared/bridge-protocol-core";
+import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
+  type BridgeRunner,
+  type BridgeRunnerConfig,
+  type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
   buildSessionBriefing,
@@ -16,9 +15,6 @@ import {
   readTextChatMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
 } from "./live-bridge-shared.js";
 
 export function isClaudeCodeAvailable(): boolean {

@@ -3,26 +3,9 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import {
-  CHANNELS,
-  CONTROL_CHANNEL,
-  generateMessageId,
-} from "../../../shared/bridge-protocol-core";
-import { resolveCommandFromPath } from "./command-path.js";
+import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
-import { createBridgeEntryQueue } from "./live-bridge-queue.js";
-import {
-  type BufferedEntry,
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
-  buildInboundPrompt,
-  buildSessionBriefing,
-  parseSessionContextMeta,
-  readTextChatMessage,
-  resolveCanvasReminderEvery,
-  shouldIncludeCanvasPolicyReminder,
-} from "./live-bridge-shared.js";
+import { resolveCommandFromPath } from "./command-path.js";
 import {
   type ActiveStream,
   ensureDirectoryWritable,
@@ -30,9 +13,20 @@ import {
   resolveAttachmentMaxBytes,
   resolveAttachmentRootDir,
 } from "./live-bridge-openclaw-attachments.js";
+import { resolveSessionFromOpenClaw } from "./live-bridge-openclaw-session.js";
+import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
-  resolveSessionFromOpenClaw,
-} from "./live-bridge-openclaw-session.js";
+  type BridgeRunner,
+  type BridgeRunnerConfig,
+  type BridgeStatus,
+  type BufferedEntry,
+  buildInboundPrompt,
+  buildSessionBriefing,
+  parseSessionContextMeta,
+  readTextChatMessage,
+  resolveCanvasReminderEvery,
+  shouldIncludeCanvasPolicyReminder,
+} from "./live-bridge-shared.js";
 
 const execFileAsync = promisify(execFile);
 const OPENCLAW_DISCOVERY_PATHS = [

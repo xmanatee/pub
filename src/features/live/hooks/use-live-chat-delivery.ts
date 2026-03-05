@@ -182,10 +182,7 @@ export function useLiveChatDelivery() {
       prev.map((entry) =>
         entry.from === "user" &&
         entry.id === messageId &&
-        (entry.delivery === "sending" ||
-          entry.delivery === "sent" ||
-          entry.delivery === "received" ||
-          entry.delivery === "confirmed")
+        (entry.delivery === "sending" || entry.delivery === "sent" || entry.delivery === "received")
           ? { ...entry, delivery: "confirmed" }
           : entry,
       ),

@@ -16,7 +16,6 @@ import {
   CHANNELS,
   CONTROL_CHANNEL,
   DATACHANNEL_OPTIONS,
-  type DeliveryAckPayload,
   type DeliveryReceiptPayload,
   decodeMessage,
   encodeMessage,
@@ -40,7 +39,6 @@ export interface ChannelMessage {
 type StateChangeHandler = (state: BridgeState) => void;
 type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
-type DeliveryAckHandler = (ack: DeliveryAckPayload) => void;
 type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 
 const MAX_SEEN_INBOUND_MESSAGES = 10_000;
@@ -67,7 +65,6 @@ export class BrowserBridge {
   private onStateChange: StateChangeHandler | null = null;
   private onMessage: MessageHandler | null = null;
   private onTrack: TrackHandler | null = null;
-  private onDeliveryAck: DeliveryAckHandler | null = null;
   private onDeliveryReceipt: DeliveryReceiptHandler | null = null;
   private iceCandidates: string[] = [];
   private pendingRemoteCandidates: string[] = [];
@@ -89,10 +86,6 @@ export class BrowserBridge {
 
   setOnTrack(handler: TrackHandler): void {
     this.onTrack = handler;
-  }
-
-  setOnDeliveryAck(handler: DeliveryAckHandler): void {
-    this.onDeliveryAck = handler;
   }
 
   setOnDeliveryReceipt(handler: DeliveryReceiptHandler): void {
@@ -266,7 +259,6 @@ export class BrowserBridge {
           const ack = parseAckMessage(msg);
           if (ack) {
             this.settlePendingAck(ack.messageId, ack.channel, true);
-            this.onDeliveryAck?.(ack);
             return;
           }
 
@@ -424,10 +416,10 @@ export class BrowserBridge {
   }
 
   private failPendingAcks(): void {
-    for (const [messageId, pending] of this.pendingDeliveryAcks) {
+    for (const [ackKey, pending] of this.pendingDeliveryAcks) {
       clearTimeout(pending.timer);
       pending.resolve(false);
-      this.pendingDeliveryAcks.delete(messageId);
+      this.pendingDeliveryAcks.delete(ackKey);
     }
   }
 
