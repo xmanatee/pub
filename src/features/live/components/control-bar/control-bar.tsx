@@ -154,7 +154,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
 
   let content: ReactNode;
 
-  if (sessionState && sessionState !== "active" && onTakeover) {
+  if ((sessionState === "needs-takeover" || sessionState === "taken-over") && onTakeover) {
     content = (
       <ControlBarTakeoverMode
         lastTakeoverAt={lastTakeoverAt}

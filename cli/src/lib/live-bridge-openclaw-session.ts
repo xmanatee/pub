@@ -6,14 +6,14 @@ import type { BridgeSessionSource } from "./live-bridge-types.js";
 
 const OPENCLAW_MAIN_SESSION_KEY = "agent:main:main";
 
-export function resolveOpenClawStateDir(): string {
-  const configured = process.env.OPENCLAW_STATE_DIR?.trim();
+export function resolveOpenClawStateDir(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.OPENCLAW_STATE_DIR?.trim();
   if (configured) return configured;
   return join(homedir(), ".openclaw");
 }
 
-export function resolveOpenClawSessionsPath(): string {
-  return join(resolveOpenClawStateDir(), "agents", "main", "sessions", "sessions.json");
+export function resolveOpenClawSessionsPath(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolveOpenClawStateDir(env), "agents", "main", "sessions", "sessions.json");
 }
 
 function buildThreadCandidateKeys(threadId?: string): string[] {
@@ -82,9 +82,12 @@ export function resolveSessionFromSessionsData(
   return { attemptedKeys, sessionId: null };
 }
 
-export function resolveSessionFromOpenClaw(threadId?: string): SessionResolution {
+export function resolveSessionFromOpenClaw(
+  threadId?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): SessionResolution {
   try {
-    const sessionsPath = resolveOpenClawSessionsPath();
+    const sessionsPath = resolveOpenClawSessionsPath(env);
     if (!existsSync(sessionsPath)) {
       return {
         attemptedKeys: [...buildThreadCandidateKeys(threadId), OPENCLAW_MAIN_SESSION_KEY],

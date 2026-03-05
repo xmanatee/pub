@@ -11,6 +11,7 @@ import { CONTENT_TYPE_VALIDATOR, hashApiKey, MAX_PUBS } from "./utils";
 const MAX_CANDIDATES = 50;
 
 const LIVE_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const PRESENCE_MAX_AGE_MS = 90_000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,14 +41,14 @@ async function countUserPubs(db: GenericDatabaseReader<DataModel>, userId: Id<"u
   return pubs.length;
 }
 
-async function closeActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slug: string) {
+async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slug: string) {
   const lives = await db
     .query("lives")
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .collect();
   for (const live of lives) {
     if (live.status === "active") {
-      await db.patch(live._id, { status: "closed" });
+      await db.delete(live._id);
     }
   }
 }
@@ -183,7 +184,7 @@ export const deleteByUser = mutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
-    await closeActiveLivesForSlug(ctx.db, pub.slug);
+    await deleteActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
 });
@@ -316,6 +317,9 @@ export const requestLive = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     if (!presence || presence.status !== "online") throw new Error("Agent offline");
+    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_MAX_AGE_MS) {
+      throw new Error("Agent offline");
+    }
 
     const existing = await ctx.db
       .query("lives")
@@ -323,7 +327,7 @@ export const requestLive = mutation({
       .collect();
     for (const live of existing) {
       if (live.status === "active") {
-        await ctx.db.patch(live._id, { status: "closed" });
+        await ctx.db.delete(live._id);
       }
     }
 
@@ -449,7 +453,7 @@ export const expirePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub) return;
 
-    await closeActiveLivesForSlug(ctx.db, pub.slug);
+    await deleteActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
 });
@@ -490,7 +494,7 @@ export const deletePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
-    await closeActiveLivesForSlug(ctx.db, pub.slug);
+    await deleteActiveLivesForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
 });
@@ -631,7 +635,7 @@ export const closeLive = internalMutation({
       .order("desc")
       .first();
     if (!live || live.userId !== userId) throw new Error("Live not found");
-    await ctx.db.patch(live._id, { status: "closed" });
+    await ctx.db.delete(live._id);
   },
 });
 
@@ -640,7 +644,7 @@ export const expireLive = internalMutation({
   handler: async (ctx, { id }) => {
     const live = await ctx.db.get(id);
     if (live && live.status === "active") {
-      await ctx.db.patch(id, { status: "closed" });
+      await ctx.db.delete(id);
     }
   },
 });
