@@ -14,6 +14,13 @@ const TEXT_PREVIEW = `# Meeting Notes\n\n- Discussed project timeline\n- Assigne
 
 const MARKDOWN_PREVIEW = `## API Documentation\n\n\`\`\`javascript\nconst response = await fetch("/api/v1/pubs");\nconst data = await response.json();\n\`\`\``;
 
+const SAMPLE_CREATED_AT = {
+  helloWorld: Date.parse("2026-01-02T10:00:00.000Z"),
+  meetingNotes: Date.parse("2026-01-04T10:00:00.000Z"),
+  apiDocs: Date.parse("2026-01-05T10:00:00.000Z"),
+  emptyPub: Date.parse("2025-12-28T10:00:00.000Z"),
+};
+
 const SAMPLE_PUBS = [
   {
     _id: fakeId(1),
@@ -21,7 +28,7 @@ const SAMPLE_PUBS = [
     title: "Hello World",
     contentType: "html" as const,
     isPublic: true,
-    createdAt: Date.now() - 86400000 * 3,
+    createdAt: SAMPLE_CREATED_AT.helloWorld,
     contentPreview: HTML_PREVIEW,
   },
   {
@@ -30,7 +37,7 @@ const SAMPLE_PUBS = [
     title: "Meeting Notes",
     contentType: "text" as const,
     isPublic: false,
-    createdAt: Date.now() - 86400000,
+    createdAt: SAMPLE_CREATED_AT.meetingNotes,
     contentPreview: TEXT_PREVIEW,
   },
   {
@@ -40,7 +47,7 @@ const SAMPLE_PUBS = [
     contentType: "markdown" as const,
     isPublic: true,
     expiresAt: Date.now() + 3600000 * 12,
-    createdAt: Date.now() - 3600000 * 6,
+    createdAt: SAMPLE_CREATED_AT.apiDocs,
     contentPreview: MARKDOWN_PREVIEW,
   },
   {
@@ -48,7 +55,7 @@ const SAMPLE_PUBS = [
     slug: "empty-pub",
     contentType: undefined,
     isPublic: false,
-    createdAt: Date.now() - 86400000 * 7,
+    createdAt: SAMPLE_CREATED_AT.emptyPub,
     contentPreview: "",
   },
 ];

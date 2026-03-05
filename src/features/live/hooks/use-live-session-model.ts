@@ -121,7 +121,9 @@ export function useLiveSessionModel(slug: string) {
   const stopLive = useCallback(() => {
     setSessionError(null);
     setLiveRequested(false);
-    closeLiveMutation({ slug });
+    void closeLiveMutation({ slug }).catch((error) => {
+      setSessionError(errorMessage(error));
+    });
   }, [closeLiveMutation, slug]);
 
   const markBridgeConnected = useCallback(() => {
