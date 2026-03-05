@@ -213,6 +213,16 @@ export function useLiveChatDelivery() {
     );
   }, []);
 
+  const failSentMessages = useCallback(() => {
+    setMessages((prev) =>
+      prev.map((entry) =>
+        entry.from === "user" && entry.delivery === "sent"
+          ? { ...entry, delivery: "failed" }
+          : entry,
+      ),
+    );
+  }, []);
+
   const updateAudioMessageAnalysis = useCallback(
     (messageId: string, duration: number, waveform: number[]) => {
       setMessages((prev) =>
@@ -239,6 +249,7 @@ export function useLiveChatDelivery() {
     addUserPendingImageMessage,
     addUserPendingMessage,
     clearMessages,
+    failSentMessages,
     markMessageConfirmed,
     markMessageFailed,
     markMessageFailedIfPending,

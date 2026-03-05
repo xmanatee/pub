@@ -17,6 +17,7 @@ import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const STREAM_ACK_TIMEOUT_MS = 10_000;
 const STREAM_CHUNK_SIZE = 48 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 interface UseLiveTransportOptions {
   slug: string;
@@ -69,6 +70,7 @@ interface UseLiveTransportOptions {
     width?: number;
   }) => void;
   addUserPendingMessage: (params: { content: string; id: string; timestamp?: number }) => void;
+  failSentMessages: () => void;
   markMessageConfirmed: (messageId: string) => void;
   markMessageFailed: (messageId: string) => void;
   markMessageFailedIfPending: (messageId: string) => void;
@@ -94,6 +96,7 @@ export function useLiveTransport({
   addUserPendingAudioMessage,
   addUserPendingImageMessage,
   addUserPendingMessage,
+  failSentMessages,
   markMessageConfirmed,
   markMessageFailed,
   markMessageFailedIfPending,
@@ -407,6 +410,13 @@ export function useLiveTransport({
 
   const sendFile = useCallback(
     (file: File) => {
+      if (file.size > MAX_FILE_SIZE) {
+        console.warn(
+          `File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)} MB, max 10 MB)`,
+        );
+        return;
+      }
+
       const isHtml = file.name.endsWith(".html") || file.name.endsWith(".htm");
       if (isHtml) {
         const bridge = bridgeRef.current;
@@ -481,6 +491,12 @@ export function useLiveTransport({
       dispatchFile(entry.file, entry.id, entry.channel);
     }
   }, [bridgeState, dispatchAudio, dispatchChatMessage, dispatchFile]);
+
+  useEffect(() => {
+    if (bridgeState === "disconnected") {
+      failSentMessages();
+    }
+  }, [bridgeState, failSentMessages]);
 
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);
