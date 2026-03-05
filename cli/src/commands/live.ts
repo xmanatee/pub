@@ -11,10 +11,11 @@ import { errorMessage, failCli } from "../lib/cli-error.js";
 import { getConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import { buildBridgeProcessEnv, ensureNodeDatachannelAvailable, resolveBridgeMode } from "../lib/live-runtime/bridge-runtime.js";
-import { formatApiError, getFollowReadDelayMs, messageContainsPong, parsePositiveIntegerOption } from "../lib/live-runtime/command-utils.js";
+import { formatApiError, getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
 import { liveInfoPath, liveLogPath, readLogTail, writeLatestCliVersion } from "../lib/live-runtime/daemon-files.js";
 import { buildDaemonForkStdio, isDaemonRunning, resolveActiveSlug, stopOtherDaemons, waitForDaemonReady } from "../lib/live-runtime/daemon-process.js";
 import { getMimeType, TEXT_FILE_EXTENSIONS } from "../lib/live-runtime/file-payload.js";
+import { parsePositiveInteger } from "../lib/number.js";
 import { CLI_VERSION } from "../lib/version.js";
 import { createClient } from "./shared.js";
 
@@ -82,7 +83,12 @@ function registerStartCommand(program: Command): void {
           `Daemon failed to start: ${ready.reason ?? "unknown reason"}`,
           `Daemon log: ${logPath}`,
         ];
-        const tail = readLogTail(logPath);
+        let tail: string | null = null;
+        try {
+          tail = readLogTail(logPath);
+        } catch (error) {
+          lines.push(`Failed to read daemon log tail: ${errorMessage(error)}`);
+        }
         if (tail) {
           lines.push("---- daemon log tail ----");
           lines.push(tail.trimEnd());
@@ -332,7 +338,7 @@ function registerDoctorCommand(program: Command): void {
         skipChat?: boolean;
         skipCanvas?: boolean;
       }) => {
-        const timeoutSeconds = parsePositiveIntegerOption(opts.timeout, "--timeout");
+        const timeoutSeconds = parsePositiveInteger(opts.timeout, "--timeout");
         const timeoutMs = timeoutSeconds * 1_000;
         const socketPath = getAgentSocketPath();
         const slug = await resolveActiveSlug().catch((error: unknown) =>

@@ -168,10 +168,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   function runHealthCheck(): void {
     if (stopped) return;
     if (cliVersion) {
-      const latest = readLatestCliVersion(versionFilePath);
-      if (latest && latest !== cliVersion) {
-        markError(`detected CLI upgrade (${cliVersion} → ${latest}); shutting down`);
-        void shutdown();
+      try {
+        const latest = readLatestCliVersion(versionFilePath);
+        if (latest && latest !== cliVersion) {
+          markError(`detected CLI upgrade (${cliVersion} → ${latest}); shutting down`);
+          void shutdown();
+        }
+      } catch (error) {
+        markError("health check failed to read latest CLI version", error);
       }
     }
   }

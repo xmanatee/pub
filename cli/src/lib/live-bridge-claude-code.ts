@@ -131,6 +131,7 @@ export async function createClaudeCodeBridgeRunner(
       try {
         event = JSON.parse(trimmed) as { type?: string; [key: string]: unknown };
       } catch {
+        debugLog(`ignoring non-JSON claude stream line: ${trimmed.slice(0, 120)}`);
         continue;
       }
 

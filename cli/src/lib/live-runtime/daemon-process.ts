@@ -31,23 +31,44 @@ function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (hasErrnoCode(error, "ESRCH")) return false;
+    if (hasErrnoCode(error, "EPERM")) return true;
+    throw new Error(`Failed to check process ${pid}: ${errorMessage(error)}`);
   }
 }
 
 function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
   const infoPath = liveInfoPath(slug);
+  let raw: string;
   try {
-    const info = JSON.parse(fs.readFileSync(infoPath, "utf-8")) as DaemonProcessInfo;
-    if (!Number.isFinite(info.pid)) throw new Error("invalid daemon pid");
-    if (!isProcessAlive(info.pid)) throw new Error("process not alive");
+    raw = fs.readFileSync(infoPath, "utf-8");
+  } catch (error) {
+    if (hasErrnoCode(error, "ENOENT")) return null;
+    throw new Error(`Failed to read daemon info at ${infoPath}: ${errorMessage(error)}`);
+  }
+
+  let info: DaemonProcessInfo;
+  try {
+    info = JSON.parse(raw) as DaemonProcessInfo;
+  } catch (error) {
+    removeStaleDaemonInfo(infoPath);
+    throw new Error(`Invalid daemon info JSON at ${infoPath}: ${errorMessage(error)}`);
+  }
+
+  if (!Number.isFinite(info.pid)) {
+    removeStaleDaemonInfo(infoPath);
+    return null;
+  }
+
+  try {
+    if (!isProcessAlive(info.pid)) {
+      removeStaleDaemonInfo(infoPath);
+      return null;
+    }
     return info;
   } catch (error) {
-    if (!hasErrnoCode(error, "ENOENT")) {
-      removeStaleDaemonInfo(infoPath);
-    }
-    return null;
+    throw new Error(`Failed to inspect daemon process ${info.pid}: ${errorMessage(error)}`);
   }
 }
 

@@ -9,10 +9,10 @@ import {
 import {
   getFollowReadDelayMs,
   messageContainsPong,
-  parsePositiveIntegerOption,
 } from "../lib/live-runtime/command-utils.js";
 import { buildDaemonForkStdio } from "../lib/live-runtime/daemon-process.js";
-import { SUPPORTED_KEYS } from "./configure.js";
+import { parsePositiveInteger } from "../lib/number.js";
+import { SUPPORTED_KEYS } from "./configure/schema.js";
 
 vi.mock("../lib/live-bridge-openclaw.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
@@ -47,22 +47,22 @@ describe("buildDaemonForkStdio", () => {
   });
 });
 
-describe("parsePositiveIntegerOption", () => {
+describe("parsePositiveInteger", () => {
   it("parses valid positive integers", () => {
-    expect(parsePositiveIntegerOption("30", "--timeout")).toBe(30);
+    expect(parsePositiveInteger("30", "--timeout")).toBe(30);
   });
 
   it("throws for zero or negative values", () => {
-    expect(() => parsePositiveIntegerOption("0", "--timeout")).toThrow(
+    expect(() => parsePositiveInteger("0", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
-    expect(() => parsePositiveIntegerOption("-1", "--timeout")).toThrow(
+    expect(() => parsePositiveInteger("-1", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
   });
 
   it("throws for non-integer values", () => {
-    expect(() => parsePositiveIntegerOption("abc", "--timeout")).toThrow(
+    expect(() => parsePositiveInteger("abc", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
   });
