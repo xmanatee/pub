@@ -59,18 +59,10 @@ export function PubRoutePage({ slug }: { slug: string }) {
             actions={controller.settingsPanelActions}
           />
         ) : null}
-
-        {controller.liveMode && controller.sessionError ? (
-          <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2">
-            <p className="rounded-full border border-destructive/40 bg-background/90 px-3 py-1 text-xs text-destructive shadow-sm backdrop-blur">
-              {controller.sessionError}
-            </p>
-          </div>
-        ) : null}
       </div>
 
       {controller.isOwner && !controller.liveMode ? (
-        <ControlBarGoLiveMode slug={slug} onGoLive={controller.onGoLive} />
+        <ControlBarGoLiveMode agentOnline={controller.agentOnline} onGoLive={controller.onGoLive} />
       ) : null}
 
       {controller.isOwner && controller.liveMode ? (

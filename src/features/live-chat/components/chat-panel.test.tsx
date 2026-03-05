@@ -4,6 +4,7 @@ import type {
   AudioChatEntry,
   ChatEntry,
   ImageChatEntry,
+  SystemChatEntry,
   TextChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
 import { ChatPanel } from "./chat-panel";
@@ -90,6 +91,15 @@ const AGENT_IMAGE: ImageChatEntry = {
   timestamp: 1006,
 };
 
+const SYSTEM_WARNING: SystemChatEntry = {
+  id: "sys-warning",
+  type: "system",
+  from: "system",
+  content: "Connection quality degraded",
+  severity: "warning",
+  timestamp: 1007,
+};
+
 describe("ChatPanel snapshots", () => {
   it("renders empty state", () => {
     const html = renderPanel([]);
@@ -100,7 +110,7 @@ describe("ChatPanel snapshots", () => {
     const html = renderPanel([USER_TEXT]);
     expect(html).toContain("Hello from user");
     expect(html).toContain("justify-end");
-    expect(html).toContain("text-primary");
+    expect(html).toContain("text-primary-foreground");
   });
 
   it("renders agent text bubble", () => {
@@ -149,6 +159,12 @@ describe("ChatPanel snapshots", () => {
     expect(html).toContain("Hello from agent");
   });
 
+  it("renders system warning messages", () => {
+    const html = renderPanel([SYSTEM_WARNING]);
+    expect(html).toContain("Warning:");
+    expect(html).toContain("Connection quality degraded");
+  });
+
   it("renders delivery status icons for each state", () => {
     const sending: TextChatEntry = { ...USER_TEXT, id: "s1", delivery: "sending" };
     const sent: TextChatEntry = { ...USER_TEXT, id: "s2", delivery: "sent" };
@@ -157,8 +173,27 @@ describe("ChatPanel snapshots", () => {
     const failed: TextChatEntry = { ...USER_TEXT, id: "s5", delivery: "failed" };
 
     const html = renderPanel([sending, sent, received, confirmed, failed]);
-    const deliveryIcons = html.match(/size-3/g);
-    expect(deliveryIcons).toHaveLength(5);
+    expect(html).toContain("Sending");
+    expect(html).toContain("Sent");
+    expect(html).toContain("Received");
+    expect(html).toContain("Confirmed");
+    expect(html).toContain("Failed");
     expect(html).toContain("text-destructive");
+  });
+
+  it("renders day divider between messages from different days", () => {
+    const firstDay: TextChatEntry = {
+      ...AGENT_TEXT,
+      id: "day-1",
+      timestamp: Date.UTC(2026, 0, 1, 10, 0, 0),
+    };
+    const secondDay: TextChatEntry = {
+      ...AGENT_TEXT,
+      id: "day-2",
+      timestamp: Date.UTC(2026, 0, 2, 10, 0, 0),
+    };
+    const html = renderPanel([firstDay, secondDay]);
+    const dayDividers = html.match(/chat-day-divider/g);
+    expect(dayDividers).toHaveLength(2);
   });
 });

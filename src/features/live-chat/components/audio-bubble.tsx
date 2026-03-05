@@ -10,6 +10,33 @@ function formatDuration(seconds: number): string {
 
 const BAR_COUNT = 40;
 const FLAT_PEAKS = Array.from({ length: BAR_COUNT }, () => 0.15);
+const SEEK_STEP_SECONDS = 5;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function getSeekRatioFromPointer(clientX: number, left: number, width: number): number {
+  if (width <= 0) return 0;
+  return clamp((clientX - left) / width, 0, 1);
+}
+
+export function resolveKeyboardSeekTime({
+  key,
+  currentTime,
+  duration,
+}: {
+  key: string;
+  currentTime: number;
+  duration: number;
+}): number | null {
+  if (!Number.isFinite(duration) || duration <= 0) return null;
+  if (key === "Home") return 0;
+  if (key === "End") return duration;
+  if (key === "ArrowLeft") return clamp(currentTime - SEEK_STEP_SECONDS, 0, duration);
+  if (key === "ArrowRight") return clamp(currentTime + SEEK_STEP_SECONDS, 0, duration);
+  return null;
+}
 
 export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -22,17 +49,6 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
   const duration = entry.duration ?? 0;
   const isUser = entry.from === "user";
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onEnded = () => {
-      setPlaying(false);
-      setProgress(0);
-    };
-    audio.addEventListener("ended", onEnded);
-    return () => audio.removeEventListener("ended", onEnded);
-  }, []);
-
   const tick = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || audio.paused) return;
@@ -41,19 +57,50 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
     animRef.current = requestAnimationFrame(tick);
   }, [duration]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onPlay = () => {
+      setPlaying(true);
+      cancelAnimationFrame(animRef.current);
+      animRef.current = requestAnimationFrame(tick);
+    };
+    const onPause = () => {
+      setPlaying(false);
+      cancelAnimationFrame(animRef.current);
+    };
+    const onEnded = () => {
+      setPlaying(false);
+      setProgress(0);
+      cancelAnimationFrame(animRef.current);
+    };
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onEnded);
+    return () => {
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
+    };
+  }, [tick]);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      audio.play();
-      setPlaying(true);
-      animRef.current = requestAnimationFrame(tick);
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        void playPromise.catch((error) => {
+          console.warn("Failed to play audio clip", error);
+          setPlaying(false);
+          cancelAnimationFrame(animRef.current);
+        });
+      }
     } else {
       audio.pause();
-      setPlaying(false);
-      cancelAnimationFrame(animRef.current);
     }
-  }, [tick]);
+  }, []);
 
   useEffect(() => {
     return () => cancelAnimationFrame(animRef.current);
@@ -65,12 +112,30 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
       const container = containerRef.current;
       if (!audio || !container) return;
       const rect = container.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const ratio = getSeekRatioFromPointer(e.clientX, rect.left, rect.width);
       const total = audio.duration || duration;
       if (total > 0) {
         audio.currentTime = ratio * total;
         setProgress(ratio);
       }
+    },
+    [duration],
+  );
+
+  const handleSeekKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      const total = audio.duration || duration;
+      const nextTime = resolveKeyboardSeekTime({
+        key: event.key,
+        currentTime: audio.currentTime,
+        duration: total,
+      });
+      if (nextTime === null) return;
+      event.preventDefault();
+      audio.currentTime = nextTime;
+      setProgress(total > 0 ? nextTime / total : 0);
     },
     [duration],
   );
@@ -97,7 +162,6 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
         {playing ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4" />}
       </button>
 
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: waveform seek is mouse-only; keyboard users use the play button */}
       <div
         ref={containerRef}
         role="slider"
@@ -105,9 +169,11 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
         aria-valuenow={Math.round(progress * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
-        tabIndex={-1}
+        aria-valuetext={`${Math.round(progress * 100)}%`}
+        tabIndex={0}
         className="flex h-6 flex-1 cursor-pointer items-end gap-px"
         onClick={handleSeek}
+        onKeyDown={handleSeekKeyDown}
       >
         {peaks.map((peak, i) => (
           <div

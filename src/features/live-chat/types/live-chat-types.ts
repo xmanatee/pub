@@ -1,16 +1,31 @@
+export type ChatDeliveryState = "sending" | "sent" | "received" | "confirmed" | "failed";
+
 interface ChatEntryBase {
   id: string;
-  from: "user" | "agent";
   timestamp: number;
-  delivery?: "sending" | "sent" | "received" | "confirmed" | "failed";
 }
 
-export interface TextChatEntry extends ChatEntryBase {
+interface UserChatEntryBase extends ChatEntryBase {
+  from: "user";
+  delivery: ChatDeliveryState;
+}
+
+interface AgentChatEntryBase extends ChatEntryBase {
+  from: "agent";
+}
+
+interface SystemChatEntryBase extends ChatEntryBase {
+  from: "system";
+}
+
+type UserOrAgentChatIdentity = UserChatEntryBase | AgentChatEntryBase;
+
+interface TextChatPayload {
   type: "text";
   content: string;
 }
 
-export interface AudioChatEntry extends ChatEntryBase {
+interface AudioChatPayload {
   type: "audio";
   audioUrl: string;
   mime: string;
@@ -19,7 +34,7 @@ export interface AudioChatEntry extends ChatEntryBase {
   waveform?: number[];
 }
 
-export interface ImageChatEntry extends ChatEntryBase {
+interface ImageChatPayload {
   type: "image";
   imageUrl: string;
   mime: string;
@@ -28,7 +43,7 @@ export interface ImageChatEntry extends ChatEntryBase {
   height?: number;
 }
 
-export interface AttachmentChatEntry extends ChatEntryBase {
+interface AttachmentChatPayload {
   type: "attachment";
   filename: string;
   mime: string;
@@ -36,7 +51,27 @@ export interface AttachmentChatEntry extends ChatEntryBase {
   fileUrl?: string;
 }
 
-export type ChatEntry = TextChatEntry | AudioChatEntry | ImageChatEntry | AttachmentChatEntry;
+export type TextChatEntry = UserOrAgentChatIdentity & TextChatPayload;
+export type AudioChatEntry = UserOrAgentChatIdentity & AudioChatPayload;
+export type ImageChatEntry = UserOrAgentChatIdentity & ImageChatPayload;
+export type AttachmentChatEntry = UserOrAgentChatIdentity & AttachmentChatPayload;
+
+export type SystemMessageSeverity = "warning" | "error";
+
+export interface SystemChatEntry extends SystemChatEntryBase {
+  type: "system";
+  content: string;
+  severity: SystemMessageSeverity;
+}
+
+export type ChatEntry =
+  | TextChatEntry
+  | AudioChatEntry
+  | ImageChatEntry
+  | AttachmentChatEntry
+  | SystemChatEntry;
+
+export type UserChatEntry = Extract<ChatEntry, { from: "user" }>;
 
 export interface ReceivedFile {
   id: string;
