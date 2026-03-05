@@ -56,7 +56,6 @@
       "semicolons": "always"
     }
   },
-  "overrides": [],
   "assist": {
     "actions": {
       "source": {
