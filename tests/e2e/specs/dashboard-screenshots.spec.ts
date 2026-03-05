@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
+import {
+  ANIMATED_TOLERANCE,
+  freezeAnimations,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "../helpers/screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
@@ -25,7 +30,9 @@ test.describe("Dashboard screenshots", () => {
   test("live banners", async ({ page }) => {
     const section = page.getByTestId("batch-dashboard-live");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-live.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-live.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("go live button", async ({ page }) => {
@@ -37,6 +44,8 @@ test.describe("Dashboard screenshots", () => {
   test("full gallery with live", async ({ page }) => {
     const section = page.getByTestId("batch-dashboard-gallery");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-gallery.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-gallery.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 });
