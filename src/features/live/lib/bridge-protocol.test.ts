@@ -7,12 +7,14 @@ import {
   generateMessageId,
   makeAckMessage,
   makeBinaryMetaMessage,
+  makeDeliveryReceiptMessage,
   makeEventMessage,
   makeHtmlMessage,
   makeStreamEnd,
   makeStreamStart,
   makeTextMessage,
   parseAckMessage,
+  parseDeliveryReceiptMessage,
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
 
@@ -93,6 +95,12 @@ describe("message factories", () => {
     expect(msg.meta?.sampleRate).toBe(16000);
   });
 
+  it("makeStreamStart keeps caller-provided stream id", () => {
+    const msg = makeStreamStart({ mime: "audio/webm" }, "stream-fixed-id");
+    expect(msg.type).toBe("stream-start");
+    expect(msg.id).toBe("stream-fixed-id");
+  });
+
   it("makeStreamEnd creates stream-end type", () => {
     const msg = makeStreamEnd("stream-123");
     expect(msg.type).toBe("stream-end");
@@ -115,6 +123,44 @@ describe("message factories", () => {
       channel: CHANNELS.CANVAS,
       receivedAt: ack.meta?.receivedAt,
     });
+  });
+
+  it("makeDeliveryReceiptMessage creates delivery event payload", () => {
+    const msg = makeDeliveryReceiptMessage({
+      messageId: "msg-4",
+      channel: CHANNELS.FILE,
+      stage: "confirmed",
+    });
+    expect(msg.type).toBe("event");
+    expect(msg.data).toBe("delivery");
+    expect(msg.meta?.messageId).toBe("msg-4");
+    expect(msg.meta?.channel).toBe(CHANNELS.FILE);
+    expect(msg.meta?.stage).toBe("confirmed");
+    expect(typeof msg.meta?.at).toBe("number");
+  });
+
+  it("parseDeliveryReceiptMessage extracts delivery receipt metadata", () => {
+    const receipt = makeDeliveryReceiptMessage({
+      messageId: "msg-5",
+      channel: CHANNELS.AUDIO,
+      stage: "received",
+    });
+    expect(parseDeliveryReceiptMessage(receipt)).toEqual({
+      messageId: "msg-5",
+      channel: CHANNELS.AUDIO,
+      stage: "received",
+      at: receipt.meta?.at,
+      error: undefined,
+    });
+  });
+
+  it("parseDeliveryReceiptMessage returns null for invalid stage", () => {
+    const invalid = makeEventMessage("delivery", {
+      messageId: "msg-6",
+      channel: CHANNELS.CHAT,
+      stage: "unknown",
+    });
+    expect(parseDeliveryReceiptMessage(invalid)).toBeNull();
   });
 
   it("shouldAcknowledgeMessage ignores control ack events", () => {

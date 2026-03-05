@@ -17,11 +17,13 @@ import {
   CONTROL_CHANNEL,
   DATACHANNEL_OPTIONS,
   type DeliveryAckPayload,
+  type DeliveryReceiptPayload,
   decodeMessage,
   encodeMessage,
   makeAckMessage,
   makeEventMessage,
   parseAckMessage,
+  parseDeliveryReceiptMessage,
   STUN_SERVERS,
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
@@ -39,6 +41,9 @@ type StateChangeHandler = (state: BridgeState) => void;
 type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
 type DeliveryAckHandler = (ack: DeliveryAckPayload) => void;
+type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
+
+const MAX_SEEN_INBOUND_MESSAGES = 10_000;
 
 function toSessionDescription(
   description:
@@ -63,6 +68,7 @@ export class BrowserBridge {
   private onMessage: MessageHandler | null = null;
   private onTrack: TrackHandler | null = null;
   private onDeliveryAck: DeliveryAckHandler | null = null;
+  private onDeliveryReceipt: DeliveryReceiptHandler | null = null;
   private iceCandidates: string[] = [];
   private pendingRemoteCandidates: string[] = [];
   private pendingBinaryMeta = new Map<string, BridgeMessage>();
@@ -70,6 +76,7 @@ export class BrowserBridge {
     string,
     { resolve: (received: boolean) => void; timer: ReturnType<typeof setTimeout> }
   >();
+  private seenInboundMessageKeys = new Set<string>();
   private remoteDescriptionSet = false;
 
   setOnStateChange(handler: StateChangeHandler): void {
@@ -86,6 +93,10 @@ export class BrowserBridge {
 
   setOnDeliveryAck(handler: DeliveryAckHandler): void {
     this.onDeliveryAck = handler;
+  }
+
+  setOnDeliveryReceipt(handler: DeliveryReceiptHandler): void {
+    this.onDeliveryReceipt = handler;
   }
 
   getIceCandidates(): string[] {
@@ -201,9 +212,9 @@ export class BrowserBridge {
       return this.send(channel, message);
     }
 
-    const ackPromise = this.waitForAck(message.id, timeoutMs);
+    const ackPromise = this.waitForAck(message.id, channel, timeoutMs);
     if (!this.send(channel, message)) {
-      this.settlePendingAck(message.id, false);
+      this.settlePendingAck(message.id, channel, false);
       return false;
     }
     return await ackPromise;
@@ -254,13 +265,30 @@ export class BrowserBridge {
         if (msg) {
           const ack = parseAckMessage(msg);
           if (ack) {
-            this.settlePendingAck(ack.messageId, true);
+            this.settlePendingAck(ack.messageId, ack.channel, true);
             this.onDeliveryAck?.(ack);
+            return;
+          }
+
+          const receipt = parseDeliveryReceiptMessage(msg);
+          if (receipt) {
+            this.onDeliveryReceipt?.(receipt);
             return;
           }
 
           if (msg.type === "event" && msg.data === "ping") {
             dc.send(encodeMessage(makeEventMessage("pong")));
+            return;
+          }
+
+          if (this.isDuplicateInboundMessage(dc.label, msg.id)) {
+            if (msg.type === "binary" && !msg.data) {
+              this.pendingBinaryMeta.set(dc.label, msg);
+              return;
+            }
+            if (shouldAcknowledgeMessage(dc.label, msg)) {
+              this.sendAck(msg.id, dc.label);
+            }
             return;
           }
 
@@ -324,6 +352,12 @@ export class BrowserBridge {
           type: "binary",
           meta: { size: payload.byteLength },
         };
+    if (this.isDuplicateInboundMessage(channel, binaryMsg.id)) {
+      if (shouldAcknowledgeMessage(channel, binaryMsg)) {
+        this.sendAck(binaryMsg.id, channel);
+      }
+      return;
+    }
     this.onMessage?.({
       channel,
       message: binaryMsg,
@@ -359,22 +393,33 @@ export class BrowserBridge {
     this.send(fallback, ack);
   }
 
-  private waitForAck(messageId: string, timeoutMs: number): Promise<boolean> {
+  private getAckKey(messageId: string, channel: string): string {
+    return `${channel}:${messageId}`;
+  }
+
+  private waitForAck(messageId: string, channel: string, timeoutMs: number): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
+      const key = this.getAckKey(messageId, channel);
+      const existing = this.pendingDeliveryAcks.get(key);
+      if (existing) {
+        clearTimeout(existing.timer);
+        this.pendingDeliveryAcks.delete(key);
+      }
       const timer = setTimeout(() => {
-        this.pendingDeliveryAcks.delete(messageId);
+        this.pendingDeliveryAcks.delete(key);
         resolve(false);
       }, timeoutMs);
 
-      this.pendingDeliveryAcks.set(messageId, { resolve, timer });
+      this.pendingDeliveryAcks.set(key, { resolve, timer });
     });
   }
 
-  private settlePendingAck(messageId: string, received: boolean): void {
-    const pending = this.pendingDeliveryAcks.get(messageId);
+  private settlePendingAck(messageId: string, channel: string, received: boolean): void {
+    const key = this.getAckKey(messageId, channel);
+    const pending = this.pendingDeliveryAcks.get(key);
     if (!pending) return;
     clearTimeout(pending.timer);
-    this.pendingDeliveryAcks.delete(messageId);
+    this.pendingDeliveryAcks.delete(key);
     pending.resolve(received);
   }
 
@@ -384,5 +429,15 @@ export class BrowserBridge {
       pending.resolve(false);
       this.pendingDeliveryAcks.delete(messageId);
     }
+  }
+
+  private isDuplicateInboundMessage(channel: string, messageId: string): boolean {
+    const key = `${channel}:${messageId}`;
+    if (this.seenInboundMessageKeys.has(key)) return true;
+    this.seenInboundMessageKeys.add(key);
+    if (this.seenInboundMessageKeys.size > MAX_SEEN_INBOUND_MESSAGES) {
+      this.seenInboundMessageKeys.clear();
+    }
+    return false;
   }
 }

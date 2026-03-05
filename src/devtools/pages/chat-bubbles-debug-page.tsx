@@ -18,7 +18,7 @@ const USER_TEXT: TextChatEntry = {
   from: "user",
   content: "Hey, can you hear me?",
   timestamp: 1000,
-  delivery: "delivered",
+  delivery: "confirmed",
 };
 
 const AGENT_TEXT: TextChatEntry = {
@@ -37,7 +37,7 @@ const USER_AUDIO: AudioChatEntry = {
   mime: "audio/webm",
   size: 4096,
   timestamp: 1002,
-  delivery: "delivered",
+  delivery: "confirmed",
   duration: 3.5,
   waveform: SAMPLE_WAVEFORM,
 };
@@ -75,7 +75,7 @@ const USER_IMAGE: ImageChatEntry = {
   width: 200,
   height: 100,
   timestamp: 1005,
-  delivery: "delivered",
+  delivery: "confirmed",
 };
 
 const AGENT_IMAGE: ImageChatEntry = {
@@ -89,7 +89,9 @@ const AGENT_IMAGE: ImageChatEntry = {
 };
 
 const SENDING_TEXT: TextChatEntry = { ...USER_TEXT, id: "d-sending", delivery: "sending" };
-const CONFIRMING_TEXT: TextChatEntry = { ...USER_TEXT, id: "d-confirming", delivery: "confirming" };
+const SENT_TEXT: TextChatEntry = { ...USER_TEXT, id: "d-sent", delivery: "sent" };
+const RECEIVED_TEXT: TextChatEntry = { ...USER_TEXT, id: "d-received", delivery: "received" };
+const CONFIRMED_TEXT: TextChatEntry = { ...USER_TEXT, id: "d-confirmed", delivery: "confirmed" };
 const FAILED_TEXT: TextChatEntry = {
   ...USER_TEXT,
   id: "d-failed",
@@ -158,9 +160,10 @@ export function ChatBubblesDebugPage() {
           cellHeight={100}
           items={[
             { label: "sending", content: <StaticChat messages={[SENDING_TEXT]} /> },
-            { label: "confirming", content: <StaticChat messages={[CONFIRMING_TEXT]} /> },
+            { label: "sent", content: <StaticChat messages={[SENT_TEXT]} /> },
+            { label: "received", content: <StaticChat messages={[RECEIVED_TEXT]} /> },
+            { label: "confirmed", content: <StaticChat messages={[CONFIRMED_TEXT]} /> },
             { label: "failed", content: <StaticChat messages={[FAILED_TEXT]} /> },
-            { label: "delivered", content: <StaticChat messages={[USER_TEXT]} /> },
           ]}
         />
 

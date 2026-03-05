@@ -5,7 +5,7 @@ import { SettingsPanel } from "~/features/live/components/panels/settings-panel"
 import type { ChatEntry, ReceivedFile } from "~/features/live/types/live-types";
 
 const SAMPLE_MESSAGES: ChatEntry[] = [
-  { id: "1", from: "user", type: "text", content: "Hello!", timestamp: 1, delivery: "delivered" },
+  { id: "1", from: "user", type: "text", content: "Hello!", timestamp: 1, delivery: "confirmed" },
   {
     id: "2",
     from: "agent",

@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import { latestCliVersionPath, readLatestCliVersion } from "./live-runtime/daemon-files.js";
+import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -16,19 +16,18 @@ import {
   decodeMessage,
   encodeMessage,
   makeAckMessage,
+  makeDeliveryReceiptMessage,
   makeEventMessage,
   parseAckMessage,
   shouldAcknowledgeMessage,
 } from "../../../shared/bridge-protocol-core";
-import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
-import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
-import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
 import { createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import type { BridgeRunner } from "./live-bridge-shared.js";
 import { createAnswer } from "./live-daemon-answer.js";
-import { createSignalingController } from "./live-daemon-signaling.js";
+import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
+import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
 import {
   buildBridgeInstructions,
   type ChannelBuffer,
@@ -40,9 +39,13 @@ import {
   PONG_TIMEOUT_MS,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
+import { createSignalingController } from "./live-daemon-signaling.js";
+import { latestCliVersionPath, readLatestCliVersion } from "./live-runtime/daemon-files.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const OUTBOUND_SEND_MAX_ATTEMPTS = 2;
+const MAX_SEEN_INBOUND_MESSAGES = 10_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
@@ -72,6 +75,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let peer: PeerConnection | null = null;
   let channels = new Map<string, DataChannel>();
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
+  let inboundStreams = new Map<string, { streamId: string }>();
+  let seenInboundMessageKeys = new Set<string>();
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
@@ -188,6 +193,36 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- Channel / message management -----------------------------------------
 
+  function emitDeliveryStatus(params: {
+    channel: string;
+    messageId: string;
+    stage: "received" | "confirmed" | "failed";
+    error?: string;
+  }): void {
+    if (!params.messageId || params.channel === CONTROL_CHANNEL) return;
+    const controlDc = channels.get(CONTROL_CHANNEL);
+    const messageDc = channels.get(params.channel);
+    const encoded = encodeMessage(
+      makeDeliveryReceiptMessage({
+        messageId: params.messageId,
+        channel: params.channel,
+        stage: params.stage,
+        error: params.error,
+      }),
+    );
+    try {
+      if (controlDc?.isOpen()) {
+        controlDc.sendMessage(encoded);
+        return;
+      }
+      if (messageDc?.isOpen()) {
+        messageDc.sendMessage(encoded);
+      }
+    } catch (error) {
+      debugLog("failed to emit delivery status", error);
+    }
+  }
+
   function setupChannel(name: string, dc: DataChannel): void {
     channels.set(name, dc);
     dc.onOpen(() => {
@@ -197,6 +232,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     dc.onClosed(() => {
       channels.delete(name);
       pendingInboundBinaryMeta.delete(name);
+      inboundStreams.delete(name);
       debugLog(`datachannel "${name}" closed`);
     });
 
@@ -210,7 +246,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         if (!msg) return;
         const ack = parseAckMessage(msg);
         if (ack) {
-          settlePendingAck(ack.messageId, true);
+          settlePendingAck(ack.messageId, ack.channel, true);
           return;
         }
         if (msg.type === "event" && msg.data === "pong") {
@@ -219,6 +255,35 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
             pongTimeout = null;
           }
           return;
+        }
+        const duplicate = isDuplicateInboundMessage(name, msg.id);
+        if (duplicate) {
+          if (msg.type === "binary" && !msg.data) {
+            pendingInboundBinaryMeta.set(name, msg);
+            return;
+          }
+          if (shouldAcknowledgeMessage(name, msg)) {
+            queueAck(msg.id, name);
+          }
+          return;
+        }
+        if (msg.type === "stream-start") {
+          inboundStreams.set(name, { streamId: msg.id });
+        }
+        if (msg.type === "stream-end") {
+          const stream = inboundStreams.get(name);
+          const requestedStreamId =
+            typeof msg.meta?.streamId === "string" ? msg.meta.streamId : undefined;
+          if (!stream) {
+            // nothing to settle
+          } else if (!requestedStreamId || requestedStreamId === stream.streamId) {
+            emitDeliveryStatus({
+              channel: name,
+              messageId: stream.streamId,
+              stage: "received",
+            });
+            inboundStreams.delete(name);
+          }
         }
         if (msg.type === "binary" && !msg.data) {
           pendingInboundBinaryMeta.set(name, msg);
@@ -229,34 +294,67 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         }
         buffer.messages.push({ channel: name, msg, timestamp: Date.now() });
         bridgeRunner?.enqueue([{ channel: name, msg }]);
+        if (
+          name !== CONTROL_CHANNEL &&
+          (msg.type === "text" || msg.type === "html" || (msg.type === "binary" && !!msg.data))
+        ) {
+          emitDeliveryStatus({ channel: name, messageId: msg.id, stage: "received" });
+        }
         return;
       }
 
       const pendingMeta = pendingInboundBinaryMeta.get(name);
+      const activeStream = inboundStreams.get(name);
       if (pendingMeta) pendingInboundBinaryMeta.delete(name);
       const binMsg: BridgeMessage = pendingMeta
         ? {
             id: pendingMeta.id,
             type: "binary",
             data: data.toString("base64"),
-            meta: { ...pendingMeta.meta, size: data.length },
+            meta: {
+              ...pendingMeta.meta,
+              ...(activeStream ? { streamId: activeStream.streamId } : {}),
+              size: data.length,
+            },
           }
         : {
             id: `bin-${Date.now()}`,
             type: "binary",
             data: data.toString("base64"),
-            meta: { size: data.length },
+            meta: {
+              ...(activeStream ? { streamId: activeStream.streamId } : {}),
+              size: data.length,
+            },
           };
+      if (isDuplicateInboundMessage(name, binMsg.id)) {
+        if (shouldAcknowledgeMessage(name, binMsg)) {
+          queueAck(binMsg.id, name);
+        }
+        return;
+      }
       if (shouldAcknowledgeMessage(name, binMsg)) {
         queueAck(binMsg.id, name);
       }
       buffer.messages.push({ channel: name, msg: binMsg, timestamp: Date.now() });
       bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
+      if (!activeStream) {
+        emitDeliveryStatus({ channel: name, messageId: binMsg.id, stage: "received" });
+      }
     });
   }
 
   function getAckKey(messageId: string, channel: string): string {
     return `${channel}:${messageId}`;
+  }
+
+  function isDuplicateInboundMessage(channel: string, messageId: string): boolean {
+    const key = `${channel}:${messageId}`;
+    if (seenInboundMessageKeys.has(key)) return true;
+    seenInboundMessageKeys.add(key);
+    if (seenInboundMessageKeys.size > MAX_SEEN_INBOUND_MESSAGES) {
+      seenInboundMessageKeys.clear();
+    }
+    return false;
   }
 
   function queueAck(messageId: string, channel: string): void {
@@ -301,29 +399,40 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function waitForDeliveryAck(messageId: string, timeoutMs: number): Promise<boolean> {
+  function waitForDeliveryAck(
+    messageId: string,
+    channel: string,
+    timeoutMs: number,
+  ): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
+      const key = getAckKey(messageId, channel);
+      const existing = pendingDeliveryAcks.get(key);
+      if (existing) {
+        clearTimeout(existing.timeout);
+        pendingDeliveryAcks.delete(key);
+      }
       const timeout = setTimeout(() => {
-        pendingDeliveryAcks.delete(messageId);
+        pendingDeliveryAcks.delete(key);
         resolve(false);
       }, timeoutMs);
-      pendingDeliveryAcks.set(messageId, { resolve, timeout });
+      pendingDeliveryAcks.set(key, { resolve, timeout });
     });
   }
 
-  function settlePendingAck(messageId: string, received: boolean): void {
-    const pending = pendingDeliveryAcks.get(messageId);
+  function settlePendingAck(messageId: string, channel: string, received: boolean): void {
+    const key = getAckKey(messageId, channel);
+    const pending = pendingDeliveryAcks.get(key);
     if (!pending) return;
     clearTimeout(pending.timeout);
-    pendingDeliveryAcks.delete(messageId);
+    pendingDeliveryAcks.delete(key);
     pending.resolve(received);
   }
 
   function failPendingAcks(): void {
-    for (const [messageId, pending] of pendingDeliveryAcks) {
+    for (const [ackKey, pending] of pendingDeliveryAcks) {
       clearTimeout(pending.timeout);
       pending.resolve(false);
-      pendingDeliveryAcks.delete(messageId);
+      pendingDeliveryAcks.delete(ackKey);
     }
   }
 
@@ -354,6 +463,59 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
   }
 
+  async function sendOutboundMessageWithAck(
+    channel: string,
+    msg: BridgeMessage,
+    options?: { binaryPayload?: Buffer; context?: string; maxAttempts?: number },
+  ): Promise<boolean> {
+    const maxAttempts = options?.maxAttempts ?? OUTBOUND_SEND_MAX_ATTEMPTS;
+    const context = options?.context ?? `channel "${channel}"`;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      if (stopped || !connected) return false;
+
+      let targetDc: DataChannel;
+      try {
+        targetDc = channels.get(channel) ?? openDataChannel(channel);
+        await waitForChannelOpen(targetDc);
+      } catch (error) {
+        markError(`${context} failed to open (attempt ${attempt}/${maxAttempts})`, error);
+        continue;
+      }
+
+      const waitForAck = shouldAcknowledgeMessage(channel, msg)
+        ? waitForDeliveryAck(msg.id, channel, WRITE_ACK_TIMEOUT_MS)
+        : null;
+
+      try {
+        if (msg.type === "binary" && options?.binaryPayload) {
+          targetDc.sendMessage(
+            encodeMessage({
+              ...msg,
+              meta: { ...(msg.meta || {}), size: options.binaryPayload.length },
+            }),
+          );
+          targetDc.sendMessageBinary(options.binaryPayload);
+        } else {
+          targetDc.sendMessage(encodeMessage(msg));
+        }
+      } catch (error) {
+        if (waitForAck) settlePendingAck(msg.id, channel, false);
+        markError(`${context} failed to send (attempt ${attempt}/${maxAttempts})`, error);
+        continue;
+      }
+
+      if (!waitForAck) return true;
+      const acked = await waitForAck;
+      if (acked) return true;
+      markError(
+        `${context} delivery ack timeout for message ${msg.id} (attempt ${attempt}/${maxAttempts})`,
+      );
+    }
+
+    return false;
+  }
+
   function maybePersistStickyOutbound(channel: string, msg: BridgeMessage): void {
     if (channel !== CHANNELS.CANVAS) return;
     if (msg.type === "event" && msg.data === "hide") {
@@ -371,10 +533,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (!connected || recovering || stopped) return;
     for (const [channel, msg] of stickyOutboundByChannel) {
       try {
-        let targetDc = channels.get(channel);
-        if (!targetDc) targetDc = openDataChannel(channel);
-        await waitForChannelOpen(targetDc, 3_000);
-        targetDc.sendMessage(encodeMessage(msg));
+        await sendOutboundMessageWithAck(channel, msg, {
+          context: `sticky outbound replay on "${channel}"`,
+          maxAttempts: 1,
+        });
       } catch (error) {
         debugLog(`sticky outbound replay failed for channel ${channel}`, error);
       }
@@ -428,6 +590,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     peer = nextPeer;
     channels = new Map<string, DataChannel>();
     pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
+    inboundStreams = new Map<string, { streamId: string }>();
+    seenInboundMessageKeys = new Set<string>();
     attachPeerHandlers(nextPeer);
   }
 
@@ -442,6 +606,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
     channels.clear();
     pendingInboundBinaryMeta.clear();
+    inboundStreams.clear();
+    seenInboundMessageKeys.clear();
     if (peer) {
       try {
         peer.close();
@@ -461,6 +627,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     lastSentCandidateCount = 0;
     localCandidates.length = 0;
     clearLocalCandidateTimers();
+    inboundStreams.clear();
+    seenInboundMessageKeys.clear();
   }
 
   function startLocalCandidateFlush(slug: string): void {
@@ -604,6 +772,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       void shutdown();
     },
     writeAckTimeoutMs: WRITE_ACK_TIMEOUT_MS,
+    writeAckMaxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
   });
 
   const ipcServer = createDaemonIpcServer(handleIpcRequest);
@@ -622,24 +791,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- In-process bridge runner ---------------------------------------------
 
-  function sendOnChannel(channel: string, msg: BridgeMessage): void {
-    if (stopped || !connected) return;
-    let targetDc = channels.get(channel);
-    if (!targetDc) {
-      try {
-        targetDc = openDataChannel(channel);
-      } catch (error) {
-        debugLog(`bridge sendOnChannel: failed to open channel ${channel}`, error);
-        return;
-      }
+  async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
+    if (stopped || !connected) return false;
+    const sent = await sendOutboundMessageWithAck(channel, msg, {
+      context: `bridge outbound on "${channel}"`,
+      maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
+    });
+    if (sent) {
+      maybePersistStickyOutbound(channel, msg);
     }
-    try {
-      if (targetDc.isOpen()) {
-        targetDc.sendMessage(encodeMessage(msg));
-      }
-    } catch (error) {
-      debugLog(`bridge sendOnChannel failed for ${channel}`, error);
-    }
+    return sent;
   }
 
   async function startBridge(): Promise<void> {
@@ -647,7 +808,25 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (!config.bridgeMode) return;
     await stopBridge();
     const instructions = buildBridgeInstructions(config.bridgeMode);
-    const bridgeConfig = { slug: activeSlug, sendMessage: sendOnChannel, debugLog, instructions };
+    const bridgeConfig = {
+      slug: activeSlug,
+      sendMessage: sendOnChannel,
+      onDeliveryUpdate: ({
+        channel,
+        messageId,
+        stage,
+        error,
+      }: {
+        channel: string;
+        messageId: string;
+        stage: "confirmed" | "failed";
+        error?: string;
+      }) => {
+        emitDeliveryStatus({ channel, messageId, stage, error });
+      },
+      debugLog,
+      instructions,
+    };
     try {
       bridgeRunner =
         config.bridgeMode === "claude-code"
@@ -710,5 +889,4 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   process.on("SIGINT", () => {
     void shutdown();
   });
-
 }

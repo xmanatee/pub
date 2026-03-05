@@ -9,15 +9,22 @@ import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 
 interface UseFileUploadOptions {
   bridge: BrowserBridge | null;
+  onSendFile?: (file: File) => void;
 }
 
-export function useFileUpload({ bridge }: UseFileUploadOptions) {
+export function useFileUpload({ bridge, onSendFile }: UseFileUploadOptions) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file || !bridge) return;
+      if (!file) return;
+      if (onSendFile) {
+        onSendFile(file);
+        e.target.value = "";
+        return;
+      }
+      if (!bridge) return;
 
       const isHtml = file.name.endsWith(".html") || file.name.endsWith(".htm");
       if (isHtml) {
@@ -42,7 +49,7 @@ export function useFileUpload({ bridge }: UseFileUploadOptions) {
 
       e.target.value = "";
     },
-    [bridge],
+    [bridge, onSendFile],
   );
 
   return { fileInputRef, handleFile };

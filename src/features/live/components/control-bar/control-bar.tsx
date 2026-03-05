@@ -38,6 +38,7 @@ export interface ControlBarActions {
   onMicGranted: (granted: boolean) => void;
   onSendAudio: (blob: Blob) => void;
   onSendChat: (text: string) => void;
+  onSendFile?: (file: File) => void;
   onTakeover?: () => void;
   onToggleCollapsed: () => void;
 }
@@ -75,6 +76,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     onMicGranted,
     onSendAudio,
     onSendChat,
+    onSendFile,
     onTakeover,
     onToggleCollapsed,
   } = actions;
@@ -84,7 +86,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     onSendChat,
     initialInput,
   });
-  const { fileInputRef, handleFile } = useFileUpload({ bridge });
+  const { fileInputRef, handleFile } = useFileUpload({ bridge, onSendFile });
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
   const longPressHandlers = useLongPress({ onActivate: () => setExpanded(true) });

@@ -235,6 +235,11 @@ export async function createOpenClawBridgeRunner(
           text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
         });
         forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
@@ -253,13 +258,34 @@ export async function createOpenClawBridgeRunner(
       });
       if (deliveredAttachment) {
         forwardedMessageCount += 1;
+        const deliveryMessageId =
+          entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+            ? entry.msg.meta.streamId
+            : entry.msg.id;
+        if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
+        }
       }
     },
-    onError: (error) => {
+    onError: (error, entry) => {
       const message = errorMessage(error);
       lastError = message;
       debugLog(`bridge entry processing failed: ${message}`, error);
-      config.sendMessage(CHANNELS.CHAT, {
+      const deliveryMessageId =
+        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+          ? entry.msg.meta.streamId
+          : entry.msg.id;
+      config.onDeliveryUpdate?.({
+        channel: entry.channel,
+        messageId: deliveryMessageId,
+        stage: "failed",
+        error: message,
+      });
+      void config.sendMessage(CHANNELS.CHAT, {
         id: generateMessageId(),
         type: "text",
         data: `Bridge error: ${message}`,

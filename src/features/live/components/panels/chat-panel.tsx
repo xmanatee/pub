@@ -1,9 +1,14 @@
-import { AlertCircle, Check, CheckCheck, Clock, FileDown, ImageIcon } from "lucide-react";
+import { AlertCircle, Check, CheckCheck, Clock, FileDown, ImageIcon, Paperclip } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { AudioBubble } from "~/features/live/components/audio/audio-bubble";
-import type { ChatEntry, ImageChatEntry, ReceivedFile } from "~/features/live/types/live-types";
+import type {
+  AttachmentChatEntry,
+  ChatEntry,
+  ImageChatEntry,
+  ReceivedFile,
+} from "~/features/live/types/live-types";
 
 function DeliveryIcon({
   delivery,
@@ -14,8 +19,9 @@ function DeliveryIcon({
 }) {
   const base = `size-3 ${className}`;
   if (delivery === "sending") return <Clock className={`${base} opacity-70`} />;
-  if (delivery === "confirming") return <Check className={`${base} opacity-70`} />;
-  if (delivery === "delivered") return <CheckCheck className={`${base} opacity-70`} />;
+  if (delivery === "sent") return <Check className={`${base} opacity-70`} />;
+  if (delivery === "received") return <CheckCheck className={`${base} opacity-70`} />;
+  if (delivery === "confirmed") return <CheckCheck className={`${base} text-primary`} />;
   return <AlertCircle className={`${base} text-destructive`} />;
 }
 
@@ -35,6 +41,31 @@ function ImageBubble({ entry, suffix }: { entry: ImageChatEntry; suffix?: ReactN
         {suffix}
       </div>
     </div>
+  );
+}
+
+function AttachmentBubble({ entry, suffix }: { entry: AttachmentChatEntry; suffix?: ReactNode }) {
+  const content = (
+    <>
+      <Paperclip className="size-4 shrink-0" />
+      <div className="min-w-0">
+        <div className="truncate text-sm">{entry.filename}</div>
+        <div className="text-xs opacity-70">
+          {entry.mime} - {Math.max(1, Math.round(entry.size / 1024))} KB
+        </div>
+      </div>
+      {suffix}
+    </>
+  );
+
+  if (!entry.fileUrl) {
+    return <div className="flex items-center gap-2">{content}</div>;
+  }
+
+  return (
+    <a href={entry.fileUrl} download={entry.filename} className="flex items-center gap-2">
+      {content}
+    </a>
   );
 }
 
@@ -65,6 +96,9 @@ function ChatBubble({ msg, showDeliveryStatus }: { msg: ChatEntry; showDeliveryS
         )}
         {msg.type === "image" && (
           <ImageBubble entry={msg} suffix={delivery && <DeliveryIcon delivery={delivery} />} />
+        )}
+        {msg.type === "attachment" && (
+          <AttachmentBubble entry={msg} suffix={delivery && <DeliveryIcon delivery={delivery} />} />
         )}
       </div>
     </div>

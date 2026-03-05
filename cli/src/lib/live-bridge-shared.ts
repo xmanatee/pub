@@ -8,7 +8,13 @@ export const MAX_SEEN_IDS = 10_000;
 
 export interface BridgeRunnerConfig {
   slug: string;
-  sendMessage: (channel: string, msg: BridgeMessage) => void;
+  sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
+  onDeliveryUpdate?: (update: {
+    channel: string;
+    messageId: string;
+    stage: "confirmed" | "failed";
+    error?: string;
+  }) => void;
   debugLog: (message: string, error?: unknown) => void;
   instructions: BridgeInstructions;
 }

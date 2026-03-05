@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveBridge } from "~/features/live/hooks/use-live-bridge";
 import {
   CHANNELS,
+  generateMessageId,
+  makeHtmlMessage,
   makeStreamEnd,
   makeStreamStart,
   makeTextMessage,
@@ -13,6 +15,8 @@ import type { LiveViewMode } from "~/features/live/types/live-types";
 import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
+const STREAM_ACK_TIMEOUT_MS = 10_000;
+const STREAM_CHUNK_SIZE = 48 * 1024;
 
 interface UseLiveTransportOptions {
   slug: string;
@@ -49,11 +53,27 @@ interface UseLiveTransportOptions {
     mime: string;
     size: number;
   }) => void;
+  addUserPendingAttachmentMessage: (params: {
+    fileUrl?: string;
+    filename: string;
+    id: string;
+    mime: string;
+    size: number;
+  }) => void;
+  addUserPendingImageMessage: (params: {
+    height?: number;
+    id: string;
+    imageUrl: string;
+    mime: string;
+    size: number;
+    width?: number;
+  }) => void;
   addUserPendingMessage: (params: { content: string; id: string; timestamp?: number }) => void;
-  markMessageConfirmingIfPending: (messageId: string) => void;
-  markMessageDelivered: (messageId: string) => void;
+  markMessageConfirmed: (messageId: string) => void;
+  markMessageFailed: (messageId: string) => void;
   markMessageFailedIfPending: (messageId: string) => void;
-  markSendingMessagesConfirming: () => void;
+  markMessageReceived: (messageId: string) => void;
+  markMessageSentIfPending: (messageId: string) => void;
   updateAudioMessageAnalysis: (messageId: string, duration: number, waveform: number[]) => void;
 }
 
@@ -70,12 +90,15 @@ export function useLiveTransport({
   addAgentImageMessage,
   addAgentMessage,
   addReceivedBinaryFile,
+  addUserPendingAttachmentMessage,
   addUserPendingAudioMessage,
+  addUserPendingImageMessage,
   addUserPendingMessage,
-  markMessageConfirmingIfPending,
-  markMessageDelivered,
+  markMessageConfirmed,
+  markMessageFailed,
   markMessageFailedIfPending,
-  markSendingMessagesConfirming,
+  markMessageReceived,
+  markMessageSentIfPending,
   updateAudioMessageAnalysis,
 }: UseLiveTransportOptions) {
   const [canvasHtml, setCanvasHtml] = useState<string | null>(null);
@@ -84,7 +107,14 @@ export function useLiveTransport({
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
 
   const pendingChatQueueRef = useRef<Array<{ msg: ReturnType<typeof makeTextMessage> }>>([]);
-  const pendingAudioQueueRef = useRef<Blob[]>([]);
+  const pendingAudioQueueRef = useRef<Array<{ blob: Blob; id: string }>>([]);
+  const pendingFileQueueRef = useRef<
+    Array<{
+      channel: "file" | "media";
+      file: File;
+      id: string;
+    }>
+  >([]);
 
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
@@ -98,6 +128,7 @@ export function useLiveTransport({
     setLastUserDeliveredAt(null);
     pendingChatQueueRef.current = [];
     pendingAudioQueueRef.current = [];
+    pendingFileQueueRef.current = [];
   }, [slug]);
 
   const handleBridgeMessage = useCallback(
@@ -173,13 +204,28 @@ export function useLiveTransport({
     ],
   );
 
-  const handleDeliveryAck = useCallback(
-    (ack: { channel: string; messageId: string; receivedAt?: number }) => {
-      if (ack.channel !== CHANNELS.CHAT) return;
-      setLastUserDeliveredAt(typeof ack.receivedAt === "number" ? ack.receivedAt : Date.now());
-      markMessageDelivered(ack.messageId);
+  const handleDeliveryReceipt = useCallback(
+    (receipt: { channel: string; messageId: string; stage: "received" | "confirmed" | "failed" }) => {
+      if (
+        receipt.channel !== CHANNELS.CHAT &&
+        receipt.channel !== CHANNELS.AUDIO &&
+        receipt.channel !== CHANNELS.MEDIA &&
+        receipt.channel !== CHANNELS.FILE
+      ) {
+        return;
+      }
+      if (receipt.stage === "received") {
+        setLastUserDeliveredAt(Date.now());
+        markMessageReceived(receipt.messageId);
+        return;
+      }
+      if (receipt.stage === "confirmed") {
+        markMessageConfirmed(receipt.messageId);
+        return;
+      }
+      markMessageFailed(receipt.messageId);
     },
-    [markMessageDelivered],
+    [markMessageConfirmed, markMessageFailed, markMessageReceived],
   );
 
   const { bridgeRef, bridgeState } = useLiveBridge({
@@ -190,7 +236,7 @@ export function useLiveTransport({
     sessionContext,
     storeBrowserOffer,
     storeBrowserCandidates,
-    onDeliveryAck: handleDeliveryAck,
+    onDeliveryReceipt: handleDeliveryReceipt,
     onMessage: handleBridgeMessage,
     onTrackActivity: markAgentActivity,
   });
@@ -211,15 +257,14 @@ export function useLiveTransport({
 
         const delivered = await bridge.sendWithAck(CHANNELS.CHAT, msg, CHAT_ACK_TIMEOUT_MS);
         if (delivered) {
-          setLastUserDeliveredAt(Date.now());
-          markMessageDelivered(msg.id);
+          markMessageSentIfPending(msg.id);
           return;
         }
 
-        markMessageConfirmingIfPending(msg.id);
+        markMessageFailedIfPending(msg.id);
       })();
     },
-    [bridgeRef, markMessageConfirmingIfPending, markMessageDelivered, markMessageFailedIfPending],
+    [bridgeRef, markMessageFailedIfPending, markMessageSentIfPending],
   );
 
   const sendChat = useCallback(
@@ -235,33 +280,49 @@ export function useLiveTransport({
     [addUserPendingMessage, bridgeState, dispatchChatMessage],
   );
 
-  useEffect(() => {
-    if (bridgeState === "connected") return;
-    markSendingMessagesConfirming();
-  }, [bridgeState, markSendingMessagesConfirming]);
-
   const dispatchAudio = useCallback(
-    (blob: Blob) => {
+    (blob: Blob, id: string) => {
       const bridge = bridgeRef.current;
-      if (!bridge) return;
+      if (!bridge) {
+        markMessageFailedIfPending(id);
+        return;
+      }
       void (async () => {
         const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
-        if (!ready) return;
+        if (!ready) {
+          markMessageFailedIfPending(id);
+          return;
+        }
         const buffer = await blob.arrayBuffer();
-        const startMsg = makeStreamStart({ mime: blob.type, size: buffer.byteLength });
-        if (!bridge.send(CHANNELS.AUDIO, startMsg)) return;
-
-        const chunkSize = 48 * 1024;
-        const bytes = new Uint8Array(buffer);
-        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-          const chunk = bytes.slice(offset, offset + chunkSize);
-          if (!bridge.sendBinary(CHANNELS.AUDIO, chunk.buffer)) return;
+        const startMsg = makeStreamStart({ mime: blob.type, size: buffer.byteLength }, id);
+        if (!bridge.send(CHANNELS.AUDIO, startMsg)) {
+          markMessageFailedIfPending(id);
+          return;
         }
 
-        bridge.send(CHANNELS.AUDIO, makeStreamEnd(startMsg.id));
+        const bytes = new Uint8Array(buffer);
+        for (let offset = 0; offset < bytes.length; offset += STREAM_CHUNK_SIZE) {
+          const chunk = bytes.slice(offset, offset + STREAM_CHUNK_SIZE);
+          if (!bridge.sendBinary(CHANNELS.AUDIO, chunk.buffer)) {
+            markMessageFailedIfPending(id);
+            return;
+          }
+        }
+
+        const ended = await bridge.sendWithAck(
+          CHANNELS.AUDIO,
+          makeStreamEnd(startMsg.id),
+          STREAM_ACK_TIMEOUT_MS,
+        );
+        if (!ended) {
+          markMessageFailedIfPending(id);
+          return;
+        }
+
+        markMessageSentIfPending(id);
       })();
     },
-    [bridgeRef],
+    [bridgeRef, markMessageFailedIfPending, markMessageSentIfPending],
   );
 
   const sendAudio = useCallback(
@@ -279,12 +340,113 @@ export function useLiveTransport({
         (err) => console.warn("Audio analysis failed:", err),
       );
       if (bridgeState !== "connected") {
-        pendingAudioQueueRef.current.push(blob);
+        pendingAudioQueueRef.current.push({ blob, id });
         return;
       }
-      dispatchAudio(blob);
+      dispatchAudio(blob, id);
     },
     [addUserPendingAudioMessage, bridgeState, dispatchAudio, updateAudioMessageAnalysis],
+  );
+
+  const dispatchFile = useCallback(
+    (file: File, id: string, channel: "file" | "media") => {
+      const bridge = bridgeRef.current;
+      if (!bridge) {
+        markMessageFailedIfPending(id);
+        return;
+      }
+
+      void (async () => {
+        const ready = await ensureChannelReady(bridge, channel);
+        if (!ready) {
+          markMessageFailedIfPending(id);
+          return;
+        }
+        const buffer = await file.arrayBuffer();
+        const startMsg = makeStreamStart(
+          {
+            filename: file.name,
+            mime: file.type || "application/octet-stream",
+            size: buffer.byteLength,
+          },
+          id,
+        );
+        if (!bridge.send(channel, startMsg)) {
+          markMessageFailedIfPending(id);
+          return;
+        }
+
+        const bytes = new Uint8Array(buffer);
+        for (let offset = 0; offset < bytes.length; offset += STREAM_CHUNK_SIZE) {
+          const chunk = bytes.slice(offset, offset + STREAM_CHUNK_SIZE);
+          if (!bridge.sendBinary(channel, chunk.buffer)) {
+            markMessageFailedIfPending(id);
+            return;
+          }
+        }
+
+        const ended = await bridge.sendWithAck(channel, makeStreamEnd(startMsg.id), STREAM_ACK_TIMEOUT_MS);
+        if (!ended) {
+          markMessageFailedIfPending(id);
+          return;
+        }
+
+        markMessageSentIfPending(id);
+      })();
+    },
+    [bridgeRef, markMessageFailedIfPending, markMessageSentIfPending],
+  );
+
+  const sendFile = useCallback(
+    (file: File) => {
+      const isHtml = file.name.endsWith(".html") || file.name.endsWith(".htm");
+      if (isHtml) {
+        const bridge = bridgeRef.current;
+        if (!bridge) return;
+        void (async () => {
+          const text = await file.text();
+          const ready = await ensureChannelReady(bridge, CHANNELS.CANVAS);
+          if (!ready) return;
+          bridge.send(CHANNELS.CANVAS, makeHtmlMessage(text, file.name));
+        })();
+        return;
+      }
+
+      const id = generateMessageId();
+      const mime = file.type || "application/octet-stream";
+      const isImage = mime.startsWith("image/");
+      const fileUrl = URL.createObjectURL(file);
+      if (isImage) {
+        addUserPendingImageMessage({
+          id,
+          imageUrl: fileUrl,
+          mime,
+          size: file.size,
+        });
+      } else {
+        addUserPendingAttachmentMessage({
+          id,
+          filename: file.name,
+          mime,
+          size: file.size,
+          fileUrl,
+        });
+      }
+
+      const channel = isImage ? CHANNELS.MEDIA : CHANNELS.FILE;
+      if (bridgeState !== "connected") {
+        pendingFileQueueRef.current.push({ channel, file, id });
+        return;
+      }
+      dispatchFile(file, id, channel);
+    },
+    [
+      addUserPendingAttachmentMessage,
+      addUserPendingImageMessage,
+      bridgeRef,
+      bridgeState,
+      dispatchFile,
+    ],
   );
 
   useEffect(() => {
@@ -296,10 +458,15 @@ export function useLiveTransport({
     }
 
     const audioQueue = pendingAudioQueueRef.current.splice(0);
-    for (const blob of audioQueue) {
-      dispatchAudio(blob);
+    for (const entry of audioQueue) {
+      dispatchAudio(entry.blob, entry.id);
     }
-  }, [bridgeState, dispatchAudio, dispatchChatMessage]);
+
+    const fileQueue = pendingFileQueueRef.current.splice(0);
+    for (const entry of fileQueue) {
+      dispatchFile(entry.file, entry.id, entry.channel);
+    }
+  }, [bridgeState, dispatchAudio, dispatchChatMessage, dispatchFile]);
 
   const clearCanvas = useCallback(() => {
     setCanvasHtml(null);
@@ -314,6 +481,7 @@ export function useLiveTransport({
     lastUserDeliveredAt,
     sendAudio,
     sendChat,
+    sendFile,
     setViewMode,
     viewMode,
   };

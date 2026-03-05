@@ -27,7 +27,7 @@ const USER_TEXT: TextChatEntry = {
   from: "user",
   content: "Hello from user",
   timestamp: 1000,
-  delivery: "delivered",
+  delivery: "confirmed",
 };
 
 const AGENT_TEXT: TextChatEntry = {
@@ -83,7 +83,7 @@ const USER_IMAGE: ImageChatEntry = {
   width: 200,
   height: 100,
   timestamp: 1005,
-  delivery: "delivered",
+  delivery: "confirmed",
 };
 
 const AGENT_IMAGE: ImageChatEntry = {
@@ -105,7 +105,7 @@ describe("ChatPanel snapshots", () => {
     const html = renderPanel([USER_TEXT]);
     expect(html).toContain("Hello from user");
     expect(html).toContain("justify-end");
-    expect(html).toContain("opacity-70");
+    expect(html).toContain("text-primary");
   });
 
   it("renders agent text bubble", () => {
@@ -156,13 +156,15 @@ describe("ChatPanel snapshots", () => {
 
   it("renders delivery status icons for each state", () => {
     const sending: TextChatEntry = { ...USER_TEXT, id: "s1", delivery: "sending" };
-    const confirming: TextChatEntry = { ...USER_TEXT, id: "s2", delivery: "confirming" };
-    const failed: TextChatEntry = { ...USER_TEXT, id: "s3", delivery: "failed" };
-    const delivered: TextChatEntry = { ...USER_TEXT, id: "s4", delivery: "delivered" };
+    const sent: TextChatEntry = { ...USER_TEXT, id: "s2", delivery: "sent" };
+    const received: TextChatEntry = { ...USER_TEXT, id: "s3", delivery: "received" };
+    const confirmed: TextChatEntry = { ...USER_TEXT, id: "s4", delivery: "confirmed" };
+    const failed: TextChatEntry = { ...USER_TEXT, id: "s5", delivery: "failed" };
 
-    const html = renderPanel([sending, confirming, failed, delivered]);
+    const html = renderPanel([sending, sent, received, confirmed, failed]);
     const deliveryIcons = html.match(/size-3/g);
-    expect(deliveryIcons).toHaveLength(4);
+    expect(deliveryIcons).toHaveLength(5);
+    expect(html).toContain("text-primary");
     expect(html).toContain("text-destructive");
   });
 });

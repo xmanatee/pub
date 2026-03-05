@@ -40,6 +40,7 @@ export type ControlEvent =
   | "session-context"
   | "status"
   | "error"
+  | "delivery"
   | "ping"
   | "pong"
   | "ack";
@@ -80,6 +81,16 @@ export interface DeliveryAckPayload {
   messageId: string;
   channel: string;
   receivedAt?: number;
+}
+
+export type DeliveryStage = "received" | "confirmed" | "failed";
+
+export interface DeliveryReceiptPayload {
+  messageId: string;
+  channel: string;
+  stage: DeliveryStage;
+  at?: number;
+  error?: string;
 }
 
 export const CHANNELS = {
@@ -136,12 +147,27 @@ export function makeAckMessage(messageId: string, channel: string): BridgeMessag
   return makeEventMessage("ack", { messageId, channel, receivedAt: Date.now() });
 }
 
-export function makeBinaryMetaMessage(meta: BridgeMessageMeta): BridgeMessage {
-  return { id: generateMessageId(), type: "binary", meta };
+export function makeDeliveryReceiptMessage(payload: {
+  messageId: string;
+  channel: string;
+  stage: DeliveryStage;
+  error?: string;
+}): BridgeMessage {
+  return makeEventMessage("delivery", {
+    messageId: payload.messageId,
+    channel: payload.channel,
+    stage: payload.stage,
+    at: Date.now(),
+    error: payload.error,
+  });
 }
 
-export function makeStreamStart(meta?: BridgeMessageMeta): BridgeMessage {
-  return { id: generateMessageId(), type: "stream-start", meta };
+export function makeBinaryMetaMessage(meta: BridgeMessageMeta, id?: string): BridgeMessage {
+  return { id: id ?? generateMessageId(), type: "binary", meta };
+}
+
+export function makeStreamStart(meta?: BridgeMessageMeta, id?: string): BridgeMessage {
+  return { id: id ?? generateMessageId(), type: "stream-start", meta };
 }
 
 export function makeStreamEnd(streamId: string): BridgeMessage {
@@ -157,6 +183,20 @@ export function parseAckMessage(msg: BridgeMessage): DeliveryAckPayload | null {
 
   const receivedAt = typeof msg.meta.receivedAt === "number" ? msg.meta.receivedAt : undefined;
   return { messageId, channel, receivedAt };
+}
+
+export function parseDeliveryReceiptMessage(msg: BridgeMessage): DeliveryReceiptPayload | null {
+  if (msg.type !== "event" || msg.data !== "delivery" || !msg.meta) return null;
+
+  const messageId = typeof msg.meta.messageId === "string" ? msg.meta.messageId : null;
+  const channel = typeof msg.meta.channel === "string" ? msg.meta.channel : null;
+  const stage = typeof msg.meta.stage === "string" ? msg.meta.stage : null;
+  if (!messageId || !channel || !stage) return null;
+  if (stage !== "received" && stage !== "confirmed" && stage !== "failed") return null;
+
+  const at = typeof msg.meta.at === "number" ? msg.meta.at : undefined;
+  const error = typeof msg.meta.error === "string" ? msg.meta.error : undefined;
+  return { messageId, channel, stage, at, error };
 }
 
 export function shouldAcknowledgeMessage(channel: string, msg: BridgeMessage): boolean {
