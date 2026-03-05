@@ -6,12 +6,9 @@
  */
 
 import * as fs from "node:fs";
-import * as net from "node:net";
 import * as path from "node:path";
-import { ConvexClient } from "convex/browser";
-import { makeFunctionReference } from "convex/server";
 import type { DataChannel, PeerConnection } from "node-datachannel";
-import { latestCliVersionPath, readLatestCliVersion } from "../commands/live-helpers.js";
+import { latestCliVersionPath, readLatestCliVersion } from "./live-runtime/daemon-files.js";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -22,13 +19,16 @@ import {
   makeEventMessage,
   parseAckMessage,
   shouldAcknowledgeMessage,
-} from "../lib/bridge-protocol.js";
-import { resolveAckChannel } from "./ack-routing.js";
-import { type LiveInfo } from "./api.js";
+} from "../../../shared/bridge-protocol-core";
+import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
-import { type BridgeRunner, createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
+import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
+import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
+import { createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
+import type { BridgeRunner } from "./live-bridge-shared.js";
 import { createAnswer } from "./live-daemon-answer.js";
+import { createSignalingController } from "./live-daemon-signaling.js";
 import {
   buildBridgeInstructions,
   type ChannelBuffer,
@@ -40,13 +40,9 @@ import {
   PONG_TIMEOUT_MS,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
-import { decideSignalingUpdate } from "./live-signaling.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const LIVE_SIGNAL_QUERY = makeFunctionReference<"query", { apiKey: string }, LiveInfo | null>(
-  "pubs:getLiveForAgentByApiKey",
-);
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
@@ -76,13 +72,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let peer: PeerConnection | null = null;
   let channels = new Map<string, DataChannel>();
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
-
-  let signalingClient: ConvexClient | null = null;
-  let signalingUnsubscribe: (() => void) | null = null;
-  let connectionStateUnsubscribe: (() => void) | null = null;
-  let signalingQueue: Promise<void> = Promise.resolve();
-  let signalingConnectionKnown = false;
-  let signalingConnectionOpen = false;
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
@@ -179,10 +168,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   function runHealthCheck(): void {
     if (stopped) return;
     if (cliVersion) {
-      const latest = readLatestCliVersion(versionFilePath);
-      if (latest && latest !== cliVersion) {
-        markError(`detected CLI upgrade (${cliVersion} → ${latest}); shutting down`);
-        void shutdown();
+      try {
+        const latest = readLatestCliVersion(versionFilePath);
+        if (latest && latest !== cliVersion) {
+          markError(`detected CLI upgrade (${cliVersion} → ${latest}); shutting down`);
+          void shutdown();
+        }
+      } catch (error) {
+        markError("health check failed to read latest CLI version", error);
       }
     }
   }
@@ -516,34 +509,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- Signaling subscription (Convex onUpdate) -----------------------------
 
-  function parseLiveSnapshot(result: unknown): LiveInfo | null {
-    if (result === null || result === undefined) return null;
-    if (typeof result !== "object") {
-      throw new Error("Invalid signaling snapshot: expected object or null");
-    }
-    const live = result as Partial<LiveInfo>;
-    if (typeof live.slug !== "string") throw new Error("Invalid signaling snapshot: missing slug");
-    if (!Array.isArray(live.browserCandidates)) {
-      throw new Error("Invalid signaling snapshot: missing browserCandidates");
-    }
-    if (!Array.isArray(live.agentCandidates)) {
-      throw new Error("Invalid signaling snapshot: missing agentCandidates");
-    }
-    if (typeof live.createdAt !== "number" || typeof live.expiresAt !== "number") {
-      throw new Error("Invalid signaling snapshot: missing timestamps");
-    }
-    return {
-      slug: live.slug,
-      status: live.status,
-      browserOffer: live.browserOffer,
-      agentAnswer: live.agentAnswer,
-      browserCandidates: live.browserCandidates,
-      agentCandidates: live.agentCandidates,
-      createdAt: live.createdAt,
-      expiresAt: live.expiresAt,
-    };
-  }
-
   async function applyBrowserCandidates(candidatePayloads: string[]): Promise<void> {
     for (const c of candidatePayloads) {
       try {
@@ -558,117 +523,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  async function handleSignalingSnapshot(live: LiveInfo | null): Promise<void> {
-    const decision = decideSignalingUpdate({
-      live,
-      activeSlug,
-      lastAppliedBrowserOffer,
-      lastBrowserCandidateCount,
-    });
-
-    lastBrowserCandidateCount = decision.nextBrowserCandidateCount;
-
-    if (decision.type === "recover") {
-      await handleIncomingLive(decision.slug, decision.browserOffer);
-      return;
-    }
-
-    if (decision.type === "apply-browser-candidates") {
-      await applyBrowserCandidates(decision.candidatePayloads);
-    }
-  }
-
-  function enqueueSignalingSnapshot(live: LiveInfo | null): void {
-    signalingQueue = signalingQueue
-      .then(async () => {
-        if (stopped) return;
-        await handleSignalingSnapshot(live);
-      })
-      .catch((error) => {
-        markError("failed to process signaling snapshot", error);
-      });
-  }
-
-  function observeSignalingConnectionState(state: {
-    isWebSocketConnected: boolean;
-    connectionCount: number;
-    connectionRetries: number;
-  }): void {
-    if (!signalingConnectionKnown) {
-      signalingConnectionKnown = true;
-      signalingConnectionOpen = state.isWebSocketConnected;
-      debugLog(
-        `signaling websocket initial state: ${state.isWebSocketConnected ? "connected" : "disconnected"}`,
-      );
-      return;
-    }
-
-    if (state.isWebSocketConnected !== signalingConnectionOpen) {
-      signalingConnectionOpen = state.isWebSocketConnected;
-      if (state.isWebSocketConnected) {
-        debugLog("signaling websocket reconnected");
-      } else {
-        markError(
-          `signaling websocket disconnected (retries=${state.connectionRetries}, connections=${state.connectionCount})`,
-        );
-      }
-    }
-  }
-
-  function startSignalingSubscription(): void {
-    if (signalingClient) return;
-    signalingClient = new ConvexClient(apiClient.getBaseUrl(), {
-      onServerDisconnectError: (message) => {
-        markError(`signaling server disconnect: ${message}`);
-      },
-    });
-
-    connectionStateUnsubscribe = signalingClient.subscribeToConnectionState((state) => {
-      observeSignalingConnectionState({
-        isWebSocketConnected: state.isWebSocketConnected,
-        connectionCount: state.connectionCount,
-        connectionRetries: state.connectionRetries,
-      });
-    });
-
-    const unsubscribe = signalingClient.onUpdate(
-      LIVE_SIGNAL_QUERY,
-      { apiKey: apiClient.getApiKey() },
-      (result) => {
-        let live: LiveInfo | null;
-        try {
-          live = parseLiveSnapshot(result);
-        } catch (error) {
-          markError("received malformed signaling snapshot", error);
-          return;
-        }
-        enqueueSignalingSnapshot(live);
-      },
-      (error) => {
-        markError("signaling subscription failed", error);
-      },
-    );
-    signalingUnsubscribe = () => unsubscribe();
-  }
-
-  async function stopSignalingSubscription(): Promise<void> {
-    if (signalingUnsubscribe) {
-      signalingUnsubscribe();
-      signalingUnsubscribe = null;
-    }
-    if (connectionStateUnsubscribe) {
-      connectionStateUnsubscribe();
-      connectionStateUnsubscribe = null;
-    }
-    if (signalingClient) {
-      await signalingClient.close().catch((error) => {
-        debugLog("failed to close signaling client cleanly", error);
-      });
-      signalingClient = null;
-    }
-    signalingConnectionKnown = false;
-    signalingConnectionOpen = false;
-  }
+  const signaling = createSignalingController({
+    apiClient,
+    debugLog,
+    markError,
+    isStopped: () => stopped,
+    getActiveSlug: () => activeSlug,
+    getLastAppliedBrowserOffer: () => lastAppliedBrowserOffer,
+    getLastBrowserCandidateCount: () => lastBrowserCandidateCount,
+    setLastBrowserCandidateCount: (count) => {
+      lastBrowserCandidateCount = count;
+    },
+    onRecover: handleIncomingLive,
+    onApplyBrowserCandidates: applyBrowserCandidates,
+  });
 
   // -- Socket stale check ---------------------------------------------------
 
@@ -709,29 +577,36 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- IPC server -----------------------------------------------------------
 
-  const ipcServer = net.createServer((conn) => {
-    let data = "";
-    conn.on("data", (chunk) => {
-      data += chunk.toString();
-      const newlineIdx = data.indexOf("\n");
-      if (newlineIdx === -1) return;
-
-      const line = data.slice(0, newlineIdx);
-      data = data.slice(newlineIdx + 1);
-
-      let request: { method: string; params: Record<string, unknown> };
-      try {
-        request = JSON.parse(line);
-      } catch {
-        conn.write(`${JSON.stringify({ ok: false, error: "Invalid JSON" })}\n`);
-        return;
-      }
-
-      handleIpcRequest(request)
-        .then((response) => conn.write(`${JSON.stringify(response)}\n`))
-        .catch((err) => conn.write(`${JSON.stringify({ ok: false, error: errorMessage(err) })}\n`));
-    });
+  const handleIpcRequest = createDaemonIpcHandler({
+    getConnected: () => connected,
+    getSignalingConnected: () => {
+      const state = signaling.status();
+      return state.known ? state.open : null;
+    },
+    getActiveSlug: () => activeSlug,
+    getUptimeSeconds: () => Math.floor((Date.now() - startTime) / 1000),
+    getChannels: () => [...channels.keys()],
+    getBufferedMessages: () => buffer.messages,
+    setBufferedMessages: (messages) => {
+      buffer.messages = messages;
+    },
+    getLastError: () => lastError,
+    getBridgeMode: () => config.bridgeMode ?? null,
+    getBridgeStatus: () => bridgeRunner?.status() ?? null,
+    getWriteReadinessError: () => getLiveWriteReadinessError(connected),
+    openDataChannel,
+    waitForChannelOpen,
+    waitForDeliveryAck,
+    settlePendingAck,
+    maybePersistStickyOutbound,
+    markError,
+    shutdown: () => {
+      void shutdown();
+    },
+    writeAckTimeoutMs: WRITE_ACK_TIMEOUT_MS,
   });
+
+  const ipcServer = createDaemonIpcServer(handleIpcRequest);
 
   ipcServer.listen(socketPath);
 
@@ -743,7 +618,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   );
 
   startHealthCheckTimer();
-  startSignalingSubscription();
+  signaling.start();
 
   // -- In-process bridge runner ---------------------------------------------
 
@@ -800,7 +675,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearHealthCheckTimer();
     clearHeartbeatTimer();
     stopPingPong();
-    await stopSignalingSubscription();
+    await signaling.stop();
 
     try {
       await apiClient.goOffline();
@@ -836,118 +711,4 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     void shutdown();
   });
 
-  // -- IPC handler ----------------------------------------------------------
-
-  async function handleIpcRequest(req: {
-    method: string;
-    params: Record<string, unknown>;
-  }): Promise<Record<string, unknown>> {
-    switch (req.method) {
-      case "write": {
-        const channel = (req.params.channel as string) || CHANNELS.CHAT;
-        const readinessError = getLiveWriteReadinessError(connected);
-        if (readinessError) return { ok: false, error: readinessError };
-
-        const msg = req.params.msg as BridgeMessage;
-        const binaryBase64 =
-          typeof req.params.binaryBase64 === "string" ? req.params.binaryBase64 : undefined;
-        const binaryPayload =
-          msg.type === "binary" && binaryBase64 ? Buffer.from(binaryBase64, "base64") : undefined;
-
-        let targetDc = channels.get(channel);
-        if (!targetDc) targetDc = openDataChannel(channel);
-
-        try {
-          await waitForChannelOpen(targetDc);
-        } catch (error) {
-          markError(`channel "${channel}" failed to open`, error);
-          return { ok: false, error: `Channel "${channel}" not open: ${errorMessage(error)}` };
-        }
-
-        const waitForAck = shouldAcknowledgeMessage(channel, msg)
-          ? waitForDeliveryAck(msg.id, WRITE_ACK_TIMEOUT_MS)
-          : null;
-
-        try {
-          if (msg.type === "binary" && binaryPayload) {
-            targetDc.sendMessage(
-              encodeMessage({
-                ...msg,
-                meta: { ...(msg.meta || {}), size: binaryPayload.length },
-              }),
-            );
-            targetDc.sendMessageBinary(binaryPayload);
-          } else {
-            targetDc.sendMessage(encodeMessage(msg));
-          }
-        } catch (error) {
-          if (waitForAck) settlePendingAck(msg.id, false);
-          markError(`failed to send message on channel "${channel}"`, error);
-          return {
-            ok: false,
-            error: `Failed to send on channel "${channel}": ${errorMessage(error)}`,
-          };
-        }
-
-        if (waitForAck) {
-          const acked = await waitForAck;
-          if (!acked) {
-            markError(`delivery ack timeout for message ${msg.id}`);
-            return {
-              ok: false,
-              error: `Delivery not confirmed for message ${msg.id} within ${WRITE_ACK_TIMEOUT_MS}ms.`,
-            };
-          }
-        }
-
-        maybePersistStickyOutbound(channel, msg);
-        return { ok: true, delivered: true };
-      }
-
-      case "read": {
-        const channel = req.params.channel as string | undefined;
-        let msgs: ChannelBuffer["messages"];
-        if (channel) {
-          msgs = buffer.messages.filter((m) => m.channel === channel);
-          buffer.messages = buffer.messages.filter((m) => m.channel !== channel);
-        } else {
-          msgs = [...buffer.messages];
-          buffer.messages = [];
-        }
-        return { ok: true, messages: msgs };
-      }
-
-      case "channels": {
-        const chList = [...channels.keys()].map((name) => ({ name, direction: "bidi" }));
-        return { ok: true, channels: chList };
-      }
-
-      case "status": {
-        return {
-          ok: true,
-          connected,
-          signalingConnected: signalingConnectionKnown ? signalingConnectionOpen : null,
-          activeSlug,
-          uptime: Math.floor((Date.now() - startTime) / 1000),
-          channels: [...channels.keys()],
-          bufferedMessages: buffer.messages.length,
-          lastError,
-          bridgeMode: config.bridgeMode ?? null,
-          bridge: bridgeRunner?.status() ?? null,
-        };
-      }
-
-      case "active-slug": {
-        return { ok: true, slug: activeSlug };
-      }
-
-      case "close": {
-        void shutdown();
-        return { ok: true };
-      }
-
-      default:
-        return { ok: false, error: `Unknown method: ${req.method}` };
-    }
-  }
 }

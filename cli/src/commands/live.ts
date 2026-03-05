@@ -6,31 +6,17 @@ import {
   CHANNELS,
   CONTROL_CHANNEL,
   generateMessageId,
-} from "../lib/bridge-protocol.js";
+} from "../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../lib/cli-error.js";
 import { getConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
+import { buildBridgeProcessEnv, ensureNodeDatachannelAvailable, resolveBridgeMode } from "../lib/live-runtime/bridge-runtime.js";
+import { formatApiError, getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
+import { liveInfoPath, liveLogPath, readLogTail, writeLatestCliVersion } from "../lib/live-runtime/daemon-files.js";
+import { buildDaemonForkStdio, isDaemonRunning, resolveActiveSlug, stopOtherDaemons, waitForDaemonReady } from "../lib/live-runtime/daemon-process.js";
+import { getMimeType, TEXT_FILE_EXTENSIONS } from "../lib/live-runtime/file-payload.js";
+import { parsePositiveInteger } from "../lib/number.js";
 import { CLI_VERSION } from "../lib/version.js";
-import {
-  buildBridgeProcessEnv,
-  buildDaemonForkStdio,
-  ensureNodeDatachannelAvailable,
-  formatApiError,
-  getFollowReadDelayMs,
-  getMimeType,
-  isDaemonRunning,
-  liveInfoPath,
-  liveLogPath,
-  messageContainsPong,
-  parsePositiveIntegerOption,
-  readLogTail,
-  resolveActiveSlug,
-  resolveBridgeMode,
-  stopOtherDaemons,
-  TEXT_FILE_EXTENSIONS,
-  waitForDaemonReady,
-  writeLatestCliVersion,
-} from "./live-helpers.js";
 import { createClient } from "./shared.js";
 
 export function registerLiveCommands(program: Command): void {
@@ -97,7 +83,12 @@ function registerStartCommand(program: Command): void {
           `Daemon failed to start: ${ready.reason ?? "unknown reason"}`,
           `Daemon log: ${logPath}`,
         ];
-        const tail = readLogTail(logPath);
+        let tail: string | null = null;
+        try {
+          tail = readLogTail(logPath);
+        } catch (error) {
+          lines.push(`Failed to read daemon log tail: ${errorMessage(error)}`);
+        }
         if (tail) {
           lines.push("---- daemon log tail ----");
           lines.push(tail.trimEnd());
@@ -133,26 +124,28 @@ function registerStatusCommand(program: Command): void {
     .description("Check agent daemon and live connection status")
     .action(async () => {
       const socketPath = getAgentSocketPath();
-      let response: Record<string, unknown>;
+      let response;
       try {
         response = await ipcCall(socketPath, { method: "status", params: {} });
-      } catch {
+      } catch (error) {
+        if (errorMessage(error) !== "Daemon not running.") {
+          failCli(`Failed to fetch daemon status: ${errorMessage(error)}`);
+        }
         console.log("Agent daemon is not running.");
         return;
       }
+      if (!response.ok) {
+        failCli(`Failed to fetch daemon status: ${response.error || "unknown error"}`);
+      }
 
-      const activeSlug = response.activeSlug as string | null;
       console.log(`  Daemon: running`);
-      console.log(`  Active slug: ${activeSlug || "(none)"}`);
+      console.log(`  Active slug: ${response.activeSlug || "(none)"}`);
       console.log(`  Status: ${response.connected ? "connected" : "waiting"}`);
       if (typeof response.signalingConnected === "boolean") {
         console.log(`  Signaling: ${response.signalingConnected ? "connected" : "reconnecting"}`);
       }
       console.log(`  Uptime: ${response.uptime}s`);
-      const chNames = Array.isArray(response.channels)
-        ? response.channels.map((c: unknown) => (typeof c === "string" ? c : String(c)))
-        : [];
-      console.log(`  Channels: ${chNames.join(", ") || "(none)"}`);
+      console.log(`  Channels: ${response.channels.join(", ") || "(none)"}`);
       console.log(`  Buffered: ${response.bufferedMessages ?? 0} messages`);
       if (typeof response.lastError === "string" && response.lastError.length > 0) {
         console.log(`  Last error: ${response.lastError}`);
@@ -161,14 +154,7 @@ function registerStatusCommand(program: Command): void {
       if (fs.existsSync(logPath)) {
         console.log(`  Log: ${logPath}`);
       }
-      const bridge = response.bridge as {
-        running?: boolean;
-        sessionId?: string;
-        sessionKey?: string;
-        sessionSource?: string;
-        lastError?: string;
-        forwardedMessages?: number;
-      } | null;
+      const bridge = response.bridge;
       if (bridge) {
         const bridgeLabel = response.bridgeMode ?? "unknown";
         console.log(`  Bridge: ${bridgeLabel} (${bridge.running ? "running" : "stopped"})`);
@@ -352,10 +338,12 @@ function registerDoctorCommand(program: Command): void {
         skipChat?: boolean;
         skipCanvas?: boolean;
       }) => {
-        const timeoutSeconds = parsePositiveIntegerOption(opts.timeout, "--timeout");
+        const timeoutSeconds = parsePositiveInteger(opts.timeout, "--timeout");
         const timeoutMs = timeoutSeconds * 1_000;
         const socketPath = getAgentSocketPath();
-        const slug = await resolveActiveSlug();
+        const slug = await resolveActiveSlug().catch((error: unknown) =>
+          failCli(`No active daemon. Run \`pubblue start\` first. (${errorMessage(error)})`),
+        );
         const apiClient = createClient();
 
         const fail = (message: string): never => failCli(`Doctor failed: ${message}`);

@@ -7,7 +7,7 @@ import {
   parsePositiveInteger,
   parseSetInput,
   SUPPORTED_KEYS,
-} from "./configure.js";
+} from "./configure/schema.js";
 
 describe("parseSetInput", () => {
   it("splits on first = sign", () => {

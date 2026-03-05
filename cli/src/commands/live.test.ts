@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isClaudeCodeAvailable } from "../lib/live-bridge-claude-code.js";
 import { isOpenClawAvailable } from "../lib/live-bridge-openclaw.js";
-import { SUPPORTED_KEYS } from "./configure.js";
 import {
-  buildDaemonForkStdio,
+  autoDetectBridgeMode,
+  parseBridgeMode,
+  resolveBridgeMode,
+} from "../lib/live-runtime/bridge-runtime.js";
+import {
   getFollowReadDelayMs,
   messageContainsPong,
-  parseBridgeMode,
-  parsePositiveIntegerOption,
-  resolveBridgeMode,
-} from "./live-helpers.js";
+} from "../lib/live-runtime/command-utils.js";
+import { buildDaemonForkStdio } from "../lib/live-runtime/daemon-process.js";
+import { parsePositiveInteger } from "../lib/number.js";
+import { SUPPORTED_KEYS } from "./configure/schema.js";
 
 vi.mock("../lib/live-bridge-openclaw.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
@@ -44,22 +47,22 @@ describe("buildDaemonForkStdio", () => {
   });
 });
 
-describe("parsePositiveIntegerOption", () => {
+describe("parsePositiveInteger", () => {
   it("parses valid positive integers", () => {
-    expect(parsePositiveIntegerOption("30", "--timeout")).toBe(30);
+    expect(parsePositiveInteger("30", "--timeout")).toBe(30);
   });
 
   it("throws for zero or negative values", () => {
-    expect(() => parsePositiveIntegerOption("0", "--timeout")).toThrow(
+    expect(() => parsePositiveInteger("0", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
-    expect(() => parsePositiveIntegerOption("-1", "--timeout")).toThrow(
+    expect(() => parsePositiveInteger("-1", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
   });
 
   it("throws for non-integer values", () => {
-    expect(() => parsePositiveIntegerOption("abc", "--timeout")).toThrow(
+    expect(() => parsePositiveInteger("abc", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
   });
@@ -92,11 +95,13 @@ describe("resolveBridgeMode", () => {
 
   it("auto-detects claude-code when only claude is available", () => {
     vi.mocked(isClaudeCodeAvailable).mockReturnValue(true);
+    expect(autoDetectBridgeMode()).toBe("claude-code");
     expect(resolveBridgeMode({})).toBe("claude-code");
   });
 
   it("auto-detects openclaw when only openclaw is available", () => {
     vi.mocked(isOpenClawAvailable).mockReturnValue(true);
+    expect(autoDetectBridgeMode()).toBe("openclaw");
     expect(resolveBridgeMode({})).toBe("openclaw");
   });
 
