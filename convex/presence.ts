@@ -131,6 +131,21 @@ export const isAgentOnline = query({
   },
 });
 
+export const isCurrentUserAgentOnline = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+
+    const presence = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    return isFreshOnlinePresence(presence ?? null, Date.now());
+  },
+});
+
 async function deleteActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, userId: Id<"users">) {
   const lives = await db
     .query("lives")

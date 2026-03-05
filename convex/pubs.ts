@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
-import { CONTENT_TYPE_VALIDATOR, hashApiKey, MAX_PUBS } from "./utils";
+import { CONTENT_TYPE_VALIDATOR, generateSlug, hashApiKey, MAX_PUBS } from "./utils";
 
 /** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
@@ -193,6 +193,53 @@ export const listActiveLives = query({
         hasConnection: !!s.agentAnswer,
         expiresAt: s.expiresAt,
       }));
+  },
+});
+
+export const createDraftForLive = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const presence = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (!presence || presence.status !== "online") throw new Error("Agent offline");
+    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_STALENESS_THRESHOLD_MS) {
+      throw new Error("Agent offline");
+    }
+
+    const count = await countUserPubs(ctx.db, userId);
+    if (count >= MAX_PUBS) {
+      throw new Error(`Pub limit reached (${MAX_PUBS})`);
+    }
+
+    let slug: string | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = generateSlug();
+      const existing = await ctx.db
+        .query("pubs")
+        .withIndex("by_slug", (q) => q.eq("slug", candidate))
+        .unique();
+      if (!existing) {
+        slug = candidate;
+        break;
+      }
+    }
+    if (!slug) throw new Error("Could not generate unique slug");
+
+    const now = Date.now();
+    const id = await ctx.db.insert("pubs", {
+      userId,
+      slug,
+      isPublic: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { _id: id, slug };
   },
 });
 
