@@ -3,19 +3,19 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface ControlBarGoLiveModeProps {
   agentOnline: boolean | undefined;
-  availableAgents: Array<{
+  availableAgents?: Array<{
     presenceId: Id<"agentPresence">;
     agentName: string;
   }>;
-  selectedPresenceId: Id<"agentPresence"> | null;
-  onSelectedPresenceChange: (presenceId: Id<"agentPresence">) => void;
+  selectedPresenceId?: Id<"agentPresence"> | null;
+  onSelectedPresenceChange?: (presenceId: Id<"agentPresence">) => void;
   onGoLive: () => void;
 }
 
 export function ControlBarGoLiveMode({
   agentOnline,
-  availableAgents,
-  selectedPresenceId,
+  availableAgents = [],
+  selectedPresenceId = null,
   onSelectedPresenceChange,
   onGoLive,
 }: ControlBarGoLiveModeProps) {
@@ -37,7 +37,7 @@ export function ControlBarGoLiveMode({
       className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex items-center justify-end px-3 gap-2"
       style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
     >
-      {availableAgents.length > 1 ? (
+      {availableAgents.length > 1 && onSelectedPresenceChange ? (
         <div className="pointer-events-auto rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl px-3 h-12 flex items-center">
           <label htmlFor="go-live-agent-select" className="sr-only">
             Select agent

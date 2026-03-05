@@ -294,6 +294,21 @@ export const getPresenceByApiKeySession = internalQuery({
   },
 });
 
+export const isCurrentUserAgentOnline = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+
+    const presences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    return listFreshOnlinePresences(presences, Date.now()).length > 0;
+  },
+});
+
 async function deleteActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, userId: Id<"users">) {
   const lives = await db
     .query("lives")

@@ -14,12 +14,13 @@ import { usePubLiveModel } from "~/features/pub/hooks/use-pub-live-model";
 import { usePubRouteController } from "~/features/pub/hooks/use-pub-route-controller";
 import { api } from "../../../../convex/_generated/api";
 
-export function PubRoutePage({ slug }: { slug: string }) {
+export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLive?: boolean }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
   const model = usePubLiveModel(slug);
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
   const controller = usePubRouteController({
+    autoLive,
     baseContentHtml,
     model,
     pub,

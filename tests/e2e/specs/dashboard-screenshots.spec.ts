@@ -28,6 +28,12 @@ test.describe("Dashboard screenshots", () => {
     await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-live.png`);
   });
 
+  test("go live button", async ({ page }) => {
+    const button = page.getByRole("button", { name: "Go live" });
+    await expect(button).toBeVisible();
+    await stableScreenshot(button, `${SCREENSHOT_DIR}/dashboard-go-live-button.png`);
+  });
+
   test("full gallery with live", async ({ page }) => {
     const section = page.getByTestId("batch-dashboard-gallery");
     await expect(section).toBeVisible();

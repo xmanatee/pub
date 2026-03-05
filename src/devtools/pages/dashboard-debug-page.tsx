@@ -2,10 +2,12 @@ import { FileText, Key, User } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
+import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const noop = () => {};
 const fakeId = (n: number) => `fake_${n}` as Id<"pubs">;
+const fakePresenceId = (n: number) => `presence_${n}` as Id<"agentPresence">;
 
 const HTML_PREVIEW = `<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1>
 <p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>`;
@@ -129,6 +131,13 @@ export function DashboardDebugPage() {
           />
         </section>
       </div>
+      <ControlBarGoLiveMode
+        agentOnline
+        availableAgents={[{ presenceId: fakePresenceId(1), agentName: "Agent" }]}
+        selectedPresenceId={fakePresenceId(1)}
+        onSelectedPresenceChange={noop}
+        onGoLive={noop}
+      />
     </div>
   );
 }
