@@ -1,5 +1,5 @@
 import type { PubApiClient } from "./api.js";
-import type { BridgeMessage } from "./bridge-protocol.js";
+import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 
 export type BridgeMode = "openclaw" | "claude-code";
 

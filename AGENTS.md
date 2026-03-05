@@ -35,7 +35,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
-- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; live session components in `src/components/live/`
+- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; live session components in `src/features/live/components/`
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
 - **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`

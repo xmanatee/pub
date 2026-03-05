@@ -82,6 +82,30 @@ describe("PubApiClient", () => {
     });
   });
 
+  describe("response parsing", () => {
+    it("throws a clear error when a success response is not JSON", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("ok", {
+          status: 200,
+          headers: { "Content-Type": "text/plain" },
+        }),
+      );
+
+      await expect(client.listPage()).rejects.toThrow("Invalid JSON response from server (HTTP 200).");
+    });
+
+    it("keeps rate-limit messaging when 429 response body is not JSON", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("Too Many Requests", {
+          status: 429,
+          headers: { "Content-Type": "text/plain", "Retry-After": "7" },
+        }),
+      );
+
+      await expect(client.listPage()).rejects.toThrow("Rate limit exceeded. Retry after 7s.");
+    });
+  });
+
   describe("get", () => {
     it("fetches single pub by slug", async () => {
       const mockPub = {

@@ -5,28 +5,18 @@
  */
 
 import * as net from "node:net";
-
-export interface IpcRequest {
-  method: string;
-  params: Record<string, unknown>;
-}
-
-export interface IpcResponse {
-  ok: boolean;
-  messages?: Array<{ channel: string; msg: Record<string, unknown> }>;
-  channels?: Array<{ name: string; direction: string }>;
-  connected?: boolean;
-  uptime?: number;
-  lastError?: string | null;
-  error?: string;
-  [key: string]: unknown;
-}
+import type { IpcRequest, IpcResponseFor } from "./live-ipc-protocol.js";
 
 export function getAgentSocketPath(): string {
+  const override = process.env.PUBBLUE_AGENT_SOCKET?.trim();
+  if (override && override.length > 0) return override;
   return "/tmp/pubblue-agent.sock";
 }
 
-export async function ipcCall(socketPath: string, request: IpcRequest): Promise<IpcResponse> {
+export async function ipcCall<T extends IpcRequest["method"]>(
+  socketPath: string,
+  request: Extract<IpcRequest, { method: T }>,
+): Promise<IpcResponseFor<T>> {
   return new Promise((resolve, reject) => {
     let settled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -49,7 +39,7 @@ export async function ipcCall(socketPath: string, request: IpcRequest): Promise<
         const line = data.slice(0, newlineIdx);
         client.end();
         try {
-          finish(() => resolve(JSON.parse(line) as IpcResponse));
+          finish(() => resolve(JSON.parse(line) as IpcResponseFor<T>));
         } catch {
           finish(() => reject(new Error("Invalid response from daemon")));
         }

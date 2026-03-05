@@ -6,7 +6,11 @@ test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 6000 } });
 
 async function setupPage(page: Page) {
   await page.goto("/debug/chat-bubbles");
-  await expect(page.getByRole("heading", { name: "Chat Bubbles Debug" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveURL(/\/debug\/chat-bubbles(?:\?.*)?$/);
+  await expect(page.getByRole("heading", { name: "Chat Bubbles Debug" })).toBeVisible({
+    timeout: 15_000,
+  });
   await freezeAnimations(page);
 }
 

@@ -88,11 +88,25 @@ export class PubApiClient {
         ? parsedRetryAfterSeconds
         : undefined;
 
+    const responseText = await res.text();
     let data: { error?: string } & Record<string, unknown>;
-    try {
-      data = (await res.json()) as { error?: string } & Record<string, unknown>;
-    } catch {
+    if (responseText.trim().length === 0) {
       data = {};
+    } else {
+      try {
+        data = JSON.parse(responseText) as { error?: string } & Record<string, unknown>;
+      } catch {
+        if (res.status === 429) {
+          const retrySuffix =
+            retryAfterSeconds !== undefined ? ` Retry after ${retryAfterSeconds}s.` : "";
+          throw new PubApiError(`Rate limit exceeded.${retrySuffix}`, res.status, retryAfterSeconds);
+        }
+        throw new PubApiError(
+          `Invalid JSON response from server (HTTP ${res.status}).`,
+          res.status,
+          retryAfterSeconds,
+        );
+      }
     }
 
     if (!res.ok) {

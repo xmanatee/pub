@@ -1,18 +1,22 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildAttachmentPrompt,
-  buildInboundPrompt,
-  buildSessionBriefing,
-  parseSessionContextMeta,
   resolveAttachmentFilename,
   resolveAttachmentMaxBytes,
   resolveAttachmentRootDir,
-  resolveCanvasReminderEvery,
+  type StagedAttachment,
+} from "./live-bridge-openclaw-attachments.js";
+import {
   resolveOpenClawSessionsPath,
   resolveSessionFromSessionsData,
-  type StagedAttachment,
+} from "./live-bridge-openclaw-session.js";
+import {
+  buildInboundPrompt,
+  buildSessionBriefing,
+  parseSessionContextMeta,
+  resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
-} from "./live-bridge-openclaw.js";
+} from "./live-bridge-shared.js";
 import { buildBridgeInstructions } from "./live-daemon-shared.js";
 
 const openclawInstructions = buildBridgeInstructions("openclaw");

@@ -1,10 +1,22 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import type { GenericDatabaseWriter } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, query } from "./_generated/server";
 
-const STALENESS_THRESHOLD_MS = 90_000;
+export const PRESENCE_STALENESS_THRESHOLD_MS = 90_000;
+
+function isFreshOnlinePresence(
+  presence: {
+    status: "online" | "offline";
+    lastHeartbeatAt: number;
+  } | null,
+  now: number,
+): boolean {
+  if (!presence || presence.status !== "online") return false;
+  return now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS;
+}
 
 export const goOnline = internalMutation({
   args: { userId: v.id("users") },
@@ -18,9 +30,13 @@ export const goOnline = internalMutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, { status: "online", lastHeartbeatAt: now });
-      await ctx.scheduler.runAt(now + STALENESS_THRESHOLD_MS, internal.presence.checkStaleness, {
-        presenceId: existing._id,
-      });
+      await ctx.scheduler.runAt(
+        now + PRESENCE_STALENESS_THRESHOLD_MS,
+        internal.presence.checkStaleness,
+        {
+          presenceId: existing._id,
+        },
+      );
       return existing._id;
     }
 
@@ -31,9 +47,13 @@ export const goOnline = internalMutation({
       createdAt: now,
     });
 
-    await ctx.scheduler.runAt(now + STALENESS_THRESHOLD_MS, internal.presence.checkStaleness, {
-      presenceId: id,
-    });
+    await ctx.scheduler.runAt(
+      now + PRESENCE_STALENESS_THRESHOLD_MS,
+      internal.presence.checkStaleness,
+      {
+        presenceId: id,
+      },
+    );
 
     return id;
   },
@@ -50,9 +70,13 @@ export const heartbeat = internalMutation({
 
     const now = Date.now();
     await ctx.db.patch(presence._id, { lastHeartbeatAt: now });
-    await ctx.scheduler.runAt(now + STALENESS_THRESHOLD_MS, internal.presence.checkStaleness, {
-      presenceId: presence._id,
-    });
+    await ctx.scheduler.runAt(
+      now + PRESENCE_STALENESS_THRESHOLD_MS,
+      internal.presence.checkStaleness,
+      {
+        presenceId: presence._id,
+      },
+    );
   },
 });
 
@@ -78,7 +102,7 @@ export const checkStaleness = internalMutation({
     if (!presence || presence.status === "offline") return;
 
     const elapsed = Date.now() - presence.lastHeartbeatAt;
-    if (elapsed >= STALENESS_THRESHOLD_MS) {
+    if (elapsed >= PRESENCE_STALENESS_THRESHOLD_MS) {
       await ctx.db.patch(presenceId, { status: "offline" });
       await deleteActiveLivesForUser(ctx.db, presence.userId);
     }
@@ -88,18 +112,22 @@ export const checkStaleness = internalMutation({
 export const isAgentOnline = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+
     const pub = await ctx.db
       .query("pubs")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
     if (!pub) return false;
+    if (pub.userId !== userId) return false;
 
     const presence = await ctx.db
       .query("agentPresence")
       .withIndex("by_user", (q) => q.eq("userId", pub.userId))
       .unique();
 
-    return presence?.status === "online";
+    return isFreshOnlinePresence(presence ?? null, Date.now());
   },
 });
 

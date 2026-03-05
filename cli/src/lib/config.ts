@@ -50,11 +50,6 @@ export function getConfigDir(homeDir?: string): string {
 function getConfigPath(homeDir?: string): string {
   const dir = getConfigDir(homeDir);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  try {
-    fs.chmodSync(dir, 0o700);
-  } catch {
-    // Ignore chmod failures on platforms/filesystems that don't support POSIX modes.
-  }
   return path.join(dir, "config.json");
 }
 
@@ -70,11 +65,6 @@ export function saveConfig(config: SavedConfig, homeDir?: string): void {
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, {
     mode: 0o600,
   });
-  try {
-    fs.chmodSync(configPath, 0o600);
-  } catch {
-    // Ignore chmod failures on platforms/filesystems that don't support POSIX modes.
-  }
 }
 
 export function getConfig(homeDir?: string): Config {
