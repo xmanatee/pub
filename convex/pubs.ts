@@ -378,6 +378,22 @@ export const takeoverLive = mutation({
   },
 });
 
+export const closeLiveByUser = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const live = await ctx.db
+      .query("lives")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .order("desc")
+      .first();
+    if (!live || live.userId !== userId) return;
+    await ctx.db.delete(live._id);
+  },
+});
+
 export const createPub = internalMutation({
   args: {
     userId: v.id("users"),

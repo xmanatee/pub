@@ -28,6 +28,7 @@ export function useLiveSessionModel(slug: string) {
   const requestLiveMutation = useMutation(api.pubs.requestLive);
   const storeBrowserCandidatesMutation = useMutation(api.pubs.storeBrowserCandidates);
   const takeoverLiveMutation = useMutation(api.pubs.takeoverLive);
+  const closeLiveMutation = useMutation(api.pubs.closeLiveByUser);
 
   const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
   const [wasConnected, setWasConnected] = useState(false);
@@ -103,7 +104,8 @@ export function useLiveSessionModel(slug: string) {
   const stopLive = useCallback(() => {
     setSessionError(null);
     setLiveRequested(false);
-  }, []);
+    closeLiveMutation({ slug });
+  }, [closeLiveMutation, slug]);
 
   const markBridgeConnected = useCallback(() => {
     setWasConnected(true);
