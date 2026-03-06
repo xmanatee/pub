@@ -1,4 +1,5 @@
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
+import { getConfigDir } from "../../lib/config.js";
 import { CONFIG_KEY_REGISTRY, type ConfigKeyDef, hasValues } from "./schema.js";
 
 function maskSecret(value: string): string {
@@ -43,6 +44,7 @@ function printTelegramConfig(telegram?: TelegramConfig): void {
 }
 
 export function printConfigSummary(saved: SavedConfig | null): void {
+  console.log(`Config directory: ${getConfigDir()}`);
   if (!saved) {
     console.log("Saved config: none");
     return;

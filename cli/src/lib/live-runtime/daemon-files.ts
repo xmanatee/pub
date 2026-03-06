@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
-import { homedir } from "node:os";
 import * as path from "node:path";
 import { errorMessage } from "../cli-error.js";
+import { getConfigDir } from "../config.js";
 
 export function liveInfoDir(): string {
-  const dir = path.join(homedir(), ".config", "pubblue", "lives");
+  const dir = path.join(getConfigDir(), "lives");
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

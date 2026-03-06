@@ -31,6 +31,7 @@ interface CheckOutcome {
 const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> = [
   { field: "openclawPath", label: "openclaw.path" },
   { field: "openclawStateDir", label: "openclaw.stateDir" },
+  { field: "openclawWorkspace", label: "openclaw.workspace" },
   { field: "sessionId", label: "openclaw.sessionId" },
   { field: "threadId", label: "openclaw.threadId" },
   { field: "canvasReminderEvery", label: "openclaw.canvasReminderEvery" },
@@ -51,6 +52,7 @@ const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> 
 const BRIDGE_ENV_OVERRIDE_KEYS = [
   "OPENCLAW_PATH",
   "OPENCLAW_STATE_DIR",
+  "OPENCLAW_WORKSPACE",
   "OPENCLAW_SESSION_ID",
   "OPENCLAW_THREAD_ID",
   "OPENCLAW_CANVAS_REMINDER_EVERY",

@@ -1,12 +1,13 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
+import { resolveOpenClawStateDir } from "./openclaw-paths.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
 
 export interface BridgeConfig {
   openclawPath?: string;
   openclawStateDir?: string;
+  openclawWorkspace?: string;
   sessionId?: string;
   threadId?: string;
   canvasReminderEvery?: number;
@@ -43,8 +44,14 @@ export interface Config {
 }
 
 export function getConfigDir(homeDir?: string): string {
-  const home = homeDir || os.homedir();
-  return path.join(home, ".config", "pubblue");
+  const explicit = process.env.PUBBLUE_CONFIG_DIR?.trim();
+  if (explicit) return explicit;
+
+  if (homeDir) {
+    return path.join(path.resolve(homeDir), ".openclaw", "pubblue");
+  }
+
+  return path.join(resolveOpenClawStateDir(), "pubblue");
 }
 
 function getConfigPath(homeDir?: string): string {

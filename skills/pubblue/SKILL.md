@@ -34,6 +34,10 @@ echo "pub_KEY" | pubblue configure --api-key-stdin
 
 Key source: <https://pub.blue/dashboard>
 
+By default, config is stored at `~/.openclaw/pubblue/config.json`.
+Override config directory with `PUBBLUE_CONFIG_DIR` env var (useful in sandboxed environments).
+For OpenClaw bridge mode, daemon runtime defaults to `OPENCLAW_WORKSPACE=~/.openclaw/workspace`.
+
 ## Core Commands
 
 ```bash

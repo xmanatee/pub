@@ -33,6 +33,7 @@ export interface ConfigKeyDef {
 export const CONFIG_KEY_REGISTRY: Record<string, ConfigKeyDef> = {
   "openclaw.path": { target: "bridge", field: "openclawPath", type: "string" },
   "openclaw.stateDir": { target: "bridge", field: "openclawStateDir", type: "string" },
+  "openclaw.workspace": { target: "bridge", field: "openclawWorkspace", type: "string" },
   "openclaw.sessionId": { target: "bridge", field: "sessionId", type: "string" },
   "openclaw.threadId": { target: "bridge", field: "threadId", type: "string" },
   "openclaw.canvasReminderEvery": {
