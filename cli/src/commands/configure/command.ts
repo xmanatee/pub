@@ -3,7 +3,7 @@ import { errorMessage } from "../../lib/cli-error.js";
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
 import { readConfig, saveConfig } from "../../lib/config.js";
 import { collectValues, resolveConfigureApiKey } from "./io.js";
-import { printConfigSummary } from "./render.js";
+import { printConfigStatus, printMutationSummary } from "./render.js";
 import { applyConfigSet, applyConfigUnset, hasValues, parseSetInput } from "./schema.js";
 import { telegramGetMe, telegramSetMenuButton } from "./telegram.js";
 
@@ -12,14 +12,13 @@ interface ConfigureCommandOptions {
   apiKeyStdin?: boolean;
   set: string[];
   unset: string[];
-  show?: boolean;
 }
 
 export function registerConfigureCommand(program: Command): void {
   program
     .command("configure")
-    .description("Configure the CLI with your API key")
-    .option("--api-key <key>", "Your API key (less secure: appears in shell history)")
+    .description("Show configuration status, or update settings with --api-key / --set / --unset")
+    .option("--api-key <key>", "Set API key (appears in shell history; prefer --api-key-stdin)")
     .option("--api-key-stdin", "Read API key from stdin")
     .option(
       "--set <key=value>",
@@ -28,7 +27,6 @@ export function registerConfigureCommand(program: Command): void {
       [],
     )
     .option("--unset <key>", "Unset config key (repeatable)", collectValues, [])
-    .option("--show", "Show saved configuration")
     .action(async (opts: ConfigureCommandOptions) => {
       const saved = readConfig();
       const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
@@ -36,13 +34,13 @@ export function registerConfigureCommand(program: Command): void {
       const hasUnset = opts.unset.length > 0;
       const hasMutation = hasApiUpdate || hasSet || hasUnset;
 
-      if (!hasMutation && opts.show) {
-        printConfigSummary(saved);
+      if (!hasMutation) {
+        printConfigStatus(saved);
         return;
       }
 
       let apiKey = saved?.apiKey;
-      if (hasApiUpdate || !hasMutation) {
+      if (hasApiUpdate) {
         apiKey = await resolveConfigureApiKey(opts);
       }
       if (!apiKey) {
@@ -50,9 +48,7 @@ export function registerConfigureCommand(program: Command): void {
         if (envKey) {
           apiKey = envKey;
         } else {
-          throw new Error(
-            "No API key available. Provide --api-key/--api-key-stdin (or run plain `pubblue configure` first).",
-          );
+          throw new Error("No API key configured. Set it first: pubblue configure --api-key <KEY>");
         }
       }
 
@@ -91,7 +87,7 @@ export function registerConfigureCommand(program: Command): void {
         console.log("  Menu button set to https://pub.blue");
         if (!bot.hasMainWebApp) {
           console.log("");
-          console.log("  INFO: For deep links to open inside Telegram, register the Mini App:");
+          console.log("  Mini App not registered — deep links will open in browser, not Telegram.");
           console.log("    @BotFather → /mybots → your bot → Bot Settings → Configure Mini App");
           console.log("    Set Web App URL to: https://pub.blue");
         }
@@ -104,8 +100,6 @@ export function registerConfigureCommand(program: Command): void {
       };
       saveConfig(nextConfig);
       console.log("Configuration saved.");
-      if (opts.show || hasSet || hasUnset) {
-        printConfigSummary(nextConfig);
-      }
+      printMutationSummary(nextConfig);
     });
 }

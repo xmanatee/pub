@@ -131,6 +131,7 @@ export function usePubRouteController({
     behavior: {
       autoOpenCanvas: model.autoOpenCanvas,
       animationStyle: model.animationStyle,
+      canUseDeveloperMode: model.canUseDeveloperMode,
       developerModeEnabled: model.developerModeEnabled,
       voiceModeEnabled: model.voiceModeEnabled,
     },

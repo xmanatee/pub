@@ -22,7 +22,7 @@ export function AccountTab() {
   const [linkUrl, setLinkUrl] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
+  const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   async function handleCreateLink() {
     setLoading(true);
@@ -97,31 +97,33 @@ export function AccountTab() {
         </Card>
       )}
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Developer Mode</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm">Enable in-app debug console (Eruda)</p>
-              <p className="text-xs text-muted-foreground">
-                Shows a mobile console in Telegram Mini App and keeps global error logs visible.
-              </p>
+      {canUseDeveloperMode && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Developer Mode</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm">Enable in-app debug console (Eruda)</p>
+                <p className="text-xs text-muted-foreground">
+                  Shows a mobile console in Telegram Mini App and keeps global error logs visible.
+                </p>
+              </div>
+              <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />
             </div>
-            <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              window.location.assign("/debug/auth");
-            }}
-          >
-            Open auth debug log
-          </Button>
-        </CardContent>
-      </Card>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                window.location.assign("/debug/auth");
+              }}
+            >
+              Open auth debug log
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {!IN_TELEGRAM && !hasTelegram && (
         <Card className="border-border/50">

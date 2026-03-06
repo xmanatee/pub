@@ -64,6 +64,7 @@ export function PanelsDebugPage() {
         behavior: {
           autoOpenCanvas: true,
           animationStyle: "aurora",
+          canUseDeveloperMode: true,
           developerModeEnabled: false,
           voiceModeEnabled: false,
         },
