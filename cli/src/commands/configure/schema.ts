@@ -58,6 +58,21 @@ export const CONFIG_KEY_REGISTRY: Record<string, ConfigKeyDef> = {
   },
   "claude-code.maxTurns": { target: "bridge", field: "claudeCodeMaxTurns", type: "integer" },
   "claude-code.cwd": { target: "bridge", field: "claudeCodeCwd", type: "string" },
+  "command.defaultTimeoutMs": {
+    target: "bridge",
+    field: "commandDefaultTimeoutMs",
+    type: "integer",
+  },
+  "command.maxOutputBytes": {
+    target: "bridge",
+    field: "commandMaxOutputBytes",
+    type: "integer",
+  },
+  "command.maxConcurrent": {
+    target: "bridge",
+    field: "commandMaxConcurrent",
+    type: "integer",
+  },
   "telegram.botToken": {
     target: "telegram",
     field: "botToken",

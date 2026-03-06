@@ -414,6 +414,7 @@ function registerDoctorCommand(program: Command): void {
           CHANNELS.CHAT,
           CHANNELS.CANVAS,
           CHANNELS.RENDER_ERROR,
+          CHANNELS.COMMAND,
         ]) {
           if (!channelNames.includes(required)) {
             fail(`required channel is missing: ${required}`);

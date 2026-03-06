@@ -46,6 +46,9 @@ const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> 
   { field: "claudeCodeAppendSystemPrompt", label: "claude-code.appendSystemPrompt" },
   { field: "claudeCodeMaxTurns", label: "claude-code.maxTurns" },
   { field: "claudeCodeCwd", label: "claude-code.cwd" },
+  { field: "commandDefaultTimeoutMs", label: "command.defaultTimeoutMs" },
+  { field: "commandMaxOutputBytes", label: "command.maxOutputBytes" },
+  { field: "commandMaxConcurrent", label: "command.maxConcurrent" },
 ];
 
 const BRIDGE_ENV_OVERRIDE_KEYS = [
@@ -66,6 +69,9 @@ const BRIDGE_ENV_OVERRIDE_KEYS = [
   "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
   "CLAUDE_CODE_MAX_TURNS",
   "CLAUDE_CODE_CWD",
+  "PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS",
+  "PUBBLUE_COMMAND_MAX_OUTPUT_BYTES",
+  "PUBBLUE_COMMAND_MAX_CONCURRENT",
 ] as const;
 
 function listSavedBridgeConfigKeys(bridgeConfig?: BridgeConfig): string[] {

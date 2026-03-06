@@ -222,8 +222,8 @@ describe("applyConfigUnset", () => {
 });
 
 describe("SUPPORTED_KEYS", () => {
-  it("lists all 18 config keys", () => {
-    expect(SUPPORTED_KEYS).toHaveLength(18);
+  it("lists all 21 config keys", () => {
+    expect(SUPPORTED_KEYS).toHaveLength(21);
   });
 
   it("every key is handled by applyConfigSet without throwing", () => {
@@ -234,6 +234,8 @@ describe("SUPPORTED_KEYS", () => {
         key.includes("Every") ||
         key.includes("Timeout") ||
         key.includes("Max") ||
+        key.includes("max") ||
+        key.includes("Concurrent") ||
         key.includes("maxTurns")
           ? "10"
           : key === "openclaw.deliver"

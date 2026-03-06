@@ -144,6 +144,9 @@ export function buildSessionBriefing(
     `- ${instructions.replyHint}`,
     `- ${instructions.canvasHint}`,
   );
+  if (instructions.commandProtocolGuide.trim().length > 0) {
+    lines.push("", instructions.commandProtocolGuide.trim());
+  }
 
   return lines.join("\n");
 }

@@ -184,5 +184,6 @@ describe("constants", () => {
     expect(CHANNELS.AUDIO).toBe("audio");
     expect(CHANNELS.MEDIA).toBe("media");
     expect(CHANNELS.FILE).toBe("file");
+    expect(CHANNELS.COMMAND).toBe("command");
   });
 });

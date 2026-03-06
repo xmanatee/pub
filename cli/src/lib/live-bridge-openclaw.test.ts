@@ -334,6 +334,12 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("## How to respond");
     expect(briefing).toContain(openclawInstructions.replyHint);
     expect(briefing).toContain(openclawInstructions.canvasHint);
+    expect(briefing).toContain("## Canvas Command Channel");
+    expect(briefing).toContain("application/pubblue-command-manifest+json");
+    expect(briefing).toContain("\"manifestId\": \"mail-ui\"");
+    expect(briefing).toContain("\"functions\": [");
+    expect(briefing).toContain("pubblue.command(name, args)");
+    expect(briefing).toContain("returns: \"text\" | \"json\"");
   });
 
   it("always includes how-to-respond section even with minimal context", () => {
@@ -342,6 +348,7 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("[Live: bare-pub] Session started.");
     expect(briefing).toContain("## Pub Context");
     expect(briefing).toContain("## How to respond");
+    expect(briefing).toContain("## Canvas Command Channel");
     expect(briefing).not.toContain("Title:");
     expect(briefing).not.toContain("Content type:");
     expect(briefing).not.toContain("Visibility:");

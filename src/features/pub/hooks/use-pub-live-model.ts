@@ -69,6 +69,8 @@ export function usePubLiveModel(slug: string) {
     clearCanvas,
     lastAgentActivityAt,
     lastUserDeliveredAt,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     sendAudio,
     sendChat,
     sendFile,
@@ -101,7 +103,6 @@ export function usePubLiveModel(slug: string) {
     updateAudioMessageAnalysis,
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: slug navigation resets live panel data
   useEffect(() => {
     clearMessages();
     clearFiles();
@@ -141,6 +142,8 @@ export function usePubLiveModel(slug: string) {
     messages,
     messagesEndRef,
     micGranted,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     sendAudio,
     sendChat,
     sendFile,

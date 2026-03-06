@@ -65,7 +65,6 @@ export function usePubRouteController({
     void recordPublicView({ slug: pub.slug });
   }, [pub, recordPublicView]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
     lastSessionErrorRef.current = null;
     setLiveMode(false);
@@ -236,8 +235,10 @@ export function usePubRouteController({
     isOwner,
     liveMode,
     onGoLive: enterLiveMode,
+    onCanvasBridgeMessage: liveMode ? model.onCanvasBridgeMessage : undefined,
     onSelectedPresenceChange: model.setSelectedPresenceId,
     onRenderError: liveMode ? model.sendRenderError : undefined,
+    outboundCanvasBridgeMessage: liveMode ? model.outboundCanvasBridgeMessage : null,
     settingsPanelActions,
     settingsPanelModel,
     selectedPresenceId: model.selectedPresenceId,
