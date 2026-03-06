@@ -12,11 +12,10 @@ function formatFieldValue(value: unknown, def: ConfigKeyDef): string {
   return String(value);
 }
 
-function printBridgeConfig(bridge: BridgeConfig): void {
-  if (!hasValues(bridge)) {
-    console.log("  bridge: none");
-    return;
-  }
+function printBridgeStatus(bridge: BridgeConfig): void {
+  if (!hasValues(bridge)) return;
+  console.log("");
+  console.log("Bridge:");
   for (const [key, def] of Object.entries(CONFIG_KEY_REGISTRY)) {
     if (def.target !== "bridge") continue;
     const value = bridge[def.field as keyof BridgeConfig];
@@ -25,30 +24,54 @@ function printBridgeConfig(bridge: BridgeConfig): void {
   }
 }
 
-function printTelegramConfig(telegram?: TelegramConfig): void {
+function printTelegramStatus(telegram?: TelegramConfig): void {
   if (telegram?.botToken && telegram.botUsername) {
-    console.log(`  telegram.botToken: ${maskSecret(telegram.botToken)}`);
-    console.log(`  telegram.botUsername: @${telegram.botUsername}`);
+    console.log(`  Telegram:  @${telegram.botUsername}`);
     if (!telegram.hasMainWebApp) {
-      console.log("    INFO: Register Mini App in @BotFather for deep links to open in Telegram");
+      console.log(
+        "      Mini App not registered — deep links open in browser, not inside Telegram.",
+      );
+      console.log(
+        `      Fix: @BotFather → /mybots → @${telegram.botUsername} → Bot Settings → Configure Mini App`,
+      );
+      console.log("      Set URL to: https://pub.blue");
     }
-  } else if (telegram?.botToken) {
-    console.log(`  telegram.botToken: ${maskSecret(telegram.botToken)}`);
-    console.log("  telegram.botUsername: (not resolved)");
   } else {
-    console.log("  telegram: not configured");
-    console.log("    INFO: Set telegram.botToken to enable Telegram Mini App links");
-    console.log("    Example: pubblue configure --set telegram.botToken=<BOT_TOKEN>");
+    console.log("  Telegram:  not configured");
   }
 }
 
-export function printConfigSummary(saved: SavedConfig | null): void {
-  if (!saved) {
-    console.log("Saved config: none");
-    return;
+function printSetupInstructions(saved: SavedConfig | null): void {
+  const needsApiKey = !saved?.apiKey;
+  const needsTelegram = !saved?.telegram?.botUsername;
+
+  if (!needsApiKey && !needsTelegram) return;
+
+  console.log("");
+
+  if (needsApiKey) {
+    console.log("  pubblue configure --api-key <KEY>");
+    console.log("    Get your key at https://pub.blue/dashboard");
+    if (needsTelegram) console.log("");
   }
-  console.log("Saved config:");
-  console.log(`  apiKey: ${maskSecret(saved.apiKey)}`);
-  printBridgeConfig(saved.bridge ?? {});
-  printTelegramConfig(saved.telegram);
+
+  if (needsTelegram) {
+    console.log("  pubblue configure --set telegram.botToken=<TOKEN>  (optional)");
+    console.log("    Prints a t.me/<bot> deep link when you create or update a pub.");
+    console.log("    Requires a Telegram bot with Mini App URL set to https://pub.blue");
+    console.log("    (@BotFather → /newbot → Bot Settings → Configure Mini App)");
+  }
+}
+
+export function printConfigStatus(saved: SavedConfig | null): void {
+  console.log("  API key:   %s", saved?.apiKey ? maskSecret(saved.apiKey) : "not set");
+  printTelegramStatus(saved?.telegram);
+  printBridgeStatus(saved?.bridge ?? {});
+  printSetupInstructions(saved);
+}
+
+export function printMutationSummary(config: SavedConfig): void {
+  console.log("  API key:   %s", maskSecret(config.apiKey));
+  printTelegramStatus(config.telegram);
+  printBridgeStatus(config.bridge ?? {});
 }

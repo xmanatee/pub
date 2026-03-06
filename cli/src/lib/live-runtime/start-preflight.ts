@@ -112,7 +112,7 @@ function formatPreflightError(params: {
   }
 
   lines.push("", "Debug tips:");
-  lines.push("- Run `pubblue configure --show` to inspect saved CLI configuration.");
+  lines.push("- Run `pubblue configure` to inspect saved CLI configuration.");
   lines.push("- Use `pubblue start --bridge openclaw|claude-code` to force a bridge mode.");
 
   return lines.join("\n");
