@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Clock, ExternalLink, FileText, Globe, Lock, Trash2 } from "lucide-react";
 import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
@@ -5,7 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
 import { formatRelativeTime } from "~/lib/pub-preview";
-import { telegramConfirm } from "~/lib/telegram";
+import { telegramConfirm, telegramOpenLink } from "~/lib/telegram";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { CopyButton } from "./copy-button";
 import { VisibilityBadge } from "./visibility-badge";
@@ -29,7 +30,7 @@ interface PubCardProps {
 export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
-      <a href={`/p/${pub.slug}`} className="block">
+      <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white">
           {!pub.contentPreview && !pub.contentType ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
@@ -43,15 +44,16 @@ export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCar
             />
           )}
         </div>
-      </a>
+      </Link>
       <CardContent className="px-4 py-3 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href={`/p/${pub.slug}`}
+          <Link
+            to="/p/$slug"
+            params={{ slug: pub.slug }}
             className="font-medium text-sm hover:text-primary transition-colors truncate"
           >
             {pub.title || pub.slug}
-          </a>
+          </Link>
           {pub.contentType && (
             <Badge variant="secondary" className="text-xs">
               {pub.contentType}
@@ -80,16 +82,12 @@ export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCar
             variant="ghost"
             size="icon"
             className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
-            asChild
+            onClick={() =>
+              telegramOpenLink(`${window.location.origin}/p/${encodeURIComponent(pub.slug)}`)
+            }
+            aria-label="Open in new tab"
           >
-            <a
-              href={`/p/${encodeURIComponent(pub.slug)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open in new tab"
-            >
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
