@@ -356,6 +356,41 @@ describe("PubApiClient", () => {
     });
   });
 
+  describe("telegram bot token", () => {
+    it("uploadBotToken sends PUT to agent/telegram-bot", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.uploadBotToken({ botToken: "123:ABC", botUsername: "mybot" });
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/telegram-bot", baseUrl),
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ botToken: "123:ABC", botUsername: "mybot" }),
+        }),
+      );
+    });
+
+    it("deleteBotToken sends DELETE to agent/telegram-bot", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ deleted: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.deleteBotToken();
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/telegram-bot", baseUrl),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
   describe("getLive", () => {
     it("fetches live info by slug", async () => {
       const mockLive = {

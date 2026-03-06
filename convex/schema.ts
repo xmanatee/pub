@@ -68,4 +68,15 @@ export default defineSchema({
     token: v.string(),
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
+
+  telegramBots: defineTable({
+    userId: v.id("users"),
+    botId: v.string(),
+    botToken: v.string(),
+    botUsername: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_bot_id", ["botId"]),
 });

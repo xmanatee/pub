@@ -252,6 +252,19 @@ export class PubApiClient {
     await this.request(path, { method: "DELETE" });
   }
 
+  // -- Telegram bot token ---------------------------------------------------
+
+  async uploadBotToken(opts: { botToken: string; botUsername: string }): Promise<void> {
+    await this.request("/api/v1/agent/telegram-bot", {
+      method: "PUT",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  async deleteBotToken(): Promise<void> {
+    await this.request("/api/v1/agent/telegram-bot", { method: "DELETE" });
+  }
+
   // -- Per-slug live info ---------------------------------------------------
 
   async getLive(slug: string): Promise<LiveInfo> {

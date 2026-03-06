@@ -233,6 +233,66 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     }),
   });
 
+  // PUT /api/v1/agent/telegram-bot
+  http.route({
+    path: "/api/v1/agent/telegram-bot",
+    method: "PUT",
+    handler: httpAction(async (ctx, request) => {
+      const apiKey = getApiKey(request);
+      if (!apiKey) return errorResponse("Missing API key", 401);
+
+      let body: { botToken?: unknown; botUsername?: unknown };
+      try {
+        body = await request.json();
+      } catch {
+        return errorResponse("Invalid JSON body", 400);
+      }
+
+      const botToken = typeof body.botToken === "string" ? body.botToken.trim() : "";
+      const botUsername = typeof body.botUsername === "string" ? body.botUsername.trim() : "";
+      if (!botToken) return errorResponse("Missing botToken", 400);
+      if (!botUsername) return errorResponse("Missing botUsername", 400);
+
+      const user = await authenticateApiKey(ctx, apiKey);
+      const rl = await rateLimiter.limit(ctx, "telegramBotUpdate", { key: apiKey });
+      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+
+      return executeAction(
+        async () => {
+          await ctx.runMutation(internal.telegramBots.upsertBotToken, {
+            userId: user.userId,
+            botToken,
+            botUsername,
+          });
+        },
+        () => jsonResponse({ ok: true }),
+      );
+    }),
+  });
+
+  // DELETE /api/v1/agent/telegram-bot
+  http.route({
+    path: "/api/v1/agent/telegram-bot",
+    method: "DELETE",
+    handler: httpAction(async (ctx, request) => {
+      const apiKey = getApiKey(request);
+      if (!apiKey) return errorResponse("Missing API key", 401);
+
+      const user = await authenticateApiKey(ctx, apiKey);
+      const rl = await rateLimiter.limit(ctx, "telegramBotUpdate", { key: apiKey });
+      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+
+      return executeAction(
+        async () => {
+          await ctx.runMutation(internal.telegramBots.deleteBotToken, {
+            userId: user.userId,
+          });
+        },
+        () => jsonResponse({ deleted: true }),
+      );
+    }),
+  });
+
   // DELETE /api/v1/agent/live
   http.route({
     path: "/api/v1/agent/live",

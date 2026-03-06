@@ -2,8 +2,9 @@ import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { convexAuth, createAccount, retrieveAccount } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import { parseInitDataUser } from "./telegram";
+import { parseInitDataUser, validateInitData } from "./telegram";
 
 const telegram = ConvexCredentials<DataModel>({
   id: "telegram",
@@ -11,9 +12,18 @@ const telegram = ConvexCredentials<DataModel>({
     const initData = credentials.initData as string | undefined;
     if (!initData) throw new Error("Missing initData");
 
-    // TODO: Re-enable initData validation once bot tokens are stored server-side
-    // (per-user/per-agent) instead of in local CLI config.
-    // await validate(initData, botToken, { expiresIn: 86400 });
+    const slug = credentials.slug as string | undefined;
+    if (slug) {
+      const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
+      if (pub) {
+        const botToken = await ctx.runQuery(internal.telegramBots.getBotTokenByUserId, {
+          userId: pub.userId,
+        });
+        if (botToken) {
+          await validateInitData(initData, botToken, 86400);
+        }
+      }
+    }
 
     const user = parseInitDataUser(initData);
     const accountId = String(user.id);

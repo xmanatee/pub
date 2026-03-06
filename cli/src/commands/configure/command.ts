@@ -1,7 +1,8 @@
 import type { Command } from "commander";
+import { PubApiClient } from "../../lib/api.js";
 import { errorMessage } from "../../lib/cli-error.js";
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
-import { readConfig, saveConfig } from "../../lib/config.js";
+import { DEFAULT_BASE_URL, readConfig, saveConfig } from "../../lib/config.js";
 import { collectValues, resolveConfigureApiKey } from "./io.js";
 import { printConfigStatus, printMutationSummary } from "./render.js";
 import { applyConfigSet, applyConfigUnset, hasValues, parseSetInput } from "./schema.js";
@@ -69,6 +70,15 @@ export function registerConfigureCommand(program: Command): void {
           } catch (error) {
             console.error(`Warning: failed to reset Telegram menu button: ${errorMessage(error)}`);
           }
+          try {
+            const api = new PubApiClient(process.env.PUBBLUE_URL || DEFAULT_BASE_URL, apiKey);
+            await api.deleteBotToken();
+            console.log("Bot token removed from server.");
+          } catch (error) {
+            console.error(
+              `Warning: failed to remove bot token from server: ${errorMessage(error)}`,
+            );
+          }
         }
         applyConfigUnset(nextBridge, nextTelegram, key.trim());
       }
@@ -91,6 +101,13 @@ export function registerConfigureCommand(program: Command): void {
           console.log("    @BotFather → /mybots → your bot → Bot Settings → Configure Mini App");
           console.log("    Set Web App URL to: https://pub.blue");
         }
+
+        const api = new PubApiClient(process.env.PUBBLUE_URL || DEFAULT_BASE_URL, apiKey);
+        await api.uploadBotToken({
+          botToken: nextTelegram.botToken,
+          botUsername: bot.username,
+        });
+        console.log("  Bot token synced to server.");
       }
 
       const nextConfig: SavedConfig = {

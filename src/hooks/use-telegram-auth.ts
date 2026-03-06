@@ -3,7 +3,7 @@ import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { trackError, trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
+import { getTelegramInitData, getTelegramStartParam, IN_TELEGRAM, parseStartParam } from "~/lib/telegram";
 
 const TELEGRAM_INIT_DATA_RETRY_MS = 250;
 const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
@@ -47,7 +47,11 @@ export function useTelegramAuth(): { telegramPending: boolean } {
         initDataLength: initData.length,
       });
 
-      void signIn("telegram", { initData })
+      const startParam = getTelegramStartParam();
+      const parsed = startParam ? parseStartParam(startParam) : null;
+      const slug = parsed?.path?.replace("/p/", "");
+
+      void signIn("telegram", slug ? { initData, slug } : { initData })
         .then(() => {
           trackSignIn("telegram");
           pushAuthDebug("telegram_signin_success");
