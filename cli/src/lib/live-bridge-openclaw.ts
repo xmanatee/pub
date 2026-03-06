@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
@@ -14,6 +13,11 @@ import {
   resolveAttachmentRootDir,
 } from "./live-bridge-openclaw-attachments.js";
 import { resolveSessionFromOpenClaw } from "./live-bridge-openclaw-session.js";
+import {
+  resolveOpenClawHome,
+  resolveOpenClawStateDir,
+  resolveOpenClawWorkspaceDir,
+} from "./openclaw-paths.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
   type BridgeRunner,
@@ -31,20 +35,25 @@ import type { BridgeSessionSource } from "./live-bridge-types.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 
 const execFileAsync = promisify(execFile);
-const OPENCLAW_DISCOVERY_PATHS = [
-  "/app/dist/index.js",
-  join(homedir(), "openclaw", "dist", "index.js"),
-  join(homedir(), ".openclaw", "openclaw"),
-  "/usr/local/bin/openclaw",
-  "/opt/homebrew/bin/openclaw",
-];
+function getOpenClawDiscoveryPaths(env: NodeJS.ProcessEnv = process.env): string[] {
+  const home = resolveOpenClawHome(env);
+  const stateDir = resolveOpenClawStateDir(env);
+  return [...new Set([
+    "/app/dist/index.js",
+    join(home, "openclaw", "dist", "index.js"),
+    join(stateDir, "openclaw"),
+    join(home, ".openclaw", "openclaw"),
+    "/usr/local/bin/openclaw",
+    "/opt/homebrew/bin/openclaw",
+  ])];
+}
 
 export function isOpenClawAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
   const configured = env.OPENCLAW_PATH?.trim();
   if (configured) return existsSync(configured);
   const pathFromShell = resolveCommandFromPath("openclaw");
   if (pathFromShell) return true;
-  return OPENCLAW_DISCOVERY_PATHS.some((p) => existsSync(p));
+  return getOpenClawDiscoveryPaths(env).some((p) => existsSync(p));
 }
 
 const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
@@ -65,7 +74,8 @@ export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): strin
   const pathFromShell = resolveCommandFromPath("openclaw");
   if (pathFromShell) return pathFromShell;
 
-  for (const candidate of OPENCLAW_DISCOVERY_PATHS) {
+  const discoveryPaths = getOpenClawDiscoveryPaths(env);
+  for (const candidate of discoveryPaths) {
     if (existsSync(candidate)) return candidate;
   }
 
@@ -74,7 +84,7 @@ export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): strin
       "OpenClaw executable was not found.",
       "Configure it with: pubblue configure --set openclaw.path=/absolute/path/to/openclaw",
       "Or set OPENCLAW_PATH in environment.",
-      `Checked: ${OPENCLAW_DISCOVERY_PATHS.join(", ")}`,
+      "Checked: " + discoveryPaths.join(", "),
     ].join(" "),
   );
 }
@@ -125,6 +135,12 @@ export async function runOpenClawPreflight(
   }
 }
 
+function resolveOpenClawCommandCwd(env: NodeJS.ProcessEnv = process.env): string {
+  const workspace = env.OPENCLAW_WORKSPACE?.trim();
+  if (workspace) return workspace;
+  return resolveOpenClawWorkspaceDir(env);
+}
+
 export async function deliverMessageToOpenClaw(
   params: {
     openclawPath: string;
@@ -151,7 +167,7 @@ export async function deliverMessageToOpenClaw(
   }
 
   const invocation = getOpenClawInvocation(params.openclawPath, args);
-  const cwd = env.PUBBLUE_PROJECT_ROOT || process.cwd();
+  const cwd = resolveOpenClawCommandCwd(env);
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
       cwd,

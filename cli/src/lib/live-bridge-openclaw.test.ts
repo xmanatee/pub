@@ -1,3 +1,5 @@
+import * as os from "node:os";
+import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CHANNELS } from "../../../shared/bridge-protocol-core";
 import {
@@ -8,7 +10,9 @@ import {
   type StagedAttachment,
 } from "./live-bridge-openclaw-attachments.js";
 import {
+  resolveOpenClawHome,
   resolveOpenClawSessionsPath,
+  resolveOpenClawStateDir,
   resolveSessionFromSessionsData,
 } from "./live-bridge-openclaw-session.js";
 import {
@@ -28,6 +32,7 @@ const originalEnv = {
   OPENCLAW_ATTACHMENT_DIR: process.env.OPENCLAW_ATTACHMENT_DIR,
   OPENCLAW_ATTACHMENT_MAX_BYTES: process.env.OPENCLAW_ATTACHMENT_MAX_BYTES,
   OPENCLAW_CANVAS_REMINDER_EVERY: process.env.OPENCLAW_CANVAS_REMINDER_EVERY,
+  OPENCLAW_HOME: process.env.OPENCLAW_HOME,
   OPENCLAW_STATE_DIR: process.env.OPENCLAW_STATE_DIR,
 };
 
@@ -35,7 +40,41 @@ afterEach(() => {
   process.env.OPENCLAW_ATTACHMENT_DIR = originalEnv.OPENCLAW_ATTACHMENT_DIR;
   process.env.OPENCLAW_ATTACHMENT_MAX_BYTES = originalEnv.OPENCLAW_ATTACHMENT_MAX_BYTES;
   process.env.OPENCLAW_CANVAS_REMINDER_EVERY = originalEnv.OPENCLAW_CANVAS_REMINDER_EVERY;
+  process.env.OPENCLAW_HOME = originalEnv.OPENCLAW_HOME;
   process.env.OPENCLAW_STATE_DIR = originalEnv.OPENCLAW_STATE_DIR;
+  if (!originalEnv.OPENCLAW_HOME) delete process.env.OPENCLAW_HOME;
+});
+
+describe("resolveOpenClawHome", () => {
+  it("uses OPENCLAW_HOME when set", () => {
+    expect(resolveOpenClawHome({ OPENCLAW_HOME: "/custom/home" })).toBe("/custom/home");
+  });
+
+  it("ignores blank OPENCLAW_HOME", () => {
+    const result = resolveOpenClawHome({ OPENCLAW_HOME: "   " });
+    expect(result).toBe(os.homedir());
+  });
+
+  it("falls back to os.homedir() when no env or config", () => {
+    const result = resolveOpenClawHome({});
+    expect(result).toBe(os.homedir());
+  });
+
+  it("uses HOME when OPENCLAW_HOME is not set", () => {
+    const result = resolveOpenClawHome({ HOME: "/tmp/pub-home" });
+    expect(result).toBe("/tmp/pub-home");
+  });
+});
+
+describe("resolveOpenClawStateDir", () => {
+  it("uses OPENCLAW_STATE_DIR when set", () => {
+    expect(resolveOpenClawStateDir({ OPENCLAW_STATE_DIR: "/custom/state" })).toBe("/custom/state");
+  });
+
+  it("uses resolveOpenClawHome()/.openclaw when no OPENCLAW_STATE_DIR", () => {
+    const result = resolveOpenClawStateDir({ OPENCLAW_HOME: "/custom/home" });
+    expect(result).toBe(path.join("/custom/home", ".openclaw"));
+  });
 });
 
 describe("resolveAttachmentRootDir", () => {

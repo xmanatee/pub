@@ -1,10 +1,13 @@
-import { homedir } from "node:os";
 import type { BridgeConfig } from "../config.js";
 import {
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
 } from "../live-bridge-claude-code.js";
 import { isOpenClawAvailable, runOpenClawBridgeStartupProbe } from "../live-bridge-openclaw.js";
+import {
+  resolveOpenClawHome,
+  resolveOpenClawWorkspaceDir,
+} from "../openclaw-paths.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
 
 export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {
@@ -17,34 +20,37 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
     env[key] = String(value);
   };
 
+  setIfMissing("OPENCLAW_HOME", resolveOpenClawHome(env));
+
+  if (bridgeConfig) {
+    setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
+    setIfMissing("OPENCLAW_STATE_DIR", bridgeConfig.openclawStateDir);
+    setIfMissing("OPENCLAW_WORKSPACE", bridgeConfig.openclawWorkspace);
+    setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
+    setIfMissing("OPENCLAW_THREAD_ID", bridgeConfig.threadId);
+    setIfMissing("OPENCLAW_CANVAS_REMINDER_EVERY", bridgeConfig.canvasReminderEvery);
+    setIfMissing(
+      "OPENCLAW_DELIVER",
+      bridgeConfig.deliver === undefined ? undefined : bridgeConfig.deliver ? "1" : "0",
+    );
+    setIfMissing("OPENCLAW_DELIVER_CHANNEL", bridgeConfig.deliverChannel);
+    setIfMissing("OPENCLAW_REPLY_TO", bridgeConfig.replyTo);
+    setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
+    setIfMissing("OPENCLAW_ATTACHMENT_DIR", bridgeConfig.attachmentDir);
+    setIfMissing("OPENCLAW_ATTACHMENT_MAX_BYTES", bridgeConfig.attachmentMaxBytes);
+    setIfMissing("CLAUDE_CODE_PATH", bridgeConfig.claudeCodePath);
+    setIfMissing("CLAUDE_CODE_MODEL", bridgeConfig.claudeCodeModel);
+    setIfMissing("CLAUDE_CODE_ALLOWED_TOOLS", bridgeConfig.claudeCodeAllowedTools);
+    setIfMissing("CLAUDE_CODE_APPEND_SYSTEM_PROMPT", bridgeConfig.claudeCodeAppendSystemPrompt);
+    setIfMissing("CLAUDE_CODE_MAX_TURNS", bridgeConfig.claudeCodeMaxTurns);
+    setIfMissing("CLAUDE_CODE_CWD", bridgeConfig.claudeCodeCwd);
+    setIfMissing("PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS", bridgeConfig.commandDefaultTimeoutMs);
+    setIfMissing("PUBBLUE_COMMAND_MAX_OUTPUT_BYTES", bridgeConfig.commandMaxOutputBytes);
+    setIfMissing("PUBBLUE_COMMAND_MAX_CONCURRENT", bridgeConfig.commandMaxConcurrent);
+  }
+
+  setIfMissing("OPENCLAW_WORKSPACE", resolveOpenClawWorkspaceDir(env));
   setIfMissing("PUBBLUE_PROJECT_ROOT", process.cwd());
-  setIfMissing("OPENCLAW_HOME", homedir());
-
-  if (!bridgeConfig) return env;
-
-  setIfMissing("OPENCLAW_PATH", bridgeConfig.openclawPath);
-  setIfMissing("OPENCLAW_STATE_DIR", bridgeConfig.openclawStateDir);
-  setIfMissing("OPENCLAW_SESSION_ID", bridgeConfig.sessionId);
-  setIfMissing("OPENCLAW_THREAD_ID", bridgeConfig.threadId);
-  setIfMissing("OPENCLAW_CANVAS_REMINDER_EVERY", bridgeConfig.canvasReminderEvery);
-  setIfMissing(
-    "OPENCLAW_DELIVER",
-    bridgeConfig.deliver === undefined ? undefined : bridgeConfig.deliver ? "1" : "0",
-  );
-  setIfMissing("OPENCLAW_DELIVER_CHANNEL", bridgeConfig.deliverChannel);
-  setIfMissing("OPENCLAW_REPLY_TO", bridgeConfig.replyTo);
-  setIfMissing("OPENCLAW_DELIVER_TIMEOUT_MS", bridgeConfig.deliverTimeoutMs);
-  setIfMissing("OPENCLAW_ATTACHMENT_DIR", bridgeConfig.attachmentDir);
-  setIfMissing("OPENCLAW_ATTACHMENT_MAX_BYTES", bridgeConfig.attachmentMaxBytes);
-  setIfMissing("CLAUDE_CODE_PATH", bridgeConfig.claudeCodePath);
-  setIfMissing("CLAUDE_CODE_MODEL", bridgeConfig.claudeCodeModel);
-  setIfMissing("CLAUDE_CODE_ALLOWED_TOOLS", bridgeConfig.claudeCodeAllowedTools);
-  setIfMissing("CLAUDE_CODE_APPEND_SYSTEM_PROMPT", bridgeConfig.claudeCodeAppendSystemPrompt);
-  setIfMissing("CLAUDE_CODE_MAX_TURNS", bridgeConfig.claudeCodeMaxTurns);
-  setIfMissing("CLAUDE_CODE_CWD", bridgeConfig.claudeCodeCwd);
-  setIfMissing("PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS", bridgeConfig.commandDefaultTimeoutMs);
-  setIfMissing("PUBBLUE_COMMAND_MAX_OUTPUT_BYTES", bridgeConfig.commandMaxOutputBytes);
-  setIfMissing("PUBBLUE_COMMAND_MAX_CONCURRENT", bridgeConfig.commandMaxConcurrent);
   return env;
 }
 

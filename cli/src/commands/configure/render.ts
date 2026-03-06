@@ -1,4 +1,5 @@
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
+import { getConfigDir } from "../../lib/config.js";
 import { CONFIG_KEY_REGISTRY, type ConfigKeyDef, hasValues } from "./schema.js";
 
 function maskSecret(value: string): string {
@@ -64,6 +65,7 @@ function printSetupInstructions(saved: SavedConfig | null): void {
 }
 
 export function printConfigStatus(saved: SavedConfig | null): void {
+  console.log(`Config directory: ${getConfigDir()}`);
   console.log("  API key:   %s", saved?.apiKey ? maskSecret(saved.apiKey) : "not set");
   printTelegramStatus(saved?.telegram);
   printBridgeStatus(saved?.bridge ?? {});

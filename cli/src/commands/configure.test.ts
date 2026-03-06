@@ -96,6 +96,7 @@ describe("applyConfigSet", () => {
     const stringKeys: Array<{ key: string; field: keyof BridgeConfig }> = [
       { key: "openclaw.path", field: "openclawPath" },
       { key: "openclaw.stateDir", field: "openclawStateDir" },
+      { key: "openclaw.workspace", field: "openclawWorkspace" },
       { key: "openclaw.sessionId", field: "sessionId" },
       { key: "openclaw.threadId", field: "threadId" },
       { key: "openclaw.deliverChannel", field: "deliverChannel" },
@@ -222,8 +223,8 @@ describe("applyConfigUnset", () => {
 });
 
 describe("SUPPORTED_KEYS", () => {
-  it("lists all 21 config keys", () => {
-    expect(SUPPORTED_KEYS).toHaveLength(21);
+  it("lists all 22 config keys", () => {
+    expect(SUPPORTED_KEYS).toHaveLength(22);
   });
 
   it("every key is handled by applyConfigSet without throwing", () => {

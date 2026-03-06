@@ -1,16 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { errorMessage } from "./cli-error.js";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
+import { resolveOpenClawStateDir } from "./openclaw-paths.js";
+
+export { resolveOpenClawHome, resolveOpenClawStateDir } from "./openclaw-paths.js";
 
 const OPENCLAW_MAIN_SESSION_KEY = "agent:main:main";
-
-export function resolveOpenClawStateDir(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = env.OPENCLAW_STATE_DIR?.trim();
-  if (configured) return configured;
-  return join(homedir(), ".openclaw");
-}
 
 export function resolveOpenClawSessionsPath(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveOpenClawStateDir(env), "agents", "main", "sessions", "sessions.json");

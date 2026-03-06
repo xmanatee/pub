@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  liveInfoDir,
   liveSessionContentPath,
   readLatestCliVersion,
   readLogTail,
@@ -11,12 +12,15 @@ import {
 
 describe("daemon-files", () => {
   const tempRoots: string[] = [];
+  const originalPubblueConfigDir = process.env.PUBBLUE_CONFIG_DIR;
 
   afterEach(() => {
     for (const dir of tempRoots) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
     tempRoots.length = 0;
+    process.env.PUBBLUE_CONFIG_DIR = originalPubblueConfigDir;
+    if (!originalPubblueConfigDir) delete process.env.PUBBLUE_CONFIG_DIR;
   });
 
   function makeTempDir(): string {
@@ -42,6 +46,16 @@ describe("daemon-files", () => {
     it("throws on non-missing filesystem errors", () => {
       const dir = makeTempDir();
       expect(() => readLatestCliVersion(dir)).toThrow("Failed to read CLI version file");
+    });
+  });
+
+  describe("liveInfoDir", () => {
+    it("respects PUBBLUE_CONFIG_DIR", () => {
+      const dir = makeTempDir();
+      process.env.PUBBLUE_CONFIG_DIR = dir;
+      const result = liveInfoDir();
+      expect(result).toBe(path.join(dir, "lives"));
+      expect(fs.existsSync(result)).toBe(true);
     });
   });
 
