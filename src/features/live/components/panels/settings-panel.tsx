@@ -14,6 +14,7 @@ export interface SettingsPanelModel {
   behavior: {
     autoOpenCanvas: boolean;
     animationStyle: LiveAnimationStyle;
+    canUseDeveloperMode: boolean;
     developerModeEnabled: boolean;
     voiceModeEnabled: boolean;
   };
@@ -51,7 +52,13 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
     onVoiceModeEnabledChange,
   } = actions;
 
-  const { autoOpenCanvas, animationStyle, developerModeEnabled, voiceModeEnabled } = behavior;
+  const {
+    autoOpenCanvas,
+    animationStyle,
+    canUseDeveloperMode,
+    developerModeEnabled,
+    voiceModeEnabled,
+  } = behavior;
   const { fileCount, hasCanvasContent, messageCount } = stats;
 
   return (
@@ -119,17 +126,21 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
             <Switch checked={voiceModeEnabled} onCheckedChange={onVoiceModeEnabledChange} />
           </div>
 
-          <Separator />
+          {canUseDeveloperMode && (
+            <>
+              <Separator />
 
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium">Developer mode</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Enable Eruda and keep rich error logs visible in the Mini App.
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium">Developer mode</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Enable Eruda and keep rich error logs visible in the Mini App.
+                  </div>
+                </div>
+                <Switch checked={developerModeEnabled} onCheckedChange={onDeveloperModeChange} />
               </div>
-            </div>
-            <Switch checked={developerModeEnabled} onCheckedChange={onDeveloperModeChange} />
-          </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

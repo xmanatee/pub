@@ -5,6 +5,7 @@
  * Convex signaling updates, and responds with answers.
  */
 
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DataChannel, PeerConnection } from "node-datachannel";
@@ -24,7 +25,8 @@ import {
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
 import { createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
-import type { BridgeRunner } from "./live-bridge-shared.js";
+import { type BridgeRunner, buildSessionBriefing } from "./live-bridge-shared.js";
+import { createLiveCommandHandler } from "./live-command-handler.js";
 import { createAnswer } from "./live-daemon-answer.js";
 import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
 import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
@@ -41,7 +43,11 @@ import {
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
 import { createSignalingController } from "./live-daemon-signaling.js";
-import { latestCliVersionPath, readLatestCliVersion } from "./live-runtime/daemon-files.js";
+import {
+  latestCliVersionPath,
+  readLatestCliVersion,
+  writeLiveSessionContentFile,
+} from "./live-runtime/daemon-files.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -56,9 +62,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const buffer: ChannelBuffer = { messages: [] };
   const startTime = Date.now();
+  const daemonSessionId = randomUUID();
 
   let stopped = false;
-  let connected = false;
+  let browserConnected = false;
+  let bridgePrimed = false;
+  let bridgePriming: Promise<void> | null = null;
   let recovering = false;
   let activeSlug: string | null = null;
 
@@ -92,6 +101,21 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
   let bridgeRunner: BridgeRunner | null = null;
+  const commandHandler = createLiveCommandHandler({
+    bridgeMode: config.bridgeMode,
+    markError,
+    sendCommandMessage: async (msg) => {
+      if (!isLiveConnected()) return false;
+      const sent = await sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
+        context: 'command outbound on "command"',
+        maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
+      });
+      if (sent) {
+        trackOutboundMessage(CHANNELS.COMMAND, msg);
+      }
+      return sent;
+    },
+  });
 
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
@@ -111,6 +135,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   function markError(message: string, error?: unknown): void {
     lastError = error === undefined ? message : `${message}: ${errorMessage(error)}`;
     debugLog(message, error);
+  }
+
+  function isLiveConnected(): boolean {
+    return browserConnected && bridgePrimed;
   }
 
   function clearLocalCandidateTimers(): void {
@@ -141,7 +169,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   function startPingPong(): void {
     stopPingPong();
     pingTimer = setInterval(() => {
-      if (!connected || stopped) {
+      if (!browserConnected || stopped) {
         stopPingPong();
         return;
       }
@@ -151,7 +179,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         controlDc.sendMessage(encodeMessage(makeEventMessage("ping")));
         if (pongTimeout) clearTimeout(pongTimeout);
         pongTimeout = setTimeout(() => {
-          if (!connected || stopped) return;
+          if (!browserConnected || stopped) return;
           debugLog("pong timeout — treating as disconnected");
           handleConnectionClosed("pong-timeout");
         }, PONG_TIMEOUT_MS);
@@ -199,7 +227,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     timestamp: number;
   }): void {
     // Canvas payloads can be large; keep runtime buffering scoped to operational chat/file reads.
-    if (entry.channel === CHANNELS.CANVAS) return;
+    if (entry.channel === CHANNELS.CANVAS || entry.channel === CHANNELS.COMMAND) return;
     buffer.messages.push(entry);
     if (buffer.messages.length > MAX_BUFFERED_MESSAGES) {
       buffer.messages.splice(0, buffer.messages.length - MAX_BUFFERED_MESSAGES);
@@ -258,8 +286,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function handleConnectionClosed(reason: string): void {
     void queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), reason);
-    if (!connected) return;
-    connected = false;
+    const hadConnection = browserConnected || bridgePrimed;
+    browserConnected = false;
+    bridgePrimed = false;
+    bridgePriming = null;
+    if (!hadConnection) return;
     buffer.messages = [];
     failPendingAcks();
     stopPingPong();
@@ -366,6 +397,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         if (shouldAcknowledgeMessage(name, msg)) {
           queueAck(msg.id, name);
         }
+        if (name === CHANNELS.COMMAND) {
+          void commandHandler.onMessage(msg);
+          return;
+        }
         appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });
         bridgeRunner?.enqueue([{ channel: name, msg }]);
         if (
@@ -380,6 +415,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const pendingMeta = pendingInboundBinaryMeta.get(name);
       const activeStream = inboundStreams.get(name);
       if (pendingMeta) pendingInboundBinaryMeta.delete(name);
+      if (name === CHANNELS.COMMAND) {
+        return;
+      }
       const binMsg: BridgeMessage = pendingMeta
         ? {
             id: pendingMeta.id,
@@ -546,7 +584,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     const context = options?.context ?? `channel "${channel}"`;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      if (stopped || !connected) return false;
+      if (stopped || !browserConnected) return false;
 
       let targetDc: DataChannel;
       try {
@@ -601,9 +639,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     currentPeer.onStateChange((state: string) => {
       if (stopped || currentPeer !== peer) return;
       if (state === "connected") {
-        connected = true;
+        browserConnected = true;
         flushQueuedAcks();
         startPingPong();
+        void ensureBridgePrimed();
         return;
       }
       if (state === "disconnected" || state === "failed" || state === "closed") {
@@ -614,7 +653,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     currentPeer.onIceStateChange((state: string) => {
       if (stopped || currentPeer !== peer) return;
       debugLog(`ICE state: ${state}`);
-      if ((state === "disconnected" || state === "failed") && connected) {
+      if ((state === "disconnected" || state === "failed") && browserConnected) {
         handleConnectionClosed(`ice-state:${state}`);
       }
     });
@@ -661,7 +700,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   function resetNegotiationState(): void {
-    connected = false;
+    browserConnected = false;
+    bridgePrimed = false;
+    bridgePriming = null;
     buffer.messages = [];
     failPendingAcks();
     stopPingPong();
@@ -680,9 +721,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       if (localCandidates.length <= lastSentCandidateCount) return;
       const newOnes = localCandidates.slice(lastSentCandidateCount);
       lastSentCandidateCount = localCandidates.length;
-      await apiClient.signalAnswer({ slug, candidates: newOnes }).catch((error) => {
-        debugLog("failed to publish local ICE candidates", error);
-      });
+      await apiClient
+        .signalAnswer({ slug, daemonSessionId, candidates: newOnes })
+        .catch((error) => {
+          debugLog("failed to publish local ICE candidates", error);
+        });
     }, LOCAL_CANDIDATE_FLUSH_MS);
 
     localCandidateStopTimer = setTimeout(() => {
@@ -712,9 +755,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lastAppliedBrowserOffer = browserOffer;
       activeSlug = slug;
 
-      await apiClient.signalAnswer({ slug, answer, agentName });
+      await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });
       startLocalCandidateFlush(slug);
-      void startBridge();
     } catch (error) {
       markError("failed to handle incoming live request", error);
     } finally {
@@ -740,6 +782,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const signaling = createSignalingController({
     apiClient,
+    daemonSessionId,
     debugLog,
     markError,
     isStopped: () => stopped,
@@ -779,12 +822,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- Register presence online ---------------------------------------------
 
-  await apiClient.goOnline();
+  await apiClient.goOnline({ daemonSessionId, agentName });
 
   heartbeatTimer = setInterval(async () => {
     if (stopped) return;
     try {
-      await apiClient.heartbeat();
+      await apiClient.heartbeat({ daemonSessionId });
     } catch (error) {
       markError("heartbeat failed", error);
     }
@@ -793,7 +836,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   // -- IPC server -----------------------------------------------------------
 
   const handleIpcRequest = createDaemonIpcHandler({
-    getConnected: () => connected,
+    getConnected: () => isLiveConnected(),
     getSignalingConnected: () => {
       const state = signaling.status();
       return state.known ? state.open : null;
@@ -808,7 +851,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     getLastError: () => lastError,
     getBridgeMode: () => config.bridgeMode ?? null,
     getBridgeStatus: () => bridgeRunner?.status() ?? null,
-    getWriteReadinessError: () => getLiveWriteReadinessError(connected),
+    getWriteReadinessError: () => getLiveWriteReadinessError(isLiveConnected()),
     openDataChannel,
     waitForChannelOpen,
     waitForDeliveryAck,
@@ -839,7 +882,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   // -- In-process bridge runner ---------------------------------------------
 
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
-    if (stopped || !connected) return false;
+    if (stopped || !isLiveConnected()) return false;
     const sent = await sendOutboundMessageWithAck(channel, msg, {
       context: `bridge outbound on "${channel}"`,
       maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
@@ -850,13 +893,45 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     return sent;
   }
 
-  async function startBridge(): Promise<void> {
-    if (stopped || !activeSlug) return;
-    if (!config.bridgeMode) return;
+  async function buildInitialSessionBriefing(params: {
+    slug: string;
+    instructions: ReturnType<typeof buildBridgeInstructions>;
+  }): Promise<string> {
+    const pub = await apiClient.get(params.slug);
+    const content = typeof pub.content === "string" ? pub.content : "";
+    const canvasContentFilePath =
+      content.length > 0
+        ? writeLiveSessionContentFile({
+            slug: params.slug,
+            contentType: pub.contentType,
+            content,
+          })
+        : undefined;
+
+    return buildSessionBriefing(
+      params.slug,
+      {
+        title: pub.title,
+        contentType: pub.contentType,
+        isPublic: pub.isPublic,
+        canvasContentFilePath,
+      },
+      params.instructions,
+    );
+  }
+
+  async function startBridge(slug: string): Promise<void> {
+    if (stopped) return;
+    if (!config.bridgeMode) {
+      throw new Error("Bridge mode is required for live session bootstrap.");
+    }
+    if (activeSlug !== slug) return;
     await stopBridge();
     const instructions = buildBridgeInstructions(config.bridgeMode);
+    const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
     const bridgeConfig = {
-      slug: activeSlug,
+      slug,
+      sessionBriefing,
       sendMessage: sendOnChannel,
       onDeliveryUpdate: ({
         channel,
@@ -874,17 +949,43 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       debugLog,
       instructions,
     };
-    try {
-      bridgeRunner =
-        config.bridgeMode === "claude-code"
-          ? await createClaudeCodeBridgeRunner(bridgeConfig)
-          : await createOpenClawBridgeRunner(bridgeConfig);
-    } catch (error) {
-      markError("bridge runner failed to start", error);
+    const runner =
+      config.bridgeMode === "claude-code"
+        ? await createClaudeCodeBridgeRunner(bridgeConfig)
+        : await createOpenClawBridgeRunner(bridgeConfig);
+
+    if (stopped || activeSlug !== slug) {
+      await runner.stop();
+      return;
     }
+    bridgeRunner = runner;
+  }
+
+  async function ensureBridgePrimed(): Promise<void> {
+    if (stopped || !browserConnected || bridgePrimed || bridgePriming || !activeSlug) return;
+    const slug = activeSlug;
+
+    const primePromise = (async () => {
+      try {
+        await startBridge(slug);
+        if (stopped || !browserConnected || activeSlug !== slug) return;
+        bridgePrimed = true;
+        debugLog(`bridge primed for "${slug}"`);
+      } catch (error) {
+        bridgePrimed = false;
+        markError(`failed to prime bridge session for "${slug}"`, error);
+      } finally {
+        bridgePriming = null;
+      }
+    })();
+
+    bridgePriming = primePromise;
+    await primePromise;
   }
 
   async function stopBridge(): Promise<void> {
+    bridgePrimed = false;
+    bridgePriming = null;
     if (bridgeRunner) {
       await bridgeRunner.stop();
       bridgeRunner = null;
@@ -905,12 +1006,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     await queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), "daemon-shutdown");
 
     try {
-      await apiClient.goOffline();
+      await apiClient.goOffline({ daemonSessionId });
     } catch (error) {
       debugLog("failed to go offline", error);
     }
 
     await stopBridge();
+    commandHandler.stop();
     closeCurrentPeer();
     ipcServer.close();
 

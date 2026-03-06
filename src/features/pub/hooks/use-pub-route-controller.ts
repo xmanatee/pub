@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readStoredAnimationStyle } from "~/features/live/hooks/use-live-preferences";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { trackPubViewed } from "~/lib/analytics";
@@ -15,6 +15,7 @@ type PubSnapshot =
   | undefined;
 
 interface UsePubRouteControllerOptions {
+  autoLive: boolean;
   baseContentHtml: string | null;
   model: ReturnType<typeof usePubLiveModel>;
   pub: PubSnapshot;
@@ -23,6 +24,7 @@ interface UsePubRouteControllerOptions {
 }
 
 export function usePubRouteController({
+  autoLive,
   baseContentHtml,
   model,
   pub,
@@ -31,7 +33,9 @@ export function usePubRouteController({
 }: UsePubRouteControllerOptions) {
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
+  const autoLiveTriggeredRef = useRef(false);
   const lastSessionErrorRef = useRef<string | null>(null);
+  const lastResetSlugRef = useRef<string | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
@@ -62,13 +66,16 @@ export function usePubRouteController({
     void recordPublicView({ slug: pub.slug });
   }, [pub, recordPublicView]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     lastSessionErrorRef.current = null;
     setLiveMode(false);
     setControlBarCollapsed(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
+    autoLiveTriggeredRef.current = false;
     dismissPreview();
     model.stopLive();
     model.clearCanvas();
@@ -76,7 +83,16 @@ export function usePubRouteController({
     model.clearMessages();
     model.clearSessionError();
     model.setViewMode("canvas");
-  }, [slug]);
+  }, [
+    dismissPreview,
+    model.clearCanvas,
+    model.clearFiles,
+    model.clearMessages,
+    model.clearSessionError,
+    model.setViewMode,
+    model.stopLive,
+    slug,
+  ]);
 
   useEffect(() => {
     if (!liveMode) return;
@@ -90,19 +106,45 @@ export function usePubRouteController({
     });
   }, [liveMode, model.addSystemMessage, model.sessionError]);
 
-  const resetLiveSurface = () => {
+  const resetLiveSurface = useCallback(() => {
     dismissPreview();
     model.clearCanvas();
     model.clearFiles();
     model.clearMessages();
     model.clearSessionError();
     model.setViewMode("canvas");
-  };
+  }, [
+    dismissPreview,
+    model.clearCanvas,
+    model.clearFiles,
+    model.clearMessages,
+    model.clearSessionError,
+    model.setViewMode,
+  ]);
+
+  const enterLiveMode = useCallback(() => {
+    setLiveMode(true);
+    setControlBarCollapsed(false);
+    resetLiveSurface();
+    model.startLive();
+  }, [model.startLive, resetLiveSurface]);
+
+  useEffect(() => {
+    if (!autoLive || autoLiveTriggeredRef.current) return;
+    if (liveMode) {
+      autoLiveTriggeredRef.current = true;
+      return;
+    }
+    if (isLoading || !isOwner || model.agentOnline !== true) return;
+    autoLiveTriggeredRef.current = true;
+    enterLiveMode();
+  }, [autoLive, enterLiveMode, isLoading, isOwner, liveMode, model.agentOnline]);
 
   const settingsPanelModel = {
     behavior: {
       autoOpenCanvas: model.autoOpenCanvas,
       animationStyle: model.animationStyle,
+      canUseDeveloperMode: model.canUseDeveloperMode,
       developerModeEnabled: model.developerModeEnabled,
       voiceModeEnabled: model.voiceModeEnabled,
     },
@@ -186,6 +228,7 @@ export function usePubRouteController({
       : "waiting-content";
 
   return {
+    availableAgents: model.availableAgents,
     canShowNoContent,
     agentOnline: model.agentOnline,
     canvasAnimationStyle,
@@ -205,15 +248,14 @@ export function usePubRouteController({
     isNotFound,
     isOwner,
     liveMode,
-    onGoLive: () => {
-      setLiveMode(true);
-      setControlBarCollapsed(false);
-      resetLiveSurface();
-      model.startLive();
-    },
+    onGoLive: enterLiveMode,
+    onCanvasBridgeMessage: liveMode ? model.onCanvasBridgeMessage : undefined,
+    onSelectedPresenceChange: model.setSelectedPresenceId,
     onRenderError: liveMode ? model.sendRenderError : undefined,
+    outboundCanvasBridgeMessage: liveMode ? model.outboundCanvasBridgeMessage : null,
     settingsPanelActions,
     settingsPanelModel,
+    selectedPresenceId: model.selectedPresenceId,
     viewMode,
   };
 }

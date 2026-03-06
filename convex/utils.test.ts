@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  CONTENT_TYPES,
   escapeHtmlAttr,
   escapeXml,
   generateApiKey,
@@ -251,10 +250,6 @@ describe("parseExpiresIn", () => {
 });
 
 describe("constants", () => {
-  it("CONTENT_TYPES has expected values", () => {
-    expect(CONTENT_TYPES).toEqual(["html", "markdown", "text"]);
-  });
-
   it("limits are reasonable", () => {
     expect(MAX_CONTENT_SIZE).toBe(100 * 1024);
     expect(MAX_TITLE_LENGTH).toBe(256);

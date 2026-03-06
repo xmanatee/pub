@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SessionState } from "~/features/live/types/live-types";
 import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 const SESSION_STORAGE_PREFIX = "pub-live-session:";
 
@@ -23,23 +24,39 @@ function errorMessage(error: unknown): string {
 export function useLiveSessionModel(slug: string) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
   const live = useQuery(api.pubs.getLiveBySlug, { slug });
-  const agentOnline = useQuery(api.presence.isAgentOnline, { slug });
+  const availableAgents = useQuery(api.presence.listAvailableForSlug, { slug });
+  const agentOnline = availableAgents === undefined ? undefined : availableAgents.length > 0;
 
   const requestLiveMutation = useMutation(api.pubs.requestLive);
   const storeBrowserCandidatesMutation = useMutation(api.pubs.storeBrowserCandidates);
   const takeoverLiveMutation = useMutation(api.pubs.takeoverLive);
+  const closeLiveMutation = useMutation(api.pubs.closeLiveByUser);
 
   const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
   const [wasConnected, setWasConnected] = useState(false);
   const [liveRequested, setLiveRequested] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [selectedPresenceId, setSelectedPresenceId] = useState<Id<"agentPresence"> | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset session state on slug navigation
   useEffect(() => {
     setWasConnected(false);
     setLiveRequested(false);
     setSessionError(null);
+    setSelectedPresenceId(null);
   }, [slug]);
+
+  useEffect(() => {
+    if (!availableAgents) return;
+    if (availableAgents.length === 0) {
+      setSelectedPresenceId(null);
+      return;
+    }
+    const stillAvailable = availableAgents.some((agent) => agent.presenceId === selectedPresenceId);
+    if (stillAvailable) return;
+    const defaultPresenceId = availableAgents[0]?.presenceId ?? null;
+    setSelectedPresenceId(defaultPresenceId);
+  }, [availableAgents, selectedPresenceId]);
 
   const sessionState: SessionState = useMemo(() => {
     if (!live) return "inactive";
@@ -54,6 +71,7 @@ export function useLiveSessionModel(slug: string) {
           slug: input.slug,
           browserSessionId,
           browserOffer: input.offer,
+          targetPresenceId: selectedPresenceId ?? undefined,
         });
         setSessionError(null);
         return result;
@@ -62,7 +80,7 @@ export function useLiveSessionModel(slug: string) {
         throw error;
       }
     },
-    [browserSessionId, requestLiveMutation],
+    [browserSessionId, requestLiveMutation, selectedPresenceId],
   );
 
   const storeBrowserCandidates = useCallback(
@@ -103,7 +121,10 @@ export function useLiveSessionModel(slug: string) {
   const stopLive = useCallback(() => {
     setSessionError(null);
     setLiveRequested(false);
-  }, []);
+    void closeLiveMutation({ slug }).catch((error) => {
+      setSessionError(errorMessage(error));
+    });
+  }, [closeLiveMutation, slug]);
 
   const markBridgeConnected = useCallback(() => {
     setWasConnected(true);
@@ -114,6 +135,7 @@ export function useLiveSessionModel(slug: string) {
   }, []);
 
   return {
+    availableAgents: availableAgents ?? [],
     agentOnline,
     clearSessionError,
     live,
@@ -122,6 +144,8 @@ export function useLiveSessionModel(slug: string) {
     pub,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     storeBrowserCandidates,

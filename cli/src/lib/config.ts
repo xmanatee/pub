@@ -23,6 +23,9 @@ export interface BridgeConfig {
   claudeCodeAppendSystemPrompt?: string;
   claudeCodeMaxTurns?: number;
   claudeCodeCwd?: string;
+  commandDefaultTimeoutMs?: number;
+  commandMaxOutputBytes?: number;
+  commandMaxConcurrent?: number;
 }
 
 export interface TelegramConfig {

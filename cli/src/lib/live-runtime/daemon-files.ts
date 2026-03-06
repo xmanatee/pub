@@ -17,6 +17,40 @@ export function liveLogPath(slug: string): string {
   return path.join(liveInfoDir(), `${slug}.log`);
 }
 
+function sanitizeSlugForFilename(slug: string): string {
+  const sanitized = slug.trim().replace(/[^a-zA-Z0-9._-]/g, "-");
+  return sanitized.length > 0 ? sanitized : "live";
+}
+
+function resolveSessionContentExtension(contentType?: string): string {
+  if (contentType === "html") return "html";
+  if (contentType === "markdown") return "md";
+  if (contentType === "text") return "txt";
+  return "txt";
+}
+
+export function liveSessionContentPath(
+  slug: string,
+  contentType?: string,
+  rootDir?: string,
+): string {
+  const safeSlug = sanitizeSlugForFilename(slug);
+  const ext = resolveSessionContentExtension(contentType);
+  return path.join(rootDir ?? liveInfoDir(), `${safeSlug}.session-content.${ext}`);
+}
+
+export function writeLiveSessionContentFile(params: {
+  slug: string;
+  contentType?: string;
+  content: string;
+  rootDir?: string;
+}): string {
+  const filePath = liveSessionContentPath(params.slug, params.contentType, params.rootDir);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, params.content, "utf-8");
+  return filePath;
+}
+
 export function latestCliVersionPath(): string {
   return path.join(liveInfoDir(), "cli-version.txt");
 }

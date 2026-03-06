@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BridgeConfig, TelegramConfig } from "../lib/config.js";
+import { parsePositiveInteger } from "../lib/number.js";
 import {
   applyConfigSet,
   applyConfigUnset,
   parseBooleanValue,
-  parsePositiveInteger,
   parseSetInput,
   SUPPORTED_KEYS,
 } from "./configure/schema.js";
@@ -223,8 +223,8 @@ describe("applyConfigUnset", () => {
 });
 
 describe("SUPPORTED_KEYS", () => {
-  it("lists all 19 config keys", () => {
-    expect(SUPPORTED_KEYS).toHaveLength(19);
+  it("lists all 22 config keys", () => {
+    expect(SUPPORTED_KEYS).toHaveLength(22);
   });
 
   it("every key is handled by applyConfigSet without throwing", () => {
@@ -235,6 +235,8 @@ describe("SUPPORTED_KEYS", () => {
         key.includes("Every") ||
         key.includes("Timeout") ||
         key.includes("Max") ||
+        key.includes("max") ||
+        key.includes("Concurrent") ||
         key.includes("maxTurns")
           ? "10"
           : key === "openclaw.deliver"

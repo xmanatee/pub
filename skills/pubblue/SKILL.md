@@ -110,6 +110,6 @@ Important:
 ## Advanced Details (On Demand)
 
 Only when needed:
-- Show effective saved config: `pubblue configure --show`
+- Show effective saved config: `pubblue configure`
 - Inspect runtime and bridge state: `pubblue status`
 - See command-specific options: `pubblue <command> --help`

@@ -18,11 +18,15 @@ export function CopyButton({
       variant="ghost"
       size="icon"
       className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        onCopy?.();
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          onCopy?.();
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch (error) {
+          console.error("Failed to copy text to clipboard", error);
+        }
       }}
       aria-label={label}
     >

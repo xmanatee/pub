@@ -1,10 +1,5 @@
 import { cn } from "~/lib/utils";
 
-/**
- * Pub logo — Geometric "P" in a circle.
- * Works at all sizes: favicon (16px), nav (24px), hero (48px+).
- * The "P" bowl opens rightward, suggesting output flowing out (sharing/visualizing).
- */
 export function PubLogo({ className, size = 32 }: { className?: string; size?: number }) {
   return (
     <svg
@@ -27,9 +22,6 @@ export function PubLogo({ className, size = 32 }: { className?: string; size?: n
   );
 }
 
-/**
- * Wordmark for larger contexts: icon + "Pub" text.
- */
 export function PubWordmark({
   className,
   iconSize = 24,

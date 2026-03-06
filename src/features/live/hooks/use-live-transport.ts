@@ -3,15 +3,24 @@ import { useLiveBridge } from "~/features/live/hooks/use-live-bridge";
 import {
   CHANNELS,
   generateMessageId,
+  makeEventMessage,
   makeHtmlMessage,
   makeStreamEnd,
   makeStreamStart,
   makeTextMessage,
-  type SessionContextPayload,
 } from "~/features/live/lib/bridge-protocol";
+import {
+  parseCommandBindResultMessage,
+  parseCommandResultMessage,
+} from "~/features/live/lib/command-protocol";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
-import type { LiveRenderErrorPayload, LiveViewMode } from "~/features/live/types/live-types";
+import type {
+  CanvasBridgeInboundMessage,
+  CanvasBridgeOutboundMessage,
+  LiveRenderErrorPayload,
+  LiveViewMode,
+} from "~/features/live/types/live-types";
 import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
@@ -19,13 +28,13 @@ const RENDER_ERROR_ACK_TIMEOUT_MS = 4_000;
 const STREAM_ACK_TIMEOUT_MS = 10_000;
 const STREAM_CHUNK_SIZE = 48 * 1024;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const COMMAND_ACK_TIMEOUT_MS = 4_000;
 
 interface UseLiveTransportOptions {
   slug: string;
   enabled: boolean;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
-  sessionContext: SessionContextPayload | undefined;
   autoOpenCanvas: boolean;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
   storeBrowserCandidates: (input: { slug: string; candidates: string[] }) => Promise<unknown>;
@@ -91,7 +100,6 @@ export function useLiveTransport({
   enabled,
   agentAnswer,
   agentCandidates,
-  sessionContext,
   autoOpenCanvas,
   storeBrowserOffer,
   storeBrowserCandidates,
@@ -113,6 +121,8 @@ export function useLiveTransport({
   updateAudioMessageAnalysis,
 }: UseLiveTransportOptions) {
   const [canvasHtml, setCanvasHtml] = useState<string | null>(null);
+  const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
+    useState<CanvasBridgeOutboundMessage | null>(null);
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
@@ -126,6 +136,7 @@ export function useLiveTransport({
       id: string;
     }>
   >([]);
+  const lastResetSlugRef = useRef<string | null>(null);
 
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
@@ -138,9 +149,12 @@ export function useLiveTransport({
     [addSystemMessage],
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset transport state on slug navigation
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     setCanvasHtml(null);
+    setOutboundCanvasBridgeMessage(null);
     setViewMode("canvas");
     setLastAgentActivityAt(null);
     setLastUserDeliveredAt(null);
@@ -209,6 +223,27 @@ export function useLiveTransport({
           width: typeof message.meta?.width === "number" ? message.meta.width : undefined,
           height: typeof message.meta?.height === "number" ? message.meta.height : undefined,
         });
+        return;
+      }
+
+      if (channel === CHANNELS.COMMAND) {
+        const bindResult = parseCommandBindResultMessage(message);
+        if (bindResult) {
+          setOutboundCanvasBridgeMessage({
+            id: generateMessageId(),
+            type: "command.bind.result",
+            payload: bindResult,
+          });
+          return;
+        }
+        const result = parseCommandResultMessage(message);
+        if (result) {
+          setOutboundCanvasBridgeMessage({
+            id: generateMessageId(),
+            type: "command.result",
+            payload: result,
+          });
+        }
       }
     },
     [
@@ -255,7 +290,6 @@ export function useLiveTransport({
     enabled,
     agentAnswer,
     agentCandidates,
-    sessionContext,
     storeBrowserOffer,
     storeBrowserCandidates,
     onDeliveryReceipt: handleDeliveryReceipt,
@@ -641,6 +675,145 @@ export function useLiveTransport({
     setCanvasHtml(null);
   }, []);
 
+  const emitCommandFailureToCanvas = useCallback(
+    (callId: string | undefined, code: string, message: string) => {
+      if (!callId) return;
+      setOutboundCanvasBridgeMessage({
+        id: generateMessageId(),
+        type: "command.result",
+        payload: {
+          v: 1,
+          callId,
+          ok: false,
+          error: {
+            code,
+            message,
+            retryable: false,
+          },
+          durationMs: 0,
+        },
+      });
+    },
+    [],
+  );
+
+  const onCanvasBridgeMessage = useCallback(
+    (message: CanvasBridgeInboundMessage) => {
+      const bridge = bridgeRef.current;
+      const callId =
+        typeof message.payload.callId === "string" ? message.payload.callId : undefined;
+      if (!bridge || bridgeState !== "connected") {
+        emitCommandFailureToCanvas(
+          callId,
+          "BRIDGE_UNAVAILABLE",
+          "Command failed because live bridge is unavailable.",
+        );
+        return;
+      }
+
+      void (async () => {
+        const ready = await ensureChannelReady(bridge, CHANNELS.COMMAND);
+        if (!ready) {
+          emitCommandFailureToCanvas(
+            callId,
+            "COMMAND_CHANNEL_NOT_READY",
+            "Command channel is not ready.",
+          );
+          return;
+        }
+
+        if (message.type === "command.bind") {
+          const bindPayload = {
+            v: typeof message.payload.v === "number" ? message.payload.v : 1,
+            manifestId:
+              typeof message.payload.manifestId === "string" &&
+              message.payload.manifestId.length > 0
+                ? message.payload.manifestId
+                : `manifest-${generateMessageId()}`,
+            functions: Array.isArray(message.payload.functions) ? message.payload.functions : [],
+          };
+          const delivered = await bridge.sendWithAck(
+            CHANNELS.COMMAND,
+            makeEventMessage("command.bind", bindPayload),
+            COMMAND_ACK_TIMEOUT_MS,
+          );
+          if (!delivered) {
+            setOutboundCanvasBridgeMessage({
+              id: generateMessageId(),
+              type: "command.bind.result",
+              payload: {
+                v: 1,
+                manifestId: bindPayload.manifestId,
+                accepted: [],
+                rejected: [
+                  {
+                    name: "*",
+                    code: "BIND_DELIVERY_FAILED",
+                    message: "Failed to deliver command manifest to daemon.",
+                  },
+                ],
+              },
+            });
+          }
+          return;
+        }
+
+        if (message.type === "command.cancel") {
+          const payload = {
+            v: typeof message.payload.v === "number" ? message.payload.v : 1,
+            callId: callId ?? "",
+            reason: typeof message.payload.reason === "string" ? message.payload.reason : undefined,
+          };
+          if (payload.callId.length === 0) return;
+          await bridge.sendWithAck(
+            CHANNELS.COMMAND,
+            makeEventMessage("command.cancel", payload),
+            COMMAND_ACK_TIMEOUT_MS,
+          );
+          return;
+        }
+
+        const invokePayload = {
+          v: typeof message.payload.v === "number" ? message.payload.v : 1,
+          callId: callId ?? "",
+          name: typeof message.payload.name === "string" ? message.payload.name : "",
+          args:
+            message.payload.args && typeof message.payload.args === "object"
+              ? (message.payload.args as Record<string, unknown>)
+              : {},
+          timeoutMs:
+            typeof message.payload.timeoutMs === "number" && message.payload.timeoutMs > 0
+              ? message.payload.timeoutMs
+              : undefined,
+        };
+        if (invokePayload.callId.length === 0 || invokePayload.name.length === 0) {
+          emitCommandFailureToCanvas(callId, "INVALID_COMMAND_INVOKE", "Invalid command payload.");
+          return;
+        }
+        const delivered = await bridge.sendWithAck(
+          CHANNELS.COMMAND,
+          makeEventMessage("command.invoke", invokePayload),
+          COMMAND_ACK_TIMEOUT_MS,
+        );
+        if (!delivered) {
+          emitCommandFailureToCanvas(
+            invokePayload.callId,
+            "COMMAND_DELIVERY_FAILED",
+            "Command invocation could not be delivered.",
+          );
+        }
+      })().catch((error) => {
+        console.warn("Failed to route canvas command bridge event", error);
+        emitCommandFailureToCanvas(
+          callId,
+          "COMMAND_ROUTE_FAILED",
+          "Command invocation failed to route to daemon.",
+        );
+      });
+    },
+    [bridgeRef, bridgeState, emitCommandFailureToCanvas],
+  );
+
   return {
     bridgeRef,
     bridgeState,
@@ -648,6 +821,8 @@ export function useLiveTransport({
     clearCanvas,
     lastAgentActivityAt,
     lastUserDeliveredAt,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     sendAudio,
     sendChat,
     sendFile,

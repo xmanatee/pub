@@ -1,10 +1,6 @@
 import * as net from "node:net";
 import { errorMessage } from "./cli-error.js";
-
-interface RawIpcRequest {
-  method: string;
-  params: Record<string, unknown>;
-}
+import type { RawIpcRequest } from "./live-ipc-protocol.js";
 
 type DaemonIpcRequestHandler = (request: RawIpcRequest) => Promise<Record<string, unknown>>;
 

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { CHANNELS, CONTROL_CHANNEL, generateMessageId } from "../../../shared/bridge-protocol-core";
+import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
@@ -12,8 +12,6 @@ import {
   type BufferedEntry,
   buildInboundPrompt,
   buildRenderErrorPrompt,
-  buildSessionBriefing,
-  parseSessionContextMeta,
   readRenderErrorMessage,
   readTextChatMessage,
   resolveCanvasReminderEvery,
@@ -165,7 +163,7 @@ export async function runClaudeCodeBridgeStartupProbe(
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
 ): Promise<BridgeRunner> {
-  const { slug, sendMessage, debugLog } = config;
+  const { slug, sendMessage, debugLog, sessionBriefing } = config;
 
   const claudePath = resolveClaudeCodePath(process.env);
   const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUBBLUE_PROJECT_ROOT || undefined;
@@ -177,7 +175,6 @@ export async function createClaudeCodeBridgeRunner(
   let lastError: string | undefined;
   let stopped = false;
   let activeChild: ReturnType<typeof spawn> | null = null;
-  let sessionBriefingSent = false;
 
   const canvasReminderEvery = resolveCanvasReminderEvery();
 
@@ -243,24 +240,11 @@ export async function createClaudeCodeBridgeRunner(
       throw new Error(`Claude Code exited with error: ${detail}`);
     }
   }
+  await deliverToClaudeCode(sessionBriefing);
+  debugLog("session briefing delivered");
+
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
-      if (
-        !sessionBriefingSent &&
-        entry.channel === CONTROL_CHANNEL &&
-        entry.msg.type === "event" &&
-        entry.msg.data === "session-context"
-      ) {
-        const ctx = parseSessionContextMeta(entry.msg.meta);
-        if (ctx) {
-          sessionBriefingSent = true;
-          const briefing = buildSessionBriefing(slug, ctx, config.instructions);
-          await deliverToClaudeCode(briefing);
-          debugLog("session briefing delivered");
-        }
-        return;
-      }
-
       const chat = readTextChatMessage(entry);
       if (chat) {
         const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(

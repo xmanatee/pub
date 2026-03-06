@@ -37,25 +37,26 @@ export type ControlEvent =
   | "capabilities"
   | "channel.open"
   | "channel.close"
-  | "session-context"
   | "status"
   | "error"
   | "delivery"
   | "ping"
   | "pong"
-  | "ack";
+  | "ack"
+  | "command.bind"
+  | "command.bind.result"
+  | "command.invoke"
+  | "command.result"
+  | "command.cancel";
 
-export interface SessionContextPayload {
-  title?: string;
-  contentType?: string;
-  contentPreview?: string;
-  isPublic?: boolean;
-  preferences?: {
-    voiceModeEnabled?: boolean;
-  };
-}
-
-export type BridgeCapability = "text" | "html" | "audio" | "video" | "binary" | "stream";
+export type BridgeCapability =
+  | "text"
+  | "html"
+  | "audio"
+  | "video"
+  | "binary"
+  | "stream"
+  | "command";
 
 export interface CapabilitiesPayload {
   caps: BridgeCapability[];
@@ -100,6 +101,7 @@ export const CHANNELS = {
   AUDIO: "audio",
   MEDIA: "media",
   FILE: "file",
+  COMMAND: "command",
 } as const;
 
 let idCounter = 0;
@@ -122,7 +124,8 @@ export function decodeMessage(raw: string): BridgeMessage | null {
       return parsed as BridgeMessage;
     }
     return null;
-  } catch {
+  } catch (_error) {
+    // Invalid JSON frames should be treated as non-protocol traffic.
     return null;
   }
 }

@@ -1,4 +1,4 @@
-import type { BridgeMessage, SessionContextPayload } from "../../../shared/bridge-protocol-core";
+import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../shared/bridge-protocol-core";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
 import type { BridgeInstructions } from "./live-daemon-shared.js";
@@ -8,6 +8,7 @@ export const MAX_SEEN_IDS = 10_000;
 
 export interface BridgeRunnerConfig {
   slug: string;
+  sessionBriefing: string;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onDeliveryUpdate?: (update: {
     channel: string;
@@ -39,6 +40,13 @@ export interface BufferedEntry {
   msg: BridgeMessage;
 }
 
+export interface SessionBriefingContext {
+  title?: string;
+  contentType?: string;
+  isPublic?: boolean;
+  canvasContentFilePath?: string;
+}
+
 export function buildCanvasPolicyReminderBlock(): string {
   return [
     "[Canvas policy reminder: do not reply to this reminder block]",
@@ -49,8 +57,8 @@ export function buildCanvasPolicyReminderBlock(): string {
   ].join("\n");
 }
 
-export function resolveCanvasReminderEvery(): number {
-  const raw = Number.parseInt(process.env.OPENCLAW_CANVAS_REMINDER_EVERY ?? "", 10);
+export function resolveCanvasReminderEvery(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number.parseInt(env.OPENCLAW_CANVAS_REMINDER_EVERY ?? "", 10);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CANVAS_REMINDER_EVERY;
   return raw;
 }
@@ -107,26 +115,9 @@ export function buildRenderErrorPrompt(
   ].join("\n");
 }
 
-export function parseSessionContextMeta(meta: BridgeMessage["meta"]): SessionContextPayload | null {
-  if (!meta) return null;
-  const payload: SessionContextPayload = {};
-  if (typeof meta.title === "string") payload.title = meta.title;
-  if (typeof meta.contentType === "string") payload.contentType = meta.contentType;
-  if (typeof meta.contentPreview === "string") payload.contentPreview = meta.contentPreview;
-  if (typeof meta.isPublic === "boolean") payload.isPublic = meta.isPublic;
-  if (meta.preferences && typeof meta.preferences === "object") {
-    const prefs = meta.preferences as Record<string, unknown>;
-    payload.preferences = {};
-    if (typeof prefs.voiceModeEnabled === "boolean") {
-      payload.preferences.voiceModeEnabled = prefs.voiceModeEnabled;
-    }
-  }
-  return payload;
-}
-
 export function buildSessionBriefing(
   slug: string,
-  ctx: SessionContextPayload,
+  ctx: SessionBriefingContext,
   instructions: BridgeInstructions,
 ): string {
   const lines: string[] = [
@@ -141,16 +132,10 @@ export function buildSessionBriefing(
   if (ctx.contentType) lines.push(`- Content type: ${ctx.contentType}`);
   if (ctx.isPublic !== undefined)
     lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
-  if (ctx.contentPreview) {
-    lines.push("- Content preview:");
-    lines.push(ctx.contentPreview);
-  }
-
-  if (ctx.preferences) {
-    lines.push("", "## User Preferences");
-    if (ctx.preferences.voiceModeEnabled !== undefined) {
-      lines.push(`- Voice mode: ${ctx.preferences.voiceModeEnabled ? "on" : "off"}`);
-    }
+  if (ctx.canvasContentFilePath) {
+    lines.push(`- The canvas contents are in <${ctx.canvasContentFilePath}> file.`);
+  } else {
+    lines.push("- Canvas is currently empty.");
   }
 
   lines.push(
@@ -159,6 +144,9 @@ export function buildSessionBriefing(
     `- ${instructions.replyHint}`,
     `- ${instructions.canvasHint}`,
   );
+  if (instructions.commandProtocolGuide.trim().length > 0) {
+    lines.push("", instructions.commandProtocolGuide.trim());
+  }
 
   return lines.join("\n");
 }

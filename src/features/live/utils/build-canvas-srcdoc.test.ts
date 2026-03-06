@@ -22,4 +22,17 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain("<!doctype html>");
     expect(output).toContain("<body><div>fragment</div></body>");
   });
+
+  it("injects command bridge runtime and pubblue API helpers", () => {
+    const input = "<html><head></head><body>ok</body></html>";
+    const output = buildCanvasSrcDoc(input, { bridgeToken: "token-123" });
+
+    expect(output).toContain('var bridgeToken="token-123";');
+    expect(output).toContain("pubblue.command=invokeCommand");
+    expect(output).toContain("pubblue.cancelCommand=cancelCommand");
+    expect(output).toContain("application/pubblue-command-manifest+json");
+    expect(output).toContain('emit("command.bind",manifest)');
+    expect(output).toContain('emit("command.invoke"');
+    expect(output).toContain('emit("command.cancel"');
+  });
 });

@@ -2,7 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { liveInfoDir, readLatestCliVersion, readLogTail } from "./daemon-files.js";
+import {
+  liveInfoDir,
+  liveSessionContentPath,
+  readLatestCliVersion,
+  readLogTail,
+  writeLiveSessionContentFile,
+} from "./daemon-files.js";
 
 describe("daemon-files", () => {
   const tempRoots: string[] = [];
@@ -50,6 +56,32 @@ describe("daemon-files", () => {
       const result = liveInfoDir();
       expect(result).toBe(path.join(dir, "lives"));
       expect(fs.existsSync(result)).toBe(true);
+    });
+  });
+
+  describe("session content files", () => {
+    it("uses expected extension by content type", () => {
+      const dir = makeTempDir();
+      const htmlPath = liveSessionContentPath("alpha", "html", dir);
+      const markdownPath = liveSessionContentPath("alpha", "markdown", dir);
+      const textPath = liveSessionContentPath("alpha", "text", dir);
+      const fallbackPath = liveSessionContentPath("alpha", "unknown", dir);
+      expect(htmlPath.endsWith(".session-content.html")).toBe(true);
+      expect(markdownPath.endsWith(".session-content.md")).toBe(true);
+      expect(textPath.endsWith(".session-content.txt")).toBe(true);
+      expect(fallbackPath.endsWith(".session-content.txt")).toBe(true);
+    });
+
+    it("sanitizes slug and writes content", () => {
+      const dir = makeTempDir();
+      const writtenPath = writeLiveSessionContentFile({
+        slug: "weird/slug",
+        contentType: "html",
+        content: "<h1>Hello</h1>",
+        rootDir: dir,
+      });
+      expect(path.basename(writtenPath)).toBe("weird-slug.session-content.html");
+      expect(fs.readFileSync(writtenPath, "utf-8")).toBe("<h1>Hello</h1>");
     });
   });
 

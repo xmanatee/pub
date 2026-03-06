@@ -1,25 +1,26 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
-import type { SessionContextPayload } from "~/features/live/lib/bridge-protocol";
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 
-const CONTENT_PREVIEW_MAX_LENGTH = 500;
-
 export function usePubLiveModel(slug: string) {
+  const lastResetSlugRef = useRef<string | null>(null);
+
   const {
     agentOnline,
+    availableAgents,
     clearSessionError,
     live,
     liveRequested,
     markBridgeConnected,
-    pub,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     storeBrowserCandidates,
@@ -38,7 +39,7 @@ export function usePubLiveModel(slug: string) {
     voiceModeEnabled,
   } = useLivePreferences();
 
-  const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
+  const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   const {
     addAgentAudioMessage,
@@ -61,18 +62,6 @@ export function usePubLiveModel(slug: string) {
     updateAudioMessageAnalysis,
   } = useLiveChatDelivery();
 
-  const sessionContext: SessionContextPayload | undefined = useMemo(() => {
-    if (!pub) return undefined;
-    const preview = pub.content?.slice(0, CONTENT_PREVIEW_MAX_LENGTH);
-    return {
-      title: pub.title,
-      contentType: pub.contentType,
-      contentPreview: preview,
-      isPublic: pub.isPublic,
-      preferences: { voiceModeEnabled },
-    };
-  }, [pub, voiceModeEnabled]);
-
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
   const {
@@ -82,6 +71,8 @@ export function usePubLiveModel(slug: string) {
     clearCanvas,
     lastAgentActivityAt,
     lastUserDeliveredAt,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     sendAudio,
     sendChat,
     sendFile,
@@ -93,7 +84,6 @@ export function usePubLiveModel(slug: string) {
     enabled: liveRequested && (sessionState === "inactive" || sessionState === "active"),
     agentAnswer: sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
-    sessionContext,
     autoOpenCanvas,
     storeBrowserOffer,
     storeBrowserCandidates,
@@ -115,8 +105,10 @@ export function usePubLiveModel(slug: string) {
     updateAudioMessageAnalysis,
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: slug navigation resets live panel data
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     clearMessages();
     clearFiles();
   }, [slug, clearFiles, clearMessages]);
@@ -135,6 +127,7 @@ export function usePubLiveModel(slug: string) {
   return {
     agentName: live?.agentName ?? null,
     agentOnline,
+    availableAgents,
     addSystemMessage,
     animationStyle,
     autoOpenCanvas,
@@ -144,6 +137,7 @@ export function usePubLiveModel(slug: string) {
     clearCanvas,
     clearFiles,
     clearMessages,
+    canUseDeveloperMode,
     connected: bridgeState === "connected",
     developerModeEnabled,
     files,
@@ -154,12 +148,16 @@ export function usePubLiveModel(slug: string) {
     messages,
     messagesEndRef,
     micGranted,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     sendAudio,
     sendChat,
     sendFile,
     sendRenderError,
     sessionState,
     sessionError,
+    selectedPresenceId,
+    setSelectedPresenceId,
     startLive,
     stopLive,
     setAnimationStyle,

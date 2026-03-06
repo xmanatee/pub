@@ -203,10 +203,13 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.goOnline();
+      await client.goOnline({ daemonSessionId: "daemon-1", agentName: "Agent One" });
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/online", baseUrl),
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ daemonSessionId: "daemon-1", agentName: "Agent One" }),
+        }),
       );
     });
 
@@ -218,10 +221,13 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.heartbeat();
+      await client.heartbeat({ daemonSessionId: "daemon-1" });
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/heartbeat", baseUrl),
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ daemonSessionId: "daemon-1" }),
+        }),
       );
     });
 
@@ -233,10 +239,13 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.goOffline();
+      await client.goOffline({ daemonSessionId: "daemon-1" });
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/offline", baseUrl),
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ daemonSessionId: "daemon-1" }),
+        }),
       );
     });
   });
@@ -275,6 +284,21 @@ describe("PubApiClient", () => {
       expect(result).toBeNull();
     });
 
+    it("getPendingLive includes daemonSessionId query when provided", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ live: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.getPendingLive("daemon-1");
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/live?daemonSessionId=daemon-1", baseUrl),
+        expect.any(Object),
+      );
+    });
+
     it("signalAnswer sends PATCH to agent/live/signal", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ ok: true }), {
@@ -283,10 +307,21 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.signalAnswer({ slug: "abc", answer: "answer-data" });
+      await client.signalAnswer({
+        slug: "abc",
+        daemonSessionId: "daemon-1",
+        answer: "answer-data",
+      });
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/live/signal", baseUrl),
-        expect.objectContaining({ method: "PATCH" }),
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            slug: "abc",
+            daemonSessionId: "daemon-1",
+            answer: "answer-data",
+          }),
+        }),
       );
     });
 
@@ -301,6 +336,21 @@ describe("PubApiClient", () => {
       await client.closeActiveLive();
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/live", baseUrl),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+
+    it("closeActiveLive includes daemonSessionId query when provided", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await client.closeActiveLive("daemon-1");
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("/api/v1/agent/live?daemonSessionId=daemon-1", baseUrl),
         expect.objectContaining({ method: "DELETE" }),
       );
     });

@@ -20,6 +20,6 @@ export function resolveCommandFromPath(
   const resolved = result.stdout.trim();
   if (resolved.length === 0) return null;
 
-  if (options.requireExistingPath !== false && !existsSync(resolved)) return null;
+  if ((options.requireExistingPath ?? true) && !existsSync(resolved)) return null;
   return resolved;
 }

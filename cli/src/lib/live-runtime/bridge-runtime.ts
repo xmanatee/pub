@@ -44,6 +44,9 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
     setIfMissing("CLAUDE_CODE_APPEND_SYSTEM_PROMPT", bridgeConfig.claudeCodeAppendSystemPrompt);
     setIfMissing("CLAUDE_CODE_MAX_TURNS", bridgeConfig.claudeCodeMaxTurns);
     setIfMissing("CLAUDE_CODE_CWD", bridgeConfig.claudeCodeCwd);
+    setIfMissing("PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS", bridgeConfig.commandDefaultTimeoutMs);
+    setIfMissing("PUBBLUE_COMMAND_MAX_OUTPUT_BYTES", bridgeConfig.commandMaxOutputBytes);
+    setIfMissing("PUBBLUE_COMMAND_MAX_CONCURRENT", bridgeConfig.commandMaxConcurrent);
   }
 
   setIfMissing("OPENCLAW_WORKSPACE", resolveOpenClawWorkspaceDir(env));
