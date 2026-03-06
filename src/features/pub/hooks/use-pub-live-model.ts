@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
@@ -8,6 +8,8 @@ import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 
 export function usePubLiveModel(slug: string) {
+  const lastResetSlugRef = useRef<string | null>(null);
+
   const {
     agentOnline,
     availableAgents,
@@ -104,6 +106,9 @@ export function usePubLiveModel(slug: string) {
   });
 
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     clearMessages();
     clearFiles();
   }, [slug, clearFiles, clearMessages]);

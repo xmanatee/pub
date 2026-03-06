@@ -52,8 +52,13 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
     onVoiceModeEnabledChange,
   } = actions;
 
-  const { autoOpenCanvas, animationStyle, canUseDeveloperMode, developerModeEnabled, voiceModeEnabled } =
-    behavior;
+  const {
+    autoOpenCanvas,
+    animationStyle,
+    canUseDeveloperMode,
+    developerModeEnabled,
+    voiceModeEnabled,
+  } = behavior;
   const { fileCount, hasCanvasContent, messageCount } = stats;
 
   return (

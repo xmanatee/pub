@@ -136,6 +136,7 @@ export function useLiveTransport({
       id: string;
     }>
   >([]);
+  const lastResetSlugRef = useRef<string | null>(null);
 
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
@@ -149,6 +150,9 @@ export function useLiveTransport({
   );
 
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     setCanvasHtml(null);
     setOutboundCanvasBridgeMessage(null);
     setViewMode("canvas");

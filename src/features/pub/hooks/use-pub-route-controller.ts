@@ -35,6 +35,7 @@ export function usePubRouteController({
   const trackedViewCount = useRef(false);
   const autoLiveTriggeredRef = useRef(false);
   const lastSessionErrorRef = useRef<string | null>(null);
+  const lastResetSlugRef = useRef<string | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
@@ -66,6 +67,9 @@ export function usePubRouteController({
   }, [pub, recordPublicView]);
 
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     lastSessionErrorRef.current = null;
     setLiveMode(false);
     setControlBarCollapsed(false);
@@ -79,7 +83,16 @@ export function usePubRouteController({
     model.clearMessages();
     model.clearSessionError();
     model.setViewMode("canvas");
-  }, [slug]);
+  }, [
+    dismissPreview,
+    model.clearCanvas,
+    model.clearFiles,
+    model.clearMessages,
+    model.clearSessionError,
+    model.setViewMode,
+    model.stopLive,
+    slug,
+  ]);
 
   useEffect(() => {
     if (!liveMode) return;
