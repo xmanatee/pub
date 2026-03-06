@@ -15,11 +15,9 @@ import {
   viewport,
 } from "@telegram-apps/sdk-react";
 
-export { isFullscreen };
+import { hasWindow } from "./has-window";
 
-function hasWindow(): boolean {
-  return typeof window !== "undefined";
-}
+export { isFullscreen };
 
 export const IN_TELEGRAM = isTMA();
 

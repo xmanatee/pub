@@ -15,7 +15,6 @@ import {
   buildInboundPrompt,
   buildRenderErrorPrompt,
   buildSessionBriefing,
-  parseSessionContextMeta,
   readRenderErrorMessage,
   resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
@@ -311,69 +310,15 @@ describe("resolveSessionFromSessionsData", () => {
   });
 });
 
-describe("parseSessionContextMeta", () => {
-  it("returns null for undefined meta", () => {
-    expect(parseSessionContextMeta(undefined)).toBeNull();
-  });
-
-  it("extracts string fields", () => {
-    const result = parseSessionContextMeta({
-      title: "My Pub",
-      contentType: "html",
-      contentPreview: "<h1>Hi</h1>",
-    });
-    expect(result).toEqual({
-      title: "My Pub",
-      contentType: "html",
-      contentPreview: "<h1>Hi</h1>",
-    });
-  });
-
-  it("extracts boolean isPublic", () => {
-    expect(parseSessionContextMeta({ isPublic: true })).toEqual({ isPublic: true });
-    expect(parseSessionContextMeta({ isPublic: false })).toEqual({ isPublic: false });
-  });
-
-  it("ignores fields with wrong types", () => {
-    const meta = { title: 123, isPublic: "yes" } as unknown as Record<string, unknown>;
-    const result = parseSessionContextMeta(meta);
-    expect(result).toEqual({});
-  });
-
-  it("extracts preferences.voiceModeEnabled", () => {
-    const result = parseSessionContextMeta({
-      preferences: { voiceModeEnabled: true },
-    });
-    expect(result?.preferences).toEqual({ voiceModeEnabled: true });
-  });
-
-  it("ignores preferences with wrong structure", () => {
-    const result = parseSessionContextMeta({ preferences: "invalid" });
-    expect(result?.preferences).toBeUndefined();
-  });
-
-  it("ignores non-boolean voiceModeEnabled in preferences", () => {
-    const result = parseSessionContextMeta({
-      preferences: { voiceModeEnabled: "yes" },
-    });
-    expect(result?.preferences).toEqual({});
-  });
-
-  it("returns empty payload for empty meta object", () => {
-    expect(parseSessionContextMeta({})).toEqual({});
-  });
-});
-
 describe("buildSessionBriefing", () => {
-  it("includes all pub context fields and how-to-respond section", () => {
+  it("includes pub context fields and canvas content file pointer", () => {
     const briefing = buildSessionBriefing(
       "my-demo",
       {
         title: "My Landing Page",
         contentType: "html",
-        contentPreview: "<h1>Welcome</h1>",
         isPublic: true,
-        preferences: { voiceModeEnabled: false },
+        canvasContentFilePath: "/tmp/my-demo.session-content.html",
       },
       openclawInstructions,
     );
@@ -383,8 +328,9 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("Title: My Landing Page");
     expect(briefing).toContain("Content type: html");
     expect(briefing).toContain("Visibility: public");
-    expect(briefing).toContain("<h1>Welcome</h1>");
-    expect(briefing).toContain("Voice mode: off");
+    expect(briefing).toContain(
+      "The canvas contents are in </tmp/my-demo.session-content.html> file.",
+    );
     expect(briefing).toContain("## How to respond");
     expect(briefing).toContain(openclawInstructions.replyHint);
     expect(briefing).toContain(openclawInstructions.canvasHint);
@@ -399,21 +345,12 @@ describe("buildSessionBriefing", () => {
     expect(briefing).not.toContain("Title:");
     expect(briefing).not.toContain("Content type:");
     expect(briefing).not.toContain("Visibility:");
-    expect(briefing).not.toContain("Content preview:");
+    expect(briefing).toContain("Canvas is currently empty.");
   });
 
   it("shows private visibility", () => {
     const briefing = buildSessionBriefing("secret", { isPublic: false }, openclawInstructions);
     expect(briefing).toContain("Visibility: private");
-  });
-
-  it("shows voice mode on", () => {
-    const briefing = buildSessionBriefing(
-      "voice-pub",
-      { preferences: { voiceModeEnabled: true } },
-      openclawInstructions,
-    );
-    expect(briefing).toContain("Voice mode: on");
   });
 
   it("uses claude-code instructions when given claude-code mode", () => {

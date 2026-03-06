@@ -31,7 +31,7 @@ export async function runAgentWritePongProbe(params: {
   const timeoutMs = params.timeoutMs ?? 20_000;
   const socketPath = generateProbeSocketPath();
   let receivedPongWrite = false;
-  let resolved = false;
+  let serverClosed = false;
 
   const server = net.createServer((conn) => {
     let data = "";
@@ -64,9 +64,9 @@ export async function runAgentWritePongProbe(params: {
   });
 
   const cleanup = async () => {
-    if (!resolved) {
+    if (!serverClosed) {
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      resolved = true;
+      serverClosed = true;
     }
     try {
       fs.unlinkSync(socketPath);

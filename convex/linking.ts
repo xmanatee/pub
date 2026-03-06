@@ -8,7 +8,7 @@ function generateToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const LINK_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
+const LINK_TOKEN_EXPIRY_MS = 10 * 60 * 1000; // TODO: schedule cleanup of expired linkTokens
 
 export const createLinkToken = mutation({
   args: {},
@@ -94,6 +94,22 @@ export const completeMerge = mutation({
       .collect();
     for (const session of sessions) {
       await ctx.db.patch(session._id, { userId: targetUserId });
+    }
+
+    const lives = await ctx.db
+      .query("lives")
+      .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
+      .collect();
+    for (const live of lives) {
+      await ctx.db.patch(live._id, { userId: targetUserId });
+    }
+
+    const presence = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
+      .collect();
+    for (const p of presence) {
+      await ctx.db.patch(p._id, { userId: targetUserId });
     }
 
     await ctx.db.delete(sourceUserId);

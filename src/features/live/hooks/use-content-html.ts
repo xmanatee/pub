@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { escapeHtml } from "~/lib/pub-preview";
 
 const MARKDOWN_STYLES = `
   body { max-width: 48rem; margin: 0 auto; padding: 3rem 2rem; font-family: system-ui, sans-serif; line-height: 1.7; color: #e4e4e7; background: #09090b; }
@@ -40,7 +41,7 @@ export function useContentHtml(
     }
 
     if (contentType === "text") {
-      const escaped = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const escaped = escapeHtml(content);
       setHtml(wrapInDocument(`<pre>${escaped}</pre>`, TEXT_STYLES));
       return;
     }

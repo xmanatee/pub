@@ -50,7 +50,8 @@ export default defineSchema({
   lives: defineTable({
     slug: v.string(),
     userId: v.id("users"),
-    status: v.union(v.literal("active"), v.literal("closed")),
+    status: v.literal("active"),
+    targetPresenceId: v.optional(v.id("agentPresence")),
     agentName: v.optional(v.string()),
     browserOffer: v.optional(v.string()),
     agentAnswer: v.optional(v.string()),
@@ -66,10 +67,16 @@ export default defineSchema({
 
   agentPresence: defineTable({
     userId: v.id("users"),
+    apiKeyId: v.id("apiKeys"),
+    agentName: v.optional(v.string()),
+    daemonSessionId: v.string(),
     status: v.union(v.literal("online"), v.literal("offline")),
     lastHeartbeatAt: v.number(),
     createdAt: v.number(),
-  }).index("by_user", ["userId"]),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_api_key", ["apiKeyId"]),
 
   linkTokens: defineTable({
     userId: v.id("users"),

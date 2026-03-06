@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { resolveAckChannel as resolveCoreAckChannel } from "../../../../shared/ack-routing-core";
 import * as coreProtocol from "../../../../shared/bridge-protocol-core";
+import { resolveAckChannel as resolveAppAckChannel } from "./ack-routing";
 import * as webProtocol from "./bridge-protocol";
 
 describe("bridge protocol sync (web <-> shared core)", () => {
@@ -27,5 +29,36 @@ describe("bridge protocol sync (web <-> shared core)", () => {
       channel: coreProtocol.CHANNELS.CHAT,
       receivedAt: ack.meta?.receivedAt,
     });
+  });
+});
+
+describe("ack routing parity (app vs shared core)", () => {
+  it("resolves target channel identically", () => {
+    const samples = [
+      {
+        controlChannelOpen: true,
+        messageChannelOpen: true,
+        messageChannel: webProtocol.CHANNELS.CHAT,
+      },
+      {
+        controlChannelOpen: false,
+        messageChannelOpen: true,
+        messageChannel: webProtocol.CHANNELS.CHAT,
+      },
+      {
+        controlChannelOpen: true,
+        messageChannelOpen: false,
+        messageChannel: webProtocol.CHANNELS.CHAT,
+      },
+      {
+        controlChannelOpen: false,
+        messageChannelOpen: false,
+        messageChannel: webProtocol.CHANNELS.CHAT,
+      },
+    ] as const;
+
+    for (const sample of samples) {
+      expect(resolveAppAckChannel(sample)).toBe(resolveCoreAckChannel(sample));
+    }
   });
 });

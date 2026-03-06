@@ -1,9 +1,13 @@
+import { FileText, Key, User } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
+import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const noop = () => {};
 const fakeId = (n: number) => `fake_${n}` as Id<"pubs">;
+const fakePresenceId = (n: number) => `presence_${n}` as Id<"agentPresence">;
 
 const HTML_PREVIEW = `<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1>
 <p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>`;
@@ -12,6 +16,13 @@ const TEXT_PREVIEW = `# Meeting Notes\n\n- Discussed project timeline\n- Assigne
 
 const MARKDOWN_PREVIEW = `## API Documentation\n\n\`\`\`javascript\nconst response = await fetch("/api/v1/pubs");\nconst data = await response.json();\n\`\`\``;
 
+const SAMPLE_CREATED_AT = {
+  helloWorld: Date.parse("2026-01-02T10:00:00.000Z"),
+  meetingNotes: Date.parse("2026-01-04T10:00:00.000Z"),
+  apiDocs: Date.parse("2026-01-05T10:00:00.000Z"),
+  emptyPub: Date.parse("2025-12-28T10:00:00.000Z"),
+};
+
 const SAMPLE_PUBS = [
   {
     _id: fakeId(1),
@@ -19,7 +30,7 @@ const SAMPLE_PUBS = [
     title: "Hello World",
     contentType: "html" as const,
     isPublic: true,
-    createdAt: Date.now() - 86400000 * 3,
+    createdAt: SAMPLE_CREATED_AT.helloWorld,
     contentPreview: HTML_PREVIEW,
   },
   {
@@ -28,7 +39,7 @@ const SAMPLE_PUBS = [
     title: "Meeting Notes",
     contentType: "text" as const,
     isPublic: false,
-    createdAt: Date.now() - 86400000,
+    createdAt: SAMPLE_CREATED_AT.meetingNotes,
     contentPreview: TEXT_PREVIEW,
   },
   {
@@ -38,7 +49,7 @@ const SAMPLE_PUBS = [
     contentType: "markdown" as const,
     isPublic: true,
     expiresAt: Date.now() + 3600000 * 12,
-    createdAt: Date.now() - 3600000 * 6,
+    createdAt: SAMPLE_CREATED_AT.apiDocs,
     contentPreview: MARKDOWN_PREVIEW,
   },
   {
@@ -46,7 +57,7 @@ const SAMPLE_PUBS = [
     slug: "empty-pub",
     contentType: undefined,
     isPublic: false,
-    createdAt: Date.now() - 86400000 * 7,
+    createdAt: SAMPLE_CREATED_AT.emptyPub,
     contentPreview: "",
   },
 ];
@@ -64,6 +75,29 @@ export function DashboardDebugPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Dashboard Debug</h1>
+
+        <section data-testid="batch-dashboard-tabs" className="bg-white p-6">
+          <div className="mb-5 text-center text-sm font-semibold">Dashboard Tabs</div>
+          <Tabs defaultValue="keys">
+            <TabsList>
+              <TabsTrigger value="pubs">
+                <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Pubs
+              </TabsTrigger>
+              <TabsTrigger value="keys">
+                <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Agent and Keys
+                <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
+                  3
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="account">
+                <User className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Account
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </section>
 
         <section data-testid="batch-dashboard-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
@@ -97,6 +131,13 @@ export function DashboardDebugPage() {
           />
         </section>
       </div>
+      <ControlBarGoLiveMode
+        agentOnline
+        availableAgents={[{ presenceId: fakePresenceId(1), agentName: "Agent" }]}
+        selectedPresenceId={fakePresenceId(1)}
+        onSelectedPresenceChange={noop}
+        onGoLive={noop}
+      />
     </div>
   );
 }

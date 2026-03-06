@@ -5,11 +5,10 @@ import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { getConvexSiteUrl } from "~/lib/convex-url";
 import { api } from "../../../../convex/_generated/api";
 
-const siteUrl = import.meta.env.VITE_CONVEX_URL
-  ? import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")
-  : "";
+const siteUrl = getConvexSiteUrl();
 
 export function ExplorePage() {
   const {

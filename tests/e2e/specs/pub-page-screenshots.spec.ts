@@ -12,4 +12,13 @@ test.describe("Pub page screenshots", () => {
     await expect(section).toBeVisible();
     await stableScreenshot(section, `${SCREENSHOT_DIR}/pub-page-states.png`);
   });
+
+  test("go live agent picker", async ({ page }) => {
+    await page.goto("/debug/pub-page");
+    await expect(page.getByRole("heading", { name: "Pub Page Debug" })).toBeVisible();
+    await freezeAnimations(page);
+    const section = page.getByTestId("batch-go-live-mode");
+    await expect(section).toBeVisible();
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/go-live-agent-picker.png`);
+  });
 });

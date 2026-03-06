@@ -7,13 +7,13 @@ import {
 } from "./live-daemon-shared.js";
 
 describe("getLiveWriteReadinessError", () => {
-  it("blocks writes before browser connection", () => {
+  it("blocks writes before live session establishment", () => {
     expect(getLiveWriteReadinessError(false)).toBe(
-      "No browser connected. Ask the user to open the pub URL first, then retry.",
+      "Live session is not established yet. Wait for browser connect and initial context sync, then retry.",
     );
   });
 
-  it("allows writes after browser connection", () => {
+  it("allows writes after live session establishment", () => {
     expect(getLiveWriteReadinessError(true)).toBeNull();
   });
 });

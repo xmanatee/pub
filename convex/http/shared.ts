@@ -2,20 +2,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { rateLimiter } from "../rateLimits";
-import {
-  escapeHtmlAttr,
-  escapeXml,
-  generateSlug,
-  INVALID_SLUG_MESSAGE,
-  inferContentType,
-  isValidSlug,
-  MAX_CONTENT_SIZE,
-  MAX_EXPIRY_MS,
-  MAX_TITLE_LENGTH,
-  MIME_TYPES,
-  parseExpiresIn,
-  truncate,
-} from "../utils";
+import { escapeHtmlAttr, isValidSlug } from "../utils";
 
 const HTML_CSP = [
   "default-src 'none'",
@@ -84,8 +71,8 @@ export class ApiError extends Error {
 export function mapLiveError(error: unknown): { message: string; status: number } | null {
   const message = error instanceof Error ? error.message : String(error);
   if (message === "Live not found") return { message, status: 404 };
-  if (message === "Live closed") return { message, status: 409 };
   if (message === "Live expired") return { message, status: 410 };
+  if (message === "Live assigned to another agent") return { message, status: 409 };
   return null;
 }
 
@@ -181,7 +168,7 @@ export function getPublicUrl() {
 }
 
 export function buildOgTags(pub: { title?: string; slug: string }): string {
-  const publicUrl = process.env.PUB_PUBLIC_URL ?? "";
+  const publicUrl = getPublicUrl();
   const siteUrl = process.env.CONVEX_SITE_URL ?? "";
   const title = escapeHtmlAttr(pub.title || pub.slug);
   return [
@@ -222,18 +209,3 @@ export function getOgCardData(
     slugLabel: `/${slug}`,
   };
 }
-
-export {
-  escapeHtmlAttr,
-  escapeXml,
-  generateSlug,
-  INVALID_SLUG_MESSAGE,
-  inferContentType,
-  isValidSlug,
-  MAX_CONTENT_SIZE,
-  MAX_EXPIRY_MS,
-  MAX_TITLE_LENGTH,
-  MIME_TYPES,
-  parseExpiresIn,
-  truncate,
-};

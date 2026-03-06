@@ -5,17 +5,13 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { CONTENT_TYPE_VALIDATOR, hashApiKey, MAX_PUBS } from "./utils";
+import { PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
+import { CONTENT_TYPE_VALIDATOR, generateSlug, hashApiKey, MAX_PUBS } from "./utils";
 
 /** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
 
 const LIVE_EXPIRY_MS = 24 * 60 * 60 * 1000;
-const PRESENCE_MAX_AGE_MS = 90_000;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 export function buildPubPatch(fields: {
   content?: string;
@@ -47,10 +43,44 @@ async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, sl
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .collect();
   for (const live of lives) {
-    if (live.status === "active") {
-      await db.delete(live._id);
-    }
+    await db.delete(live._id);
   }
+}
+
+function listFreshOnlinePresences(
+  presences: Array<{
+    _id: Id<"agentPresence">;
+    status: "online" | "offline";
+    lastHeartbeatAt: number;
+    agentName?: string;
+  }>,
+  now: number,
+) {
+  return presences
+    .filter(
+      (presence) =>
+        presence.status === "online" &&
+        now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+    )
+    .sort((a, b) => b.lastHeartbeatAt - a.lastHeartbeatAt);
+}
+
+function pickTargetPresence(
+  presences: Array<{ _id: Id<"agentPresence">; agentName?: string; lastHeartbeatAt: number }>,
+  preferredPresenceId?: Id<"agentPresence">,
+) {
+  if (preferredPresenceId) {
+    return presences.find((presence) => presence._id === preferredPresenceId) ?? null;
+  }
+  return presences[0] ?? null;
+}
+
+function liveMatchesTargetPresence(
+  live: { targetPresenceId?: Id<"agentPresence"> },
+  targetPresenceId?: Id<"agentPresence">,
+) {
+  if (!targetPresenceId) return true;
+  return live.targetPresenceId === targetPresenceId;
 }
 
 function mapPub(
@@ -90,10 +120,6 @@ function mapPub(
   if (includeContent) dto.content = pub.content;
   return dto;
 }
-
-// ---------------------------------------------------------------------------
-// Public queries
-// ---------------------------------------------------------------------------
 
 export const getBySlug = query({
   args: { slug: v.string() },
@@ -157,10 +183,6 @@ export const listPublic = query({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Public mutations
-// ---------------------------------------------------------------------------
-
 export const toggleVisibility = mutation({
   args: { id: v.id("pubs") },
   handler: async (ctx, { id }) => {
@@ -189,10 +211,6 @@ export const deleteByUser = mutation({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Live queries (browser uses these via reactive subscriptions)
-// ---------------------------------------------------------------------------
-
 export const listActiveLives = query({
   args: {},
   handler: async (ctx) => {
@@ -205,12 +223,58 @@ export const listActiveLives = query({
       .collect();
 
     return lives
-      .filter((s) => s.status === "active" && s.expiresAt > Date.now())
+      .filter((s) => s.expiresAt > Date.now())
       .map((s) => ({
         slug: s.slug,
         hasConnection: !!s.agentAnswer,
         expiresAt: s.expiresAt,
       }));
+  },
+});
+
+export const createDraftForLive = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const presences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    if (listFreshOnlinePresences(presences, Date.now()).length === 0) {
+      throw new Error("Agent offline");
+    }
+
+    const count = await countUserPubs(ctx.db, userId);
+    if (count >= MAX_PUBS) {
+      throw new Error(`Pub limit reached (${MAX_PUBS})`);
+    }
+
+    let slug: string | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = generateSlug();
+      const existing = await ctx.db
+        .query("pubs")
+        .withIndex("by_slug", (q) => q.eq("slug", candidate))
+        .unique();
+      if (!existing) {
+        slug = candidate;
+        break;
+      }
+    }
+    if (!slug) throw new Error("Could not generate unique slug");
+
+    const now = Date.now();
+    const id = await ctx.db.insert("pubs", {
+      userId,
+      slug,
+      isPublic: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { _id: id, slug };
   },
 });
 
@@ -225,13 +289,13 @@ export const getLiveBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed") return null;
-    if (live.expiresAt < Date.now()) return null;
+    if (!live || live.expiresAt < Date.now()) return null;
     if (live.userId !== userId) return null;
 
     return {
       slug: live.slug,
       status: live.status,
+      targetPresenceId: live.targetPresenceId,
       agentName: live.agentName,
       browserOffer: live.browserOffer,
       agentAnswer: live.agentAnswer,
@@ -254,14 +318,35 @@ export const getLiveBySlug = query({
  * - otherwise latest active live.
  */
 export const getLiveForAgentByApiKey = query({
-  args: { apiKey: v.string() },
-  handler: async (ctx, { apiKey }) => {
+  args: { apiKey: v.string(), daemonSessionId: v.string() },
+  handler: async (ctx, { apiKey, daemonSessionId }) => {
     const keyHash = await hashApiKey(apiKey);
     const key = await ctx.db
       .query("apiKeys")
       .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
       .unique();
     if (!key) throw new Error("Invalid API key");
+    const now = Date.now();
+    const byApiKey = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
+      .collect();
+    const presence = byApiKey.find(
+      (entry) =>
+        entry.daemonSessionId === daemonSessionId &&
+        entry.status === "online" &&
+        now - entry.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+    );
+    if (!presence) return null;
+    const allPresences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .collect();
+    const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
+    const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
+      if (live.targetPresenceId) return live.targetPresenceId === presence._id;
+      return freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === presence._id;
+    };
 
     const lives = await ctx.db
       .query("lives")
@@ -270,12 +355,12 @@ export const getLiveForAgentByApiKey = query({
       .collect();
 
     const pending = lives.find(
-      (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
+      (s) => s.expiresAt > now && matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer,
     );
     const active =
       pending ??
       lives.find((s) => {
-        return s.status === "active" && s.expiresAt > Date.now();
+        return s.expiresAt > now && matchesCurrentAgent(s);
       });
     if (!active) return null;
 
@@ -292,17 +377,14 @@ export const getLiveForAgentByApiKey = query({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Live mutations (browser writes signaling data)
-// ---------------------------------------------------------------------------
-
 export const requestLive = mutation({
   args: {
     slug: v.string(),
     browserSessionId: v.string(),
     browserOffer: v.string(),
+    targetPresenceId: v.optional(v.id("agentPresence")),
   },
-  handler: async (ctx, { slug, browserSessionId, browserOffer }) => {
+  handler: async (ctx, { slug, browserSessionId, browserOffer, targetPresenceId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -312,13 +394,18 @@ export const requestLive = mutation({
       .unique();
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
-    const presence = await ctx.db
+    const presences = await ctx.db
       .query("agentPresence")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-    if (!presence || presence.status !== "online") throw new Error("Agent offline");
-    if (Date.now() - presence.lastHeartbeatAt >= PRESENCE_MAX_AGE_MS) {
+      .collect();
+    const now = Date.now();
+    const freshOnlinePresences = listFreshOnlinePresences(presences, now);
+    if (freshOnlinePresences.length === 0) {
       throw new Error("Agent offline");
+    }
+    const targetPresence = pickTargetPresence(freshOnlinePresences, targetPresenceId);
+    if (!targetPresence) {
+      throw new Error("Selected agent unavailable");
     }
 
     const existing = await ctx.db
@@ -326,9 +413,7 @@ export const requestLive = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     for (const live of existing) {
-      if (live.status === "active") {
-        await ctx.db.delete(live._id);
-      }
+      await ctx.db.delete(live._id);
     }
 
     const expiresAt = Date.now() + LIVE_EXPIRY_MS;
@@ -336,6 +421,8 @@ export const requestLive = mutation({
       slug,
       userId,
       status: "active",
+      targetPresenceId: targetPresence._id,
+      agentName: targetPresence.agentName,
       browserOffer,
       browserSessionId,
       agentCandidates: [],
@@ -364,8 +451,7 @@ export const storeBrowserCandidates = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed") throw new Error("Live not found");
-    if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    if (!live || live.expiresAt < Date.now()) throw new Error("Live not found");
     if (live.userId !== userId) throw new Error("Live not found");
 
     if (live.browserSessionId && live.browserSessionId !== sessionId) {
@@ -390,16 +476,25 @@ export const takeoverLive = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed") throw new Error("Live not found");
-    if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    if (!live || live.expiresAt < Date.now()) throw new Error("Live not found");
     if (live.userId !== userId) throw new Error("Live not found");
 
     if (live.lastTakeoverAt && Date.now() - live.lastTakeoverAt < TAKEOVER_COOLDOWN_MS) {
       throw new Error("Takeover cooldown active");
     }
+    const presences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const freshOnlinePresences = listFreshOnlinePresences(presences, Date.now());
+    if (freshOnlinePresences.length === 0) throw new Error("Agent offline");
+    const targetPresence = pickTargetPresence(freshOnlinePresences, live.targetPresenceId);
+    if (!targetPresence) throw new Error("Agent offline");
 
     await ctx.db.patch(live._id, {
       browserSessionId: sessionId,
+      targetPresenceId: targetPresence._id,
+      agentName: targetPresence.agentName,
       agentAnswer: undefined,
       agentCandidates: [],
       lastTakeoverAt: Date.now(),
@@ -407,9 +502,21 @@ export const takeoverLive = mutation({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Internal mutations (called from HTTP actions)
-// ---------------------------------------------------------------------------
+export const closeLiveByUser = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const live = await ctx.db
+      .query("lives")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .order("desc")
+      .first();
+    if (!live || live.userId !== userId) return;
+    await ctx.db.delete(live._id);
+  },
+});
 
 export const createPub = internalMutation({
   args: {
@@ -544,31 +651,56 @@ export const listPublicByUserInternal = internalQuery({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Internal live mutations (called from HTTP actions)
-// ---------------------------------------------------------------------------
-
 export const storeAgentAnswer = internalMutation({
   args: {
     slug: v.string(),
     userId: v.id("users"),
+    apiKeyId: v.id("apiKeys"),
+    daemonSessionId: v.string(),
     answer: v.optional(v.string()),
     candidates: v.optional(v.array(v.string())),
     agentName: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, userId, answer, candidates, agentName }) => {
+  handler: async (
+    ctx,
+    { slug, userId, apiKeyId, daemonSessionId, answer, candidates, agentName },
+  ) => {
     const live = await ctx.db
       .query("lives")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
     if (!live || live.userId !== userId) throw new Error("Live not found");
-    if (live.status === "closed") throw new Error("Live closed");
     if (live.expiresAt < Date.now()) throw new Error("Live expired");
+    const now = Date.now();
+
+    let targetPresenceName: string | undefined;
+    if (live.targetPresenceId) {
+      const targetPresence = await ctx.db.get(live.targetPresenceId);
+      const isAssignedAgent =
+        !!targetPresence &&
+        targetPresence.apiKeyId === apiKeyId &&
+        targetPresence.daemonSessionId === daemonSessionId;
+      if (!isAssignedAgent) throw new Error("Live assigned to another agent");
+      targetPresenceName = targetPresence.agentName;
+    } else {
+      const byApiKey = await ctx.db
+        .query("agentPresence")
+        .withIndex("by_api_key", (q) => q.eq("apiKeyId", apiKeyId))
+        .collect();
+      const hasMatchingPresence = byApiKey.some(
+        (presence) =>
+          presence.daemonSessionId === daemonSessionId &&
+          presence.status === "online" &&
+          now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+      );
+      if (!hasMatchingPresence) throw new Error("Live assigned to another agent");
+    }
 
     const patch: Record<string, unknown> = {};
     if (answer !== undefined) patch.agentAnswer = answer;
-    if (agentName !== undefined) patch.agentName = agentName;
+    const resolvedAgentName = targetPresenceName ?? agentName;
+    if (resolvedAgentName !== undefined) patch.agentName = resolvedAgentName;
     if (candidates?.length) {
       const merged = [...live.agentCandidates, ...candidates].slice(0, MAX_CANDIDATES);
       patch.agentCandidates = merged;
@@ -579,8 +711,8 @@ export const storeAgentAnswer = internalMutation({
 });
 
 export const getPendingLiveForAgent = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+  args: { userId: v.id("users"), targetPresenceId: v.optional(v.id("agentPresence")) },
+  handler: async (ctx, { userId, targetPresenceId }) => {
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -588,7 +720,11 @@ export const getPendingLiveForAgent = internalQuery({
       .collect();
 
     const pending = lives.find(
-      (s) => s.status === "active" && s.expiresAt > Date.now() && s.browserOffer && !s.agentAnswer,
+      (s) =>
+        s.expiresAt > Date.now() &&
+        liveMatchesTargetPresence(s, targetPresenceId) &&
+        s.browserOffer &&
+        !s.agentAnswer,
     );
     if (!pending?.browserOffer) return null;
 
@@ -603,15 +739,17 @@ export const getPendingLiveForAgent = internalQuery({
 });
 
 export const getActiveLiveForAgent = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+  args: { userId: v.id("users"), targetPresenceId: v.optional(v.id("agentPresence")) },
+  handler: async (ctx, { userId, targetPresenceId }) => {
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
 
-    const active = lives.find((s) => s.status === "active" && s.expiresAt > Date.now());
+    const active = lives.find(
+      (s) => s.expiresAt > Date.now() && liveMatchesTargetPresence(s, targetPresenceId),
+    );
     if (!active) return null;
 
     return {
@@ -643,7 +781,7 @@ export const expireLive = internalMutation({
   args: { id: v.id("lives") },
   handler: async (ctx, { id }) => {
     const live = await ctx.db.get(id);
-    if (live && live.status === "active") {
+    if (live) {
       await ctx.db.delete(id);
     }
   },
@@ -657,7 +795,7 @@ export const getLiveBySlugInternal = internalQuery({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .order("desc")
       .first();
-    if (!live || live.status === "closed" || live.expiresAt < Date.now()) return null;
+    if (!live || live.expiresAt < Date.now()) return null;
     return live;
   },
 });
@@ -671,7 +809,7 @@ export const listLivesByUserInternal = internalQuery({
       .order("desc")
       .collect();
     return lives
-      .filter((s) => s.status === "active" && s.expiresAt > Date.now())
+      .filter((s) => s.expiresAt > Date.now())
       .map((s) => ({
         slug: s.slug,
         status: s.status,

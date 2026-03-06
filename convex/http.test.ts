@@ -8,7 +8,7 @@ import {
   jsonResponse,
   mapLiveError,
   shouldTouchApiKey,
-} from "./http";
+} from "./http/shared";
 import { MIME_TYPES } from "./utils";
 
 describe("corsHeaders", () => {
@@ -165,10 +165,6 @@ describe("mapLiveError", () => {
     expect(mapLiveError(new Error("Live not found"))).toEqual({
       message: "Live not found",
       status: 404,
-    });
-    expect(mapLiveError(new Error("Live closed"))).toEqual({
-      message: "Live closed",
-      status: 409,
     });
     expect(mapLiveError(new Error("Live expired"))).toEqual({
       message: "Live expired",

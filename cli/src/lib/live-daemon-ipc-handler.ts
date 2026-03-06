@@ -5,6 +5,7 @@ import {
   shouldAcknowledgeMessage,
 } from "../../../shared/bridge-protocol-core";
 import type { ChannelBuffer } from "./live-daemon-shared.js";
+import type { RawIpcRequest } from "./live-ipc-protocol.js";
 
 interface DaemonIpcHandlerParams {
   getConnected: () => boolean;
@@ -27,11 +28,6 @@ interface DaemonIpcHandlerParams {
   shutdown: () => void;
   writeAckTimeoutMs: number;
   writeAckMaxAttempts: number;
-}
-
-interface RawIpcRequest {
-  method: string;
-  params: Record<string, unknown>;
 }
 
 export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
