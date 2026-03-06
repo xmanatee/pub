@@ -221,7 +221,8 @@ export class BrowserBridge {
     try {
       dc.send(data);
       return true;
-    } catch {
+    } catch (error) {
+      console.warn("Failed to send binary payload over data channel", error);
       return false;
     }
   }

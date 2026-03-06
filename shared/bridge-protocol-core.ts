@@ -124,7 +124,8 @@ export function decodeMessage(raw: string): BridgeMessage | null {
       return parsed as BridgeMessage;
     }
     return null;
-  } catch {
+  } catch (_error) {
+    // Invalid JSON frames should be treated as non-protocol traffic.
     return null;
   }
 }

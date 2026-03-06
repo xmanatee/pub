@@ -206,7 +206,8 @@ function readClaudeAssistantOutput(line: string): string {
       return event.message.content;
     }
     return "";
-  } catch {
+  } catch (_error) {
+    // Claude stream-json output can contain non-JSON lines; ignore those fragments.
     return "";
   }
 }

@@ -336,10 +336,10 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain(openclawInstructions.canvasHint);
     expect(briefing).toContain("## Canvas Command Channel");
     expect(briefing).toContain("application/pubblue-command-manifest+json");
-    expect(briefing).toContain("\"manifestId\": \"mail-ui\"");
-    expect(briefing).toContain("\"functions\": [");
+    expect(briefing).toContain('"manifestId": "mail-ui"');
+    expect(briefing).toContain('"functions": [');
     expect(briefing).toContain("pubblue.command(name, args)");
-    expect(briefing).toContain("returns: \"text\" | \"json\"");
+    expect(briefing).toContain('returns: "text" | "json"');
   });
 
   it("always includes how-to-respond section even with minimal context", () => {
