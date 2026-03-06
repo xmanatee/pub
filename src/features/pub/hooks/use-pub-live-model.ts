@@ -38,7 +38,7 @@ export function usePubLiveModel(slug: string) {
     voiceModeEnabled,
   } = useLivePreferences();
 
-  const { developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
+  const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
   const {
     addAgentAudioMessage,
@@ -144,6 +144,7 @@ export function usePubLiveModel(slug: string) {
     clearCanvas,
     clearFiles,
     clearMessages,
+    canUseDeveloperMode,
     connected: bridgeState === "connected",
     developerModeEnabled,
     files,
