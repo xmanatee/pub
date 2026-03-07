@@ -61,21 +61,13 @@ describe("validate", () => {
   const botToken = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11";
 
   it("validates correctly signed initData", async () => {
-    const raw = await sign(
-      { user: { id: 1, first_name: "Test" } },
-      botToken,
-      new Date(),
-    );
+    const raw = await sign({ user: { id: 1, first_name: "Test" } }, botToken, new Date());
 
     await expect(validate(raw, botToken)).resolves.toBeUndefined();
   });
 
   it("throws on tampered hash", async () => {
-    const raw = await sign(
-      { user: { id: 1, first_name: "Test" } },
-      botToken,
-      new Date(),
-    );
+    const raw = await sign({ user: { id: 1, first_name: "Test" } }, botToken, new Date());
     const fakeHash = "0".repeat(64);
     const tampered = raw.replace(/hash=[^&]+/, `hash=${fakeHash}`);
 
@@ -83,15 +75,9 @@ describe("validate", () => {
   });
 
   it("throws on wrong bot token", async () => {
-    const raw = await sign(
-      { user: { id: 1, first_name: "Test" } },
-      botToken,
-      new Date(),
-    );
+    const raw = await sign({ user: { id: 1, first_name: "Test" } }, botToken, new Date());
 
-    await expect(
-      validate(raw, "999999:WRONG-TOKEN"),
-    ).rejects.toThrow();
+    await expect(validate(raw, "999999:WRONG-TOKEN")).rejects.toThrow();
   });
 
   it("throws when hash is missing", async () => {
@@ -107,8 +93,6 @@ describe("validate", () => {
       new Date(Date.now() - 200_000_000),
     );
 
-    await expect(
-      validate(raw, botToken, { expiresIn: 1 }),
-    ).rejects.toThrow();
+    await expect(validate(raw, botToken, { expiresIn: 1 })).rejects.toThrow();
   });
 });

@@ -1,8 +1,8 @@
 import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
-import { validate as validateInitData } from "@telegram-apps/init-data-node/web";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { convexAuth, createAccount, retrieveAccount } from "@convex-dev/auth/server";
+import { validate as validateInitData } from "@telegram-apps/init-data-node/web";
 import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { parseInitDataUser } from "./telegram";
@@ -28,8 +28,10 @@ const telegram = ConvexCredentials<DataModel>({
             console.error(
               "[TELEGRAM AUTH] initData validation FAILED —",
               "allowing login but signature is invalid.",
-              "slug:", slug,
-              "error:", msg,
+              "slug:",
+              slug,
+              "error:",
+              msg,
             );
           }
         }
