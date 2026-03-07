@@ -66,6 +66,7 @@ export function buildClaudeArgs(
   sessionId: string | null,
   systemPrompt: string | null,
   env: NodeJS.ProcessEnv = process.env,
+  opts?: { maxTurns?: number },
 ): string[] {
   const args = [
     "-p",
@@ -87,8 +88,12 @@ export function buildClaudeArgs(
   const effectiveSystemPrompt = [systemPrompt, userSystemPrompt].filter(Boolean).join("\n\n");
   if (effectiveSystemPrompt) args.push("--append-system-prompt", effectiveSystemPrompt);
 
-  const maxTurns = env.CLAUDE_CODE_MAX_TURNS?.trim();
-  if (maxTurns) args.push("--max-turns", maxTurns);
+  if (opts?.maxTurns !== undefined) {
+    args.push("--max-turns", String(opts.maxTurns));
+  } else {
+    const maxTurns = env.CLAUDE_CODE_MAX_TURNS?.trim();
+    if (maxTurns) args.push("--max-turns", maxTurns);
+  }
 
   return args;
 }
@@ -160,8 +165,11 @@ export async function runClaudeCodeBridgeStartupProbe(
   return { claudePath, cwd };
 }
 
+const SESSION_BRIEFING_MAX_TURNS = 3;
+
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
+  abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
 
@@ -173,13 +181,33 @@ export async function createClaudeCodeBridgeRunner(
   let sessionId: string | null = null;
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
-  let stopped = false;
+  let stopped = abortSignal?.aborted ?? false;
   let activeChild: ReturnType<typeof spawn> | null = null;
+
+  if (abortSignal) {
+    abortSignal.addEventListener(
+      "abort",
+      () => {
+        stopped = true;
+        if (activeChild) {
+          activeChild.kill("SIGINT");
+        }
+      },
+      { once: true },
+    );
+  }
 
   const canvasReminderEvery = resolveCanvasReminderEvery();
 
-  async function deliverToClaudeCode(prompt: string): Promise<void> {
-    const args = buildClaudeArgs(prompt, sessionId, config.instructions.systemPrompt);
+  async function deliverToClaudeCode(prompt: string, opts?: { maxTurns?: number }): Promise<void> {
+    if (stopped) return;
+    const args = buildClaudeArgs(
+      prompt,
+      sessionId,
+      config.instructions.systemPrompt,
+      process.env,
+      opts,
+    );
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 
     const spawnEnv = { ...process.env };
@@ -217,6 +245,18 @@ export async function createClaudeCodeBridgeRunner(
         if (typeof result.session_id === "string" && result.session_id.length > 0) {
           capturedSessionId = result.session_id;
         }
+      } else if (event.type === "assistant") {
+        const text = typeof event.message === "string" ? event.message : "";
+        debugLog(`claude assistant: ${text.slice(0, 200)}`);
+      } else if (event.type === "tool_use") {
+        const name = typeof event.name === "string" ? event.name : "unknown";
+        debugLog(`claude tool_use: ${name}`);
+      } else if (event.type === "tool_result") {
+        const isError = event.is_error === true;
+        if (isError) {
+          const content = typeof event.content === "string" ? event.content : "";
+          debugLog(`claude tool_result error: ${content.slice(0, 200)}`);
+        }
       }
     }
 
@@ -240,7 +280,7 @@ export async function createClaudeCodeBridgeRunner(
       throw new Error(`Claude Code exited with error: ${detail}`);
     }
   }
-  await deliverToClaudeCode(sessionBriefing);
+  await deliverToClaudeCode(sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
   debugLog("session briefing delivered");
 
   const queue = createBridgeEntryQueue({

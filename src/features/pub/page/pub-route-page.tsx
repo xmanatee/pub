@@ -39,18 +39,23 @@ export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLiv
         {controller.isNotFound ? <NotFoundScreen /> : null}
         {controller.canShowNoContent ? <NoContentScreen /> : null}
 
-        {!controller.isLoading &&
-        !controller.isNotFound &&
-        !controller.canShowNoContent &&
-        controller.viewMode === "canvas" ? (
-          <CanvasPanel
-            animationStyle={controller.canvasAnimationStyle}
-            html={controller.effectiveCanvasHtml}
-            onCanvasBridgeMessage={controller.onCanvasBridgeMessage}
-            onRenderError={controller.onRenderError}
-            outboundCanvasBridgeMessage={controller.outboundCanvasBridgeMessage}
-            visualState={controller.canvasVisualState}
-          />
+        {!controller.isLoading && !controller.isNotFound && !controller.canShowNoContent ? (
+          <div
+            className={
+              controller.viewMode === "canvas"
+                ? "absolute inset-0"
+                : "absolute inset-0 invisible pointer-events-none"
+            }
+          >
+            <CanvasPanel
+              animationStyle={controller.canvasAnimationStyle}
+              html={controller.effectiveCanvasHtml}
+              onCanvasBridgeMessage={controller.onCanvasBridgeMessage}
+              onRenderError={controller.onRenderError}
+              outboundCanvasBridgeMessage={controller.outboundCanvasBridgeMessage}
+              visualState={controller.canvasVisualState}
+            />
+          </div>
         ) : null}
 
         {controller.liveMode && controller.viewMode === "chat" ? (

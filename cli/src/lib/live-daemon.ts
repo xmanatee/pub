@@ -68,6 +68,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let browserConnected = false;
   let bridgePrimed = false;
   let bridgePriming: Promise<void> | null = null;
+  let bridgeAbort: AbortController | null = null;
   let recovering = false;
   let activeSlug: string | null = null;
 
@@ -103,6 +104,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let bridgeRunner: BridgeRunner | null = null;
   const commandHandler = createLiveCommandHandler({
     bridgeMode: config.bridgeMode,
+    debugLog: (message, error) => debugLog(message, error),
     markError,
     sendCommandMessage: async (msg) => {
       if (!isLiveConnected()) return false;
@@ -290,6 +292,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     browserConnected = false;
     bridgePrimed = false;
     bridgePriming = null;
+    if (bridgeAbort) {
+      bridgeAbort.abort();
+      bridgeAbort = null;
+    }
     if (!hadConnection) return;
     buffer.messages = [];
     failPendingAcks();
@@ -927,6 +933,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
     if (activeSlug !== slug) return;
     await stopBridge();
+    const abort = new AbortController();
+    bridgeAbort = abort;
     const instructions = buildBridgeInstructions(config.bridgeMode);
     const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
     const bridgeConfig = {
@@ -951,10 +959,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     };
     const runner =
       config.bridgeMode === "claude-code"
-        ? await createClaudeCodeBridgeRunner(bridgeConfig)
+        ? await createClaudeCodeBridgeRunner(bridgeConfig, abort.signal)
         : await createOpenClawBridgeRunner(bridgeConfig);
 
-    if (stopped || activeSlug !== slug) {
+    if (stopped || activeSlug !== slug || abort.signal.aborted) {
       await runner.stop();
       return;
     }
@@ -986,6 +994,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   async function stopBridge(): Promise<void> {
     bridgePrimed = false;
     bridgePriming = null;
+    if (bridgeAbort) {
+      bridgeAbort.abort();
+      bridgeAbort = null;
+    }
     if (bridgeRunner) {
       await bridgeRunner.stop();
       bridgeRunner = null;

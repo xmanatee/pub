@@ -26,6 +26,7 @@ const DEFAULT_MAX_CONCURRENT = 6;
 
 interface CommandHandlerParams {
   bridgeMode?: BridgeMode;
+  debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
 }
@@ -444,6 +445,9 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   async function handleBind(message: CommandBindPayload): Promise<void> {
+    params.debugLog(
+      `command:bind manifestId=${message.manifestId} functions=[${message.functions.map((f) => f.name).join(", ")}]`,
+    );
     const accepted: CommandBindResultPayload["accepted"] = [];
     const rejected: CommandBindResultPayload["rejected"] = [];
     boundFunctions.clear();
@@ -451,6 +455,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     for (const entry of message.functions) {
       const normalized = normalizeFunctionSpec(entry);
       if (!normalized.executor) {
+        params.debugLog(`command:bind rejected "${normalized.name}" — missing executor`);
         rejected.push({
           name: normalized.name,
           code: "INVALID_FUNCTION",
@@ -465,6 +470,9 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       });
     }
 
+    params.debugLog(
+      `command:bind result accepted=[${accepted.map((a) => a.name).join(", ")}] rejected=[${rejected.map((r) => r.name).join(", ")}]`,
+    );
     await sendBindResult({
       v: COMMAND_PROTOCOL_VERSION,
       manifestId: message.manifestId,
@@ -496,6 +504,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
     const spec = getSpec(message.name);
     if (!spec) {
+      params.debugLog(`command:invoke COMMAND_NOT_FOUND "${message.name}"`);
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
@@ -509,6 +518,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       return;
     }
 
+    params.debugLog(
+      `command:invoke "${message.name}" callId=${message.callId} args=${JSON.stringify(message.args ?? {}).slice(0, 200)}`,
+    );
+
     const abort = new AbortController();
     const startedAt = Date.now();
     running.set(message.callId, { abort, startedAt, cancelled: false });
@@ -517,15 +530,22 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       const value = await executeFunction(spec, message.args ?? {}, abort.signal);
       const active = running.get(message.callId);
       if (abort.signal.aborted || active?.cancelled) {
+        params.debugLog(
+          `command:invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
+        );
         await sendResult(buildCancelledResult(message.callId, startedAt));
         return;
       }
+      const durationMs = Date.now() - startedAt;
+      params.debugLog(
+        `command:invoke "${message.name}" ok=${true} duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
+      );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
         ok: true,
         value: spec.returns === "void" ? null : value,
-        durationMs: Date.now() - startedAt,
+        durationMs,
       });
     } catch (error) {
       const detail =
@@ -536,12 +556,16 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
         await sendResult(buildCancelledResult(message.callId, startedAt));
         return;
       }
+      const durationMs = Date.now() - startedAt;
+      params.debugLog(
+        `command:invoke "${message.name}" FAILED duration=${durationMs}ms error=${detail.slice(0, 300)}`,
+      );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
         ok: false,
         error: buildCommandError("COMMAND_EXECUTION_FAILED", detail),
-        durationMs: Date.now() - startedAt,
+        durationMs,
       });
     } finally {
       running.delete(message.callId);
@@ -560,6 +584,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
   async function handleBridgeMessage(message: BridgeMessage): Promise<void> {
     if (message.type !== "event") return;
+
+    params.debugLog(
+      `command:message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
+    );
 
     for (const [callId, result] of recentResults) {
       if (result.expiresAt <= Date.now()) {
