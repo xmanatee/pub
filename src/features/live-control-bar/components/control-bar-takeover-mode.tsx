@@ -1,4 +1,4 @@
-import { LogOut, RefreshCw } from "lucide-react";
+import { LayoutDashboard, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
@@ -61,12 +61,12 @@ export function ControlBarTakeoverMode({
             size="control"
             className={CB.actionButton}
             onClick={onExit}
-            aria-label="Leave"
+            aria-label="Dashboard"
           >
-            <LogOut />
+            <LayoutDashboard />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Leave</TooltipContent>
+        <TooltipContent>Dashboard</TooltipContent>
       </Tooltip>
 
       <Tooltip>

@@ -1,3 +1,4 @@
+import { LayoutDashboard } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import type { LiveViewMode } from "~/features/live/types/live-types";
@@ -33,11 +34,12 @@ export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptions
       <Separator className="my-0.5" />
       <Button
         variant="ghost"
-        className="h-10 w-full justify-start rounded-xl px-3 text-sm font-medium text-destructive"
+        className="h-10 w-full justify-start gap-2 rounded-xl px-3 text-sm font-medium"
         role="menuitem"
         onClick={onClose}
       >
-        Close
+        <LayoutDashboard className="size-4" />
+        Dashboard
       </Button>
     </div>
   );
