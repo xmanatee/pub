@@ -557,9 +557,6 @@ export function useLiveTransport({
   const sendFile = useCallback(
     (file: File) => {
       if (file.size > MAX_FILE_SIZE) {
-        console.warn(
-          `File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)} MB, max 10 MB)`,
-        );
         emitSystemMessage({
           content: `File "${file.name}" is too large. Max size is 10 MB.`,
           dedupeKey: "file-too-large",
@@ -572,7 +569,6 @@ export function useLiveTransport({
       if (isHtml) {
         const bridge = bridgeRef.current;
         if (!bridge) {
-          console.warn("Cannot send HTML file: bridge not connected");
           emitSystemMessage({
             content: "HTML update failed because live connection is not ready.",
             dedupeKey: "html-send-no-bridge",
@@ -584,7 +580,6 @@ export function useLiveTransport({
           const text = await file.text();
           const ready = await ensureChannelReady(bridge, CHANNELS.CANVAS);
           if (!ready) {
-            console.warn("Cannot send HTML file: canvas channel not ready");
             emitSystemMessage({
               content: "HTML update failed because the canvas channel is not ready.",
               dedupeKey: "html-channel-not-ready",

@@ -78,21 +78,7 @@ export function usePubRouteController({
     autoLiveTriggeredRef.current = false;
     dismissPreview();
     model.stopLive();
-    model.clearCanvas();
-    model.clearFiles();
-    model.clearMessages();
-    model.clearSessionError();
-    model.setViewMode("canvas");
-  }, [
-    dismissPreview,
-    model.clearCanvas,
-    model.clearFiles,
-    model.clearMessages,
-    model.clearSessionError,
-    model.setViewMode,
-    model.stopLive,
-    slug,
-  ]);
+  }, [dismissPreview, model.stopLive, slug]);
 
   useEffect(() => {
     if (!liveMode) return;
