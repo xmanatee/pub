@@ -5,11 +5,6 @@ import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
-import {
-  NoContentScreen,
-  NotFoundScreen,
-  StatusScreen,
-} from "~/features/pub/components/pub-route-screens";
 import { usePubLiveModel } from "~/features/pub/hooks/use-pub-live-model";
 import { usePubRouteController } from "~/features/pub/hooks/use-pub-route-controller";
 import { api } from "../../../../convex/_generated/api";
@@ -35,28 +30,22 @@ export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLiv
       )}
 
       <div className="flex-1 min-h-0 relative">
-        {controller.isLoading ? <StatusScreen text="Loading..." /> : null}
-        {controller.isNotFound ? <NotFoundScreen /> : null}
-        {controller.canShowNoContent ? <NoContentScreen /> : null}
-
-        {!controller.isLoading && !controller.isNotFound && !controller.canShowNoContent ? (
-          <div
-            className={
-              controller.viewMode === "canvas"
-                ? "absolute inset-0"
-                : "absolute inset-0 opacity-0 pointer-events-none"
-            }
-          >
-            <CanvasPanel
-              animationStyle={controller.canvasAnimationStyle}
-              html={controller.effectiveCanvasHtml}
-              onCanvasBridgeMessage={controller.onCanvasBridgeMessage}
-              onRenderError={controller.onRenderError}
-              outboundCanvasBridgeMessage={controller.outboundCanvasBridgeMessage}
-              visualState={controller.canvasVisualState}
-            />
-          </div>
-        ) : null}
+        <div
+          className={
+            controller.viewMode === "canvas"
+              ? "absolute inset-0"
+              : "absolute inset-0 opacity-0 pointer-events-none"
+          }
+        >
+          <CanvasPanel
+            animationStyle={controller.canvasAnimationStyle}
+            html={controller.effectiveCanvasHtml}
+            onCanvasBridgeMessage={controller.onCanvasBridgeMessage}
+            onRenderError={controller.onRenderError}
+            outboundCanvasBridgeMessage={controller.outboundCanvasBridgeMessage}
+            visualState={controller.canvasVisualState}
+          />
+        </div>
 
         {controller.liveMode && controller.viewMode === "chat" ? (
           <ChatPanel {...controller.chatPanelModel} />

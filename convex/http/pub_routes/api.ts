@@ -16,7 +16,7 @@ import {
   ApiError,
   authenticateAndRateLimit,
   authenticateApiKey,
-  corsHeaders,
+  corsPreflightHandler,
   errorResponse,
   executeAction,
   getApiKey,
@@ -28,10 +28,6 @@ import {
 } from "../shared";
 
 export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void {
-  const corsPreflightHandler = httpAction(async () => {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  });
-
   // -- CORS preflight -------------------------------------------------------
 
   http.route({ path: "/api/v1/pubs", method: "OPTIONS", handler: corsPreflightHandler });

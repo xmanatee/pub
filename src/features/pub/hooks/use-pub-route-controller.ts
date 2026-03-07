@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readStoredAnimationStyle } from "~/features/live/hooks/use-live-preferences";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
@@ -31,11 +32,13 @@ export function usePubRouteController({
   recordPublicView,
   slug,
 }: UsePubRouteControllerOptions) {
+  const navigate = useNavigate();
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
+  const notifiedStatusRef = useRef<string | null>(null);
   const autoLiveTriggeredRef = useRef(false);
   const lastSessionErrorRef = useRef<string | null>(null);
-  const lastResetSlugRef = useRef<string | null>(null);
+  const lastSlugRef = useRef<string | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
@@ -47,7 +50,26 @@ export function usePubRouteController({
   const isLoading = pub === undefined;
   const isNotFound = pub === null;
   const hasCanvasContent = Boolean(effectiveCanvasHtml);
-  const canShowNoContent = !isLoading && !isNotFound && !liveMode && !hasCanvasContent;
+
+  useEffect(() => {
+    if (isLoading) return;
+    const statusKey = isNotFound
+      ? "not-found"
+      : !hasCanvasContent && !liveMode
+        ? "no-content"
+        : null;
+    if (!statusKey || notifiedStatusRef.current === statusKey) return;
+    notifiedStatusRef.current = statusKey;
+    const content =
+      statusKey === "not-found"
+        ? "This pub doesn't exist or is not accessible."
+        : "This pub has no static content yet.";
+    model.addSystemMessage({
+      content,
+      dedupeKey: `pub-status:${statusKey}`,
+      severity: statusKey === "not-found" ? "error" : "warning",
+    });
+  }, [isLoading, isNotFound, hasCanvasContent, liveMode, model.addSystemMessage]);
 
   useEffect(() => {
     if (pub && !trackedAnalytics.current) {
@@ -67,18 +89,20 @@ export function usePubRouteController({
   }, [pub, recordPublicView]);
 
   useEffect(() => {
-    if (lastResetSlugRef.current === slug) return;
-    lastResetSlugRef.current = slug;
+    if (lastSlugRef.current === slug) return;
+    lastSlugRef.current = slug;
 
     lastSessionErrorRef.current = null;
+    notifiedStatusRef.current = null;
     setLiveMode(false);
     setControlBarCollapsed(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
     autoLiveTriggeredRef.current = false;
     dismissPreview();
+    model.resetForSlugChange();
     model.stopLive();
-  }, [dismissPreview, model.stopLive, slug]);
+  }, [dismissPreview, model.resetForSlugChange, model.stopLive, slug]);
 
   useEffect(() => {
     if (!liveMode) return;
@@ -177,6 +201,7 @@ export function usePubRouteController({
       setControlBarCollapsed(false);
       resetLiveSurface();
       model.stopLive();
+      void navigate({ to: "/dashboard" });
     },
     onDismissPreview: dismissPreview,
     onMicGranted: model.setMicGranted,
@@ -215,7 +240,6 @@ export function usePubRouteController({
 
   return {
     availableAgents: model.availableAgents,
-    canShowNoContent,
     agentOnline: model.agentOnline,
     canvasAnimationStyle,
     canvasVisualState,
@@ -229,9 +253,6 @@ export function usePubRouteController({
     controlBarModel,
     controlBarTransport,
     effectiveCanvasHtml,
-    hasCanvasContent,
-    isLoading,
-    isNotFound,
     isOwner,
     liveMode,
     onGoLive: enterLiveMode,
