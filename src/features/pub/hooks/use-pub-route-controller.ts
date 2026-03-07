@@ -135,9 +135,20 @@ export function usePubRouteController({
   const enterLiveMode = useCallback(() => {
     setLiveMode(true);
     setControlBarCollapsed(false);
-    resetLiveSurface();
+    dismissPreview();
+    model.clearFiles();
+    model.clearMessages();
+    model.clearSessionError();
+    model.setViewMode("canvas");
     model.startLive();
-  }, [model.startLive, resetLiveSurface]);
+  }, [
+    dismissPreview,
+    model.clearFiles,
+    model.clearMessages,
+    model.clearSessionError,
+    model.setViewMode,
+    model.startLive,
+  ]);
 
   useEffect(() => {
     if (!autoLive || autoLiveTriggeredRef.current) return;
