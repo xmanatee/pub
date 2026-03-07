@@ -56,6 +56,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.162.4
         version: 1.162.9(@tanstack/react-router@1.162.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
+      '@telegram-apps/init-data-node':
+        specifier: ^2.0.10
+        version: 2.0.10(typescript@5.9.3)
       '@telegram-apps/sdk-react':
         specifier: ^3.3.9
         version: 3.3.9(@types/react@19.2.14)(react@19.2.4)(typescript@5.9.3)
@@ -1650,6 +1653,10 @@ packages:
   '@telegram-apps/bridge@2.11.0':
     resolution: {integrity: sha512-kBZjWRRp/lxKeQ8r8cDWUY9EjxUtyeh/9xTQjsjuGRsCR5XTO1cyVbvcvqzHn53csGx3aBs+fOR3Pk3b6w2JHg==}
     deprecated: This package is not supported anymore. Use @tma.js/bridge instead
+
+  '@telegram-apps/init-data-node@2.0.10':
+    resolution: {integrity: sha512-hyJ0Qbc1Rqmog4OMS1neZo0PTBKDpOrXzy4EtEyXu8nAA8IK2iYJXnt3wRcvbYn6Qnkyh0wPEkIJmY8Hj3awPw==}
+    deprecated: This package is not supported anymore. Use @tma.js/init-data-node instead
 
   '@telegram-apps/navigation@1.0.14':
     resolution: {integrity: sha512-bqNgF/J8Po7ZtsELm3E1a6aPr7awwxO3sIqD8J6u12urOlGoW5+1KxKKbkPa58mgXuQdsltd8apI+OVy0IYiUA==}
@@ -4087,6 +4094,14 @@ snapshots:
       error-kid: 0.0.7
       mitt: 3.0.1
       valibot: 1.0.0(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
+
+  '@telegram-apps/init-data-node@2.0.10(typescript@5.9.3)':
+    dependencies:
+      '@telegram-apps/transformers': 2.2.6(typescript@5.9.3)
+      '@telegram-apps/types': 2.0.3
+      error-kid: 0.0.7
     transitivePeerDependencies:
       - typescript
 

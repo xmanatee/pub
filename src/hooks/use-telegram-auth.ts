@@ -3,7 +3,12 @@ import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { trackError, trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { getTelegramInitData, getTelegramStartParam, IN_TELEGRAM, parseStartParam } from "~/lib/telegram";
+import {
+  getTelegramInitData,
+  getTelegramStartParam,
+  IN_TELEGRAM,
+  parseStartParam,
+} from "~/lib/telegram";
 
 const TELEGRAM_INIT_DATA_RETRY_MS = 250;
 const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
