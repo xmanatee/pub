@@ -86,7 +86,7 @@ export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): strin
       "OpenClaw executable was not found.",
       "Configure it with: pubblue configure --set openclaw.path=/absolute/path/to/openclaw",
       "Or set OPENCLAW_PATH in environment.",
-      "Checked: " + discoveryPaths.join(", "),
+      `Checked: ${discoveryPaths.join(", ")}`,
     ].join(" "),
   );
 }
