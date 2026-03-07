@@ -13,11 +13,6 @@ import {
   resolveAttachmentRootDir,
 } from "./live-bridge-openclaw-attachments.js";
 import { resolveSessionFromOpenClaw } from "./live-bridge-openclaw-session.js";
-import {
-  resolveOpenClawHome,
-  resolveOpenClawStateDir,
-  resolveOpenClawWorkspaceDir,
-} from "./openclaw-paths.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
   type BridgeRunner,
@@ -33,19 +28,26 @@ import {
 } from "./live-bridge-shared.js";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
+import {
+  resolveOpenClawHome,
+  resolveOpenClawStateDir,
+  resolveOpenClawWorkspaceDir,
+} from "./openclaw-paths.js";
 
 const execFileAsync = promisify(execFile);
 function getOpenClawDiscoveryPaths(env: NodeJS.ProcessEnv = process.env): string[] {
   const home = resolveOpenClawHome(env);
   const stateDir = resolveOpenClawStateDir(env);
-  return [...new Set([
-    "/app/dist/index.js",
-    join(home, "openclaw", "dist", "index.js"),
-    join(stateDir, "openclaw"),
-    join(home, ".openclaw", "openclaw"),
-    "/usr/local/bin/openclaw",
-    "/opt/homebrew/bin/openclaw",
-  ])];
+  return [
+    ...new Set([
+      "/app/dist/index.js",
+      join(home, "openclaw", "dist", "index.js"),
+      join(stateDir, "openclaw"),
+      join(home, ".openclaw", "openclaw"),
+      "/usr/local/bin/openclaw",
+      "/opt/homebrew/bin/openclaw",
+    ]),
+  ];
 }
 
 export function isOpenClawAvailable(env: NodeJS.ProcessEnv = process.env): boolean {

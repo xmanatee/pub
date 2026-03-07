@@ -4,11 +4,8 @@ import {
   runClaudeCodeBridgeStartupProbe,
 } from "../live-bridge-claude-code.js";
 import { isOpenClawAvailable, runOpenClawBridgeStartupProbe } from "../live-bridge-openclaw.js";
-import {
-  resolveOpenClawHome,
-  resolveOpenClawWorkspaceDir,
-} from "../openclaw-paths.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
+import { resolveOpenClawHome, resolveOpenClawWorkspaceDir } from "../openclaw-paths.js";
 
 export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
