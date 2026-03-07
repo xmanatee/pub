@@ -44,7 +44,7 @@ export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLiv
             className={
               controller.viewMode === "canvas"
                 ? "absolute inset-0"
-                : "absolute inset-0 invisible pointer-events-none"
+                : "absolute inset-0 opacity-0 pointer-events-none"
             }
           >
             <CanvasPanel
