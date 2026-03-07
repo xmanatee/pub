@@ -26,6 +26,7 @@ import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
 import { createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import { type BridgeRunner, buildSessionBriefing } from "./live-bridge-shared.js";
+import { createLiveCommandHandler } from "./live-command-handler.js";
 import { createAnswer } from "./live-daemon-answer.js";
 import { createDaemonIpcHandler } from "./live-daemon-ipc-handler.js";
 import { createDaemonIpcServer } from "./live-daemon-ipc-server.js";
@@ -100,6 +101,21 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
   let bridgeRunner: BridgeRunner | null = null;
+  const commandHandler = createLiveCommandHandler({
+    bridgeMode: config.bridgeMode,
+    markError,
+    sendCommandMessage: async (msg) => {
+      if (!isLiveConnected()) return false;
+      const sent = await sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
+        context: 'command outbound on "command"',
+        maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
+      });
+      if (sent) {
+        trackOutboundMessage(CHANNELS.COMMAND, msg);
+      }
+      return sent;
+    },
+  });
 
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
@@ -211,7 +227,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     timestamp: number;
   }): void {
     // Canvas payloads can be large; keep runtime buffering scoped to operational chat/file reads.
-    if (entry.channel === CHANNELS.CANVAS) return;
+    if (entry.channel === CHANNELS.CANVAS || entry.channel === CHANNELS.COMMAND) return;
     buffer.messages.push(entry);
     if (buffer.messages.length > MAX_BUFFERED_MESSAGES) {
       buffer.messages.splice(0, buffer.messages.length - MAX_BUFFERED_MESSAGES);
@@ -381,6 +397,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         if (shouldAcknowledgeMessage(name, msg)) {
           queueAck(msg.id, name);
         }
+        if (name === CHANNELS.COMMAND) {
+          void commandHandler.onMessage(msg);
+          return;
+        }
         appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });
         bridgeRunner?.enqueue([{ channel: name, msg }]);
         if (
@@ -395,6 +415,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const pendingMeta = pendingInboundBinaryMeta.get(name);
       const activeStream = inboundStreams.get(name);
       if (pendingMeta) pendingInboundBinaryMeta.delete(name);
+      if (name === CHANNELS.COMMAND) {
+        return;
+      }
       const binMsg: BridgeMessage = pendingMeta
         ? {
             id: pendingMeta.id,
@@ -989,6 +1012,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
 
     await stopBridge();
+    commandHandler.stop();
     closeCurrentPeer();
     ipcServer.close();
 

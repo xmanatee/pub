@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type {
+  CanvasBridgeInboundMessage,
+  CanvasBridgeOutboundMessage,
   LiveAnimationStyle,
   LiveRenderErrorPayload,
   LiveVisualState,
@@ -11,7 +13,9 @@ import { CanvasLiveVisual } from "./canvas-live-visual";
 interface CanvasPanelProps {
   animationStyle: LiveAnimationStyle;
   html: string | null;
+  onCanvasBridgeMessage?: (message: CanvasBridgeInboundMessage) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
+  outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
   visualState: LiveVisualState;
 }
 
@@ -21,12 +25,16 @@ const RENDER_ERROR_REPORT_DEDUPE_MS = 2_500;
 export function CanvasPanel({
   animationStyle,
   html,
+  onCanvasBridgeMessage,
   onRenderError,
+  outboundCanvasBridgeMessage,
   visualState,
 }: CanvasPanelProps) {
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("visible");
   const [canvasError, setCanvasError] = useState<string | null>(null);
+  const [bridgeToken, setBridgeToken] = useState(() => createCanvasBridgeToken());
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lastReportedErrorRef = useRef<{ key: string; timestamp: number } | null>(null);
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
 
@@ -35,6 +43,7 @@ export function CanvasPanel({
       setCanvasError(null);
       return;
     }
+    setBridgeToken(createCanvasBridgeToken());
     setCanvasError(null);
   }, [html]);
 
@@ -52,15 +61,42 @@ export function CanvasPanel({
     const onMessage = (event: MessageEvent) => {
       const data = event.data as
         | {
+            bridgeToken?: string;
             colno?: number;
             filename?: string;
             lineno?: number;
             message?: string;
+            [key: string]: unknown;
             source?: string;
             type?: string;
           }
         | undefined;
-      if (!data || data.source !== "pubblue-canvas" || data.type !== "error") return;
+      if (!data || data.source !== "pubblue-canvas") return;
+      if (data.bridgeToken !== bridgeToken) return;
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (
+        data.type !== "error" &&
+        data.type !== "command.bind" &&
+        data.type !== "command.invoke" &&
+        data.type !== "command.cancel"
+      ) {
+        return;
+      }
+
+      if (data.type !== "error") {
+        if (!onCanvasBridgeMessage) return;
+        const payload: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(data)) {
+          if (key === "source" || key === "type" || key === "bridgeToken") continue;
+          payload[key] = value;
+        }
+        onCanvasBridgeMessage({
+          type: data.type,
+          payload,
+        });
+        return;
+      }
+
       const message = typeof data.message === "string" ? data.message : "Canvas script error";
       const lineInfo =
         typeof data.lineno === "number" && data.lineno > 0
@@ -89,14 +125,30 @@ export function CanvasPanel({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [onRenderError]);
+  }, [bridgeToken, onCanvasBridgeMessage, onRenderError]);
+
+  useEffect(() => {
+    if (!outboundCanvasBridgeMessage) return;
+    const frame = iframeRef.current?.contentWindow;
+    if (!frame) return;
+    frame.postMessage(
+      {
+        source: "pubblue-parent",
+        bridgeToken,
+        type: outboundCanvasBridgeMessage.type,
+        ...outboundCanvasBridgeMessage.payload,
+      },
+      "*",
+    );
+  }, [bridgeToken, outboundCanvasBridgeMessage]);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-background">
       {html ? (
         <iframe
           key={html}
-          srcDoc={buildCanvasSrcDoc(html)}
+          ref={iframeRef}
+          srcDoc={buildCanvasSrcDoc(html, { bridgeToken })}
           sandbox="allow-scripts allow-popups allow-forms allow-downloads"
           className={cn(
             "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
@@ -124,4 +176,11 @@ export function CanvasPanel({
       )}
     </div>
   );
+}
+
+function createCanvasBridgeToken(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `canvas-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
