@@ -6,7 +6,7 @@ import { rateLimiter } from "../rateLimits";
 import {
   ApiError,
   authenticateApiKey,
-  corsHeaders,
+  corsPreflightHandler,
   errorResponse,
   executeAction,
   getApiKey,
@@ -50,10 +50,6 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       agentName: agentNameRaw.length > 0 ? agentNameRaw : undefined,
     };
   }
-
-  const corsPreflightHandler = httpAction(async () => {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  });
 
   http.route({ pathPrefix: "/api/v1/agent/", method: "OPTIONS", handler: corsPreflightHandler });
 

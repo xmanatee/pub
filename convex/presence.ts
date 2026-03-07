@@ -35,7 +35,7 @@ async function listPresencesByApiKey(
     .collect();
 }
 
-function listFreshOnlinePresences(
+export function listFreshOnlinePresences(
   presences: Array<{
     _id: Id<"agentPresence">;
     status: "online" | "offline";

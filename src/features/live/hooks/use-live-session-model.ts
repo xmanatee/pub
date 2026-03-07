@@ -22,7 +22,6 @@ function errorMessage(error: unknown): string {
 }
 
 export function useLiveSessionModel(slug: string) {
-  const pub = useQuery(api.pubs.getBySlug, { slug });
   const live = useQuery(api.pubs.getLiveBySlug, { slug });
   const availableAgents = useQuery(api.presence.listAvailableForSlug, { slug });
   const agentOnline = availableAgents === undefined ? undefined : availableAgents.length > 0;
@@ -38,13 +37,12 @@ export function useLiveSessionModel(slug: string) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [selectedPresenceId, setSelectedPresenceId] = useState<Id<"agentPresence"> | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset session state on slug navigation
-  useEffect(() => {
+  const resetSession = useCallback(() => {
     setWasConnected(false);
     setLiveRequested(false);
     setSessionError(null);
     setSelectedPresenceId(null);
-  }, [slug]);
+  }, []);
 
   useEffect(() => {
     if (!availableAgents) return;
@@ -141,7 +139,7 @@ export function useLiveSessionModel(slug: string) {
     live,
     liveRequested,
     markBridgeConnected,
-    pub,
+    resetSession,
     sessionState,
     sessionError,
     selectedPresenceId,

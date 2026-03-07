@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
+import { httpAction } from "../_generated/server";
 import { rateLimiter } from "../rateLimits";
 import { escapeHtmlAttr, isValidSlug } from "../utils";
 
@@ -26,6 +27,10 @@ export function corsHeaders() {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
+
+export const corsPreflightHandler = httpAction(async () => {
+  return new Response(null, { status: 204, headers: corsHeaders() });
+});
 
 function baseSecurityHeaders() {
   return {
