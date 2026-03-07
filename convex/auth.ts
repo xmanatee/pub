@@ -24,10 +24,12 @@ const telegram = ConvexCredentials<DataModel>({
           try {
             await validateInitData(initData, botToken);
           } catch (error) {
+            const msg = error instanceof Error ? error.message : error;
             console.error(
-              "[TELEGRAM AUTH] initData validation FAILED — allowing login but signature is invalid.",
+              "[TELEGRAM AUTH] initData validation FAILED —",
+              "allowing login but signature is invalid.",
               "slug:", slug,
-              "error:", error instanceof Error ? error.message : error,
+              "error:", msg,
             );
           }
         }
