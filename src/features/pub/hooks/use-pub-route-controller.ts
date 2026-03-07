@@ -35,6 +35,7 @@ export function usePubRouteController({
   const trackedViewCount = useRef(false);
   const autoLiveTriggeredRef = useRef(false);
   const lastSessionErrorRef = useRef<string | null>(null);
+  const lastResetSlugRef = useRef<string | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
 
@@ -65,8 +66,10 @@ export function usePubRouteController({
     void recordPublicView({ slug: pub.slug });
   }, [pub, recordPublicView]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset state on slug navigation
   useEffect(() => {
+    if (lastResetSlugRef.current === slug) return;
+    lastResetSlugRef.current = slug;
+
     lastSessionErrorRef.current = null;
     setLiveMode(false);
     setControlBarCollapsed(false);
@@ -75,12 +78,7 @@ export function usePubRouteController({
     autoLiveTriggeredRef.current = false;
     dismissPreview();
     model.stopLive();
-    model.clearCanvas();
-    model.clearFiles();
-    model.clearMessages();
-    model.clearSessionError();
-    model.setViewMode("canvas");
-  }, [slug]);
+  }, [dismissPreview, model.stopLive, slug]);
 
   useEffect(() => {
     if (!liveMode) return;
@@ -132,6 +130,7 @@ export function usePubRouteController({
     behavior: {
       autoOpenCanvas: model.autoOpenCanvas,
       animationStyle: model.animationStyle,
+      canUseDeveloperMode: model.canUseDeveloperMode,
       developerModeEnabled: model.developerModeEnabled,
       voiceModeEnabled: model.voiceModeEnabled,
     },
@@ -236,8 +235,10 @@ export function usePubRouteController({
     isOwner,
     liveMode,
     onGoLive: enterLiveMode,
+    onCanvasBridgeMessage: liveMode ? model.onCanvasBridgeMessage : undefined,
     onSelectedPresenceChange: model.setSelectedPresenceId,
     onRenderError: liveMode ? model.sendRenderError : undefined,
+    outboundCanvasBridgeMessage: liveMode ? model.outboundCanvasBridgeMessage : null,
     settingsPanelActions,
     settingsPanelModel,
     selectedPresenceId: model.selectedPresenceId,

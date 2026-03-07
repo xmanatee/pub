@@ -74,7 +74,10 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
-- Config: `~/.config/pubblue/config.json` or env var `PUBBLUE_API_KEY`
+- Config: `~/.openclaw/pubblue/config.json` or env var `PUBBLUE_API_KEY`
+- Config dir resolution: `PUBBLUE_CONFIG_DIR` → `OPENCLAW_STATE_DIR/pubblue` → `OPENCLAW_HOME/.openclaw/pubblue` (or `~/.openclaw/pubblue`)
+- OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
+- OpenClaw workspace resolution: `OPENCLAW_WORKSPACE` → `OPENCLAW_CONFIG_PATH` (`agents.defaults.workspace` / legacy `workspace`) → `OPENCLAW_STATE_DIR/workspace` (or `~/.openclaw/workspace`)
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
 
 ### Content Serving

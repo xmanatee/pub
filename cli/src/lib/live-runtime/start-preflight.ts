@@ -31,6 +31,7 @@ interface CheckOutcome {
 const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> = [
   { field: "openclawPath", label: "openclaw.path" },
   { field: "openclawStateDir", label: "openclaw.stateDir" },
+  { field: "openclawWorkspace", label: "openclaw.workspace" },
   { field: "sessionId", label: "openclaw.sessionId" },
   { field: "threadId", label: "openclaw.threadId" },
   { field: "canvasReminderEvery", label: "openclaw.canvasReminderEvery" },
@@ -46,11 +47,15 @@ const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> 
   { field: "claudeCodeAppendSystemPrompt", label: "claude-code.appendSystemPrompt" },
   { field: "claudeCodeMaxTurns", label: "claude-code.maxTurns" },
   { field: "claudeCodeCwd", label: "claude-code.cwd" },
+  { field: "commandDefaultTimeoutMs", label: "command.defaultTimeoutMs" },
+  { field: "commandMaxOutputBytes", label: "command.maxOutputBytes" },
+  { field: "commandMaxConcurrent", label: "command.maxConcurrent" },
 ];
 
 const BRIDGE_ENV_OVERRIDE_KEYS = [
   "OPENCLAW_PATH",
   "OPENCLAW_STATE_DIR",
+  "OPENCLAW_WORKSPACE",
   "OPENCLAW_SESSION_ID",
   "OPENCLAW_THREAD_ID",
   "OPENCLAW_CANVAS_REMINDER_EVERY",
@@ -66,6 +71,9 @@ const BRIDGE_ENV_OVERRIDE_KEYS = [
   "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
   "CLAUDE_CODE_MAX_TURNS",
   "CLAUDE_CODE_CWD",
+  "PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS",
+  "PUBBLUE_COMMAND_MAX_OUTPUT_BYTES",
+  "PUBBLUE_COMMAND_MAX_CONCURRENT",
 ] as const;
 
 function listSavedBridgeConfigKeys(bridgeConfig?: BridgeConfig): string[] {

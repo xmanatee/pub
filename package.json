@@ -12,11 +12,11 @@
     "deploy:convex": "convex deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "biome check . && tsc --noEmit",
+    "lint": "biome check . && tsc --noEmit && bash scripts/no-raw-anchor.sh",
     "lint:fix": "biome check --fix .",
     "format": "biome format --fix .",
     "knip": "knip",
-    "check": "biome check . && tsc --noEmit && vitest run && knip",
+    "check": "biome check . && tsc --noEmit && bash scripts/no-raw-anchor.sh && vitest run && knip",
     "test:e2e": "playwright test"
   },
   "dependencies": {

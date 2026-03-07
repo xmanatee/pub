@@ -105,6 +105,7 @@ export class BrowserBridge {
     this.openChannel(CHANNELS.CHAT);
     this.openChannel(CHANNELS.CANVAS);
     this.openChannel(CHANNELS.RENDER_ERROR);
+    this.openChannel(CHANNELS.COMMAND);
 
     return await createBrowserOffer({
       createOffer: async () => {
@@ -220,7 +221,8 @@ export class BrowserBridge {
     try {
       dc.send(data);
       return true;
-    } catch {
+    } catch (error) {
+      console.warn("Failed to send binary payload over data channel", error);
       return false;
     }
   }
@@ -247,7 +249,7 @@ export class BrowserBridge {
     dc.onopen = () => {
       if (dc.label === CONTROL_CHANNEL) {
         const caps = makeEventMessage("capabilities", {
-          caps: ["text", "html", "audio", "video", "binary", "stream"],
+          caps: ["text", "html", "audio", "video", "binary", "stream", "command"],
         } as Record<string, unknown>);
         dc.send(encodeMessage(caps));
       }

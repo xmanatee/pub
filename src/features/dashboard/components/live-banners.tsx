@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Clock, ExternalLink, Radio } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { formatRelativeTime } from "~/lib/pub-preview";
@@ -15,9 +16,10 @@ export function LiveBanners({ lives }: { lives: LiveSession[] }) {
     <div className="space-y-2 mb-6">
       <h3 className="text-sm font-medium text-muted-foreground">Live Now</h3>
       {lives.map((s) => (
-        <a
+        <Link
           key={s.slug}
-          href={`/p/${s.slug}`}
+          to="/p/$slug"
+          params={{ slug: s.slug }}
           className="group flex items-center justify-between rounded-lg border border-emerald-600/20 bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-3 transition-colors hover:border-emerald-600/40"
         >
           <div className="flex items-center gap-2">
@@ -38,7 +40,7 @@ export function LiveBanners({ lives }: { lives: LiveSession[] }) {
             className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
             aria-hidden="true"
           />
-        </a>
+        </Link>
       ))}
     </div>
   );

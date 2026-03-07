@@ -8,3 +8,12 @@ export const currentUser = query({
     return { _id: userId };
   },
 });
+
+export const isDeveloper = query({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+    const user = await ctx.db.get(userId);
+    return user?.isDeveloper === true;
+  },
+});
