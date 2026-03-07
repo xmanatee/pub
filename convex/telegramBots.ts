@@ -13,7 +13,6 @@ export const upsertBotToken = internalMutation({
     if (!BOT_TOKEN_PATTERN.test(botToken)) {
       throw new Error("Invalid bot token format");
     }
-    const botId = botToken.split(":")[0];
     const now = Date.now();
 
     const existing = await ctx.db
@@ -22,11 +21,10 @@ export const upsertBotToken = internalMutation({
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { botId, botToken, botUsername, updatedAt: now });
+      await ctx.db.patch(existing._id, { botToken, botUsername, updatedAt: now });
     } else {
       await ctx.db.insert("telegramBots", {
         userId,
-        botId,
         botToken,
         botUsername,
         createdAt: now,
