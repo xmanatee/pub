@@ -24,6 +24,7 @@ import {
 } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
+import { createClaudeSdkBridgeRunner } from "./live-bridge-claude-sdk.js";
 import { createOpenClawBridgeRunner } from "./live-bridge-openclaw.js";
 import { type BridgeRunner, buildSessionBriefing } from "./live-bridge-shared.js";
 import { createLiveCommandHandler } from "./live-command-handler.js";
@@ -958,9 +959,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       instructions,
     };
     const runner =
-      config.bridgeMode === "claude-code"
-        ? await createClaudeCodeBridgeRunner(bridgeConfig, abort.signal)
-        : await createOpenClawBridgeRunner(bridgeConfig);
+      config.bridgeMode === "claude-sdk"
+        ? await createClaudeSdkBridgeRunner(bridgeConfig, abort.signal)
+        : config.bridgeMode === "claude-code"
+          ? await createClaudeCodeBridgeRunner(bridgeConfig, abort.signal)
+          : await createOpenClawBridgeRunner(bridgeConfig);
 
     if (stopped || activeSlug !== slug || abort.signal.aborted) {
       await runner.stop();

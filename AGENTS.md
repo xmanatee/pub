@@ -68,7 +68,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
-- `start --agent-name <name>` — registers agent presence and starts the per-user daemon; optional `--bridge openclaw|claude-code`; `--agent-name` is required and shown in browser UI
+- `start --agent-name <name>` — registers agent presence and starts the per-user daemon; optional `--bridge openclaw|claude-code|claude-sdk`; `--agent-name` is required and shown in browser UI
 - `stop` — deregisters agent presence, closes active live, stops daemon
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC

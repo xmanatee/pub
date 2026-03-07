@@ -10,7 +10,7 @@
 
 - Per-user daemon (not per-slug): `pubblue start` registers agent presence, daemon polls for incoming live requests
 - Browser-initiated live: browser creates WebRTC offer, daemon creates answer
-- Supported bridge modes: `openclaw` and `claude-code` (`pubblue start --bridge <mode>`)
+- Supported bridge modes: `openclaw`, `claude-code`, and `claude-sdk` (`pubblue start --bridge <mode>`)
 - Socket path: `/tmp/pubblue-agent.sock` (fixed, not slug-dependent)
 - Commands that need the active slug (`write`, `read`, `doctor`) resolve it via IPC to the daemon; `channels` queries daemon state directly
 - Product intent: let AI agents publish content and drive live browser visualizations with minimal operator setup.

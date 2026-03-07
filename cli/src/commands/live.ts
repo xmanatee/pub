@@ -76,7 +76,7 @@ function registerStartCommand(program: Command): void {
     .command("start")
     .description("Start the agent daemon (registers presence, awaits live requests)")
     .requiredOption("--agent-name <name>", "Agent display name shown to the browser user")
-    .option("--bridge <mode>", "Bridge mode: openclaw|claude-code")
+    .option("--bridge <mode>", "Bridge mode: openclaw|claude-code|claude-sdk")
     .action(async (opts: { agentName: string; bridge?: string }) => {
       writeLatestCliVersion(CLI_VERSION);
       const preflight = await runStartPreflight({ bridge: opts.bridge });
