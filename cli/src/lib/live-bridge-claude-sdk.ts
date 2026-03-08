@@ -86,7 +86,7 @@ export async function runClaudeSdkBridgeStartupProbe(
         pathToClaudeCodeExecutable: claudePath,
         env: probeEnvClean,
         allowedTools,
-        permissionMode: "bypassPermissions",
+        canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
       });
 
       try {
@@ -157,7 +157,7 @@ export async function createClaudeSdkBridgeRunner(
         ...(appendSystemPrompt ? { CLAUDE_CODE_APPEND_SYSTEM_PROMPT: appendSystemPrompt } : {}),
       },
       allowedTools,
-      permissionMode: "bypassPermissions",
+      canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
     });
     activeSession = session;
     return session;

@@ -92,6 +92,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let lastCanvasSnapshot: { slug: string; html: string } | null = null;
   let lastPersistedCanvasSnapshot: { slug: string; html: string } | null = null;
   let persistCanvasQueue: Promise<void> = Promise.resolve();
+  let commandProcessingQueue: Promise<void> = Promise.resolve();
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
@@ -105,6 +106,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let bridgeRunner: BridgeRunner | null = null;
   const commandHandler = createLiveCommandHandler({
     bridgeMode: config.bridgeMode,
+    log: (message, error) => alwaysLog(message, error),
     debugLog: (message, error) => debugLog(message, error),
     markError,
     sendCommandMessage: async (msg) => {
@@ -120,24 +122,25 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
   });
 
+  function formatLogDetail(error?: unknown): string {
+    if (error === undefined) return "";
+    if (error instanceof Error) return ` | ${error.name}: ${error.message}`;
+    if (typeof error === "string") return ` | ${error}`;
+    return ` | ${JSON.stringify(error)}`;
+  }
+
+  function alwaysLog(message: string, error?: unknown): void {
+    console.error(`[pubblue-agent] ${message}${formatLogDetail(error)}`);
+  }
+
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
-    const detail =
-      error === undefined
-        ? ""
-        : ` | ${
-            error instanceof Error
-              ? `${error.name}: ${error.message}`
-              : typeof error === "string"
-                ? error
-                : JSON.stringify(error)
-          }`;
-    console.error(`[pubblue-agent] ${message}${detail}`);
+    alwaysLog(message, error);
   }
 
   function markError(message: string, error?: unknown): void {
     lastError = error === undefined ? message : `${message}: ${errorMessage(error)}`;
-    debugLog(message, error);
+    alwaysLog(message, error);
   }
 
   function isLiveConnected(): boolean {
@@ -405,7 +408,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           queueAck(msg.id, name);
         }
         if (name === CHANNELS.COMMAND) {
-          void commandHandler.onMessage(msg);
+          // Use a basic promise chain to ensure sequential processing of command events.
+          // This prevents race conditions where handleInvoke might run while handleBind is clearing functions.
+          commandProcessingQueue = commandProcessingQueue
+            .then(() => commandHandler.onMessage(msg))
+            .catch((error) => {
+              markError("command message processing failed", error);
+            });
           return;
         }
         appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });

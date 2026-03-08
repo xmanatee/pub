@@ -15,6 +15,7 @@ function buildHandler() {
   const sentMessages: BridgeMessage[] = [];
   const handler = createLiveCommandHandler({
     bridgeMode: "openclaw",
+    log: () => {},
     debugLog: () => {},
     markError: () => {},
     sendCommandMessage: async (msg) => {

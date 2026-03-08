@@ -28,7 +28,8 @@ function buildCanvasBridgeScript(): string {
     'window.addEventListener("error",function(ev){emit("error",{message:ev&&ev.message?ev.message:"Script error",filename:ev&&ev.filename?ev.filename:"",lineno:ev&&typeof ev.lineno==="number"?ev.lineno:0,colno:ev&&typeof ev.colno==="number"?ev.colno:0});});',
     'window.addEventListener("unhandledrejection",function(ev){var reason=ev&&ev.reason;var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");emit("error",{message:message});});',
     'window.addEventListener("message",function(ev){var data=ev&&ev.data;if(!data||data.source!=="pubblue-parent"){return;}if(data.type==="command.bind.result"){manifestBound=true;stopManifestBindingRetry();applyCommandBindings(data);}if(data.type==="command.result"){if(data.ok){clearPending(data.callId,true,data.value);}else{var errMessage=data.error&&data.error.message?data.error.message:"Command failed";clearPending(data.callId,false,errMessage);}}});',
-    'try{var manifest=readCommandManifest();if(manifest){startManifestBinding(manifest);}}catch(error){emit("error",{message:"Failed to parse command manifest: "+toErrorMessage(error)});}',
+    'function tryBindManifest(){try{var manifest=readCommandManifest();if(manifest){startManifestBinding(manifest);}}catch(error){emit("error",{message:"Failed to parse command manifest: "+toErrorMessage(error)});}}',
+    'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",tryBindManifest);}else{tryBindManifest();}',
     "})();",
     "</script>",
   ].join("");

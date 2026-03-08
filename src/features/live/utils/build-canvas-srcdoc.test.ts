@@ -32,6 +32,8 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain("application/pubblue-command-manifest+json");
     expect(output).toContain("startManifestBinding(manifest)");
     expect(output).toContain("manifestRetryCount>=20");
+    expect(output).toContain("DOMContentLoaded");
+    expect(output).toContain("tryBindManifest");
     expect(output).toContain('emit("command.invoke"');
     expect(output).toContain('emit("command.cancel"');
     expect(output).not.toContain("bridgeToken");
