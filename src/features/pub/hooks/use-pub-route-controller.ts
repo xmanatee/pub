@@ -1,6 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { readStoredAnimationStyle } from "~/features/live/hooks/use-live-preferences";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { trackPubViewed } from "~/lib/analytics";
 import type { usePubLiveModel } from "./use-pub-live-model";
@@ -164,7 +163,6 @@ export function usePubRouteController({
   const settingsPanelModel = {
     behavior: {
       autoOpenCanvas: model.autoOpenCanvas,
-      animationStyle: model.animationStyle,
       canUseDeveloperMode: model.canUseDeveloperMode,
       developerModeEnabled: model.developerModeEnabled,
       voiceModeEnabled: model.voiceModeEnabled,
@@ -178,7 +176,6 @@ export function usePubRouteController({
 
   const settingsPanelActions = {
     onAutoOpenCanvasChange: model.setAutoOpenCanvas,
-    onAnimationStyleChange: model.setAnimationStyle,
     onClearCanvas: model.clearCanvas,
     onClearFiles: model.clearFiles,
     onClearMessages: model.clearMessages,
@@ -241,8 +238,6 @@ export function usePubRouteController({
     onToggleCollapsed: () => setControlBarCollapsed((collapsed) => !collapsed),
   };
 
-  const staticAnimationStyle = useMemo(() => readStoredAnimationStyle(), []);
-  const canvasAnimationStyle = liveMode ? model.animationStyle : staticAnimationStyle;
   const canvasVisualState = liveMode
     ? model.visualState
     : hasCanvasContent
@@ -252,7 +247,6 @@ export function usePubRouteController({
   return {
     availableAgents: model.availableAgents,
     agentOnline: model.agentOnline,
-    canvasAnimationStyle,
     canvasVisualState,
     chatPanelModel: {
       files: model.files,

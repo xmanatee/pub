@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
-import {
-  isLiveAnimationStyle,
-  LIVE_ANIMATION_STYLES,
-  type LiveAnimationStyle,
-} from "~/features/live/types/live-types";
 
 const STORAGE_KEYS = {
   autoOpenCanvas: "pubblue:live:auto-open-canvas",
-  animationStyle: "pubblue:live:animation-style",
   voiceModeEnabled: "pubblue:live:voice-mode-enabled",
   micGranted: "pubblue:live:mic-granted",
 } as const;
@@ -28,18 +22,10 @@ export function readStoredBoolean(
   return fallback;
 }
 
-export function readStoredAnimationStyle(getItem: GetItem = defaultGetItem): LiveAnimationStyle {
-  const raw = getItem(STORAGE_KEYS.animationStyle);
-  if (raw && isLiveAnimationStyle(raw)) return raw;
-  return LIVE_ANIMATION_STYLES[0];
-}
-
 export function useLivePreferences() {
   const [autoOpenCanvas, setAutoOpenCanvas] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.autoOpenCanvas, true),
   );
-  const [animationStyle, setAnimationStyle] =
-    useState<LiveAnimationStyle>(readStoredAnimationStyle);
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.voiceModeEnabled, false),
   );
@@ -52,10 +38,6 @@ export function useLivePreferences() {
   }, [autoOpenCanvas]);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.animationStyle, animationStyle);
-  }, [animationStyle]);
-
-  useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.voiceModeEnabled, voiceModeEnabled ? "1" : "0");
   }, [voiceModeEnabled]);
 
@@ -66,8 +48,6 @@ export function useLivePreferences() {
   return {
     autoOpenCanvas,
     setAutoOpenCanvas,
-    animationStyle,
-    setAnimationStyle,
     voiceModeEnabled,
     setVoiceModeEnabled,
     micGranted,

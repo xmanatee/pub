@@ -63,7 +63,6 @@ export function PanelsDebugPage() {
       model={{
         behavior: {
           autoOpenCanvas: true,
-          animationStyle: "aurora",
           canUseDeveloperMode: true,
           developerModeEnabled: false,
           voiceModeEnabled: false,
@@ -76,7 +75,6 @@ export function PanelsDebugPage() {
       }}
       actions={{
         onAutoOpenCanvasChange: noop,
-        onAnimationStyleChange: noop,
         onClearCanvas: noop,
         onClearFiles: noop,
         onClearMessages: noop,

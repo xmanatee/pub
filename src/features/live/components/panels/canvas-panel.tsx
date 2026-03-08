@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import type {
   CanvasBridgeInboundMessage,
   CanvasBridgeOutboundMessage,
-  LiveAnimationStyle,
   LiveRenderErrorPayload,
   LiveVisualState,
 } from "~/features/live/types/live-types";
@@ -11,7 +10,6 @@ import { cn } from "~/lib/utils";
 import { CanvasLiveVisual } from "./canvas-live-visual";
 
 interface CanvasPanelProps {
-  animationStyle: LiveAnimationStyle;
   html: string | null;
   onCanvasBridgeMessage?: (message: CanvasBridgeInboundMessage) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
@@ -23,7 +21,6 @@ type VisualPhase = "visible" | "fading" | "hidden";
 const RENDER_ERROR_REPORT_DEDUPE_MS = 2_500;
 
 export function CanvasPanel({
-  animationStyle,
   html,
   onCanvasBridgeMessage,
   onRenderError,
@@ -171,7 +168,6 @@ export function CanvasPanel({
           fadeOut={visualPhase === "fading"}
           hasCanvasContent={hasVisibleCanvasContent}
           state={visualState}
-          styleType={animationStyle}
         />
       )}
     </div>
