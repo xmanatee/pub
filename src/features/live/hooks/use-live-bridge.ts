@@ -7,6 +7,7 @@ import { trackError } from "~/lib/analytics";
 interface UseLiveBridgeOptions {
   slug: string;
   enabled: boolean;
+  connectionAttempt: number;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
@@ -24,6 +25,7 @@ interface UseLiveBridgeOptions {
 export function useLiveBridge({
   slug,
   enabled,
+  connectionAttempt,
   agentAnswer,
   agentCandidates,
   storeBrowserOffer,
@@ -162,7 +164,7 @@ export function useLiveBridge({
         bridgeRef.current = null;
       }
     };
-  }, [enabled, slug]);
+  }, [enabled, slug, connectionAttempt]);
 
   // Apply agent answer when it arrives
   useEffect(() => {

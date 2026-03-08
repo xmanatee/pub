@@ -8,6 +8,7 @@ import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload
 import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-record";
 import { useLongPress } from "~/hooks/use-long-press";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
+import { ControlBarOfflineMode } from "./control-bar-offline-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarShell } from "./control-bar-shell";
 import { ControlBarTakeoverMode } from "./control-bar-takeover-mode";
@@ -17,6 +18,7 @@ const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
 export interface ControlBarModel {
   agentName: string | null;
+  agentOnline?: boolean;
   chatPreview: string | null;
   chatPreviewSeverity?: SystemMessageSeverity | null;
   chatPreviewSource?: "agent" | "system" | null;
@@ -68,6 +70,7 @@ function formatTime(seconds: number) {
 export function ControlBar({ model, transport, actions, initialInput }: ControlBarProps) {
   const {
     agentName,
+    agentOnline,
     chatPreview,
     chatPreviewSeverity,
     chatPreviewSource,
@@ -174,7 +177,9 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
 
   let content: ReactNode;
 
-  if ((sessionState === "needs-takeover" || sessionState === "taken-over") && onTakeover) {
+  if (agentOnline === false) {
+    content = <ControlBarOfflineMode onExit={onClose} />;
+  } else if ((sessionState === "needs-takeover" || sessionState === "taken-over") && onTakeover) {
     content = (
       <ControlBarTakeoverMode
         lastTakeoverAt={lastTakeoverAt}

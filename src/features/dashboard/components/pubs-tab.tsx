@@ -1,11 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import { FileText } from "lucide-react";
+import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
 import { Card, CardContent } from "~/components/ui/card";
 import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
-import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
 import { trackError } from "~/lib/analytics";
 import { api } from "../../../../convex/_generated/api";
 
@@ -42,7 +41,6 @@ export function PubsTab() {
       await navigate({
         to: "/p/$slug",
         params: { slug },
-        search: { autoLive: "1" },
       });
     } catch (error) {
       const message = mutationErrorMessage(error);
@@ -60,13 +58,36 @@ export function PubsTab() {
     return <div className="text-muted-foreground py-8">Loading…</div>;
   }
 
+  const disabled = agentOnline !== true || startingLive;
+  const ariaLabel =
+    startingLive
+      ? "Starting live…"
+      : agentOnline === undefined
+        ? "Checking agent availability"
+        : disabled
+          ? "Agent offline"
+          : "Go live";
+
   const goLiveButton = (
-    <ControlBarGoLiveMode
-      agentOnline={startingLive ? undefined : agentOnline}
-      onGoLive={() => {
-        void handleStartLive();
-      }}
-    />
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex items-center justify-end px-3"
+      style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
+    >
+      <button
+        type="button"
+        onClick={() => void handleStartLive()}
+        disabled={disabled}
+        className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl transition-opacity hover:opacity-90 disabled:opacity-50"
+        aria-label={ariaLabel}
+        title={ariaLabel}
+      >
+        {startingLive || agentOnline === undefined ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : (
+          <Play className="size-5 fill-current" />
+        )}
+      </button>
+    </div>
   );
 
   if (pubs.length === 0) {

@@ -4,18 +4,16 @@ import { SettingsPanel } from "~/features/live/components/panels/settings-panel"
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
-import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
 import { usePubLiveModel } from "~/features/pub/hooks/use-pub-live-model";
 import { usePubRouteController } from "~/features/pub/hooks/use-pub-route-controller";
 import { api } from "../../../../convex/_generated/api";
 
-export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLive?: boolean }) {
+export function PubRoutePage({ slug }: { slug: string }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
   const recordPublicView = useMutation(api.analytics.recordPublicView);
   const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
   const model = usePubLiveModel(slug);
   const controller = usePubRouteController({
-    autoLive,
     baseContentHtml,
     model,
     pub,
@@ -58,17 +56,7 @@ export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLiv
         ) : null}
       </div>
 
-      {controller.isOwner && !controller.liveMode ? (
-        <ControlBarGoLiveMode
-          agentOnline={controller.agentOnline}
-          availableAgents={controller.availableAgents}
-          selectedPresenceId={controller.selectedPresenceId}
-          onSelectedPresenceChange={controller.onSelectedPresenceChange}
-          onGoLive={controller.onGoLive}
-        />
-      ) : null}
-
-      {controller.isOwner && controller.liveMode ? (
+      {controller.isOwner ? (
         <ControlBar
           model={controller.controlBarModel}
           transport={controller.controlBarTransport}

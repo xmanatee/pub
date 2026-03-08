@@ -12,16 +12,15 @@ export function usePubLiveModel(slug: string) {
     agentOnline,
     availableAgents,
     clearSessionError,
+    closeLive,
+    connectionAttempt,
     live,
-    liveRequested,
     markBridgeConnected,
     resetSession,
     sessionState,
     sessionError,
     selectedPresenceId,
     setSelectedPresenceId,
-    startLive,
-    stopLive,
     storeBrowserCandidates,
     storeBrowserOffer,
     takeoverLive,
@@ -61,6 +60,9 @@ export function usePubLiveModel(slug: string) {
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
+  const enabled =
+    agentOnline === true && (sessionState === "inactive" || sessionState === "active");
+
   const {
     bridgeRef,
     bridgeState,
@@ -78,7 +80,8 @@ export function usePubLiveModel(slug: string) {
     viewMode,
   } = useLiveTransport({
     slug,
-    enabled: liveRequested && (sessionState === "inactive" || sessionState === "active"),
+    enabled,
+    connectionAttempt,
     agentAnswer: sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
     autoOpenCanvas,
@@ -132,13 +135,13 @@ export function usePubLiveModel(slug: string) {
     clearFiles,
     clearMessages,
     canUseDeveloperMode,
+    closeLive,
     connected: bridgeState === "connected",
     developerModeEnabled,
     files,
     clearSessionError,
     lastTakeoverAt: live?.lastTakeoverAt,
     live,
-    liveRequested,
     messages,
     messagesEndRef,
     micGranted,
@@ -153,8 +156,6 @@ export function usePubLiveModel(slug: string) {
     sessionError,
     selectedPresenceId,
     setSelectedPresenceId,
-    startLive,
-    stopLive,
     setAutoOpenCanvas,
     setDeveloperModeEnabled,
     setMicGranted,

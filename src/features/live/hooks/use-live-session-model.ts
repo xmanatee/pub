@@ -1,10 +1,12 @@
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionState } from "~/features/live/types/live-types";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 const SESSION_STORAGE_PREFIX = "pub-live-session:";
+const MAX_CONNECTION_RETRIES = 3;
+const CONNECTION_RETRY_DELAY_MS = 3_000;
 
 function getOrCreateSessionId(slug: string): string {
   const key = `${SESSION_STORAGE_PREFIX}${slug}`;
@@ -33,16 +35,44 @@ export function useLiveSessionModel(slug: string) {
 
   const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
   const [wasConnected, setWasConnected] = useState(false);
-  const [liveRequested, setLiveRequested] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [selectedPresenceId, setSelectedPresenceId] = useState<Id<"agentPresence"> | null>(null);
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevAgentOnlineRef = useRef<boolean | undefined>(undefined);
 
   const resetSession = useCallback(() => {
     setWasConnected(false);
-    setLiveRequested(false);
     setSessionError(null);
     setSelectedPresenceId(null);
+    setConnectionAttempt(0);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Reset connectionAttempt when agent comes back online
+  useEffect(() => {
+    const prev = prevAgentOnlineRef.current;
+    prevAgentOnlineRef.current = agentOnline;
+    if (prev === false && agentOnline === true) {
+      setConnectionAttempt(0);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    }
+  }, [agentOnline]);
 
   useEffect(() => {
     if (!availableAgents) return;
@@ -50,7 +80,9 @@ export function useLiveSessionModel(slug: string) {
       setSelectedPresenceId(null);
       return;
     }
-    const stillAvailable = availableAgents.some((agent) => agent.presenceId === selectedPresenceId);
+    const stillAvailable = availableAgents.some(
+      (agent: { presenceId: Id<"agentPresence"> }) => agent.presenceId === selectedPresenceId,
+    );
     if (stillAvailable) return;
     const defaultPresenceId = availableAgents[0]?.presenceId ?? null;
     setSelectedPresenceId(defaultPresenceId);
@@ -75,10 +107,17 @@ export function useLiveSessionModel(slug: string) {
         return result;
       } catch (error) {
         setSessionError(errorMessage(error));
+        if (connectionAttempt < MAX_CONNECTION_RETRIES) {
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            setConnectionAttempt((prev) => prev + 1);
+          }, CONNECTION_RETRY_DELAY_MS);
+        }
         throw error;
       }
     },
-    [browserSessionId, requestLiveMutation, selectedPresenceId],
+    [browserSessionId, connectionAttempt, requestLiveMutation, selectedPresenceId],
   );
 
   const storeBrowserCandidates = useCallback(
@@ -111,14 +150,8 @@ export function useLiveSessionModel(slug: string) {
       });
   }, [browserSessionId, slug, takeoverLiveMutation]);
 
-  const startLive = useCallback(() => {
+  const closeLive = useCallback(() => {
     setSessionError(null);
-    setLiveRequested(true);
-  }, []);
-
-  const stopLive = useCallback(() => {
-    setSessionError(null);
-    setLiveRequested(false);
     void closeLiveMutation({ slug }).catch((error) => {
       setSessionError(errorMessage(error));
     });
@@ -136,16 +169,15 @@ export function useLiveSessionModel(slug: string) {
     availableAgents: availableAgents ?? [],
     agentOnline,
     clearSessionError,
+    closeLive,
+    connectionAttempt,
     live,
-    liveRequested,
     markBridgeConnected,
     resetSession,
     sessionState,
     sessionError,
     selectedPresenceId,
     setSelectedPresenceId,
-    startLive,
-    stopLive,
     storeBrowserCandidates,
     storeBrowserOffer,
     takeoverLive,

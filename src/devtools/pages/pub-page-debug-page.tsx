@@ -1,11 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 import { BatchSection } from "~/devtools/components/batch-section";
-import { ControlBarGoLiveMode } from "~/features/live-control-bar/components/control-bar-go-live-mode";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { ControlBarOfflineMode } from "~/features/live-control-bar/components/control-bar-offline-mode";
 
 const noop = () => {};
-const fakePresenceId = (n: number) => `presence_${n}` as Id<"agentPresence">;
 
 function TextContent({ text }: { text: string }) {
   return (
@@ -88,49 +86,13 @@ export function PubPageDebug() {
         />
 
         <BatchSection
-          title="Go Live Agent Picker"
-          testId="batch-go-live-mode"
+          title="Control Bar Offline Mode"
+          testId="batch-offline-mode"
           cellHeight={100}
           items={[
             {
-              label: "single online agent",
-              content: (
-                <ControlBarGoLiveMode
-                  agentOnline
-                  availableAgents={[{ presenceId: fakePresenceId(1), agentName: "Claude Agent" }]}
-                  selectedPresenceId={fakePresenceId(1)}
-                  onSelectedPresenceChange={noop}
-                  onGoLive={noop}
-                />
-              ),
-            },
-            {
-              label: "multiple online agents",
-              content: (
-                <ControlBarGoLiveMode
-                  agentOnline
-                  availableAgents={[
-                    { presenceId: fakePresenceId(1), agentName: "Claude Agent" },
-                    { presenceId: fakePresenceId(2), agentName: "OpenClaw Agent" },
-                    { presenceId: fakePresenceId(3), agentName: "Builder Agent" },
-                  ]}
-                  selectedPresenceId={fakePresenceId(2)}
-                  onSelectedPresenceChange={noop}
-                  onGoLive={noop}
-                />
-              ),
-            },
-            {
-              label: "offline",
-              content: (
-                <ControlBarGoLiveMode
-                  agentOnline={false}
-                  availableAgents={[]}
-                  selectedPresenceId={null}
-                  onSelectedPresenceChange={noop}
-                  onGoLive={noop}
-                />
-              ),
+              label: "agent offline",
+              content: <ControlBarOfflineMode onExit={noop} />,
             },
           ]}
         />

@@ -33,6 +33,7 @@ const COMMAND_ACK_TIMEOUT_MS = 4_000;
 interface UseLiveTransportOptions {
   slug: string;
   enabled: boolean;
+  connectionAttempt: number;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
   autoOpenCanvas: boolean;
@@ -98,6 +99,7 @@ interface UseLiveTransportOptions {
 export function useLiveTransport({
   slug,
   enabled,
+  connectionAttempt,
   agentAnswer,
   agentCandidates,
   autoOpenCanvas,
@@ -288,6 +290,7 @@ export function useLiveTransport({
   const { bridgeRef, bridgeState } = useLiveBridge({
     slug,
     enabled,
+    connectionAttempt,
     agentAnswer,
     agentCandidates,
     storeBrowserOffer,
