@@ -28,10 +28,8 @@ export function usePubLiveModel(slug: string) {
   } = useLiveSessionModel(slug);
 
   const {
-    animationStyle,
     autoOpenCanvas,
     micGranted,
-    setAnimationStyle,
     setAutoOpenCanvas,
     setMicGranted,
     setVoiceModeEnabled,
@@ -126,7 +124,6 @@ export function usePubLiveModel(slug: string) {
     agentOnline,
     availableAgents,
     addSystemMessage,
-    animationStyle,
     autoOpenCanvas,
     bridgeRef,
     bridgeState,
@@ -158,7 +155,6 @@ export function usePubLiveModel(slug: string) {
     setSelectedPresenceId,
     startLive,
     stopLive,
-    setAnimationStyle,
     setAutoOpenCanvas,
     setDeveloperModeEnabled,
     setMicGranted,

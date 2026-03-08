@@ -38,7 +38,6 @@ export function PubRoutePage({ slug, autoLive = false }: { slug: string; autoLiv
           }
         >
           <CanvasPanel
-            animationStyle={controller.canvasAnimationStyle}
             html={controller.effectiveCanvasHtml}
             onCanvasBridgeMessage={controller.onCanvasBridgeMessage}
             onRenderError={controller.onRenderError}

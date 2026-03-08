@@ -2,7 +2,7 @@ import { type BridgeMessage, CHANNELS } from "../../../shared/bridge-protocol-co
 import type { PubApiClient } from "./api.js";
 import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "./live-prompt-content.js";
 
-export type BridgeMode = "openclaw" | "claude-code";
+export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk";
 
 export interface BridgeInstructions {
   replyHint: string;
@@ -12,7 +12,7 @@ export interface BridgeInstructions {
 }
 
 export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
-  if (mode === "claude-code") {
+  if (mode === "claude-code" || mode === "claude-sdk") {
     return {
       replyHint: 'Reply command: pubblue write "<your reply>"',
       canvasHint: "Canvas command: pubblue write -c canvas -f /path/to/file.html",
