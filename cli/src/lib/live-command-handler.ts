@@ -26,7 +26,6 @@ const DEFAULT_MAX_CONCURRENT = 6;
 
 interface CommandHandlerParams {
   bridgeMode?: BridgeMode;
-  log: (message: string, error?: unknown) => void;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
@@ -446,18 +445,17 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   async function handleBind(message: CommandBindPayload): Promise<void> {
-    params.log(
+    params.debugLog(
       `command:bind manifestId=${message.manifestId} functions=[${message.functions.map((f) => f.name).join(", ")}]`,
     );
     const accepted: CommandBindResultPayload["accepted"] = [];
     const rejected: CommandBindResultPayload["rejected"] = [];
-    const oldFunctionCount = boundFunctions.size;
     boundFunctions.clear();
 
     for (const entry of message.functions) {
       const normalized = normalizeFunctionSpec(entry);
       if (!normalized.executor) {
-        params.log(`command:bind rejected "${normalized.name}" — missing executor`);
+        params.debugLog(`command:bind rejected "${normalized.name}" — missing executor`);
         rejected.push({
           name: normalized.name,
           code: "INVALID_FUNCTION",
@@ -472,8 +470,8 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       });
     }
 
-    params.log(
-      `command:bind result accepted=[${accepted.map((a) => a.name).join(", ")}] rejected=[${rejected.map((r) => r.name).join(", ")}] (was ${oldFunctionCount} functions)`,
+    params.debugLog(
+      `command:bind result accepted=[${accepted.map((a) => a.name).join(", ")}] rejected=[${rejected.map((r) => r.name).join(", ")}]`,
     );
     await sendBindResult({
       v: COMMAND_PROTOCOL_VERSION,
@@ -506,11 +504,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
     const spec = getSpec(message.name);
     if (!spec) {
-      params.log(
-        `command:invoke COMMAND_NOT_FOUND "${message.name}" | Registered functions: [${Array.from(
-          boundFunctions.keys(),
-        ).join(", ")}]`,
-      );
+      params.debugLog(`command:invoke COMMAND_NOT_FOUND "${message.name}"`);
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
@@ -524,7 +518,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       return;
     }
 
-    params.log(
+    params.debugLog(
       `command:invoke "${message.name}" callId=${message.callId} args=${JSON.stringify(message.args ?? {}).slice(0, 200)}`,
     );
 
@@ -536,15 +530,15 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       const value = await executeFunction(spec, message.args ?? {}, abort.signal);
       const active = running.get(message.callId);
       if (abort.signal.aborted || active?.cancelled) {
-        params.log(
+        params.debugLog(
           `command:invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
         );
         await sendResult(buildCancelledResult(message.callId, startedAt));
         return;
       }
       const durationMs = Date.now() - startedAt;
-      params.log(
-        `command:invoke "${message.name}" ok duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
+      params.debugLog(
+        `command:invoke "${message.name}" ok=${true} duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
       );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
@@ -563,7 +557,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
         return;
       }
       const durationMs = Date.now() - startedAt;
-      params.log(
+      params.debugLog(
         `command:invoke "${message.name}" FAILED duration=${durationMs}ms error=${detail.slice(0, 300)}`,
       );
       await sendResult({

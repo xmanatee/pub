@@ -106,7 +106,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let bridgeRunner: BridgeRunner | null = null;
   const commandHandler = createLiveCommandHandler({
     bridgeMode: config.bridgeMode,
-    log: (message, error) => alwaysLog(message, error),
     debugLog: (message, error) => debugLog(message, error),
     markError,
     sendCommandMessage: async (msg) => {
@@ -122,25 +121,24 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
   });
 
-  function formatLogDetail(error?: unknown): string {
-    if (error === undefined) return "";
-    if (error instanceof Error) return ` | ${error.name}: ${error.message}`;
-    if (typeof error === "string") return ` | ${error}`;
-    return ` | ${JSON.stringify(error)}`;
-  }
-
-  function alwaysLog(message: string, error?: unknown): void {
-    console.error(`[pubblue-agent] ${message}${formatLogDetail(error)}`);
-  }
-
   function debugLog(message: string, error?: unknown): void {
     if (!debugEnabled) return;
-    alwaysLog(message, error);
+    const detail =
+      error === undefined
+        ? ""
+        : ` | ${
+            error instanceof Error
+              ? `${error.name}: ${error.message}`
+              : typeof error === "string"
+                ? error
+                : JSON.stringify(error)
+          }`;
+    console.error(`[pubblue-agent] ${message}${detail}`);
   }
 
   function markError(message: string, error?: unknown): void {
     lastError = error === undefined ? message : `${message}: ${errorMessage(error)}`;
-    alwaysLog(message, error);
+    debugLog(message, error);
   }
 
   function isLiveConnected(): boolean {
