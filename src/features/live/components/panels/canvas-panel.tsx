@@ -33,18 +33,12 @@ export function CanvasPanel({
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("visible");
   const [canvasError, setCanvasError] = useState<string | null>(null);
-  const [bridgeToken, setBridgeToken] = useState(() => createCanvasBridgeToken());
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lastReportedErrorRef = useRef<{ key: string; timestamp: number } | null>(null);
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
 
   useEffect(() => {
-    if (!html) {
-      setCanvasError(null);
-      return;
-    }
-    setBridgeToken(createCanvasBridgeToken());
-    setCanvasError(null);
+    if (!html) setCanvasError(null);
   }, [html]);
 
   useEffect(() => {
@@ -59,9 +53,9 @@ export function CanvasPanel({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
       const data = event.data as
         | {
-            bridgeToken?: string;
             colno?: number;
             filename?: string;
             lineno?: number;
@@ -72,8 +66,6 @@ export function CanvasPanel({
           }
         | undefined;
       if (!data || data.source !== "pubblue-canvas") return;
-      if (data.bridgeToken !== bridgeToken) return;
-      if (event.source !== iframeRef.current?.contentWindow) return;
       if (
         data.type !== "error" &&
         data.type !== "command.bind" &&
@@ -87,7 +79,7 @@ export function CanvasPanel({
         if (!onCanvasBridgeMessage) return;
         const payload: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(data)) {
-          if (key === "source" || key === "type" || key === "bridgeToken") continue;
+          if (key === "source" || key === "type") continue;
           payload[key] = value;
         }
         onCanvasBridgeMessage({
@@ -125,7 +117,7 @@ export function CanvasPanel({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [bridgeToken, onCanvasBridgeMessage, onRenderError]);
+  }, [onCanvasBridgeMessage, onRenderError]);
 
   useEffect(() => {
     if (!outboundCanvasBridgeMessage) return;
@@ -134,13 +126,12 @@ export function CanvasPanel({
     frame.postMessage(
       {
         source: "pubblue-parent",
-        bridgeToken,
         type: outboundCanvasBridgeMessage.type,
         ...outboundCanvasBridgeMessage.payload,
       },
       "*",
     );
-  }, [bridgeToken, outboundCanvasBridgeMessage]);
+  }, [outboundCanvasBridgeMessage]);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-background">
@@ -148,7 +139,7 @@ export function CanvasPanel({
         <iframe
           key={html}
           ref={iframeRef}
-          srcDoc={buildCanvasSrcDoc(html, { bridgeToken })}
+          srcDoc={buildCanvasSrcDoc(html)}
           sandbox="allow-scripts allow-popups allow-forms allow-downloads"
           className={cn(
             "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
@@ -176,11 +167,4 @@ export function CanvasPanel({
       )}
     </div>
   );
-}
-
-function createCanvasBridgeToken(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `canvas-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }

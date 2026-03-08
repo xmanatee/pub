@@ -25,9 +25,8 @@ describe("buildCanvasSrcDoc", () => {
 
   it("injects command bridge runtime and pubblue API helpers", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input, { bridgeToken: "token-123" });
+    const output = buildCanvasSrcDoc(input);
 
-    expect(output).toContain('var bridgeToken="token-123";');
     expect(output).toContain("pubblue.command=invokeCommand");
     expect(output).toContain("pubblue.cancelCommand=cancelCommand");
     expect(output).toContain("application/pubblue-command-manifest+json");
@@ -35,5 +34,6 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain("manifestRetryCount>=20");
     expect(output).toContain('emit("command.invoke"');
     expect(output).toContain('emit("command.cancel"');
+    expect(output).not.toContain("bridgeToken");
   });
 });
