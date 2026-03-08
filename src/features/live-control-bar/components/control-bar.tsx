@@ -244,6 +244,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
       onToggleCollapsed={onToggleCollapsed}
       onBackToCanvas={() => onChangeView("canvas")}
       showBackButton={viewMode !== "canvas"}
+      visualState={visualState}
     >
       {content}
     </ControlBarShell>

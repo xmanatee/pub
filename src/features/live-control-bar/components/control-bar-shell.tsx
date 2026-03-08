@@ -1,6 +1,9 @@
-import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "~/components/ui/button";
+import { BlobVisual } from "~/features/live/components/visuals/blob-visual";
+import { VISUAL_THEME } from "~/features/live/components/visuals/shared";
+import type { LiveVisualState } from "~/features/live/types/live-types";
 import { cn } from "~/lib/utils";
 import { CB } from "./control-bar-classes";
 
@@ -10,6 +13,7 @@ interface ControlBarShellProps {
   onToggleCollapsed: () => void;
   onBackToCanvas: () => void;
   showBackButton: boolean;
+  visualState: LiveVisualState;
 }
 
 export function ControlBarShell({
@@ -18,6 +22,7 @@ export function ControlBarShell({
   onToggleCollapsed,
   onBackToCanvas,
   showBackButton,
+  visualState,
 }: ControlBarShellProps) {
   return (
     <div
@@ -31,12 +36,12 @@ export function ControlBarShell({
       <div className="pointer-events-auto relative mx-auto w-full max-w-4xl">
         <button
           type="button"
-          className="pointer-events-auto absolute -top-10 right-0 flex size-8 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl"
+          className="pointer-events-auto absolute -top-12 right-0 size-11 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl"
           onClick={onToggleCollapsed}
           aria-expanded={!collapsed}
           aria-label={collapsed ? "Show control bar" : "Hide control bar"}
         >
-          {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={false} />
         </button>
         <div className="flex items-end gap-2" {...(collapsed ? { inert: true } : {})}>
           <div className="min-w-0 flex-1">{children}</div>
