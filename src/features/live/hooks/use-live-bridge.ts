@@ -75,6 +75,7 @@ export function useLiveBridge({
   }, [storeBrowserCandidates]);
 
   // Browser is the offerer in this signaling flow.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: connectionAttempt is a prop used to force reconnection
   useEffect(() => {
     if (!enabled) return;
     setBridgeState("connecting");
