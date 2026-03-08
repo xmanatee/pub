@@ -40,7 +40,10 @@ export function buildSdkSessionOptions(env: NodeJS.ProcessEnv = process.env) {
 
   const allowedToolsRaw = env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
   const allowedTools = allowedToolsRaw
-    ? allowedToolsRaw.split(",").map((t) => t.trim()).filter(Boolean)
+    ? allowedToolsRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
     : undefined;
 
   const sdkEnv: Record<string, string | undefined> = { ...env };

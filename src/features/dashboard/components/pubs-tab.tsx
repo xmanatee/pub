@@ -59,14 +59,13 @@ export function PubsTab() {
   }
 
   const disabled = agentOnline !== true || startingLive;
-  const ariaLabel =
-    startingLive
-      ? "Starting live…"
-      : agentOnline === undefined
-        ? "Checking agent availability"
-        : disabled
-          ? "Agent offline"
-          : "Go live";
+  const ariaLabel = startingLive
+    ? "Starting live…"
+    : agentOnline === undefined
+      ? "Checking agent availability"
+      : disabled
+        ? "Agent offline"
+        : "Go live";
 
   const goLiveButton = (
     <div
