@@ -61,6 +61,7 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^28.1.0",
     "knip": "^5.85.0",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",

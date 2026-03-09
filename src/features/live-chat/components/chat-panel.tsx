@@ -9,7 +9,7 @@ import {
   ImageIcon,
   Paperclip,
 } from "lucide-react";
-import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { AudioBubble } from "~/features/live-chat/components/audio-bubble";
@@ -18,9 +18,9 @@ import type {
   ChatDeliveryState,
   ChatEntry,
   ImageChatEntry,
-  ReceivedFile,
   SystemChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
+import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 
 const TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit",
@@ -194,15 +194,8 @@ function DayDivider({ timestamp }: { timestamp: number }) {
   );
 }
 
-export function ChatPanel({
-  files,
-  messages,
-  messagesEndRef,
-}: {
-  files: ReceivedFile[];
-  messages: ChatEntry[];
-  messagesEndRef: RefObject<HTMLDivElement | null>;
-}) {
+export function ChatPanel() {
+  const { files, messages, messagesEndRef } = useLiveSession();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const messageCount = messages.length;

@@ -2,48 +2,26 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
+import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 
-export interface SettingsPanelModel {
-  behavior: {
-    autoOpenCanvas: boolean;
-    canUseDeveloperMode: boolean;
-    developerModeEnabled: boolean;
-    voiceModeEnabled: boolean;
-  };
-  stats: {
-    fileCount: number;
-    hasCanvasContent: boolean;
-    messageCount: number;
-  };
-}
-
-export interface SettingsPanelActions {
-  onAutoOpenCanvasChange: (value: boolean) => void;
-  onClearCanvas: () => void;
-  onClearFiles: () => void;
-  onClearMessages: () => void;
-  onDeveloperModeChange: (value: boolean) => void;
-  onVoiceModeEnabledChange: (value: boolean) => void;
-}
-
-interface SettingsPanelProps {
-  model: SettingsPanelModel;
-  actions: SettingsPanelActions;
-}
-
-export function SettingsPanel({ model, actions }: SettingsPanelProps) {
-  const { behavior, stats } = model;
+export function SettingsPanel() {
   const {
-    onAutoOpenCanvasChange,
-    onClearCanvas,
-    onClearFiles,
-    onClearMessages,
-    onDeveloperModeChange,
-    onVoiceModeEnabledChange,
-  } = actions;
+    autoOpenCanvas,
+    canUseDeveloperMode,
+    clearCanvas,
+    clearFiles,
+    clearMessages,
+    canvasHtml,
+    developerModeEnabled,
+    files,
+    messages,
+    setAutoOpenCanvas,
+    setDeveloperModeEnabled,
+    setVoiceModeEnabled,
+    voiceModeEnabled,
+  } = useLiveSession();
 
-  const { autoOpenCanvas, canUseDeveloperMode, developerModeEnabled, voiceModeEnabled } = behavior;
-  const { fileCount, hasCanvasContent, messageCount } = stats;
+  const hasCanvasContent = Boolean(canvasHtml);
 
   return (
     <div
@@ -62,7 +40,7 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
                 Automatically switch to canvas when new HTML is received.
               </div>
             </div>
-            <Switch checked={autoOpenCanvas} onCheckedChange={onAutoOpenCanvasChange} />
+            <Switch checked={autoOpenCanvas} onCheckedChange={setAutoOpenCanvas} />
           </div>
 
           <Separator />
@@ -77,7 +55,7 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
                 In development — may be unstable.
               </div>
             </div>
-            <Switch checked={voiceModeEnabled} onCheckedChange={onVoiceModeEnabledChange} />
+            <Switch checked={voiceModeEnabled} onCheckedChange={setVoiceModeEnabled} />
           </div>
 
           {canUseDeveloperMode && (
@@ -91,7 +69,7 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
                     Enable Eruda and keep rich error logs visible in the Mini App.
                   </div>
                 </div>
-                <Switch checked={developerModeEnabled} onCheckedChange={onDeveloperModeChange} />
+                <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />
               </div>
             </>
           )}
@@ -104,21 +82,21 @@ export function SettingsPanel({ model, actions }: SettingsPanelProps) {
         </CardHeader>
         <CardContent className="space-y-3 px-4 pb-4">
           <div className="text-xs text-muted-foreground">
-            Messages: {messageCount} · Files: {fileCount} · Canvas:{" "}
+            Messages: {messages.length} · Files: {files.length} · Canvas:{" "}
             {hasCanvasContent ? "loaded" : "empty"}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={onClearMessages}>
+            <Button type="button" variant="outline" size="sm" onClick={clearMessages}>
               Clear chat messages
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onClearFiles}>
+            <Button type="button" variant="outline" size="sm" onClick={clearFiles}>
               Clear file list
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={onClearCanvas}
+              onClick={clearCanvas}
               disabled={!hasCanvasContent}
             >
               Clear canvas
