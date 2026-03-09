@@ -1,4 +1,4 @@
-export type CanvasBridgeInboundType = "command.bind" | "command.invoke" | "command.cancel";
+export type CanvasBridgeInboundType = "command.invoke" | "command.cancel";
 
 export interface CanvasBridgeInboundMessage {
   type: CanvasBridgeInboundType;

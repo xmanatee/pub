@@ -11,6 +11,7 @@ import type { RawIpcRequest } from "./live-ipc-protocol.js";
 
 interface DaemonIpcHandlerParams {
   apiClient: PubApiClient;
+  bindCanvasCommands: (html: string) => void;
   getConnected: () => boolean;
   getSignalingConnected: () => boolean | null;
   getActiveSlug: () => string | null;
@@ -48,6 +49,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
               content: msg.data,
               filename: "live-canvas.html",
             });
+            params.bindCanvasCommands(msg.data);
             return { ok: true, delivered: true };
           } catch (error) {
             const errMsg =

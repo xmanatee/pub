@@ -340,3 +340,42 @@ export function parseCommandCancelMessage(msg: BridgeMessage): CommandCancelPayl
 export function parseCommandFunctionList(input: unknown): CommandFunctionSpec[] {
   return parseFunctionList(input);
 }
+
+const MANIFEST_SCRIPT_RE =
+  /<script\s[^>]*type\s*=\s*["']application\/pubblue-command-manifest\+json["'][^>]*>([\s\S]*?)<\/script>/i;
+
+export interface CanvasManifest {
+  v: number;
+  manifestId: string;
+  functions: CommandFunctionSpec[];
+}
+
+export function extractManifestFromHtml(html: string): CanvasManifest | null {
+  const match = MANIFEST_SCRIPT_RE.exec(html);
+  if (!match?.[1]) return null;
+  const raw = match[1].trim();
+  if (raw.length === 0) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+  const record = parsed as Record<string, unknown>;
+
+  const manifestId =
+    typeof record.manifestId === "string" && record.manifestId.length > 0
+      ? record.manifestId
+      : `manifest-${Date.now().toString(36)}`;
+
+  const functions = parseFunctionList(record.functions);
+
+  return {
+    v: typeof record.version === "number" ? record.version : 1,
+    manifestId,
+    functions,
+  };
+}

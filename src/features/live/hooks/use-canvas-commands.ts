@@ -1,13 +1,10 @@
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CHANNELS,
   generateMessageId,
   makeEventMessage,
 } from "~/features/live/lib/bridge-protocol";
-import {
-  parseCommandBindResultMessage,
-  parseCommandResultMessage,
-} from "~/features/live/lib/command-protocol";
+import { parseCommandResultMessage } from "~/features/live/lib/command-protocol";
 import type { BridgeState, BrowserBridge, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 import type {
@@ -34,65 +31,57 @@ export function useCanvasCommands({
   const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
     useState<CanvasBridgeOutboundMessage | null>(null);
 
-  const commandProcessingQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const boundManifestIdRef = useRef<string | null>(null);
-  const pendingBindRef = useRef<{
-    manifestId: string;
-    functions: unknown[];
-    v: number;
-  } | null>(null);
-
   const manifest = useMemo(() => (html ? parseCanvasManifest(html) : null), [html]);
 
+  // Notify iframe of available commands whenever manifest or connection state changes.
+  // Daemon binds from the same HTML independently via Convex — no WebRTC round-trip needed.
   useEffect(() => {
-    boundManifestIdRef.current = null;
-    pendingBindRef.current = manifest
-      ? { manifestId: manifest.manifestId, functions: manifest.functions, v: manifest.v }
-      : null;
-  }, [manifest]);
+    if (!manifest) return;
 
-  useEffect(() => {
-    if (bridgeState !== "connected" || !liveMode) return;
-    const pending = pendingBindRef.current;
-    if (!pending || boundManifestIdRef.current === pending.manifestId) return;
+    const accepted = manifest.functions
+      .filter((f) => f.executor)
+      .map((f) => ({ name: f.name, returns: f.returns ?? "void" }));
 
-    commandProcessingQueueRef.current = commandProcessingQueueRef.current
-      .then(async () => {
-        const bridge = bridgeRef.current;
-        if (!bridge) return;
-        const ready = await ensureChannelReady(bridge, CHANNELS.COMMAND);
-        if (!ready) return;
+    const rejected = manifest.functions
+      .filter((f) => !f.executor)
+      .map((f) => ({
+        name: f.name,
+        code: "INVALID_FUNCTION",
+        message: `Function "${f.name}" is missing executor definition.`,
+      }));
 
-        const delivered = await bridge.sendWithAck(
-          CHANNELS.COMMAND,
-          makeEventMessage("command.bind", {
-            v: pending.v,
-            manifestId: pending.manifestId,
-            functions: pending.functions,
-          }),
-          COMMAND_ACK_TIMEOUT_MS,
-        );
-        if (!delivered) {
-          setOutboundCanvasBridgeMessage({
-            id: generateMessageId(),
-            type: "command.bind.result",
-            payload: {
-              v: 1,
-              manifestId: pending.manifestId,
-              accepted: [],
-              rejected: [
-                {
-                  name: "*",
-                  code: "BIND_DELIVERY_FAILED",
-                  message: "Failed to deliver command manifest to daemon.",
-                },
-              ],
-            },
-          });
-        }
-      })
-      .catch(() => {});
-  }, [bridgeState, liveMode, bridgeRef, manifest]);
+    if (!liveMode || bridgeState !== "connected") {
+      rejected.push(
+        ...accepted.map((f) => ({
+          name: f.name,
+          code: "AGENT_NOT_CONNECTED",
+          message: "Agent is not connected. Commands are unavailable.",
+        })),
+      );
+      setOutboundCanvasBridgeMessage({
+        id: generateMessageId(),
+        type: "command.bind.result",
+        payload: {
+          v: 1,
+          manifestId: manifest.manifestId,
+          accepted: [],
+          rejected,
+        },
+      });
+      return;
+    }
+
+    setOutboundCanvasBridgeMessage({
+      id: generateMessageId(),
+      type: "command.bind.result",
+      payload: {
+        v: 1,
+        manifestId: manifest.manifestId,
+        accepted,
+        rejected,
+      },
+    });
+  }, [manifest, liveMode, bridgeState]);
 
   const emitCommandFailureToCanvas = useCallback(
     (callId: string | undefined, code: string, message: string) => {
@@ -136,87 +125,51 @@ export function useCanvasCommands({
         return;
       }
 
-      commandProcessingQueueRef.current = commandProcessingQueueRef.current
-        .then(async () => {
-          const ready = await ensureChannelReady(bridge, CHANNELS.COMMAND);
+      if (message.type === "command.cancel") {
+        const payload = {
+          v: typeof message.payload.v === "number" ? message.payload.v : 1,
+          callId: callId ?? "",
+          reason:
+            typeof message.payload.reason === "string" ? message.payload.reason : undefined,
+        };
+        if (payload.callId.length === 0) return;
+        void ensureChannelReady(bridge, CHANNELS.COMMAND).then((ready) => {
+          if (!ready) return;
+          void bridge.sendWithAck(
+            CHANNELS.COMMAND,
+            makeEventMessage("command.cancel", payload),
+            COMMAND_ACK_TIMEOUT_MS,
+          );
+        });
+        return;
+      }
+
+      const invokePayload = {
+        v: typeof message.payload.v === "number" ? message.payload.v : 1,
+        callId: callId ?? "",
+        name: typeof message.payload.name === "string" ? message.payload.name : "",
+        args:
+          message.payload.args && typeof message.payload.args === "object"
+            ? (message.payload.args as Record<string, unknown>)
+            : {},
+        timeoutMs:
+          typeof message.payload.timeoutMs === "number" && message.payload.timeoutMs > 0
+            ? message.payload.timeoutMs
+            : undefined,
+      };
+      if (invokePayload.callId.length === 0 || invokePayload.name.length === 0) {
+        emitCommandFailureToCanvas(callId, "INVALID_COMMAND_INVOKE", "Invalid command payload.");
+        return;
+      }
+
+      void ensureChannelReady(bridge, CHANNELS.COMMAND)
+        .then(async (ready) => {
           if (!ready) {
             emitCommandFailureToCanvas(
-              callId,
+              invokePayload.callId,
               "COMMAND_CHANNEL_NOT_READY",
               "Command channel is not ready.",
             );
-            return;
-          }
-
-          if (message.type === "command.bind") {
-            const bindPayload = {
-              v: typeof message.payload.v === "number" ? message.payload.v : 1,
-              manifestId:
-                typeof message.payload.manifestId === "string" &&
-                message.payload.manifestId.length > 0
-                  ? message.payload.manifestId
-                  : `manifest-${generateMessageId()}`,
-              functions: Array.isArray(message.payload.functions) ? message.payload.functions : [],
-            };
-            const delivered = await bridge.sendWithAck(
-              CHANNELS.COMMAND,
-              makeEventMessage("command.bind", bindPayload),
-              COMMAND_ACK_TIMEOUT_MS,
-            );
-            if (delivered) {
-              boundManifestIdRef.current = bindPayload.manifestId;
-            } else {
-              setOutboundCanvasBridgeMessage({
-                id: generateMessageId(),
-                type: "command.bind.result",
-                payload: {
-                  v: 1,
-                  manifestId: bindPayload.manifestId,
-                  accepted: [],
-                  rejected: [
-                    {
-                      name: "*",
-                      code: "BIND_DELIVERY_FAILED",
-                      message: "Failed to deliver command manifest to daemon.",
-                    },
-                  ],
-                },
-              });
-            }
-            return;
-          }
-
-          if (message.type === "command.cancel") {
-            const payload = {
-              v: typeof message.payload.v === "number" ? message.payload.v : 1,
-              callId: callId ?? "",
-              reason:
-                typeof message.payload.reason === "string" ? message.payload.reason : undefined,
-            };
-            if (payload.callId.length === 0) return;
-            await bridge.sendWithAck(
-              CHANNELS.COMMAND,
-              makeEventMessage("command.cancel", payload),
-              COMMAND_ACK_TIMEOUT_MS,
-            );
-            return;
-          }
-
-          const invokePayload = {
-            v: typeof message.payload.v === "number" ? message.payload.v : 1,
-            callId: callId ?? "",
-            name: typeof message.payload.name === "string" ? message.payload.name : "",
-            args:
-              message.payload.args && typeof message.payload.args === "object"
-                ? (message.payload.args as Record<string, unknown>)
-                : {},
-            timeoutMs:
-              typeof message.payload.timeoutMs === "number" && message.payload.timeoutMs > 0
-                ? message.payload.timeoutMs
-                : undefined,
-          };
-          if (invokePayload.callId.length === 0 || invokePayload.name.length === 0) {
-            emitCommandFailureToCanvas(callId, "INVALID_COMMAND_INVOKE", "Invalid command payload.");
             return;
           }
           const delivered = await bridge.sendWithAck(
@@ -232,10 +185,9 @@ export function useCanvasCommands({
             );
           }
         })
-        .catch((error) => {
-          console.warn("Failed to route canvas command bridge event", error);
+        .catch(() => {
           emitCommandFailureToCanvas(
-            callId,
+            invokePayload.callId,
             "COMMAND_ROUTE_FAILED",
             "Command invocation failed to route to daemon.",
           );
@@ -247,26 +199,14 @@ export function useCanvasCommands({
   const handleBridgeCommandMessage = useCallback(
     (cm: ChannelMessage) => {
       if (cm.channel !== CHANNELS.COMMAND) return;
-      commandProcessingQueueRef.current = commandProcessingQueueRef.current.then(() => {
-        const bindResult = parseCommandBindResultMessage(cm.message);
-        if (bindResult) {
-          boundManifestIdRef.current = bindResult.manifestId;
-          setOutboundCanvasBridgeMessage({
-            id: generateMessageId(),
-            type: "command.bind.result",
-            payload: bindResult,
-          });
-          return;
-        }
-        const result = parseCommandResultMessage(cm.message);
-        if (result) {
-          setOutboundCanvasBridgeMessage({
-            id: generateMessageId(),
-            type: "command.result",
-            payload: result,
-          });
-        }
-      });
+      const result = parseCommandResultMessage(cm.message);
+      if (result) {
+        setOutboundCanvasBridgeMessage({
+          id: generateMessageId(),
+          type: "command.result",
+          payload: result,
+        });
+      }
     },
     [],
   );

@@ -789,6 +789,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const handleIpcRequest = createDaemonIpcHandler({
     apiClient,
+    bindCanvasCommands: (html) => commandHandler.bindFromHtml(html),
     getConnected: () => isLiveConnected(),
     getSignalingConnected: () => {
       const state = signaling.status();
@@ -847,6 +848,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }): Promise<string> {
     const pub = await apiClient.get(params.slug);
     const content = typeof pub.content === "string" ? pub.content : "";
+    if (content.length > 0) {
+      commandHandler.bindFromHtml(content);
+    }
     const canvasContentFilePath =
       content.length > 0
         ? writeLiveSessionContentFile({

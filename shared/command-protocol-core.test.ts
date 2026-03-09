@@ -3,6 +3,7 @@ import { makeEventMessage } from "./bridge-protocol-core";
 import {
   COMMAND_MANIFEST_MAX_FUNCTIONS,
   COMMAND_PROTOCOL_VERSION,
+  extractManifestFromHtml,
   makeCommandBindMessage,
   makeCommandBindResultMessage,
   makeCommandCancelMessage,
@@ -138,5 +139,28 @@ describe("command-protocol-core", () => {
     expect(
       parseCommandCancelMessage(makeEventMessage("command.cancel", { reason: "x" })),
     ).toBeNull();
+  });
+
+  it("extracts manifest from HTML with script tag", () => {
+    const html = `<html><head>
+      <script type="application/pubblue-command-manifest+json">
+      {"manifestId":"m1","functions":[{"name":"foo","returns":"text","executor":{"kind":"exec","command":"echo"}}]}
+      </script>
+    </head><body></body></html>`;
+
+    const result = extractManifestFromHtml(html);
+    expect(result).not.toBeNull();
+    expect(result?.manifestId).toBe("m1");
+    expect(result?.functions).toHaveLength(1);
+    expect(result?.functions[0]?.name).toBe("foo");
+  });
+
+  it("returns null for HTML without manifest script tag", () => {
+    expect(extractManifestFromHtml("<html><body>hello</body></html>")).toBeNull();
+  });
+
+  it("returns null for empty manifest script tag", () => {
+    const html = `<script type="application/pubblue-command-manifest+json"></script>`;
+    expect(extractManifestFromHtml(html)).toBeNull();
   });
 });
