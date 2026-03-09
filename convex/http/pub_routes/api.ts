@@ -126,12 +126,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
                 isPublic: p.isPublic,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
-                live: live
-                  ? {
-                      status: live.status,
-                      hasConnection: live.hasConnection,
-                    }
-                  : null,
+                live: live ? { status: live.status } : null,
               };
             }),
             cursor: result.isDone ? undefined : result.cursor,
@@ -179,12 +174,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             isPublic: pub.isPublic,
             createdAt: pub.createdAt,
             updatedAt: pub.updatedAt,
-            live: live
-              ? {
-                  status: live.status,
-                  hasConnection: !!live.agentAnswer,
-                }
-              : null,
+            live: live ? { status: live.status } : null,
           };
         },
         (pub) => jsonResponse({ pub }),

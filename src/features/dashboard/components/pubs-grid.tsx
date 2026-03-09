@@ -14,7 +14,7 @@ export interface PubGridItem {
 export function PubsGrid({
   pubs,
   viewCounts,
-  liveStatusBySlug,
+  liveSlugs,
   status,
   onLoadMore,
   onToggleVisibility,
@@ -22,7 +22,7 @@ export function PubsGrid({
 }: {
   pubs: PubGridItem[];
   viewCounts?: Record<string, number>;
-  liveStatusBySlug: Map<string, boolean>;
+  liveSlugs: Set<string>;
   status: "Exhausted" | "CanLoadMore" | "LoadingMore";
   onLoadMore: () => void;
   onToggleVisibility: (id: Id<"pubs">) => void;
@@ -35,13 +35,7 @@ export function PubsGrid({
           key={pub._id}
           pub={pub}
           viewCount={viewCounts?.[pub.slug]}
-          liveStatus={
-            liveStatusBySlug.has(pub.slug)
-              ? liveStatusBySlug.get(pub.slug)
-                ? "connected"
-                : "waiting"
-              : null
-          }
+          isLive={liveSlugs.has(pub.slug)}
           onToggleVisibility={onToggleVisibility}
           onDelete={onDelete}
         />

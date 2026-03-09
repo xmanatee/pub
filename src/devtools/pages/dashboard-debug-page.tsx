@@ -54,10 +54,7 @@ const SAMPLE_PUBS = [
   },
 ];
 
-const LIVE_STATUS_BY_SLUG = new Map<string, boolean>([
-  ["hello-world", true],
-  ["api-docs", false],
-]);
+const LIVE_SLUGS = new Set<string>(["hello-world", "api-docs"]);
 
 const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };
 const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-docs": 8 };
@@ -96,7 +93,7 @@ export function DashboardDebugPage() {
           <PubsGrid
             pubs={SAMPLE_PUBS}
             viewCounts={CARDS_VIEW_COUNTS}
-            liveStatusBySlug={LIVE_STATUS_BY_SLUG}
+            liveSlugs={LIVE_SLUGS}
             status="Exhausted"
             onLoadMore={noop}
             onToggleVisibility={noop}
@@ -111,7 +108,7 @@ export function DashboardDebugPage() {
           <PubsGrid
             pubs={SAMPLE_PUBS}
             viewCounts={GALLERY_VIEW_COUNTS}
-            liveStatusBySlug={new Map<string, boolean>([["hello-world", true]])}
+            liveSlugs={new Set<string>(["hello-world"])}
             status="Exhausted"
             onLoadMore={noop}
             onToggleVisibility={noop}

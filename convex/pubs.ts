@@ -213,17 +213,7 @@ export const listActiveLives = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const now = Date.now();
-    const presences = await ctx.db
-      .query("agentPresence")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const freshIds = new Set(listFreshOnlinePresences(presences, now).map((p) => p._id));
-
-    return lives.map((s) => ({
-      slug: s.slug,
-      hasConnection: !!s.agentAnswer && !!s.targetPresenceId && freshIds.has(s.targetPresenceId),
-    }));
+    return lives.map((s) => ({ slug: s.slug }));
   },
 });
 
@@ -693,7 +683,6 @@ export const listLivesByUserInternal = internalQuery({
     return lives.map((s) => ({
       slug: s.slug,
       status: s.status,
-      hasConnection: !!s.agentAnswer,
       createdAt: s.createdAt,
     }));
   },

@@ -20,7 +20,6 @@ export interface Pub {
   updatedAt: number;
   live?: {
     status: string;
-    hasConnection: boolean;
   } | null;
 }
 

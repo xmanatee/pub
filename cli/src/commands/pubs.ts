@@ -67,7 +67,6 @@ export function registerPubCommands(program: Command): void {
       if (pub.content) console.log(`  Size:    ${pub.content.length} bytes`);
       if (pub.live) {
         console.log(`  Live: ${pub.live.status}`);
-        console.log(`    Connected: ${pub.live.hasConnection ? "yes" : "no"}`);
       }
     });
 
