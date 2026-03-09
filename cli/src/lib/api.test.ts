@@ -258,7 +258,6 @@ describe("PubApiClient", () => {
         agentCandidates: [],
         browserCandidates: [],
         createdAt: 1000,
-        expiresAt: 9999999,
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -401,7 +400,6 @@ describe("PubApiClient", () => {
         agentCandidates: [],
         browserCandidates: [],
         createdAt: 1000,
-        expiresAt: 9999999,
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

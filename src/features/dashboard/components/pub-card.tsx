@@ -1,11 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, ExternalLink, FileText, Globe, Lock, Trash2 } from "lucide-react";
+import { ExternalLink, FileText, Globe, Lock, Trash2 } from "lucide-react";
 import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
-import { formatRelativeTime } from "~/lib/pub-preview";
 import { telegramConfirm, telegramOpenLink } from "~/lib/telegram";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { CopyButton } from "./copy-button";
@@ -18,7 +17,6 @@ interface PubCardProps {
     contentType?: string;
     title?: string;
     isPublic: boolean;
-    expiresAt?: number;
     createdAt: number;
     contentPreview: string;
   };
@@ -60,12 +58,6 @@ export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCar
             </Badge>
           )}
           <VisibilityBadge isPublic={pub.isPublic} />
-          {pub.expiresAt && (
-            <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600/20 text-xs">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              {formatRelativeTime(pub.expiresAt)}
-            </Badge>
-          )}
         </div>
         <div className="text-xs text-muted-foreground">
           /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}

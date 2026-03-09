@@ -8,9 +8,7 @@ import {
   inferContentType,
   isValidSlug,
   MAX_CONTENT_SIZE,
-  MAX_EXPIRY_MS,
   MAX_TITLE_LENGTH,
-  parseExpiresIn,
 } from "../../utils";
 import {
   ApiError,
@@ -48,7 +46,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         title?: string;
         slug?: string;
         isPublic?: boolean;
-        expiresIn?: string | number;
       };
       try {
         body = await request.json();
@@ -64,17 +61,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
       if (body.title && body.title.length > MAX_TITLE_LENGTH) {
         return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
-      }
-
-      let expiresAt: number | undefined;
-      if (body.expiresIn !== undefined) {
-        const ms = parseExpiresIn(body.expiresIn);
-        if (!ms || ms <= 0) return errorResponse("Invalid expiresIn value", 400);
-        if (ms > MAX_EXPIRY_MS) {
-          const maxDays = MAX_EXPIRY_MS / (24 * 60 * 60 * 1000);
-          return errorResponse(`Expiry cannot exceed ${maxDays} days`, 400);
-        }
-        expiresAt = Date.now() + ms;
       }
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "createPub");
@@ -98,19 +84,16 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               content: body.content,
               title: body.title,
               isPublic: body.isPublic ?? false,
-              expiresAt,
             });
           } catch (error) {
             rethrowPubLimitError(error);
           }
 
-          return { slug: finalSlug, expiresAt };
+          return { slug: finalSlug };
         },
         (result) => {
           const url = `${getPublicUrl()}/p/${encodeURIComponent(result.slug)}`;
-          const response: Record<string, unknown> = { slug: result.slug, url };
-          if (result.expiresAt) response.expiresAt = result.expiresAt;
-          return jsonResponse(response, 201);
+          return jsonResponse({ slug: result.slug, url }, 201);
         },
       );
     }),
@@ -153,14 +136,12 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
                 contentType: p.contentType,
                 title: p.title,
                 isPublic: p.isPublic,
-                expiresAt: p.expiresAt,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
                 live: live
                   ? {
                       status: live.status,
                       hasConnection: live.hasConnection,
-                      expiresAt: live.expiresAt,
                     }
                   : null,
               };
@@ -210,7 +191,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               agentCandidates: live.agentCandidates,
               browserCandidates: live.browserCandidates,
               createdAt: live.createdAt,
-              expiresAt: live.expiresAt,
             };
           },
           (live) => jsonResponse({ live }),
@@ -239,14 +219,12 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             content: pub.content,
             title: pub.title,
             isPublic: pub.isPublic,
-            expiresAt: pub.expiresAt,
             createdAt: pub.createdAt,
             updatedAt: pub.updatedAt,
             live: live
               ? {
                   status: live.status,
                   hasConnection: !!live.agentAnswer,
-                  expiresAt: live.expiresAt,
                 }
               : null,
           };

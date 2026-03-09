@@ -11,7 +11,6 @@ function makeLive(overrides: Partial<LiveInfo> = {}): LiveInfo {
     browserCandidates: [],
     agentCandidates: [],
     createdAt: Date.now(),
-    expiresAt: Date.now() + 60_000,
     ...overrides,
   };
 }

@@ -1,12 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, ExternalLink, Radio } from "lucide-react";
+import { ExternalLink, Radio } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
-import { formatRelativeTime } from "~/lib/pub-preview";
 
 export interface LiveSession {
   slug: string;
   hasConnection: boolean;
-  expiresAt: number;
 }
 
 export function LiveBanners({ lives }: { lives: LiveSession[] }) {
@@ -30,10 +28,6 @@ export function LiveBanners({ lives }: { lives: LiveSession[] }) {
               className="gap-1 text-emerald-600 border-emerald-600/20 text-xs"
             >
               {s.hasConnection ? "Connected" : "Waiting"}
-            </Badge>
-            <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600/20 text-xs">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              {formatRelativeTime(s.expiresAt)}
             </Badge>
           </div>
           <ExternalLink

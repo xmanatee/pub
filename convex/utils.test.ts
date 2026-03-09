@@ -9,12 +9,9 @@ import {
   isValidSlug,
   keyPreviewFromKey,
   MAX_CONTENT_SIZE,
-  MAX_EXPIRY_MS,
   MAX_KEY_NAME_LENGTH,
   MAX_PUBS,
   MAX_TITLE_LENGTH,
-  parseDuration,
-  parseExpiresIn,
   SLUG_PATTERN,
   truncate,
 } from "./utils";
@@ -140,35 +137,6 @@ describe("hashApiKey", () => {
   });
 });
 
-describe("parseDuration", () => {
-  it("parses seconds", () => {
-    expect(parseDuration("60s")).toBe(60_000);
-    expect(parseDuration("1s")).toBe(1_000);
-  });
-
-  it("parses minutes", () => {
-    expect(parseDuration("30m")).toBe(1_800_000);
-  });
-
-  it("parses hours", () => {
-    expect(parseDuration("1h")).toBe(3_600_000);
-    expect(parseDuration("24h")).toBe(86_400_000);
-  });
-
-  it("parses days", () => {
-    expect(parseDuration("7d")).toBe(604_800_000);
-    expect(parseDuration("30d")).toBe(2_592_000_000);
-  });
-
-  it("returns null for invalid input", () => {
-    expect(parseDuration("")).toBeNull();
-    expect(parseDuration("abc")).toBeNull();
-    expect(parseDuration("1x")).toBeNull();
-    expect(parseDuration("h")).toBeNull();
-    expect(parseDuration("-1h")).toBeNull();
-  });
-});
-
 describe("escapeXml", () => {
   it("escapes all XML special characters", () => {
     expect(escapeXml("&")).toBe("&amp;");
@@ -221,41 +189,12 @@ describe("truncate", () => {
   });
 });
 
-describe("parseExpiresIn", () => {
-  it("converts number seconds to milliseconds", () => {
-    expect(parseExpiresIn(3600)).toBe(3_600_000);
-    expect(parseExpiresIn(60)).toBe(60_000);
-  });
-
-  it("returns null for non-positive numbers", () => {
-    expect(parseExpiresIn(0)).toBeNull();
-    expect(parseExpiresIn(-1)).toBeNull();
-  });
-
-  it("parses duration strings via parseDuration", () => {
-    expect(parseExpiresIn("1h")).toBe(3_600_000);
-    expect(parseExpiresIn("7d")).toBe(604_800_000);
-  });
-
-  it("returns null for invalid strings", () => {
-    expect(parseExpiresIn("invalid")).toBeNull();
-    expect(parseExpiresIn("")).toBeNull();
-  });
-
-  it("returns null for non-number/string types", () => {
-    expect(parseExpiresIn(null)).toBeNull();
-    expect(parseExpiresIn(undefined)).toBeNull();
-    expect(parseExpiresIn(true)).toBeNull();
-  });
-});
-
 describe("constants", () => {
   it("limits are reasonable", () => {
     expect(MAX_CONTENT_SIZE).toBe(100 * 1024);
     expect(MAX_TITLE_LENGTH).toBe(256);
     expect(MAX_KEY_NAME_LENGTH).toBe(128);
     expect(MAX_PUBS).toBe(10);
-    expect(MAX_EXPIRY_MS).toBe(30 * 24 * 60 * 60 * 1000);
   });
 
   it("SLUG_PATTERN matches valid patterns", () => {

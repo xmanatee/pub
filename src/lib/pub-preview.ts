@@ -18,14 +18,3 @@ export function buildTextSrcdoc(content: string, contentType: string) {
 export function buildHtmlSrcdoc(content: string) {
   return `${TEXT_PREVIEW_STYLES}${content}`;
 }
-
-export function formatRelativeTime(timestamp: number): string {
-  const diff = timestamp - Date.now();
-  if (diff <= 0) return "expired";
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d`;
-  if (hours > 0) return `${hours}h`;
-  const minutes = Math.floor(diff / (1000 * 60));
-  return `${minutes}m`;
-}

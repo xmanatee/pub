@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildHtmlSrcdoc, buildTextSrcdoc, escapeHtml, formatRelativeTime } from "./pub-preview";
+import { describe, expect, it } from "vitest";
+import { buildHtmlSrcdoc, buildTextSrcdoc, escapeHtml } from "./pub-preview";
 
 describe("escapeHtml", () => {
   it("escapes ampersands", () => {
@@ -61,45 +61,5 @@ describe("buildHtmlSrcdoc", () => {
   it("does not escape the HTML content", () => {
     const result = buildHtmlSrcdoc("<b>bold</b>");
     expect(result).toContain("<b>bold</b>");
-  });
-});
-
-describe("formatRelativeTime", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2025-01-15T12:00:00Z"));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("returns 'expired' for past timestamps", () => {
-    const past = Date.now() - 1000;
-    expect(formatRelativeTime(past)).toBe("expired");
-  });
-
-  it("returns 'expired' for exactly now", () => {
-    expect(formatRelativeTime(Date.now())).toBe("expired");
-  });
-
-  it("returns minutes for < 1 hour", () => {
-    const future = Date.now() + 30 * 60 * 1000;
-    expect(formatRelativeTime(future)).toBe("30m");
-  });
-
-  it("returns hours for < 1 day", () => {
-    const future = Date.now() + 5 * 60 * 60 * 1000;
-    expect(formatRelativeTime(future)).toBe("5h");
-  });
-
-  it("returns days for >= 24 hours", () => {
-    const future = Date.now() + 3 * 24 * 60 * 60 * 1000;
-    expect(formatRelativeTime(future)).toBe("3d");
-  });
-
-  it("returns 0m for very small positive diff", () => {
-    const future = Date.now() + 30 * 1000;
-    expect(formatRelativeTime(future)).toBe("0m");
   });
 });

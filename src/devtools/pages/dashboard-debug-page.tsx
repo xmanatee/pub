@@ -46,7 +46,6 @@ const SAMPLE_PUBS = [
     title: "API Documentation",
     contentType: "markdown" as const,
     isPublic: true,
-    expiresAt: Date.now() + 3600000 * 12,
     createdAt: SAMPLE_CREATED_AT.apiDocs,
     contentPreview: MARKDOWN_PREVIEW,
   },
@@ -61,8 +60,8 @@ const SAMPLE_PUBS = [
 ];
 
 const SAMPLE_LIVES = [
-  { slug: "hello-world", hasConnection: true, expiresAt: Date.now() + 23 * 3600000 },
-  { slug: "api-docs", hasConnection: false, expiresAt: Date.now() + 45 * 60000 },
+  { slug: "hello-world", hasConnection: true },
+  { slug: "api-docs", hasConnection: false },
 ];
 
 const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };

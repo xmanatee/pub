@@ -22,7 +22,7 @@ export function parseLiveSnapshot(result: unknown): LiveInfo | null {
   if (!Array.isArray(live.agentCandidates)) {
     throw new Error("Invalid signaling snapshot: missing agentCandidates");
   }
-  if (typeof live.createdAt !== "number" || typeof live.expiresAt !== "number") {
+  if (typeof live.createdAt !== "number") {
     throw new Error("Invalid signaling snapshot: missing timestamps");
   }
   return {
@@ -33,7 +33,6 @@ export function parseLiveSnapshot(result: unknown): LiveInfo | null {
     browserCandidates: live.browserCandidates,
     agentCandidates: live.agentCandidates,
     createdAt: live.createdAt,
-    expiresAt: live.expiresAt,
   };
 }
 

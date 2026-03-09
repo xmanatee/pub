@@ -431,9 +431,6 @@ function registerDoctorCommand(program: Command): void {
         if (live.status !== "active") {
           fail(`API reports live is not active (status: ${live.status})`);
         }
-        if (live.expiresAt <= Date.now()) {
-          fail("API reports live is expired.");
-        }
         if (typeof live.browserOffer !== "string" || live.browserOffer.length === 0) {
           fail("browser offer was not published.");
         }

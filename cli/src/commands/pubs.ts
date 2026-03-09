@@ -17,7 +17,6 @@ export function registerPubCommands(program: Command): void {
     .option("--title <title>", "Title for the pub")
     .option("--public", "Make the pub public")
     .option("--private", "Make the pub private (default)")
-    .option("--expires <duration>", "Auto-delete after duration (e.g. 1h, 24h, 7d)")
     .action(
       async (
         fileArg: string | undefined,
@@ -26,7 +25,6 @@ export function registerPubCommands(program: Command): void {
           title?: string;
           public?: boolean;
           private?: boolean;
-          expires?: string;
         },
       ) => {
         const client = createClient();
@@ -54,15 +52,11 @@ export function registerPubCommands(program: Command): void {
           title: opts.title,
           slug: opts.slug,
           isPublic: resolvedVisibility ?? false,
-          expiresIn: opts.expires,
         });
 
         console.log(`Created: ${result.url}`);
         const tmaUrl = getTelegramMiniAppUrl(result.slug);
         if (tmaUrl) console.log(`Telegram: ${tmaUrl}`);
-        if (result.expiresAt) {
-          console.log(`  Expires: ${new Date(result.expiresAt).toISOString()}`);
-        }
       },
     );
 
@@ -84,14 +78,12 @@ export function registerPubCommands(program: Command): void {
       if (pub.contentType) console.log(`  Type:    ${pub.contentType}`);
       if (pub.title) console.log(`  Title:   ${pub.title}`);
       console.log(`  Status:  ${formatVisibility(pub.isPublic)}`);
-      if (pub.expiresAt) console.log(`  Expires: ${new Date(pub.expiresAt).toISOString()}`);
       console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
       console.log(`  Updated: ${new Date(pub.updatedAt).toLocaleDateString()}`);
       if (pub.content) console.log(`  Size:    ${pub.content.length} bytes`);
       if (pub.live) {
         console.log(`  Live: ${pub.live.status}`);
         console.log(`    Connected: ${pub.live.hasConnection ? "yes" : "no"}`);
-        console.log(`    Expires:   ${new Date(pub.live.expiresAt).toISOString()}`);
       }
     });
 
@@ -159,11 +151,10 @@ export function registerPubCommands(program: Command): void {
 
       for (const pub of pubs) {
         const date = new Date(pub.createdAt).toLocaleDateString();
-        const expires = pub.expiresAt ? ` expires:${new Date(pub.expiresAt).toISOString()}` : "";
         const contentLabel = pub.contentType ? `[${pub.contentType}]` : "[no content]";
         const sessionLabel = pub.live?.status === "active" ? " [live]" : "";
         console.log(
-          `  ${pub.slug}  ${contentLabel}  ${formatVisibility(pub.isPublic)}  ${date}${expires}${sessionLabel}`,
+          `  ${pub.slug}  ${contentLabel}  ${formatVisibility(pub.isPublic)}  ${date}${sessionLabel}`,
         );
       }
     });

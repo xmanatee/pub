@@ -10,7 +10,6 @@ export interface PubGridItem {
   isPublic: boolean;
   createdAt: number;
   contentPreview: string;
-  expiresAt?: number;
 }
 
 export function PubsGrid({

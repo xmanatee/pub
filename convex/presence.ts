@@ -60,9 +60,7 @@ async function reassignLivesForUser(
     .query("lives")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
-  const now = Date.now();
   for (const live of lives) {
-    if (live.expiresAt < now) continue;
     if (live.targetPresenceId !== displacedPresenceId) continue;
     if (!live.browserOffer) continue;
 
@@ -167,13 +165,6 @@ export const heartbeat = internalMutation({
 
     const now = Date.now();
     await ctx.db.patch(presence._id, { lastHeartbeatAt: now, updatedAt: now });
-    await ctx.scheduler.runAt(
-      now + PRESENCE_STALENESS_THRESHOLD_MS,
-      internal.presence.checkStaleness,
-      {
-        presenceId: presence._id,
-      },
-    );
   },
 });
 
@@ -212,7 +203,14 @@ export const checkStaleness = internalMutation({
 
     const now = Date.now();
     const elapsed = now - presence.lastHeartbeatAt;
-    if (elapsed < PRESENCE_STALENESS_THRESHOLD_MS) return;
+    if (elapsed < PRESENCE_STALENESS_THRESHOLD_MS) {
+      await ctx.scheduler.runAt(
+        presence.lastHeartbeatAt + PRESENCE_STALENESS_THRESHOLD_MS,
+        internal.presence.checkStaleness,
+        { presenceId },
+      );
+      return;
+    }
 
     await ctx.db.patch(presenceId, { status: "offline", updatedAt: now });
 

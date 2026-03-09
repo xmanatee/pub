@@ -1,7 +1,6 @@
 export interface CreateResult {
   slug: string;
   url: string;
-  expiresAt?: number;
 }
 
 export interface UpdateResult {
@@ -17,13 +16,11 @@ export interface Pub {
   contentType?: string;
   title?: string;
   isPublic: boolean;
-  expiresAt?: number;
   createdAt: number;
   updatedAt: number;
   live?: {
     status: string;
     hasConnection: boolean;
-    expiresAt: number;
   } | null;
 }
 
@@ -41,7 +38,6 @@ export interface LiveInfo {
   agentCandidates: string[];
   browserCandidates: string[];
   createdAt: number;
-  expiresAt: number;
 }
 
 export class PubApiError extends Error {
@@ -136,7 +132,6 @@ export class PubApiClient {
     title?: string;
     slug?: string;
     isPublic?: boolean;
-    expiresIn?: string;
   }): Promise<CreateResult> {
     return this.request<CreateResult>("/api/v1/pubs", {
       method: "POST",

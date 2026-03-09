@@ -39,7 +39,6 @@ export default defineSchema({
     content: v.optional(v.string()),
     title: v.optional(v.string()),
     isPublic: v.boolean(),
-    expiresAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -59,7 +58,6 @@ export default defineSchema({
     browserCandidates: v.array(v.string()),
     browserSessionId: v.optional(v.string()),
     lastTakeoverAt: v.optional(v.number()),
-    expiresAt: v.number(),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
