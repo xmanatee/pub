@@ -295,6 +295,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
 
     dc.onMessage((data: string | Buffer) => {
+      try {
       if (typeof data === "string") {
         const msg = decodeMessage(data);
         if (!msg) return;
@@ -400,6 +401,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
       if (!activeStream) {
         emitDeliveryStatus({ channel: name, messageId: binMsg.id, stage: "received" });
+      }
+      } catch (error) {
+        debugLog(`datachannel "${name}" onMessage error`, error);
       }
     });
   }
