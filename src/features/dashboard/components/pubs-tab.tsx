@@ -3,7 +3,6 @@ import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
 import { Card, CardContent } from "~/components/ui/card";
-import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import { trackError } from "~/lib/analytics";
 import { api } from "../../../../convex/_generated/api";
@@ -30,6 +29,10 @@ export function PubsTab() {
   const slugs = pubs?.map((p) => p.slug) ?? [];
   const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
   const lives = useQuery(api.pubs.listActiveLives);
+  const liveSlugs = React.useMemo<Set<string>>(
+    () => new Set(lives?.map((l: { slug: string }) => l.slug)),
+    [lives],
+  );
 
   const canStartLive = agentOnline === true && !startingLive;
 
@@ -113,10 +116,10 @@ export function PubsTab() {
 
   return (
     <div className="mt-4">
-      <LiveBanners lives={lives ?? []} />
       <PubsGrid
         pubs={pubs}
         viewCounts={viewCounts}
+        liveSlugs={liveSlugs}
         status={status}
         onLoadMore={() => loadMore(12)}
         onToggleVisibility={(id) => toggleVisibility({ id })}

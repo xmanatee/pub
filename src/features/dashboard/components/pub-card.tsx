@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, ExternalLink, FileText, Globe, Lock, Trash2 } from "lucide-react";
+import { Clock, ExternalLink, FileText, Globe, Lock, Radio, Trash2 } from "lucide-react";
 import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -23,11 +23,12 @@ interface PubCardProps {
     contentPreview: string;
   };
   viewCount?: number;
+  isLive?: boolean;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
 }
 
-export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCardProps) {
+export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
@@ -60,6 +61,12 @@ export function PubCard({ pub, viewCount, onToggleVisibility, onDelete }: PubCar
             </Badge>
           )}
           <VisibilityBadge isPublic={pub.isPublic} />
+          {isLive && (
+            <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-600/20 text-xs">
+              <Radio className="h-3 w-3 animate-pulse" aria-hidden="true" />
+              Live
+            </Badge>
+          )}
           {pub.expiresAt && (
             <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600/20 text-xs">
               <Clock className="h-3 w-3" aria-hidden="true" />

@@ -1,6 +1,5 @@
 import { FileText, Key, Play, User } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { LiveBanners } from "~/features/dashboard/components/live-banners";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -60,10 +59,7 @@ const SAMPLE_PUBS = [
   },
 ];
 
-const SAMPLE_LIVES = [
-  { slug: "hello-world", hasConnection: true, expiresAt: Date.now() + 23 * 3600000 },
-  { slug: "api-docs", hasConnection: false, expiresAt: Date.now() + 45 * 60000 },
-];
+const LIVE_SLUGS = new Set(["hello-world", "api-docs"]);
 
 const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };
 const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-docs": 8 };
@@ -102,6 +98,7 @@ export function DashboardDebugPage() {
           <PubsGrid
             pubs={SAMPLE_PUBS}
             viewCounts={CARDS_VIEW_COUNTS}
+            liveSlugs={LIVE_SLUGS}
             status="Exhausted"
             onLoadMore={noop}
             onToggleVisibility={noop}
@@ -109,19 +106,14 @@ export function DashboardDebugPage() {
           />
         </section>
 
-        <section data-testid="batch-dashboard-live" className="bg-white p-6">
-          <div className="mb-5 text-center text-sm font-semibold">Live Banners</div>
-          <LiveBanners lives={SAMPLE_LIVES} />
-        </section>
-
         <section data-testid="batch-dashboard-gallery" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">
-            Full Gallery — Cards + Live Banner
+            Full Gallery — Cards with Live Tags
           </div>
-          <LiveBanners lives={[SAMPLE_LIVES[0]]} />
           <PubsGrid
             pubs={SAMPLE_PUBS}
             viewCounts={GALLERY_VIEW_COUNTS}
+            liveSlugs={new Set(["hello-world"])}
             status="Exhausted"
             onLoadMore={noop}
             onToggleVisibility={noop}
