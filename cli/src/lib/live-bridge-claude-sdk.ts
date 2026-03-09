@@ -111,6 +111,7 @@ export async function runClaudeSdkBridgeStartupProbe(
           allowedTools,
           cwd: os.tmpdir(),
           maxTurns: 2,
+          persistSession: false,
           canUseTool: async (toolName, input) => {
             appendLog(`canUseTool: tool=${toolName}`);
             return { behavior: "allow" as const, updatedInput: input };
