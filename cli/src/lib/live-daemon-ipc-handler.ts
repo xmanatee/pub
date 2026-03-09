@@ -7,7 +7,7 @@ import {
 } from "../../../shared/bridge-protocol-core";
 import type { PubApiClient } from "./api.js";
 import type { ChannelBuffer } from "./live-daemon-shared.js";
-import type { RawIpcRequest } from "./live-ipc-protocol.js";
+import type { IpcRequest } from "./live-ipc-protocol.js";
 
 interface DaemonIpcHandlerParams {
   apiClient: PubApiClient;
@@ -33,12 +33,16 @@ interface DaemonIpcHandlerParams {
   writeAckMaxAttempts: number;
 }
 
+function unreachableIpcRequest(request: never): never {
+  throw new Error(`Unsupported IPC request: ${JSON.stringify(request)}`);
+}
+
 export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
-  return async function handleIpcRequest(req: RawIpcRequest): Promise<Record<string, unknown>> {
+  return async function handleIpcRequest(req: IpcRequest): Promise<Record<string, unknown>> {
     switch (req.method) {
       case "write": {
-        const channel = (req.params.channel as string) || "chat";
-        const msg = req.params.msg as BridgeMessage;
+        const channel = req.params.channel || "chat";
+        const msg: BridgeMessage = req.params.msg;
 
         if (channel === CHANNELS.CANVAS && msg.type === "html" && typeof msg.data === "string") {
           const slug = params.getActiveSlug();
@@ -136,7 +140,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
       }
 
       case "read": {
-        const channel = req.params.channel as string | undefined;
+        const channel = req.params.channel;
         const buffered = params.getBufferedMessages();
         let msgs: ChannelBuffer["messages"];
         if (channel) {
@@ -178,8 +182,9 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
         return { ok: true };
       }
 
-      default:
-        return { ok: false, error: `Unknown method: ${req.method}` };
+      default: {
+        return unreachableIpcRequest(req);
+      }
     }
   };
 }

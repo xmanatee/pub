@@ -1,14 +1,14 @@
-export type CanvasBridgeInboundType = "command.invoke" | "command.cancel";
+export type {
+  CanvasBridgeCommandMessage,
+  CanvasBridgeInboundMessage,
+  CanvasBridgeOutboundMessage,
+  CanvasBridgeResultMessage,
+  CanvasRenderErrorPayload,
+} from "../../../../shared/canvas-bridge-protocol-core";
 
-export interface CanvasBridgeInboundMessage {
-  type: CanvasBridgeInboundType;
-  payload: Record<string, unknown>;
-}
-
-export type CanvasBridgeOutboundType = "command.result";
-
-export interface CanvasBridgeOutboundMessage {
-  id: string;
-  type: CanvasBridgeOutboundType;
-  payload: Record<string, unknown>;
-}
+export {
+  CANVAS_TO_PARENT_SOURCE,
+  PARENT_TO_CANVAS_SOURCE,
+  parseCanvasBridgeInboundMessage,
+  parseCanvasBridgeOutboundMessage,
+} from "../../../../shared/canvas-bridge-protocol-core";

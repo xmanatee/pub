@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import type { ChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { ControlBar } from "./control-bar";
 
 const mockSession = {
@@ -24,7 +25,7 @@ const mockSession = {
   dismissPreview: vi.fn(),
   lastTakeoverAt: undefined as number | undefined,
   micGranted: false,
-  preview: null as any,
+  preview: null as ChatPreview | null,
   setControlBarCollapsed: vi.fn(),
   setMicGranted: vi.fn(),
   setViewMode: vi.fn(),
@@ -38,6 +39,10 @@ const mockSession = {
   visualState: "idle",
   voiceModeEnabled: false,
   closeLive: vi.fn(),
+};
+
+type RenderOverrides = Omit<Partial<typeof mockSession>, "audio"> & {
+  audio?: Partial<typeof mockSession.audio>;
 };
 
 vi.mock("~/features/pub/contexts/live-session-context", () => ({
@@ -67,7 +72,7 @@ vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
   }),
 }));
 
-function renderControlBar(overrides?: any) {
+function renderControlBar(overrides?: RenderOverrides) {
   Object.assign(mockSession, overrides);
   if (overrides?.audio) Object.assign(mockSession.audio, overrides.audio);
 

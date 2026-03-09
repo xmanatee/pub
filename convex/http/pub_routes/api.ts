@@ -1,7 +1,6 @@
 import { httpRouter } from "convex/server";
 import { internal } from "../../_generated/api";
 import { httpAction } from "../../_generated/server";
-import { rateLimiter } from "../../rateLimits";
 import {
   generateSlug,
   INVALID_SLUG_MESSAGE,
@@ -13,7 +12,6 @@ import {
 import {
   ApiError,
   authenticateAndRateLimit,
-  authenticateApiKey,
   corsPreflightHandler,
   errorResponse,
   executeAction,
@@ -21,7 +19,6 @@ import {
   getPublicUrl,
   jsonResponse,
   parseSlugFromRequest,
-  rateLimitResponse,
   rethrowPubLimitError,
 } from "../shared";
 
@@ -165,35 +162,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const url = new URL(request.url);
       const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
       const pathParts = pathAfterPubs.split("/");
-
-      // GET /api/v1/pubs/:slug/live
-      if (pathParts.length === 2 && pathParts[1] === "live") {
-        const slug = pathParts[0];
-        if (!isValidSlug(slug)) return errorResponse(INVALID_SLUG_MESSAGE, 400);
-
-        const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "readLive", { key: apiKey });
-        if (!rl.ok) return rateLimitResponse(rl.retryAfter);
-
-        return executeAction(
-          async () => {
-            const live = await ctx.runQuery(internal.pubs.getLiveBySlugInternal, { slug });
-            if (!live || live.userId !== user.userId) {
-              throw new ApiError("Live not found", 404);
-            }
-            return {
-              slug: live.slug,
-              status: live.status,
-              browserOffer: live.browserOffer,
-              agentAnswer: live.agentAnswer,
-              agentCandidates: live.agentCandidates,
-              browserCandidates: live.browserCandidates,
-              createdAt: live.createdAt,
-            };
-          },
-          (live) => jsonResponse({ live }),
-        );
-      }
 
       // GET /api/v1/pubs/:slug
       if (pathParts.length !== 1) return errorResponse("Invalid path", 400);

@@ -423,18 +423,22 @@ function registerDoctorCommand(program: Command): void {
         console.log("Daemon/channel check: OK");
 
         const live = await apiClient
-          .getLive(slug)
+          .getAgentLive()
           .catch((error: unknown) =>
             fail(`failed to fetch live info from API: ${formatApiError(error)}`),
           );
-
-        if (live.status !== "active") {
-          fail(`API reports live is not active (status: ${live.status})`);
+        const activeLive = live ?? fail("API reports no active live session.");
+        if (activeLive.slug !== slug) {
+          fail(`API reports active live for "${activeLive.slug}" instead of "${slug}".`);
         }
-        if (typeof live.browserOffer !== "string" || live.browserOffer.length === 0) {
+
+        if (activeLive.status !== "active") {
+          fail(`API reports live is not active (status: ${activeLive.status})`);
+        }
+        if (typeof activeLive.browserOffer !== "string" || activeLive.browserOffer.length === 0) {
           fail("browser offer was not published.");
         }
-        if (typeof live.agentAnswer !== "string" || live.agentAnswer.length === 0) {
+        if (typeof activeLive.agentAnswer !== "string" || activeLive.agentAnswer.length === 0) {
           fail("agent answer was not published.");
         }
         console.log("API/signaling check: OK");
