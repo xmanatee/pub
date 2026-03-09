@@ -55,7 +55,7 @@ export function SettingsPanel() {
                 In development — may be unstable.
               </div>
             </div>
-            <Switch checked={voiceModeEnabled} onCheckedChange={setVoiceModeEnabled} />
+            <Switch checked={voiceModeEnabled} onCheckedChange={setVoiceModeEnabled} disabled />
           </div>
 
           {canUseDeveloperMode && (
