@@ -7,6 +7,10 @@ import type {
   SystemChatEntry,
   TextChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
+import {
+  createMockLiveSession,
+  LiveSessionProvider,
+} from "~/features/pub/contexts/live-session-context";
 
 const SAMPLE_WAVEFORM = Array.from({ length: 40 }, (_, i) => {
   const t = i / 39;
@@ -121,9 +125,16 @@ const SYSTEM_ERROR: SystemChatEntry = {
 const messagesEndRef = { current: null };
 
 function StaticChat({ messages }: { messages: ChatEntry[] }) {
+  const mockValue = createMockLiveSession({
+    messages,
+    messagesEndRef,
+  });
+
   return (
     <div className="relative h-full bg-background">
-      <ChatPanel files={[]} messages={messages} messagesEndRef={messagesEndRef} />
+      <LiveSessionProvider value={mockValue}>
+        <ChatPanel />
+      </LiveSessionProvider>
     </div>
   );
 }

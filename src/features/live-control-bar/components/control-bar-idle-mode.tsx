@@ -25,7 +25,6 @@ interface ControlBarIdleModeProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasText: boolean;
   input: string;
-  longPressHandlers: React.HTMLAttributes<HTMLDivElement>;
   onClose: () => void;
   onCloseExpanded: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -35,6 +34,7 @@ interface ControlBarIdleModeProps {
   onSend: () => void;
   onStartVoiceMode: () => void;
   onViewSelect: (mode: LiveViewMode) => void;
+  onEditingChange: (editing: boolean) => void;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   sendDisabled: boolean;
   viewMode: LiveViewMode;
@@ -51,7 +51,6 @@ export function ControlBarIdleMode({
   fileInputRef,
   hasText,
   input,
-  longPressHandlers,
   onClose,
   onCloseExpanded,
   onFileChange,
@@ -61,6 +60,7 @@ export function ControlBarIdleMode({
   onSend,
   onStartVoiceMode,
   onViewSelect,
+  onEditingChange,
   pointerHandlers,
   sendDisabled,
   viewMode,
@@ -69,6 +69,10 @@ export function ControlBarIdleMode({
 }: ControlBarIdleModeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    onEditingChange(editing);
+  }, [editing, onEditingChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: textareaRef is a stable ref
   useEffect(() => {
@@ -115,7 +119,6 @@ export function ControlBarIdleMode({
           CB.shellContent,
         )}
         style={{ WebkitTouchCallout: "none", ...cbStyle }}
-        {...longPressHandlers}
       >
         <div
           className={cn(
@@ -221,7 +224,7 @@ export function ControlBarIdleMode({
                   <Button
                     variant="ghost"
                     size="control"
-                    className={cn(CB.actionButton, "touch-none long-press-ignore")}
+                    className={cn(CB.actionButton, "touch-none")}
                     disabled={sendDisabled}
                     aria-label="Hold to record audio"
                     {...pointerHandlers}
