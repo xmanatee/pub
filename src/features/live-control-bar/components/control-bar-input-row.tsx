@@ -29,6 +29,11 @@ interface ControlBarInputRowProps {
   voiceModeEnabled: boolean;
 }
 
+/**
+ * Just the interactive row part of the idle mode.
+ * Used as center content in the new architecture.
+ * Visual container is provided by ControlBarPrimitive.
+ */
 export function ControlBarInputRow({
   fileInputRef,
   hasText,
@@ -51,13 +56,14 @@ export function ControlBarInputRow({
     onEditingChange(editing);
   }, [editing, onEditingChange]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: textareaRef is a stable ref
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     const maxHeight = TEXTAREA_LINE_HEIGHT * MAX_TEXTAREA_ROWS + TEXTAREA_PADDING_Y;
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
-  }, []);
+  }, [input, editing]);
 
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
@@ -68,11 +74,7 @@ export function ControlBarInputRow({
 
   return (
     <div
-      className={cn(
-        "cb-state-border relative z-20 overflow-hidden select-none",
-        CB.controlHeight,
-        CB.shellContent,
-      )}
+      className={cn("w-full cb-state-border", CB.controlHeight)}
       style={{ WebkitTouchCallout: "none", ...cbStyle }}
     >
       <div className={CB.controlRow}>

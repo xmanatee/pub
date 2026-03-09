@@ -47,7 +47,7 @@ test.describe("Control bar screenshots", () => {
     });
   });
 
-  test("chat preview", async ({ page }) => {
+  test("modes: normal, preview, menu", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-preview");
     await expect(section).toBeVisible();

@@ -1,6 +1,14 @@
 import { cn } from "~/lib/utils";
+import { Separator } from "~/components/ui/separator";
 import type { ControlBarFullConfig } from "./control-bar-types";
+import { CB } from "../components/control-bar-classes";
 
+/**
+ * Pure UI Stage for the Control Bar.
+ * Occupies full width of the container.
+ * Transitions are implicit based on flex-box resizing.
+ * Stacks topAddon and centerContent into a single visual assembly.
+ */
 export function ControlBarPrimitive({
   leftAction,
   centerContent,
@@ -12,16 +20,20 @@ export function ControlBarPrimitive({
   className,
   isInteracting = false,
 }: ControlBarFullConfig) {
+  const hasLeft = Boolean(leftAction && !isInteracting);
+  const hasRight = Boolean(rightAction);
+
   return (
     <div
       className={cn(
         "pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-3",
         "transition-all duration-500 ease-in-out",
-        isExpanded ? "translate-y-0 opacity-100 scale-100" : "translate-y-full opacity-0 scale-95",
+        isExpanded ? "translate-y-0 opacity-100" : "translate-y-full opacity-0",
       )}
       style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
     >
       <div className="pointer-events-auto relative mx-auto w-full max-w-4xl">
+        {/* Status Slot (e.g., Floating Blob) */}
         {statusAction && (
           <button
             type="button"
@@ -39,52 +51,52 @@ export function ControlBarPrimitive({
           </button>
         )}
 
-        <div
-          className={cn(
-            "flex items-end gap-2 transition-all duration-500 ease-in-out",
-            rightAction && !leftAction
-              ? "translate-x-8"
-              : leftAction && !rightAction
-                ? "-translate-x-8"
-                : "translate-x-0",
-          )}
-          {...(!isExpanded ? { inert: true } : {})}
-        >
+        <div className="flex items-end transition-all duration-500 ease-in-out">
+          {/* Left Action Slot - Detached */}
           <div
             className={cn(
-              "transition-all duration-500 ease-in-out shrink-0",
-              leftAction && !isInteracting
-                ? "opacity-100 scale-100 w-auto translate-x-0"
-                : "opacity-0 scale-75 pointer-events-none w-0 -ml-2 -translate-x-4",
+              "shrink-0 transition-all duration-500 ease-in-out",
+              hasLeft ? "w-12 opacity-100 mr-2" : "w-0 opacity-0 pointer-events-none mr-0",
             )}
           >
-            {leftAction}
+            <div className="w-12 h-12 flex items-end">{leftAction}</div>
           </div>
 
-          <div className="min-w-0 flex-1 relative">
+          {/* Combined Visual Container */}
+          <div
+            className={cn(
+              "min-w-0 flex-1 relative flex flex-col overflow-hidden select-none",
+              CB.shellContent,
+              className,
+            )}
+          >
+            {/* Top Addon Slot (Preview/Menu) */}
             <div
               className={cn(
-                "absolute bottom-full left-0 right-0 mb-2 transition-all duration-500 ease-in-out overflow-hidden",
+                "transition-all duration-500 ease-in-out",
                 topAddon
                   ? "max-h-60 opacity-100 translate-y-0"
                   : "max-h-0 opacity-0 translate-y-4 pointer-events-none",
               )}
             >
               {topAddon}
+              {topAddon && <Separator />}
             </div>
 
-            <div className={cn("transition-all duration-300", className)}>{centerContent}</div>
+            {/* Center Main Bar Slot */}
+            <div className="transition-all duration-300 w-full min-h-12 flex items-center">
+              {centerContent}
+            </div>
           </div>
 
+          {/* Right Action Slot - Detached */}
           <div
             className={cn(
-              "transition-all duration-500 ease-in-out shrink-0",
-              rightAction
-                ? "opacity-100 scale-100 w-auto translate-x-0"
-                : "opacity-0 scale-75 pointer-events-none w-0 -mr-2 translate-x-4",
+              "shrink-0 transition-all duration-500 ease-in-out",
+              hasRight ? "w-12 opacity-100 ml-2" : "w-0 opacity-0 pointer-events-none ml-0",
             )}
           >
-            {rightAction}
+            <div className="w-12 h-12 flex items-end">{rightAction}</div>
           </div>
         </div>
       </div>

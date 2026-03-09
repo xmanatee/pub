@@ -279,6 +279,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     dismissPreview,
     files,
     clearSessionError,
+    hasCanvasContent: Boolean(canvasHtml),
     lastTakeoverAt: live?.lastTakeoverAt,
     live,
     messages,

@@ -28,9 +28,14 @@ function formatTime(seconds: number) {
 
 export interface ControlBarProps {
   initialInput?: string;
+  initialExpanded?: boolean;
 }
 
-export function ControlBar({ initialInput }: ControlBarProps) {
+/**
+ * Clean Orchestrator for the Control Bar.
+ * Maps application state to the Pure Stage Primitive.
+ */
+export function ControlBar({ initialInput, initialExpanded = false }: ControlBarProps) {
   const {
     agentName,
     audio,
@@ -55,10 +60,11 @@ export function ControlBar({ initialInput }: ControlBarProps) {
   } = useLiveSession();
 
   const hasContent = Boolean(canvasHtml);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initialExpanded);
   const [isEditing, setIsEditing] = useState(false);
   const bridge = bridgeRef.current;
 
+  // --- 1. Application Logic ---
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
     onSendChat: sendChat,
@@ -104,6 +110,8 @@ export function ControlBar({ initialInput }: ControlBarProps) {
     setViewMode("chat");
     dismissPreview();
   }, [setViewMode, dismissPreview]);
+
+  // --- 2. UI Assembly ---
 
   const waveformEl = (
     <div ref={audio.barsRef} className="flex h-7 items-center gap-0.5">
@@ -228,17 +236,11 @@ export function ControlBar({ initialInput }: ControlBarProps) {
       </Button>
     ) : null;
 
+  // Top Addon (Preview / Extended Options) - Continuation of center bar
   const topAddon = useMemo(() => {
     if (expanded) {
       return (
-        <div
-          className={cn(
-            CB.shellContent,
-            "border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl rounded-4xl",
-          )}
-        >
-          <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
-        </div>
+        <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
       );
     }
     if (preview && !isEditing) {
@@ -253,9 +255,7 @@ export function ControlBar({ initialInput }: ControlBarProps) {
       return (
         <button
           type="button"
-          className={cn(
-            "w-full overflow-hidden text-left border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-4xl",
-          )}
+          className="w-full overflow-hidden text-left"
           onClick={handlePreviewClick}
           aria-label="Open chat"
         >

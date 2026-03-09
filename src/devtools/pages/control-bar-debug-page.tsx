@@ -2,10 +2,7 @@ import { useState } from "react";
 import { BatchSection } from "~/devtools/components/batch-section";
 import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
-import {
-  createMockLiveSession,
-  LiveSessionProvider,
-} from "~/features/pub/contexts/live-session-context";
+import { LiveSessionProvider, createMockLiveSession } from "~/features/pub/contexts/live-session-context";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",
@@ -29,6 +26,7 @@ function StaticControlBar({
   sessionState = "active",
   lastTakeoverAt,
   initialInput,
+  initialExpanded = false,
 }: {
   agentName?: string | null;
   visualState?: LiveVisualState;
@@ -37,6 +35,7 @@ function StaticControlBar({
   sessionState?: SessionState;
   lastTakeoverAt?: number;
   initialInput?: string;
+  initialExpanded?: boolean;
 }) {
   const value = createMockLiveSession({
     agentName,
@@ -44,6 +43,7 @@ function StaticControlBar({
     controlBarCollapsed: collapsed,
     lastTakeoverAt,
     connected: visualState !== "connecting" && visualState !== "disconnected",
+    canvasHtml: "some content", // ensure blob is visible
     sessionState,
     visualState,
     uiState:
@@ -56,7 +56,7 @@ function StaticControlBar({
 
   return (
     <LiveSessionProvider value={value}>
-      <ControlBar initialInput={initialInput} />
+      <ControlBar initialInput={initialInput} initialExpanded={initialExpanded} />
     </LiveSessionProvider>
   );
 }
@@ -117,16 +117,20 @@ export function ControlBarDebugPage() {
         />
 
         <BatchSection
-          title="Chat Preview"
+          title="Modes: Normal, Preview, Menu"
           testId="batch-preview"
           items={[
-            { label: "without preview", content: <StaticControlBar /> },
+            { label: "normal", content: <StaticControlBar /> },
             {
-              label: "with preview",
+              label: "preview",
               content: <StaticControlBar agentName="Agent" chatPreview={DEBUG_PREVIEW_TEXT} />,
             },
+            {
+              label: "menu opened",
+              content: <StaticControlBar initialExpanded />,
+            },
           ]}
-          cellHeight={160}
+          cellHeight={200}
         />
 
         <BatchSection

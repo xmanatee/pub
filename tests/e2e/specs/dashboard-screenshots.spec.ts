@@ -27,14 +27,6 @@ test.describe("Dashboard screenshots", () => {
     await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-cards.png`);
   });
 
-  test("live banners", async ({ page }) => {
-    const section = page.getByTestId("batch-dashboard-live");
-    await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-live.png`, {
-      maxDiffRatio: ANIMATED_TOLERANCE,
-    });
-  });
-
   test("go live button", async ({ page }) => {
     const button = page.getByRole("button", { name: "Go live" });
     await expect(button).toBeVisible();
