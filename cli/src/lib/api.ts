@@ -1,3 +1,5 @@
+import { type LiveInfo, parseLiveInfo } from "../../../shared/live-api-core";
+
 export interface CreateResult {
   slug: string;
   url: string;
@@ -28,16 +30,6 @@ export interface ListResult {
   pubs: Pub[];
   cursor?: string;
   hasMore: boolean;
-}
-
-export interface LiveInfo {
-  slug: string;
-  status?: string;
-  browserOffer?: string;
-  agentAnswer?: string;
-  agentCandidates: string[];
-  browserCandidates: string[];
-  createdAt: number;
 }
 
 export class PubApiError extends Error {
@@ -220,8 +212,12 @@ export class PubApiClient {
     }
     const query = params.toString();
     const path = query ? `/api/v1/agent/live?${query}` : "/api/v1/agent/live";
-    const data = await this.request<{ live: LiveInfo | null }>(path);
-    return data.live;
+    const data = await this.request<{ live: unknown }>(path);
+    const live = parseLiveInfo(data.live);
+    if (data.live !== null && data.live !== undefined && live === null) {
+      throw new PubApiError("Invalid live snapshot response from server.", 502);
+    }
+    return live;
   }
 
   async signalAnswer(opts: {
@@ -263,9 +259,13 @@ export class PubApiClient {
   // -- Per-slug live info ---------------------------------------------------
 
   async getLive(slug: string): Promise<LiveInfo> {
-    const data = await this.request<{ live: LiveInfo }>(
+    const data = await this.request<{ live: unknown }>(
       `/api/v1/pubs/${encodeURIComponent(slug)}/live`,
     );
-    return data.live;
+    const live = parseLiveInfo(data.live);
+    if (!live) {
+      throw new PubApiError("Invalid live snapshot response from server.", 502);
+    }
+    return live;
   }
 }

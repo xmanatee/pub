@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import type { LiveInfo } from "../shared/live-api-core";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { listFreshOnlinePresences, PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
@@ -103,6 +104,26 @@ function mapPub(
   };
   if (includeContent) dto.content = pub.content;
   return dto;
+}
+
+function mapAgentLiveInfo(live: {
+  slug: string;
+  status?: string;
+  browserOffer?: string;
+  agentAnswer?: string;
+  agentCandidates: string[];
+  browserCandidates: string[];
+  createdAt: number;
+}): LiveInfo {
+  return {
+    slug: live.slug,
+    status: live.status,
+    browserOffer: live.browserOffer,
+    agentAnswer: live.agentAnswer,
+    browserCandidates: live.browserCandidates,
+    agentCandidates: live.agentCandidates,
+    createdAt: live.createdAt,
+  };
 }
 
 export const getBySlug = query({
@@ -333,15 +354,7 @@ export const getLiveForAgentByApiKey = query({
     const active = pending ?? lives.find((s) => matchesCurrentAgent(s));
     if (!active) return null;
 
-    return {
-      slug: active.slug,
-      status: active.status,
-      browserOffer: active.browserOffer,
-      agentAnswer: active.agentAnswer,
-      browserCandidates: active.browserCandidates,
-      agentCandidates: active.agentCandidates,
-      createdAt: active.createdAt,
-    };
+    return mapAgentLiveInfo(active);
   },
 });
 
@@ -653,12 +666,7 @@ export const getPendingLiveForAgent = internalQuery({
     );
     if (!pending?.browserOffer) return null;
 
-    return {
-      slug: pending.slug,
-      browserOffer: pending.browserOffer,
-      browserCandidates: pending.browserCandidates,
-      createdAt: pending.createdAt,
-    };
+    return mapAgentLiveInfo(pending);
   },
 });
 
@@ -674,14 +682,7 @@ export const getActiveLiveForAgent = internalQuery({
     const active = lives.find((s) => liveMatchesTargetPresence(s, targetPresenceId));
     if (!active) return null;
 
-    return {
-      slug: active.slug,
-      browserOffer: active.browserOffer,
-      agentAnswer: active.agentAnswer,
-      browserCandidates: active.browserCandidates,
-      agentCandidates: active.agentCandidates,
-      createdAt: active.createdAt,
-    };
+    return mapAgentLiveInfo(active);
   },
 });
 

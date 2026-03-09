@@ -1,4 +1,4 @@
-import type { LiveInfo } from "./api.js";
+import type { LiveInfo } from "../../../shared/live-api-core";
 import { shouldRecoverForBrowserOfferChange } from "./live-daemon-shared.js";
 
 export type SignalingDecision =

@@ -9,6 +9,24 @@ try {
 }
 
 const describeWithNdc = ndc ? describe : describe.skip;
+const PEER_NEGOTIATION_TIMEOUT_MS = 15_000;
+
+function waitForPeerEvent<T>(
+  subscribe: (resolve: (value: T) => void) => void,
+  timeoutMs = PEER_NEGOTIATION_TIMEOUT_MS,
+  label = "peer event",
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out waiting for ${label}`));
+    }, timeoutMs);
+
+    subscribe((value) => {
+      clearTimeout(timeout);
+      resolve(value);
+    });
+  });
+}
 
 describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
   let peerA: import("node-datachannel").PeerConnection;
@@ -145,20 +163,20 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     if (!dcA) return;
 
     // Wait for peerB to receive the DataChannel
-    const dcB = await new Promise<import("node-datachannel").DataChannel>((resolve) => {
+    const dcB = await waitForPeerEvent<import("node-datachannel").DataChannel>((resolve) => {
       peerB.onDataChannel((dc) => resolve(dc));
       peerA.setLocalDescription();
-    });
+    }, PEER_NEGOTIATION_TIMEOUT_MS, "remote data channel");
 
     // Wait for channels to open
-    await new Promise<void>((resolve) => {
+    await waitForPeerEvent<void>((resolve) => {
       if (dcA.isOpen()) return resolve();
       dcA.onOpen(() => resolve());
-    });
-    await new Promise<void>((resolve) => {
+    }, PEER_NEGOTIATION_TIMEOUT_MS, 'local "chat" channel to open');
+    await waitForPeerEvent<void>((resolve) => {
       if (dcB.isOpen()) return resolve();
       dcB.onOpen(() => resolve());
-    });
+    }, PEER_NEGOTIATION_TIMEOUT_MS, 'remote "chat" channel to open');
 
     // Send message A → B
     const receivedByB: string[] = [];
@@ -184,7 +202,7 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
 
     // Verify connection state transitions fired
     expect(stateChanges).toContain("connected");
-  });
+  }, PEER_NEGOTIATION_TIMEOUT_MS);
 
   it("supports multiple named channels", async () => {
     if (!ndc || !iceGatherSupported) return;
@@ -199,28 +217,28 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     if (!chatA || !canvasA) return;
 
     const remoteDcs = new Map<string, import("node-datachannel").DataChannel>();
-    const allReceived = new Promise<void>((resolve) => {
+    const allReceived = waitForPeerEvent<void>((resolve) => {
       peerB.onDataChannel((dc) => {
         remoteDcs.set(dc.getLabel(), dc);
         if (remoteDcs.size === 2) resolve();
       });
       peerA.setLocalDescription();
-    });
+    }, PEER_NEGOTIATION_TIMEOUT_MS, "all remote data channels");
 
     await allReceived;
 
     // Wait for all channels to open
     for (const dc of [chatA, canvasA]) {
-      await new Promise<void>((resolve) => {
+      await waitForPeerEvent<void>((resolve) => {
         if (dc.isOpen()) return resolve();
         dc.onOpen(() => resolve());
-      });
+      }, PEER_NEGOTIATION_TIMEOUT_MS, `local "${dc.getLabel()}" channel to open`);
     }
     for (const dc of remoteDcs.values()) {
-      await new Promise<void>((resolve) => {
+      await waitForPeerEvent<void>((resolve) => {
         if (dc.isOpen()) return resolve();
         dc.onOpen(() => resolve());
-      });
+      }, PEER_NEGOTIATION_TIMEOUT_MS, `remote "${dc.getLabel()}" channel to open`);
     }
 
     // Send on chat channel
@@ -255,7 +273,7 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     expect(parsed.type).toBe("html");
     expect(parsed.data).toBe("<h1>Hello</h1>");
     expect(parsed.meta.title).toBe("Test");
-  });
+  }, PEER_NEGOTIATION_TIMEOUT_MS);
 
   it("generates offer with STUN servers via onGatheringStateChange", async () => {
     if (!ndc || !iceGatherSupported) return;
@@ -327,19 +345,19 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
 
     const dcA = createChannelOrSkip(peerA, "chat");
     if (!dcA) return;
-    const dcB = await new Promise<import("node-datachannel").DataChannel>((resolve) => {
+    const dcB = await waitForPeerEvent<import("node-datachannel").DataChannel>((resolve) => {
       peerB.onDataChannel((dc) => resolve(dc));
       peerA.setLocalDescription();
-    });
+    }, PEER_NEGOTIATION_TIMEOUT_MS, "remote data channel");
 
-    await new Promise<void>((r) => {
-      if (dcA.isOpen()) return r();
-      dcA.onOpen(() => r());
-    });
-    await new Promise<void>((r) => {
-      if (dcB.isOpen()) return r();
-      dcB.onOpen(() => r());
-    });
+    await waitForPeerEvent<void>((resolve) => {
+      if (dcA.isOpen()) return resolve();
+      dcA.onOpen(() => resolve());
+    }, PEER_NEGOTIATION_TIMEOUT_MS, 'local "chat" channel to open');
+    await waitForPeerEvent<void>((resolve) => {
+      if (dcB.isOpen()) return resolve();
+      dcB.onOpen(() => resolve());
+    }, PEER_NEGOTIATION_TIMEOUT_MS, 'remote "chat" channel to open');
 
     const received: string[] = [];
     dcB.onMessage((data) => {
@@ -367,5 +385,5 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     expect(decoded1?.type).toBe("html");
     expect(decoded1?.data).toBe("<p>test</p>");
     expect(decoded1?.meta?.title).toBe("Title");
-  });
+  }, PEER_NEGOTIATION_TIMEOUT_MS);
 });

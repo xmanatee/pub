@@ -1,4 +1,5 @@
 import { httpRouter } from "convex/server";
+import { parseAgentPresenceBody, parseAgentSignalBody } from "../../shared/live-api-core";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { httpAction } from "../_generated/server";
@@ -27,28 +28,13 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
   async function readPresenceBody(
     request: Request,
   ): Promise<{ daemonSessionId: string; agentName?: string } | Response> {
-    let body: unknown;
     try {
-      body = await request.json();
+      const parsed = parseAgentPresenceBody(await request.json());
+      if (!parsed.ok) return errorResponse(parsed.error, 400);
+      return parsed.value;
     } catch {
       return errorResponse("Invalid JSON body", 400);
     }
-
-    if (!body || typeof body !== "object") {
-      return errorResponse("Invalid JSON body", 400);
-    }
-
-    const payload = body as { daemonSessionId?: unknown; agentName?: unknown };
-
-    const daemonSessionId =
-      typeof payload.daemonSessionId === "string" ? payload.daemonSessionId.trim() : "";
-    if (!daemonSessionId) return errorResponse("Missing daemonSessionId", 400);
-
-    const agentNameRaw = typeof payload.agentName === "string" ? payload.agentName.trim() : "";
-    return {
-      daemonSessionId,
-      agentName: agentNameRaw.length > 0 ? agentNameRaw : undefined,
-    };
   }
 
   http.route({ pathPrefix: "/api/v1/agent/", method: "OPTIONS", handler: corsPreflightHandler });
@@ -187,45 +173,35 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
-      let body: {
-        slug: string;
-        daemonSessionId?: string;
-        answer?: string;
-        candidates?: string[];
-        agentName?: string;
-      };
       try {
-        body = await request.json();
+        const body = parseAgentSignalBody(await request.json());
+        if (!body.ok) return errorResponse(body.error, 400);
+
+        const user = await authenticateApiKey(ctx, apiKey);
+        const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
+        if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+
+        return executeAction(
+          async () => {
+            try {
+              await ctx.runMutation(internal.pubs.storeAgentAnswer, {
+                slug: body.value.slug,
+                userId: user.userId,
+                apiKeyId: user.apiKeyId,
+                daemonSessionId: body.value.daemonSessionId,
+                answer: body.value.answer,
+                candidates: body.value.candidates,
+                agentName: body.value.agentName,
+              });
+            } catch (error) {
+              rethrowLiveApiError(error);
+            }
+          },
+          () => jsonResponse({ ok: true }),
+        );
       } catch {
         return errorResponse("Invalid JSON body", 400);
       }
-
-      if (!body.slug) return errorResponse("Missing slug", 400);
-      const daemonSessionId = body.daemonSessionId?.trim();
-      if (!daemonSessionId) return errorResponse("Missing daemonSessionId", 400);
-
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
-
-      return executeAction(
-        async () => {
-          try {
-            await ctx.runMutation(internal.pubs.storeAgentAnswer, {
-              slug: body.slug,
-              userId: user.userId,
-              apiKeyId: user.apiKeyId,
-              daemonSessionId,
-              answer: body.answer,
-              candidates: body.candidates,
-              agentName: body.agentName,
-            });
-          } catch (error) {
-            rethrowLiveApiError(error);
-          }
-        },
-        () => jsonResponse({ ok: true }),
-      );
     }),
   });
 

@@ -1,8 +1,8 @@
 import * as net from "node:net";
 import { errorMessage } from "./cli-error.js";
-import type { RawIpcRequest } from "./live-ipc-protocol.js";
+import { type IpcRequest, parseIpcRequest } from "./live-ipc-protocol.js";
 
-type DaemonIpcRequestHandler = (request: RawIpcRequest) => Promise<Record<string, unknown>>;
+type DaemonIpcRequestHandler = (request: IpcRequest) => Promise<Record<string, unknown>>;
 
 export function createDaemonIpcServer(handler: DaemonIpcRequestHandler): net.Server {
   return net.createServer((conn) => {
@@ -15,17 +15,20 @@ export function createDaemonIpcServer(handler: DaemonIpcRequestHandler): net.Ser
       const line = data.slice(0, newlineIdx);
       data = data.slice(newlineIdx + 1);
 
-      let request: RawIpcRequest;
       try {
-        request = JSON.parse(line) as RawIpcRequest;
+        const request = parseIpcRequest(JSON.parse(line));
+        if (!request) {
+          conn.write(`${JSON.stringify({ ok: false, error: "Invalid request" })}\n`);
+          return;
+        }
+        handler(request)
+          .then((response) => conn.write(`${JSON.stringify(response)}\n`))
+          .catch((err) =>
+            conn.write(`${JSON.stringify({ ok: false, error: errorMessage(err) })}\n`),
+          );
       } catch {
         conn.write(`${JSON.stringify({ ok: false, error: "Invalid JSON" })}\n`);
-        return;
       }
-
-      handler(request)
-        .then((response) => conn.write(`${JSON.stringify(response)}\n`))
-        .catch((err) => conn.write(`${JSON.stringify({ ok: false, error: errorMessage(err) })}\n`));
     });
   });
 }
