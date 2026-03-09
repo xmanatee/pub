@@ -10,6 +10,7 @@ import { CB } from "./control-bar-classes";
 interface ControlBarShellProps {
   children: ReactNode;
   collapsed: boolean;
+  hasCanvasContent?: boolean;
   onToggleCollapsed: () => void;
   onBackToCanvas: () => void;
   showBackButton: boolean;
@@ -19,11 +20,13 @@ interface ControlBarShellProps {
 export function ControlBarShell({
   children,
   collapsed,
+  hasCanvasContent,
   onToggleCollapsed,
   onBackToCanvas,
   showBackButton,
   visualState,
 }: ControlBarShellProps) {
+  const showToggle = hasCanvasContent !== false;
   return (
     <div
       className={cn(
@@ -34,15 +37,17 @@ export function ControlBarShell({
       style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
     >
       <div className="pointer-events-auto relative mx-auto w-full max-w-4xl">
-        <button
-          type="button"
-          className="pointer-events-auto absolute -top-12 right-0 size-11 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl"
-          onClick={onToggleCollapsed}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? "Show control bar" : "Hide control bar"}
-        >
-          <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={false} />
-        </button>
+        {showToggle ? (
+          <button
+            type="button"
+            className="pointer-events-auto absolute -top-12 right-0 size-9 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl"
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Show control bar" : "Hide control bar"}
+          >
+            <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={false} />
+          </button>
+        ) : null}
         <div className="flex items-end gap-2" {...(collapsed ? { inert: true } : {})}>
           <div className="min-w-0 flex-1">{children}</div>
           {showBackButton ? (

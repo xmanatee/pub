@@ -23,6 +23,7 @@ export interface ControlBarModel {
   chatPreviewSeverity?: SystemMessageSeverity | null;
   chatPreviewSource?: "agent" | "system" | null;
   collapsed: boolean;
+  hasCanvasContent?: boolean;
   lastTakeoverAt?: number;
   sendDisabled: boolean;
   sessionState?: SessionState;
@@ -75,6 +76,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     chatPreviewSeverity,
     chatPreviewSource,
     collapsed,
+    hasCanvasContent,
     lastTakeoverAt,
     sendDisabled,
     sessionState,
@@ -241,6 +243,7 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
   return (
     <ControlBarShell
       collapsed={collapsed}
+      hasCanvasContent={hasCanvasContent}
       onToggleCollapsed={onToggleCollapsed}
       onBackToCanvas={() => onChangeView("canvas")}
       showBackButton={viewMode !== "canvas"}

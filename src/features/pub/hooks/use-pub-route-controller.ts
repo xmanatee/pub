@@ -160,6 +160,7 @@ export function usePubRouteController({
     sendDisabled: !model.connected,
     sessionState: model.sessionState,
     viewMode: model.viewMode,
+    hasCanvasContent: Boolean(effectiveCanvasHtml),
     visualState: model.visualState,
     voiceModeEnabled: model.voiceModeEnabled,
   };
