@@ -117,10 +117,10 @@ describe("message factories", () => {
   });
 
   it("parseAckMessage extracts ack metadata", () => {
-    const ack = makeAckMessage("msg-2", CHANNELS.CANVAS);
+    const ack = makeAckMessage("msg-2", CHANNELS.CHAT);
     expect(parseAckMessage(ack)).toEqual({
       messageId: "msg-2",
-      channel: CHANNELS.CANVAS,
+      channel: CHANNELS.CHAT,
       receivedAt: ack.meta?.receivedAt,
     });
   });
@@ -179,7 +179,6 @@ describe("constants", () => {
 
   it("CHANNELS has expected keys", () => {
     expect(CHANNELS.CHAT).toBe("chat");
-    expect(CHANNELS.CANVAS).toBe("canvas");
     expect(CHANNELS.RENDER_ERROR).toBe("render-error");
     expect(CHANNELS.AUDIO).toBe("audio");
     expect(CHANNELS.MEDIA).toBe("media");

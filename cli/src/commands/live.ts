@@ -412,7 +412,6 @@ function registerDoctorCommand(program: Command): void {
         for (const required of [
           CONTROL_CHANNEL,
           CHANNELS.CHAT,
-          CHANNELS.CANVAS,
           CHANNELS.RENDER_ERROR,
           CHANNELS.COMMAND,
         ]) {
@@ -498,7 +497,7 @@ function registerDoctorCommand(program: Command): void {
           };
           const canvasResponse = await ipcCall(socketPath, {
             method: "write",
-            params: { channel: CHANNELS.CANVAS, msg: canvasMsg },
+            params: { channel: "canvas", msg: canvasMsg },
           });
           if (!canvasResponse.ok) {
             fail(`canvas ping failed: ${String(canvasResponse.error || "unknown write error")}`);

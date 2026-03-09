@@ -306,55 +306,80 @@ export const getLiveBySlug = query({
 });
 
 /**
- * Daemon signaling query.
+ * Consolidated signaling query for agents.
  *
- * Uses API key authentication (for non-browser agent process) and returns the
- * currently relevant live snapshot:
- * - pending live first (browser offer exists, agent answer missing)
- * - otherwise latest active live.
+ * Can be called via API key (for reactive daemon signaling) or via userId
+ * (for HTTP polling). Returns the most relevant live session:
+ * 1. Pending session (offer exists, no answer)
+ * 2. Active session
  */
-export const getLiveForAgentByApiKey = query({
-  args: { apiKey: v.string(), daemonSessionId: v.string() },
-  handler: async (ctx, { apiKey, daemonSessionId }) => {
-    const keyHash = await hashApiKey(apiKey);
-    const key = await ctx.db
-      .query("apiKeys")
-      .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
-      .unique();
-    if (!key) throw new Error("Invalid API key");
+export const getLiveSnapshotForAgent = internalQuery({
+  args: {
+    apiKey: v.optional(v.string()),
+    daemonSessionId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    targetPresenceId: v.optional(v.id("agentPresence")),
+  },
+  handler: async (ctx, { apiKey, daemonSessionId, userId, targetPresenceId }) => {
+    let resolvedUserId: Id<"users">;
+    let resolvedPresenceId: Id<"agentPresence"> | undefined = targetPresenceId;
+
     const now = Date.now();
-    const byApiKey = await ctx.db
-      .query("agentPresence")
-      .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
-      .collect();
-    const presence = byApiKey.find(
-      (entry) =>
-        entry.daemonSessionId === daemonSessionId &&
-        entry.status === "online" &&
-        now - entry.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
-    );
-    if (!presence) return null;
+
+    if (apiKey && daemonSessionId) {
+      const keyHash = await hashApiKey(apiKey);
+      const key = await ctx.db
+        .query("apiKeys")
+        .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
+        .unique();
+      if (!key) throw new Error("Invalid API key");
+
+      const byApiKey = await ctx.db
+        .query("agentPresence")
+        .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
+        .collect();
+
+      const presence = byApiKey.find(
+        (entry) =>
+          entry.daemonSessionId === daemonSessionId &&
+          entry.status === "online" &&
+          now - entry.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+      );
+      if (!presence) return null;
+
+      resolvedUserId = key.userId;
+      resolvedPresenceId = presence._id;
+    } else if (userId) {
+      resolvedUserId = userId;
+    } else {
+      throw new Error("Missing authentication for live snapshot");
+    }
+
     const allPresences = await ctx.db
       .query("agentPresence")
-      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .withIndex("by_user", (q) => q.eq("userId", resolvedUserId))
       .collect();
     const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
+
     const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
-      if (live.targetPresenceId) return live.targetPresenceId === presence._id;
-      return freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === presence._id;
+      if (live.targetPresenceId) {
+        return live.targetPresenceId === resolvedPresenceId;
+      }
+      return (
+        freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === resolvedPresenceId
+      );
     };
 
     const lives = await ctx.db
       .query("lives")
-      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .withIndex("by_user", (q) => q.eq("userId", resolvedUserId))
       .order("desc")
       .collect();
 
     const pending = lives.find((s) => matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer);
     const active = pending ?? lives.find((s) => matchesCurrentAgent(s));
-    if (!active) return null;
 
-    return mapAgentLiveInfo(active);
+    return active ? mapAgentLiveInfo(active) : null;
   },
 });
 
@@ -648,40 +673,6 @@ export const storeAgentAnswer = internalMutation({
     }
 
     await ctx.db.patch(live._id, patch);
-  },
-});
-
-export const getPendingLiveForAgent = internalQuery({
-  args: { userId: v.id("users"), targetPresenceId: v.optional(v.id("agentPresence")) },
-  handler: async (ctx, { userId, targetPresenceId }) => {
-    const lives = await ctx.db
-      .query("lives")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
-
-    const pending = lives.find(
-      (s) => liveMatchesTargetPresence(s, targetPresenceId) && s.browserOffer && !s.agentAnswer,
-    );
-    if (!pending?.browserOffer) return null;
-
-    return mapAgentLiveInfo(pending);
-  },
-});
-
-export const getActiveLiveForAgent = internalQuery({
-  args: { userId: v.id("users"), targetPresenceId: v.optional(v.id("agentPresence")) },
-  handler: async (ctx, { userId, targetPresenceId }) => {
-    const lives = await ctx.db
-      .query("lives")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
-
-    const active = lives.find((s) => liveMatchesTargetPresence(s, targetPresenceId));
-    if (!active) return null;
-
-    return mapAgentLiveInfo(active);
   },
 });
 

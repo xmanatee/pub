@@ -151,7 +151,6 @@ export function usePubLiveModel({
     markMessageReceived,
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
-    onCanvasHtmlMessage: setCanvasHtml,
     onCommandMessageRef: commandMessageHandlerRef,
   });
 

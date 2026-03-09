@@ -225,8 +225,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     msg: BridgeMessage;
     timestamp: number;
   }): void {
-    // Canvas payloads can be large; keep runtime buffering scoped to operational chat/file reads.
-    if (entry.channel === CHANNELS.CANVAS || entry.channel === CHANNELS.COMMAND) return;
+    if (entry.channel === CHANNELS.COMMAND) return;
     buffer.messages.push(entry);
     if (buffer.messages.length > MAX_BUFFERED_MESSAGES) {
       buffer.messages.splice(0, buffer.messages.length - MAX_BUFFERED_MESSAGES);

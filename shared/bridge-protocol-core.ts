@@ -111,7 +111,6 @@ export interface DeliveryReceiptPayload {
 
 export const CHANNELS = {
   CHAT: "chat",
-  CANVAS: "canvas",
   RENDER_ERROR: "render-error",
   AUDIO: "audio",
   MEDIA: "media",

@@ -44,7 +44,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
         const channel = req.params.channel || "chat";
         const msg: BridgeMessage = req.params.msg;
 
-        if (channel === CHANNELS.CANVAS && msg.type === "html" && typeof msg.data === "string") {
+        if (channel === "canvas" && msg.type === "html" && typeof msg.data === "string") {
           const slug = params.getActiveSlug();
           if (!slug) return { ok: false, error: "No active live session." };
           try {

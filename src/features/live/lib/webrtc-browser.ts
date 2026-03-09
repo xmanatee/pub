@@ -108,7 +108,6 @@ export class BrowserBridge {
 
     this.openChannel(CONTROL_CHANNEL);
     this.openChannel(CHANNELS.CHAT);
-    this.openChannel(CHANNELS.CANVAS);
     this.openChannel(CHANNELS.RENDER_ERROR);
     this.openChannel(CHANNELS.COMMAND);
 

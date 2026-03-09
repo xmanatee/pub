@@ -147,18 +147,11 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
             targetPresenceId = presence._id;
           }
 
-          const pending = await ctx.runQuery(internal.pubs.getPendingLiveForAgent, {
+          const result = await ctx.runQuery(internal.pubs.getLiveSnapshotForAgent, {
             userId: user.userId,
             targetPresenceId,
           });
-          if (!pending) {
-            const active = await ctx.runQuery(internal.pubs.getActiveLiveForAgent, {
-              userId: user.userId,
-              targetPresenceId,
-            });
-            return { live: active };
-          }
-          return { live: pending };
+          return { live: result };
         },
         (result) => jsonResponse(result),
       );
@@ -291,7 +284,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
             targetPresenceId = presence._id;
           }
 
-          const active = await ctx.runQuery(internal.pubs.getActiveLiveForAgent, {
+          const active = await ctx.runQuery(internal.pubs.getLiveSnapshotForAgent, {
             userId: user.userId,
             targetPresenceId,
           });
