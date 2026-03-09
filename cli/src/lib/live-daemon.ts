@@ -40,7 +40,6 @@ import {
   OFFER_TIMEOUT_MS,
   PING_INTERVAL_MS,
   PONG_TIMEOUT_MS,
-  readCanvasHtmlFromOutbound,
   WRITE_ACK_TIMEOUT_MS,
 } from "./live-daemon-shared.js";
 import { createSignalingController } from "./live-daemon-signaling.js";
@@ -89,9 +88,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
   let inboundStreams = new Map<string, { streamId: string }>();
   let seenInboundMessageKeys = new Set<string>();
-  let lastCanvasSnapshot: { slug: string; html: string } | null = null;
-  let lastPersistedCanvasSnapshot: { slug: string; html: string } | null = null;
-  let persistCanvasQueue: Promise<void> = Promise.resolve();
   let commandProcessingQueue: Promise<void> = Promise.resolve();
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -110,14 +106,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     markError,
     sendCommandMessage: async (msg) => {
       if (!isLiveConnected()) return false;
-      const sent = await sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
+      return sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
         context: 'command outbound on "command"',
         maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
       });
-      if (sent) {
-        trackOutboundMessage(CHANNELS.COMMAND, msg);
-      }
-      return sent;
     },
   });
 
@@ -238,58 +230,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function getActiveCanvasSnapshot(): { slug: string; html: string } | null {
-    if (!activeSlug || !lastCanvasSnapshot) return null;
-    if (lastCanvasSnapshot.slug !== activeSlug) return null;
-    return lastCanvasSnapshot;
-  }
-
-  function isSameCanvasSnapshot(
-    a: { slug: string; html: string } | null,
-    b: { slug: string; html: string } | null,
-  ): boolean {
-    if (!a || !b) return false;
-    return a.slug === b.slug && a.html === b.html;
-  }
-
-  function queuePersistCanvasSnapshot(
-    snapshot: { slug: string; html: string } | null,
-    reason: string,
-  ): Promise<void> {
-    if (!snapshot) return Promise.resolve();
-    if (isSameCanvasSnapshot(lastPersistedCanvasSnapshot, snapshot)) return Promise.resolve();
-
-    persistCanvasQueue = persistCanvasQueue.then(async () => {
-      if (isSameCanvasSnapshot(lastPersistedCanvasSnapshot, snapshot)) return;
-      try {
-        await apiClient.update({
-          slug: snapshot.slug,
-          content: snapshot.html,
-          filename: "live-canvas.html",
-        });
-        lastPersistedCanvasSnapshot = snapshot;
-        debugLog(`persisted latest canvas for "${snapshot.slug}" (${reason})`);
-      } catch (error) {
-        markError(`failed to persist latest canvas for "${snapshot.slug}" (${reason})`, error);
-        if (!debugEnabled) {
-          console.error(
-            `[pubblue-agent] failed to persist latest canvas for "${snapshot.slug}" (${reason}): ${errorMessage(error)}`,
-          );
-        }
-      }
-    });
-
-    return persistCanvasQueue;
-  }
-
-  function trackOutboundMessage(channel: string, msg: BridgeMessage): void {
-    const html = readCanvasHtmlFromOutbound({ channel, msg });
-    if (!html || !activeSlug) return;
-    lastCanvasSnapshot = { slug: activeSlug, html };
-  }
-
   function handleConnectionClosed(reason: string): void {
-    void queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), reason);
+    debugLog(`connection closed: ${reason}`);
     const hadConnection = browserConnected || bridgePrimed;
     browserConnected = false;
     bridgePrimed = false;
@@ -406,8 +348,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           queueAck(msg.id, name);
         }
         if (name === CHANNELS.COMMAND) {
-          // Use a basic promise chain to ensure sequential processing of command events.
-          // This prevents race conditions where handleInvoke might run while handleBind is clearing functions.
+          // Process command events sequentially to avoid out-of-order invoke/cancel handling.
           commandProcessingQueue = commandProcessingQueue
             .then(() => commandHandler.onMessage(msg))
             .catch((error) => {
@@ -754,10 +695,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     recovering = true;
 
     try {
-      const previousCanvasSnapshot = getActiveCanvasSnapshot();
-      if (previousCanvasSnapshot && previousCanvasSnapshot.slug !== slug) {
-        void queuePersistCanvasSnapshot(previousCanvasSnapshot, `session-switch:${slug}`);
-      }
       await stopBridge();
       closeCurrentPeer();
       createPeer();
@@ -850,6 +787,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   // -- IPC server -----------------------------------------------------------
 
   const handleIpcRequest = createDaemonIpcHandler({
+    apiClient,
+    bindCanvasCommands: (html) => commandHandler.bindFromHtml(html),
     getConnected: () => isLiveConnected(),
     getSignalingConnected: () => {
       const state = signaling.status();
@@ -870,7 +809,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     waitForChannelOpen,
     waitForDeliveryAck,
     settlePendingAck,
-    trackOutboundMessage,
     markError,
     shutdown: () => {
       void shutdown();
@@ -897,14 +835,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
     if (stopped || !isLiveConnected()) return false;
-    const sent = await sendOutboundMessageWithAck(channel, msg, {
+    return sendOutboundMessageWithAck(channel, msg, {
       context: `bridge outbound on "${channel}"`,
       maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
     });
-    if (sent) {
-      trackOutboundMessage(channel, msg);
-    }
-    return sent;
   }
 
   async function buildInitialSessionBriefing(params: {
@@ -913,6 +847,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }): Promise<string> {
     const pub = await apiClient.get(params.slug);
     const content = typeof pub.content === "string" ? pub.content : "";
+    if (content.length > 0) {
+      commandHandler.bindFromHtml(content);
+    }
     const canvasContentFilePath =
       content.length > 0
         ? writeLiveSessionContentFile({
@@ -1025,7 +962,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearHeartbeatTimer();
     stopPingPong();
     await signaling.stop();
-    await queuePersistCanvasSnapshot(getActiveCanvasSnapshot(), "daemon-shutdown");
 
     try {
       await apiClient.goOffline({ daemonSessionId });

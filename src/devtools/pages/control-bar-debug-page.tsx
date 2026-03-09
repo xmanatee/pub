@@ -2,7 +2,10 @@ import { useState } from "react";
 import { BatchSection } from "~/devtools/components/batch-section";
 import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
-import { LiveSessionProvider, createMockLiveSession } from "~/features/pub/contexts/live-session-context";
+import {
+  createMockLiveSession,
+  LiveSessionProvider,
+} from "~/features/pub/contexts/live-session-context";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",
@@ -43,12 +46,12 @@ function StaticControlBar({
     controlBarCollapsed: collapsed,
     lastTakeoverAt,
     connected: visualState !== "connecting" && visualState !== "disconnected",
-    canvasHtml: "some content", // ensure blob is visible
+    hasCanvasContent: true,
     sessionState,
     visualState,
     uiState:
       sessionState === "needs-takeover" || sessionState === "taken-over"
-        ? (sessionState as any)
+        ? sessionState
         : visualState === "connecting"
           ? "connecting"
           : "idle",

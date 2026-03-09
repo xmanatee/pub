@@ -1,7 +1,7 @@
-import { cn } from "~/lib/utils";
 import { Separator } from "~/components/ui/separator";
-import type { ControlBarFullConfig } from "./control-bar-types";
+import { cn } from "~/lib/utils";
 import { CB } from "../components/control-bar-classes";
+import type { ControlBarFullConfig } from "./control-bar-types";
 
 /**
  * Pure UI Stage for the Control Bar.

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import { makeEventMessage } from "../../../shared/bridge-protocol-core";
-import {
-  parseCommandBindResultMessage,
-  parseCommandResultMessage,
-} from "../../../shared/command-protocol-core";
+import { parseCommandResultMessage } from "../../../shared/command-protocol-core";
 import { createLiveCommandHandler } from "./live-command-handler.js";
 
 function sleep(ms: number): Promise<void> {
@@ -29,6 +26,11 @@ function buildHandler() {
   };
 }
 
+function buildManifestHtml(functions: Array<Record<string, unknown>>): string {
+  const manifest = JSON.stringify({ manifestId: "test-manifest", functions });
+  return `<html><head><script type="application/pubblue-command-manifest+json">${manifest}</script></head><body></body></html>`;
+}
+
 function commandResults(messages: BridgeMessage[]) {
   return messages
     .map((message) => parseCommandResultMessage(message))
@@ -37,35 +39,22 @@ function commandResults(messages: BridgeMessage[]) {
     );
 }
 
-function commandBindResults(messages: BridgeMessage[]) {
-  return messages
-    .map((message) => parseCommandBindResultMessage(message))
-    .filter(
-      (entry): entry is NonNullable<ReturnType<typeof parseCommandBindResultMessage>> =>
-        entry !== null,
-    );
-}
-
 describe("createLiveCommandHandler", () => {
-  it("binds and executes manifest-defined exec function", async () => {
+  it("binds from HTML and executes manifest-defined exec function", async () => {
     const { handler, sentMessages } = buildHandler();
 
-    await handler.onMessage(
-      makeEventMessage("command.bind", {
-        v: 1,
-        manifestId: "manifest-mail",
-        functions: [
-          {
-            name: "echoValue",
-            returns: "text",
-            executor: {
-              kind: "exec",
-              command: process.execPath,
-              args: ["-e", "process.stdout.write(process.argv[1] ?? '')", "{{value}}"],
-            },
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "echoValue",
+          returns: "text",
+          executor: {
+            kind: "exec",
+            command: process.execPath,
+            args: ["-e", "process.stdout.write(process.argv[1] ?? '')", "{{value}}"],
           },
-        ],
-      }),
+        },
+      ]),
     );
 
     await handler.onMessage(
@@ -77,14 +66,6 @@ describe("createLiveCommandHandler", () => {
       }),
     );
 
-    const bindResults = commandBindResults(sentMessages);
-    expect(bindResults).toHaveLength(1);
-    expect(bindResults[0]).toMatchObject({
-      manifestId: "manifest-mail",
-      accepted: [{ name: "echoValue", returns: "text" }],
-      rejected: [],
-    });
-
     const results = commandResults(sentMessages).filter((entry) => entry.callId === "call-echo");
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
@@ -94,53 +75,51 @@ describe("createLiveCommandHandler", () => {
     });
   });
 
-  it("rejects bound functions that are missing executor", async () => {
+  it("skips functions missing executor during bind", async () => {
     const { handler, sentMessages } = buildHandler();
 
+    handler.bindFromHtml(
+      buildManifestHtml([
+        { name: "missingExecutor", returns: "text" },
+        {
+          name: "valid",
+          returns: "text",
+          executor: { kind: "exec", command: "echo" },
+        },
+      ]),
+    );
+
     await handler.onMessage(
-      makeEventMessage("command.bind", {
+      makeEventMessage("command.invoke", {
         v: 1,
-        manifestId: "manifest-invalid",
-        functions: [
-          {
-            name: "missingExecutor",
-            returns: "text",
-          },
-        ],
+        callId: "call-missing",
+        name: "missingExecutor",
       }),
     );
 
-    const bindResults = commandBindResults(sentMessages);
-    expect(bindResults).toHaveLength(1);
-    expect(bindResults[0]).toMatchObject({
-      accepted: [],
-      rejected: [
-        {
-          name: "missingExecutor",
-          code: "INVALID_FUNCTION",
-        },
-      ],
+    const results = commandResults(sentMessages);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      callId: "call-missing",
+      ok: false,
+      error: { code: "COMMAND_NOT_FOUND" },
     });
   });
 
   it("executes manifest-defined shell function", async () => {
     const { handler, sentMessages } = buildHandler();
 
-    await handler.onMessage(
-      makeEventMessage("command.bind", {
-        v: 1,
-        manifestId: "manifest-shell",
-        functions: [
-          {
-            name: "shellEcho",
-            returns: "text",
-            executor: {
-              kind: "shell",
-              script: "printf shell-ok",
-            },
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "shellEcho",
+          returns: "text",
+          executor: {
+            kind: "shell",
+            script: "printf shell-ok",
           },
-        ],
-      }),
+        },
+      ]),
     );
 
     await handler.onMessage(
@@ -180,22 +159,18 @@ describe("createLiveCommandHandler", () => {
   it("emits a single COMMAND_CANCELLED result for cancelled calls", async () => {
     const { handler, sentMessages } = buildHandler();
 
-    await handler.onMessage(
-      makeEventMessage("command.bind", {
-        v: 1,
-        manifestId: "manifest-cancel",
-        functions: [
-          {
-            name: "slowInline",
-            returns: "text",
-            executor: {
-              kind: "exec",
-              command: process.execPath,
-              args: ["-e", "setTimeout(() => process.stdout.write('done'), 1500)"],
-            },
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "slowInline",
+          returns: "text",
+          executor: {
+            kind: "exec",
+            command: process.execPath,
+            args: ["-e", "setTimeout(() => process.stdout.write('done'), 1500)"],
           },
-        ],
-      }),
+        },
+      ]),
     );
 
     const invokePromise = handler.onMessage(

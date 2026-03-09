@@ -29,14 +29,14 @@ describe("buildCanvasSrcDoc", () => {
 
     expect(output).toContain("pubblue.command=invokeCommand");
     expect(output).toContain("pubblue.cancelCommand=cancelCommand");
-    expect(output).toContain("application/pubblue-command-manifest+json");
-    expect(output).toContain("startManifestBinding(manifest)");
-    expect(output).toContain("Math.min(400*Math.pow(1.5,manifestRetryCount),5000)");
-    expect(output).not.toContain("manifestRetryCount>=20");
-    expect(output).toContain("DOMContentLoaded");
-    expect(output).toContain("tryBindManifest");
     expect(output).toContain('emit("command.invoke"');
     expect(output).toContain('emit("command.cancel"');
+    expect(output).toContain("command.result");
+    expect(output).not.toContain("command.bind.result");
+    expect(output).not.toContain("application/pubblue-command-manifest+json");
+    expect(output).not.toContain("tryBindManifest");
+    expect(output).not.toContain("startManifestBinding");
+    expect(output).not.toContain("manifestRetryCount");
     expect(output).not.toContain("bridgeToken");
   });
 });

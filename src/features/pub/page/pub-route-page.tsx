@@ -4,6 +4,7 @@ import { SettingsPanel } from "~/features/live/components/panels/settings-panel"
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
+import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
 import { api } from "../../../../convex/_generated/api";
 import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-context";
 
@@ -13,20 +14,29 @@ export function PubRoutePage({ slug }: { slug: string }) {
 
   return (
     <LiveSessionProvider slug={slug} pub={pub} baseContentHtml={baseContentHtml}>
-      <PubRouteContent slug={slug} />
+      <PubRouteContent pub={pub} baseContentHtml={baseContentHtml} />
     </LiveSessionProvider>
   );
 }
 
-function PubRouteContent({ slug }: { slug: string }) {
-  const pub = useQuery(api.pubs.getBySlug, { slug });
-  const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
+function PubRouteContent({
+  pub,
+  baseContentHtml,
+}: {
+  pub: UsePubLiveModelOptions["pub"];
+  baseContentHtml: string | null;
+}) {
   const session = useLiveSession();
 
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
-  const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? baseContentHtml) : baseContentHtml;
+  const effectiveCanvasHtml = baseContentHtml ?? null;
+  const canvasVisualState = liveMode
+    ? session.visualState
+    : effectiveCanvasHtml
+      ? "idle"
+      : "waiting-content";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
@@ -47,7 +57,7 @@ function PubRouteContent({ slug }: { slug: string }) {
             onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
             onRenderError={isOwner ? session.sendRenderError : undefined}
             outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
-            visualState={session.visualState}
+            visualState={canvasVisualState}
           />
         </div>
 

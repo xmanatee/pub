@@ -41,26 +41,6 @@ export interface CommandFunctionSpec {
   executor?: CommandExecutorSpec;
 }
 
-export interface CommandBindPayload extends Record<string, unknown> {
-  v: number;
-  manifestId: string;
-  functions: CommandFunctionSpec[];
-}
-
-export interface CommandBindResultPayload extends Record<string, unknown> {
-  v: number;
-  manifestId: string;
-  accepted: Array<{
-    name: string;
-    returns: CommandReturnType;
-  }>;
-  rejected: Array<{
-    name: string;
-    code: string;
-    message: string;
-  }>;
-}
-
 export interface CommandInvokePayload extends Record<string, unknown> {
   v: number;
   callId: string;
@@ -89,14 +69,6 @@ export interface CommandCancelPayload extends Record<string, unknown> {
   v: number;
   callId: string;
   reason?: string;
-}
-
-export function makeCommandBindMessage(payload: CommandBindPayload): BridgeMessage {
-  return makeEventMessage("command.bind", payload);
-}
-
-export function makeCommandBindResultMessage(payload: CommandBindResultPayload): BridgeMessage {
-  return makeEventMessage("command.bind.result", payload);
 }
 
 export function makeCommandInvokeMessage(payload: CommandInvokePayload): BridgeMessage {
@@ -235,54 +207,6 @@ function parseMetaRecord(msg: BridgeMessage): Record<string, unknown> | null {
   return msg.type === "event" && msg.meta ? readRecord(msg.meta) : null;
 }
 
-export function parseCommandBindMessage(msg: BridgeMessage): CommandBindPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.bind") return null;
-  const meta = parseMetaRecord(msg);
-  if (!meta) return null;
-  const manifestId = readString(meta.manifestId);
-  if (!manifestId) return null;
-  return {
-    v: readFiniteNumber(meta.v) ?? COMMAND_PROTOCOL_VERSION,
-    manifestId,
-    functions: parseFunctionList(meta.functions),
-  };
-}
-
-export function parseCommandBindResultMessage(msg: BridgeMessage): CommandBindResultPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.bind.result") return null;
-  const meta = parseMetaRecord(msg);
-  if (!meta) return null;
-  const manifestId = readString(meta.manifestId);
-  if (!manifestId) return null;
-
-  const acceptedRaw = Array.isArray(meta.accepted) ? meta.accepted : [];
-  const rejectedRaw = Array.isArray(meta.rejected) ? meta.rejected : [];
-  const accepted = acceptedRaw
-    .map((entry) => readRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => entry !== null)
-    .map((entry) => ({
-      name: readString(entry.name) ?? "",
-      returns: readReturnType(entry.returns) ?? "void",
-    }))
-    .filter((entry) => entry.name.length > 0);
-  const rejected = rejectedRaw
-    .map((entry) => readRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => entry !== null)
-    .map((entry) => ({
-      name: readString(entry.name) ?? "",
-      code: readString(entry.code) ?? "REJECTED",
-      message: readString(entry.message) ?? "Rejected",
-    }))
-    .filter((entry) => entry.name.length > 0);
-
-  return {
-    v: readFiniteNumber(meta.v) ?? COMMAND_PROTOCOL_VERSION,
-    manifestId,
-    accepted,
-    rejected,
-  };
-}
-
 export function parseCommandInvokeMessage(msg: BridgeMessage): CommandInvokePayload | null {
   if (msg.type !== "event" || msg.data !== "command.invoke") return null;
   const meta = parseMetaRecord(msg);
@@ -339,4 +263,43 @@ export function parseCommandCancelMessage(msg: BridgeMessage): CommandCancelPayl
 
 export function parseCommandFunctionList(input: unknown): CommandFunctionSpec[] {
   return parseFunctionList(input);
+}
+
+const MANIFEST_SCRIPT_RE =
+  /<script\s[^>]*type\s*=\s*["']application\/pubblue-command-manifest\+json["'][^>]*>([\s\S]*?)<\/script>/i;
+
+export interface CanvasManifest {
+  v: number;
+  manifestId: string;
+  functions: CommandFunctionSpec[];
+}
+
+export function extractManifestFromHtml(html: string): CanvasManifest | null {
+  const match = MANIFEST_SCRIPT_RE.exec(html);
+  if (!match?.[1]) return null;
+  const raw = match[1].trim();
+  if (raw.length === 0) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+  const record = parsed as Record<string, unknown>;
+
+  const manifestId =
+    typeof record.manifestId === "string" && record.manifestId.length > 0
+      ? record.manifestId
+      : `manifest-${Date.now().toString(36)}`;
+
+  const functions = parseFunctionList(record.functions);
+
+  return {
+    v: typeof record.version === "number" ? record.version : 1,
+    manifestId,
+    functions,
+  };
 }

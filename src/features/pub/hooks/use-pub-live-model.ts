@@ -1,9 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useCanvasCommands } from "~/features/live/hooks/use-canvas-commands";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
+import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
@@ -101,6 +103,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
+  const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const enabled =
     agentOnline === true && (sessionState === "inactive" || sessionState === "active");
@@ -108,12 +111,8 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   const {
     bridgeRef,
     bridgeState,
-    canvasHtml,
-    clearCanvas,
     lastAgentActivityAt,
     lastUserDeliveredAt,
-    onCanvasBridgeMessage,
-    outboundCanvasBridgeMessage,
     sendAudio,
     sendChat,
     sendFile,
@@ -126,7 +125,6 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     connectionAttempt,
     agentAnswer: sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
-    autoOpenCanvas,
     storeBrowserOffer,
     storeBrowserCandidates,
     addAgentAudioMessage,
@@ -145,7 +143,18 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     markMessageReceived,
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
+    onCommandMessageRef: commandMessageHandlerRef,
   });
+
+  const isOwner = pub?.isOwner === true;
+  const liveMode = isOwner;
+
+  const canvasCommands = useCanvasCommands({
+    bridgeRef,
+    bridgeState,
+    liveMode,
+  });
+  commandMessageHandlerRef.current = canvasCommands.handleBridgeCommandMessage;
 
   const audio = useControlBarAudio({
     disabled: bridgeState !== "connected",
@@ -158,9 +167,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
 
-  const isOwner = pub?.isOwner === true;
-  const liveMode = isOwner;
-  const hasCanvasContent = Boolean(canvasHtml || baseContentHtml);
+  const hasCanvasContent = Boolean(baseContentHtml);
 
   useEffect(() => {
     if (pub === undefined) return;
@@ -216,6 +223,12 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   }, [bridgeState, markBridgeConnected]);
 
   useEffect(() => {
+    if (!liveMode || !autoOpenCanvas) return;
+    if (!baseContentHtml) return;
+    setViewMode("canvas");
+  }, [autoOpenCanvas, baseContentHtml, liveMode, setViewMode]);
+
+  useEffect(() => {
     const nextError = sessionError;
     if (!nextError || nextError === lastSessionErrorRef.current) return;
     lastSessionErrorRef.current = nextError;
@@ -228,16 +241,15 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   const resetLiveSurface = useCallback(() => {
     dismissPreview();
-    clearCanvas();
     clearFiles();
     clearMessages();
     clearSessionError();
     setViewMode("canvas");
-  }, [dismissPreview, clearCanvas, clearFiles, clearMessages, clearSessionError, setViewMode]);
+  }, [dismissPreview, clearFiles, clearMessages, clearSessionError, setViewMode]);
 
   const visualState = useLiveVisualState({
     bridgeState,
-    hasCanvasContent: Boolean(canvasHtml),
+    hasCanvasContent,
     lastAgentActivityAt,
     lastUserDeliveredAt,
   });
@@ -267,8 +279,6 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     autoOpenCanvas,
     bridgeRef,
     bridgeState,
-    canvasHtml,
-    clearCanvas,
     clearFiles,
     clearMessages,
     canUseDeveloperMode,
@@ -279,14 +289,12 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     dismissPreview,
     files,
     clearSessionError,
-    hasCanvasContent: Boolean(canvasHtml),
+    hasCanvasContent,
     lastTakeoverAt: live?.lastTakeoverAt,
     live,
     messages,
     messagesEndRef,
     micGranted,
-    onCanvasBridgeMessage,
-    outboundCanvasBridgeMessage,
     preview,
     sendAudio,
     sendChat,
@@ -303,6 +311,8 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     setViewMode,
     setVoiceModeEnabled,
     takeoverLive,
+    onCanvasBridgeMessage: canvasCommands.onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage: canvasCommands.outboundCanvasBridgeMessage,
     uiState,
     viewMode,
     visualState,

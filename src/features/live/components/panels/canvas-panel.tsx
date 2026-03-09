@@ -65,7 +65,6 @@ export function CanvasPanel({
       if (!data || data.source !== "pubblue-canvas") return;
       if (
         data.type !== "error" &&
-        data.type !== "command.bind" &&
         data.type !== "command.invoke" &&
         data.type !== "command.cancel"
       ) {

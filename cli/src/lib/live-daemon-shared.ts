@@ -1,4 +1,4 @@
-import { type BridgeMessage, CHANNELS } from "../../../shared/bridge-protocol-core";
+import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import type { PubApiClient } from "./api.js";
 import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "./live-prompt-content.js";
 
@@ -69,15 +69,4 @@ export function shouldRecoverForBrowserOfferChange(params: {
   if (!incomingBrowserOffer) return false;
   if (!lastAppliedBrowserOffer) return false;
   return incomingBrowserOffer !== lastAppliedBrowserOffer;
-}
-
-export function readCanvasHtmlFromOutbound(params: {
-  channel: string;
-  msg: BridgeMessage;
-}): string | null {
-  if (params.channel !== CHANNELS.CANVAS) return null;
-  if (params.msg.type !== "html") return null;
-  if (typeof params.msg.data !== "string") return null;
-  if (params.msg.data.length === 0) return null;
-  return params.msg.data;
 }

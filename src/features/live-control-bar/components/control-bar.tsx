@@ -4,6 +4,7 @@ import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { BlobVisual } from "~/features/live/components/visuals/blob-visual";
 import { VISUAL_THEME } from "~/features/live/components/visuals/shared";
+import type { LiveViewMode } from "~/features/live/types/live-types";
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
 import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-record";
@@ -43,14 +44,13 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     connected,
     controlBarCollapsed,
     dismissPreview,
-    canvasHtml,
+    hasCanvasContent,
     lastTakeoverAt,
     preview,
     setControlBarCollapsed,
     setViewMode,
     sendChat,
     sendFile,
-    sessionState,
     takeoverLive,
     uiState,
     viewMode,
@@ -59,7 +59,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     closeLive,
   } = useLiveSession();
 
-  const hasContent = Boolean(canvasHtml);
+  const hasContent = hasCanvasContent;
   const [expanded, setExpanded] = useState(initialExpanded);
   const [isEditing, setIsEditing] = useState(false);
   const bridge = bridgeRef.current;
@@ -76,7 +76,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   const closeExpanded = useCallback(() => setExpanded(false), []);
 
   const handleViewSelect = useCallback(
-    (mode: any) => {
+    (mode: LiveViewMode) => {
       setViewMode(mode);
       setExpanded(false);
     },
@@ -133,7 +133,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
           lastTakeoverAt={lastTakeoverAt}
           onExit={closeLive}
           onTakeover={takeoverLive}
-          sessionState={sessionState as any}
+          sessionState={uiState}
         />
       );
     }
@@ -185,7 +185,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     voiceModeEnabled,
     audio.elapsed,
     lastTakeoverAt,
-    sessionState,
     closeLive,
     takeoverLive,
     fileInputRef,
@@ -281,7 +280,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
 
   const statusAction =
     hasContent && (uiState === "idle" || uiState === "connecting") ? (
-      <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={false} />
+      <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasContent} />
     ) : null;
 
   return (

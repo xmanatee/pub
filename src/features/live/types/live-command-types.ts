@@ -1,11 +1,11 @@
-export type CanvasBridgeInboundType = "command.bind" | "command.invoke" | "command.cancel";
+export type CanvasBridgeInboundType = "command.invoke" | "command.cancel";
 
 export interface CanvasBridgeInboundMessage {
   type: CanvasBridgeInboundType;
   payload: Record<string, unknown>;
 }
 
-export type CanvasBridgeOutboundType = "command.bind.result" | "command.result";
+export type CanvasBridgeOutboundType = "command.result";
 
 export interface CanvasBridgeOutboundMessage {
   id: string;

@@ -3,15 +3,12 @@ import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import {
   COMMAND_PROTOCOL_VERSION,
   type CommandAgentSpec,
-  type CommandBindPayload,
-  type CommandBindResultPayload,
   type CommandErrorPayload,
   type CommandFunctionSpec,
   type CommandResultPayload,
   type CommandReturnType,
-  makeCommandBindResultMessage,
+  extractManifestFromHtml,
   makeCommandResultMessage,
-  parseCommandBindMessage,
   parseCommandCancelMessage,
   parseCommandInvokeMessage,
 } from "../../../shared/command-protocol-core";
@@ -357,10 +354,6 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     await params.sendCommandMessage(makeCommandResultMessage(payload));
   }
 
-  async function sendBindResult(payload: CommandBindResultPayload): Promise<void> {
-    await params.sendCommandMessage(makeCommandBindResultMessage(payload));
-  }
-
   async function executeFunction(
     spec: CommandFunctionSpec,
     args: Record<string, unknown>,
@@ -444,41 +437,28 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     });
   }
 
-  async function handleBind(message: CommandBindPayload): Promise<void> {
-    params.debugLog(
-      `command:bind manifestId=${message.manifestId} functions=[${message.functions.map((f) => f.name).join(", ")}]`,
-    );
-    const accepted: CommandBindResultPayload["accepted"] = [];
-    const rejected: CommandBindResultPayload["rejected"] = [];
+  function bindFunctions(functions: CommandFunctionSpec[]): void {
     boundFunctions.clear();
-
-    for (const entry of message.functions) {
+    for (const entry of functions) {
       const normalized = normalizeFunctionSpec(entry);
       if (!normalized.executor) {
-        params.debugLog(`command:bind rejected "${normalized.name}" — missing executor`);
-        rejected.push({
-          name: normalized.name,
-          code: "INVALID_FUNCTION",
-          message: `Function "${normalized.name}" is missing executor definition.`,
-        });
+        params.debugLog(`commands skipped "${normalized.name}" — missing executor`);
         continue;
       }
       boundFunctions.set(normalized.name, normalized);
-      accepted.push({
-        name: normalized.name,
-        returns: normalized.returns ?? "void",
-      });
     }
+    params.debugLog(`commands bound=[${[...boundFunctions.keys()].join(", ")}]`);
+  }
 
-    params.debugLog(
-      `command:bind result accepted=[${accepted.map((a) => a.name).join(", ")}] rejected=[${rejected.map((r) => r.name).join(", ")}]`,
-    );
-    await sendBindResult({
-      v: COMMAND_PROTOCOL_VERSION,
-      manifestId: message.manifestId,
-      accepted,
-      rejected,
-    });
+  function bindFromHtml(html: string): void {
+    const manifest = extractManifestFromHtml(html);
+    if (!manifest) {
+      boundFunctions.clear();
+      params.debugLog("commands no manifest found in HTML, cleared bindings");
+      return;
+    }
+    params.debugLog(`commands manifestId=${manifest.manifestId}`);
+    bindFunctions(manifest.functions);
   }
 
   async function handleInvoke(
@@ -504,7 +484,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
     const spec = getSpec(message.name);
     if (!spec) {
-      params.debugLog(`command:invoke COMMAND_NOT_FOUND "${message.name}"`);
+      params.debugLog(`commands invoke COMMAND_NOT_FOUND "${message.name}"`);
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
@@ -519,7 +499,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     }
 
     params.debugLog(
-      `command:invoke "${message.name}" callId=${message.callId} args=${JSON.stringify(message.args ?? {}).slice(0, 200)}`,
+      `commands invoke "${message.name}" callId=${message.callId} args=${JSON.stringify(message.args ?? {}).slice(0, 200)}`,
     );
 
     const abort = new AbortController();
@@ -531,14 +511,14 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       const active = running.get(message.callId);
       if (abort.signal.aborted || active?.cancelled) {
         params.debugLog(
-          `command:invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
+          `commands invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
         );
         await sendResult(buildCancelledResult(message.callId, startedAt));
         return;
       }
       const durationMs = Date.now() - startedAt;
       params.debugLog(
-        `command:invoke "${message.name}" ok=${true} duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
+        `commands invoke "${message.name}" ok=${true} duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
       );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
@@ -558,7 +538,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       }
       const durationMs = Date.now() - startedAt;
       params.debugLog(
-        `command:invoke "${message.name}" FAILED duration=${durationMs}ms error=${detail.slice(0, 300)}`,
+        `commands invoke "${message.name}" FAILED duration=${durationMs}ms error=${detail.slice(0, 300)}`,
       );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
@@ -586,19 +566,13 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     if (message.type !== "event") return;
 
     params.debugLog(
-      `command:message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
+      `commands message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
     );
 
     for (const [callId, result] of recentResults) {
       if (result.expiresAt <= Date.now()) {
         recentResults.delete(callId);
       }
-    }
-
-    const bind = parseCommandBindMessage(message);
-    if (bind) {
-      await handleBind(bind);
-      return;
     }
 
     const invoke = parseCommandInvokeMessage(message);
@@ -614,6 +588,9 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   return {
+    bindFromHtml(html: string): void {
+      bindFromHtml(html);
+    },
     stop(): void {
       for (const [callId, active] of running) {
         active.abort.abort();

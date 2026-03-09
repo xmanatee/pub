@@ -8,20 +8,17 @@ export function SettingsPanel() {
   const {
     autoOpenCanvas,
     canUseDeveloperMode,
-    clearCanvas,
     clearFiles,
     clearMessages,
-    canvasHtml,
     developerModeEnabled,
     files,
+    hasCanvasContent,
     messages,
     setAutoOpenCanvas,
     setDeveloperModeEnabled,
     setVoiceModeEnabled,
     voiceModeEnabled,
   } = useLiveSession();
-
-  const hasCanvasContent = Boolean(canvasHtml);
 
   return (
     <div
@@ -91,15 +88,6 @@ export function SettingsPanel() {
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={clearFiles}>
               Clear file list
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={clearCanvas}
-              disabled={!hasCanvasContent}
-            >
-              Clear canvas
             </Button>
           </div>
         </CardContent>

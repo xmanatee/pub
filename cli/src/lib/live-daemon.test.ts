@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import {
   getLiveWriteReadinessError,
-  readCanvasHtmlFromOutbound,
   shouldRecoverForBrowserOfferChange,
 } from "./live-daemon-shared.js";
 
@@ -83,41 +82,6 @@ describe("resolveAckChannel", () => {
         controlChannelOpen: false,
         messageChannelOpen: false,
         messageChannel: "chat",
-      }),
-    ).toBeNull();
-  });
-});
-
-describe("readCanvasHtmlFromOutbound", () => {
-  it("returns html payload only for canvas html messages", () => {
-    expect(
-      readCanvasHtmlFromOutbound({
-        channel: "canvas",
-        msg: { id: "m1", type: "html", data: "<h1>Hello</h1>" },
-      }),
-    ).toBe("<h1>Hello</h1>");
-  });
-
-  it("returns null for non-canvas channels", () => {
-    expect(
-      readCanvasHtmlFromOutbound({
-        channel: "chat",
-        msg: { id: "m2", type: "html", data: "<h1>Hello</h1>" },
-      }),
-    ).toBeNull();
-  });
-
-  it("returns null for non-html or empty html payloads", () => {
-    expect(
-      readCanvasHtmlFromOutbound({
-        channel: "canvas",
-        msg: { id: "m3", type: "text", data: "hello" },
-      }),
-    ).toBeNull();
-    expect(
-      readCanvasHtmlFromOutbound({
-        channel: "canvas",
-        msg: { id: "m4", type: "html", data: "" },
       }),
     ).toBeNull();
   });

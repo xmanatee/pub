@@ -63,7 +63,7 @@ export function PanelsDebugPage() {
     messagesEndRef,
     autoOpenCanvas: true,
     canUseDeveloperMode: true,
-    canvasHtml: "some content", // triggers hasCanvasContent
+    hasCanvasContent: true,
   });
 
   return (
