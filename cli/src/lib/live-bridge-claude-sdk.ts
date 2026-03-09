@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { isClaudeCodeAvailableInEnv, resolveClaudeCodePath } from "./live-bridge-claude-code.js";
@@ -81,28 +84,45 @@ export async function runClaudeSdkBridgeStartupProbe(
       const probeEnvClean: Record<string, string | undefined> = { ...probeEnv };
       delete probeEnvClean.CLAUDECODE;
 
-      const session = sdk.unstable_v2_createSession({
-        model,
-        pathToClaudeCodeExecutable: claudePath,
-        env: probeEnvClean,
-        allowedTools,
-        canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
+      const socketPath = probeEnv.PUBBLUE_AGENT_SOCKET ?? "";
+      const logPath = path.join(os.tmpdir(), "pubblue-sdk-probe.log");
+      const appendLog = (line: string) => {
+        try {
+          fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`);
+        } catch {}
+      };
+
+      appendLog(`probe start socket=${socketPath}`);
+
+      const prompt = [
+        "This is a startup connectivity probe.",
+        "Run this exact shell command now:",
+        `PUBBLUE_AGENT_SOCKET=${socketPath} pubblue write "pong"`,
+        "Do not explain. Just execute it.",
+      ].join("\n");
+
+      // v1 query() supports cwd + maxTurns; v2 createSession does not.
+      const q = sdk.query({
+        prompt,
+        options: {
+          model,
+          pathToClaudeCodeExecutable: claudePath,
+          env: probeEnvClean,
+          allowedTools,
+          cwd: os.tmpdir(),
+          maxTurns: 2,
+          canUseTool: async (toolName, input) => {
+            appendLog(`canUseTool: tool=${toolName}`);
+            return { behavior: "allow" as const, updatedInput: input };
+          },
+        },
       });
 
-      try {
-        const prompt = [
-          "This is a startup connectivity probe.",
-          "Run this exact shell command now:",
-          'pubblue write "pong"',
-          "Do not explain. Just execute it.",
-        ].join("\n");
-
-        await session.send(prompt);
-        for await (const _msg of session.stream()) {
-        }
-      } finally {
-        session.close();
+      for await (const msg of q) {
+        appendLog(`msg: type=${msg.type} ${JSON.stringify(msg).slice(0, 300)}`);
       }
+
+      appendLog("probe stream completed");
     },
   });
 
