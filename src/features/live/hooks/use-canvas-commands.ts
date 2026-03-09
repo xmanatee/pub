@@ -125,11 +125,15 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
             );
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          const detail =
+            error instanceof Error && error.message.trim().length > 0
+              ? ` ${error.message.trim()}`
+              : "";
           emitCommandFailureToCanvas(
             invokePayload.callId,
             "COMMAND_ROUTE_FAILED",
-            "Command invocation failed to route to daemon.",
+            `Command invocation failed to route to daemon.${detail}`,
           );
         });
     },
