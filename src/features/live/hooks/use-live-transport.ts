@@ -790,7 +790,11 @@ export function useLiveTransport({
                 : undefined,
           };
           if (invokePayload.callId.length === 0 || invokePayload.name.length === 0) {
-            emitCommandFailureToCanvas(callId, "INVALID_COMMAND_INVOKE", "Invalid command payload.");
+            emitCommandFailureToCanvas(
+              callId,
+              "INVALID_COMMAND_INVOKE",
+              "Invalid command payload.",
+            );
             return;
           }
           const delivered = await bridge.sendWithAck(

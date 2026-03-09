@@ -15,6 +15,7 @@ interface ControlBarShellProps {
   onBackToCanvas: () => void;
   showBackButton: boolean;
   visualState: LiveVisualState;
+  leftAction?: ReactNode;
 }
 
 export function ControlBarShell({
@@ -25,6 +26,7 @@ export function ControlBarShell({
   onBackToCanvas,
   showBackButton,
   visualState,
+  leftAction,
 }: ControlBarShellProps) {
   const showToggle = hasCanvasContent !== false;
   return (
@@ -49,6 +51,7 @@ export function ControlBarShell({
           </button>
         ) : null}
         <div className="flex items-end gap-2" {...(collapsed ? { inert: true } : {})}>
+          {leftAction}
           <div className="min-w-0 flex-1">{children}</div>
           {showBackButton ? (
             <Button

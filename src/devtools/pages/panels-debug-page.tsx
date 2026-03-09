@@ -3,6 +3,10 @@ import { BatchSection } from "~/devtools/components/batch-section";
 import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import type { ChatEntry, ReceivedFile } from "~/features/live-chat/types/live-chat-types";
+import {
+  createMockLiveSession,
+  LiveSessionProvider,
+} from "~/features/pub/contexts/live-session-context";
 
 const SAMPLE_MESSAGES: ChatEntry[] = [
   { id: "1", from: "user", type: "text", content: "Hello!", timestamp: 1, delivery: "confirmed" },
@@ -35,7 +39,6 @@ const SAMPLE_FILES: ReceivedFile[] = [
 ];
 
 const messagesEndRef = createRef<HTMLDivElement>();
-const noop = () => {};
 
 function TmaWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -54,66 +57,55 @@ function TmaWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function PanelsDebugPage() {
-  const chatPanel = (
-    <ChatPanel files={SAMPLE_FILES} messages={SAMPLE_MESSAGES} messagesEndRef={messagesEndRef} />
-  );
-
-  const settingsPanel = (
-    <SettingsPanel
-      model={{
-        behavior: {
-          autoOpenCanvas: true,
-          canUseDeveloperMode: true,
-          developerModeEnabled: false,
-          voiceModeEnabled: false,
-        },
-        stats: {
-          fileCount: 1,
-          hasCanvasContent: true,
-          messageCount: 3,
-        },
-      }}
-      actions={{
-        onAutoOpenCanvasChange: noop,
-        onClearCanvas: noop,
-        onClearFiles: noop,
-        onClearMessages: noop,
-        onDeveloperModeChange: noop,
-        onVoiceModeEnabledChange: noop,
-      }}
-    />
-  );
+  const mockValue = createMockLiveSession({
+    messages: SAMPLE_MESSAGES,
+    files: SAMPLE_FILES,
+    messagesEndRef,
+    autoOpenCanvas: true,
+    canUseDeveloperMode: true,
+    canvasHtml: "some content", // triggers hasCanvasContent
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="space-y-10 px-4 py-8">
         <h1 className="text-xl font-semibold">Panels Debug</h1>
 
-        <BatchSection
-          title="Panels — Default"
-          testId="batch-panels-default"
-          cellHeight={400}
-          items={[
-            { label: "chat", content: chatPanel },
-            { label: "settings", content: settingsPanel },
-          ]}
-        />
+        <LiveSessionProvider value={mockValue}>
+          <BatchSection
+            title="Panels — Default"
+            testId="batch-panels-default"
+            cellHeight={400}
+            items={[
+              { label: "chat", content: <ChatPanel /> },
+              { label: "settings", content: <SettingsPanel /> },
+            ]}
+          />
 
-        <BatchSection
-          title="Panels — TMA Fullscreen"
-          testId="batch-panels-tma"
-          cellHeight={400}
-          items={[
-            {
-              label: "chat (tma)",
-              content: <TmaWrapper>{chatPanel}</TmaWrapper>,
-            },
-            {
-              label: "settings (tma)",
-              content: <TmaWrapper>{settingsPanel}</TmaWrapper>,
-            },
-          ]}
-        />
+          <BatchSection
+            title="Panels — TMA Fullscreen"
+            testId="batch-panels-tma"
+            cellHeight={400}
+            items={[
+              {
+                label: "chat (tma)",
+                content: (
+                  <TmaWrapper>
+                    <ChatPanel />
+                  </TmaWrapper>
+                ),
+              },
+              {
+                label: "settings (tma)",
+                content: (
+                  <TmaWrapper>
+                    <SettingsPanel />
+                  </TmaWrapper>
+                ),
+              },
+            ]}
+          />
+        </LiveSessionProvider>
       </div>
     </div>
   );

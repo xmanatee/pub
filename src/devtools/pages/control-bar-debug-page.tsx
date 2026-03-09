@@ -2,6 +2,10 @@ import { useState } from "react";
 import { BatchSection } from "~/devtools/components/batch-section";
 import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
+import {
+  createMockLiveSession,
+  LiveSessionProvider,
+} from "~/features/pub/contexts/live-session-context";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
   "connecting",
@@ -17,14 +21,12 @@ const DEBUG_MULTILINE_TEXT =
   "First line of message\nSecond line continues\nThird line here\nAnd a fourth line too";
 const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
 
-const noop = () => {};
-
 function StaticControlBar({
-  agentName = null,
+  agentName = "Agent",
   visualState = "idle",
   chatPreview = null,
   collapsed = false,
-  sessionState,
+  sessionState = "active",
   lastTakeoverAt,
   initialInput,
 }: {
@@ -36,36 +38,26 @@ function StaticControlBar({
   lastTakeoverAt?: number;
   initialInput?: string;
 }) {
-  const model = {
+  const value = createMockLiveSession({
     agentName,
-    chatPreview,
-    collapsed,
+    preview: chatPreview ? { text: chatPreview, source: "agent", severity: undefined } : null,
+    controlBarCollapsed: collapsed,
     lastTakeoverAt,
-    sendDisabled: visualState === "connecting" || visualState === "disconnected",
+    connected: visualState !== "connecting" && visualState !== "disconnected",
     sessionState,
-    viewMode: "canvas" as const,
     visualState,
-    voiceModeEnabled: false,
-  };
-
-  const transport = {
-    bridge: null,
-    micGranted: false,
-  };
-
-  const actions = {
-    onChangeView: noop,
-    onClose: noop,
-    onDismissPreview: noop,
-    onMicGranted: noop,
-    onSendAudio: noop,
-    onSendChat: noop,
-    onTakeover: sessionState ? noop : undefined,
-    onToggleCollapsed: noop,
-  };
+    uiState:
+      sessionState === "needs-takeover" || sessionState === "taken-over"
+        ? (sessionState as any)
+        : visualState === "connecting"
+          ? "connecting"
+          : "idle",
+  });
 
   return (
-    <ControlBar model={model} transport={transport} actions={actions} initialInput={initialInput} />
+    <LiveSessionProvider value={value}>
+      <ControlBar initialInput={initialInput} />
+    </LiveSessionProvider>
   );
 }
 
@@ -75,32 +67,20 @@ export function ControlBarDebugPage() {
   const [activeState, setActiveState] = useState<LiveVisualState>("idle");
   const [collapsed, setCollapsed] = useState(false);
 
-  const interactiveModel = {
+  const interactiveValue = createMockLiveSession({
     agentName: "Agent",
-    chatPreview,
-    collapsed,
-    sendDisabled: activeState === "connecting" || activeState === "disconnected",
-    sessionState: undefined,
+    preview: chatPreview ? { text: chatPreview, source: "agent", severity: undefined } : null,
+    controlBarCollapsed: collapsed,
+    connected: activeState !== "connecting" && activeState !== "disconnected",
+    sessionState: "active",
     viewMode,
     visualState: activeState,
     voiceModeEnabled: true,
-  };
-
-  const interactiveTransport = {
-    bridge: null,
-    micGranted: false,
-  };
-
-  const interactiveActions = {
-    onChangeView: setViewMode,
-    onClose: noop,
-    onDismissPreview: () => setChatPreview(null),
-    onMicGranted: noop,
-    onSendAudio: noop,
-    onSendChat: noop,
-    onTakeover: undefined,
-    onToggleCollapsed: () => setCollapsed((v) => !v),
-  };
+    uiState: activeState === "connecting" ? "connecting" : "idle",
+    setViewMode,
+    dismissPreview: () => setChatPreview(null),
+    setControlBarCollapsed: setCollapsed,
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -230,11 +210,9 @@ export function ControlBarDebugPage() {
             </div>
           </div>
           <div className="relative mt-4 h-80">
-            <ControlBar
-              model={interactiveModel}
-              transport={interactiveTransport}
-              actions={interactiveActions}
-            />
+            <LiveSessionProvider value={interactiveValue}>
+              <ControlBar />
+            </LiveSessionProvider>
           </div>
         </details>
       </div>

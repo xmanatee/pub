@@ -1,13 +1,48 @@
-import { useCallback, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
+import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
+import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
+import { trackPubViewed } from "~/lib/analytics";
+import { api } from "../../../../convex/_generated/api";
 
-export function usePubLiveModel(slug: string) {
+type PubSnapshot =
+  | {
+      contentType?: string | null;
+      isOwner?: boolean;
+      isPublic: boolean;
+      slug: string;
+    }
+  | null
+  | undefined;
+
+export interface UsePubLiveModelOptions {
+  slug: string;
+  pub?: PubSnapshot;
+  baseContentHtml?: string | null;
+}
+
+export type LiveUiState =
+  | "offline"
+  | "connecting"
+  | "needs-takeover"
+  | "taken-over"
+  | "recording"
+  | "recording-paused"
+  | "voice-mode"
+  | "idle";
+
+export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelOptions) {
+  const navigate = useNavigate();
+  const recordPublicView = useMutation(api.analytics.recordPublicView);
+
   const {
     agentOnline,
     availableAgents,
@@ -60,6 +95,13 @@ export function usePubLiveModel(slug: string) {
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
+  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
+  const trackedAnalytics = useRef(false);
+  const trackedViewCount = useRef(false);
+  const notifiedStatusRef = useRef<string | null>(null);
+  const lastSessionErrorRef = useRef<string | null>(null);
+  const lastSlugRef = useRef<string | null>(null);
+
   const enabled =
     agentOnline === true && (sessionState === "inactive" || sessionState === "active");
 
@@ -105,15 +147,93 @@ export function usePubLiveModel(slug: string) {
     updateAudioMessageAnalysis,
   });
 
-  const resetForSlugChange = useCallback(() => {
+  const audio = useControlBarAudio({
+    disabled: bridgeState !== "connected",
+    bridge: bridgeRef.current,
+    micGranted,
+    onMicGranted: setMicGranted,
+    onSendAudio: sendAudio,
+    onSystemMessage: addSystemMessage,
+  });
+
+  const { preview, dismissPreview } = useChatPreview(messages, viewMode);
+
+  const isOwner = pub?.isOwner === true;
+  const liveMode = isOwner;
+  const hasCanvasContent = Boolean(canvasHtml || baseContentHtml);
+
+  useEffect(() => {
+    if (pub === undefined) return;
+    const statusKey =
+      pub === null ? "not-found" : !hasCanvasContent && !liveMode ? "no-content" : null;
+    if (!statusKey || notifiedStatusRef.current === statusKey) return;
+    notifiedStatusRef.current = statusKey;
+    const content =
+      statusKey === "not-found"
+        ? "This pub doesn't exist or is not accessible."
+        : "This pub has no static content yet.";
+    addSystemMessage({
+      content,
+      dedupeKey: `pub-status:${statusKey}`,
+      severity: statusKey === "not-found" ? "error" : "warning",
+    });
+  }, [pub, hasCanvasContent, liveMode, addSystemMessage]);
+
+  useEffect(() => {
+    if (pub && !trackedAnalytics.current) {
+      trackedAnalytics.current = true;
+      trackPubViewed({
+        slug: pub.slug,
+        contentType: pub.contentType ?? "text",
+        isPublic: pub.isPublic,
+      });
+    }
+  }, [pub]);
+
+  useEffect(() => {
+    if (!pub || !pub.isPublic || trackedViewCount.current) return;
+    trackedViewCount.current = true;
+    void recordPublicView({ slug: pub.slug });
+  }, [pub, recordPublicView]);
+
+  useEffect(() => {
+    if (lastSlugRef.current === slug) return;
+    lastSlugRef.current = slug;
+    lastSessionErrorRef.current = null;
+    notifiedStatusRef.current = null;
+    setControlBarCollapsed(false);
+    trackedAnalytics.current = false;
+    trackedViewCount.current = false;
+    dismissPreview();
     clearMessages();
     clearFiles();
     resetSession();
-  }, [clearFiles, clearMessages, resetSession]);
+    closeLive();
+  }, [slug, dismissPreview, clearMessages, clearFiles, resetSession, closeLive]);
 
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
   }, [bridgeState, markBridgeConnected]);
+
+  useEffect(() => {
+    const nextError = sessionError;
+    if (!nextError || nextError === lastSessionErrorRef.current) return;
+    lastSessionErrorRef.current = nextError;
+    addSystemMessage({
+      content: nextError,
+      dedupeKey: `session-error:${nextError}`,
+      severity: "error",
+    });
+  }, [addSystemMessage, sessionError]);
+
+  const resetLiveSurface = useCallback(() => {
+    dismissPreview();
+    clearCanvas();
+    clearFiles();
+    clearMessages();
+    clearSessionError();
+    setViewMode("canvas");
+  }, [dismissPreview, clearCanvas, clearFiles, clearMessages, clearSessionError, setViewMode]);
 
   const visualState = useLiveVisualState({
     bridgeState,
@@ -122,9 +242,26 @@ export function usePubLiveModel(slug: string) {
     lastUserDeliveredAt,
   });
 
+  let uiState: LiveUiState = "idle";
+  if (agentOnline === false) uiState = "offline";
+  else if (sessionState === "needs-takeover") uiState = "needs-takeover";
+  else if (sessionState === "taken-over") uiState = "taken-over";
+  else if (audio.mode === "recording") uiState = "recording";
+  else if (audio.mode === "recording-paused") uiState = "recording-paused";
+  else if (audio.mode === "voice-mode") uiState = "voice-mode";
+  else if (liveMode && bridgeState !== "connected") uiState = "connecting";
+
+  const handleClose = useCallback(() => {
+    setControlBarCollapsed(false);
+    resetLiveSurface();
+    closeLive();
+    void navigate({ to: "/dashboard" });
+  }, [resetLiveSurface, closeLive, navigate]);
+
   return {
     agentName: live?.agentName ?? null,
     agentOnline,
+    audio,
     availableAgents,
     addSystemMessage,
     autoOpenCanvas,
@@ -135,9 +272,11 @@ export function usePubLiveModel(slug: string) {
     clearFiles,
     clearMessages,
     canUseDeveloperMode,
-    closeLive,
+    closeLive: handleClose,
     connected: bridgeState === "connected",
+    controlBarCollapsed,
     developerModeEnabled,
+    dismissPreview,
     files,
     clearSessionError,
     lastTakeoverAt: live?.lastTakeoverAt,
@@ -147,7 +286,7 @@ export function usePubLiveModel(slug: string) {
     micGranted,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
-    resetForSlugChange,
+    preview,
     sendAudio,
     sendChat,
     sendFile,
@@ -157,11 +296,13 @@ export function usePubLiveModel(slug: string) {
     selectedPresenceId,
     setSelectedPresenceId,
     setAutoOpenCanvas,
+    setControlBarCollapsed,
     setDeveloperModeEnabled,
     setMicGranted,
     setViewMode,
     setVoiceModeEnabled,
     takeoverLive,
+    uiState,
     viewMode,
     visualState,
     voiceModeEnabled,
