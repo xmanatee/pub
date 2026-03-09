@@ -10,6 +10,7 @@ interface ControlBarShellProps {
   onToggleCollapsed: () => void;
   onBackToCanvas: () => void;
   showBackButton: boolean;
+  leftAction?: ReactNode;
 }
 
 export function ControlBarShell({
@@ -18,6 +19,7 @@ export function ControlBarShell({
   onToggleCollapsed,
   onBackToCanvas,
   showBackButton,
+  leftAction,
 }: ControlBarShellProps) {
   return (
     <div
@@ -39,6 +41,7 @@ export function ControlBarShell({
           {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
         <div className="flex items-end gap-2" {...(collapsed ? { inert: true } : {})}>
+          {leftAction}
           <div className="min-w-0 flex-1">{children}</div>
           {showBackButton ? (
             <Button

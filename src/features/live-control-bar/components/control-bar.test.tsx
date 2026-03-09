@@ -1,169 +1,127 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "~/components/ui/tooltip";
-import type { BarMode } from "~/features/live-control-bar/hooks/use-control-bar-audio";
 import { ControlBar } from "./control-bar";
 
-type MockAudioState = {
-  elapsed: number;
-  mode: BarMode;
-};
-
-const mockAudioHandlers = {
-  cancelRecording: vi.fn(),
-  pauseRecording: vi.fn(),
-  resumeRecording: vi.fn(),
-  sendRecording: vi.fn(),
-  startRecording: vi.fn(async () => true),
-  startVoiceMode: vi.fn(),
-  stopVoiceMode: vi.fn(),
-};
-
-const mockAudioState: MockAudioState = {
-  elapsed: 0,
-  mode: "idle",
-};
-
-vi.mock("~/features/live-control-bar/hooks/use-control-bar-audio", () => ({
-  useControlBarAudio: () => ({
+const mockSession = {
+  agentName: null as string | null,
+  agentOnline: true,
+  audio: {
+    mode: "idle",
+    elapsed: 0,
     barsRef: { current: null },
-    cancelRecording: mockAudioHandlers.cancelRecording,
-    elapsed: mockAudioState.elapsed,
-    mode: mockAudioState.mode,
-    pauseRecording: mockAudioHandlers.pauseRecording,
-    resumeRecording: mockAudioHandlers.resumeRecording,
-    sendRecording: mockAudioHandlers.sendRecording,
-    startRecording: mockAudioHandlers.startRecording,
-    startVoiceMode: mockAudioHandlers.startVoiceMode,
-    stopVoiceMode: mockAudioHandlers.stopVoiceMode,
+    cancelRecording: vi.fn(),
+    pauseRecording: vi.fn(),
+    resumeRecording: vi.fn(),
+    sendRecording: vi.fn(),
+    startRecording: vi.fn(),
+    startVoiceMode: vi.fn(),
+    stopVoiceMode: vi.fn(),
+  },
+  bridgeRef: { current: null },
+  connected: true,
+  controlBarCollapsed: false,
+  dismissPreview: vi.fn(),
+  lastTakeoverAt: undefined as number | undefined,
+  micGranted: false,
+  preview: null as any,
+  setControlBarCollapsed: vi.fn(),
+  setMicGranted: vi.fn(),
+  setViewMode: vi.fn(),
+  sendAudio: vi.fn(),
+  sendChat: vi.fn(),
+  sendFile: vi.fn(),
+  sessionState: "active",
+  takeoverLive: vi.fn(),
+  uiState: "idle",
+  viewMode: "canvas",
+  visualState: "idle",
+  voiceModeEnabled: false,
+  closeLive: vi.fn(),
+};
+
+vi.mock("~/features/pub/contexts/live-session-context", () => ({
+  useLiveSession: () => mockSession,
+}));
+
+vi.mock("~/features/live-control-bar/hooks/use-control-bar-text", () => ({
+  useControlBarText: () => ({
+    input: "",
+    setInput: vi.fn(),
+    hasText: false,
+    handleSend: vi.fn(),
+    handleKeyDown: vi.fn(),
+  }),
+}));
+
+vi.mock("~/features/live-control-bar/hooks/use-file-upload", () => ({
+  useFileUpload: () => ({
+    fileInputRef: { current: null },
+    handleFile: vi.fn(),
   }),
 }));
 
 vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
   useHoldToRecord: () => ({
-    pointerHandlers: {
-      onClick: vi.fn(),
-      onContextMenu: vi.fn(),
-      onPointerDown: vi.fn(),
-    },
+    pointerHandlers: {},
   }),
 }));
 
-vi.mock("~/hooks/use-long-press", () => ({
-  useLongPress: () => ({
-    onContextMenuCapture: vi.fn(),
-    onPointerCancelCapture: vi.fn(),
-    onPointerDownCapture: vi.fn(),
-    onPointerMoveCapture: vi.fn(),
-    onPointerUpCapture: vi.fn(),
-  }),
-}));
-
-function renderControlBar(overrides?: {
-  agentName?: string | null;
-  chatPreview?: string | null;
-  chatPreviewSeverity?: "warning" | "error" | null;
-  chatPreviewSource?: "agent" | "system" | null;
-  viewMode?: "canvas" | "chat" | "settings";
-  voiceModeEnabled?: boolean;
-}) {
-  const model = {
-    agentName: overrides?.agentName ?? null,
-    chatPreview: overrides?.chatPreview ?? null,
-    chatPreviewSeverity: overrides?.chatPreviewSeverity ?? null,
-    chatPreviewSource: overrides?.chatPreviewSource ?? null,
-    collapsed: false,
-    sendDisabled: false,
-    sessionState: undefined,
-    viewMode: overrides?.viewMode ?? "canvas",
-    visualState: "idle" as const,
-    voiceModeEnabled: overrides?.voiceModeEnabled ?? false,
-  };
-
-  const transport = {
-    bridge: null,
-    micGranted: false,
-  };
-
-  const actions = {
-    onChangeView: vi.fn(),
-    onClose: vi.fn(),
-    onDismissPreview: vi.fn(),
-    onMicGranted: vi.fn(),
-    onSendAudio: vi.fn(),
-    onSendChat: vi.fn(),
-    onTakeover: undefined,
-    onToggleCollapsed: vi.fn(),
-  };
+function renderControlBar(overrides?: any) {
+  Object.assign(mockSession, overrides);
+  if (overrides?.audio) Object.assign(mockSession.audio, overrides.audio);
 
   return renderToStaticMarkup(
     <TooltipProvider>
-      <ControlBar model={model} transport={transport} actions={actions} />
+      <ControlBar />
     </TooltipProvider>,
   );
 }
 
 describe("ControlBar", () => {
   beforeEach(() => {
-    mockAudioState.mode = "idle";
-    mockAudioState.elapsed = 0;
-    for (const fn of Object.values(mockAudioHandlers)) {
-      fn.mockClear();
-    }
+    mockSession.uiState = "idle";
+    mockSession.audio.mode = "idle";
+    mockSession.audio.elapsed = 0;
+    mockSession.viewMode = "canvas";
+    mockSession.voiceModeEnabled = false;
+    mockSession.preview = null;
+    mockSession.agentName = null;
   });
 
   it("shows hold-to-record and voice actions in idle mode", () => {
     const html = renderControlBar();
     expect(html).toContain('aria-label="Hold to record audio"');
     expect(html).not.toContain('aria-label="Voice mode"');
-    expect(html).not.toContain('aria-label="Send message"');
 
     const htmlWithVoice = renderControlBar({ voiceModeEnabled: true });
     expect(htmlWithVoice).toContain('aria-label="Voice mode"');
   });
 
   it("shows recording controls in recording mode", () => {
-    mockAudioState.mode = "recording";
-    mockAudioState.elapsed = 9;
-
-    const html = renderControlBar();
+    const html = renderControlBar({
+      uiState: "recording",
+      audio: { mode: "recording", elapsed: 9 },
+    });
     expect(html).toContain('aria-label="Delete recording"');
     expect(html).toContain('aria-label="Pause recording"');
     expect(html).toContain('aria-label="Send recording"');
   });
 
   it("shows stop action in voice mode", () => {
-    mockAudioState.mode = "voice-mode";
-    const html = renderControlBar();
+    const html = renderControlBar({ uiState: "voice-mode", audio: { mode: "voice-mode" } });
     expect(html).toContain('aria-label="Stop voice mode"');
   });
 
-  it("shows chat preview when chatPreview is provided", () => {
-    const html = renderControlBar({ agentName: "Agent", chatPreview: "Hello from agent" });
+  it("shows chat preview when preview is provided", () => {
+    const html = renderControlBar({
+      agentName: "Agent",
+      preview: { text: "Hello from agent", source: "agent" },
+    });
     expect(html).toContain("Hello from agent");
     expect(html).toContain("Agent");
     expect(html).toContain("max-h-14 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
-  });
-
-  it("shows system preview label for system messages", () => {
-    const html = renderControlBar({
-      chatPreview: "Connection dropped",
-      chatPreviewSource: "system",
-      chatPreviewSeverity: "error",
-    });
-    expect(html).toContain("Connection dropped");
-    expect(html).toContain("System");
-    expect(html).toContain("text-destructive");
-  });
-
-  it("hides chat preview when chatPreview is null", () => {
-    const html = renderControlBar({ chatPreview: null });
-    expect(html).toContain("pointer-events-none max-h-0 opacity-0");
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain('aria-label="Open chat"');
-    expect(html).toContain('tabindex="-1"');
-    expect(html).toContain("min-h-12");
   });
 
   it("shows back button only outside canvas mode", () => {

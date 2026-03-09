@@ -1,12 +1,13 @@
+import { Ellipsis, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
-import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
-import type { SystemMessageSeverity } from "~/features/live-chat/types/live-chat-types";
-import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
+import { Button } from "~/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
 import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-record";
-import { useLongPress } from "~/hooks/use-long-press";
+import { useLiveSession } from "~/features/pub/contexts/live-session-context";
+import { cn } from "~/lib/utils";
+import { CB } from "./control-bar-classes";
 import { ControlBarIdleMode } from "./control-bar-idle-mode";
 import { ControlBarOfflineMode } from "./control-bar-offline-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
@@ -16,103 +17,59 @@ import { ControlBarVoiceMode } from "./control-bar-voice-mode";
 
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 
-export interface ControlBarModel {
-  agentName: string | null;
-  agentOnline?: boolean;
-  chatPreview: string | null;
-  chatPreviewSeverity?: SystemMessageSeverity | null;
-  chatPreviewSource?: "agent" | "system" | null;
-  collapsed: boolean;
-  lastTakeoverAt?: number;
-  sendDisabled: boolean;
-  sessionState?: SessionState;
-  viewMode: LiveViewMode;
-  visualState: LiveVisualState;
-  voiceModeEnabled: boolean;
-}
-
-export interface ControlBarTransport {
-  bridge: BrowserBridge | null;
-  micGranted: boolean;
-}
-
-export interface ControlBarActions {
-  onChangeView: (view: LiveViewMode) => void;
-  onClose: () => void;
-  onDismissPreview: () => void;
-  onMicGranted: (granted: boolean) => void;
-  onSystemMessage?: (params: {
-    content: string;
-    cooldownMs?: number;
-    dedupeKey?: string;
-    severity: SystemMessageSeverity;
-  }) => void;
-  onSendAudio: (blob: Blob) => void;
-  onSendChat: (text: string) => void;
-  onSendFile?: (file: File) => void;
-  onTakeover?: () => void;
-  onToggleCollapsed: () => void;
-}
-
-interface ControlBarProps {
-  model: ControlBarModel;
-  transport: ControlBarTransport;
-  actions: ControlBarActions;
-  initialInput?: string;
-}
-
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export function ControlBar({ model, transport, actions, initialInput }: ControlBarProps) {
+export interface ControlBarProps {
+  initialInput?: string;
+}
+
+export function ControlBar({ initialInput }: ControlBarProps) {
   const {
     agentName,
-    agentOnline,
-    chatPreview,
-    chatPreviewSeverity,
-    chatPreviewSource,
-    collapsed,
+    audio,
+    bridgeRef,
+    connected,
+    controlBarCollapsed,
+    dismissPreview,
     lastTakeoverAt,
-    sendDisabled,
+    preview,
+    setControlBarCollapsed,
+    setViewMode,
+    sendChat,
+    sendFile,
     sessionState,
+    takeoverLive,
+    uiState,
     viewMode,
     visualState,
     voiceModeEnabled,
-  } = model;
-  const { bridge, micGranted } = transport;
-  const {
-    onChangeView,
-    onClose,
-    onDismissPreview,
-    onMicGranted,
-    onSystemMessage,
-    onSendAudio,
-    onSendChat,
-    onSendFile,
-    onTakeover,
-    onToggleCollapsed,
-  } = actions;
+    closeLive,
+  } = useLiveSession();
+
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const bridge = bridgeRef.current;
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
-    disabled: sendDisabled,
-    onSendChat,
+    disabled: !connected,
+    onSendChat: sendChat,
     initialInput,
   });
-  const { fileInputRef, handleFile } = useFileUpload({ bridge, onSendFile });
+
+  const { fileInputRef, handleFile } = useFileUpload({ bridge, onSendFile: sendFile });
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
-  const longPressHandlers = useLongPress({ onActivate: () => setExpanded(true) });
 
   const handleViewSelect = useCallback(
-    (mode: LiveViewMode) => {
-      onChangeView(mode);
+    (mode: any) => {
+      setViewMode(mode);
       setExpanded(false);
     },
-    [onChangeView],
+    [setViewMode],
   );
 
   useEffect(() => {
@@ -124,47 +81,27 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     return () => document.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  const {
-    barsRef,
-    cancelRecording,
-    elapsed,
-    mode,
-    pauseRecording,
-    resumeRecording,
-    sendRecording,
-    startRecording,
-    startVoiceMode,
-    stopVoiceMode,
-  } = useControlBarAudio({
-    disabled: sendDisabled,
-    bridge,
-    micGranted,
-    onMicGranted,
-    onSendAudio,
-    onSystemMessage,
-  });
-
   useEffect(() => {
-    if (mode !== "idle" && expanded) {
+    if (audio.mode !== "idle" && expanded) {
       setExpanded(false);
     }
-  }, [mode, expanded]);
+  }, [audio.mode, expanded]);
 
   const { pointerHandlers } = useHoldToRecord({
-    disabled: sendDisabled,
-    mode,
-    startRecording,
-    sendRecording,
-    cancelRecording,
+    disabled: !connected,
+    mode: audio.mode,
+    startRecording: audio.startRecording,
+    sendRecording: audio.sendRecording,
+    cancelRecording: audio.cancelRecording,
   });
 
   const handlePreviewClick = useCallback(() => {
-    onChangeView("chat");
-    onDismissPreview();
-  }, [onChangeView, onDismissPreview]);
+    setViewMode("chat");
+    dismissPreview();
+  }, [setViewMode, dismissPreview]);
 
   const waveformEl = (
-    <div ref={barsRef} className="flex h-7 items-center gap-0.5">
+    <div ref={audio.barsRef} className="flex h-7 items-center gap-0.5">
       {WAVEFORM_BARS.map((id) => (
         <div
           key={id}
@@ -177,34 +114,34 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
 
   let content: ReactNode;
 
-  if (agentOnline === false) {
-    content = <ControlBarOfflineMode onExit={onClose} />;
-  } else if ((sessionState === "needs-takeover" || sessionState === "taken-over") && onTakeover) {
+  if (uiState === "offline") {
+    content = <ControlBarOfflineMode onExit={closeLive} />;
+  } else if (uiState === "needs-takeover" || uiState === "taken-over") {
     content = (
       <ControlBarTakeoverMode
         lastTakeoverAt={lastTakeoverAt}
-        onExit={onClose}
-        onTakeover={onTakeover}
-        sessionState={sessionState}
+        onExit={closeLive}
+        onTakeover={takeoverLive}
+        sessionState={sessionState as any}
       />
     );
-  } else if (mode === "recording" || mode === "recording-paused") {
-    const isPaused = mode === "recording-paused";
+  } else if (uiState === "recording" || uiState === "recording-paused") {
+    const isPaused = uiState === "recording-paused";
     content = (
       <ControlBarRecordingMode
-        elapsedLabel={formatTime(elapsed)}
+        elapsedLabel={formatTime(audio.elapsed)}
         isPaused={isPaused}
-        onCancelRecording={cancelRecording}
-        onPauseResume={isPaused ? resumeRecording : pauseRecording}
-        onSendRecording={sendRecording}
+        onCancelRecording={audio.cancelRecording}
+        onPauseResume={isPaused ? audio.resumeRecording : audio.pauseRecording}
+        onSendRecording={audio.sendRecording}
         waveformEl={waveformEl}
       />
     );
-  } else if (mode === "voice-mode") {
+  } else if (uiState === "voice-mode") {
     content = (
       <ControlBarVoiceMode
-        elapsedLabel={formatTime(elapsed)}
-        onStopVoiceMode={stopVoiceMode}
+        elapsedLabel={formatTime(audio.elapsed)}
+        onStopVoiceMode={audio.stopVoiceMode}
         waveformEl={waveformEl}
       />
     );
@@ -212,25 +149,25 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     content = (
       <ControlBarIdleMode
         agentName={agentName}
-        chatPreview={chatPreview}
-        chatPreviewSeverity={chatPreviewSeverity ?? null}
-        chatPreviewSource={chatPreviewSource ?? null}
+        chatPreview={preview?.text ?? null}
+        chatPreviewSeverity={preview?.severity ?? null}
+        chatPreviewSource={preview?.source ?? null}
         expanded={expanded}
         fileInputRef={fileInputRef}
         hasText={hasText}
         input={input}
-        longPressHandlers={longPressHandlers}
-        onClose={onClose}
+        onClose={closeLive}
         onCloseExpanded={closeExpanded}
         onFileChange={handleFile}
         onInputChange={setInput}
         onInputKeyDown={handleKeyDown}
         onPreviewClick={handlePreviewClick}
         onSend={handleSend}
-        onStartVoiceMode={startVoiceMode}
+        onStartVoiceMode={audio.startVoiceMode}
         onViewSelect={handleViewSelect}
+        onEditingChange={setIsEditing}
         pointerHandlers={pointerHandlers}
-        sendDisabled={sendDisabled}
+        sendDisabled={!connected}
         viewMode={viewMode}
         visualState={visualState}
         voiceModeEnabled={voiceModeEnabled}
@@ -238,12 +175,40 @@ export function ControlBar({ model, transport, actions, initialInput }: ControlB
     );
   }
 
+  const showMenuButton = uiState === "idle" || uiState === "connecting";
+
+  const menuButton = showMenuButton ? (
+    <div
+      className={cn(
+        "transition-all duration-300 ease-in-out",
+        isEditing ? "scale-90 opacity-0 pointer-events-none" : "scale-100 opacity-100",
+      )}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="secondary"
+            size="controlBack"
+            className={CB.backButton}
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-label={expanded ? "Close menu" : "Open menu"}
+          >
+            {expanded ? <X className="size-5" /> : <Ellipsis className="size-5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{expanded ? "Close menu" : "Open menu"}</TooltipContent>
+      </Tooltip>
+    </div>
+  ) : null;
+
   return (
     <ControlBarShell
-      collapsed={collapsed}
-      onToggleCollapsed={onToggleCollapsed}
-      onBackToCanvas={() => onChangeView("canvas")}
+      collapsed={controlBarCollapsed}
+      onToggleCollapsed={() => setControlBarCollapsed((prev: boolean) => !prev)}
+      onBackToCanvas={() => setViewMode("canvas")}
       showBackButton={viewMode !== "canvas"}
+      leftAction={menuButton}
     >
       {content}
     </ControlBarShell>
