@@ -257,13 +257,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     );
   }
 
-  const showStatusBlob =
-    hasCanvasContent &&
-    (controlBarState === "idle" ||
-      controlBarState === "connecting" ||
-      controlBarState === "disconnected");
-
-  const statusAction = showStatusBlob ? (
+  const statusAction = hasCanvasContent ? (
     <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasCanvasContent} />
   ) : null;
 
