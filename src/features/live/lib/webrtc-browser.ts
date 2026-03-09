@@ -75,6 +75,11 @@ export class BrowserBridge {
   >();
   private seenInboundMessageKeys = new Set<string>();
   private remoteDescriptionSet = false;
+  private offerSent = false;
+
+  markOfferSent(): void {
+    this.offerSent = true;
+  }
 
   setOnStateChange(handler: StateChangeHandler): void {
     this.onStateChange = handler;
@@ -125,12 +130,17 @@ export class BrowserBridge {
 
   async applyAnswer(agentAnswer: string): Promise<void> {
     if (!this.pc) throw new Error("No peer connection");
+    if (!this.offerSent) return;
     const answer = parseSessionDescription(agentAnswer, "Agent answer");
     await this.pc.setRemoteDescription(answer as RTCSessionDescriptionInit);
     this.remoteDescriptionSet = true;
 
     for (const candidate of this.pendingRemoteCandidates) {
-      await this.pc.addIceCandidate(JSON.parse(candidate) as RTCIceCandidateInit);
+      try {
+        await this.pc.addIceCandidate(JSON.parse(candidate) as RTCIceCandidateInit);
+      } catch (error) {
+        console.warn("Ignoring invalid pending ICE candidate", error);
+      }
     }
     this.pendingRemoteCandidates = [];
   }
@@ -172,6 +182,7 @@ export class BrowserBridge {
   }
 
   async addRemoteCandidates(candidates: string[]): Promise<void> {
+    if (!this.offerSent) return;
     for (const candidate of candidates) {
       if (!this.remoteDescriptionSet) {
         this.pendingRemoteCandidates.push(candidate);
@@ -180,7 +191,6 @@ export class BrowserBridge {
       try {
         await this.pc?.addIceCandidate(JSON.parse(candidate) as RTCIceCandidateInit);
       } catch (error) {
-        // Ignore invalid candidates
         console.warn("Ignoring invalid remote ICE candidate", error);
       }
     }

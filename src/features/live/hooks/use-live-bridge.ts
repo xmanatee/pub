@@ -50,29 +50,12 @@ export function useLiveBridge({
   const localIceFlushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localIceStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    onDeliveryReceiptRef.current = onDeliveryReceipt;
-  }, [onDeliveryReceipt]);
-
-  useEffect(() => {
-    onMessageRef.current = onMessage;
-  }, [onMessage]);
-
-  useEffect(() => {
-    onSystemMessageRef.current = onSystemMessage;
-  }, [onSystemMessage]);
-
-  useEffect(() => {
-    onTrackActivityRef.current = onTrackActivity;
-  }, [onTrackActivity]);
-
-  useEffect(() => {
-    storeBrowserOfferRef.current = storeBrowserOffer;
-  }, [storeBrowserOffer]);
-
-  useEffect(() => {
-    storeBrowserCandidatesRef.current = storeBrowserCandidates;
-  }, [storeBrowserCandidates]);
+  onDeliveryReceiptRef.current = onDeliveryReceipt;
+  onMessageRef.current = onMessage;
+  onSystemMessageRef.current = onSystemMessage;
+  onTrackActivityRef.current = onTrackActivity;
+  storeBrowserOfferRef.current = storeBrowserOffer;
+  storeBrowserCandidatesRef.current = storeBrowserCandidates;
 
   // Browser is the offerer in this signaling flow.
   // biome-ignore lint/correctness/useExhaustiveDependencies: connectionAttempt is a prop used to force reconnection
@@ -93,6 +76,7 @@ export function useLiveBridge({
       try {
         const offer = await bridge.createOffer();
         await storeBrowserOfferRef.current({ slug, offer });
+        bridge.markOfferSent();
 
         // Start ICE candidate flush
         const flushedCandidates: string[] = [];
@@ -167,43 +151,43 @@ export function useLiveBridge({
     };
   }, [enabled, slug, connectionAttempt]);
 
-  // Apply agent answer when it arrives
+  // Sync agent signaling data (answer + ICE candidates) to the bridge
   useEffect(() => {
     const bridge = bridgeRef.current;
-    if (!agentAnswer || !bridge) return;
+    if (!bridge) return;
 
-    const answerKey = `${slug}:${agentAnswer}`;
-    if (lastHandledAnswerRef.current === answerKey) return;
-    lastHandledAnswerRef.current = answerKey;
+    if (agentAnswer) {
+      const answerKey = `${slug}:${agentAnswer}`;
+      if (lastHandledAnswerRef.current !== answerKey) {
+        lastHandledAnswerRef.current = answerKey;
+        void bridge.applyAnswer(agentAnswer).catch((error) => {
+          trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
+            context: "live-bridge",
+          });
+          onSystemMessageRef.current?.({
+            content: "Live connection could not apply the remote answer. Reconnect and try again.",
+            dedupeKey: "bridge-answer-failed",
+            severity: "error",
+          });
+        });
+      }
+    }
 
-    void bridge.applyAnswer(agentAnswer).catch((error) => {
-      trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
-        context: "live-bridge",
-      });
-      onSystemMessageRef.current?.({
-        content: "Live connection could not apply the remote answer. Reconnect and try again.",
-        dedupeKey: "bridge-answer-failed",
-        severity: "error",
-      });
-    });
-  }, [agentAnswer, slug]);
-
-  // Add remote ICE candidates
-  useEffect(() => {
-    const bridge = bridgeRef.current;
-    if (!agentCandidates || !bridge) return;
-    const nextCandidates = agentCandidates.slice(lastAgentCandidateCountRef.current);
-    if (nextCandidates.length === 0) return;
-    lastAgentCandidateCountRef.current = agentCandidates.length;
-    void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
-      console.warn("Failed to add remote ICE candidates", error);
-      onSystemMessageRef.current?.({
-        content: "Connection updates from the agent were rejected. Stream quality may degrade.",
-        dedupeKey: "remote-ice-add-failed",
-        severity: "warning",
-      });
-    });
-  }, [agentCandidates]);
+    if (agentCandidates) {
+      const nextCandidates = agentCandidates.slice(lastAgentCandidateCountRef.current);
+      if (nextCandidates.length > 0) {
+        lastAgentCandidateCountRef.current = agentCandidates.length;
+        void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
+          console.warn("Failed to add remote ICE candidates", error);
+          onSystemMessageRef.current?.({
+            content: "Connection updates from the agent were rejected. Stream quality may degrade.",
+            dedupeKey: "remote-ice-add-failed",
+            severity: "warning",
+          });
+        });
+      }
+    }
+  }, [agentAnswer, agentCandidates, slug]);
 
   return {
     bridgeRef,
