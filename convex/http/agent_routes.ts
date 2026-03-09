@@ -147,7 +147,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
             targetPresenceId = presence._id;
           }
 
-          const result = await ctx.runQuery(internal.pubs.getLiveSnapshotForAgent, {
+          const result = await ctx.runQuery(internal.pubs.getLive, {
             userId: user.userId,
             targetPresenceId,
           });
@@ -284,7 +284,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
             targetPresenceId = presence._id;
           }
 
-          const active = await ctx.runQuery(internal.pubs.getLiveSnapshotForAgent, {
+          const active = await ctx.runQuery(internal.pubs.getLive, {
             userId: user.userId,
             targetPresenceId,
           });

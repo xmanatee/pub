@@ -204,7 +204,7 @@ export class PubApiClient {
 
   // -- Agent live management ------------------------------------------------
 
-  async getAgentLive(daemonSessionId?: string): Promise<LiveInfo | null> {
+  async getLive(daemonSessionId?: string): Promise<LiveInfo | null> {
     const params = new URLSearchParams();
     if (daemonSessionId) {
       params.set("daemonSessionId", daemonSessionId);

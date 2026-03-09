@@ -52,10 +52,9 @@ describe("buildTextSrcdoc", () => {
 });
 
 describe("buildHtmlSrcdoc", () => {
-  it("prepends styles to raw HTML", () => {
+  it("returns raw HTML as-is", () => {
     const result = buildHtmlSrcdoc("<h1>Title</h1>");
-    expect(result).toContain("<style>");
-    expect(result).toContain("<h1>Title</h1>");
+    expect(result).toBe("<h1>Title</h1>");
   });
 
   it("does not escape the HTML content", () => {

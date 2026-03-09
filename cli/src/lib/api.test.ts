@@ -251,7 +251,7 @@ describe("PubApiClient", () => {
   });
 
   describe("agent live methods", () => {
-    it("getAgentLive fetches current live info", async () => {
+    it("getLive fetches current live info", async () => {
       const mockLive = {
         slug: "abc",
         browserOffer: "offer-data",
@@ -267,11 +267,11 @@ describe("PubApiClient", () => {
         }),
       );
 
-      const result = await client.getAgentLive();
+      const result = await client.getLive();
       expect(result).toEqual(mockLive);
     });
 
-    it("getAgentLive returns null when no live session exists", async () => {
+    it("getLive returns null when no live session exists", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ live: null }), {
           status: 200,
@@ -279,11 +279,11 @@ describe("PubApiClient", () => {
         }),
       );
 
-      const result = await client.getAgentLive();
+      const result = await client.getLive();
       expect(result).toBeNull();
     });
 
-    it("getAgentLive includes daemonSessionId query when provided", async () => {
+    it("getLive includes daemonSessionId query when provided", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ live: null }), {
           status: 200,
@@ -291,7 +291,7 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.getAgentLive("daemon-1");
+      await client.getLive("daemon-1");
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/live?daemonSessionId=daemon-1", baseUrl),
         expect.any(Object),

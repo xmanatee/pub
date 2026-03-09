@@ -63,14 +63,6 @@ function pickTargetPresence(
   return presences[0] ?? null;
 }
 
-function liveMatchesTargetPresence(
-  live: { targetPresenceId?: Id<"agentPresence"> },
-  targetPresenceId?: Id<"agentPresence">,
-) {
-  if (!targetPresenceId) return true;
-  return live.targetPresenceId === targetPresenceId;
-}
-
 function mapPub(
   pub: {
     _id: Id<"pubs">;
@@ -227,9 +219,16 @@ export const listActiveLives = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
+    const now = Date.now();
+    const presences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const freshIds = new Set(listFreshOnlinePresences(presences, now).map((p) => p._id));
+
     return lives.map((s) => ({
       slug: s.slug,
-      hasConnection: !!s.agentAnswer,
+      hasConnection: !!s.agentAnswer && !!s.targetPresenceId && freshIds.has(s.targetPresenceId),
     }));
   },
 });
@@ -313,7 +312,7 @@ export const getLiveBySlug = query({
  * 1. Pending session (offer exists, no answer)
  * 2. Active session
  */
-export const getLiveSnapshotForAgent = internalQuery({
+export const getLive = internalQuery({
   args: {
     apiKey: v.optional(v.string()),
     daemonSessionId: v.optional(v.string()),

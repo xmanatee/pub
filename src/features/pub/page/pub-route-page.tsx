@@ -22,7 +22,7 @@ export function PubRoutePage({ slug }: { slug: string }) {
       baseContentHtml={baseContentHtml}
       contentState={contentState}
     >
-      <PubRouteContent pub={pub} baseContentHtml={baseContentHtml} contentState={contentState} />
+      <PubRouteContent pub={pub} baseContentHtml={baseContentHtml} />
     </LiveSessionProvider>
   );
 }
@@ -30,11 +30,9 @@ export function PubRoutePage({ slug }: { slug: string }) {
 function PubRouteContent({
   pub,
   baseContentHtml,
-  contentState,
 }: {
   pub: UsePubLiveModelOptions["pub"];
   baseContentHtml: string | null;
-  contentState: UsePubLiveModelOptions["contentState"];
 }) {
   const session = useLiveSession();
 
@@ -42,13 +40,6 @@ function PubRouteContent({
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
   const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
-  const canvasVisualState = liveMode
-    ? session.visualState
-    : contentState === "loading"
-      ? "content-loading"
-      : effectiveCanvasHtml
-        ? "idle"
-        : "waiting-content";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
@@ -70,7 +61,7 @@ function PubRouteContent({
             onCanvasErrorChange={isOwner ? session.setCanvasError : undefined}
             onRenderError={isOwner ? session.sendRenderError : undefined}
             outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
-            visualState={canvasVisualState}
+            visualState={session.visualState}
           />
         </div>
 

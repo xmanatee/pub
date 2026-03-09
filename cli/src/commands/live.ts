@@ -422,7 +422,7 @@ function registerDoctorCommand(program: Command): void {
         console.log("Daemon/channel check: OK");
 
         const live = await apiClient
-          .getAgentLive()
+          .getLive()
           .catch((error: unknown) =>
             fail(`failed to fetch live info from API: ${formatApiError(error)}`),
           );
