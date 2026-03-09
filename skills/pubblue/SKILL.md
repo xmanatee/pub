@@ -6,7 +6,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "5.2.0"
+  version: "5.2.1"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -16,7 +16,7 @@ Use this skill when the user asks about publishing, showing, or visualizing agen
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.7.0+**.
+Use **pubblue CLI 0.7.1+**.
 
 ```bash
 pubblue --version
