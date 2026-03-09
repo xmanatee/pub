@@ -82,8 +82,7 @@ export function PubCard({
           )}
           {liveStatus && (
             <span className="tabular-nums">
-              {" "}
-              &middot; {liveStatus === "connected" ? "connected" : "waiting for browser"}
+              {" "}&middot; {liveStatus === "connected" ? "connected" : "waiting for agent"}
             </span>
           )}
         </div>

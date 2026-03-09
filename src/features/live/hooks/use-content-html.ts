@@ -54,14 +54,20 @@ export function useContentHtml(
     if (contentType === "markdown") {
       let cancelled = false;
       setStatus("loading");
-      void import("marked").then(({ marked }) => {
-        void Promise.resolve(marked.parse(content)).then((parsed) => {
-          if (!cancelled) {
-            setHtml(wrapInDocument(parsed, MARKDOWN_STYLES));
-            setStatus("ready");
-          }
+      void import("marked")
+        .then(({ marked }) => Promise.resolve(marked.parse(content)))
+        .then((parsed) => {
+          if (cancelled) return;
+          setHtml(wrapInDocument(parsed, MARKDOWN_STYLES));
+          setStatus("ready");
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          console.error("Failed to render markdown content", error);
+          const escaped = escapeHtml(content);
+          setHtml(wrapInDocument(`<pre>${escaped}</pre>`, TEXT_STYLES));
+          setStatus("ready");
         });
-      });
       return () => {
         cancelled = true;
       };

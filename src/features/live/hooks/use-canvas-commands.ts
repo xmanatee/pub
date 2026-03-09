@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useMemo, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CHANNELS } from "~/features/live/lib/bridge-protocol";
 import {
   COMMAND_PROTOCOL_VERSION,
@@ -57,6 +57,46 @@ function getLatestActiveCommand(
   return latest;
 }
 
+interface InterruptedCommandState {
+  lastCompleted: NonNullable<CommandLifecycleState["lastCompleted"]>;
+  outboundMessages: CanvasBridgeOutboundMessage[];
+}
+
+export function buildInterruptedCommandState(
+  activeById: CommandLifecycleState["activeById"],
+  params: { code: string; message: string },
+): InterruptedCommandState | null {
+  const activeCommands = Object.values(activeById);
+  if (activeCommands.length === 0) return null;
+  const interrupted = getLatestActiveCommand(activeById);
+  if (!interrupted) return null;
+
+  return {
+    lastCompleted: {
+      callId: interrupted.callId,
+      errorMessage: params.message,
+      finishedAt: Date.now(),
+      name: interrupted.name,
+      phase: "failed",
+    },
+    outboundMessages: activeCommands.map((activeCommand) => ({
+      source: PARENT_TO_CANVAS_SOURCE,
+      type: "command.result",
+      payload: {
+        v: COMMAND_PROTOCOL_VERSION,
+        callId: activeCommand.callId,
+        ok: false,
+        error: {
+          code: params.code,
+          message: params.message,
+          retryable: false,
+        },
+        durationMs: 0,
+      },
+    })),
+  };
+}
+
 function summarizeCommands(state: CommandLifecycleState): LiveCommandSummary {
   const activeCount = Object.keys(state.activeById).length;
   const current = getLatestActiveCommand(state.activeById);
@@ -95,12 +135,38 @@ function summarizeCommands(state: CommandLifecycleState): LiveCommandSummary {
 export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanvasCommandsOptions) {
   const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
     useState<CanvasBridgeOutboundMessage | null>(null);
+  const [outboundQueue, setOutboundQueue] = useState<CanvasBridgeOutboundMessage[]>([]);
   const [commandState, setCommandState] = useState<CommandLifecycleState>({
     activeById: {},
     lastCompleted: null,
   });
+  const activeCommandsRef = useRef<CommandLifecycleState["activeById"]>({});
 
   const command = useMemo(() => summarizeCommands(commandState), [commandState]);
+
+  useEffect(() => {
+    activeCommandsRef.current = commandState.activeById;
+  }, [commandState.activeById]);
+
+  const enqueueOutboundCanvasMessage = useCallback((message: CanvasBridgeOutboundMessage) => {
+    setOutboundQueue((current) => [...current, message]);
+  }, []);
+
+  useEffect(() => {
+    if (outboundCanvasBridgeMessage !== null) return;
+    const [nextMessage, ...rest] = outboundQueue;
+    if (!nextMessage) return;
+    setOutboundCanvasBridgeMessage(nextMessage);
+    setOutboundQueue(rest);
+  }, [outboundCanvasBridgeMessage, outboundQueue]);
+
+  useEffect(() => {
+    if (!outboundCanvasBridgeMessage) return;
+    const timer = window.setTimeout(() => {
+      setOutboundCanvasBridgeMessage(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [outboundCanvasBridgeMessage]);
 
   const trackCommandStart = useCallback((callId: string, name: string) => {
     setCommandState((current) => ({
@@ -188,7 +254,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
         name: params.name ?? null,
         ok: false,
       });
-      setOutboundCanvasBridgeMessage({
+      enqueueOutboundCanvasMessage({
         source: PARENT_TO_CANVAS_SOURCE,
         type: "command.result",
         payload: {
@@ -200,38 +266,44 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
         },
       });
     },
-    [trackCommandResult],
+    [enqueueOutboundCanvasMessage, trackCommandResult],
   );
 
-  useEffect(() => {
-    if (!liveMode) {
+  const interruptActiveCommands = useCallback(
+    (params: { code: string; message: string }) => {
+      const interrupted = buildInterruptedCommandState(activeCommandsRef.current, params);
+      if (!interrupted) return;
+      for (const message of interrupted.outboundMessages) {
+        enqueueOutboundCanvasMessage(message);
+      }
+
       setCommandState((current) => {
         if (Object.keys(current.activeById).length === 0) return current;
         return {
           activeById: {},
-          lastCompleted: current.lastCompleted,
+          lastCompleted: interrupted.lastCompleted,
         };
+      });
+    },
+    [enqueueOutboundCanvasMessage],
+  );
+
+  useEffect(() => {
+    if (!liveMode) {
+      interruptActiveCommands({
+        code: "COMMAND_INTERRUPTED",
+        message: "Command interrupted because live mode was disabled.",
       });
       return;
     }
 
     if (bridgeState !== "disconnected" && bridgeState !== "closed") return;
 
-    setCommandState((current) => {
-      const interrupted = getLatestActiveCommand(current.activeById);
-      if (!interrupted) return current;
-      return {
-        activeById: {},
-        lastCompleted: {
-          callId: interrupted.callId,
-          errorMessage: "Command interrupted because the live connection was lost.",
-          finishedAt: Date.now(),
-          name: interrupted.name,
-          phase: "failed",
-        },
-      };
+    interruptActiveCommands({
+      code: "COMMAND_INTERRUPTED",
+      message: "Command interrupted because the live connection was lost.",
     });
-  }, [bridgeState, liveMode]);
+  }, [bridgeState, interruptActiveCommands, liveMode]);
 
   const onCanvasBridgeMessage = useCallback(
     (message: CanvasBridgeCommandMessage) => {
@@ -342,13 +414,13 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
         name: null,
         ok: result.ok,
       });
-      setOutboundCanvasBridgeMessage({
+      enqueueOutboundCanvasMessage({
         source: PARENT_TO_CANVAS_SOURCE,
         type: "command.result",
         payload: result,
       });
     },
-    [trackCommandResult],
+    [enqueueOutboundCanvasMessage, trackCommandResult],
   );
 
   return {

@@ -139,7 +139,7 @@ export async function createClaudeSdkBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
-  const { sendMessage, debugLog, sessionBriefing } = config;
+  const { slug, sendMessage, debugLog, sessionBriefing } = config;
   const env = process.env;
 
   const sdk = await tryImportSdk();
@@ -247,54 +247,70 @@ export async function createClaudeSdkBridgeRunner(
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
+      const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
+        forwardedMessageCount + 1,
+        canvasReminderEvery,
+      );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        forwardedMessageCount += 1;
-        const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-          forwardedMessageCount,
-          canvasReminderEvery,
-        );
-        const prompt = buildInboundPrompt(chat, { includeCanvasReminder });
+        const prompt = buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions);
         await deliverWithRecovery(prompt);
+        forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        const prompt = buildRenderErrorPrompt(renderError);
+        const prompt = buildRenderErrorPrompt(slug, renderError, config.instructions);
         await deliverWithRecovery(prompt);
+        forwardedMessageCount += 1;
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
       }
+    },
+    onError: (error, entry) => {
+      const message = errorMessage(error);
+      lastError = message;
+      debugLog(`bridge entry processing failed: ${message}`, error);
+      config.onDeliveryUpdate?.({
+        channel: entry.channel,
+        messageId: entry.msg.id,
+        stage: "failed",
+        error: message,
+      });
+      void sendMessage(CHANNELS.CHAT, {
+        id: generateMessageId(),
+        type: "text",
+        data: `Bridge error: ${message}`,
+      });
     },
   });
 
   return {
-    async close() {
+    enqueue: (entries) => queue.enqueue(entries),
+
+    async stop(): Promise<void> {
+      if (stopped) return;
       stopped = true;
-      queue.close();
+      await queue.stop();
       activeSession?.close();
     },
-    getStatus(): BridgeStatus {
+
+    status(): BridgeStatus {
       return {
-        bridge: "claude-sdk",
-        forwardedMessageCount,
-        lastError,
+        running: !stopped,
         sessionId,
+        lastError,
+        forwardedMessages: forwardedMessageCount,
       };
-    },
-    async onEntry(entry: BufferedEntry) {
-      try {
-        await queue.push(entry);
-      } catch (error) {
-        lastError = errorMessage(error);
-        throw error;
-      }
-    },
-    sendBufferedChat(text: string) {
-      return sendMessage(
-        CHANNELS.CHAT,
-        { id: generateMessageId(), type: "text", data: text },
-        { skipQueue: true },
-      );
     },
   };
 }

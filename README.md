@@ -57,7 +57,7 @@ pnpm dlx pubblue
 pubblue configure
 
 # Publish a file
-pubblue create my-page.html --public
+pubblue create my-page.html
 
 # Start a live visualization session
 pubblue start --agent-name "<agent-name>"

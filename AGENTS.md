@@ -53,7 +53,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Components** (`convex.config.ts`): registers `rateLimiter` and `shardedCounter` components
-- **Visibility**: pubs are always created private; visibility can only be changed via update
+- **Visibility**: pubs are always created private; visibility can be changed via update or the dashboard toggle
 
 ### Pub Limits
 - **Total**: max 10 pubs per user (enforced on create)
