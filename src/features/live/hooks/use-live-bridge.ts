@@ -19,7 +19,7 @@ interface UseLiveBridgeOptions {
     dedupeKey?: string;
     severity: "warning" | "error";
   }) => void;
-  onTrackActivity: () => void;
+  onTrackActivity: (kind: "track") => void;
 }
 
 export function useLiveBridge({
@@ -36,7 +36,7 @@ export function useLiveBridge({
   onTrackActivity,
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
-  const [bridgeState, setBridgeState] = useState<BridgeState>("connecting");
+  const [bridgeState, setBridgeState] = useState<BridgeState>("closed");
 
   const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
@@ -60,7 +60,10 @@ export function useLiveBridge({
   // Browser is the offerer in this signaling flow.
   // biome-ignore lint/correctness/useExhaustiveDependencies: connectionAttempt is a prop used to force reconnection
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setBridgeState("closed");
+      return;
+    }
     setBridgeState("connecting");
 
     const bridge = new BrowserBridge();
@@ -69,7 +72,7 @@ export function useLiveBridge({
     lastHandledAnswerRef.current = null;
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnMessage((message) => onMessageRef.current(message));
-    bridge.setOnTrack(() => onTrackActivityRef.current());
+    bridge.setOnTrack(() => onTrackActivityRef.current("track"));
     bridge.setOnDeliveryReceipt((receipt) => onDeliveryReceiptRef.current(receipt));
 
     void (async () => {

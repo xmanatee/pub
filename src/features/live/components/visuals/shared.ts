@@ -12,6 +12,26 @@ export interface Tone {
 }
 
 export const VISUAL_THEME: Record<LiveVisualState, Tone> = {
+  "content-loading": {
+    coreScale: 0.86,
+    energy: 0.42,
+    hueA: 200,
+    hueB: 210,
+    hueC: 220,
+    saturation: 0.62,
+    speedMs: 18_000,
+    glow: 0.48,
+  },
+  offline: {
+    coreScale: 0.8,
+    energy: 0.28,
+    hueA: 28,
+    hueB: 20,
+    hueC: 12,
+    saturation: 0.74,
+    speedMs: 20_000,
+    glow: 0.48,
+  },
   connecting: {
     coreScale: 0.82,
     energy: 0.38,
@@ -71,6 +91,46 @@ export const VISUAL_THEME: Record<LiveVisualState, Tone> = {
     saturation: 1.2,
     speedMs: 4_500,
     glow: 1,
+  },
+  recording: {
+    coreScale: 1.08,
+    energy: 0.92,
+    hueA: 6,
+    hueB: 354,
+    hueC: 22,
+    saturation: 1.1,
+    speedMs: 5_800,
+    glow: 0.9,
+  },
+  "voice-mode": {
+    coreScale: 1.04,
+    energy: 0.78,
+    hueA: 158,
+    hueB: 180,
+    hueC: 206,
+    saturation: 0.96,
+    speedMs: 6_400,
+    glow: 0.86,
+  },
+  "command-running": {
+    coreScale: 0.98,
+    energy: 0.74,
+    hueA: 52,
+    hueB: 120,
+    hueC: 188,
+    saturation: 0.9,
+    speedMs: 7_600,
+    glow: 0.8,
+  },
+  error: {
+    coreScale: 0.92,
+    energy: 0.54,
+    hueA: 4,
+    hueB: 344,
+    hueC: 320,
+    saturation: 0.92,
+    speedMs: 9_000,
+    glow: 0.74,
   },
 };
 

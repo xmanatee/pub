@@ -1,5 +1,5 @@
 import { ArrowLeft, Ellipsis, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { BlobVisual } from "~/features/live/components/visuals/blob-visual";
@@ -11,7 +11,9 @@ import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-r
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { cn } from "~/lib/utils";
 import { ControlBarPrimitive } from "../architecture/control-bar-primitive";
+import { ControlBarBusyMode } from "./control-bar-busy-mode";
 import { CB } from "./control-bar-classes";
+import { ControlBarDisconnectedMode } from "./control-bar-disconnected-mode";
 import { ControlBarInputRow } from "./control-bar-input-row";
 import { ControlBarOfflineMode } from "./control-bar-offline-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
@@ -32,39 +34,36 @@ export interface ControlBarProps {
   initialExpanded?: boolean;
 }
 
-/**
- * Clean Orchestrator for the Control Bar.
- * Maps application state to the Pure Stage Primitive.
- */
 export function ControlBar({ initialInput, initialExpanded = false }: ControlBarProps) {
   const {
     agentName,
     audio,
     bridgeRef,
+    command,
     connected,
     controlBarCollapsed,
+    controlBarState,
     dismissPreview,
+    error,
     hasCanvasContent,
     lastTakeoverAt,
     preview,
+    retryConnection,
     setControlBarCollapsed,
     setViewMode,
     sendChat,
     sendFile,
     takeoverLive,
-    uiState,
     viewMode,
     visualState,
     voiceModeEnabled,
     closeLive,
   } = useLiveSession();
 
-  const hasContent = hasCanvasContent;
   const [expanded, setExpanded] = useState(initialExpanded);
   const [isEditing, setIsEditing] = useState(false);
   const bridge = bridgeRef.current;
 
-  // --- 1. Application Logic ---
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
     onSendChat: sendChat,
@@ -85,22 +84,21 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
 
   useEffect(() => {
     if (!expanded) return;
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [expanded]);
 
   useEffect(() => {
-    if (audio.mode !== "idle" && expanded) {
-      setExpanded(false);
-    }
-  }, [audio.mode, expanded]);
+    if (audio.machineMode === "idle" || !expanded) return;
+    setExpanded(false);
+  }, [audio.machineMode, expanded]);
 
   const { pointerHandlers } = useHoldToRecord({
     disabled: !connected,
-    mode: audio.mode,
+    mode: audio.barMode,
     startRecording: audio.startRecording,
     sendRecording: audio.sendRecording,
     cancelRecording: audio.cancelRecording,
@@ -109,9 +107,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   const handlePreviewClick = useCallback(() => {
     setViewMode("chat");
     dismissPreview();
-  }, [setViewMode, dismissPreview]);
-
-  // --- 2. UI Assembly ---
+  }, [dismissPreview, setViewMode]);
 
   const waveformEl = (
     <div ref={audio.barsRef} className="flex h-7 items-center gap-0.5">
@@ -125,41 +121,51 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     </div>
   );
 
-  const centerContent = useMemo(() => {
-    if (uiState === "offline") return <ControlBarOfflineMode onExit={closeLive} />;
-    if (uiState === "needs-takeover" || uiState === "taken-over") {
-      return (
-        <ControlBarTakeoverMode
-          lastTakeoverAt={lastTakeoverAt}
-          onExit={closeLive}
-          onTakeover={takeoverLive}
-          sessionState={uiState}
-        />
-      );
-    }
-    if (uiState === "recording" || uiState === "recording-paused") {
-      const isPaused = uiState === "recording-paused";
-      return (
-        <ControlBarRecordingMode
-          elapsedLabel={formatTime(audio.elapsed)}
-          isPaused={isPaused}
-          onCancelRecording={audio.cancelRecording}
-          onPauseResume={isPaused ? audio.resumeRecording : audio.pauseRecording}
-          onSendRecording={audio.sendRecording}
-          waveformEl={waveformEl}
-        />
-      );
-    }
-    if (uiState === "voice-mode") {
-      return (
-        <ControlBarVoiceMode
-          elapsedLabel={formatTime(audio.elapsed)}
-          onStopVoiceMode={audio.stopVoiceMode}
-          waveformEl={waveformEl}
-        />
-      );
-    }
-    return (
+  let centerContent: ReactNode;
+  if (controlBarState === "offline") {
+    centerContent = <ControlBarOfflineMode onExit={closeLive} />;
+  } else if (controlBarState === "disconnected") {
+    centerContent = <ControlBarDisconnectedMode onExit={closeLive} onReconnect={retryConnection} />;
+  } else if (controlBarState === "needs-takeover" || controlBarState === "taken-over") {
+    centerContent = (
+      <ControlBarTakeoverMode
+        lastTakeoverAt={lastTakeoverAt}
+        onExit={closeLive}
+        onTakeover={takeoverLive}
+        sessionState={controlBarState}
+      />
+    );
+  } else if (controlBarState === "starting-recording") {
+    centerContent = <ControlBarBusyMode label="Starting recording..." />;
+  } else if (controlBarState === "stopping-recording") {
+    centerContent = <ControlBarBusyMode label="Finishing recording..." />;
+  } else if (controlBarState === "recording" || controlBarState === "recording-paused") {
+    centerContent = (
+      <ControlBarRecordingMode
+        elapsedLabel={formatTime(audio.elapsed)}
+        isPaused={controlBarState === "recording-paused"}
+        onCancelRecording={audio.cancelRecording}
+        onPauseResume={
+          controlBarState === "recording-paused" ? audio.resumeRecording : audio.pauseRecording
+        }
+        onSendRecording={audio.sendRecording}
+        waveformEl={waveformEl}
+      />
+    );
+  } else if (controlBarState === "starting-voice") {
+    centerContent = <ControlBarBusyMode label="Starting voice mode..." />;
+  } else if (controlBarState === "stopping-voice") {
+    centerContent = <ControlBarBusyMode label="Stopping voice mode..." />;
+  } else if (controlBarState === "voice-mode") {
+    centerContent = (
+      <ControlBarVoiceMode
+        elapsedLabel={formatTime(audio.elapsed)}
+        onStopVoiceMode={audio.stopVoiceMode}
+        waveformEl={waveformEl}
+      />
+    );
+  } else {
+    centerContent = (
       <ControlBarInputRow
         fileInputRef={fileInputRef}
         hasText={hasText}
@@ -176,34 +182,10 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
         voiceModeEnabled={voiceModeEnabled}
       />
     );
-  }, [
-    uiState,
-    visualState,
-    input,
-    hasText,
-    connected,
-    voiceModeEnabled,
-    audio.elapsed,
-    lastTakeoverAt,
-    closeLive,
-    takeoverLive,
-    fileInputRef,
-    handleFile,
-    setInput,
-    handleKeyDown,
-    handleSend,
-    audio.startVoiceMode,
-    pointerHandlers,
-    audio.cancelRecording,
-    audio.pauseRecording,
-    audio.resumeRecording,
-    audio.sendRecording,
-    audio.stopVoiceMode,
-    waveformEl,
-  ]);
+  }
 
   const leftAction =
-    viewMode === "canvas" && (uiState === "idle" || uiState === "connecting") ? (
+    viewMode === "canvas" && (controlBarState === "idle" || controlBarState === "connecting") ? (
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -235,53 +217,57 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
       </Button>
     ) : null;
 
-  // Top Addon (Preview / Extended Options) - Continuation of center bar
-  const topAddon = useMemo(() => {
-    if (expanded) {
-      return (
-        <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
-      );
-    }
-    if (preview && !isEditing) {
-      const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
-      const previewLabelClass =
-        preview.source === "system"
-          ? preview.severity === "error"
-            ? "text-destructive"
-            : "text-amber-600"
-          : "text-primary";
+  let topAddon: ReactNode = null;
+  if (expanded) {
+    topAddon = (
+      <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
+    );
+  } else if (command.phase === "running" || command.phase === "canceling") {
+    const label =
+      command.phase === "canceling"
+        ? `Canceling ${command.activeCommandName ?? "command"}`
+        : `Running ${command.activeCommandName ?? "command"}`;
+    topAddon = (
+      <div className="px-4 py-2.5 text-sm leading-tight text-muted-foreground">{label}</div>
+    );
+  } else if (preview && !isEditing) {
+    const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
+    const previewLabelClass =
+      preview.source === "system"
+        ? preview.severity === "error"
+          ? "text-destructive"
+          : "text-amber-600"
+        : "text-primary";
 
-      return (
-        <button
-          type="button"
-          className="w-full overflow-hidden text-left"
-          onClick={handlePreviewClick}
-          aria-label="Open chat"
-        >
-          <div className="truncate px-4 py-2.5 text-sm leading-tight">
-            <span className={cn("font-semibold", previewLabelClass)}>{previewLabel}</span>
-            <span className="text-muted-foreground">: </span>
-            <span className="text-foreground">{preview.text}</span>
-          </div>
-        </button>
-      );
-    }
-    return null;
-  }, [
-    expanded,
-    preview,
-    isEditing,
-    viewMode,
-    agentName,
-    closeLive,
-    handleViewSelect,
-    handlePreviewClick,
-  ]);
+    topAddon = (
+      <button
+        type="button"
+        className="w-full overflow-hidden text-left"
+        onClick={handlePreviewClick}
+        aria-label="Open chat"
+      >
+        <div className="truncate px-4 py-2.5 text-sm leading-tight">
+          <span className={cn("font-semibold", previewLabelClass)}>{previewLabel}</span>
+          <span className="text-muted-foreground">: </span>
+          <span className="text-foreground">{preview.text}</span>
+        </div>
+      </button>
+    );
+  } else if (error.message) {
+    topAddon = (
+      <div className="px-4 py-2.5 text-sm leading-tight text-destructive">{error.message}</div>
+    );
+  }
 
-  const statusAction =
-    hasContent && (uiState === "idle" || uiState === "connecting") ? (
-      <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasContent} />
-    ) : null;
+  const showStatusBlob =
+    hasCanvasContent &&
+    (controlBarState === "idle" ||
+      controlBarState === "connecting" ||
+      controlBarState === "disconnected");
+
+  const statusAction = showStatusBlob ? (
+    <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasCanvasContent} />
+  ) : null;
 
   return (
     <>
@@ -303,7 +289,11 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
         statusAction={statusAction}
         isExpanded={viewMode === "canvas" ? !controlBarCollapsed : true}
         onStatusClick={() => setControlBarCollapsed((prev: boolean) => !prev)}
-        className={uiState === "recording" ? CB.recordingTone : ""}
+        className={
+          controlBarState === "recording" || controlBarState === "recording-paused"
+            ? CB.recordingTone
+            : ""
+        }
         isInteracting={isEditing}
       />
     </>

@@ -1,74 +1,84 @@
-import { useEffect, useMemo, useState } from "react";
-import type { BridgeState } from "~/features/live/lib/webrtc-browser";
-import type { LiveVisualState } from "~/features/live/types/live-types";
+import type {
+  AgentOutputActivity,
+  LiveCommandPhase,
+  LiveContentState,
+  LiveTransportStatus,
+  LiveVisualState,
+} from "~/features/live/types/live-types";
+import type { AudioMachineMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
 const RECENT_AGENT_ACTIVITY_WINDOW_MS = 4_000;
 const RECENT_USER_DELIVERED_WINDOW_MS = 12_000;
 
 interface ResolveVisualStateParams {
-  bridgeState: BridgeState;
-  hasCanvasContent: boolean;
-  lastAgentActivityAt: number | null;
+  agentOnline: boolean | undefined;
+  audioMode: AudioMachineMode;
+  commandPhase: LiveCommandPhase;
+  contentState: LiveContentState;
+  errorMessage: string | null;
+  lastAgentOutput: AgentOutputActivity | null;
   lastUserDeliveredAt: number | null;
+  liveMode: boolean;
   now: number;
+  transportStatus: LiveTransportStatus;
 }
 
 export function resolveLiveVisualState({
-  bridgeState,
-  hasCanvasContent,
-  lastAgentActivityAt,
+  agentOnline,
+  audioMode,
+  commandPhase,
+  contentState,
+  errorMessage,
+  lastAgentOutput,
   lastUserDeliveredAt,
+  liveMode,
   now,
+  transportStatus,
 }: ResolveVisualStateParams): LiveVisualState {
-  if (bridgeState === "connecting") return "connecting";
-  if (bridgeState === "disconnected" || bridgeState === "closed") return "disconnected";
+  if (!liveMode) {
+    if (contentState === "loading") return "content-loading";
+    if (contentState === "empty") return "waiting-content";
+    return "idle";
+  }
+
+  if (agentOnline === false) return "offline";
+  if (transportStatus === "connecting") return "connecting";
+  if (transportStatus === "disconnected") return "disconnected";
+
+  if (
+    audioMode === "starting-recording" ||
+    audioMode === "recording" ||
+    audioMode === "recording-paused" ||
+    audioMode === "stopping-recording"
+  ) {
+    return "recording";
+  }
+
+  if (
+    audioMode === "starting-voice" ||
+    audioMode === "voice-mode" ||
+    audioMode === "stopping-voice"
+  ) {
+    return "voice-mode";
+  }
+
+  if (commandPhase === "running" || commandPhase === "canceling") return "command-running";
 
   const hasRecentAgentActivity =
-    typeof lastAgentActivityAt === "number" &&
-    now - lastAgentActivityAt <= RECENT_AGENT_ACTIVITY_WINDOW_MS;
+    typeof lastAgentOutput?.at === "number" &&
+    lastAgentOutput.kind !== "track" &&
+    now - lastAgentOutput.at <= RECENT_AGENT_ACTIVITY_WINDOW_MS;
   if (hasRecentAgentActivity) return "agent-replying";
 
   const isWaitingForAgentReply =
     typeof lastUserDeliveredAt === "number" &&
     now - lastUserDeliveredAt <= RECENT_USER_DELIVERED_WINDOW_MS &&
-    (typeof lastAgentActivityAt !== "number" || lastAgentActivityAt < lastUserDeliveredAt);
+    (typeof lastAgentOutput?.at !== "number" || lastAgentOutput.at < lastUserDeliveredAt);
   if (isWaitingForAgentReply) return "agent-thinking";
 
-  if (!hasCanvasContent) return "waiting-content";
+  if (contentState === "loading") return "content-loading";
+  if (contentState === "empty") return "waiting-content";
+  if (errorMessage) return "error";
 
   return "idle";
-}
-
-interface UseLiveVisualStateParams {
-  bridgeState: BridgeState;
-  hasCanvasContent: boolean;
-  lastAgentActivityAt: number | null;
-  lastUserDeliveredAt: number | null;
-}
-
-export function useLiveVisualState({
-  bridgeState,
-  hasCanvasContent,
-  lastAgentActivityAt,
-  lastUserDeliveredAt,
-}: UseLiveVisualStateParams): LiveVisualState {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    setNow(Date.now());
-    const interval = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(interval);
-  }, []);
-
-  return useMemo(
-    () =>
-      resolveLiveVisualState({
-        bridgeState,
-        hasCanvasContent,
-        lastAgentActivityAt,
-        lastUserDeliveredAt,
-        now,
-      }),
-    [bridgeState, hasCanvasContent, lastAgentActivityAt, lastUserDeliveredAt, now],
-  );
 }

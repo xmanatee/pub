@@ -6,11 +6,12 @@ import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
-import { useLiveVisualState } from "~/features/live/model/live-visual-state";
+import type { LiveContentState } from "~/features/live/types/live-types";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
+import { derivePubViewState } from "~/features/pub/model/pub-view-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackPubViewed } from "~/lib/analytics";
 import { api } from "../../../../convex/_generated/api";
@@ -29,21 +30,19 @@ export interface UsePubLiveModelOptions {
   slug: string;
   pub?: PubSnapshot;
   baseContentHtml?: string | null;
+  contentState: LiveContentState;
 }
 
-export type LiveUiState =
-  | "offline"
-  | "connecting"
-  | "needs-takeover"
-  | "taken-over"
-  | "recording"
-  | "recording-paused"
-  | "voice-mode"
-  | "idle";
-
-export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelOptions) {
+export function usePubLiveModel({
+  slug,
+  pub,
+  baseContentHtml,
+  contentState,
+}: UsePubLiveModelOptions) {
   const navigate = useNavigate();
   const recordPublicView = useMutation(api.analytics.recordPublicView);
+  const isOwner = pub?.isOwner === true;
+  const liveMode = isOwner;
 
   const {
     agentOnline,
@@ -54,6 +53,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     live,
     markBridgeConnected,
     resetSession,
+    retryConnection,
     sessionState,
     sessionError,
     selectedPresenceId,
@@ -97,7 +97,9 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
+  const [canvasError, setCanvasError] = useState<string | null>(null);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
   const notifiedStatusRef = useRef<string | null>(null);
@@ -106,12 +108,12 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const enabled =
-    agentOnline === true && (sessionState === "inactive" || sessionState === "active");
+    liveMode && agentOnline === true && (sessionState === "inactive" || sessionState === "active");
 
   const {
     bridgeRef,
     bridgeState,
-    lastAgentActivityAt,
+    lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,
     sendChat,
@@ -123,8 +125,8 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     slug,
     enabled,
     connectionAttempt,
-    agentAnswer: sessionState === "active" ? live?.agentAnswer : undefined,
-    agentCandidates: sessionState === "active" ? live?.agentCandidates : undefined,
+    agentAnswer: liveMode && sessionState === "active" ? live?.agentAnswer : undefined,
+    agentCandidates: liveMode && sessionState === "active" ? live?.agentCandidates : undefined,
     storeBrowserOffer,
     storeBrowserCandidates,
     addAgentAudioMessage,
@@ -146,9 +148,6 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     onCommandMessageRef: commandMessageHandlerRef,
   });
 
-  const isOwner = pub?.isOwner === true;
-  const liveMode = isOwner;
-
   const canvasCommands = useCanvasCommands({
     bridgeRef,
     bridgeState,
@@ -167,24 +166,43 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
 
-  const hasCanvasContent = Boolean(baseContentHtml);
+  useEffect(() => {
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const hasCanvasContent = contentState === "ready" && Boolean(baseContentHtml);
+  const viewState = derivePubViewState({
+    agentOnline,
+    audioMode: audio.machineMode,
+    bridgeState,
+    canvasError,
+    command: canvasCommands.command,
+    contentState,
+    lastAgentOutput,
+    lastUserDeliveredAt,
+    liveMode,
+    now,
+    sessionError,
+    sessionState,
+  });
 
   useEffect(() => {
     if (pub === undefined) return;
     const statusKey =
-      pub === null ? "not-found" : !hasCanvasContent && !liveMode ? "no-content" : null;
+      pub === null ? "not-found" : !liveMode && contentState === "empty" ? "no-content" : null;
     if (!statusKey || notifiedStatusRef.current === statusKey) return;
     notifiedStatusRef.current = statusKey;
-    const content =
-      statusKey === "not-found"
-        ? "This pub doesn't exist or is not accessible."
-        : "This pub has no static content yet.";
     addSystemMessage({
-      content,
+      content:
+        statusKey === "not-found"
+          ? "This pub doesn't exist or is not accessible."
+          : "This pub has no static content yet.",
       dedupeKey: `pub-status:${statusKey}`,
       severity: statusKey === "not-found" ? "error" : "warning",
     });
-  }, [pub, hasCanvasContent, liveMode, addSystemMessage]);
+  }, [addSystemMessage, contentState, liveMode, pub]);
 
   useEffect(() => {
     if (pub && !trackedAnalytics.current) {
@@ -208,6 +226,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     lastSlugRef.current = slug;
     lastSessionErrorRef.current = null;
     notifiedStatusRef.current = null;
+    setCanvasError(null);
     setControlBarCollapsed(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
@@ -215,8 +234,8 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     clearMessages();
     clearFiles();
     resetSession();
-    closeLive();
-  }, [slug, dismissPreview, clearMessages, clearFiles, resetSession, closeLive]);
+    if (liveMode) closeLive();
+  }, [slug, clearFiles, clearMessages, closeLive, dismissPreview, liveMode, resetSession]);
 
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
@@ -224,9 +243,9 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   useEffect(() => {
     if (!liveMode || !autoOpenCanvas) return;
-    if (!baseContentHtml) return;
+    if (contentState !== "ready" || !baseContentHtml) return;
     setViewMode("canvas");
-  }, [autoOpenCanvas, baseContentHtml, liveMode, setViewMode]);
+  }, [autoOpenCanvas, baseContentHtml, contentState, liveMode, setViewMode]);
 
   useEffect(() => {
     const nextError = sessionError;
@@ -244,31 +263,16 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     clearFiles();
     clearMessages();
     clearSessionError();
+    setCanvasError(null);
     setViewMode("canvas");
-  }, [dismissPreview, clearFiles, clearMessages, clearSessionError, setViewMode]);
-
-  const visualState = useLiveVisualState({
-    bridgeState,
-    hasCanvasContent,
-    lastAgentActivityAt,
-    lastUserDeliveredAt,
-  });
-
-  let uiState: LiveUiState = "idle";
-  if (agentOnline === false) uiState = "offline";
-  else if (sessionState === "needs-takeover") uiState = "needs-takeover";
-  else if (sessionState === "taken-over") uiState = "taken-over";
-  else if (audio.mode === "recording") uiState = "recording";
-  else if (audio.mode === "recording-paused") uiState = "recording-paused";
-  else if (audio.mode === "voice-mode") uiState = "voice-mode";
-  else if (liveMode && bridgeState !== "connected") uiState = "connecting";
+  }, [clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
 
   const handleClose = useCallback(() => {
     setControlBarCollapsed(false);
     resetLiveSurface();
-    closeLive();
+    if (liveMode) closeLive();
     void navigate({ to: "/dashboard" });
-  }, [resetLiveSurface, closeLive, navigate]);
+  }, [closeLive, liveMode, navigate, resetLiveSurface]);
 
   return {
     agentName: live?.agentName ?? null,
@@ -279,43 +283,49 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     autoOpenCanvas,
     bridgeRef,
     bridgeState,
+    canvasError,
+    canUseDeveloperMode,
     clearFiles,
     clearMessages,
-    canUseDeveloperMode,
+    clearSessionError,
     closeLive: handleClose,
-    connected: bridgeState === "connected",
+    command: canvasCommands.command,
+    connected: viewState.transportStatus === "connected",
+    contentState,
     controlBarCollapsed,
+    controlBarState: viewState.controlBarState,
     developerModeEnabled,
     dismissPreview,
+    error: viewState.error,
     files,
-    clearSessionError,
     hasCanvasContent,
     lastTakeoverAt: live?.lastTakeoverAt,
     live,
     messages,
     messagesEndRef,
     micGranted,
+    onCanvasBridgeMessage: canvasCommands.onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage: canvasCommands.outboundCanvasBridgeMessage,
     preview,
+    retryConnection,
     sendAudio,
     sendChat,
     sendFile,
     sendRenderError,
     sessionState,
-    sessionError,
     selectedPresenceId,
-    setSelectedPresenceId,
     setAutoOpenCanvas,
+    setCanvasError,
     setControlBarCollapsed,
     setDeveloperModeEnabled,
     setMicGranted,
+    setSelectedPresenceId,
     setViewMode,
     setVoiceModeEnabled,
     takeoverLive,
-    onCanvasBridgeMessage: canvasCommands.onCanvasBridgeMessage,
-    outboundCanvasBridgeMessage: canvasCommands.outboundCanvasBridgeMessage,
-    uiState,
+    transportStatus: viewState.transportStatus,
     viewMode,
-    visualState,
+    visualState: viewState.visualState,
     voiceModeEnabled,
   };
 }

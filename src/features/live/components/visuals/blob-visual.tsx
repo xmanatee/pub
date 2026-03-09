@@ -226,9 +226,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
     };
 
     drawRef.current = draw;
-    if (!hasContentRef.current) {
-      rafRef.current = requestAnimationFrame(draw);
-    }
+    rafRef.current = requestAnimationFrame(draw);
 
     return () => {
       if (rafRef.current !== null) {

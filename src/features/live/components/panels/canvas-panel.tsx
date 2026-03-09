@@ -12,6 +12,7 @@ import { CanvasLiveVisual } from "./canvas-live-visual";
 interface CanvasPanelProps {
   html: string | null;
   onCanvasBridgeMessage?: (message: CanvasBridgeInboundMessage) => void;
+  onCanvasErrorChange?: (message: string | null) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
   visualState: LiveVisualState;
@@ -23,6 +24,7 @@ const RENDER_ERROR_REPORT_DEDUPE_MS = 2_500;
 export function CanvasPanel({
   html,
   onCanvasBridgeMessage,
+  onCanvasErrorChange,
   onRenderError,
   outboundCanvasBridgeMessage,
   visualState,
@@ -37,6 +39,10 @@ export function CanvasPanel({
   useEffect(() => {
     if (!html) setCanvasError(null);
   }, [html]);
+
+  useEffect(() => {
+    onCanvasErrorChange?.(canvasError);
+  }, [canvasError, onCanvasErrorChange]);
 
   useEffect(() => {
     if (!hasVisibleCanvasContent) {
@@ -142,7 +148,10 @@ export function CanvasPanel({
             loadedHtml === html ? "opacity-100" : "opacity-0",
           )}
           title="Canvas"
-          onLoad={() => setLoadedHtml(html)}
+          onLoad={() => {
+            setLoadedHtml(html);
+            setCanvasError(null);
+          }}
         />
       ) : null}
       {canvasError ? (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { LiveContentState } from "~/features/live/types/live-types";
 import { escapeHtml } from "~/lib/pub-preview";
 
 const MARKDOWN_STYLES = `
@@ -26,31 +27,39 @@ function wrapInDocument(body: string, styles: string): string {
 export function useContentHtml(
   content: string | undefined,
   contentType: string | undefined,
-): string | null {
+): { html: string | null; status: LiveContentState } {
   const [html, setHtml] = useState<string | null>(null);
+  const [status, setStatus] = useState<LiveContentState>("empty");
 
   useEffect(() => {
     if (!content || !contentType) {
       setHtml(null);
+      setStatus("empty");
       return;
     }
 
     if (contentType === "html") {
       setHtml(content);
+      setStatus("ready");
       return;
     }
 
     if (contentType === "text") {
       const escaped = escapeHtml(content);
       setHtml(wrapInDocument(`<pre>${escaped}</pre>`, TEXT_STYLES));
+      setStatus("ready");
       return;
     }
 
     if (contentType === "markdown") {
       let cancelled = false;
+      setStatus("loading");
       void import("marked").then(({ marked }) => {
         void Promise.resolve(marked.parse(content)).then((parsed) => {
-          if (!cancelled) setHtml(wrapInDocument(parsed, MARKDOWN_STYLES));
+          if (!cancelled) {
+            setHtml(wrapInDocument(parsed, MARKDOWN_STYLES));
+            setStatus("ready");
+          }
         });
       });
       return () => {
@@ -59,7 +68,8 @@ export function useContentHtml(
     }
 
     setHtml(null);
+    setStatus("empty");
   }, [content, contentType]);
 
-  return html;
+  return { html, status };
 }

@@ -165,6 +165,11 @@ export function useLiveSessionModel(slug: string) {
     setSessionError(null);
   }, []);
 
+  const retryConnection = useCallback(() => {
+    setSessionError(null);
+    setConnectionAttempt((prev) => prev + 1);
+  }, []);
+
   return {
     availableAgents: availableAgents ?? [],
     agentOnline,
@@ -174,6 +179,7 @@ export function useLiveSessionModel(slug: string) {
     live,
     markBridgeConnected,
     resetSession,
+    retryConnection,
     sessionState,
     sessionError,
     selectedPresenceId,

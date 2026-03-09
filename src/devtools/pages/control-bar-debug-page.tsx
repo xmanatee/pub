@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { BatchSection } from "~/devtools/components/batch-section";
-import type { LiveViewMode, LiveVisualState, SessionState } from "~/features/live/types/live-types";
+import type {
+  LiveControlBarState,
+  LiveViewMode,
+  LiveVisualState,
+  SessionState,
+} from "~/features/live/types/live-types";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import {
   createMockLiveSession,
@@ -8,12 +13,18 @@ import {
 } from "~/features/pub/contexts/live-session-context";
 
 const ALL_VISUAL_STATES: LiveVisualState[] = [
+  "content-loading",
+  "offline",
   "connecting",
   "disconnected",
   "waiting-content",
   "idle",
   "agent-thinking",
   "agent-replying",
+  "recording",
+  "voice-mode",
+  "command-running",
+  "error",
 ];
 
 const DEBUG_PREVIEW_TEXT = "Debug preview message";
@@ -21,9 +32,29 @@ const DEBUG_MULTILINE_TEXT =
   "First line of message\nSecond line continues\nThird line here\nAnd a fourth line too";
 const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
 
+function resolveDebugControlBarState(
+  visualState: LiveVisualState,
+  sessionState: SessionState,
+): LiveControlBarState {
+  if (sessionState === "needs-takeover" || sessionState === "taken-over") return sessionState;
+  if (visualState === "connecting") return "connecting";
+  if (visualState === "disconnected") return "disconnected";
+  if (visualState === "offline") return "offline";
+  if (visualState === "recording") return "recording";
+  if (visualState === "voice-mode") return "voice-mode";
+  return "idle";
+}
+
+function resolveDebugTransportStatus(visualState: LiveVisualState) {
+  if (visualState === "connecting") return "connecting";
+  if (visualState === "disconnected") return "disconnected";
+  return "connected";
+}
+
 function StaticControlBar({
   agentName = "Agent",
   visualState = "idle",
+  controlBarState,
   chatPreview = null,
   collapsed = false,
   sessionState = "active",
@@ -33,6 +64,7 @@ function StaticControlBar({
 }: {
   agentName?: string | null;
   visualState?: LiveVisualState;
+  controlBarState?: LiveControlBarState;
   chatPreview?: string | null;
   collapsed?: boolean;
   sessionState?: SessionState;
@@ -40,21 +72,21 @@ function StaticControlBar({
   initialInput?: string;
   initialExpanded?: boolean;
 }) {
+  const resolvedControlBarState =
+    controlBarState ?? resolveDebugControlBarState(visualState, sessionState);
+
   const value = createMockLiveSession({
     agentName,
     preview: chatPreview ? { text: chatPreview, source: "agent", severity: undefined } : null,
     controlBarCollapsed: collapsed,
     lastTakeoverAt,
-    connected: visualState !== "connecting" && visualState !== "disconnected",
+    connected:
+      visualState !== "connecting" && visualState !== "disconnected" && visualState !== "offline",
     hasCanvasContent: true,
     sessionState,
+    controlBarState: resolvedControlBarState,
+    transportStatus: resolveDebugTransportStatus(visualState),
     visualState,
-    uiState:
-      sessionState === "needs-takeover" || sessionState === "taken-over"
-        ? sessionState
-        : visualState === "connecting"
-          ? "connecting"
-          : "idle",
   });
 
   return (
@@ -74,12 +106,14 @@ export function ControlBarDebugPage() {
     agentName: "Agent",
     preview: chatPreview ? { text: chatPreview, source: "agent", severity: undefined } : null,
     controlBarCollapsed: collapsed,
-    connected: activeState !== "connecting" && activeState !== "disconnected",
+    connected:
+      activeState !== "connecting" && activeState !== "disconnected" && activeState !== "offline",
     sessionState: "active",
     viewMode,
+    controlBarState: resolveDebugControlBarState(activeState, "active"),
+    transportStatus: resolveDebugTransportStatus(activeState),
     visualState: activeState,
     voiceModeEnabled: true,
-    uiState: activeState === "connecting" ? "connecting" : "idle",
     setViewMode,
     dismissPreview: () => setChatPreview(null),
     setControlBarCollapsed: setCollapsed,

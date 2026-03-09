@@ -10,11 +10,19 @@ import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-co
 
 export function PubRoutePage({ slug }: { slug: string }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
-  const baseContentHtml = useContentHtml(pub?.content, pub?.contentType);
+  const { html: baseContentHtml, status: contentState } = useContentHtml(
+    pub?.content,
+    pub?.contentType,
+  );
 
   return (
-    <LiveSessionProvider slug={slug} pub={pub} baseContentHtml={baseContentHtml}>
-      <PubRouteContent pub={pub} baseContentHtml={baseContentHtml} />
+    <LiveSessionProvider
+      slug={slug}
+      pub={pub}
+      baseContentHtml={baseContentHtml}
+      contentState={contentState}
+    >
+      <PubRouteContent pub={pub} baseContentHtml={baseContentHtml} contentState={contentState} />
     </LiveSessionProvider>
   );
 }
@@ -22,9 +30,11 @@ export function PubRoutePage({ slug }: { slug: string }) {
 function PubRouteContent({
   pub,
   baseContentHtml,
+  contentState,
 }: {
   pub: UsePubLiveModelOptions["pub"];
   baseContentHtml: string | null;
+  contentState: UsePubLiveModelOptions["contentState"];
 }) {
   const session = useLiveSession();
 
@@ -34,9 +44,11 @@ function PubRouteContent({
   const effectiveCanvasHtml = baseContentHtml ?? null;
   const canvasVisualState = liveMode
     ? session.visualState
-    : effectiveCanvasHtml
-      ? "idle"
-      : "waiting-content";
+    : contentState === "loading"
+      ? "content-loading"
+      : effectiveCanvasHtml
+        ? "idle"
+        : "waiting-content";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
@@ -55,6 +67,7 @@ function PubRouteContent({
           <CanvasPanel
             html={effectiveCanvasHtml}
             onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
+            onCanvasErrorChange={isOwner ? session.setCanvasError : undefined}
             onRenderError={isOwner ? session.sendRenderError : undefined}
             outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
             visualState={canvasVisualState}

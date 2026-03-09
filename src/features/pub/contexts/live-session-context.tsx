@@ -9,6 +9,7 @@ export interface LiveSessionProviderProps {
   slug?: string;
   pub?: UsePubLiveModelOptions["pub"];
   baseContentHtml?: string | null;
+  contentState?: UsePubLiveModelOptions["contentState"];
   value?: LiveSessionContextType;
   children: ReactNode;
 }
@@ -17,6 +18,7 @@ export function LiveSessionProvider({
   slug,
   pub,
   baseContentHtml,
+  contentState,
   value,
   children,
 }: LiveSessionProviderProps) {
@@ -29,7 +31,12 @@ export function LiveSessionProvider({
   }
 
   return (
-    <InternalLiveSessionProvider slug={slug} pub={pub} baseContentHtml={baseContentHtml}>
+    <InternalLiveSessionProvider
+      slug={slug}
+      pub={pub}
+      baseContentHtml={baseContentHtml}
+      contentState={contentState ?? "empty"}
+    >
       {children}
     </InternalLiveSessionProvider>
   );
@@ -39,14 +46,16 @@ function InternalLiveSessionProvider({
   slug,
   pub,
   baseContentHtml,
+  contentState,
   children,
 }: {
   slug: string;
   pub?: UsePubLiveModelOptions["pub"];
   baseContentHtml?: string | null;
+  contentState: UsePubLiveModelOptions["contentState"];
   children: ReactNode;
 }) {
-  const model = usePubLiveModel({ slug, pub, baseContentHtml });
+  const model = usePubLiveModel({ slug, pub, baseContentHtml, contentState });
   return <LiveSessionContext.Provider value={model}>{children}</LiveSessionContext.Provider>;
 }
 
@@ -66,7 +75,8 @@ export function createMockLiveSession(
     agentName: "Agent",
     agentOnline: true,
     audio: {
-      mode: "idle",
+      barMode: "idle",
+      machineMode: "idle",
       elapsed: 0,
       barsRef: { current: null },
       cancelRecording: noop,
@@ -85,11 +95,23 @@ export function createMockLiveSession(
     clearFiles: noop,
     clearMessages: noop,
     canUseDeveloperMode: true,
+    canvasError: null,
     closeLive: noop,
+    command: {
+      activeCallId: null,
+      activeCommandName: null,
+      activeCount: 0,
+      errorMessage: null,
+      finishedAt: null,
+      phase: "idle",
+    },
     connected: true,
+    contentState: "ready",
     controlBarCollapsed: false,
+    controlBarState: "idle",
     developerModeEnabled: false,
     dismissPreview: noop,
+    error: { message: null, source: "none" },
     files: [],
     clearSessionError: noop,
     lastTakeoverAt: undefined,
@@ -101,22 +123,23 @@ export function createMockLiveSession(
     onCanvasBridgeMessage: noop,
     outboundCanvasBridgeMessage: null,
     preview: null,
+    retryConnection: noop,
     sendAudio: noop,
     sendChat: noop,
     sendFile: noop,
     sendRenderError: noop,
     sessionState: "active",
-    sessionError: null,
     selectedPresenceId: undefined,
     setSelectedPresenceId: noop,
     setAutoOpenCanvas: noop,
+    setCanvasError: noop,
     setControlBarCollapsed: noop,
     setDeveloperModeEnabled: noop,
     setMicGranted: noop,
     setViewMode: noop,
     setVoiceModeEnabled: noop,
     takeoverLive: async () => {},
-    uiState: "idle",
+    transportStatus: "connected",
     viewMode: "canvas",
     visualState: "idle",
     voiceModeEnabled: true,

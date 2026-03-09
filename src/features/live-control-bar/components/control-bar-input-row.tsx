@@ -69,7 +69,16 @@ export function ControlBarInputRow({
     if (editing) textareaRef.current?.focus();
   }, [editing]);
 
-  const placeholder = visualState === "connecting" ? "Connecting..." : "Message...";
+  const placeholder =
+    visualState === "connecting"
+      ? "Connecting..."
+      : visualState === "disconnected" || visualState === "offline"
+        ? "Disconnected"
+        : visualState === "content-loading"
+          ? "Loading content..."
+          : visualState === "command-running"
+            ? "Running command..."
+            : "Message...";
   const cbStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
 
   return (

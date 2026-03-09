@@ -1,13 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import type { LiveSessionContextType } from "~/features/pub/contexts/live-session-context";
 import { ControlBar } from "./control-bar";
+
+type ControlBarOverrides = Omit<Partial<LiveSessionContextType>, "audio"> & {
+  audio?: Partial<LiveSessionContextType["audio"]>;
+};
 
 const mockSession = {
   agentName: null as string | null,
   agentOnline: true,
   audio: {
-    mode: "idle",
+    barMode: "idle",
+    machineMode: "idle",
     elapsed: 0,
     barsRef: { current: null },
     cancelRecording: vi.fn(),
@@ -19,13 +25,26 @@ const mockSession = {
     stopVoiceMode: vi.fn(),
   },
   bridgeRef: { current: null },
+  command: {
+    activeCallId: null,
+    activeCommandName: null,
+    activeCount: 0,
+    errorMessage: null,
+    finishedAt: null,
+    phase: "idle",
+  },
   connected: true,
+  contentState: "ready",
   controlBarCollapsed: false,
+  controlBarState: "idle",
   dismissPreview: vi.fn(),
+  error: { message: null, source: "none" },
   lastTakeoverAt: undefined as number | undefined,
   micGranted: false,
-  preview: null as any,
+  preview: null,
+  retryConnection: vi.fn(),
   setControlBarCollapsed: vi.fn(),
+  setCanvasError: vi.fn(),
   setMicGranted: vi.fn(),
   setViewMode: vi.fn(),
   sendAudio: vi.fn(),
@@ -33,12 +52,12 @@ const mockSession = {
   sendFile: vi.fn(),
   sessionState: "active",
   takeoverLive: vi.fn(),
-  uiState: "idle",
+  transportStatus: "connected",
   viewMode: "canvas",
   visualState: "idle",
   voiceModeEnabled: false,
   closeLive: vi.fn(),
-};
+} as unknown as LiveSessionContextType;
 
 vi.mock("~/features/pub/contexts/live-session-context", () => ({
   useLiveSession: () => mockSession,
@@ -67,7 +86,7 @@ vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
   }),
 }));
 
-function renderControlBar(overrides?: any) {
+function renderControlBar(overrides?: ControlBarOverrides) {
   Object.assign(mockSession, overrides);
   if (overrides?.audio) Object.assign(mockSession.audio, overrides.audio);
 
@@ -80,8 +99,9 @@ function renderControlBar(overrides?: any) {
 
 describe("ControlBar", () => {
   beforeEach(() => {
-    mockSession.uiState = "idle";
-    mockSession.audio.mode = "idle";
+    mockSession.controlBarState = "idle";
+    mockSession.audio.barMode = "idle";
+    mockSession.audio.machineMode = "idle";
     mockSession.audio.elapsed = 0;
     mockSession.viewMode = "canvas";
     mockSession.voiceModeEnabled = false;
@@ -100,8 +120,8 @@ describe("ControlBar", () => {
 
   it("shows recording controls in recording mode", () => {
     const html = renderControlBar({
-      uiState: "recording",
-      audio: { mode: "recording", elapsed: 9 },
+      controlBarState: "recording",
+      audio: { barMode: "recording", machineMode: "recording", elapsed: 9 },
     });
     expect(html).toContain('aria-label="Delete recording"');
     expect(html).toContain('aria-label="Pause recording"');
@@ -109,7 +129,10 @@ describe("ControlBar", () => {
   });
 
   it("shows stop action in voice mode", () => {
-    const html = renderControlBar({ uiState: "voice-mode", audio: { mode: "voice-mode" } });
+    const html = renderControlBar({
+      controlBarState: "voice-mode",
+      audio: { barMode: "voice-mode", machineMode: "voice-mode" },
+    });
     expect(html).toContain('aria-label="Stop voice mode"');
   });
 

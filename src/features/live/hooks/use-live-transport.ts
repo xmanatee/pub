@@ -9,7 +9,12 @@ import {
 } from "~/features/live/lib/bridge-protocol";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
-import type { LiveRenderErrorPayload, LiveViewMode } from "~/features/live/types/live-types";
+import type {
+  AgentOutputActivity,
+  AgentOutputKind,
+  LiveRenderErrorPayload,
+  LiveViewMode,
+} from "~/features/live/types/live-types";
 import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 
 const CHAT_ACK_TIMEOUT_MS = 8_000;
@@ -111,7 +116,7 @@ export function useLiveTransport({
   onCommandMessageRef,
 }: UseLiveTransportOptions) {
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
-  const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
+  const [lastAgentOutput, setLastAgentOutput] = useState<AgentOutputActivity | null>(null);
   const [lastUserDeliveredAt, setLastUserDeliveredAt] = useState<number | null>(null);
 
   const pendingChatQueueRef = useRef<Array<{ msg: ReturnType<typeof makeTextMessage> }>>([]);
@@ -124,8 +129,11 @@ export function useLiveTransport({
     }>
   >([]);
   const lastResetSlugRef = useRef<string | null>(null);
-  const markAgentActivity = useCallback(() => {
-    setLastAgentActivityAt(Date.now());
+  const markAgentOutput = useCallback((kind: AgentOutputKind) => {
+    setLastAgentOutput({
+      at: Date.now(),
+      kind,
+    });
   }, []);
 
   const emitSystemMessage = useCallback(
@@ -140,7 +148,7 @@ export function useLiveTransport({
     lastResetSlugRef.current = slug;
 
     setViewMode("canvas");
-    setLastAgentActivityAt(null);
+    setLastAgentOutput(null);
     setLastUserDeliveredAt(null);
     pendingChatQueueRef.current = [];
     pendingAudioQueueRef.current = [];
@@ -152,13 +160,13 @@ export function useLiveTransport({
       const { channel, message } = cm;
 
       if (channel === CHANNELS.CHAT && message.type === "text" && message.data) {
-        markAgentActivity();
+        markAgentOutput("text");
         addAgentMessage({ id: message.id, content: message.data });
         return;
       }
 
       if (channel === CHANNELS.FILE && message.type === "binary" && cm.binaryData) {
-        markAgentActivity();
+        markAgentOutput("file");
         addReceivedBinaryFile({
           binaryData: cm.binaryData,
           filename: typeof message.meta?.filename === "string" ? message.meta.filename : undefined,
@@ -169,7 +177,7 @@ export function useLiveTransport({
       }
 
       if (channel === CHANNELS.AUDIO && message.type === "binary" && cm.binaryData) {
-        markAgentActivity();
+        markAgentOutput("audio");
         const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "audio/webm";
         const blob = new Blob([cm.binaryData], { type: mime });
         const audioUrl = URL.createObjectURL(blob);
@@ -183,7 +191,7 @@ export function useLiveTransport({
       }
 
       if (channel === CHANNELS.MEDIA && message.type === "binary" && cm.binaryData) {
-        markAgentActivity();
+        markAgentOutput("image");
         const mime = typeof message.meta?.mime === "string" ? message.meta.mime : "image/png";
         const blob = new Blob([cm.binaryData], { type: mime });
         const imageUrl = URL.createObjectURL(blob);
@@ -207,7 +215,7 @@ export function useLiveTransport({
       addAgentImageMessage,
       addAgentMessage,
       addReceivedBinaryFile,
-      markAgentActivity,
+      markAgentOutput,
       onCommandMessageRef,
       updateAudioMessageAnalysis,
     ],
@@ -252,7 +260,7 @@ export function useLiveTransport({
     onDeliveryReceipt: handleDeliveryReceipt,
     onMessage: handleBridgeMessage,
     onSystemMessage: emitSystemMessage,
-    onTrackActivity: markAgentActivity,
+    onTrackActivity: markAgentOutput,
   });
 
   const dispatchChatMessage = useCallback(
@@ -592,7 +600,7 @@ export function useLiveTransport({
   return {
     bridgeRef,
     bridgeState,
-    lastAgentActivityAt,
+    lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,
     sendChat,

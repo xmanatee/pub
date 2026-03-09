@@ -430,10 +430,11 @@ export function useControlBarAudio({
   }, [teardownMediaState]);
 
   return {
+    barMode: toBarMode(state.mode),
     barsRef,
     cancelRecording,
     elapsed: state.elapsed,
-    mode: toBarMode(state.mode),
+    machineMode: state.mode,
     pauseRecording,
     resumeRecording,
     sendRecording,
