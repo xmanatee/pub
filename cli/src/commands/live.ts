@@ -12,6 +12,7 @@ import { DEFAULT_BASE_URL, readConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import type { StatusResponse } from "../lib/live-ipc-protocol.js";
 import { detectBridgeAvailability } from "../lib/live-runtime/bridge-runtime.js";
+import { isBinaryInstall } from "../lib/self-update.js";
 import {
   formatApiError,
   getFollowReadDelayMs,
@@ -93,20 +94,25 @@ function registerStartCommand(program: Command): void {
 
       const { spawn } = await import("node:child_process");
       const daemonLogFd = fs.openSync(logPath, "a");
-      const child = spawn(process.execPath, [], {
+      const binary = isBinaryInstall();
+      const daemonArgs = binary
+        ? []
+        : [path.join(import.meta.dirname, "live-daemon-entry.js")];
+      const daemonEnv: NodeJS.ProcessEnv = {
+        ...bridgeProcessEnv,
+        PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
+        PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
+        PUBBLUE_DAEMON_SOCKET: socketPath,
+        PUBBLUE_DAEMON_INFO: infoPath,
+        PUBBLUE_DAEMON_AGENT_NAME: opts.agentName,
+        PUBBLUE_CLI_VERSION: CLI_VERSION,
+        PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
+      };
+      if (binary) daemonEnv.PUBBLUE_DAEMON_MODE = "1";
+      const child = spawn(process.execPath, daemonArgs, {
         detached: true,
         stdio: buildDaemonSpawnStdio(daemonLogFd),
-        env: {
-          ...bridgeProcessEnv,
-          PUBBLUE_DAEMON_MODE: "1",
-          PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
-          PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
-          PUBBLUE_DAEMON_SOCKET: socketPath,
-          PUBBLUE_DAEMON_INFO: infoPath,
-          PUBBLUE_DAEMON_AGENT_NAME: opts.agentName,
-          PUBBLUE_CLI_VERSION: CLI_VERSION,
-          PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
-        },
+        env: daemonEnv,
       });
       fs.closeSync(daemonLogFd);
       child.unref();

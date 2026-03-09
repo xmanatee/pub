@@ -1,0 +1,41 @@
+import { describe, expect, it } from "vitest";
+import { binaryDownloadUrl, detectTarget, isNewer } from "./self-update.js";
+
+describe("isNewer", () => {
+  it("returns true when latest is a major bump", () => {
+    expect(isNewer("2.0.0", "1.0.0")).toBe(true);
+  });
+
+  it("returns true when latest is a minor bump", () => {
+    expect(isNewer("1.1.0", "1.0.0")).toBe(true);
+  });
+
+  it("returns true when latest is a patch bump", () => {
+    expect(isNewer("1.0.1", "1.0.0")).toBe(true);
+  });
+
+  it("returns false when versions are equal", () => {
+    expect(isNewer("1.0.0", "1.0.0")).toBe(false);
+  });
+
+  it("returns false when current is newer", () => {
+    expect(isNewer("1.0.0", "1.0.1")).toBe(false);
+    expect(isNewer("0.7.2", "0.8.0")).toBe(false);
+  });
+});
+
+describe("detectTarget", () => {
+  it("returns a valid target string", () => {
+    const target = detectTarget();
+    expect(target).toMatch(/^(darwin|linux)-(arm64|x64)$/);
+  });
+});
+
+describe("binaryDownloadUrl", () => {
+  it("builds the correct URL", () => {
+    const url = binaryDownloadUrl("cli-v1.0.0", "darwin-arm64");
+    expect(url).toBe(
+      "https://github.com/xmanatee/pub/releases/download/cli-v1.0.0/pubblue-darwin-arm64",
+    );
+  });
+});

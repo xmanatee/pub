@@ -27,6 +27,7 @@ describe("CLI command surface", () => {
       "status",
       "stop",
       "update",
+      "upgrade",
       "write",
     ]);
   });

@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { registerConfigureCommand } from "./commands/configure.js";
 import { registerLiveCommands } from "./commands/live.js";
 import { registerPubCommands } from "./commands/pubs.js";
+import { registerUpgradeCommand } from "./commands/upgrade.js";
 import { CLI_VERSION } from "./lib/version.js";
 
 export function buildProgram(): Command {
@@ -13,6 +14,7 @@ export function buildProgram(): Command {
   registerConfigureCommand(program);
   registerPubCommands(program);
   registerLiveCommands(program);
+  registerUpgradeCommand(program);
 
   return program;
 }
