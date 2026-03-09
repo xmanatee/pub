@@ -205,7 +205,7 @@ export class PubApiClient {
 
   // -- Agent live management ------------------------------------------------
 
-  async getPendingLive(daemonSessionId?: string): Promise<LiveInfo | null> {
+  async getAgentLive(daemonSessionId?: string): Promise<LiveInfo | null> {
     const params = new URLSearchParams();
     if (daemonSessionId) {
       params.set("daemonSessionId", daemonSessionId);
@@ -254,18 +254,5 @@ export class PubApiClient {
 
   async deleteBotToken(): Promise<void> {
     await this.request("/api/v1/agent/telegram-bot", { method: "DELETE" });
-  }
-
-  // -- Per-slug live info ---------------------------------------------------
-
-  async getLive(slug: string): Promise<LiveInfo> {
-    const data = await this.request<{ live: unknown }>(
-      `/api/v1/pubs/${encodeURIComponent(slug)}/live`,
-    );
-    const live = parseLiveInfo(data.live);
-    if (!live) {
-      throw new PubApiError("Invalid live snapshot response from server.", 502);
-    }
-    return live;
   }
 }
