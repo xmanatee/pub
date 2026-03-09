@@ -89,7 +89,11 @@ export async function runClaudeSdkBridgeStartupProbe(
       const appendLog = (line: string) => {
         try {
           fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`);
-        } catch {}
+        } catch (error) {
+          if (process.env.PUBBLUE_DEBUG === "1") {
+            console.warn(`Warning: failed to append SDK probe log: ${errorMessage(error)}`);
+          }
+        }
       };
 
       appendLog(`probe start socket=${socketPath}`);
@@ -170,7 +174,10 @@ export async function createClaudeSdkBridgeRunner(
   const canvasReminderEvery = resolveCanvasReminderEvery();
 
   function createSession(): SdkSession {
-    const session = sdk!.unstable_v2_createSession({
+    if (!sdk) {
+      throw new Error("Claude Agent SDK is not importable.");
+    }
+    const session = sdk.unstable_v2_createSession({
       model,
       pathToClaudeCodeExecutable: claudePath,
       env: {
@@ -225,7 +232,9 @@ export async function createClaudeSdkBridgeRunner(
 
       try {
         activeSession?.close();
-      } catch {}
+      } catch (error) {
+        debugLog(`failed to close previous SDK session: ${errorMessage(error)}`, error);
+      }
 
       const newSession = createSession();
       await sendAndStream(newSession, sessionBriefing);
@@ -327,7 +336,9 @@ export async function createClaudeSdkBridgeRunner(
       stopped = true;
       try {
         activeSession?.close();
-      } catch {}
+      } catch (error) {
+        debugLog(`failed to close active SDK session during stop: ${errorMessage(error)}`, error);
+      }
       activeSession = null;
       await queue.stop();
     },

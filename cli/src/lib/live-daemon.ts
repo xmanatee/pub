@@ -88,7 +88,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
   let inboundStreams = new Map<string, { streamId: string }>();
   let seenInboundMessageKeys = new Set<string>();
-  let commandProcessingQueue: Promise<void> = Promise.resolve();
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let localCandidateInterval: ReturnType<typeof setInterval> | null = null;
@@ -232,18 +231,15 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function handleConnectionClosed(reason: string): void {
     debugLog(`connection closed: ${reason}`);
-    const hadConnection = browserConnected || bridgePrimed;
-    browserConnected = false;
-    bridgePrimed = false;
-    bridgePriming = null;
-    if (bridgeAbort) {
-      bridgeAbort.abort();
-      bridgeAbort = null;
-    }
-    if (!hadConnection) return;
-    buffer.messages = [];
-    failPendingAcks();
-    stopPingPong();
+    const hadSession = browserConnected || bridgePrimed || activeSlug !== null;
+    if (!hadSession) return;
+    activeSlug = null;
+    commandHandler.stop();
+    resetNegotiationState();
+    closeCurrentPeer();
+    void stopBridge().catch((error) => {
+      markError("failed to stop bridge after connection closed", error);
+    });
   }
 
   // -- Channel / message management -----------------------------------------
@@ -348,12 +344,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           queueAck(msg.id, name);
         }
         if (name === CHANNELS.COMMAND) {
-          // Process command events sequentially to avoid out-of-order invoke/cancel handling.
-          commandProcessingQueue = commandProcessingQueue
-            .then(() => commandHandler.onMessage(msg))
-            .catch((error) => {
-              markError("command message processing failed", error);
-            });
+          void commandHandler.onMessage(msg);
           return;
         }
         appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });
@@ -670,6 +661,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     seenInboundMessageKeys.clear();
   }
 
+  async function clearActiveLiveSession(reason: string): Promise<void> {
+    const slug = activeSlug;
+    debugLog(`clearing active live session: ${reason}${slug ? ` (${slug})` : ""}`);
+    activeSlug = null;
+    await stopBridge();
+    commandHandler.stop();
+    closeCurrentPeer();
+    resetNegotiationState();
+  }
+
   function startLocalCandidateFlush(slug: string): void {
     clearLocalCandidateTimers();
     localCandidateInterval = setInterval(async () => {
@@ -695,10 +696,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     recovering = true;
 
     try {
-      await stopBridge();
-      closeCurrentPeer();
+      await clearActiveLiveSession("incoming-live-recovery");
       createPeer();
-      resetNegotiationState();
 
       if (!peer) throw new Error("PeerConnection not initialized");
 
@@ -745,6 +744,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
     onRecover: handleIncomingLive,
     onApplyBrowserCandidates: applyBrowserCandidates,
+    onClearLive: async () => {
+      await clearActiveLiveSession("signaling-cleared");
+    },
   });
 
   // -- Socket stale check ---------------------------------------------------
@@ -847,9 +849,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }): Promise<string> {
     const pub = await apiClient.get(params.slug);
     const content = typeof pub.content === "string" ? pub.content : "";
-    if (content.length > 0) {
-      commandHandler.bindFromHtml(content);
-    }
+    if (content.length > 0) commandHandler.bindFromHtml(content);
+    else commandHandler.clearBindings();
     const canvasContentFilePath =
       content.length > 0
         ? writeLiveSessionContentFile({

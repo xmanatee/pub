@@ -44,6 +44,7 @@ export type LiveUiState =
 export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelOptions) {
   const navigate = useNavigate();
   const recordPublicView = useMutation(api.analytics.recordPublicView);
+  const setCanvasContent = useMutation(api.pubs.setCanvasContent);
 
   const {
     agentOnline,
@@ -53,6 +54,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     connectionAttempt,
     live,
     markBridgeConnected,
+    restartSession,
     resetSession,
     sessionState,
     sessionError,
@@ -97,6 +99,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
+  const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
@@ -105,8 +108,13 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   const lastSlugRef = useRef<string | null>(null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
+  const isOwner = pub?.isOwner === true;
+  const liveMode = isOwner;
   const enabled =
-    agentOnline === true && (sessionState === "inactive" || sessionState === "active");
+    liveMode &&
+    agentOnline === true &&
+    selectedPresenceId !== null &&
+    (sessionState === "inactive" || sessionState === "active");
 
   const {
     bridgeRef,
@@ -143,11 +151,9 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     markMessageReceived,
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
+    onCanvasHtmlMessage: setCanvasHtml,
     onCommandMessageRef: commandMessageHandlerRef,
   });
-
-  const isOwner = pub?.isOwner === true;
-  const liveMode = isOwner;
 
   const canvasCommands = useCanvasCommands({
     bridgeRef,
@@ -165,9 +171,35 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     onSystemMessage: addSystemMessage,
   });
 
+  const replaceCanvasFile = useCallback(
+    async (file: File) => {
+      const html = await file.text();
+      setCanvasHtml(html);
+      setViewMode("canvas");
+      try {
+        await setCanvasContent({ slug, html });
+      } catch (error) {
+        setCanvasHtml(baseContentHtml ?? null);
+        addSystemMessage({
+          content:
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "Failed to update canvas content.",
+          dedupeKey: "canvas-upload-failed",
+          severity: "error",
+        });
+      }
+    },
+    [addSystemMessage, baseContentHtml, setCanvasContent, setViewMode, slug],
+  );
+
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
 
-  const hasCanvasContent = Boolean(baseContentHtml);
+  const hasCanvasContent = Boolean(canvasHtml);
+
+  useEffect(() => {
+    setCanvasHtml(baseContentHtml ?? null);
+  }, [baseContentHtml]);
 
   useEffect(() => {
     if (pub === undefined) return;
@@ -204,10 +236,15 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   }, [pub, recordPublicView]);
 
   useEffect(() => {
+    if (lastSlugRef.current === null) {
+      lastSlugRef.current = slug;
+      return;
+    }
     if (lastSlugRef.current === slug) return;
     lastSlugRef.current = slug;
     lastSessionErrorRef.current = null;
     notifiedStatusRef.current = null;
+    setCanvasHtml(baseContentHtml ?? null);
     setControlBarCollapsed(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
@@ -215,8 +252,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     clearMessages();
     clearFiles();
     resetSession();
-    closeLive();
-  }, [slug, dismissPreview, clearMessages, clearFiles, resetSession, closeLive]);
+  }, [baseContentHtml, slug, dismissPreview, clearMessages, clearFiles, resetSession]);
 
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
@@ -224,9 +260,9 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
 
   useEffect(() => {
     if (!liveMode || !autoOpenCanvas) return;
-    if (!baseContentHtml) return;
+    if (!canvasHtml) return;
     setViewMode("canvas");
-  }, [autoOpenCanvas, baseContentHtml, liveMode, setViewMode]);
+  }, [autoOpenCanvas, canvasHtml, liveMode, setViewMode]);
 
   useEffect(() => {
     const nextError = sessionError;
@@ -270,6 +306,16 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     void navigate({ to: "/dashboard" });
   }, [resetLiveSurface, closeLive, navigate]);
 
+  const handleSelectedPresenceId = useCallback(
+    (presenceId: typeof selectedPresenceId) => {
+      if (presenceId === selectedPresenceId) return;
+      setSelectedPresenceId(presenceId);
+      resetLiveSurface();
+      restartSession();
+    },
+    [resetLiveSurface, restartSession, selectedPresenceId, setSelectedPresenceId],
+  );
+
   return {
     agentName: live?.agentName ?? null,
     agentOnline,
@@ -279,6 +325,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     autoOpenCanvas,
     bridgeRef,
     bridgeState,
+    canvasHtml,
     clearFiles,
     clearMessages,
     canUseDeveloperMode,
@@ -297,13 +344,14 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     micGranted,
     preview,
     sendAudio,
+    sendCanvasFile: replaceCanvasFile,
     sendChat,
     sendFile,
     sendRenderError,
     sessionState,
     sessionError,
     selectedPresenceId,
-    setSelectedPresenceId,
+    setSelectedPresenceId: handleSelectedPresenceId,
     setAutoOpenCanvas,
     setControlBarCollapsed,
     setDeveloperModeEnabled,

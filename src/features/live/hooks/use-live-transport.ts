@@ -81,6 +81,7 @@ interface UseLiveTransportOptions {
   markMessageReceived: (messageId: string) => void;
   markMessageSentIfPending: (messageId: string) => void;
   updateAudioMessageAnalysis: (messageId: string, duration: number, waveform: number[]) => void;
+  onCanvasHtmlMessage?: (html: string) => void;
   onCommandMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
 }
 
@@ -108,6 +109,7 @@ export function useLiveTransport({
   markMessageReceived,
   markMessageSentIfPending,
   updateAudioMessageAnalysis,
+  onCanvasHtmlMessage,
   onCommandMessageRef,
 }: UseLiveTransportOptions) {
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
@@ -154,6 +156,12 @@ export function useLiveTransport({
       if (channel === CHANNELS.CHAT && message.type === "text" && message.data) {
         markAgentActivity();
         addAgentMessage({ id: message.id, content: message.data });
+        return;
+      }
+
+      if (channel === CHANNELS.CANVAS && message.type === "html" && message.data) {
+        markAgentActivity();
+        onCanvasHtmlMessage?.(message.data);
         return;
       }
 
@@ -208,6 +216,7 @@ export function useLiveTransport({
       addAgentMessage,
       addReceivedBinaryFile,
       markAgentActivity,
+      onCanvasHtmlMessage,
       onCommandMessageRef,
       updateAudioMessageAnalysis,
     ],

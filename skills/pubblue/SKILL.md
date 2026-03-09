@@ -58,13 +58,13 @@ pubblue delete <slug>
 Notes:
 - Pub is built for agent-driven output sharing and live visualization.
 - Pubs are **private by default**.
-- `create` supports `--public/--private`, `--title`, `--slug`, `--expires`.
+- `create` supports `--public/--private`, `--title`, `--slug`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
 - Content is optional: a pub can be live-only.
 
 ## Going Live
 
-Live is browser-initiated: the user opens the pub page and clicks **Go Live**; the daemon answers.
+Live is browser-initiated: the user opens the pub page; owner live mode connects automatically once the daemon is online.
 
 1. Start the agent daemon:
 ```bash

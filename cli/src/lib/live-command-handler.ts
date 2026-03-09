@@ -332,6 +332,11 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
 
+  function clearBindings(): void {
+    boundFunctions.clear();
+    params.debugLog("commands cleared bindings");
+  }
+
   function buildCancelledResult(callId: string, startedAt: number): CommandResultPayload {
     return {
       v: COMMAND_PROTOCOL_VERSION,
@@ -438,7 +443,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   function bindFunctions(functions: CommandFunctionSpec[]): void {
-    boundFunctions.clear();
+    clearBindings();
     for (const entry of functions) {
       const normalized = normalizeFunctionSpec(entry);
       if (!normalized.executor) {
@@ -453,8 +458,8 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   function bindFromHtml(html: string): void {
     const manifest = extractManifestFromHtml(html);
     if (!manifest) {
-      boundFunctions.clear();
-      params.debugLog("commands no manifest found in HTML, cleared bindings");
+      clearBindings();
+      params.debugLog("commands no manifest found in HTML");
       return;
     }
     params.debugLog(`commands manifestId=${manifest.manifestId}`);
@@ -591,11 +596,15 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     bindFromHtml(html: string): void {
       bindFromHtml(html);
     },
+    clearBindings(): void {
+      clearBindings();
+    },
     stop(): void {
       for (const [callId, active] of running) {
         active.abort.abort();
         running.delete(callId);
       }
+      clearBindings();
     },
     async onMessage(message: BridgeMessage): Promise<void> {
       await handleBridgeMessage(message).catch((error) => {

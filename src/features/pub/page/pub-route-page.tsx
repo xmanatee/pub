@@ -31,7 +31,7 @@ function PubRouteContent({
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
-  const effectiveCanvasHtml = baseContentHtml ?? null;
+  const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
   const canvasVisualState = liveMode
     ? session.visualState
     : effectiveCanvasHtml

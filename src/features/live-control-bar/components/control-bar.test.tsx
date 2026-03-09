@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { ControlBar } from "./control-bar";
 
+type Preview = { text: string; source: "agent" | "system"; severity?: "warning" | "error" } | null;
+
 const mockSession = {
   agentName: null as string | null,
   agentOnline: true,
@@ -21,14 +23,16 @@ const mockSession = {
   bridgeRef: { current: null },
   connected: true,
   controlBarCollapsed: false,
+  canvasHtml: null as string | null,
   dismissPreview: vi.fn(),
   lastTakeoverAt: undefined as number | undefined,
   micGranted: false,
-  preview: null as any,
+  preview: null as Preview,
   setControlBarCollapsed: vi.fn(),
   setMicGranted: vi.fn(),
   setViewMode: vi.fn(),
   sendAudio: vi.fn(),
+  sendCanvasFile: vi.fn(),
   sendChat: vi.fn(),
   sendFile: vi.fn(),
   sessionState: "active",
@@ -39,6 +43,9 @@ const mockSession = {
   voiceModeEnabled: false,
   closeLive: vi.fn(),
 };
+
+type AudioOverrides = Partial<typeof mockSession.audio>;
+type SessionOverrides = Omit<Partial<typeof mockSession>, "audio"> & { audio?: AudioOverrides };
 
 vi.mock("~/features/pub/contexts/live-session-context", () => ({
   useLiveSession: () => mockSession,
@@ -67,9 +74,10 @@ vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
   }),
 }));
 
-function renderControlBar(overrides?: any) {
-  Object.assign(mockSession, overrides);
-  if (overrides?.audio) Object.assign(mockSession.audio, overrides.audio);
+function renderControlBar(overrides?: SessionOverrides) {
+  const { audio, ...sessionOverrides } = overrides ?? {};
+  Object.assign(mockSession, sessionOverrides);
+  if (audio) Object.assign(mockSession.audio, audio);
 
   return renderToStaticMarkup(
     <TooltipProvider>

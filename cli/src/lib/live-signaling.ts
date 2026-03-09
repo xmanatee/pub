@@ -7,6 +7,10 @@ export type SignalingDecision =
       nextBrowserCandidateCount: number;
     }
   | {
+      type: "clear-live";
+      nextBrowserCandidateCount: number;
+    }
+  | {
       type: "recover";
       slug: string;
       browserOffer: string;
@@ -26,6 +30,13 @@ export function decideSignalingUpdate(params: {
 }): SignalingDecision {
   const { live, activeSlug, lastAppliedBrowserOffer, lastBrowserCandidateCount } = params;
   if (!live) {
+    if (
+      activeSlug !== null ||
+      lastAppliedBrowserOffer !== null ||
+      lastBrowserCandidateCount > 0
+    ) {
+      return { type: "clear-live", nextBrowserCandidateCount: 0 };
+    }
     return { type: "noop", nextBrowserCandidateCount: lastBrowserCandidateCount };
   }
 

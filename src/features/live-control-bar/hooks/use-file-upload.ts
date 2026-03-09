@@ -9,16 +9,23 @@ import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 
 interface UseFileUploadOptions {
   bridge: BrowserBridge | null;
+  onSendCanvasFile?: (file: File) => Promise<void> | void;
   onSendFile?: (file: File) => void;
 }
 
-export function useFileUpload({ bridge, onSendFile }: UseFileUploadOptions) {
+export function useFileUpload({ bridge, onSendCanvasFile, onSendFile }: UseFileUploadOptions) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      const isHtml = file.name.endsWith(".html") || file.name.endsWith(".htm");
+      if (isHtml && onSendCanvasFile) {
+        await onSendCanvasFile(file);
+        e.target.value = "";
+        return;
+      }
       if (onSendFile) {
         onSendFile(file);
         e.target.value = "";
@@ -26,7 +33,6 @@ export function useFileUpload({ bridge, onSendFile }: UseFileUploadOptions) {
       }
       if (!bridge) return;
 
-      const isHtml = file.name.endsWith(".html") || file.name.endsWith(".htm");
       if (isHtml) {
         const text = await file.text();
         const ready = await ensureChannelReady(bridge, CHANNELS.CANVAS);
@@ -49,7 +55,7 @@ export function useFileUpload({ bridge, onSendFile }: UseFileUploadOptions) {
 
       e.target.value = "";
     },
-    [bridge, onSendFile],
+    [bridge, onSendCanvasFile, onSendFile],
   );
 
   return { fileInputRef, handleFile };

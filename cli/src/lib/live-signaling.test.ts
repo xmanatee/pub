@@ -31,6 +31,20 @@ describe("decideSignalingUpdate", () => {
     expect(decision.nextBrowserCandidateCount).toBe(0);
   });
 
+  it("clears the active live session when signaling reports no live snapshot", () => {
+    const decision = decideSignalingUpdate({
+      live: null,
+      activeSlug: "demo",
+      lastAppliedBrowserOffer: "offer-v1",
+      lastBrowserCandidateCount: 2,
+    });
+
+    expect(decision).toEqual({
+      type: "clear-live",
+      nextBrowserCandidateCount: 0,
+    });
+  });
+
   it("does not recover when pending offer did not change", () => {
     const decision = decideSignalingUpdate({
       live: makeLive({ agentAnswer: undefined }),

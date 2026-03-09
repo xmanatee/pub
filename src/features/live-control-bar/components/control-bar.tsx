@@ -49,6 +49,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     preview,
     setControlBarCollapsed,
     setViewMode,
+    sendCanvasFile,
     sendChat,
     sendFile,
     takeoverLive,
@@ -71,7 +72,11 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     initialInput,
   });
 
-  const { fileInputRef, handleFile } = useFileUpload({ bridge, onSendFile: sendFile });
+  const { fileInputRef, handleFile } = useFileUpload({
+    bridge,
+    onSendCanvasFile: sendCanvasFile,
+    onSendFile: sendFile,
+  });
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
 

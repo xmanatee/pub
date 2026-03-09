@@ -23,7 +23,7 @@
       }
     },
     "cli": {
-      "entry": ["src/live-daemon-entry.ts"],
+      "entry": ["src/index.ts", "src/live-daemon-entry.ts"],
       "project": ["src/**/*.ts"]
     }
   }

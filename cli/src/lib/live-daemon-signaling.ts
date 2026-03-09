@@ -48,6 +48,7 @@ interface SignalingControllerParams {
   setLastBrowserCandidateCount: (count: number) => void;
   onRecover: (slug: string, browserOffer: string) => Promise<void>;
   onApplyBrowserCandidates: (candidatePayloads: string[]) => Promise<void>;
+  onClearLive: () => Promise<void>;
 }
 
 export interface SignalingController {
@@ -69,6 +70,7 @@ export function createSignalingController(params: SignalingControllerParams): Si
     setLastBrowserCandidateCount,
     onRecover,
     onApplyBrowserCandidates,
+    onClearLive,
   } = params;
 
   let signalingClient: ConvexClient | null = null;
@@ -120,6 +122,11 @@ export function createSignalingController(params: SignalingControllerParams): Si
 
     if (decision.type === "recover") {
       await onRecover(decision.slug, decision.browserOffer);
+      return;
+    }
+
+    if (decision.type === "clear-live") {
+      await onClearLive();
       return;
     }
 

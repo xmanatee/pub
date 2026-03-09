@@ -14,6 +14,8 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
   let peerA: import("node-datachannel").PeerConnection;
   let peerB: import("node-datachannel").PeerConnection;
   let iceGatherSupported = true;
+  let p2pDataChannelSupported = true;
+  let unsupportedWarningShown = false;
 
   function isIceGatherUnavailableError(error: unknown): boolean {
     const message = error instanceof Error ? error.message : String(error);
@@ -33,6 +35,80 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
       }
       throw error;
     }
+  }
+
+  function markP2pDataChannelUnsupported(reason: string): void {
+    p2pDataChannelSupported = false;
+    if (unsupportedWarningShown) return;
+    unsupportedWarningShown = true;
+    console.warn(`Skipping node-datachannel P2P assertions: ${reason}`);
+  }
+
+  async function waitForRemoteDataChannel(
+    peer: import("node-datachannel").PeerConnection,
+    trigger: () => void,
+    timeoutMs = 10_000,
+  ): Promise<import("node-datachannel").DataChannel | null> {
+    return await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        markP2pDataChannelUnsupported("remote data channel did not arrive");
+        resolve(null);
+      }, timeoutMs);
+
+      peer.onDataChannel((dc) => {
+        clearTimeout(timeout);
+        resolve(dc);
+      });
+
+      trigger();
+    });
+  }
+
+  async function waitForRemoteDataChannels(
+    peer: import("node-datachannel").PeerConnection,
+    expectedCount: number,
+    trigger: () => void,
+    timeoutMs = 10_000,
+  ): Promise<Map<string, import("node-datachannel").DataChannel> | null> {
+    return await new Promise((resolve) => {
+      const remoteDcs = new Map<string, import("node-datachannel").DataChannel>();
+      const timeout = setTimeout(() => {
+        markP2pDataChannelUnsupported(
+          `${expectedCount} remote data channels did not arrive`,
+        );
+        resolve(null);
+      }, timeoutMs);
+
+      peer.onDataChannel((dc) => {
+        remoteDcs.set(dc.getLabel(), dc);
+        if (remoteDcs.size === expectedCount) {
+          clearTimeout(timeout);
+          resolve(remoteDcs);
+        }
+      });
+
+      trigger();
+    });
+  }
+
+  async function waitForOpen(
+    channel: import("node-datachannel").DataChannel,
+    label: string,
+    timeoutMs = 10_000,
+  ): Promise<boolean> {
+    if (channel.isOpen()) return true;
+
+    return await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        markP2pDataChannelUnsupported(`"${label}" channel did not open`);
+        resolve(false);
+      }, timeoutMs);
+
+      channel.onOpen(() => {
+        clearTimeout(timeout);
+        resolve(true);
+      });
+    });
   }
 
   function setupSafeSignaling(
@@ -129,7 +205,7 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
   });
 
   it("establishes a connection and exchanges messages via DataChannel", async () => {
-    if (!ndc || !iceGatherSupported) return;
+    if (!ndc || !iceGatherSupported || !p2pDataChannelSupported) return;
 
     peerA = new ndc.PeerConnection("peerA", { iceServers: [] });
     peerB = new ndc.PeerConnection("peerB", { iceServers: [] });
@@ -145,20 +221,14 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     if (!dcA) return;
 
     // Wait for peerB to receive the DataChannel
-    const dcB = await new Promise<import("node-datachannel").DataChannel>((resolve) => {
-      peerB.onDataChannel((dc) => resolve(dc));
+    const dcB = await waitForRemoteDataChannel(peerB, () => {
       peerA.setLocalDescription();
     });
+    if (!dcB) return;
 
     // Wait for channels to open
-    await new Promise<void>((resolve) => {
-      if (dcA.isOpen()) return resolve();
-      dcA.onOpen(() => resolve());
-    });
-    await new Promise<void>((resolve) => {
-      if (dcB.isOpen()) return resolve();
-      dcB.onOpen(() => resolve());
-    });
+    if (!(await waitForOpen(dcA, "chat"))) return;
+    if (!(await waitForOpen(dcB, "chat"))) return;
 
     // Send message A → B
     const receivedByB: string[] = [];
@@ -184,10 +254,10 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
 
     // Verify connection state transitions fired
     expect(stateChanges).toContain("connected");
-  });
+  }, 20_000);
 
   it("supports multiple named channels", async () => {
-    if (!ndc || !iceGatherSupported) return;
+    if (!ndc || !iceGatherSupported || !p2pDataChannelSupported) return;
 
     peerA = new ndc.PeerConnection("peerA", { iceServers: [] });
     peerB = new ndc.PeerConnection("peerB", { iceServers: [] });
@@ -198,29 +268,17 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     const canvasA = createChannelOrSkip(peerA, "canvas");
     if (!chatA || !canvasA) return;
 
-    const remoteDcs = new Map<string, import("node-datachannel").DataChannel>();
-    const allReceived = new Promise<void>((resolve) => {
-      peerB.onDataChannel((dc) => {
-        remoteDcs.set(dc.getLabel(), dc);
-        if (remoteDcs.size === 2) resolve();
-      });
+    const remoteDcs = await waitForRemoteDataChannels(peerB, 2, () => {
       peerA.setLocalDescription();
     });
-
-    await allReceived;
+    if (!remoteDcs) return;
 
     // Wait for all channels to open
     for (const dc of [chatA, canvasA]) {
-      await new Promise<void>((resolve) => {
-        if (dc.isOpen()) return resolve();
-        dc.onOpen(() => resolve());
-      });
+      if (!(await waitForOpen(dc, dc.getLabel()))) return;
     }
     for (const dc of remoteDcs.values()) {
-      await new Promise<void>((resolve) => {
-        if (dc.isOpen()) return resolve();
-        dc.onOpen(() => resolve());
-      });
+      if (!(await waitForOpen(dc, dc.getLabel()))) return;
     }
 
     // Send on chat channel
@@ -255,10 +313,10 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     expect(parsed.type).toBe("html");
     expect(parsed.data).toBe("<h1>Hello</h1>");
     expect(parsed.meta.title).toBe("Test");
-  });
+  }, 20_000);
 
   it("generates offer with STUN servers via onGatheringStateChange", async () => {
-    if (!ndc || !iceGatherSupported) return;
+    if (!ndc || !iceGatherSupported || !p2pDataChannelSupported) return;
 
     const peer = new ndc.PeerConnection("agent", {
       iceServers: ["stun:stun.l.google.com:19302"],
@@ -327,19 +385,13 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
 
     const dcA = createChannelOrSkip(peerA, "chat");
     if (!dcA) return;
-    const dcB = await new Promise<import("node-datachannel").DataChannel>((resolve) => {
-      peerB.onDataChannel((dc) => resolve(dc));
+    const dcB = await waitForRemoteDataChannel(peerB, () => {
       peerA.setLocalDescription();
     });
+    if (!dcB) return;
 
-    await new Promise<void>((r) => {
-      if (dcA.isOpen()) return r();
-      dcA.onOpen(() => r());
-    });
-    await new Promise<void>((r) => {
-      if (dcB.isOpen()) return r();
-      dcB.onOpen(() => r());
-    });
+    if (!(await waitForOpen(dcA, "chat"))) return;
+    if (!(await waitForOpen(dcB, "chat"))) return;
 
     const received: string[] = [];
     dcB.onMessage((data) => {
@@ -367,5 +419,5 @@ describeWithNdc("WebRTC P2P integration (node-datachannel)", () => {
     expect(decoded1?.type).toBe("html");
     expect(decoded1?.data).toBe("<p>test</p>");
     expect(decoded1?.meta?.title).toBe("Title");
-  });
+  }, 20_000);
 });

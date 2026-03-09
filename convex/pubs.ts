@@ -469,6 +469,23 @@ export const closeLiveByUser = mutation({
   },
 });
 
+export const setCanvasContent = mutation({
+  args: { slug: v.string(), html: v.string() },
+  handler: async (ctx, { slug, html }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const pub = await ctx.db
+      .query("pubs")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
+
+    await ctx.db.patch(pub._id, buildPubPatch({ content: html, contentType: "html" }));
+    return { slug };
+  },
+});
+
 export const createPub = internalMutation({
   args: {
     userId: v.id("users"),
