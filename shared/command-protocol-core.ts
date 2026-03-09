@@ -41,12 +41,6 @@ export interface CommandFunctionSpec {
   executor?: CommandExecutorSpec;
 }
 
-export interface CommandBindPayload extends Record<string, unknown> {
-  v: number;
-  manifestId: string;
-  functions: CommandFunctionSpec[];
-}
-
 export interface CommandBindResultPayload extends Record<string, unknown> {
   v: number;
   manifestId: string;
@@ -89,10 +83,6 @@ export interface CommandCancelPayload extends Record<string, unknown> {
   v: number;
   callId: string;
   reason?: string;
-}
-
-export function makeCommandBindMessage(payload: CommandBindPayload): BridgeMessage {
-  return makeEventMessage("command.bind", payload);
 }
 
 export function makeCommandBindResultMessage(payload: CommandBindResultPayload): BridgeMessage {
@@ -233,19 +223,6 @@ function parseFunctionList(input: unknown): CommandFunctionSpec[] {
 
 function parseMetaRecord(msg: BridgeMessage): Record<string, unknown> | null {
   return msg.type === "event" && msg.meta ? readRecord(msg.meta) : null;
-}
-
-export function parseCommandBindMessage(msg: BridgeMessage): CommandBindPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.bind") return null;
-  const meta = parseMetaRecord(msg);
-  if (!meta) return null;
-  const manifestId = readString(meta.manifestId);
-  if (!manifestId) return null;
-  return {
-    v: readFiniteNumber(meta.v) ?? COMMAND_PROTOCOL_VERSION,
-    manifestId,
-    functions: parseFunctionList(meta.functions),
-  };
 }
 
 export function parseCommandBindResultMessage(msg: BridgeMessage): CommandBindResultPayload | null {

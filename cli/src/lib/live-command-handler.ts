@@ -442,13 +442,13 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     for (const entry of functions) {
       const normalized = normalizeFunctionSpec(entry);
       if (!normalized.executor) {
-        params.debugLog(`command:bind skipped "${normalized.name}" — missing executor`);
+        params.debugLog(`commands skipped "${normalized.name}" — missing executor`);
         continue;
       }
       boundFunctions.set(normalized.name, normalized);
     }
     params.debugLog(
-      `command:bind bound=[${[...boundFunctions.keys()].join(", ")}]`,
+      `commands bound=[${[...boundFunctions.keys()].join(", ")}]`,
     );
   }
 
@@ -456,10 +456,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     const manifest = extractManifestFromHtml(html);
     if (!manifest) {
       boundFunctions.clear();
-      params.debugLog("command:bind no manifest found in HTML, cleared bindings");
+      params.debugLog("commands no manifest found in HTML, cleared bindings");
       return;
     }
-    params.debugLog(`command:bind manifestId=${manifest.manifestId}`);
+    params.debugLog(`commands manifestId=${manifest.manifestId}`);
     bindFunctions(manifest.functions);
   }
 

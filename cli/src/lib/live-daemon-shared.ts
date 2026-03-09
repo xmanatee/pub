@@ -1,3 +1,4 @@
+import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import type { PubApiClient } from "./api.js";
 import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "./live-prompt-content.js";
 

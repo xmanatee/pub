@@ -4,12 +4,10 @@ import {
   COMMAND_MANIFEST_MAX_FUNCTIONS,
   COMMAND_PROTOCOL_VERSION,
   extractManifestFromHtml,
-  makeCommandBindMessage,
   makeCommandBindResultMessage,
   makeCommandCancelMessage,
   makeCommandInvokeMessage,
   makeCommandResultMessage,
-  parseCommandBindMessage,
   parseCommandBindResultMessage,
   parseCommandCancelMessage,
   parseCommandFunctionList,
@@ -18,37 +16,6 @@ import {
 } from "./command-protocol-core";
 
 describe("command-protocol-core", () => {
-  it("round-trips bind payload with function executors", () => {
-    const payload = {
-      v: COMMAND_PROTOCOL_VERSION,
-      manifestId: "manifest-mail",
-      functions: [
-        {
-          name: "archiveEmail",
-          returns: "void" as const,
-          executor: {
-            kind: "exec" as const,
-            command: "gog",
-            args: ["archive", "{{emailId}}"],
-            env: { PROFILE: "prod" },
-          },
-        },
-        {
-          name: "summarizeEmail",
-          returns: "text" as const,
-          executor: {
-            kind: "agent" as const,
-            prompt: "Summarize email {{emailId}}",
-            provider: "openclaw" as const,
-          },
-        },
-      ],
-    };
-
-    const parsed = parseCommandBindMessage(makeCommandBindMessage(payload));
-    expect(parsed).toEqual(payload);
-  });
-
   it("parses function-list map input and normalizes names", () => {
     const functions = parseCommandFunctionList({
       archiveEmail: {
