@@ -32,7 +32,6 @@ const mockSession = {
   setMicGranted: vi.fn(),
   setViewMode: vi.fn(),
   sendAudio: vi.fn(),
-  sendCanvasFile: vi.fn(),
   sendChat: vi.fn(),
   sendFile: vi.fn(),
   sessionState: "active",

@@ -103,7 +103,6 @@ export function createMockLiveSession(
     outboundCanvasBridgeMessage: null,
     preview: null,
     sendAudio: noop,
-    sendCanvasFile: async () => {},
     sendChat: noop,
     sendFile: noop,
     sendRenderError: noop,

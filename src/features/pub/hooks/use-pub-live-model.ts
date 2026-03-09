@@ -44,7 +44,6 @@ export type LiveUiState =
 export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelOptions) {
   const navigate = useNavigate();
   const recordPublicView = useMutation(api.analytics.recordPublicView);
-  const setCanvasContent = useMutation(api.pubs.setCanvasContent);
 
   const {
     agentOnline,
@@ -106,6 +105,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
+  const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const isOwner = pub?.isOwner === true;
@@ -170,28 +170,6 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     onSendAudio: sendAudio,
     onSystemMessage: addSystemMessage,
   });
-
-  const replaceCanvasFile = useCallback(
-    async (file: File) => {
-      const html = await file.text();
-      setCanvasHtml(html);
-      setViewMode("canvas");
-      try {
-        await setCanvasContent({ slug, html });
-      } catch (error) {
-        setCanvasHtml(baseContentHtml ?? null);
-        addSystemMessage({
-          content:
-            error instanceof Error && error.message.trim().length > 0
-              ? error.message
-              : "Failed to update canvas content.",
-          dedupeKey: "canvas-upload-failed",
-          severity: "error",
-        });
-      }
-    },
-    [addSystemMessage, baseContentHtml, setCanvasContent, setViewMode, slug],
-  );
 
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
 
@@ -259,8 +237,10 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   }, [bridgeState, markBridgeConnected]);
 
   useEffect(() => {
+    const previousCanvasHtml = lastCanvasHtmlRef.current;
+    lastCanvasHtmlRef.current = canvasHtml;
     if (!liveMode || !autoOpenCanvas) return;
-    if (!canvasHtml) return;
+    if (!canvasHtml || canvasHtml === previousCanvasHtml) return;
     setViewMode("canvas");
   }, [autoOpenCanvas, canvasHtml, liveMode, setViewMode]);
 
@@ -344,7 +324,6 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     micGranted,
     preview,
     sendAudio,
-    sendCanvasFile: replaceCanvasFile,
     sendChat,
     sendFile,
     sendRenderError,
