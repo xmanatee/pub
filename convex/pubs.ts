@@ -147,7 +147,7 @@ export const listByUser = query({
       ...result,
       page: result.page.map((p) => ({
         ...mapPub(p),
-        contentPreview: (p.content ?? "").slice(0, 2000),
+        content: p.content,
       })),
     };
   },

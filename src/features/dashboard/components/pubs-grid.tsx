@@ -8,7 +8,7 @@ export interface PubGridItem {
   title?: string;
   isPublic: boolean;
   createdAt: number;
-  contentPreview: string;
+  content?: string;
 }
 
 export function PubsGrid({

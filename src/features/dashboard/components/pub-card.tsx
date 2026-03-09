@@ -17,7 +17,7 @@ interface PubCardProps {
     title?: string;
     isPublic: boolean;
     createdAt: number;
-    contentPreview: string;
+    content?: string;
   };
   viewCount?: number;
   isLive?: boolean;
@@ -30,12 +30,12 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white">
-          {!pub.contentPreview ? (
+          {!pub.content ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
-            <PubPreviewIframe contentPreview={pub.contentPreview} title={pub.title || pub.slug} />
+            <PubPreviewIframe content={pub.content} title={pub.title || pub.slug} />
           )}
         </div>
       </Link>
