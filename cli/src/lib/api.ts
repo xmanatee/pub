@@ -7,7 +7,6 @@ export interface CreateResult {
 
 export interface UpdateResult {
   slug: string;
-  contentType?: string;
   title?: string;
   isPublic: boolean;
   updatedAt: number;
@@ -15,7 +14,6 @@ export interface UpdateResult {
 
 export interface Pub {
   slug: string;
-  contentType?: string;
   title?: string;
   isPublic: boolean;
   createdAt: number;
@@ -120,7 +118,6 @@ export class PubApiClient {
 
   async create(opts: {
     content?: string;
-    filename?: string;
     title?: string;
     slug?: string;
   }): Promise<CreateResult> {
@@ -159,7 +156,6 @@ export class PubApiClient {
   async update(opts: {
     slug: string;
     content?: string;
-    filename?: string;
     title?: string;
     isPublic?: boolean;
     newSlug?: string;

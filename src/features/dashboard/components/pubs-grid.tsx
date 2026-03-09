@@ -6,7 +6,6 @@ export interface PubGridItem {
   _id: Id<"pubs">;
   slug: string;
   title?: string;
-  contentType?: string;
   isPublic: boolean;
   createdAt: number;
   contentPreview: string;

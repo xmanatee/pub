@@ -35,7 +35,7 @@ export function CodeSection() {
                 <div className="text-white/40 text-xs mb-1"># Set slug + title</div>
                 <div className="text-white/70">
                   <span className="text-primary">$</span> pubblue create --slug my-demo --title
-                  "Demo Page" report.md
+                  "Demo Page" page.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/my-demo</div>
               </div>

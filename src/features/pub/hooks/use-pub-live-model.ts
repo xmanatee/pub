@@ -18,7 +18,6 @@ import { api } from "../../../../convex/_generated/api";
 
 type PubSnapshot =
   | {
-      contentType?: string | null;
       isOwner?: boolean;
       isPublic: boolean;
       slug: string;
@@ -224,7 +223,6 @@ export function usePubLiveModel({
       trackedAnalytics.current = true;
       trackPubViewed({
         slug: pub.slug,
-        contentType: pub.contentType ?? "text",
         isPublic: pub.isPublic,
       });
     }

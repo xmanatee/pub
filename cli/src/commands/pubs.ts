@@ -26,19 +26,15 @@ export function registerPubCommands(program: Command): void {
         const client = createClient();
 
         let content: string | undefined;
-        let filename: string | undefined;
 
         if (fileArg) {
-          const file = readFile(fileArg);
-          content = file.content;
-          filename = file.basename;
+          content = readFile(fileArg);
         } else {
           content = await readFromStdin();
         }
 
         const result = await client.create({
           content,
-          filename,
           title: opts.title,
           slug: opts.slug,
         });
@@ -64,7 +60,6 @@ export function registerPubCommands(program: Command): void {
       }
 
       console.log(`  Slug:    ${pub.slug}`);
-      if (pub.contentType) console.log(`  Type:    ${pub.contentType}`);
       if (pub.title) console.log(`  Title:   ${pub.title}`);
       console.log(`  Status:  ${formatVisibility(pub.isPublic)}`);
       console.log(`  Created: ${new Date(pub.createdAt).toLocaleDateString()}`);
@@ -99,11 +94,8 @@ export function registerPubCommands(program: Command): void {
         const client = createClient();
 
         let content: string | undefined;
-        let filename: string | undefined;
         if (opts.file) {
-          const file = readFile(opts.file);
-          content = file.content;
-          filename = file.basename;
+          content = readFile(opts.file);
         }
 
         const isPublic = resolveVisibilityFlags({
@@ -115,7 +107,6 @@ export function registerPubCommands(program: Command): void {
         const result = await client.update({
           slug,
           content,
-          filename,
           title: opts.title,
           isPublic,
           newSlug: opts.slug,
@@ -140,10 +131,9 @@ export function registerPubCommands(program: Command): void {
 
       for (const pub of pubs) {
         const date = new Date(pub.createdAt).toLocaleDateString();
-        const contentLabel = pub.contentType ? `[${pub.contentType}]` : "[no content]";
         const sessionLabel = pub.live?.status === "active" ? " [live]" : "";
         console.log(
-          `  ${pub.slug}  ${contentLabel}  ${formatVisibility(pub.isPublic)}  ${date}${sessionLabel}`,
+          `  ${pub.slug}  ${formatVisibility(pub.isPublic)}  ${date}${sessionLabel}`,
         );
       }
     });

@@ -60,23 +60,16 @@ describe("daemon-files", () => {
   });
 
   describe("session content files", () => {
-    it("uses expected extension by content type", () => {
+    it("uses .html extension", () => {
       const dir = makeTempDir();
-      const htmlPath = liveSessionContentPath("alpha", "html", dir);
-      const markdownPath = liveSessionContentPath("alpha", "markdown", dir);
-      const textPath = liveSessionContentPath("alpha", "text", dir);
-      const fallbackPath = liveSessionContentPath("alpha", "unknown", dir);
+      const htmlPath = liveSessionContentPath("alpha", dir);
       expect(htmlPath.endsWith(".session-content.html")).toBe(true);
-      expect(markdownPath.endsWith(".session-content.md")).toBe(true);
-      expect(textPath.endsWith(".session-content.txt")).toBe(true);
-      expect(fallbackPath.endsWith(".session-content.txt")).toBe(true);
     });
 
     it("sanitizes slug and writes content", () => {
       const dir = makeTempDir();
       const writtenPath = writeLiveSessionContentFile({
         slug: "weird/slug",
-        contentType: "html",
         content: "<h1>Hello</h1>",
         rootDir: dir,
       });

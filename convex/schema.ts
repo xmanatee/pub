@@ -1,7 +1,6 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { CONTENT_TYPE_VALIDATOR } from "./utils";
 
 const { users: _authUsersTable, ...otherAuthTables } = authTables;
 
@@ -35,7 +34,7 @@ export default defineSchema({
   pubs: defineTable({
     userId: v.id("users"),
     slug: v.string(),
-    contentType: v.optional(CONTENT_TYPE_VALIDATOR),
+    contentType: v.optional(v.string()),
     content: v.optional(v.string()),
     title: v.optional(v.string()),
     isPublic: v.boolean(),

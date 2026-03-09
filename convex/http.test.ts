@@ -9,7 +9,6 @@ import {
   mapLiveError,
   shouldTouchApiKey,
 } from "./http/shared";
-import { MIME_TYPES } from "./utils";
 
 describe("corsHeaders", () => {
   it("includes all required CORS headers", () => {
@@ -110,38 +109,19 @@ describe("extractSlugFromPath", () => {
   });
 });
 
-describe("MIME types", () => {
-  it("maps all content types correctly", () => {
-    expect(MIME_TYPES.html).toBe("text/html; charset=utf-8");
-    expect(MIME_TYPES.markdown).toBe("text/markdown; charset=utf-8");
-    expect(MIME_TYPES.text).toBe("text/plain; charset=utf-8");
-  });
-
-  it("covers exactly the three content types", () => {
-    expect(Object.keys(MIME_TYPES).sort()).toEqual(["html", "markdown", "text"]);
-  });
-});
-
 describe("getOgCardData", () => {
   it("returns generic OG data for private or missing pubs", () => {
     expect(getOgCardData(null, "secret-slug")).toEqual({
       title: "pub.blue",
-      contentType: "text",
-      typeColor: "#6b7280",
       badgeColor: "#3b82f6",
       badgeText: "PUB.BLUE",
       slugLabel: "",
     });
 
     expect(
-      getOgCardData(
-        { title: "Secret", slug: "secret-slug", contentType: "markdown", isPublic: false },
-        "secret-slug",
-      ),
+      getOgCardData({ title: "Secret", slug: "secret-slug", isPublic: false }, "secret-slug"),
     ).toEqual({
       title: "pub.blue",
-      contentType: "text",
-      typeColor: "#6b7280",
       badgeColor: "#3b82f6",
       badgeText: "PUB.BLUE",
       slugLabel: "",
@@ -149,12 +129,8 @@ describe("getOgCardData", () => {
   });
 
   it("returns pub details for public entries", () => {
-    const og = getOgCardData(
-      { title: "Hello", slug: "hello", contentType: "markdown", isPublic: true },
-      "hello",
-    );
+    const og = getOgCardData({ title: "Hello", slug: "hello", isPublic: true }, "hello");
     expect(og.title).toBe("Hello");
-    expect(og.contentType).toBe("markdown");
     expect(og.badgeText).toBe("PUBLIC");
     expect(og.slugLabel).toBe("/hello");
   });

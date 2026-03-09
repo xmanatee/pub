@@ -6,21 +6,19 @@ import type { LiveInfo } from "../shared/live-api-core";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { listFreshOnlinePresences, PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
-import { CONTENT_TYPE_VALIDATOR, generateSlug, hashApiKey, MAX_PUBS } from "./utils";
+import { generateSlug, hashApiKey, MAX_PUBS } from "./utils";
 
 /** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
 
 export function buildPubPatch(fields: {
   content?: string;
-  contentType?: "html" | "markdown" | "text";
   title?: string;
   isPublic?: boolean;
   slug?: string;
 }) {
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
   if (fields.content !== undefined) patch.content = fields.content;
-  if (fields.contentType !== undefined) patch.contentType = fields.contentType;
   if (fields.title !== undefined) patch.title = fields.title;
   if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
   if (fields.slug !== undefined) patch.slug = fields.slug;
@@ -67,7 +65,6 @@ function mapPub(
   pub: {
     _id: Id<"pubs">;
     slug: string;
-    contentType?: string;
     content?: string;
     title?: string;
     isPublic: boolean;
@@ -79,7 +76,6 @@ function mapPub(
   const dto: {
     _id: Id<"pubs">;
     slug: string;
-    contentType?: string;
     title?: string;
     isPublic: boolean;
     createdAt: number;
@@ -88,7 +84,6 @@ function mapPub(
   } = {
     _id: pub._id,
     slug: pub.slug,
-    contentType: pub.contentType,
     title: pub.title,
     isPublic: pub.isPublic,
     createdAt: pub.createdAt,
@@ -171,10 +166,9 @@ export const listPublic = query({
       ...result,
       page: result.page.map((p) => ({
         slug: p.slug,
-        contentType: p.contentType,
         title: p.title,
         createdAt: p.createdAt,
-        contentPreview: p.contentType === "html" ? "" : (p.content ?? "").slice(0, 2000),
+        contentPreview: (p.content ?? "").slice(0, 2000),
       })),
     };
   },
@@ -510,7 +504,6 @@ export const createPub = internalMutation({
   args: {
     userId: v.id("users"),
     slug: v.string(),
-    contentType: v.optional(CONTENT_TYPE_VALIDATOR),
     content: v.optional(v.string()),
     title: v.optional(v.string()),
   },
@@ -523,7 +516,6 @@ export const createPub = internalMutation({
     const id = await ctx.db.insert("pubs", {
       userId: args.userId,
       slug: args.slug,
-      contentType: args.contentType,
       content: args.content,
       title: args.title,
       isPublic: false,
@@ -539,12 +531,11 @@ export const updatePub = internalMutation({
   args: {
     id: v.id("pubs"),
     content: v.optional(v.string()),
-    contentType: v.optional(CONTENT_TYPE_VALIDATOR),
     title: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
     slug: v.optional(v.string()),
   },
-  handler: async (ctx, { id, content, contentType, title, isPublic, slug }) => {
+  handler: async (ctx, { id, content, title, isPublic, slug }) => {
     const pub = await ctx.db.get(id);
     if (!pub) throw new Error("Pub not found");
 
@@ -560,7 +551,7 @@ export const updatePub = internalMutation({
       }
     }
 
-    const patch = buildPubPatch({ content, contentType, title, isPublic, slug });
+    const patch = buildPubPatch({ content, title, isPublic, slug });
     await ctx.db.patch(id, patch);
   },
 });

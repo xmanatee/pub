@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for helping an AI agent show and visualize output over the web. A pub can have static content (HTML, Markdown, text), a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for helping an AI agent show and visualize output over the web. A pub can have static HTML content, a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -43,7 +43,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Path alias**: `~/*` maps to `src/*`
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
+- **Schema** (`schema.ts`): `pubs` (content optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
 - **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user; 1 live per user
 - **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed

@@ -7,7 +7,7 @@ const STEPS = [
   {
     number: "02",
     title: "Create a pub",
-    description: "Send HTML, Markdown, or text with CLI or API.",
+    description: "Send HTML with CLI or API.",
   },
   {
     number: "03",

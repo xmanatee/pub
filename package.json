@@ -45,7 +45,6 @@
     "eruda": "^3.4.3",
     "feed": "^5.2.0",
     "lucide-react": "^0.469.0",
-    "marked": "^15.0.0",
     "posthog-js": "^1.352.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

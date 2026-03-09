@@ -858,7 +858,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       content.length > 0
         ? writeLiveSessionContentFile({
             slug: params.slug,
-            contentType: pub.contentType,
             content,
           })
         : undefined;
@@ -867,7 +866,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       params.slug,
       {
         title: pub.title,
-        contentType: pub.contentType,
         isPublic: pub.isPublic,
         canvasContentFilePath,
       },

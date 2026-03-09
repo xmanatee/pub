@@ -27,7 +27,6 @@ describe("PubApiClient", () => {
 
       const result = await client.create({
         content: "<h1>Hello</h1>",
-        filename: "test.html",
         title: "Test",
       });
 
@@ -52,7 +51,7 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await expect(client.create({ content: "test", filename: "test.html" })).rejects.toThrow(
+      await expect(client.create({ content: "test" })).rejects.toThrow(
         "Invalid API key",
       );
     });
@@ -63,7 +62,6 @@ describe("PubApiClient", () => {
       const mockPubs = [
         {
           slug: "abc",
-          contentType: "html",
           isPublic: true,
           createdAt: 1000,
           updatedAt: 1000,
@@ -112,7 +110,6 @@ describe("PubApiClient", () => {
     it("fetches single pub by slug", async () => {
       const mockPub = {
         slug: "abc",
-        contentType: "html",
         content: "<h1>Hello</h1>",
         isPublic: true,
         createdAt: 1000,
@@ -143,7 +140,6 @@ describe("PubApiClient", () => {
     it("sends PATCH with slug in path and metadata in body", async () => {
       const mockResult = {
         slug: "abc",
-        contentType: "html",
         title: "New Title",
         isPublic: false,
         updatedAt: 2000,

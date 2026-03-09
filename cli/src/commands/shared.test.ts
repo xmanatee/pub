@@ -35,15 +35,12 @@ describe("formatVisibility", () => {
 });
 
 describe("readFile", () => {
-  it("reads existing file content and basename", () => {
+  it("reads existing file content", () => {
     const dir = mkdtempSync(join(tmpdir(), "pubblue-read-file-"));
     const filePath = join(dir, "sample.txt");
     writeFileSync(filePath, "hello");
 
-    expect(readFile(filePath)).toEqual({
-      content: "hello",
-      basename: "sample.txt",
-    });
+    expect(readFile(filePath)).toBe("hello");
 
     rmSync(dir, { recursive: true, force: true });
   });

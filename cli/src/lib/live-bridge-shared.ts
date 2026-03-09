@@ -42,7 +42,6 @@ export interface BufferedEntry {
 
 export interface SessionBriefingContext {
   title?: string;
-  contentType?: string;
   isPublic?: boolean;
   canvasContentFilePath?: string;
 }
@@ -129,7 +128,6 @@ export function buildSessionBriefing(
   ];
 
   if (ctx.title) lines.push(`- Title: ${ctx.title}`);
-  if (ctx.contentType) lines.push(`- Content type: ${ctx.contentType}`);
   if (ctx.isPublic !== undefined)
     lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
   if (ctx.canvasContentFilePath) {

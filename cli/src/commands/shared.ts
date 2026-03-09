@@ -35,13 +35,10 @@ export function resolveVisibilityFlags(opts: {
   return undefined;
 }
 
-export function readFile(filePath: string): { content: string; basename: string } {
+export function readFile(filePath: string): string {
   const resolved = path.resolve(filePath);
   if (!fs.existsSync(resolved)) {
     failCli(`File not found: ${resolved}`);
   }
-  return {
-    content: fs.readFileSync(resolved, "utf-8"),
-    basename: path.basename(resolved),
-  };
+  return fs.readFileSync(resolved, "utf-8");
 }

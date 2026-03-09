@@ -355,7 +355,6 @@ describe("buildSessionBriefing", () => {
       "my-demo",
       {
         title: "My Landing Page",
-        contentType: "html",
         isPublic: true,
         canvasContentFilePath: "/tmp/my-demo.session-content.html",
       },
@@ -365,7 +364,6 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("[Live: my-demo] Session started.");
     expect(briefing).toContain("live P2P session on pub.blue");
     expect(briefing).toContain("Title: My Landing Page");
-    expect(briefing).toContain("Content type: html");
     expect(briefing).toContain("Visibility: public");
     expect(briefing).toContain(
       "The canvas contents are in </tmp/my-demo.session-content.html> file.",

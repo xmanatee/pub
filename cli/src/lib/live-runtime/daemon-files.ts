@@ -22,30 +22,20 @@ function sanitizeSlugForFilename(slug: string): string {
   return sanitized.length > 0 ? sanitized : "live";
 }
 
-function resolveSessionContentExtension(contentType?: string): string {
-  if (contentType === "html") return "html";
-  if (contentType === "markdown") return "md";
-  if (contentType === "text") return "txt";
-  return "txt";
-}
-
 export function liveSessionContentPath(
   slug: string,
-  contentType?: string,
   rootDir?: string,
 ): string {
   const safeSlug = sanitizeSlugForFilename(slug);
-  const ext = resolveSessionContentExtension(contentType);
-  return path.join(rootDir ?? liveInfoDir(), `${safeSlug}.session-content.${ext}`);
+  return path.join(rootDir ?? liveInfoDir(), `${safeSlug}.session-content.html`);
 }
 
 export function writeLiveSessionContentFile(params: {
   slug: string;
-  contentType?: string;
   content: string;
   rootDir?: string;
 }): string {
-  const filePath = liveSessionContentPath(params.slug, params.contentType, params.rootDir);
+  const filePath = liveSessionContentPath(params.slug, params.rootDir);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, params.content, "utf-8");
   return filePath;

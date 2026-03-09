@@ -1,6 +1,6 @@
 {
   "name": "pubblue",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "CLI for publishing and visualizing AI-agent output via pub.blue",
   "type": "module",
   "bin": {

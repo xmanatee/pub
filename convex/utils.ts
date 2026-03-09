@@ -1,25 +1,9 @@
-import { v } from "convex/values";
-
-const CONTENT_TYPES = ["html", "markdown", "text"] as const;
-type ContentType = (typeof CONTENT_TYPES)[number];
-export const CONTENT_TYPE_VALIDATOR = v.union(
-  v.literal("html"),
-  v.literal("markdown"),
-  v.literal("text"),
-);
-
 export const MAX_CONTENT_SIZE = 100 * 1024; // 100KB
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
 
 export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-
-export const MIME_TYPES: Record<string, string> = {
-  html: "text/html; charset=utf-8",
-  markdown: "text/markdown; charset=utf-8",
-  text: "text/plain; charset=utf-8",
-};
 
 export function generateSlug(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -37,20 +21,6 @@ export function generateApiKey(): string {
 
 export function keyPreviewFromKey(key: string): string {
   return `${key.slice(0, 8)}...${key.slice(-4)}`;
-}
-
-export function inferContentType(filename: string): ContentType {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "html":
-    case "htm":
-      return "html";
-    case "md":
-    case "markdown":
-      return "markdown";
-    default:
-      return "text";
-  }
 }
 
 export const INVALID_SLUG_MESSAGE =

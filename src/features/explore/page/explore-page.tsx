@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery } from "convex/react";
 import { FileText } from "lucide-react";
 import { PubPreviewIframe } from "~/components/pub-preview-iframe";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { getConvexSiteUrl } from "~/lib/convex-url";
@@ -48,7 +47,6 @@ export function ExplorePage() {
                 <div className="aspect-[1200/630] overflow-hidden bg-white">
                   <PubPreviewIframe
                     contentPreview={pub.contentPreview}
-                    contentType={pub.contentType}
                     htmlSrc={`${siteUrl}/serve/${pub.slug}?preview=1`}
                     title={pub.title || pub.slug}
                   />
@@ -57,14 +55,9 @@ export function ExplorePage() {
                   <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
                     {pub.title || pub.slug}
                   </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs">
-                      {pub.contentType}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(pub.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(pub.createdAt).toLocaleDateString()}
+                  </p>
                 </CardContent>
               </Card>
             </Link>

@@ -23,11 +23,11 @@ export function trackSignInStarted(provider: string) {
   posthog.capture("sign_in_started", { provider });
 }
 
-export function trackPubViewed(props: { slug: string; contentType: string; isPublic: boolean }) {
+export function trackPubViewed(props: { slug: string; isPublic: boolean }) {
   posthog.capture("pub_viewed", props);
 }
 
-export function trackPubDeleted(props: { slug: string; contentType: string }) {
+export function trackPubDeleted(props: { slug: string }) {
   posthog.capture("pub_deleted", props);
 }
 

@@ -5,7 +5,7 @@ import { httpAction } from "../_generated/server";
 import { rateLimiter } from "../rateLimits";
 import { escapeHtmlAttr, isValidSlug } from "../utils";
 
-const HTML_CSP = [
+const CONTENT_CSP = [
   "default-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
@@ -17,7 +17,6 @@ const HTML_CSP = [
   "connect-src https: http: wss:",
   "sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads",
 ].join("; ");
-const DEFAULT_CSP = "default-src 'none'; sandbox";
 const API_KEY_TOUCH_INTERVAL_MS = 15 * 60 * 1000;
 
 export function corsHeaders() {
@@ -39,10 +38,10 @@ function baseSecurityHeaders() {
   };
 }
 
-export function contentSecurityHeaders(mimeType: string) {
+export function contentSecurityHeaders() {
   return {
     "Cross-Origin-Resource-Policy": "cross-origin",
-    "Content-Security-Policy": mimeType.startsWith("text/html") ? HTML_CSP : DEFAULT_CSP,
+    "Content-Security-Policy": CONTENT_CSP,
   };
 }
 
@@ -183,21 +182,13 @@ export function buildOgTags(pub: { title?: string; slug: string }): string {
   ].join("\n  ");
 }
 
-const OG_TYPE_COLORS: Record<string, string> = {
-  html: "#3b82f6",
-  markdown: "#8b5cf6",
-  text: "#6b7280",
-};
-
 export function getOgCardData(
-  pub: { title?: string; slug: string; contentType: string; isPublic: boolean } | null,
+  pub: { title?: string; slug: string; isPublic: boolean } | null,
   slug: string,
 ) {
   if (!pub || !pub.isPublic) {
     return {
       title: "pub.blue",
-      contentType: "text",
-      typeColor: OG_TYPE_COLORS.text,
       badgeColor: "#3b82f6",
       badgeText: "PUB.BLUE",
       slugLabel: "",
@@ -206,8 +197,6 @@ export function getOgCardData(
 
   return {
     title: pub.title || pub.slug || slug,
-    contentType: pub.contentType,
-    typeColor: OG_TYPE_COLORS[pub.contentType] || OG_TYPE_COLORS.text,
     badgeColor: "#10b981",
     badgeText: "PUBLIC",
     slugLabel: `/${slug}`,

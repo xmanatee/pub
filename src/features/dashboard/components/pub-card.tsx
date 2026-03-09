@@ -14,7 +14,6 @@ interface PubCardProps {
   pub: {
     _id: Id<"pubs">;
     slug: string;
-    contentType?: string;
     title?: string;
     isPublic: boolean;
     createdAt: number;
@@ -37,16 +36,12 @@ export function PubCard({
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white">
-          {!pub.contentPreview && !pub.contentType ? (
+          {!pub.contentPreview ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
-            <PubPreviewIframe
-              contentPreview={pub.contentPreview}
-              contentType={pub.contentType}
-              title={pub.title || pub.slug}
-            />
+            <PubPreviewIframe contentPreview={pub.contentPreview} title={pub.title || pub.slug} />
           )}
         </div>
       </Link>
@@ -59,11 +54,6 @@ export function PubCard({
           >
             {pub.title || pub.slug}
           </Link>
-          {pub.contentType && (
-            <Badge variant="secondary" className="text-xs">
-              {pub.contentType}
-            </Badge>
-          )}
           <VisibilityBadge isPublic={pub.isPublic} />
           {liveStatus && (
             <Badge
@@ -131,7 +121,6 @@ export function PubCard({
                 if (!ok) return;
                 trackPubDeleted({
                   slug: pub.slug,
-                  contentType: pub.contentType ?? "text",
                 });
                 onDelete(pub._id);
               });

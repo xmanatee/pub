@@ -5,7 +5,6 @@ import {
   generateApiKey,
   generateSlug,
   hashApiKey,
-  inferContentType,
   isValidSlug,
   keyPreviewFromKey,
   MAX_CONTENT_SIZE,
@@ -15,41 +14,6 @@ import {
   SLUG_PATTERN,
   truncate,
 } from "./utils";
-
-describe("inferContentType", () => {
-  it("infers HTML from .html and .htm", () => {
-    expect(inferContentType("page.html")).toBe("html");
-    expect(inferContentType("page.htm")).toBe("html");
-  });
-
-  it("infers Markdown from .md and .markdown", () => {
-    expect(inferContentType("readme.md")).toBe("markdown");
-    expect(inferContentType("doc.markdown")).toBe("markdown");
-  });
-
-  it("defaults to text for other extensions", () => {
-    expect(inferContentType("styles.css")).toBe("text");
-    expect(inferContentType("script.js")).toBe("text");
-    expect(inferContentType("data.json")).toBe("text");
-    expect(inferContentType("file.txt")).toBe("text");
-  });
-
-  it("handles case-insensitive extensions", () => {
-    expect(inferContentType("page.HTML")).toBe("html");
-    expect(inferContentType("readme.MD")).toBe("markdown");
-  });
-
-  it("handles files with multiple dots", () => {
-    expect(inferContentType("my.page.html")).toBe("html");
-    expect(inferContentType("bundle.min.js")).toBe("text");
-  });
-
-  it("handles edge cases", () => {
-    expect(inferContentType("")).toBe("text");
-    expect(inferContentType("Makefile")).toBe("text");
-    expect(inferContentType(".gitignore")).toBe("text");
-  });
-});
 
 describe("generateSlug", () => {
   it("generates 8-character lowercase alphanumeric slugs", () => {

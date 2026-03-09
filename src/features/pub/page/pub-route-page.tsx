@@ -10,10 +10,7 @@ import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-co
 
 export function PubRoutePage({ slug }: { slug: string }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
-  const { html: baseContentHtml, status: contentState } = useContentHtml(
-    pub?.content,
-    pub?.contentType,
-  );
+  const { html: baseContentHtml, status: contentState } = useContentHtml(pub?.content);
 
   return (
     <LiveSessionProvider

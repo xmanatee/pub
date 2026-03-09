@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildPubPatch } from "./pubs";
-import { inferContentType } from "./utils";
 
 describe("update patch construction", () => {
   it("includes only provided fields plus updatedAt", () => {
@@ -14,34 +13,17 @@ describe("update patch construction", () => {
   it("includes all fields when all provided", () => {
     const patch = buildPubPatch({
       content: "c",
-      contentType: "html",
       title: "t",
       isPublic: true,
       slug: "s",
     });
     expect(Object.keys(patch).sort()).toEqual(
-      ["content", "contentType", "isPublic", "slug", "title", "updatedAt"].sort(),
+      ["content", "isPublic", "slug", "title", "updatedAt"].sort(),
     );
   });
 
   it("includes slug for rename", () => {
     const patch = buildPubPatch({ slug: "new-slug" });
     expect(patch.slug).toBe("new-slug");
-  });
-});
-
-describe("content type inference for update", () => {
-  it("infers new contentType from filename hint", () => {
-    const pub = { contentType: "html" };
-    const filename = "new.md";
-    const contentType = filename ? inferContentType(filename) : undefined;
-    expect(contentType ?? pub.contentType).toBe("markdown");
-  });
-
-  it("keeps existing contentType when no filename", () => {
-    const pub = { contentType: "html" };
-    const filename = undefined;
-    const contentType = filename ? inferContentType(filename) : undefined;
-    expect(contentType ?? pub.contentType).toBe("html");
   });
 });

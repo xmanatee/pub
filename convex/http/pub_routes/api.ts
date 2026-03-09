@@ -4,7 +4,6 @@ import { httpAction } from "../../_generated/server";
 import {
   generateSlug,
   INVALID_SLUG_MESSAGE,
-  inferContentType,
   isValidSlug,
   MAX_CONTENT_SIZE,
   MAX_TITLE_LENGTH,
@@ -39,7 +38,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
       let body: {
         content?: string;
-        filename?: string;
         title?: string;
         slug?: string;
       };
@@ -64,9 +62,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
       return executeAction(
         async () => {
-          const contentType = body.content
-            ? inferContentType(body.filename ?? "file.txt")
-            : undefined;
           const finalSlug = body.slug || generateSlug();
 
           const existing = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug: finalSlug });
@@ -76,7 +71,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             await ctx.runMutation(internal.pubs.createPub, {
               userId: auth.userId,
               slug: finalSlug,
-              contentType,
               content: body.content,
               title: body.title,
             });
@@ -128,7 +122,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               const live = liveMap.get(p.slug);
               return {
                 slug: p.slug,
-                contentType: p.contentType,
                 title: p.title,
                 isPublic: p.isPublic,
                 createdAt: p.createdAt,
@@ -181,7 +174,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
           return {
             slug: pub.slug,
-            contentType: pub.contentType,
             content: pub.content,
             title: pub.title,
             isPublic: pub.isPublic,
@@ -220,7 +212,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
       let body: {
         content?: string;
-        filename?: string;
         title?: string;
         isPublic?: boolean;
         slug?: string;
@@ -256,12 +247,9 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             if (existing) throw new ApiError("Slug already taken", 409);
           }
 
-          const contentType = body.filename ? inferContentType(body.filename) : undefined;
-
           await ctx.runMutation(internal.pubs.updatePub, {
             id: pub._id,
             content: body.content,
-            contentType,
             title: body.title,
             isPublic: body.isPublic,
             slug: body.slug,
@@ -269,7 +257,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
           return {
             slug: body.slug ?? pub.slug,
-            contentType: contentType ?? pub.contentType,
             title: body.title ?? pub.title,
             isPublic: body.isPublic ?? pub.isPublic,
             updatedAt: Date.now(),

@@ -6,7 +6,7 @@ license: MIT
 compatibility: Requires Node.js 18+ with npm/pnpm/npx.
 metadata:
   author: pub.blue
-  version: "5.2.1"
+  version: "5.2.2"
 allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
 ---
 
@@ -16,7 +16,7 @@ Use this skill when the user asks about publishing, showing, or visualizing agen
 
 ## Required CLI Version
 
-Use **pubblue CLI 0.7.1+**.
+Use **pubblue CLI 0.7.2+**.
 
 ```bash
 pubblue --version
@@ -43,7 +43,7 @@ For OpenClaw bridge mode, daemon runtime defaults to `OPENCLAW_WORKSPACE=~/.open
 ```bash
 pubblue create page.html
 pubblue create --slug demo --title "Demo" page.html
-cat notes.md | pubblue create
+cat page.html | pubblue create
 
 pubblue get <slug>
 pubblue get <slug> --content

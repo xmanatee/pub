@@ -4,7 +4,7 @@ const FEATURES = [
   {
     icon: FileCode2,
     title: "Pages in seconds",
-    description: "Publish HTML, Markdown, or plain text.",
+    description: "Publish HTML pages in seconds.",
   },
   {
     icon: Zap,

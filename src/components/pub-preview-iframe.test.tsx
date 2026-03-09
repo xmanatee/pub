@@ -5,7 +5,7 @@ import { PubPreviewIframe } from "./pub-preview-iframe";
 describe("PubPreviewIframe", () => {
   it("renders html srcDoc preview with script sandbox by default", () => {
     const html = renderToStaticMarkup(
-      <PubPreviewIframe contentPreview="<h1>Hello</h1>" contentType="html" title="Hello" />,
+      <PubPreviewIframe contentPreview="<h1>Hello</h1>" title="Hello" />,
     );
 
     expect(html).toContain("srcDoc=");
@@ -17,7 +17,6 @@ describe("PubPreviewIframe", () => {
     const html = renderToStaticMarkup(
       <PubPreviewIframe
         contentPreview="<h1>Hello</h1>"
-        contentType="html"
         htmlSrc="/serve/hello?preview=1"
         title="Hello"
       />,
@@ -26,15 +25,5 @@ describe("PubPreviewIframe", () => {
     expect(html).toContain('src="/serve/hello?preview=1"');
     expect(html).toContain('sandbox="allow-scripts"');
     expect(html).not.toContain("srcdoc=");
-  });
-
-  it("renders locked text preview for non-html content", () => {
-    const html = renderToStaticMarkup(
-      <PubPreviewIframe contentPreview="hello" contentType="text" title="Hello" />,
-    );
-
-    expect(html).toContain("srcDoc=");
-    expect(html).toContain("hello");
-    expect(html).toContain('sandbox=""');
   });
 });
