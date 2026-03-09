@@ -75,8 +75,8 @@ describe("createLiveCommandHandler", () => {
     });
   });
 
-  it("skips functions missing executor during bind", () => {
-    const { handler } = buildHandler();
+  it("skips functions missing executor during bind", async () => {
+    const { handler, sentMessages } = buildHandler();
 
     handler.bindFromHtml(
       buildManifestHtml([
@@ -89,8 +89,21 @@ describe("createLiveCommandHandler", () => {
       ]),
     );
 
-    // "valid" should be bound, "missingExecutor" should be skipped
-    // Verify by invoking — missingExecutor returns COMMAND_NOT_FOUND
+    await handler.onMessage(
+      makeEventMessage("command.invoke", {
+        v: 1,
+        callId: "call-missing",
+        name: "missingExecutor",
+      }),
+    );
+
+    const results = commandResults(sentMessages);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      callId: "call-missing",
+      ok: false,
+      error: { code: "COMMAND_NOT_FOUND" },
+    });
   });
 
   it("executes manifest-defined shell function", async () => {

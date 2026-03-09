@@ -484,7 +484,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
     const spec = getSpec(message.name);
     if (!spec) {
-      params.debugLog(`command:invoke COMMAND_NOT_FOUND "${message.name}"`);
+      params.debugLog(`commands invoke COMMAND_NOT_FOUND "${message.name}"`);
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
@@ -499,7 +499,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     }
 
     params.debugLog(
-      `command:invoke "${message.name}" callId=${message.callId} args=${JSON.stringify(message.args ?? {}).slice(0, 200)}`,
+      `commands invoke "${message.name}" callId=${message.callId} args=${JSON.stringify(message.args ?? {}).slice(0, 200)}`,
     );
 
     const abort = new AbortController();
@@ -511,14 +511,14 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       const active = running.get(message.callId);
       if (abort.signal.aborted || active?.cancelled) {
         params.debugLog(
-          `command:invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
+          `commands invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
         );
         await sendResult(buildCancelledResult(message.callId, startedAt));
         return;
       }
       const durationMs = Date.now() - startedAt;
       params.debugLog(
-        `command:invoke "${message.name}" ok=${true} duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
+        `commands invoke "${message.name}" ok=${true} duration=${durationMs}ms value=${JSON.stringify(value).slice(0, 200)}`,
       );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
@@ -538,7 +538,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       }
       const durationMs = Date.now() - startedAt;
       params.debugLog(
-        `command:invoke "${message.name}" FAILED duration=${durationMs}ms error=${detail.slice(0, 300)}`,
+        `commands invoke "${message.name}" FAILED duration=${durationMs}ms error=${detail.slice(0, 300)}`,
       );
       await sendResult({
         v: COMMAND_PROTOCOL_VERSION,
@@ -566,7 +566,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     if (message.type !== "event") return;
 
     params.debugLog(
-      `command:message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
+      `commands message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
     );
 
     for (const [callId, result] of recentResults) {

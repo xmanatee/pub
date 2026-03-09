@@ -33,7 +33,6 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain('emit("command.cancel"');
     expect(output).toContain("command.result");
     expect(output).not.toContain("command.bind.result");
-    // Manifest parsing is now parent-side, not in the iframe
     expect(output).not.toContain("application/pubblue-command-manifest+json");
     expect(output).not.toContain("tryBindManifest");
     expect(output).not.toContain("startManifestBinding");
