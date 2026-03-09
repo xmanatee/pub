@@ -120,7 +120,7 @@ describe("ControlBar", () => {
     });
     expect(html).toContain("Hello from agent");
     expect(html).toContain("Agent");
-    expect(html).toContain("max-h-14 opacity-100");
+    expect(html).toContain("max-h-60 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
   });
 
