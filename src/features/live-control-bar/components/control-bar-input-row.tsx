@@ -1,13 +1,17 @@
 import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
-import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
+import type { LiveVisualState } from "~/features/live/types/live-types";
 import { cn } from "~/lib/utils";
 import { CB } from "./control-bar-classes";
-import "./control-bar-state.css";
-import { VISUAL_THEME } from "~/features/live/components/visuals/shared";
-import type { LiveVisualState } from "~/features/live/types/live-types";
-import { controlBarStyleFromTone } from "./control-bar-theme";
 
 const MAX_TEXTAREA_ROWS = 5;
 const TEXTAREA_LINE_HEIGHT = 20;
@@ -69,6 +73,21 @@ export function ControlBarInputRow({
     if (editing) textareaRef.current?.focus();
   }, [editing]);
 
+  const handleSend = useCallback(() => {
+    onSend();
+    setEditing(false);
+  }, [onSend]);
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      onInputKeyDown(event);
+      if (event.key === "Enter" && !event.shiftKey) {
+        setEditing(false);
+      }
+    },
+    [onInputKeyDown],
+  );
+
   const placeholder =
     visualState === "connecting"
       ? "Connecting..."
@@ -79,13 +98,9 @@ export function ControlBarInputRow({
           : visualState === "command-running"
             ? "Running command..."
             : "Message...";
-  const cbStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
 
   return (
-    <div
-      className={cn("w-full cb-state-border", CB.controlHeight)}
-      style={{ WebkitTouchCallout: "none", ...cbStyle }}
-    >
+    <div className={cn("w-full", CB.controlHeight)} style={{ WebkitTouchCallout: "none" }}>
       <div className={CB.controlRow}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -110,7 +125,7 @@ export function ControlBarInputRow({
             placeholder={placeholder}
             value={input}
             onChange={(event) => onInputChange(event.target.value)}
-            onKeyDown={onInputKeyDown}
+            onKeyDown={handleKeyDown}
             onBlur={() => setEditing(false)}
             aria-label="Message"
             inputMode="text"
@@ -140,7 +155,7 @@ export function ControlBarInputRow({
                 variant="default"
                 size="control"
                 className={CB.actionButton}
-                onClick={onSend}
+                onClick={handleSend}
                 disabled={sendDisabled}
                 aria-label="Send message"
               >

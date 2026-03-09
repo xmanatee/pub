@@ -18,6 +18,7 @@ import { ControlBarInputRow } from "./control-bar-input-row";
 import { ControlBarOfflineMode } from "./control-bar-offline-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarTakeoverMode } from "./control-bar-takeover-mode";
+import { controlBarStyleFromTone } from "./control-bar-theme";
 import { ControlBarVoiceMode } from "./control-bar-voice-mode";
 import { ExtendedOptions } from "./extended-options";
 
@@ -261,6 +262,8 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasCanvasContent} />
   ) : null;
 
+  const shellStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
+
   return (
     <>
       <button
@@ -287,6 +290,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
             : ""
         }
         isInteracting={isEditing}
+        shellStyle={shellStyle as React.CSSProperties}
       />
     </>
   );

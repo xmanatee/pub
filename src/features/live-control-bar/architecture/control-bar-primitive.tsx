@@ -1,6 +1,7 @@
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
 import { CB } from "../components/control-bar-classes";
+import "../components/control-bar-state.css";
 import type { ControlBarFullConfig } from "./control-bar-types";
 
 /**
@@ -19,6 +20,7 @@ export function ControlBarPrimitive({
   onStatusClick,
   className,
   isInteracting = false,
+  shellStyle,
 }: ControlBarFullConfig) {
   const hasLeft = Boolean(leftAction && !isInteracting);
   const hasRight = Boolean(rightAction);
@@ -65,10 +67,11 @@ export function ControlBarPrimitive({
           {/* Combined Visual Container */}
           <div
             className={cn(
-              "min-w-0 flex-1 relative flex flex-col overflow-hidden select-none",
+              "min-w-0 flex-1 relative flex flex-col overflow-hidden select-none cb-state-border",
               CB.shellContent,
               className,
             )}
+            style={shellStyle}
           >
             {/* Top Addon Slot (Preview/Menu) */}
             <div

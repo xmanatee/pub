@@ -13,6 +13,7 @@ export interface ControlBarSurfaceConfig {
   onStatusClick?: () => void;
   className?: string;
   isInteracting?: boolean;
+  shellStyle?: React.CSSProperties;
 }
 
 export interface ControlBarFullConfig extends ControlBarLayoutConfig, ControlBarSurfaceConfig {}

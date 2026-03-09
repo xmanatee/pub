@@ -38,17 +38,6 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
 
   useEffect(() => {
     hasContentRef.current = hasCanvasContent;
-    if (hasCanvasContent) {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      lastTimeRef.current = 0;
-      return;
-    }
-    if (rafRef.current === null && drawRef.current) {
-      rafRef.current = requestAnimationFrame(drawRef.current);
-    }
   }, [hasCanvasContent]);
 
   useEffect(() => {
@@ -217,11 +206,6 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       ctx.fillStyle = cachedInnerGrad;
       ctx.fill();
 
-      if (hasContentRef.current) {
-        lastTimeRef.current = 0;
-        rafRef.current = null;
-        return;
-      }
       rafRef.current = requestAnimationFrame(draw);
     };
 
