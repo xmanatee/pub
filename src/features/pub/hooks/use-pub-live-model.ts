@@ -3,9 +3,9 @@ import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCanvasCommands } from "~/features/live/hooks/use-canvas-commands";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
-import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
+import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { useLiveVisualState } from "~/features/live/model/live-visual-state";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
@@ -150,7 +150,6 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   const liveMode = isOwner;
 
   const canvasCommands = useCanvasCommands({
-    html: baseContentHtml ?? null,
     bridgeRef,
     bridgeState,
     liveMode,

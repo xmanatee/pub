@@ -447,9 +447,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       }
       boundFunctions.set(normalized.name, normalized);
     }
-    params.debugLog(
-      `commands bound=[${[...boundFunctions.keys()].join(", ")}]`,
-    );
+    params.debugLog(`commands bound=[${[...boundFunctions.keys()].join(", ")}]`);
   }
 
   function bindFromHtml(html: string): void {

@@ -70,4 +70,3 @@ export function shouldRecoverForBrowserOfferChange(params: {
   if (!lastAppliedBrowserOffer) return false;
   return incomingBrowserOffer !== lastAppliedBrowserOffer;
 }
-

@@ -62,7 +62,10 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
           )}
           <VisibilityBadge isPublic={pub.isPublic} />
           {isLive && (
-            <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-600/20 text-xs">
+            <Badge
+              variant="outline"
+              className="gap-1 text-emerald-600 border-emerald-600/20 text-xs"
+            >
               <Radio className="h-3 w-3 animate-pulse" aria-hidden="true" />
               Live
             </Badge>

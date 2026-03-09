@@ -5,7 +5,7 @@ export interface CanvasBridgeInboundMessage {
   payload: Record<string, unknown>;
 }
 
-export type CanvasBridgeOutboundType = "command.bind.result" | "command.result";
+export type CanvasBridgeOutboundType = "command.result";
 
 export interface CanvasBridgeOutboundMessage {
   id: string;

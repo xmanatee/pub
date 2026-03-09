@@ -52,8 +52,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
             params.bindCanvasCommands(msg.data);
             return { ok: true, delivered: true };
           } catch (error) {
-            const errMsg =
-              error instanceof Error ? error.message : String(error);
+            const errMsg = error instanceof Error ? error.message : String(error);
             params.markError(`failed to persist canvas HTML for "${slug}"`, error);
             return { ok: false, error: `Canvas update failed: ${errMsg}` };
           }

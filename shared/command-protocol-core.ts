@@ -41,20 +41,6 @@ export interface CommandFunctionSpec {
   executor?: CommandExecutorSpec;
 }
 
-export interface CommandBindResultPayload extends Record<string, unknown> {
-  v: number;
-  manifestId: string;
-  accepted: Array<{
-    name: string;
-    returns: CommandReturnType;
-  }>;
-  rejected: Array<{
-    name: string;
-    code: string;
-    message: string;
-  }>;
-}
-
 export interface CommandInvokePayload extends Record<string, unknown> {
   v: number;
   callId: string;
@@ -83,10 +69,6 @@ export interface CommandCancelPayload extends Record<string, unknown> {
   v: number;
   callId: string;
   reason?: string;
-}
-
-export function makeCommandBindResultMessage(payload: CommandBindResultPayload): BridgeMessage {
-  return makeEventMessage("command.bind.result", payload);
 }
 
 export function makeCommandInvokeMessage(payload: CommandInvokePayload): BridgeMessage {
@@ -223,41 +205,6 @@ function parseFunctionList(input: unknown): CommandFunctionSpec[] {
 
 function parseMetaRecord(msg: BridgeMessage): Record<string, unknown> | null {
   return msg.type === "event" && msg.meta ? readRecord(msg.meta) : null;
-}
-
-export function parseCommandBindResultMessage(msg: BridgeMessage): CommandBindResultPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.bind.result") return null;
-  const meta = parseMetaRecord(msg);
-  if (!meta) return null;
-  const manifestId = readString(meta.manifestId);
-  if (!manifestId) return null;
-
-  const acceptedRaw = Array.isArray(meta.accepted) ? meta.accepted : [];
-  const rejectedRaw = Array.isArray(meta.rejected) ? meta.rejected : [];
-  const accepted = acceptedRaw
-    .map((entry) => readRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => entry !== null)
-    .map((entry) => ({
-      name: readString(entry.name) ?? "",
-      returns: readReturnType(entry.returns) ?? "void",
-    }))
-    .filter((entry) => entry.name.length > 0);
-  const rejected = rejectedRaw
-    .map((entry) => readRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => entry !== null)
-    .map((entry) => ({
-      name: readString(entry.name) ?? "",
-      code: readString(entry.code) ?? "REJECTED",
-      message: readString(entry.message) ?? "Rejected",
-    }))
-    .filter((entry) => entry.name.length > 0);
-
-  return {
-    v: readFiniteNumber(meta.v) ?? COMMAND_PROTOCOL_VERSION,
-    manifestId,
-    accepted,
-    rejected,
-  };
 }
 
 export function parseCommandInvokeMessage(msg: BridgeMessage): CommandInvokePayload | null {

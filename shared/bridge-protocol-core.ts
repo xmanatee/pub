@@ -43,7 +43,6 @@ export type ControlEvent =
   | "ping"
   | "pong"
   | "ack"
-  | "command.bind.result"
   | "command.invoke"
   | "command.result"
   | "command.cancel";

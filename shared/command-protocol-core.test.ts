@@ -4,11 +4,9 @@ import {
   COMMAND_MANIFEST_MAX_FUNCTIONS,
   COMMAND_PROTOCOL_VERSION,
   extractManifestFromHtml,
-  makeCommandBindResultMessage,
   makeCommandCancelMessage,
   makeCommandInvokeMessage,
   makeCommandResultMessage,
-  parseCommandBindResultMessage,
   parseCommandCancelMessage,
   parseCommandFunctionList,
   parseCommandInvokeMessage,
@@ -59,19 +57,7 @@ describe("command-protocol-core", () => {
     expect(parsed.at(-1)?.name).toBe(`f${COMMAND_MANIFEST_MAX_FUNCTIONS - 1}`);
   });
 
-  it("round-trips bind-result/invoke/result/cancel payloads", () => {
-    const bindResult = {
-      v: COMMAND_PROTOCOL_VERSION,
-      manifestId: "manifest-mail",
-      accepted: [{ name: "archiveEmail", returns: "void" as const }],
-      rejected: [
-        {
-          name: "invalidCommand",
-          code: "INVALID_FUNCTION",
-          message: "Function is missing executor definition.",
-        },
-      ],
-    };
+  it("round-trips invoke/result/cancel payloads", () => {
     const invoke = {
       v: COMMAND_PROTOCOL_VERSION,
       callId: "call-1",
@@ -92,9 +78,6 @@ describe("command-protocol-core", () => {
       reason: "user cancelled",
     };
 
-    expect(parseCommandBindResultMessage(makeCommandBindResultMessage(bindResult))).toEqual(
-      bindResult,
-    );
     expect(parseCommandInvokeMessage(makeCommandInvokeMessage(invoke))).toEqual(invoke);
     expect(parseCommandResultMessage(makeCommandResultMessage(result))).toEqual(result);
     expect(parseCommandCancelMessage(makeCommandCancelMessage(cancel))).toEqual(cancel);

@@ -1,87 +1,28 @@
-import { type RefObject, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CHANNELS,
-  generateMessageId,
-  makeEventMessage,
-} from "~/features/live/lib/bridge-protocol";
+import { type RefObject, useCallback, useState } from "react";
+import { CHANNELS, generateMessageId, makeEventMessage } from "~/features/live/lib/bridge-protocol";
 import { parseCommandResultMessage } from "~/features/live/lib/command-protocol";
-import type { BridgeState, BrowserBridge, ChannelMessage } from "~/features/live/lib/webrtc-browser";
+import type {
+  BridgeState,
+  BrowserBridge,
+  ChannelMessage,
+} from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 import type {
   CanvasBridgeInboundMessage,
   CanvasBridgeOutboundMessage,
 } from "~/features/live/types/live-types";
-import { parseCanvasManifest } from "~/features/live/utils/parse-canvas-manifest";
 
 const COMMAND_ACK_TIMEOUT_MS = 4_000;
 
 interface UseCanvasCommandsOptions {
-  html: string | null;
   bridgeRef: RefObject<BrowserBridge | null>;
   bridgeState: BridgeState;
   liveMode: boolean;
 }
 
-export function useCanvasCommands({
-  html,
-  bridgeRef,
-  bridgeState,
-  liveMode,
-}: UseCanvasCommandsOptions) {
+export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanvasCommandsOptions) {
   const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
     useState<CanvasBridgeOutboundMessage | null>(null);
-
-  const manifest = useMemo(() => (html ? parseCanvasManifest(html) : null), [html]);
-
-  // Notify iframe of available commands whenever manifest or connection state changes.
-  // Daemon binds from the same HTML independently via Convex — no WebRTC round-trip needed.
-  useEffect(() => {
-    if (!manifest) return;
-
-    const accepted = manifest.functions
-      .filter((f) => f.executor)
-      .map((f) => ({ name: f.name, returns: f.returns ?? "void" }));
-
-    const rejected = manifest.functions
-      .filter((f) => !f.executor)
-      .map((f) => ({
-        name: f.name,
-        code: "INVALID_FUNCTION",
-        message: `Function "${f.name}" is missing executor definition.`,
-      }));
-
-    if (!liveMode || bridgeState !== "connected") {
-      rejected.push(
-        ...accepted.map((f) => ({
-          name: f.name,
-          code: "AGENT_NOT_CONNECTED",
-          message: "Agent is not connected. Commands are unavailable.",
-        })),
-      );
-      setOutboundCanvasBridgeMessage({
-        id: generateMessageId(),
-        type: "command.bind.result",
-        payload: {
-          v: 1,
-          manifestId: manifest.manifestId,
-          accepted: [],
-          rejected,
-        },
-      });
-      return;
-    }
-
-    setOutboundCanvasBridgeMessage({
-      id: generateMessageId(),
-      type: "command.bind.result",
-      payload: {
-        v: 1,
-        manifestId: manifest.manifestId,
-        accepted,
-        rejected,
-      },
-    });
-  }, [manifest, liveMode, bridgeState]);
 
   const emitCommandFailureToCanvas = useCallback(
     (callId: string | undefined, code: string, message: string) => {
@@ -129,8 +70,7 @@ export function useCanvasCommands({
         const payload = {
           v: typeof message.payload.v === "number" ? message.payload.v : 1,
           callId: callId ?? "",
-          reason:
-            typeof message.payload.reason === "string" ? message.payload.reason : undefined,
+          reason: typeof message.payload.reason === "string" ? message.payload.reason : undefined,
         };
         if (payload.callId.length === 0) return;
         void ensureChannelReady(bridge, CHANNELS.COMMAND).then((ready) => {
@@ -196,20 +136,17 @@ export function useCanvasCommands({
     [bridgeRef, bridgeState, liveMode, emitCommandFailureToCanvas],
   );
 
-  const handleBridgeCommandMessage = useCallback(
-    (cm: ChannelMessage) => {
-      if (cm.channel !== CHANNELS.COMMAND) return;
-      const result = parseCommandResultMessage(cm.message);
-      if (result) {
-        setOutboundCanvasBridgeMessage({
-          id: generateMessageId(),
-          type: "command.result",
-          payload: result,
-        });
-      }
-    },
-    [],
-  );
+  const handleBridgeCommandMessage = useCallback((cm: ChannelMessage) => {
+    if (cm.channel !== CHANNELS.COMMAND) return;
+    const result = parseCommandResultMessage(cm.message);
+    if (result) {
+      setOutboundCanvasBridgeMessage({
+        id: generateMessageId(),
+        type: "command.result",
+        payload: result,
+      });
+    }
+  }, []);
 
   return {
     handleBridgeCommandMessage,
