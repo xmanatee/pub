@@ -16,5 +16,5 @@ export function buildTextSrcdoc(content: string, contentType: string) {
 }
 
 export function buildHtmlSrcdoc(content: string) {
-  return `${TEXT_PREVIEW_STYLES}${content}`;
+  return content;
 }
