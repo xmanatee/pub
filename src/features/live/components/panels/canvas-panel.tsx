@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { parseCanvasBridgeInboundMessage } from "~/features/live/types/live-command-types";
 import type {
-  CanvasBridgeInboundMessage,
+  CanvasBridgeCommandMessage,
   CanvasBridgeOutboundMessage,
   LiveRenderErrorPayload,
   LiveVisualState,
@@ -11,7 +12,7 @@ import { CanvasLiveVisual } from "./canvas-live-visual";
 
 interface CanvasPanelProps {
   html: string | null;
-  onCanvasBridgeMessage?: (message: CanvasBridgeInboundMessage) => void;
+  onCanvasBridgeMessage?: (message: CanvasBridgeCommandMessage) => void;
   onCanvasErrorChange?: (message: string | null) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
@@ -57,53 +58,28 @@ export function CanvasPanel({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      const data = event.data as
-        | {
-            colno?: number;
-            filename?: string;
-            lineno?: number;
-            message?: string;
-            [key: string]: unknown;
-            source?: string;
-            type?: string;
-          }
-        | undefined;
-      if (!data || data.source !== "pubblue-canvas") return;
-      if (
-        data.type !== "error" &&
-        data.type !== "command.invoke" &&
-        data.type !== "command.cancel"
-      ) {
+      const message = parseCanvasBridgeInboundMessage(event.data);
+      if (!message) return;
+
+      if (message.type !== "error") {
+        onCanvasBridgeMessage?.(message);
         return;
       }
 
-      if (data.type !== "error") {
-        if (!onCanvasBridgeMessage) return;
-        const payload: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(data)) {
-          if (key === "source" || key === "type") continue;
-          payload[key] = value;
-        }
-        onCanvasBridgeMessage({
-          type: data.type,
-          payload,
-        });
-        return;
-      }
-
-      const message = typeof data.message === "string" ? data.message : "Canvas script error";
+      const payload = message.payload;
+      const errorMessage = payload.message;
       const lineInfo =
-        typeof data.lineno === "number" && data.lineno > 0
-          ? ` (line ${data.lineno}${typeof data.colno === "number" && data.colno > 0 ? `:${data.colno}` : ""})`
+        typeof payload.lineno === "number" && payload.lineno > 0
+          ? ` (line ${payload.lineno}${typeof payload.colno === "number" && payload.colno > 0 ? `:${payload.colno}` : ""})`
           : "";
-      setCanvasError(`${message}${lineInfo}`);
+      setCanvasError(`${errorMessage}${lineInfo}`);
 
       if (!onRenderError) return;
       const keyParts = [
-        message,
-        typeof data.filename === "string" ? data.filename : "",
-        typeof data.lineno === "number" ? String(data.lineno) : "",
-        typeof data.colno === "number" ? String(data.colno) : "",
+        errorMessage,
+        payload.filename ?? "",
+        typeof payload.lineno === "number" ? String(payload.lineno) : "",
+        typeof payload.colno === "number" ? String(payload.colno) : "",
       ];
       const key = keyParts.join("|");
       const now = Date.now();
@@ -111,10 +87,10 @@ export function CanvasPanel({
       if (last && last.key === key && now - last.timestamp < RENDER_ERROR_REPORT_DEDUPE_MS) return;
       lastReportedErrorRef.current = { key, timestamp: now };
       onRenderError({
-        message,
-        filename: typeof data.filename === "string" ? data.filename : undefined,
-        lineno: typeof data.lineno === "number" ? data.lineno : undefined,
-        colno: typeof data.colno === "number" ? data.colno : undefined,
+        message: errorMessage,
+        filename: payload.filename,
+        lineno: payload.lineno,
+        colno: payload.colno,
       });
     };
     window.addEventListener("message", onMessage);
@@ -125,14 +101,7 @@ export function CanvasPanel({
     if (!outboundCanvasBridgeMessage) return;
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
-    frame.postMessage(
-      {
-        source: "pubblue-parent",
-        type: outboundCanvasBridgeMessage.type,
-        ...outboundCanvasBridgeMessage.payload,
-      },
-      "*",
-    );
+    frame.postMessage(outboundCanvasBridgeMessage, "*");
   }, [outboundCanvasBridgeMessage]);
 
   return (

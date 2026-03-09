@@ -1,9 +1,8 @@
 export type LiveViewMode = "canvas" | "chat" | "settings";
 export type {
+  CanvasBridgeCommandMessage,
   CanvasBridgeInboundMessage,
-  CanvasBridgeInboundType,
   CanvasBridgeOutboundMessage,
-  CanvasBridgeOutboundType,
 } from "./live-command-types";
 
 export interface LiveRenderErrorPayload {

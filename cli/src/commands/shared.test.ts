@@ -6,11 +6,11 @@ import { formatVisibility, readFile, resolveVisibilityFlags } from "./shared.js"
 
 describe("resolveVisibilityFlags", () => {
   it("returns true for --public", () => {
-    expect(resolveVisibilityFlags({ public: true, commandName: "create" })).toBe(true);
+    expect(resolveVisibilityFlags({ public: true, commandName: "update" })).toBe(true);
   });
 
   it("returns false for --private", () => {
-    expect(resolveVisibilityFlags({ private: true, commandName: "create" })).toBe(false);
+    expect(resolveVisibilityFlags({ private: true, commandName: "update" })).toBe(false);
   });
 
   it("returns undefined when neither visibility flag is set", () => {
@@ -19,8 +19,8 @@ describe("resolveVisibilityFlags", () => {
 
   it("throws on conflicting visibility flags", () => {
     expect(() =>
-      resolveVisibilityFlags({ public: true, private: true, commandName: "create" }),
-    ).toThrow("Use only one of --public or --private for create.");
+      resolveVisibilityFlags({ public: true, private: true, commandName: "update" }),
+    ).toThrow("Use only one of --public or --private for update.");
   });
 });
 

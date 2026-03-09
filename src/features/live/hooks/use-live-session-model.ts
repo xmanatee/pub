@@ -61,7 +61,6 @@ export function useLiveSessionModel(slug: string) {
     };
   }, []);
 
-  // Reset connectionAttempt when agent comes back online
   useEffect(() => {
     const prev = prevAgentOnlineRef.current;
     prevAgentOnlineRef.current = agentOnline;
@@ -84,8 +83,7 @@ export function useLiveSessionModel(slug: string) {
       (agent: { presenceId: Id<"agentPresence"> }) => agent.presenceId === selectedPresenceId,
     );
     if (stillAvailable) return;
-    const defaultPresenceId = availableAgents[0]?.presenceId ?? null;
-    setSelectedPresenceId(defaultPresenceId);
+    setSelectedPresenceId(availableAgents[0]?.presenceId ?? null);
   }, [availableAgents, selectedPresenceId]);
 
   const sessionState: SessionState = useMemo(() => {
@@ -165,8 +163,22 @@ export function useLiveSessionModel(slug: string) {
     setSessionError(null);
   }, []);
 
+  const restartSession = useCallback(() => {
+    setWasConnected(false);
+    setSessionError(null);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    setConnectionAttempt((prev) => prev + 1);
+  }, []);
+
   const retryConnection = useCallback(() => {
     setSessionError(null);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     setConnectionAttempt((prev) => prev + 1);
   }, []);
 
@@ -178,6 +190,7 @@ export function useLiveSessionModel(slug: string) {
     connectionAttempt,
     live,
     markBridgeConnected,
+    restartSession,
     resetSession,
     retryConnection,
     sessionState,

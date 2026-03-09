@@ -38,7 +38,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   const {
     agentName,
     audio,
-    bridgeRef,
     command,
     connected,
     controlBarCollapsed,
@@ -62,7 +61,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
 
   const [expanded, setExpanded] = useState(initialExpanded);
   const [isEditing, setIsEditing] = useState(false);
-  const bridge = bridgeRef.current;
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
@@ -70,7 +68,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     initialInput,
   });
 
-  const { fileInputRef, handleFile } = useFileUpload({ bridge, onSendFile: sendFile });
+  const { fileInputRef, handleFile } = useFileUpload({ onSendFile: sendFile });
 
   const closeExpanded = useCallback(() => setExpanded(false), []);
 

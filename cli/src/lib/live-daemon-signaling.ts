@@ -1,6 +1,7 @@
 import { ConvexClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
-import type { LiveInfo, PubApiClient } from "./api.js";
+import { type LiveInfo, parseLiveInfo } from "../../../shared/live-api-core";
+import type { PubApiClient } from "./api.js";
 import { decideSignalingUpdate } from "./live-signaling.js";
 
 const LIVE_SIGNAL_QUERY = makeFunctionReference<
@@ -10,30 +11,11 @@ const LIVE_SIGNAL_QUERY = makeFunctionReference<
 >("pubs:getLiveForAgentByApiKey");
 
 export function parseLiveSnapshot(result: unknown): LiveInfo | null {
-  if (result === null || result === undefined) return null;
-  if (typeof result !== "object") {
+  const live = parseLiveInfo(result);
+  if (result !== null && result !== undefined && live === null) {
     throw new Error("Invalid signaling snapshot: expected object or null");
   }
-  const live = result as Partial<LiveInfo>;
-  if (typeof live.slug !== "string") throw new Error("Invalid signaling snapshot: missing slug");
-  if (!Array.isArray(live.browserCandidates)) {
-    throw new Error("Invalid signaling snapshot: missing browserCandidates");
-  }
-  if (!Array.isArray(live.agentCandidates)) {
-    throw new Error("Invalid signaling snapshot: missing agentCandidates");
-  }
-  if (typeof live.createdAt !== "number") {
-    throw new Error("Invalid signaling snapshot: missing timestamps");
-  }
-  return {
-    slug: live.slug,
-    status: live.status,
-    browserOffer: live.browserOffer,
-    agentAnswer: live.agentAnswer,
-    browserCandidates: live.browserCandidates,
-    agentCandidates: live.agentCandidates,
-    createdAt: live.createdAt,
-  };
+  return live;
 }
 
 interface SignalingControllerParams {
@@ -48,6 +30,7 @@ interface SignalingControllerParams {
   setLastBrowserCandidateCount: (count: number) => void;
   onRecover: (slug: string, browserOffer: string) => Promise<void>;
   onApplyBrowserCandidates: (candidatePayloads: string[]) => Promise<void>;
+  onClearLive: () => Promise<void>;
 }
 
 export interface SignalingController {
@@ -69,6 +52,7 @@ export function createSignalingController(params: SignalingControllerParams): Si
     setLastBrowserCandidateCount,
     onRecover,
     onApplyBrowserCandidates,
+    onClearLive,
   } = params;
 
   let signalingClient: ConvexClient | null = null;
@@ -120,6 +104,11 @@ export function createSignalingController(params: SignalingControllerParams): Si
 
     if (decision.type === "recover") {
       await onRecover(decision.slug, decision.browserOffer);
+      return;
+    }
+
+    if (decision.type === "clear-live") {
+      await onClearLive();
       return;
     }
 

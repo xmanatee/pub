@@ -1,9 +1,13 @@
-import type { LiveInfo } from "./api.js";
+import type { LiveInfo } from "../../../shared/live-api-core";
 import { shouldRecoverForBrowserOfferChange } from "./live-daemon-shared.js";
 
 export type SignalingDecision =
   | {
       type: "noop";
+      nextBrowserCandidateCount: number;
+    }
+  | {
+      type: "clear-live";
       nextBrowserCandidateCount: number;
     }
   | {
@@ -26,6 +30,9 @@ export function decideSignalingUpdate(params: {
 }): SignalingDecision {
   const { live, activeSlug, lastAppliedBrowserOffer, lastBrowserCandidateCount } = params;
   if (!live) {
+    if (activeSlug !== null || lastAppliedBrowserOffer !== null || lastBrowserCandidateCount > 0) {
+      return { type: "clear-live", nextBrowserCandidateCount: 0 };
+    }
     return { type: "noop", nextBrowserCandidateCount: lastBrowserCandidateCount };
   }
 

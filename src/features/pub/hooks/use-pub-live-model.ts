@@ -52,6 +52,7 @@ export function usePubLiveModel({
     connectionAttempt,
     live,
     markBridgeConnected,
+    restartSession,
     resetSession,
     retryConnection,
     sessionState,
@@ -98,6 +99,7 @@ export function usePubLiveModel({
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
   const [canvasError, setCanvasError] = useState<string | null>(null);
+  const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
@@ -105,10 +107,14 @@ export function usePubLiveModel({
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
+  const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const enabled =
-    liveMode && agentOnline === true && (sessionState === "inactive" || sessionState === "active");
+    liveMode &&
+    agentOnline === true &&
+    selectedPresenceId !== null &&
+    (sessionState === "inactive" || sessionState === "active");
 
   const {
     bridgeRef,
@@ -145,6 +151,7 @@ export function usePubLiveModel({
     markMessageReceived,
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
+    onCanvasHtmlMessage: setCanvasHtml,
     onCommandMessageRef: commandMessageHandlerRef,
   });
 
@@ -172,14 +179,19 @@ export function usePubLiveModel({
     return () => clearInterval(interval);
   }, []);
 
-  const hasCanvasContent = contentState === "ready" && Boolean(baseContentHtml);
+  useEffect(() => {
+    setCanvasHtml(baseContentHtml ?? null);
+  }, [baseContentHtml]);
+
+  const effectiveContentState = canvasHtml ? "ready" : contentState;
+  const hasCanvasContent = Boolean(canvasHtml);
   const viewState = derivePubViewState({
     agentOnline,
     audioMode: audio.machineMode,
     bridgeState,
     canvasError,
     command: canvasCommands.command,
-    contentState,
+    contentState: effectiveContentState,
     lastAgentOutput,
     lastUserDeliveredAt,
     liveMode,
@@ -191,7 +203,11 @@ export function usePubLiveModel({
   useEffect(() => {
     if (pub === undefined) return;
     const statusKey =
-      pub === null ? "not-found" : !liveMode && contentState === "empty" ? "no-content" : null;
+      pub === null
+        ? "not-found"
+        : !liveMode && effectiveContentState === "empty"
+          ? "no-content"
+          : null;
     if (!statusKey || notifiedStatusRef.current === statusKey) return;
     notifiedStatusRef.current = statusKey;
     addSystemMessage({
@@ -202,7 +218,7 @@ export function usePubLiveModel({
       dedupeKey: `pub-status:${statusKey}`,
       severity: statusKey === "not-found" ? "error" : "warning",
     });
-  }, [addSystemMessage, contentState, liveMode, pub]);
+  }, [addSystemMessage, effectiveContentState, liveMode, pub]);
 
   useEffect(() => {
     if (pub && !trackedAnalytics.current) {
@@ -222,11 +238,16 @@ export function usePubLiveModel({
   }, [pub, recordPublicView]);
 
   useEffect(() => {
+    if (lastSlugRef.current === null) {
+      lastSlugRef.current = slug;
+      return;
+    }
     if (lastSlugRef.current === slug) return;
     lastSlugRef.current = slug;
     lastSessionErrorRef.current = null;
     notifiedStatusRef.current = null;
     setCanvasError(null);
+    setCanvasHtml(baseContentHtml ?? null);
     setControlBarCollapsed(false);
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
@@ -234,18 +255,19 @@ export function usePubLiveModel({
     clearMessages();
     clearFiles();
     resetSession();
-    if (liveMode) closeLive();
-  }, [slug, clearFiles, clearMessages, closeLive, dismissPreview, liveMode, resetSession]);
+  }, [baseContentHtml, slug, dismissPreview, clearMessages, clearFiles, resetSession]);
 
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
   }, [bridgeState, markBridgeConnected]);
 
   useEffect(() => {
+    const previousCanvasHtml = lastCanvasHtmlRef.current;
+    lastCanvasHtmlRef.current = canvasHtml;
     if (!liveMode || !autoOpenCanvas) return;
-    if (contentState !== "ready" || !baseContentHtml) return;
+    if (!canvasHtml || canvasHtml === previousCanvasHtml) return;
     setViewMode("canvas");
-  }, [autoOpenCanvas, baseContentHtml, contentState, liveMode, setViewMode]);
+  }, [autoOpenCanvas, canvasHtml, liveMode, setViewMode]);
 
   useEffect(() => {
     const nextError = sessionError;
@@ -274,6 +296,16 @@ export function usePubLiveModel({
     void navigate({ to: "/dashboard" });
   }, [closeLive, liveMode, navigate, resetLiveSurface]);
 
+  const handleSelectedPresenceId = useCallback(
+    (presenceId: typeof selectedPresenceId) => {
+      if (presenceId === selectedPresenceId) return;
+      setSelectedPresenceId(presenceId);
+      resetLiveSurface();
+      restartSession();
+    },
+    [resetLiveSurface, restartSession, selectedPresenceId, setSelectedPresenceId],
+  );
+
   return {
     agentName: live?.agentName ?? null,
     agentOnline,
@@ -284,6 +316,7 @@ export function usePubLiveModel({
     bridgeRef,
     bridgeState,
     canvasError,
+    canvasHtml,
     canUseDeveloperMode,
     clearFiles,
     clearMessages,
@@ -291,7 +324,7 @@ export function usePubLiveModel({
     closeLive: handleClose,
     command: canvasCommands.command,
     connected: viewState.transportStatus === "connected",
-    contentState,
+    contentState: effectiveContentState,
     controlBarCollapsed,
     controlBarState: viewState.controlBarState,
     developerModeEnabled,
@@ -319,7 +352,7 @@ export function usePubLiveModel({
     setControlBarCollapsed,
     setDeveloperModeEnabled,
     setMicGranted,
-    setSelectedPresenceId,
+    setSelectedPresenceId: handleSelectedPresenceId,
     setViewMode,
     setVoiceModeEnabled,
     takeoverLive,

@@ -156,6 +156,42 @@ describe("createLiveCommandHandler", () => {
     });
   });
 
+  it("clears bound commands when HTML no longer contains a manifest", async () => {
+    const { handler, sentMessages } = buildHandler();
+
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "echoValue",
+          returns: "text",
+          executor: {
+            kind: "exec",
+            command: process.execPath,
+            args: ["-e", "process.stdout.write('ok')"],
+          },
+        },
+      ]),
+    );
+    handler.bindFromHtml("");
+
+    await handler.onMessage(
+      makeEventMessage("command.invoke", {
+        v: 1,
+        callId: "call-cleared",
+        name: "echoValue",
+      }),
+    );
+
+    const results = commandResults(sentMessages).filter((entry) => entry.callId === "call-cleared");
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      ok: false,
+      error: {
+        code: "COMMAND_NOT_FOUND",
+      },
+    });
+  });
+
   it("emits a single COMMAND_CANCELLED result for cancelled calls", async () => {
     const { handler, sentMessages } = buildHandler();
 

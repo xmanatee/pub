@@ -29,9 +29,9 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `__root.tsx` — root layout (header with Explore link, footer, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
-  - `dashboard.tsx` — protected; paginated pubs (with view counts + expiry badges) + API keys + RSS feed URL + Telegram linking
+  - `dashboard.tsx` — protected; paginated pubs (with view counts + live status) + API keys + RSS feed URL + Telegram linking
   - `explore.tsx` — public discovery feed; paginated list of all public pubs
-  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing AND live mode; auth-aware for private pubs; "Go Live" toggle when live is active
+  - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing and owner live mode; auth-aware for private pubs
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
@@ -44,7 +44,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Backend (`convex/`)
 - **Schema** (`schema.ts`): `pubs` (content/contentType optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getPendingLiveForAgent`, `getActiveLiveForAgent`, `closeLive`, `expireLive`; limit: 10 total pubs per user; 1 live per user; expiring pubs and lives via scheduler
+- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getPendingLiveForAgent`, `getActiveLiveForAgent`, `closeLive`; limit: 10 total pubs per user; 1 live per user
 - **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isAgentOnline`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
 - **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
@@ -53,7 +53,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Components** (`convex.config.ts`): registers `rateLimiter` and `shardedCounter` components
-- **Default visibility**: pubs are **private by default**
+- **Visibility**: pubs are always created private; visibility can only be changed via update
 
 ### Pub Limits
 - **Total**: max 10 pubs per user (enforced on create)
@@ -64,7 +64,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
-- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`, `--expires <duration>`
+- `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live

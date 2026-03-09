@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LiveInfo } from "./api.js";
+import type { LiveInfo } from "../../../shared/live-api-core";
 import { decideSignalingUpdate } from "./live-signaling.js";
 
 function makeLive(overrides: Partial<LiveInfo> = {}): LiveInfo {
@@ -29,6 +29,20 @@ describe("decideSignalingUpdate", () => {
     expect(decision.slug).toBe("demo");
     expect(decision.browserOffer).toBe("offer-v1");
     expect(decision.nextBrowserCandidateCount).toBe(0);
+  });
+
+  it("clears the active live session when signaling reports no live snapshot", () => {
+    const decision = decideSignalingUpdate({
+      live: null,
+      activeSlug: "demo",
+      lastAppliedBrowserOffer: "offer-v1",
+      lastBrowserCandidateCount: 2,
+    });
+
+    expect(decision).toEqual({
+      type: "clear-live",
+      nextBrowserCandidateCount: 0,
+    });
   });
 
   it("does not recover when pending offer did not change", () => {

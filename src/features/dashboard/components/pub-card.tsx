@@ -21,12 +21,18 @@ interface PubCardProps {
     contentPreview: string;
   };
   viewCount?: number;
-  isLive?: boolean;
+  liveStatus?: "waiting" | "connected" | null;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
 }
 
-export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }: PubCardProps) {
+export function PubCard({
+  pub,
+  viewCount,
+  liveStatus,
+  onToggleVisibility,
+  onDelete,
+}: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
@@ -59,13 +65,13 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
             </Badge>
           )}
           <VisibilityBadge isPublic={pub.isPublic} />
-          {isLive && (
+          {liveStatus && (
             <Badge
               variant="outline"
               className="gap-1 text-emerald-600 border-emerald-600/20 text-xs"
             >
               <Radio className="h-3 w-3 animate-pulse" aria-hidden="true" />
-              Live
+              {liveStatus === "connected" ? "Live" : "Live setup"}
             </Badge>
           )}
         </div>
@@ -73,6 +79,12 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
           /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
           {viewCount !== undefined && (
             <span className="tabular-nums"> &middot; {viewCount} views</span>
+          )}
+          {liveStatus && (
+            <span className="tabular-nums">
+              {" "}
+              &middot; {liveStatus === "connected" ? "connected" : "waiting for browser"}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5">

@@ -12,11 +12,11 @@
     "deploy:convex": "convex deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "biome check . && tsc --noEmit && bash scripts/no-raw-anchor.sh",
-    "lint:fix": "biome check --fix .",
-    "format": "biome format --fix .",
+    "lint": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json components.json convex docs package.json playwright.config.ts shared skills src tests tsconfig.json vite.config.ts vitest.config.ts && tsc --noEmit && bash scripts/no-raw-anchor.sh",
+    "lint:fix": "biome check --fix AGENTS.md CLAUDE.md FUTURE.md README.md biome.json components.json convex docs package.json playwright.config.ts shared skills src tests tsconfig.json vite.config.ts vitest.config.ts",
+    "format": "biome format --write AGENTS.md CLAUDE.md FUTURE.md README.md biome.json components.json convex docs package.json playwright.config.ts shared skills src tests tsconfig.json vite.config.ts vitest.config.ts",
     "knip": "knip",
-    "check": "biome check . && tsc --noEmit && bash scripts/no-raw-anchor.sh && vitest run && knip",
+    "check": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json components.json convex docs package.json playwright.config.ts shared skills src tests tsconfig.json vite.config.ts vitest.config.ts && tsc --noEmit && bash scripts/no-raw-anchor.sh && vitest run && knip",
     "test:e2e": "playwright test"
   },
   "dependencies": {

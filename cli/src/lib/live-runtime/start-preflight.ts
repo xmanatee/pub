@@ -193,7 +193,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   if (runtimeConfig) {
     const client = new PubApiClient(runtimeConfig.baseUrl, runtimeConfig.apiKey);
     try {
-      await client.getPendingLive();
+      await client.getAgentLive();
       passed.push({
         label: "api",
         detail: `authenticated and reachable at ${runtimeConfig.baseUrl}`,

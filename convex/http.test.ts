@@ -166,9 +166,9 @@ describe("mapLiveError", () => {
       message: "Live not found",
       status: 404,
     });
-    expect(mapLiveError(new Error("Live expired"))).toEqual({
-      message: "Live expired",
-      status: 410,
+    expect(mapLiveError(new Error("Live assigned to another agent"))).toEqual({
+      message: "Live assigned to another agent",
+      status: 409,
     });
   });
 

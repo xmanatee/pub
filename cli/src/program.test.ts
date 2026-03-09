@@ -31,12 +31,11 @@ describe("CLI command surface", () => {
     ]);
   });
 
-  it("keeps create visibility/title options", () => {
+  it("keeps create slug/title options", () => {
     const createCommand = requireCommand("create");
     const optionFlags = createCommand.options.map((option) => option.long);
+    expect(optionFlags).toContain("--slug");
     expect(optionFlags).toContain("--title");
-    expect(optionFlags).toContain("--public");
-    expect(optionFlags).toContain("--private");
   });
 
   it("keeps start agent-name/bridge options", () => {

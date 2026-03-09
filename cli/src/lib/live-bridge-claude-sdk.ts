@@ -89,7 +89,11 @@ export async function runClaudeSdkBridgeStartupProbe(
       const appendLog = (line: string) => {
         try {
           fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`);
-        } catch {}
+        } catch (error) {
+          if (process.env.PUBBLUE_DEBUG === "1") {
+            console.warn(`Warning: failed to append SDK probe log: ${errorMessage(error)}`);
+          }
+        }
       };
 
       appendLog(`probe start socket=${socketPath}`);
@@ -101,7 +105,6 @@ export async function runClaudeSdkBridgeStartupProbe(
         "Do not explain. Just execute it.",
       ].join("\n");
 
-      // v1 query() supports cwd + maxTurns; v2 createSession does not.
       const q = sdk.query({
         prompt,
         options: {
@@ -136,14 +139,14 @@ export async function createClaudeSdkBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
-  const { slug, sendMessage, debugLog, sessionBriefing } = config;
+  const { sendMessage, debugLog, sessionBriefing } = config;
   const env = process.env;
 
   const sdk = await tryImportSdk();
   if (!sdk) {
     throw new Error("Claude Agent SDK is not importable.");
   }
-  const resolvedSdk = sdk;
+  const loadedSdk = sdk;
 
   const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(env);
   const appendSystemPrompt = buildAppendSystemPrompt(config.instructions.systemPrompt, env);
@@ -171,7 +174,7 @@ export async function createClaudeSdkBridgeRunner(
   const canvasReminderEvery = resolveCanvasReminderEvery();
 
   function createSession(): SdkSession {
-    const session = resolvedSdk.unstable_v2_createSession({
+    const session = loadedSdk.unstable_v2_createSession({
       model,
       pathToClaudeCodeExecutable: claudePath,
       env: {
@@ -189,7 +192,7 @@ export async function createClaudeSdkBridgeRunner(
     for await (const msg of session.stream()) {
       if (stopped) break;
       if (msg.type === "assistant") {
-        debugLog(`sdk assistant message received`);
+        debugLog("sdk assistant message received");
       } else if (msg.type === "result") {
         if ("session_id" in msg && typeof msg.session_id === "string") {
           sessionId = msg.session_id;
@@ -226,7 +229,9 @@ export async function createClaudeSdkBridgeRunner(
 
       try {
         activeSession?.close();
-      } catch {}
+      } catch (error) {
+        debugLog(`failed to close previous SDK session: ${errorMessage(error)}`, error);
+      }
 
       const newSession = createSession();
       await sendAndStream(newSession, sessionBriefing);
@@ -244,102 +249,52 @@ export async function createClaudeSdkBridgeRunner(
     onEntry: async (entry: BufferedEntry) => {
       const chat = readTextChatMessage(entry);
       if (chat) {
+        forwardedMessageCount += 1;
         const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-          forwardedMessageCount + 1,
+          forwardedMessageCount,
           canvasReminderEvery,
         );
-        const prompt = buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions);
+        const prompt = buildInboundPrompt(chat, { includeCanvasReminder });
         await deliverWithRecovery(prompt);
-        forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: entry.msg.id,
-          stage: "confirmed",
-        });
         return;
       }
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        const prompt = buildRenderErrorPrompt(slug, renderError, config.instructions);
+        const prompt = buildRenderErrorPrompt(renderError);
         await deliverWithRecovery(prompt);
-        forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: entry.msg.id,
-          stage: "confirmed",
-        });
-        return;
       }
-
-      if (
-        entry.msg.type === "binary" ||
-        entry.msg.type === "stream-start" ||
-        entry.msg.type === "stream-end"
-      ) {
-        const streamId =
-          typeof entry.msg.meta?.streamId === "string" ? entry.msg.meta.streamId : undefined;
-        if (entry.msg.type === "binary" && streamId) return;
-        const deliveryMessageId =
-          entry.msg.type === "stream-end" && streamId ? streamId : entry.msg.id;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: deliveryMessageId,
-          stage: "failed",
-          error: "Attachments are not supported in Claude SDK bridge mode.",
-        });
-        if (entry.msg.type !== "stream-end") {
-          void sendMessage(CHANNELS.CHAT, {
-            id: generateMessageId(),
-            type: "text",
-            data: "Attachments are not supported in Claude SDK bridge mode.",
-          });
-        }
-      }
-    },
-    onError: (error, entry) => {
-      const message = errorMessage(error);
-      lastError = message;
-      debugLog(`bridge entry processing failed: ${message}`, error);
-      const deliveryMessageId =
-        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
-          ? entry.msg.meta.streamId
-          : entry.msg.id;
-      config.onDeliveryUpdate?.({
-        channel: entry.channel,
-        messageId: deliveryMessageId,
-        stage: "failed",
-        error: message,
-      });
-      void sendMessage(CHANNELS.CHAT, {
-        id: generateMessageId(),
-        type: "text",
-        data: `Bridge error: ${message}`,
-      });
     },
   });
-  debugLog(`claude-sdk bridge runner started (path=${claudePath})`);
 
   return {
-    enqueue: (entries) => queue.enqueue(entries),
-
-    async stop(): Promise<void> {
-      if (stopped) return;
+    async close() {
       stopped = true;
-      try {
-        activeSession?.close();
-      } catch {}
-      activeSession = null;
-      await queue.stop();
+      queue.close();
+      activeSession?.close();
     },
-
-    status(): BridgeStatus {
+    getStatus(): BridgeStatus {
       return {
-        running: !stopped,
-        sessionId,
+        bridge: "claude-sdk",
+        forwardedMessageCount,
         lastError,
-        forwardedMessages: forwardedMessageCount,
+        sessionId,
       };
+    },
+    async onEntry(entry: BufferedEntry) {
+      try {
+        await queue.push(entry);
+      } catch (error) {
+        lastError = errorMessage(error);
+        throw error;
+      }
+    },
+    sendBufferedChat(text: string) {
+      return sendMessage(
+        CHANNELS.CHAT,
+        { id: generateMessageId(), type: "text", data: text },
+        { skipQueue: true },
+      );
     },
   };
 }
