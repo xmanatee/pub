@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { LiveViewMode } from "~/features/live/types/live-types";
 import type { ChatEntry, SystemMessageSeverity } from "~/features/live-chat/types/live-chat-types";
 
-const AUTO_DISMISS_MS = 5_000;
+const AUTO_DISMISS_MS = 6_000;
 
 export interface ChatPreview {
   source: "agent" | "system";

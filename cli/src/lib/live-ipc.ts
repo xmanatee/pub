@@ -5,7 +5,7 @@
  */
 
 import * as net from "node:net";
-import type { IpcRequest, IpcResponseFor } from "./live-ipc-protocol.js";
+import { type IpcRequest, type IpcResponseFor, parseIpcResponse } from "./live-ipc-protocol.js";
 
 export function getAgentSocketPath(): string {
   const override = process.env.PUBBLUE_AGENT_SOCKET?.trim();
@@ -39,7 +39,12 @@ export async function ipcCall<T extends IpcRequest["method"]>(
         const line = data.slice(0, newlineIdx);
         client.end();
         try {
-          finish(() => resolve(JSON.parse(line) as IpcResponseFor<T>));
+          const parsed = parseIpcResponse(request.method, JSON.parse(line));
+          if (!parsed) {
+            finish(() => reject(new Error("Invalid response from daemon")));
+            return;
+          }
+          finish(() => resolve(parsed));
         } catch {
           finish(() => reject(new Error("Invalid response from daemon")));
         }

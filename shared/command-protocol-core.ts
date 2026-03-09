@@ -1,7 +1,16 @@
 import { type BridgeMessage, makeEventMessage } from "./bridge-protocol-core";
+import {
+  readFiniteNumber,
+  readNonEmptyString,
+  readRecord,
+  readString,
+  readStringArray,
+  readStringRecord,
+} from "./protocol-runtime-core";
 
 export const COMMAND_PROTOCOL_VERSION = 1;
 export const COMMAND_MANIFEST_MAX_FUNCTIONS = 64;
+export const COMMAND_MANIFEST_MIME = "application/pubblue-command-manifest+json";
 
 export type CommandReturnType = "void" | "text" | "json";
 export type CommandExecutorKind = "exec" | "shell" | "agent";
@@ -83,47 +92,15 @@ export function makeCommandCancelMessage(payload: CommandCancelPayload): BridgeM
   return makeEventMessage("command.cancel", payload);
 }
 
-function readRecord(input: unknown): Record<string, unknown> | null {
-  return input && typeof input === "object" && !Array.isArray(input)
-    ? (input as Record<string, unknown>)
-    : null;
-}
-
-function readString(input: unknown): string | undefined {
-  return typeof input === "string" && input.trim().length > 0 ? input : undefined;
-}
-
 function readReturnType(input: unknown): CommandReturnType | undefined {
   if (input === "void" || input === "text" || input === "json") return input;
   return undefined;
 }
 
-function readFiniteNumber(input: unknown): number | undefined {
-  if (typeof input !== "number" || !Number.isFinite(input)) return undefined;
-  return input;
-}
-
-function readStringArray(input: unknown): string[] | undefined {
-  if (!Array.isArray(input)) return undefined;
-  const values = input.filter((entry): entry is string => typeof entry === "string");
-  return values.length === input.length ? values : undefined;
-}
-
-function readStringRecord(input: unknown): Record<string, string> | undefined {
-  const record = readRecord(input);
-  if (!record) return undefined;
-  const values = Object.entries(record).filter((entry): entry is [string, string] => {
-    const [_key, value] = entry;
-    return typeof value === "string";
-  });
-  if (values.length !== Object.keys(record).length) return undefined;
-  return Object.fromEntries(values);
-}
-
 function parseExecutor(input: unknown): CommandExecutorSpec | undefined {
   const record = readRecord(input);
   if (!record) return undefined;
-  const kind = readString(record.kind);
+  const kind = readNonEmptyString(record.kind);
   if (!kind) return undefined;
 
   if (kind === "exec") {
@@ -176,13 +153,13 @@ function parseExecutor(input: unknown): CommandExecutorSpec | undefined {
 function parseFunctionSpec(input: unknown, fallbackName?: string): CommandFunctionSpec | null {
   const record = readRecord(input);
   if (!record) return null;
-  const name = readString(record.name) ?? fallbackName;
+  const name = readNonEmptyString(record.name) ?? fallbackName;
   if (!name) return null;
   return {
     name,
     returns: readReturnType(record.returns),
     timeoutMs: readFiniteNumber(record.timeoutMs),
-    description: readString(record.description),
+    description: readNonEmptyString(record.description),
     executor: parseExecutor(record.executor),
   };
 }
@@ -207,12 +184,11 @@ function parseMetaRecord(msg: BridgeMessage): Record<string, unknown> | null {
   return msg.type === "event" && msg.meta ? readRecord(msg.meta) : null;
 }
 
-export function parseCommandInvokeMessage(msg: BridgeMessage): CommandInvokePayload | null {
-  if (msg.type !== "event" || msg.data !== "command.invoke") return null;
-  const meta = parseMetaRecord(msg);
+export function parseCommandInvokePayload(input: unknown): CommandInvokePayload | null {
+  const meta = readRecord(input);
   if (!meta) return null;
-  const callId = readString(meta.callId);
-  const name = readString(meta.name);
+  const callId = readNonEmptyString(meta.callId);
+  const name = readNonEmptyString(meta.name);
   if (!callId || !name) return null;
   return {
     v: readFiniteNumber(meta.v) ?? COMMAND_PROTOCOL_VERSION,
@@ -223,11 +199,15 @@ export function parseCommandInvokeMessage(msg: BridgeMessage): CommandInvokePayl
   };
 }
 
-export function parseCommandResultMessage(msg: BridgeMessage): CommandResultPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.result") return null;
-  const meta = parseMetaRecord(msg);
+export function parseCommandInvokeMessage(msg: BridgeMessage): CommandInvokePayload | null {
+  if (msg.type !== "event" || msg.data !== "command.invoke") return null;
+  return parseCommandInvokePayload(parseMetaRecord(msg));
+}
+
+export function parseCommandResultPayload(input: unknown): CommandResultPayload | null {
+  const meta = readRecord(input);
   if (!meta) return null;
-  const callId = readString(meta.callId);
+  const callId = readNonEmptyString(meta.callId);
   if (!callId) return null;
   const ok = meta.ok === true;
   const errorRecord = readRecord(meta.error);
@@ -238,8 +218,8 @@ export function parseCommandResultMessage(msg: BridgeMessage): CommandResultPayl
     value: meta.value,
     error: errorRecord
       ? {
-          code: readString(errorRecord.code) ?? "UNKNOWN",
-          message: readString(errorRecord.message) ?? "Unknown error",
+          code: readNonEmptyString(errorRecord.code) ?? "UNKNOWN",
+          message: readNonEmptyString(errorRecord.message) ?? "Unknown error",
           retryable: errorRecord.retryable === true,
           details: errorRecord.details,
         }
@@ -248,25 +228,36 @@ export function parseCommandResultMessage(msg: BridgeMessage): CommandResultPayl
   };
 }
 
-export function parseCommandCancelMessage(msg: BridgeMessage): CommandCancelPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.cancel") return null;
-  const meta = parseMetaRecord(msg);
+export function parseCommandResultMessage(msg: BridgeMessage): CommandResultPayload | null {
+  if (msg.type !== "event" || msg.data !== "command.result") return null;
+  return parseCommandResultPayload(parseMetaRecord(msg));
+}
+
+export function parseCommandCancelPayload(input: unknown): CommandCancelPayload | null {
+  const meta = readRecord(input);
   if (!meta) return null;
-  const callId = readString(meta.callId);
+  const callId = readNonEmptyString(meta.callId);
   if (!callId) return null;
   return {
     v: readFiniteNumber(meta.v) ?? COMMAND_PROTOCOL_VERSION,
     callId,
-    reason: readString(meta.reason),
+    reason: readNonEmptyString(meta.reason),
   };
+}
+
+export function parseCommandCancelMessage(msg: BridgeMessage): CommandCancelPayload | null {
+  if (msg.type !== "event" || msg.data !== "command.cancel") return null;
+  return parseCommandCancelPayload(parseMetaRecord(msg));
 }
 
 export function parseCommandFunctionList(input: unknown): CommandFunctionSpec[] {
   return parseFunctionList(input);
 }
 
-const MANIFEST_SCRIPT_RE =
-  /<script\s[^>]*type\s*=\s*["']application\/pubblue-command-manifest\+json["'][^>]*>([\s\S]*?)<\/script>/i;
+const MANIFEST_SCRIPT_RE = new RegExp(
+  `<script\\s[^>]*type\\s*=\\s*["']${COMMAND_MANIFEST_MIME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'][^>]*>([\\s\\S]*?)<\\/script>`,
+  "i",
+);
 
 export interface CanvasManifest {
   v: number;

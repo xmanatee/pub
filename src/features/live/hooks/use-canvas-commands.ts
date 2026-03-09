@@ -1,14 +1,22 @@
 import { type RefObject, useCallback, useState } from "react";
-import { CHANNELS, generateMessageId, makeEventMessage } from "~/features/live/lib/bridge-protocol";
-import { parseCommandResultMessage } from "~/features/live/lib/command-protocol";
+import { CHANNELS } from "~/features/live/lib/bridge-protocol";
+import {
+  COMMAND_PROTOCOL_VERSION,
+  type CommandCancelPayload,
+  type CommandInvokePayload,
+  makeCommandCancelMessage,
+  makeCommandInvokeMessage,
+  parseCommandResultMessage,
+} from "~/features/live/lib/command-protocol";
 import type {
   BridgeState,
   BrowserBridge,
   ChannelMessage,
 } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
+import { PARENT_TO_CANVAS_SOURCE } from "~/features/live/types/live-command-types";
 import type {
-  CanvasBridgeInboundMessage,
+  CanvasBridgeCommandMessage,
   CanvasBridgeOutboundMessage,
 } from "~/features/live/types/live-types";
 
@@ -28,10 +36,10 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     (callId: string | undefined, code: string, message: string) => {
       if (!callId) return;
       setOutboundCanvasBridgeMessage({
-        id: generateMessageId(),
+        source: PARENT_TO_CANVAS_SOURCE,
         type: "command.result",
         payload: {
-          v: 1,
+          v: COMMAND_PROTOCOL_VERSION,
           callId,
           ok: false,
           error: { code, message, retryable: false },
@@ -43,9 +51,8 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   );
 
   const onCanvasBridgeMessage = useCallback(
-    (message: CanvasBridgeInboundMessage) => {
-      const callId =
-        typeof message.payload.callId === "string" ? message.payload.callId : undefined;
+    (message: CanvasBridgeCommandMessage) => {
+      const callId = message.payload.callId;
 
       if (!liveMode || bridgeState !== "connected") {
         emitCommandFailureToCanvas(
@@ -67,40 +74,19 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
       }
 
       if (message.type === "command.cancel") {
-        const payload = {
-          v: typeof message.payload.v === "number" ? message.payload.v : 1,
-          callId: callId ?? "",
-          reason: typeof message.payload.reason === "string" ? message.payload.reason : undefined,
-        };
-        if (payload.callId.length === 0) return;
+        const payload: CommandCancelPayload = message.payload;
         void ensureChannelReady(bridge, CHANNELS.COMMAND).then((ready) => {
           if (!ready) return;
           void bridge.sendWithAck(
             CHANNELS.COMMAND,
-            makeEventMessage("command.cancel", payload),
+            makeCommandCancelMessage(payload),
             COMMAND_ACK_TIMEOUT_MS,
           );
         });
         return;
       }
 
-      const invokePayload = {
-        v: typeof message.payload.v === "number" ? message.payload.v : 1,
-        callId: callId ?? "",
-        name: typeof message.payload.name === "string" ? message.payload.name : "",
-        args:
-          message.payload.args && typeof message.payload.args === "object"
-            ? (message.payload.args as Record<string, unknown>)
-            : {},
-        timeoutMs:
-          typeof message.payload.timeoutMs === "number" && message.payload.timeoutMs > 0
-            ? message.payload.timeoutMs
-            : undefined,
-      };
-      if (invokePayload.callId.length === 0 || invokePayload.name.length === 0) {
-        emitCommandFailureToCanvas(callId, "INVALID_COMMAND_INVOKE", "Invalid command payload.");
-        return;
-      }
+      const invokePayload: CommandInvokePayload = message.payload;
 
       void ensureChannelReady(bridge, CHANNELS.COMMAND)
         .then(async (ready) => {
@@ -114,7 +100,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
           }
           const delivered = await bridge.sendWithAck(
             CHANNELS.COMMAND,
-            makeEventMessage("command.invoke", invokePayload),
+            makeCommandInvokeMessage(invokePayload),
             COMMAND_ACK_TIMEOUT_MS,
           );
           if (!delivered) {
@@ -145,7 +131,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     const result = parseCommandResultMessage(cm.message);
     if (result) {
       setOutboundCanvasBridgeMessage({
-        id: generateMessageId(),
+        source: PARENT_TO_CANVAS_SOURCE,
         type: "command.result",
         payload: result,
       });

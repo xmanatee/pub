@@ -53,7 +53,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Components** (`convex.config.ts`): registers `rateLimiter` and `shardedCounter` components
-- **Default visibility**: pubs are **private by default**
+- **Visibility**: pubs are always created private; visibility can only be changed via update
 
 ### Pub Limits
 - **Total**: max 10 pubs per user (enforced on create)
@@ -64,7 +64,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
-- `create [file]` — supports `--slug`, `--title`, `--public`/`--private`
+- `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live

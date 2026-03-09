@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LiveInfo } from "./api.js";
+import type { LiveInfo } from "../../../shared/live-api-core";
 import { decideSignalingUpdate } from "./live-signaling.js";
 
 function makeLive(overrides: Partial<LiveInfo> = {}): LiveInfo {

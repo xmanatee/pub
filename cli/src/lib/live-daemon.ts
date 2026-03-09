@@ -22,6 +22,10 @@ import {
   parseAckMessage,
   shouldAcknowledgeMessage,
 } from "../../../shared/bridge-protocol-core";
+import {
+  ORDERED_DATA_CHANNEL_OPTIONS,
+  WEBRTC_STUN_URLS,
+} from "../../../shared/webrtc-transport-core";
 import { errorMessage } from "./cli-error.js";
 import { createClaudeCodeBridgeRunner } from "./live-bridge-claude-code.js";
 import { createClaudeSdkBridgeRunner } from "./live-bridge-claude-sdk.js";
@@ -498,7 +502,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (!peer) throw new Error("PeerConnection not initialized");
     const existing = channels.get(name);
     if (existing) return existing;
-    const dc = peer.createDataChannel(name, { ordered: true });
+    const dc = peer.createDataChannel(name, ORDERED_DATA_CHANNEL_OPTIONS);
     setupChannel(name, dc);
     return dc;
   }
@@ -612,7 +616,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   function createPeer(): void {
     const nextPeer: PeerConnection = new ndc.PeerConnection("agent", {
-      iceServers: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
+      iceServers: [...WEBRTC_STUN_URLS],
     });
     peer = nextPeer;
     channels = new Map<string, DataChannel>();

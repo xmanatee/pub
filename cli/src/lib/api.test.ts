@@ -251,7 +251,7 @@ describe("PubApiClient", () => {
   });
 
   describe("agent live methods", () => {
-    it("getPendingLive fetches pending live info", async () => {
+    it("getAgentLive fetches current live info", async () => {
       const mockLive = {
         slug: "abc",
         browserOffer: "offer-data",
@@ -267,11 +267,11 @@ describe("PubApiClient", () => {
         }),
       );
 
-      const result = await client.getPendingLive();
+      const result = await client.getAgentLive();
       expect(result).toEqual(mockLive);
     });
 
-    it("getPendingLive returns null when no pending live", async () => {
+    it("getAgentLive returns null when no live session exists", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ live: null }), {
           status: 200,
@@ -279,11 +279,11 @@ describe("PubApiClient", () => {
         }),
       );
 
-      const result = await client.getPendingLive();
+      const result = await client.getAgentLive();
       expect(result).toBeNull();
     });
 
-    it("getPendingLive includes daemonSessionId query when provided", async () => {
+    it("getAgentLive includes daemonSessionId query when provided", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ live: null }), {
           status: 200,
@@ -291,7 +291,7 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.getPendingLive("daemon-1");
+      await client.getAgentLive("daemon-1");
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/live?daemonSessionId=daemon-1", baseUrl),
         expect.any(Object),
@@ -387,30 +387,6 @@ describe("PubApiClient", () => {
         new URL("/api/v1/agent/telegram-bot", baseUrl),
         expect.objectContaining({ method: "DELETE" }),
       );
-    });
-  });
-
-  describe("getLive", () => {
-    it("fetches live info by slug", async () => {
-      const mockLive = {
-        slug: "abc",
-        status: "active",
-        browserOffer: "offer",
-        agentAnswer: "answer",
-        agentCandidates: [],
-        browserCandidates: [],
-        createdAt: 1000,
-      };
-
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ live: mockLive }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
-
-      const result = await client.getLive("abc");
-      expect(result).toEqual(mockLive);
     });
   });
 });

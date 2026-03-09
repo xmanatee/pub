@@ -15,16 +15,12 @@ export function registerPubCommands(program: Command): void {
     .argument("[file]", "Path to the file (reads stdin if omitted)")
     .option("--slug <slug>", "Custom slug for the URL")
     .option("--title <title>", "Title for the pub")
-    .option("--public", "Make the pub public")
-    .option("--private", "Make the pub private (default)")
     .action(
       async (
         fileArg: string | undefined,
         opts: {
           slug?: string;
           title?: string;
-          public?: boolean;
-          private?: boolean;
         },
       ) => {
         const client = createClient();
@@ -40,18 +36,11 @@ export function registerPubCommands(program: Command): void {
           content = await readFromStdin();
         }
 
-        const resolvedVisibility = resolveVisibilityFlags({
-          public: opts.public,
-          private: opts.private,
-          commandName: "create",
-        });
-
         const result = await client.create({
           content,
           filename,
           title: opts.title,
           slug: opts.slug,
-          isPublic: resolvedVisibility ?? false,
         });
 
         console.log(`Created: ${result.url}`);

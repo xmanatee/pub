@@ -1,3 +1,10 @@
+import {
+  readFiniteNumber,
+  readNonEmptyString,
+  readRecord,
+  readString,
+} from "./protocol-runtime-core";
+
 /**
  * Bridge protocol — shared types for the pub.blue P2P bridge.
  *
@@ -12,6 +19,16 @@ export type BridgeMessageType =
   | "stream-data"
   | "stream-end"
   | "event";
+
+const BRIDGE_MESSAGE_TYPES = new Set<BridgeMessageType>([
+  "text",
+  "html",
+  "binary",
+  "stream-start",
+  "stream-data",
+  "stream-end",
+  "event",
+]);
 
 export interface BridgeMessageMeta {
   mime?: string;
@@ -115,13 +132,60 @@ export function encodeMessage(msg: BridgeMessage): string {
   return JSON.stringify(msg);
 }
 
+function parseBridgeMessageMeta(input: unknown): BridgeMessageMeta | undefined | null {
+  if (input === undefined) return undefined;
+  const record = readRecord(input);
+  if (!record) return null;
+
+  const meta: BridgeMessageMeta = { ...record };
+  const knownStringKeys = ["mime", "filename", "title"] as const;
+  for (const key of knownStringKeys) {
+    if (record[key] === undefined) continue;
+    const value = readString(record[key]);
+    if (value === undefined) return null;
+    meta[key] = value;
+  }
+
+  const knownNumberKeys = ["sampleRate", "width", "height", "size"] as const;
+  for (const key of knownNumberKeys) {
+    if (record[key] === undefined) continue;
+    const value = readFiniteNumber(record[key]);
+    if (value === undefined) return null;
+    meta[key] = value;
+  }
+
+  return meta;
+}
+
+export function parseBridgeMessage(input: unknown): BridgeMessage | null {
+  const record = readRecord(input);
+  if (!record) return null;
+
+  const id = readNonEmptyString(record.id);
+  const type = readString(record.type);
+  if (!id || !type || !BRIDGE_MESSAGE_TYPES.has(type as BridgeMessageType)) {
+    return null;
+  }
+
+  const data = record.data === undefined ? undefined : readString(record.data);
+  if (record.data !== undefined && data === undefined) {
+    return null;
+  }
+
+  const meta = parseBridgeMessageMeta(record.meta);
+  if (meta === null) return null;
+
+  return {
+    id,
+    type: type as BridgeMessageType,
+    data,
+    meta,
+  };
+}
+
 export function decodeMessage(raw: string): BridgeMessage | null {
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.id === "string" && typeof parsed.type === "string") {
-      return parsed as BridgeMessage;
-    }
-    return null;
+    return parseBridgeMessage(JSON.parse(raw));
   } catch (_error) {
     // Invalid JSON frames should be treated as non-protocol traffic.
     return null;

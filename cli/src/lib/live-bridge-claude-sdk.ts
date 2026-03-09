@@ -147,6 +147,7 @@ export async function createClaudeSdkBridgeRunner(
   if (!sdk) {
     throw new Error("Claude Agent SDK is not importable.");
   }
+  const loadedSdk = sdk;
 
   const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(env);
   const appendSystemPrompt = buildAppendSystemPrompt(config.instructions.systemPrompt, env);
@@ -174,10 +175,7 @@ export async function createClaudeSdkBridgeRunner(
   const canvasReminderEvery = resolveCanvasReminderEvery();
 
   function createSession(): SdkSession {
-    if (!sdk) {
-      throw new Error("Claude Agent SDK is not importable.");
-    }
-    const session = sdk.unstable_v2_createSession({
+    const session = loadedSdk.unstable_v2_createSession({
       model,
       pathToClaudeCodeExecutable: claudePath,
       env: {

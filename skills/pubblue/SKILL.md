@@ -42,7 +42,7 @@ For OpenClaw bridge mode, daemon runtime defaults to `OPENCLAW_WORKSPACE=~/.open
 
 ```bash
 pubblue create page.html
-pubblue create --slug demo --title "Demo" --public page.html
+pubblue create --slug demo --title "Demo" page.html
 cat notes.md | pubblue create
 
 pubblue get <slug>
@@ -58,7 +58,8 @@ pubblue delete <slug>
 Notes:
 - Pub is built for agent-driven output sharing and live visualization.
 - Pubs are **private by default**.
-- `create` supports `--public/--private`, `--title`, `--slug`.
+- **Reuse existing pubs** for regular or repeated tasks. Use `pubblue list` to check if a relevant pub already exists, then `pubblue update <slug>` instead of creating a new one. Each user is limited to 10 pubs.
+- `create` supports `--title`, `--slug`.
 - `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
 - Content is optional: a pub can be live-only.
 
