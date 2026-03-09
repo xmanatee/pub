@@ -1,13 +1,16 @@
 import type { DataChannel } from "node-datachannel";
 import {
   type BridgeMessage,
+  CHANNELS,
   encodeMessage,
   shouldAcknowledgeMessage,
 } from "../../../shared/bridge-protocol-core";
+import type { PubApiClient } from "./api.js";
 import type { ChannelBuffer } from "./live-daemon-shared.js";
 import type { RawIpcRequest } from "./live-ipc-protocol.js";
 
 interface DaemonIpcHandlerParams {
+  apiClient: PubApiClient;
   getConnected: () => boolean;
   getSignalingConnected: () => boolean | null;
   getActiveSlug: () => string | null;
@@ -23,7 +26,6 @@ interface DaemonIpcHandlerParams {
   waitForChannelOpen: (channel: DataChannel, timeoutMs?: number) => Promise<void>;
   waitForDeliveryAck: (messageId: string, channel: string, timeoutMs: number) => Promise<boolean>;
   settlePendingAck: (messageId: string, channel: string, received: boolean) => void;
-  trackOutboundMessage: (channel: string, msg: BridgeMessage) => void;
   markError: (message: string, error?: unknown) => void;
   shutdown: () => void;
   writeAckTimeoutMs: number;
@@ -35,10 +37,29 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
     switch (req.method) {
       case "write": {
         const channel = (req.params.channel as string) || "chat";
+        const msg = req.params.msg as BridgeMessage;
+
+        if (channel === CHANNELS.CANVAS && msg.type === "html" && typeof msg.data === "string") {
+          const slug = params.getActiveSlug();
+          if (!slug) return { ok: false, error: "No active live session." };
+          try {
+            await params.apiClient.update({
+              slug,
+              content: msg.data,
+              filename: "live-canvas.html",
+            });
+            return { ok: true, delivered: true };
+          } catch (error) {
+            const errMsg =
+              error instanceof Error ? error.message : String(error);
+            params.markError(`failed to persist canvas HTML for "${slug}"`, error);
+            return { ok: false, error: `Canvas update failed: ${errMsg}` };
+          }
+        }
+
         const readinessError = params.getWriteReadinessError();
         if (readinessError) return { ok: false, error: readinessError };
 
-        const msg = req.params.msg as BridgeMessage;
         const binaryBase64 =
           typeof req.params.binaryBase64 === "string" ? req.params.binaryBase64 : undefined;
         const binaryPayload =
@@ -102,7 +123,6 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
             }
           }
 
-          params.trackOutboundMessage(channel, msg);
           return { ok: true, delivered: true };
         }
 

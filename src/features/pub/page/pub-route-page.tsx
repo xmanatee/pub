@@ -26,7 +26,7 @@ function PubRouteContent({ slug }: { slug: string }) {
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
-  const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? baseContentHtml) : baseContentHtml;
+  const effectiveCanvasHtml = baseContentHtml ?? null;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
@@ -44,9 +44,13 @@ function PubRouteContent({ slug }: { slug: string }) {
         >
           <CanvasPanel
             html={effectiveCanvasHtml}
-            onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
+            onCanvasBridgeMessage={
+              isOwner ? session.onCanvasBridgeMessage : undefined
+            }
             onRenderError={isOwner ? session.sendRenderError : undefined}
-            outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
+            outboundCanvasBridgeMessage={
+              isOwner ? session.outboundCanvasBridgeMessage : null
+            }
             visualState={session.visualState}
           />
         </div>
