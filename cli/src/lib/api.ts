@@ -131,7 +131,6 @@ export class PubApiClient {
     filename?: string;
     title?: string;
     slug?: string;
-    isPublic?: boolean;
   }): Promise<CreateResult> {
     return this.request<CreateResult>("/api/v1/pubs", {
       method: "POST",

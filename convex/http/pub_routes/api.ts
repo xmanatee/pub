@@ -45,7 +45,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         filename?: string;
         title?: string;
         slug?: string;
-        isPublic?: boolean;
       };
       try {
         body = await request.json();
@@ -83,7 +82,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               contentType,
               content: body.content,
               title: body.title,
-              isPublic: body.isPublic ?? false,
             });
           } catch (error) {
             rethrowPubLimitError(error);

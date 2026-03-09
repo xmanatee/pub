@@ -476,7 +476,6 @@ export const createPub = internalMutation({
     contentType: v.optional(CONTENT_TYPE_VALIDATOR),
     content: v.optional(v.string()),
     title: v.optional(v.string()),
-    isPublic: v.boolean(),
   },
   handler: async (ctx, args) => {
     const count = await countUserPubs(ctx.db, args.userId);
@@ -490,7 +489,7 @@ export const createPub = internalMutation({
       contentType: args.contentType,
       content: args.content,
       title: args.title,
-      isPublic: args.isPublic,
+      isPublic: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
