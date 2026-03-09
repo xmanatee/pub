@@ -11,12 +11,14 @@
     "dev": "tsup src/index.ts src/live-daemon-entry.ts --format esm --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build:bin": "bun run build-binary.ts",
+    "build:bin:local": "bun build --compile --external @anthropic-ai/claude-agent-sdk --minify src/index.ts --outfile dist-bin/pubblue"
   },
   "dependencies": {
     "commander": "^13.0.0",
     "convex": "^1.19.0",
-    "node-datachannel": "^0.32.0"
+    "werift": "^0.22.9"
   },
   "optionalDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.0"
@@ -40,8 +42,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild",
-      "node-datachannel"
+      "esbuild"
     ]
   }
 }

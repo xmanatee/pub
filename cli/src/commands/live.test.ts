@@ -8,7 +8,7 @@ import {
   resolveBridgeMode,
 } from "../lib/live-runtime/bridge-runtime.js";
 import { getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
-import { buildDaemonForkStdio } from "../lib/live-runtime/daemon-process.js";
+import { buildDaemonSpawnStdio } from "../lib/live-runtime/daemon-process.js";
 import { parsePositiveInteger } from "../lib/number.js";
 import { SUPPORTED_KEYS } from "./configure/schema.js";
 
@@ -46,9 +46,9 @@ describe("getFollowReadDelayMs", () => {
   });
 });
 
-describe("buildDaemonForkStdio", () => {
-  it("includes required IPC channel for fork", () => {
-    expect(buildDaemonForkStdio(7)).toEqual(["ignore", 7, 7, "ipc"]);
+describe("buildDaemonSpawnStdio", () => {
+  it("returns stdio config for spawn (no IPC channel)", () => {
+    expect(buildDaemonSpawnStdio(7)).toEqual(["ignore", 7, 7]);
   });
 });
 

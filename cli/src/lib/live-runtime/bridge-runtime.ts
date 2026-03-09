@@ -56,20 +56,6 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
   return env;
 }
 
-export async function ensureNodeDatachannelAvailable(): Promise<void> {
-  try {
-    await import("node-datachannel");
-  } catch (error) {
-    throw new Error(
-      [
-        "node-datachannel native module is not available.",
-        "Run `pnpm rebuild node-datachannel` in the cli package and retry.",
-        `Details: ${error instanceof Error ? error.message : String(error)}`,
-      ].join("\n"),
-    );
-  }
-}
-
 export function parseBridgeMode(raw: string): BridgeMode {
   const normalized = raw.trim().toLowerCase();
   if (normalized === "openclaw" || normalized === "claude-code" || normalized === "claude-sdk") {

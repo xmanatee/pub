@@ -137,8 +137,8 @@ export async function stopOtherDaemons(): Promise<void> {
   }
 }
 
-export function buildDaemonForkStdio(logFd: number): ["ignore", number, number, "ipc"] {
-  return ["ignore", logFd, logFd, "ipc"];
+export function buildDaemonSpawnStdio(logFd: number): ["ignore", number, number] {
+  return ["ignore", logFd, logFd];
 }
 
 interface WaitForDaemonReadyParams {

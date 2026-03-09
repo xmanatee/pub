@@ -1,4 +1,3 @@
-import type { DataChannel } from "node-datachannel";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -8,6 +7,7 @@ import {
 import type { PubApiClient } from "./api.js";
 import type { ChannelBuffer } from "./live-daemon-shared.js";
 import type { IpcRequest } from "./live-ipc-protocol.js";
+import type { AdapterDataChannel } from "./webrtc-adapter.js";
 
 interface DaemonIpcHandlerParams {
   apiClient: PubApiClient;
@@ -23,8 +23,8 @@ interface DaemonIpcHandlerParams {
   getBridgeMode: () => string | null;
   getBridgeStatus: () => unknown;
   getWriteReadinessError: () => string | null;
-  openDataChannel: (channel: string) => DataChannel;
-  waitForChannelOpen: (channel: DataChannel, timeoutMs?: number) => Promise<void>;
+  openDataChannel: (channel: string) => AdapterDataChannel;
+  waitForChannelOpen: (channel: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
   waitForDeliveryAck: (messageId: string, channel: string, timeoutMs: number) => Promise<boolean>;
   settlePendingAck: (messageId: string, channel: string, received: boolean) => void;
   markError: (message: string, error?: unknown) => void;
@@ -51,7 +51,6 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
             await params.apiClient.update({
               slug,
               content: msg.data,
-              filename: "live-canvas.html",
             });
             params.bindCanvasCommands(msg.data);
             return { ok: true, delivered: true };
@@ -74,7 +73,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
         let lastError: string | null = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          let targetDc: DataChannel;
+          let targetDc: AdapterDataChannel;
           try {
             targetDc = params.openDataChannel(channel);
             await params.waitForChannelOpen(targetDc);

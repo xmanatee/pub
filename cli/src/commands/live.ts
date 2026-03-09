@@ -24,7 +24,7 @@ import {
   writeLatestCliVersion,
 } from "../lib/live-runtime/daemon-files.js";
 import {
-  buildDaemonForkStdio,
+  buildDaemonSpawnStdio,
   isDaemonRunning,
   resolveActiveSlug,
   stopOtherDaemons,
@@ -91,14 +91,14 @@ function registerStartCommand(program: Command): void {
       const infoPath = liveInfoPath("agent");
       const logPath = liveLogPath("agent");
 
-      const { fork } = await import("node:child_process");
-      const daemonScript = path.join(import.meta.dirname, "live-daemon-entry.js");
+      const { spawn } = await import("node:child_process");
       const daemonLogFd = fs.openSync(logPath, "a");
-      const child = fork(daemonScript, [], {
+      const child = spawn(process.execPath, [], {
         detached: true,
-        stdio: buildDaemonForkStdio(daemonLogFd),
+        stdio: buildDaemonSpawnStdio(daemonLogFd),
         env: {
           ...bridgeProcessEnv,
+          PUBBLUE_DAEMON_MODE: "1",
           PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
           PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
           PUBBLUE_DAEMON_SOCKET: socketPath,
@@ -109,9 +109,6 @@ function registerStartCommand(program: Command): void {
         },
       });
       fs.closeSync(daemonLogFd);
-      if (child.connected) {
-        child.disconnect();
-      }
       child.unref();
 
       console.log("Starting agent daemon...");

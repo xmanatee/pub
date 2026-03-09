@@ -8,7 +8,6 @@ import {
   type BridgeSelection,
   buildBridgeProcessEnv,
   detectBridgeAvailability,
-  ensureNodeDatachannelAvailable,
   resolveBridgeSelection,
   runBridgeStartupPreflight,
 } from "./bridge-runtime.js";
@@ -137,12 +136,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   let bridgeSelection: BridgeSelection | null = null;
   let bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
 
-  try {
-    await ensureNodeDatachannelAvailable();
-    passed.push({ label: "node-datachannel", detail: "native module loaded" });
-  } catch (error) {
-    failures.push({ label: "node-datachannel", detail: errorMessage(error) });
-  }
+  passed.push({ label: "webrtc", detail: "werift (pure TypeScript)" });
 
   try {
     runtimeConfig = getConfig();

@@ -1,13 +1,20 @@
 #!/usr/bin/env node
-import { toCliFailure } from "./lib/cli-error.js";
-import { buildProgram } from "./program.js";
+export {};
 
-const program = buildProgram();
+if (process.env.PUBBLUE_DAEMON_MODE === "1") {
+  const { runDaemonFromEnv } = await import("./live-daemon-entry.js");
+  await runDaemonFromEnv();
+} else {
+  const { toCliFailure } = await import("./lib/cli-error.js");
+  const { buildProgram } = await import("./program.js");
 
-await program.parseAsync(process.argv).catch((error: unknown) => {
-  const failure = toCliFailure(error);
-  if (failure.message) {
-    console.error(failure.message);
-  }
-  process.exit(failure.exitCode);
-});
+  const program = buildProgram();
+
+  await program.parseAsync(process.argv).catch((error: unknown) => {
+    const failure = toCliFailure(error);
+    if (failure.message) {
+      console.error(failure.message);
+    }
+    process.exit(failure.exitCode);
+  });
+}

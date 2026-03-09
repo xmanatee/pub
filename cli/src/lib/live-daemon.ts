@@ -8,7 +8,11 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { DataChannel, PeerConnection } from "node-datachannel";
+import {
+  type AdapterDataChannel,
+  type AdapterPeerConnection,
+  createPeerConnection,
+} from "./webrtc-adapter.js";
 import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import {
   type BridgeMessage,
@@ -62,8 +66,6 @@ const MAX_BUFFERED_MESSAGES = 200;
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
 
-  const ndc = await import("node-datachannel");
-
   const buffer: ChannelBuffer = { messages: [] };
   const startTime = Date.now();
   const daemonSessionId = randomUUID();
@@ -87,8 +89,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     { resolve: (received: boolean) => void; timeout: ReturnType<typeof setTimeout> }
   >();
 
-  let peer: PeerConnection | null = null;
-  let channels = new Map<string, DataChannel>();
+  let peer: AdapterPeerConnection | null = null;
+  let channels = new Map<string, AdapterDataChannel>();
   let pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
   let inboundStreams = new Map<string, { streamId: string }>();
   let seenInboundMessageKeys = new Set<string>();
@@ -277,7 +279,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function setupChannel(name: string, dc: DataChannel): void {
+  function setupChannel(name: string, dc: AdapterDataChannel): void {
     channels.set(name, dc);
     dc.onOpen(() => {
       if (name === CONTROL_CHANNEL) flushQueuedAcks();
@@ -497,7 +499,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
-  function openDataChannel(name: string): DataChannel {
+  function openDataChannel(name: string): AdapterDataChannel {
     if (!peer) throw new Error("PeerConnection not initialized");
     const existing = channels.get(name);
     if (existing) return existing;
@@ -506,7 +508,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     return dc;
   }
 
-  async function waitForChannelOpen(dc: DataChannel, timeoutMs = 5_000): Promise<void> {
+  async function waitForChannelOpen(dc: AdapterDataChannel, timeoutMs = 5_000): Promise<void> {
     if (dc.isOpen()) return;
     await new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -535,7 +537,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       if (stopped || !browserConnected) return false;
 
-      let targetDc: DataChannel;
+      let targetDc: AdapterDataChannel;
       try {
         targetDc = channels.get(channel) ?? openDataChannel(channel);
         await waitForChannelOpen(targetDc);
@@ -579,7 +581,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   // -- Peer management ------------------------------------------------------
 
-  function attachPeerHandlers(currentPeer: PeerConnection): void {
+  function attachPeerHandlers(currentPeer: AdapterPeerConnection): void {
     currentPeer.onLocalCandidate((candidate: string, mid: string) => {
       if (stopped || currentPeer !== peer) return;
       localCandidates.push(JSON.stringify({ candidate, sdpMid: mid }));
@@ -607,18 +609,18 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       }
     });
 
-    currentPeer.onDataChannel((dc: DataChannel) => {
+    currentPeer.onDataChannel((dc: AdapterDataChannel) => {
       if (stopped || currentPeer !== peer) return;
       setupChannel(dc.getLabel(), dc);
     });
   }
 
   function createPeer(): void {
-    const nextPeer: PeerConnection = new ndc.PeerConnection("agent", {
+    const nextPeer = createPeerConnection({
       iceServers: [...WEBRTC_STUN_URLS],
     });
     peer = nextPeer;
-    channels = new Map<string, DataChannel>();
+    channels = new Map<string, AdapterDataChannel>();
     pendingInboundBinaryMeta = new Map<string, BridgeMessage>();
     inboundStreams = new Map<string, { streamId: string }>();
     seenInboundMessageKeys = new Set<string>();
