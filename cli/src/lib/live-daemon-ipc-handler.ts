@@ -51,7 +51,6 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
             await params.apiClient.update({
               slug,
               content: msg.data,
-              filename: "live-canvas.html",
             });
             params.bindCanvasCommands(msg.data);
             return { ok: true, delivered: true };
