@@ -376,6 +376,54 @@ export const getLive = internalQuery({
   },
 });
 
+export const getLiveForAgent = query({
+  args: { apiKey: v.string(), daemonSessionId: v.string() },
+  handler: async (ctx, { apiKey, daemonSessionId }) => {
+    const now = Date.now();
+    const keyHash = await hashApiKey(apiKey);
+    const key = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
+      .unique();
+    if (!key) throw new Error("Invalid API key");
+
+    const byApiKey = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
+      .collect();
+
+    const presence = byApiKey.find(
+      (entry) =>
+        entry.daemonSessionId === daemonSessionId &&
+        entry.status === "online" &&
+        now - entry.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+    );
+    if (!presence) return null;
+
+    const allPresences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .collect();
+    const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
+
+    const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
+      if (live.targetPresenceId) return live.targetPresenceId === presence._id;
+      return freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === presence._id;
+    };
+
+    const lives = await ctx.db
+      .query("lives")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .order("desc")
+      .collect();
+
+    const pending = lives.find((s) => matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer);
+    const active = pending ?? lives.find((s) => matchesCurrentAgent(s));
+
+    return active ? mapAgentLiveInfo(active) : null;
+  },
+});
+
 export const requestLive = mutation({
   args: {
     slug: v.string(),
