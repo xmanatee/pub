@@ -348,8 +348,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           queueAck(msg.id, name);
         }
         if (name === CHANNELS.COMMAND) {
-          // Use a basic promise chain to ensure sequential processing of command events.
-          // This prevents race conditions where handleInvoke might run while handleBind is clearing functions.
+          // Process command events sequentially to avoid out-of-order invoke/cancel handling.
           commandProcessingQueue = commandProcessingQueue
             .then(() => commandHandler.onMessage(msg))
             .catch((error) => {

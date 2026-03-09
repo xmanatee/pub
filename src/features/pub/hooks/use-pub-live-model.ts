@@ -143,7 +143,7 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
     markMessageReceived,
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
-    onCommandMessage: commandMessageHandlerRef.current,
+    onCommandMessageRef: commandMessageHandlerRef,
   });
 
   const isOwner = pub?.isOwner === true;
@@ -221,6 +221,12 @@ export function usePubLiveModel({ slug, pub, baseContentHtml }: UsePubLiveModelO
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
   }, [bridgeState, markBridgeConnected]);
+
+  useEffect(() => {
+    if (!liveMode || !autoOpenCanvas) return;
+    if (!baseContentHtml) return;
+    setViewMode("canvas");
+  }, [autoOpenCanvas, baseContentHtml, liveMode, setViewMode]);
 
   useEffect(() => {
     const nextError = sessionError;

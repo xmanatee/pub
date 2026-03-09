@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
 import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-record";
+import type { LiveViewMode } from "~/features/live/types/live-types";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { cn } from "~/lib/utils";
 import { CB } from "./control-bar-classes";
@@ -42,7 +43,6 @@ export function ControlBar({ initialInput }: ControlBarProps) {
     setViewMode,
     sendChat,
     sendFile,
-    sessionState,
     takeoverLive,
     uiState,
     viewMode,
@@ -66,7 +66,7 @@ export function ControlBar({ initialInput }: ControlBarProps) {
   const closeExpanded = useCallback(() => setExpanded(false), []);
 
   const handleViewSelect = useCallback(
-    (mode: any) => {
+    (mode: LiveViewMode) => {
       setViewMode(mode);
       setExpanded(false);
     },
@@ -123,7 +123,7 @@ export function ControlBar({ initialInput }: ControlBarProps) {
         lastTakeoverAt={lastTakeoverAt}
         onExit={closeLive}
         onTakeover={takeoverLive}
-        sessionState={sessionState as any}
+        sessionState={uiState}
       />
     );
   } else if (uiState === "recording" || uiState === "recording-paused") {

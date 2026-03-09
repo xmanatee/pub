@@ -81,7 +81,7 @@ interface UseLiveTransportOptions {
   markMessageReceived: (messageId: string) => void;
   markMessageSentIfPending: (messageId: string) => void;
   updateAudioMessageAnalysis: (messageId: string, duration: number, waveform: number[]) => void;
-  onCommandMessage?: (cm: ChannelMessage) => void;
+  onCommandMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
 }
 
 export function useLiveTransport({
@@ -108,7 +108,7 @@ export function useLiveTransport({
   markMessageReceived,
   markMessageSentIfPending,
   updateAudioMessageAnalysis,
-  onCommandMessage,
+  onCommandMessageRef,
 }: UseLiveTransportOptions) {
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
@@ -124,9 +124,6 @@ export function useLiveTransport({
     }>
   >([]);
   const lastResetSlugRef = useRef<string | null>(null);
-  const onCommandMessageRef = useRef(onCommandMessage);
-  onCommandMessageRef.current = onCommandMessage;
-
   const markAgentActivity = useCallback(() => {
     setLastAgentActivityAt(Date.now());
   }, []);
@@ -201,7 +198,7 @@ export function useLiveTransport({
       }
 
       if (channel === CHANNELS.COMMAND) {
-        onCommandMessageRef.current?.(cm);
+        onCommandMessageRef?.current?.(cm);
         return;
       }
     },
@@ -211,6 +208,7 @@ export function useLiveTransport({
       addAgentMessage,
       addReceivedBinaryFile,
       markAgentActivity,
+      onCommandMessageRef,
       updateAudioMessageAnalysis,
     ],
   );
