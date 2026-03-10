@@ -32,6 +32,7 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain('emit("command.invoke"');
     expect(output).toContain('emit("command.cancel"');
     expect(output).toContain("command.result");
+    expect(output).toContain('emit("ready",{})');
     expect(output).not.toContain("command.bind.result");
     expect(output).not.toContain("application/pub-command-manifest+json");
     expect(output).not.toContain("tryBindManifest");

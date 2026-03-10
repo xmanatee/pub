@@ -22,6 +22,7 @@ function buildCanvasBridgeScript(): string {
     'window.addEventListener("error",function(ev){emit("error",{message:ev&&ev.message?ev.message:"Script error",filename:ev&&ev.filename?ev.filename:"",lineno:ev&&typeof ev.lineno==="number"?ev.lineno:0,colno:ev&&typeof ev.colno==="number"?ev.colno:0});});',
     'window.addEventListener("unhandledrejection",function(ev){var reason=ev&&ev.reason;var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");emit("error",{message:message});});',
     `window.addEventListener("message",function(ev){var data=ev&&ev.data;var payload;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"||data.type!=="command.result"||!data.payload||typeof data.payload!=="object"){return;}payload=data.payload;if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var errMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,errMessage);}});`,
+    'emit("ready",{});',
     "})();",
     "</script>",
   ].join("");

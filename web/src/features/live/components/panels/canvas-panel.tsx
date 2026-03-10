@@ -33,12 +33,20 @@ export function CanvasPanel({
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("visible");
   const [canvasError, setCanvasError] = useState<string | null>(null);
+  const [canvasBridgeReady, setCanvasBridgeReady] = useState(false);
+  const [pendingOutboundCanvasBridgeMessages, setPendingOutboundCanvasBridgeMessages] = useState<
+    CanvasBridgeOutboundMessage[]
+  >([]);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lastReportedErrorRef = useRef<{ key: string; timestamp: number } | null>(null);
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
 
   useEffect(() => {
-    if (!html) setCanvasError(null);
+    setCanvasBridgeReady(false);
+    if (!html) {
+      setCanvasError(null);
+      setPendingOutboundCanvasBridgeMessages([]);
+    }
   }, [html]);
 
   useEffect(() => {
@@ -60,6 +68,11 @@ export function CanvasPanel({
       if (event.source !== iframeRef.current?.contentWindow) return;
       const message = parseCanvasBridgeInboundMessage(event.data);
       if (!message) return;
+
+      if (message.type === "ready") {
+        setCanvasBridgeReady(true);
+        return;
+      }
 
       if (message.type !== "error") {
         onCanvasBridgeMessage?.(message);
@@ -99,10 +112,16 @@ export function CanvasPanel({
 
   useEffect(() => {
     if (!outboundCanvasBridgeMessage) return;
+    setPendingOutboundCanvasBridgeMessages((current) => [...current, outboundCanvasBridgeMessage]);
+  }, [outboundCanvasBridgeMessage]);
+
+  useEffect(() => {
+    if (!canvasBridgeReady || pendingOutboundCanvasBridgeMessages.length === 0) return;
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
-    frame.postMessage(outboundCanvasBridgeMessage, "*");
-  }, [outboundCanvasBridgeMessage]);
+    frame.postMessage(pendingOutboundCanvasBridgeMessages[0], "*");
+    setPendingOutboundCanvasBridgeMessages((current) => current.slice(1));
+  }, [canvasBridgeReady, pendingOutboundCanvasBridgeMessages]);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-background">
@@ -120,6 +139,7 @@ export function CanvasPanel({
           onLoad={() => {
             setLoadedHtml(html);
             setCanvasError(null);
+            setCanvasBridgeReady(false);
           }}
         />
       ) : null}

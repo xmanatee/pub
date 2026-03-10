@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 function generateToken(): string {
   const bytes = new Uint8Array(32);
@@ -8,7 +9,17 @@ function generateToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const LINK_TOKEN_EXPIRY_MS = 10 * 60 * 1000; // TODO: schedule cleanup of expired linkTokens
+const LINK_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
+
+export const deleteExpiredToken = internalMutation({
+  args: { id: v.id("linkTokens") },
+  handler: async (ctx, { id }) => {
+    const record = await ctx.db.get(id);
+    if (record && record.expiresAt < Date.now()) {
+      await ctx.db.delete(id);
+    }
+  },
+});
 
 export const createLinkToken = mutation({
   args: {},
@@ -17,11 +28,17 @@ export const createLinkToken = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const token = generateToken();
-    await ctx.db.insert("linkTokens", {
+    const id = await ctx.db.insert("linkTokens", {
       userId,
       token,
       expiresAt: Date.now() + LINK_TOKEN_EXPIRY_MS,
     });
+
+    await ctx.scheduler.runAt(
+      Date.now() + LINK_TOKEN_EXPIRY_MS,
+      internal.linking.deleteExpiredToken,
+      { id },
+    );
 
     return { token };
   },
