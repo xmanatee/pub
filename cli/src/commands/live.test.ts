@@ -2,11 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isClaudeCodeAvailableInEnv } from "../lib/live-bridge-claude-code.js";
 import { isClaudeSdkAvailableInEnv } from "../lib/live-bridge-claude-sdk.js";
 import { isOpenClawAvailable } from "../lib/live-bridge-openclaw.js";
-import {
-  autoDetectBridgeMode,
-  parseBridgeMode,
-  resolveBridgeMode,
-} from "../lib/live-runtime/bridge-runtime.js";
+import { parseBridgeMode, validateBridgeSelection } from "../lib/live-runtime/bridge-runtime.js";
 import { getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
 import { buildDaemonSpawnStdio } from "../lib/live-runtime/daemon-process.js";
 import { parsePositiveInteger } from "../lib/number.js";
@@ -89,61 +85,29 @@ describe("parseBridgeMode", () => {
   });
 });
 
-describe("resolveBridgeMode", () => {
+describe("validateBridgeSelection", () => {
   beforeEach(() => {
     vi.mocked(isOpenClawAvailable).mockReturnValue(false);
     vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(false);
     vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(false);
   });
 
-  it("uses explicit bridge when specified", () => {
+  it("accepts configured modes when the selected bridge is available", () => {
     vi.mocked(isOpenClawAvailable).mockReturnValue(true);
     vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
     vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(true);
-    expect(resolveBridgeMode({ bridge: "openclaw" })).toBe("openclaw");
-    expect(resolveBridgeMode({ bridge: "claude-code" })).toBe("claude-code");
-    expect(resolveBridgeMode({ bridge: "claude-sdk" })).toBe("claude-sdk");
+    expect(validateBridgeSelection("openclaw", "config").mode).toBe("openclaw");
+    expect(validateBridgeSelection("claude-code", "explicit").mode).toBe("claude-code");
+    expect(validateBridgeSelection("claude-sdk", "config").mode).toBe("claude-sdk");
   });
 
-  it("throws when explicit bridge is unavailable", () => {
-    expect(() => resolveBridgeMode({ bridge: "openclaw" })).toThrow(
+  it("throws when the selected bridge is unavailable", () => {
+    expect(() => validateBridgeSelection("openclaw", "config")).toThrow(
+      'Configured bridge "openclaw" is unavailable',
+    );
+    expect(() => validateBridgeSelection("openclaw", "explicit")).toThrow(
       'Requested bridge "openclaw" is unavailable',
     );
-  });
-
-  it("falls back to claude-code when the SDK is unavailable", () => {
-    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
-    vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(false);
-    expect(autoDetectBridgeMode()).toBe("claude-code");
-  });
-
-  it("auto-detects claude-code when only claude is available", () => {
-    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
-    expect(autoDetectBridgeMode()).toBe("claude-code");
-    expect(resolveBridgeMode({})).toBe("claude-code");
-  });
-
-  it("auto-detects openclaw when only openclaw is available", () => {
-    vi.mocked(isOpenClawAvailable).mockReturnValue(true);
-    expect(autoDetectBridgeMode()).toBe("openclaw");
-    expect(resolveBridgeMode({})).toBe("openclaw");
-  });
-
-  it("auto-detects claude-sdk when SDK is available", () => {
-    vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(true);
-    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
-    expect(autoDetectBridgeMode()).toBe("claude-sdk");
-  });
-
-  it("prefers openclaw when all bridges are available", () => {
-    vi.mocked(isOpenClawAvailable).mockReturnValue(true);
-    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
-    vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(true);
-    expect(resolveBridgeMode({})).toBe("openclaw");
-  });
-
-  it("throws when no bridge is available", () => {
-    expect(() => resolveBridgeMode({})).toThrow("No bridge detected");
   });
 });
 

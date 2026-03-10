@@ -3,7 +3,7 @@ import { startDaemon } from "./lib/live-daemon.js";
 import type { BridgeMode } from "./lib/live-daemon-shared.js";
 
 export async function runDaemonFromEnv(): Promise<void> {
-  const baseUrl = process.env.PUB_DAEMON_BASE_URL;
+  const baseUrl = process.env.PUB_DAEMON_API_BASE_URL;
   const apiKey = process.env.PUB_DAEMON_API_KEY;
   const socketPath = process.env.PUB_DAEMON_SOCKET;
   const infoPath = process.env.PUB_DAEMON_INFO;

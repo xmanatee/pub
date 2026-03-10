@@ -38,7 +38,7 @@ echo "pub_KEY" | pub config --api-key-stdin
 Key source: <https://pub.blue/dashboard>
 
 Pub resolves config from exactly one existing directory:
-- `PUBBLUE_CONFIG_DIR`
+- `PUB_CONFIG_DIR`
 - `OPENCLAW_HOME/.openclaw/pub`
 - `~/.configs/pub`
 

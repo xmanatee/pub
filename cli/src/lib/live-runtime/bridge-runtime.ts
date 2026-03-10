@@ -201,70 +201,25 @@ function getBridgeProvider(mode: BridgeMode): BridgeProvider {
 
 export interface BridgeSelection {
   mode: BridgeMode;
-  source: "explicit" | "auto";
+  source: "explicit" | "config";
   detail: string;
 }
 
-export interface BridgeAvailability {
-  mode: BridgeMode;
-  available: boolean;
-  detail: string;
-}
-
-export function detectBridgeAvailability(
-  env: NodeJS.ProcessEnv = process.env,
-): BridgeAvailability[] {
-  return BRIDGE_PROVIDERS.map((provider) => {
-    const detection = provider.detect(env);
-    return {
-      mode: provider.mode,
-      available: detection.available,
-      detail: detection.detail,
-    };
-  });
-}
-
-export function resolveBridgeSelection(
-  opts: { bridge?: string },
+export function validateBridgeSelection(
+  mode: BridgeMode,
+  source: "explicit" | "config",
   env: NodeJS.ProcessEnv = process.env,
 ): BridgeSelection {
-  if (opts.bridge) {
-    const mode = parseBridgeMode(opts.bridge);
-    const provider = getBridgeProvider(mode);
-    const detection = provider.detect(env);
-    if (!detection.available) {
-      throw new Error(`Requested bridge "${mode}" is unavailable: ${detection.detail}`);
-    }
-    return {
-      mode,
-      source: "explicit",
-      detail: detection.detail,
-    };
+  const provider = getBridgeProvider(mode);
+  const detection = provider.detect(env);
+  if (!detection.available) {
+    const subject = source === "explicit" ? "Requested" : "Configured";
+    throw new Error(`${subject} bridge "${mode}" is unavailable: ${detection.detail}`);
   }
-
-  const detections = BRIDGE_PROVIDERS.map((provider) => ({
-    provider,
-    detection: provider.detect(env),
-  }));
-
-  const selected = detections.find((entry) => entry.detection.available);
-  if (!selected) {
-    const details = detections.map(
-      (entry) => `- ${entry.provider.mode}: ${entry.detection.detail}`,
-    );
-    throw new Error(
-      [
-        "No bridge detected.",
-        "Install/configure OpenClaw or Claude Code and retry.",
-        ...details,
-      ].join("\n"),
-    );
-  }
-
   return {
-    mode: selected.provider.mode,
-    source: "auto",
-    detail: selected.detection.detail,
+    mode,
+    source,
+    detail: detection.detail,
   };
 }
 
@@ -353,15 +308,4 @@ export async function autoDetectBridgeConfig(
       ),
     ].join("\n"),
   );
-}
-
-export function resolveBridgeMode(
-  opts: { bridge?: string },
-  env: NodeJS.ProcessEnv = process.env,
-): BridgeMode {
-  return resolveBridgeSelection(opts, env).mode;
-}
-
-export function autoDetectBridgeMode(env: NodeJS.ProcessEnv = process.env): BridgeMode {
-  return resolveBridgeSelection({}, env).mode;
 }

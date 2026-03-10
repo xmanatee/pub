@@ -77,10 +77,10 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `config --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - `config --auto` — detects a working bridge, runs preflight, and saves bridge mode/path into config
 - Config: one `config.json` under the single resolved Pub config directory, plus env overrides like `PUB_API_KEY`
-- Config dir resolution: existing `PUBBLUE_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.configs/pub`; fail on ambiguity or no directory
+- Config dir resolution: existing `PUB_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.configs/pub`; fail on ambiguity or no directory
 - OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
 - OpenClaw workspace resolution: `OPENCLAW_WORKSPACE` → `OPENCLAW_CONFIG_PATH` (`agents.defaults.workspace` / legacy `workspace`) → `OPENCLAW_STATE_DIR/workspace` (or `~/.openclaw/workspace`)
-- Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_URL` env var
+- Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_BASE_URL` env var
 
 ### Content Serving
 - **`/p/:slug`** — SPA route → unified pub page (content + live mode toggle), auth-aware

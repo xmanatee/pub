@@ -8,10 +8,9 @@ import {
   generateMessageId,
 } from "../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../lib/cli-error.js";
-import { DEFAULT_BASE_URL, readConfig, resolveConfig } from "../lib/config.js";
+import { readConfig, resolveConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import type { StatusResponse } from "../lib/live-ipc-protocol.js";
-import { detectBridgeAvailability } from "../lib/live-runtime/bridge-runtime.js";
 import {
   formatApiError,
   getFollowReadDelayMs,
@@ -54,18 +53,15 @@ function printLocalRuntimeSummary(): void {
       ? resolved.apiKey.envKey || "env"
       : "saved config"
     : "not configured";
-  const baseUrl = resolved.baseUrl.value || DEFAULT_BASE_URL;
+  const bridgeMode = resolved.bridge.mode || "not configured";
 
   console.log("Local runtime configuration:");
   console.log(`  API key source: ${apiSource}`);
-  console.log(`  Base URL: ${baseUrl}`);
-
-  const availability = detectBridgeAvailability();
-  console.log("Bridge runtime availability:");
-  for (const bridge of availability) {
-    console.log(
-      `  ${bridge.mode}: ${bridge.available ? "available" : "unavailable"} (${bridge.detail})`,
-    );
+  console.log(`  Base URL: ${resolved.baseUrl.value}`);
+  console.log(`  Bridge mode: ${bridgeMode}`);
+  if (saved?.bridge) {
+    const configuredKeys = Object.keys(saved.bridge);
+    console.log(`  Saved bridge keys: ${configuredKeys.join(", ") || "(none)"}`);
   }
 }
 
@@ -101,7 +97,7 @@ function registerStartCommand(program: Command): void {
         env: {
           ...bridgeProcessEnv,
           PUB_DAEMON_MODE: "1",
-          PUB_DAEMON_BASE_URL: runtimeConfig.baseUrl,
+          PUB_DAEMON_API_BASE_URL: runtimeConfig.baseUrl,
           PUB_DAEMON_API_KEY: runtimeConfig.apiKey,
           PUB_DAEMON_SOCKET: socketPath,
           PUB_DAEMON_INFO: infoPath,

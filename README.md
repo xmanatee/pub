@@ -51,7 +51,8 @@ pnpm dev
 curl -fsSL https://pub.blue/install.sh | bash
 
 # Configure with your API key (generate one from the dashboard)
-pub configure
+pub config --api-key pub_KEY
+pub config --auto
 
 # Publish a file
 pub create my-page.html

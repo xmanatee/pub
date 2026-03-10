@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { PubApiClient } from "../../lib/api.js";
 import { errorMessage } from "../../lib/cli-error.js";
 import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
-import { DEFAULT_BASE_URL, readConfig, saveConfig } from "../../lib/config.js";
+import { readConfig, resolveConfig, saveConfig } from "../../lib/config.js";
 import {
   autoDetectBridgeConfig,
   buildBridgeProcessEnv,
@@ -18,10 +18,6 @@ interface ConfigureCommandOptions {
   auto?: boolean;
   set: string[];
   unset: string[];
-}
-
-function resolveBaseUrl(): string {
-  return process.env.PUB_URL || DEFAULT_BASE_URL;
 }
 
 export function registerConfigCommand(program: Command): void {
@@ -113,7 +109,7 @@ export function registerConfigCommand(program: Command): void {
             console.error(`Warning: failed to reset Telegram menu button: ${errorMessage(error)}`);
           }
           try {
-            const api = new PubApiClient(resolveBaseUrl(), resolvedApiKey);
+            const api = new PubApiClient(resolveConfig().baseUrl.value, resolvedApiKey);
             await api.deleteBotToken();
             console.log("Bot token removed from server.");
           } catch (error) {
@@ -148,7 +144,7 @@ export function registerConfigCommand(program: Command): void {
           console.log("    Set Web App URL to: https://pub.blue");
         }
 
-        const api = new PubApiClient(resolveBaseUrl(), resolvedApiKey);
+        const api = new PubApiClient(resolveConfig().baseUrl.value, resolvedApiKey);
         await api.uploadBotToken({
           botToken: nextTelegram.botToken,
           botUsername: bot.username,

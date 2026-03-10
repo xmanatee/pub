@@ -1,21 +1,20 @@
 import { PubApiClient } from "../api.js";
 import { errorMessage } from "../cli-error.js";
-import type { BridgeConfig, Config } from "../config.js";
-import { getConfig } from "../config.js";
+import type { BridgeConfig, RequiredConfig, ResolvedConfig } from "../config.js";
+import { getConfig, getRequiredConfig } from "../config.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
 import {
-  type BridgeAvailability,
   type BridgeSelection,
   buildBridgeProcessEnv,
-  detectBridgeAvailability,
-  resolveBridgeSelection,
+  parseBridgeMode,
   runBridgeStartupPreflight,
+  validateBridgeSelection,
 } from "./bridge-runtime.js";
 import { formatApiError } from "./command-utils.js";
 import { stopOtherDaemons } from "./daemon-process.js";
 
 export interface StartPreflightResult {
-  runtimeConfig: Config;
+  runtimeConfig: RequiredConfig;
   bridgeMode: BridgeMode;
   bridgeProcessEnv: NodeJS.ProcessEnv;
   bridgeSelection: BridgeSelection;
@@ -90,14 +89,6 @@ function listBridgeEnvOverrides(env: NodeJS.ProcessEnv = process.env): string[] 
   });
 }
 
-function formatBridgeAvailability(entries: BridgeAvailability[]): string {
-  return entries
-    .map(
-      (entry) => `${entry.mode}=${entry.available ? "available" : "unavailable"} (${entry.detail})`,
-    )
-    .join(" | ");
-}
-
 function formatPreflightError(params: {
   failures: CheckOutcome[];
   passed: CheckOutcome[];
@@ -134,18 +125,17 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   const failures: CheckOutcome[] = [];
   const skipped: CheckOutcome[] = [];
 
-  let runtimeConfig: Config | null = null;
+  let resolvedConfig: ResolvedConfig | null = null;
+  let runtimeConfig: RequiredConfig | null = null;
   let bridgeSelection: BridgeSelection | null = null;
   let bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
 
   passed.push({ label: "webrtc", detail: "werift (pure TypeScript)" });
 
   try {
-    runtimeConfig = getConfig();
-    const source = process.env.PUB_API_KEY?.trim() ? "env" : "saved config";
-    passed.push({ label: "config", detail: `API key configured (${source})` });
-    bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
-    const savedBridgeConfig = listSavedBridgeConfigKeys(runtimeConfig.bridge);
+    resolvedConfig = getConfig();
+    bridgeProcessEnv = buildBridgeProcessEnv(resolvedConfig.bridge);
+    const savedBridgeConfig = listSavedBridgeConfigKeys(resolvedConfig.bridge);
     const envOverrides = listBridgeEnvOverrides();
     passed.push({
       label: "bridge.config",
@@ -156,29 +146,28 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     bridgeProcessEnv = buildBridgeProcessEnv();
   }
 
-  const bridgeAvailability = detectBridgeAvailability(bridgeProcessEnv);
-  passed.push({
-    label: "bridge.available",
-    detail: formatBridgeAvailability(bridgeAvailability),
-  });
-
   try {
-    const savedMode = runtimeConfig?.bridge?.mode;
-    if (opts.bridge) {
-      bridgeSelection = resolveBridgeSelection(opts, bridgeProcessEnv);
-    } else if (savedMode) {
-      bridgeSelection = resolveBridgeSelection({ bridge: savedMode }, bridgeProcessEnv);
-    } else {
+    const savedMode = resolvedConfig?.bridge?.mode;
+    if (!opts.bridge && !savedMode) {
       throw new Error(
         "No bridge configured. Run `pub config --auto` or pass --bridge openclaw|claude-code|claude-sdk.",
       );
     }
+    const mode = opts.bridge ? parseBridgeMode(opts.bridge) : savedMode;
+    if (!mode) {
+      throw new Error("No bridge configured.");
+    }
+    bridgeSelection = validateBridgeSelection(
+      mode,
+      opts.bridge ? "explicit" : "config",
+      bridgeProcessEnv,
+    );
     passed.push({
-      label: "bridge.resolve",
+      label: "bridge.mode",
       detail: `${bridgeSelection.mode} (${bridgeSelection.source}, ${bridgeSelection.detail})`,
     });
   } catch (error) {
-    failures.push({ label: "bridge.resolve", detail: errorMessage(error) });
+    failures.push({ label: "bridge.mode", detail: errorMessage(error) });
   }
 
   if (bridgeSelection) {
@@ -193,6 +182,14 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
       label: "bridge.preflight",
       detail: "skipped because bridge mode could not be resolved",
     });
+  }
+
+  try {
+    runtimeConfig = getRequiredConfig();
+    const source = process.env.PUB_API_KEY?.trim() ? "env" : "saved config";
+    passed.push({ label: "config", detail: `API key configured (${source})` });
+  } catch (error) {
+    failures.push({ label: "config", detail: errorMessage(error) });
   }
 
   if (runtimeConfig) {

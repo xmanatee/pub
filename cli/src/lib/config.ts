@@ -42,7 +42,7 @@ export interface SavedConfig {
   telegram?: TelegramConfig;
 }
 
-export interface Config {
+export interface RequiredConfig {
   apiKey: string;
   baseUrl: string;
   bridge?: BridgeConfig;
@@ -64,7 +64,7 @@ export interface ResolvedConfig {
 }
 
 type ConfigDirSource =
-  "PUBBLUE_CONFIG_DIR" | "OPENCLAW_HOME" | "HOME_CONFIG";
+  "PUB_CONFIG_DIR" | "OPENCLAW_HOME" | "HOME_CONFIG";
 
 interface ConfigDirCandidate {
   dir: string;
@@ -124,15 +124,15 @@ function describeCandidate(candidate: ConfigDirCandidate): string {
 function getExplicitConfigDirCandidate(
   env: NodeJS.ProcessEnv = process.env,
 ): ConfigDirCandidate | null {
-  const explicitPubblue = trimToUndefined(env.PUBBLUE_CONFIG_DIR);
+  const explicitPub = trimToUndefined(env.PUB_CONFIG_DIR);
 
-  if (explicitPubblue) {
-    const dir = resolveInputPath(explicitPubblue, env);
+  if (explicitPub) {
+    const dir = resolveInputPath(explicitPub, env);
     return {
       dir,
       exists: pathExists(dir),
-      source: "PUBBLUE_CONFIG_DIR",
-      description: "configured by PUBBLUE_CONFIG_DIR",
+      source: "PUB_CONFIG_DIR",
+      description: "configured by PUB_CONFIG_DIR",
     };
   }
 
@@ -262,7 +262,7 @@ function mergeBridgeValue<K extends keyof BridgeConfig>(
 export function resolveConfig(env: NodeJS.ProcessEnv = process.env): ResolvedConfig {
   const saved = readConfig(env);
   const envApiKey = readEnvValue(["PUB_API_KEY"], env);
-  const envBaseUrl = readEnvValue(["PUB_URL"], env);
+  const envBaseUrl = readEnvValue(["PUB_BASE_URL"], env);
 
   const bridge: BridgeConfig = {};
   mergeBridgeValue(saved?.bridge, "mode", [], env, (raw) => raw as BridgeMode, bridge);
@@ -392,11 +392,15 @@ export function resolveConfig(env: NodeJS.ProcessEnv = process.env): ResolvedCon
   };
 }
 
-export function getConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const resolved = resolveConfig(env);
+export function getConfig(env: NodeJS.ProcessEnv = process.env): ResolvedConfig {
+  return resolveConfig(env);
+}
+
+export function getRequiredConfig(env: NodeJS.ProcessEnv = process.env): RequiredConfig {
+  const resolved = getConfig(env);
 
   if (!resolved.apiKey) {
-    throw new Error("Not configured. Run `pub config` or set PUB_API_KEY.");
+    throw new Error("Missing PUB_API_KEY. Set it with `pub config --api-key` or PUB_API_KEY.");
   }
 
   return {

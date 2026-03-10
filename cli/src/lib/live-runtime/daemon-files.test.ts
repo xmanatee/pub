@@ -12,15 +12,15 @@ import {
 
 describe("daemon-files", () => {
   const tempRoots: string[] = [];
-  const originalPubblueConfigDir = process.env.PUBBLUE_CONFIG_DIR;
+  const originalPubConfigDir = process.env.PUB_CONFIG_DIR;
 
   afterEach(() => {
     for (const dir of tempRoots) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
     tempRoots.length = 0;
-    process.env.PUBBLUE_CONFIG_DIR = originalPubblueConfigDir;
-    if (!originalPubblueConfigDir) delete process.env.PUBBLUE_CONFIG_DIR;
+    process.env.PUB_CONFIG_DIR = originalPubConfigDir;
+    if (!originalPubConfigDir) delete process.env.PUB_CONFIG_DIR;
   });
 
   function makeTempDir(): string {
@@ -50,9 +50,9 @@ describe("daemon-files", () => {
   });
 
   describe("liveInfoDir", () => {
-    it("respects PUBBLUE_CONFIG_DIR", () => {
+    it("respects PUB_CONFIG_DIR", () => {
       const dir = makeTempDir();
-      process.env.PUBBLUE_CONFIG_DIR = dir;
+      process.env.PUB_CONFIG_DIR = dir;
       const result = liveInfoDir();
       expect(result).toBe(path.join(dir, "lives"));
       expect(fs.existsSync(result)).toBe(true);

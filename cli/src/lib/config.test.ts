@@ -6,6 +6,7 @@ import {
   DEFAULT_BASE_URL,
   getConfig,
   getConfigDir,
+  getRequiredConfig,
   readConfig,
   resolveConfig,
   resolveConfigLocation,
@@ -17,9 +18,9 @@ describe("config", () => {
   const originalEnv = {
     HOME: process.env.HOME,
     OPENCLAW_HOME: process.env.OPENCLAW_HOME,
-    PUBBLUE_CONFIG_DIR: process.env.PUBBLUE_CONFIG_DIR,
+    PUB_CONFIG_DIR: process.env.PUB_CONFIG_DIR,
     PUB_API_KEY: process.env.PUB_API_KEY,
-    PUB_URL: process.env.PUB_URL,
+    PUB_BASE_URL: process.env.PUB_BASE_URL,
     CLAUDE_CODE_PATH: process.env.CLAUDE_CODE_PATH,
   };
 
@@ -27,9 +28,9 @@ describe("config", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-test-"));
     process.env.HOME = tmpDir;
     delete process.env.OPENCLAW_HOME;
-    delete process.env.PUBBLUE_CONFIG_DIR;
+    delete process.env.PUB_CONFIG_DIR;
     delete process.env.PUB_API_KEY;
-    delete process.env.PUB_URL;
+    delete process.env.PUB_BASE_URL;
     delete process.env.CLAUDE_CODE_PATH;
   });
 
@@ -37,9 +38,9 @@ describe("config", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     process.env.HOME = originalEnv.HOME;
     process.env.OPENCLAW_HOME = originalEnv.OPENCLAW_HOME;
-    process.env.PUBBLUE_CONFIG_DIR = originalEnv.PUBBLUE_CONFIG_DIR;
+    process.env.PUB_CONFIG_DIR = originalEnv.PUB_CONFIG_DIR;
     process.env.PUB_API_KEY = originalEnv.PUB_API_KEY;
-    process.env.PUB_URL = originalEnv.PUB_URL;
+    process.env.PUB_BASE_URL = originalEnv.PUB_BASE_URL;
     process.env.CLAUDE_CODE_PATH = originalEnv.CLAUDE_CODE_PATH;
     for (const key of Object.keys(originalEnv) as Array<keyof typeof originalEnv>) {
       if (!originalEnv[key]) delete process.env[key];
@@ -73,7 +74,7 @@ describe("config", () => {
   it("uses default base URL when no env var is set", () => {
     makeHomeConfigDir();
     saveConfig({ apiKey: "pub_test" });
-    const config = getConfig();
+    const config = getRequiredConfig();
     expect(config.apiKey).toBe("pub_test");
     expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
   });
@@ -86,9 +87,23 @@ describe("config", () => {
     });
     process.env.PUB_API_KEY = "pub_env";
 
-    const config = getConfig();
+    const config = getRequiredConfig();
     expect(config.apiKey).toBe("pub_env");
     expect(config.bridge).toEqual({ mode: "claude-code", threadId: "thread-a" });
+  });
+
+  it("getConfig does not require an api key", () => {
+    makeHomeConfigDir();
+    saveConfig({ bridge: { mode: "claude-code" } });
+    const config = getConfig();
+    expect(config.apiKey).toBeNull();
+    expect(config.bridge.mode).toBe("claude-code");
+  });
+
+  it("getRequiredConfig throws when api key is missing", () => {
+    makeHomeConfigDir();
+    saveConfig({ bridge: { mode: "claude-code" } });
+    expect(() => getRequiredConfig()).toThrow("Missing PUB_API_KEY");
   });
 
   it("shows env vs config sources in resolved config", () => {
@@ -97,7 +112,7 @@ describe("config", () => {
       apiKey: "pub_saved",
       bridge: { mode: "claude-code", claudeCodePath: "/config/claude" },
     });
-    process.env.PUB_URL = "https://custom.convex.site";
+    process.env.PUB_BASE_URL = "https://custom.convex.site";
     process.env.CLAUDE_CODE_PATH = "/env/claude";
 
     const resolved = resolveConfig();
@@ -107,10 +122,10 @@ describe("config", () => {
     expect(resolved.bridge.claudeCodePath).toBe("/env/claude");
   });
 
-  it("uses PUBBLUE_CONFIG_DIR when set and it exists", () => {
+  it("uses PUB_CONFIG_DIR when set and it exists", () => {
     const dir = path.join(tmpDir, "explicit-blue");
     fs.mkdirSync(dir, { recursive: true });
-    process.env.PUBBLUE_CONFIG_DIR = dir;
+    process.env.PUB_CONFIG_DIR = dir;
 
     expect(getConfigDir()).toBe(dir);
   });
