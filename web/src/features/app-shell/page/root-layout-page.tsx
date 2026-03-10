@@ -21,6 +21,10 @@ import { IN_TELEGRAM, isFullscreen } from "~/lib/telegram";
 initSentry();
 initPostHog();
 
+const SentryErrorBoundary = Sentry.ErrorBoundary as unknown as React.ComponentType<
+  React.PropsWithChildren<Sentry.ErrorBoundaryProps>
+>;
+
 export function RootRouteErrorPage({ error }: { error: Error }) {
   React.useEffect(() => {
     trackError(error);
@@ -53,8 +57,7 @@ export function RootLayoutPage() {
 
   return (
     <PostHogProvider client={posthog}>
-      {/* @ts-expect-error Sentry ErrorBoundary types target React 17 class components */}
-      <Sentry.ErrorBoundary
+      <SentryErrorBoundary
         fallback={({ error }: { error: unknown }) => (
           <RootRouteErrorPage error={error instanceof Error ? error : new Error(String(error))} />
         )}
@@ -64,7 +67,7 @@ export function RootLayoutPage() {
             <Outlet />
           </AppLayout>
         </TooltipProvider>
-      </Sentry.ErrorBoundary>
+      </SentryErrorBoundary>
     </PostHogProvider>
   );
 }
