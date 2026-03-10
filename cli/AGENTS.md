@@ -16,7 +16,7 @@
 - Socket path: `/tmp/pub-agent.sock` (fixed, not slug-dependent)
 - Commands that need the active slug (`write`, `read`, `doctor`) resolve it via IPC to the daemon; `channels` queries daemon state directly
 - Daemon spawned via `spawn(process.execPath, [])` with `PUB_DAEMON_MODE=1` env var (binary re-executes itself)
-- Product intent: let AI agents publish content and drive live browser visualizations with minimal operator setup.
+- Product intent: let AI agents generate adaptive interfaces and real-time experiences for users with minimal operator setup.
 
 ## Reliability
 

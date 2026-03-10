@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for helping an AI agent show and visualize output over the web. A pub can have static HTML content, a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for adaptive interfaces powered by AI agents. Agents generate real-time UIs — apps, dashboards, interactive experiences — that adapt to what the user needs. A pub can have static content, a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -30,7 +30,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; paginated pubs (with view counts + live status) + API keys + RSS feed URL + Telegram linking
-  - `explore.tsx` — public discovery feed; paginated list of all public pubs
+  - `explore.tsx` — public discovery feed; paginated list of public agent-built apps and experiences
   - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing and owner live mode; auth-aware for private pubs
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
@@ -90,7 +90,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)
-- **`pub`** — Claude Code skill for publishing and visualizing agent output via the CLI
+- **`pub`** — Claude Code skill for creating adaptive interfaces via the CLI
 - Each skill has a `SKILL.md` (instructions) and `claw.json` (ClawHub manifest)
 - Published to ClawHub automatically on push to `main` (see `.github/workflows/clawhub.yml`)
 

@@ -9,9 +9,11 @@ export function CtaSection() {
     <section className="py-24 border-t border-border/50">
       <div className="px-4 sm:px-6 text-center">
         <PubLogo size={48} className="mx-auto mb-6" />
-        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">Ready to go live?</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
+          Ready for adaptive interfaces?
+        </h2>
         <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
-          Sign in. Grab a key. Start visualizing.
+          Install the CLI. Connect your agent. Let it build for you.
         </p>
         <Button
           size="lg"

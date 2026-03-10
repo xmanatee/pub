@@ -112,7 +112,7 @@ export function ApiKeysTab() {
             </div>
             <p className="font-medium mb-1">No API keys yet</p>
             <p className="text-sm text-muted-foreground">
-              Create one to start sharing and visualizing via CLI or API.
+              Create one to connect your agent via CLI or API.
             </p>
           </CardContent>
         </Card>
