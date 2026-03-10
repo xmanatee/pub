@@ -20,6 +20,24 @@ export default defineConfig({
   },
   build: {
     sourcemap: "hidden",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          sentry: ["@sentry/react"],
+          posthog: ["posthog-js"],
+          backend: [
+            "convex",
+            "@convex-dev/auth/react",
+            "@convex-dev/react-query",
+            "@tanstack/react-router",
+            "@tanstack/react-query",
+          ],
+          telegram: ["@telegram-apps/sdk-react"],
+          icons: ["lucide-react", "@icons-pack/react-simple-icons"],
+          eruda: ["eruda"],
+        },
+      },
+    },
   },
   plugins: [
     tailwindcss(),
