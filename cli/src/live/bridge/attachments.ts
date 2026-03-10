@@ -176,7 +176,6 @@ function readStreamIdFromMeta(meta: BridgeMessage["meta"]): string | undefined {
 
 interface HandleAttachmentEntryParams {
   activeStreams: Map<string, ActiveStream>;
-  attachmentMaxBytes: number;
   attachmentRoot: string;
   deliverPrompt: (prompt: string) => Promise<void>;
   entry: BufferedEntry;
@@ -264,12 +263,6 @@ export async function handleAttachmentEntry(params: HandleAttachmentEntryParams)
 
     const chunk = decodeBinaryPayload(msg.data, `${channel}/${msg.id}`);
     const nextBytes = stream.bytes + chunk.length;
-    if (nextBytes > params.attachmentMaxBytes) {
-      activeStreams.delete(channel);
-      throw new Error(
-        `Attachment stream exceeded max size (${nextBytes} > ${params.attachmentMaxBytes}) on ${channel}`,
-      );
-    }
 
     stream.bytes = nextBytes;
     stream.chunks.push(chunk);
@@ -286,21 +279,9 @@ export async function handleAttachmentEntry(params: HandleAttachmentEntryParams)
     const requestedStreamId = readStreamIdFromMeta(msg.meta);
     if (requestedStreamId && requestedStreamId !== stream.streamId) return false;
     const nextBytes = stream.bytes + payload.length;
-    if (nextBytes > params.attachmentMaxBytes) {
-      activeStreams.delete(channel);
-      throw new Error(
-        `Attachment stream exceeded max size (${nextBytes} > ${params.attachmentMaxBytes}) on ${channel}`,
-      );
-    }
     stream.bytes = nextBytes;
     stream.chunks.push(payload);
     return false;
-  }
-
-  if (payload.length > params.attachmentMaxBytes) {
-    throw new Error(
-      `Attachment exceeds max size (${payload.length} > ${params.attachmentMaxBytes}) on ${channel}`,
-    );
   }
 
   const staged = stageAttachment({

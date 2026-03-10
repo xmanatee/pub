@@ -19,6 +19,9 @@ playwright-report/
 # Git worktrees
 .worktrees/
 
+# Project TODO
+TODO.md
+
 # Claude Code local settings
 .claude/settings.local.json
 .claude/do-tasks/

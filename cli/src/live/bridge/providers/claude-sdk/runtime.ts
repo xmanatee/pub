@@ -1,19 +1,12 @@
 import * as sdk from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeBridgeSettings } from "../../../../core/config/index.js";
 
+const DEFAULT_MODEL = "claude-sonnet-4-6";
+
 type ClaudeSdk = typeof import("@anthropic-ai/claude-agent-sdk");
 
 export function loadClaudeSdk(): ClaudeSdk {
   return sdk;
-}
-
-function parseAllowedTools(raw: string | undefined): string[] | undefined {
-  const trimmed = raw?.trim();
-  if (!trimmed) return undefined;
-  return trimmed
-    .split(",")
-    .map((tool) => tool.trim())
-    .filter(Boolean);
 }
 
 function buildSdkEnv(baseEnv: NodeJS.ProcessEnv): Record<string, string | undefined> {
@@ -30,19 +23,8 @@ export function buildSdkSessionOptionsFromSettings(
   baseEnv: NodeJS.ProcessEnv = process.env,
 ) {
   return {
-    model: bridgeSettings.claudeCodeModel?.trim() || "claude-sonnet-4-6",
+    model: DEFAULT_MODEL,
     claudePath: bridgeSettings.claudeCodePath,
-    allowedTools: parseAllowedTools(bridgeSettings.claudeCodeAllowedTools),
     sdkEnv: buildSdkEnv(baseEnv),
   };
-}
-
-export function buildAppendSystemPromptFromSettings(
-  bridgeSystemPrompt: string | null,
-  bridgeSettings: ClaudeBridgeSettings,
-): string | undefined {
-  const effective = [bridgeSystemPrompt, bridgeSettings.claudeCodeAppendSystemPrompt?.trim()]
-    .filter(Boolean)
-    .join("\n\n");
-  return effective.length > 0 ? effective : undefined;
 }

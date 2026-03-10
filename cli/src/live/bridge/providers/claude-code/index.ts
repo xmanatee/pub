@@ -50,7 +50,6 @@ export async function createClaudeCodeBridgeRunner(
   const claudePath = bridgeSettings.claudeCodePath;
   const cwd = bridgeSettings.bridgeCwd;
   const attachmentRoot = bridgeSettings.attachmentDir;
-  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   const activeStreams = new Map<string, ActiveStream>();
 
   ensureDirectoryWritable(attachmentRoot);
@@ -173,7 +172,6 @@ export async function createClaudeCodeBridgeRunner(
       if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
       const deliveredAttachment = await handleAttachmentEntry({
         activeStreams,
-        attachmentMaxBytes,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverToClaudeCode(prompt);

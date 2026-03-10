@@ -2,8 +2,6 @@ import type { BridgeMode } from "../../live/daemon/shared.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
 export const DEFAULT_CANVAS_REMINDER_EVERY = 10;
-export const DEFAULT_BRIDGE_DELIVER_TIMEOUT_MS = 120_000;
-export const DEFAULT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 export const DEFAULT_COMMAND_MAX_OUTPUT_BYTES = 256 * 1024;
 export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
@@ -21,15 +19,8 @@ export interface PubBridgeConfig {
   threadId?: string;
   bridgeCwd?: string;
   canvasReminderEvery?: number;
-  deliver?: boolean;
-  deliverChannel?: string;
-  deliverTimeoutMs?: number;
   attachmentDir?: string;
-  attachmentMaxBytes?: number;
   claudeCodePath?: string;
-  claudeCodeModel?: string;
-  claudeCodeAllowedTools?: string;
-  claudeCodeAppendSystemPrompt?: string;
   claudeCodeMaxTurns?: number;
   commandDefaultTimeoutMs?: number;
   commandMaxOutputBytes?: number;
@@ -52,19 +43,12 @@ interface BridgeSettingsBase {
   mode: BridgeMode;
   bridgeCwd: string;
   canvasReminderEvery: number;
-  deliver: boolean;
-  deliverTimeoutMs: number;
   attachmentDir: string;
-  attachmentMaxBytes: number;
   commandDefaultTimeoutMs: number;
   commandMaxOutputBytes: number;
   commandMaxConcurrent: number;
   openclawStateDir?: string;
   threadId?: string;
-  deliverChannel?: string;
-  claudeCodeModel?: string;
-  claudeCodeAllowedTools?: string;
-  claudeCodeAppendSystemPrompt?: string;
   claudeCodeMaxTurns?: number;
 }
 

@@ -1,8 +1,6 @@
 import { join } from "node:path";
 import {
   type BridgeSettings,
-  DEFAULT_ATTACHMENT_MAX_BYTES,
-  DEFAULT_BRIDGE_DELIVER_TIMEOUT_MS,
   DEFAULT_CANVAS_REMINDER_EVERY,
   DEFAULT_COMMAND_MAX_CONCURRENT,
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
@@ -17,16 +15,6 @@ function trimToUndefined(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function parseBooleanEnv(envKey: string, raw: string | undefined): boolean | undefined {
-  const normalized = trimToUndefined(raw)?.toLowerCase();
-  if (normalized === undefined) return undefined;
-  if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on")
-    return true;
-  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off")
-    return false;
-  throw new Error(`Invalid boolean value for ${envKey}: ${raw}`);
-}
-
 function parsePositiveIntegerEnv(envKey: string, raw: string | undefined): number | undefined {
   const trimmed = trimToUndefined(raw);
   if (trimmed === undefined) return undefined;
@@ -37,14 +25,6 @@ function parsePositiveIntegerEnv(envKey: string, raw: string | undefined): numbe
 
 function stringValueOrEnv(value: string | undefined, envKey: string, env: NodeJS.ProcessEnv): string | undefined {
   return trimToUndefined(env[envKey]) ?? trimToUndefined(value);
-}
-
-function booleanValueOrEnv(
-  value: boolean | undefined,
-  envKey: string,
-  env: NodeJS.ProcessEnv,
-): boolean | undefined {
-  return parseBooleanEnv(envKey, env[envKey]) ?? value;
 }
 
 function integerValueOrEnv(
@@ -101,17 +81,8 @@ export function buildBridgeSettings(
       bridgeConfig.canvasReminderEvery,
       DEFAULT_CANVAS_REMINDER_EVERY,
     ),
-    deliver: booleanValueOrEnv(bridgeConfig.deliver, "OPENCLAW_DELIVER", env) === true,
-    deliverTimeoutMs: positiveIntOr(
-      bridgeConfig.deliverTimeoutMs,
-      DEFAULT_BRIDGE_DELIVER_TIMEOUT_MS,
-    ),
     attachmentDir:
       trimToUndefined(bridgeConfig.attachmentDir) || join(getConfigDir(env), "attachments"),
-    attachmentMaxBytes: positiveIntOr(
-      bridgeConfig.attachmentMaxBytes,
-      DEFAULT_ATTACHMENT_MAX_BYTES,
-    ),
     commandDefaultTimeoutMs: positiveIntOr(
       bridgeConfig.commandDefaultTimeoutMs,
       DEFAULT_COMMAND_TIMEOUT_MS,
@@ -126,18 +97,6 @@ export function buildBridgeSettings(
     ),
     openclawStateDir: stringValueOrEnv(bridgeConfig.openclawStateDir, "OPENCLAW_STATE_DIR", env),
     threadId: stringValueOrEnv(bridgeConfig.threadId, "OPENCLAW_THREAD_ID", env),
-    deliverChannel: stringValueOrEnv(bridgeConfig.deliverChannel, "OPENCLAW_DELIVER_CHANNEL", env),
-    claudeCodeModel: stringValueOrEnv(bridgeConfig.claudeCodeModel, "CLAUDE_CODE_MODEL", env),
-    claudeCodeAllowedTools: stringValueOrEnv(
-      bridgeConfig.claudeCodeAllowedTools,
-      "CLAUDE_CODE_ALLOWED_TOOLS",
-      env,
-    ),
-    claudeCodeAppendSystemPrompt: stringValueOrEnv(
-      bridgeConfig.claudeCodeAppendSystemPrompt,
-      "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
-      env,
-    ),
     claudeCodeMaxTurns:
       positiveIntOr(integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env), 0) ||
       undefined,

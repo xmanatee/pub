@@ -31,16 +31,11 @@ export async function runOpenClawBridgeStartupProbe(
   if (!runtime.openclawPath || !runtime.sessionId) {
     throw new Error("OpenClaw runtime is not prepared. Run `pub config --auto` again.");
   }
-  const probeDeliverySettings = strictConfig
-    ? {
-        bridgeCwd: getStrictOpenClawCommandCwd(bridgeConfig as OpenClawBridgeSettings),
-        deliver: (bridgeConfig as OpenClawBridgeSettings).deliver,
-        deliverChannel: (bridgeConfig as OpenClawBridgeSettings).deliverChannel,
-        deliverTimeoutMs: (bridgeConfig as OpenClawBridgeSettings).deliverTimeoutMs,
-      }
-    : {
-        bridgeCwd: resolveAutoDetectOpenClawCommandCwd(env),
-      };
+  const probeDeliverySettings = {
+    bridgeCwd: strictConfig
+      ? getStrictOpenClawCommandCwd(bridgeConfig as OpenClawBridgeSettings)
+      : resolveAutoDetectOpenClawCommandCwd(env),
+  };
   await runOpenClawPreflight(runtime.openclawPath, env);
   await runAgentWritePongProbe({
     label: "OpenClaw",

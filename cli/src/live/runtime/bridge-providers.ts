@@ -99,11 +99,6 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         configPatch: {
           mode: "claude-sdk" as const,
           claudeCodePath: runtime.claudePath,
-          claudeCodeModel: env.CLAUDE_CODE_MODEL?.trim() || bridgeConfig?.claudeCodeModel,
-          claudeCodeAllowedTools:
-            env.CLAUDE_CODE_ALLOWED_TOOLS?.trim() || bridgeConfig?.claudeCodeAllowedTools,
-          claudeCodeAppendSystemPrompt:
-            env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim() || bridgeConfig?.claudeCodeAppendSystemPrompt,
           claudeCodeMaxTurns:
             env.CLAUDE_CODE_MAX_TURNS?.trim()
               ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
@@ -139,11 +134,6 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         configPatch: {
           mode: "claude-code" as const,
           claudeCodePath: runtime.claudePath,
-          claudeCodeModel: env.CLAUDE_CODE_MODEL?.trim() || bridgeConfig?.claudeCodeModel,
-          claudeCodeAllowedTools:
-            env.CLAUDE_CODE_ALLOWED_TOOLS?.trim() || bridgeConfig?.claudeCodeAllowedTools,
-          claudeCodeAppendSystemPrompt:
-            env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim() || bridgeConfig?.claudeCodeAppendSystemPrompt,
           claudeCodeMaxTurns:
             env.CLAUDE_CODE_MAX_TURNS?.trim()
               ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)

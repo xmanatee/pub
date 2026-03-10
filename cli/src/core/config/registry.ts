@@ -77,14 +77,8 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   bridgeVar("bridge.canvasReminderEvery", "canvasReminderEvery", "integer", {
     description: "Interval for canvas policy reminders.",
   }),
-  bridgeVar("bridge.deliverTimeoutMs", "deliverTimeoutMs", "integer", {
-    description: "Timeout for delivery acknowledgement tracking.",
-  }),
   bridgeVar("bridge.attachmentDir", "attachmentDir", "string", {
     description: "Attachment staging directory for live bridge payloads.",
-  }),
-  bridgeVar("bridge.attachmentMaxBytes", "attachmentMaxBytes", "integer", {
-    description: "Maximum staged attachment size in bytes.",
   }),
   bridgeVar("openclaw.path", "openclawPath", "string", {
     description: "OpenClaw executable path.",
@@ -102,30 +96,9 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "OpenClaw thread id used for session lookup.",
     env: ["OPENCLAW_THREAD_ID"],
   }),
-  bridgeVar("openclaw.deliver", "deliver", "boolean", {
-    description: "Enable OpenClaw delivery tracking prompts.",
-    env: ["OPENCLAW_DELIVER"],
-  }),
-  bridgeVar("openclaw.deliverChannel", "deliverChannel", "string", {
-    description: "OpenClaw delivery status channel.",
-    env: ["OPENCLAW_DELIVER_CHANNEL"],
-  }),
   bridgeVar("claude-code.path", "claudeCodePath", "string", {
     description: "Claude executable path.",
     env: ["CLAUDE_CODE_PATH"],
-  }),
-  bridgeVar("claude-code.model", "claudeCodeModel", "string", {
-    description: "Claude model override.",
-    env: ["CLAUDE_CODE_MODEL"],
-  }),
-  bridgeVar("claude-code.allowedTools", "claudeCodeAllowedTools", "string", {
-    description: "Claude allowed tools override.",
-    env: ["CLAUDE_CODE_ALLOWED_TOOLS"],
-  }),
-  bridgeVar("claude-code.appendSystemPrompt", "claudeCodeAppendSystemPrompt", "string", {
-    description: "Extra Claude system prompt text.",
-    env: ["CLAUDE_CODE_APPEND_SYSTEM_PROMPT"],
-    displayAs: "set-only",
   }),
   bridgeVar("claude-code.maxTurns", "claudeCodeMaxTurns", "integer", {
     description: "Claude max turns override.",

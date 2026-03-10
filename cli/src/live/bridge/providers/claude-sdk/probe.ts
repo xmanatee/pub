@@ -53,7 +53,7 @@ export async function runClaudeSdkBridgeStartupProbe(
     strictConfig && bridgeConfig
       ? buildSdkSessionOptionsFromSettings(bridgeConfig as ClaudeBridgeSettings, env)
       : buildSdkSessionOptions(env, bridgeConfig);
-  const { model, allowedTools, claudePath } = sessionOptions;
+  const { model, claudePath } = sessionOptions;
   const cwd =
     strictConfig && bridgeConfig
       ? getStrictClaudeSdkCwd(bridgeConfig as ClaudeBridgeSettings)
@@ -82,7 +82,6 @@ export async function runClaudeSdkBridgeStartupProbe(
           model,
           pathToClaudeCodeExecutable: claudePath,
           env: probeEnvClean,
-          allowedTools,
           cwd: cwd || os.tmpdir(),
           maxTurns: 2,
           persistSession: false,

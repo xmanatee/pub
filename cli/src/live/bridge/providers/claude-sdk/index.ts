@@ -19,7 +19,6 @@ import {
   shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
 import {
-  buildAppendSystemPromptFromSettings,
   buildSdkSessionOptionsFromSettings,
   loadClaudeSdk,
 } from "./runtime.js";
@@ -47,16 +46,12 @@ export async function createClaudeSdkBridgeRunner(
 
   const loadedSdk = loadClaudeSdk();
 
-  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptionsFromSettings(
+  const { model, claudePath, sdkEnv } = buildSdkSessionOptionsFromSettings(
     bridgeSettings,
     process.env,
   );
-  const appendSystemPrompt = buildAppendSystemPromptFromSettings(
-    config.instructions.systemPrompt,
-    bridgeSettings,
-  );
+  const systemPrompt = config.instructions.systemPrompt ?? undefined;
   const attachmentRoot = bridgeSettings.attachmentDir;
-  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   const activeStreams = new Map<string, ActiveStream>();
   ensureDirectoryWritable(attachmentRoot);
 
@@ -86,9 +81,8 @@ export async function createClaudeSdkBridgeRunner(
       pathToClaudeCodeExecutable: claudePath,
       env: {
         ...sdkEnv,
-        ...(appendSystemPrompt ? { CLAUDE_CODE_APPEND_SYSTEM_PROMPT: appendSystemPrompt } : {}),
+        ...(systemPrompt ? { CLAUDE_CODE_APPEND_SYSTEM_PROMPT: systemPrompt } : {}),
       },
-      allowedTools,
       canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
     });
     activeSession = session;
@@ -167,7 +161,6 @@ export async function createClaudeSdkBridgeRunner(
       if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
       const deliveredAttachment = await handleAttachmentEntry({
         activeStreams,
-        attachmentMaxBytes,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverWithRecovery(prompt);

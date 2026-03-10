@@ -21,18 +21,12 @@ export async function runClaudeCodePreflight(
   });
 }
 
-interface ClaudeArgsOptions {
-  model?: string;
-  allowedTools?: string;
-  appendSystemPrompt?: string;
-  maxTurns?: number;
-}
-
-function buildClaudeArgsWithOptions(
+export function buildClaudeArgsFromSettings(
   prompt: string,
   sessionId: string | null,
   systemPrompt: string | null,
-  options: ClaudeArgsOptions,
+  bridgeSettings: ClaudeBridgeSettings,
+  opts?: { maxTurns?: number },
 ): string[] {
   const args = [
     "-p",
@@ -43,28 +37,8 @@ function buildClaudeArgsWithOptions(
     "--dangerously-skip-permissions",
   ];
   if (sessionId) args.push("--resume", sessionId);
-  if (options.model) args.push("--model", options.model);
-  if (options.allowedTools) args.push("--allowedTools", options.allowedTools);
-
-  const effectiveSystemPrompt = [systemPrompt, options.appendSystemPrompt]
-    .filter(Boolean)
-    .join("\n\n");
-  if (effectiveSystemPrompt) args.push("--append-system-prompt", effectiveSystemPrompt);
-  if (options.maxTurns !== undefined) args.push("--max-turns", String(options.maxTurns));
+  if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
+  const maxTurns = opts?.maxTurns ?? bridgeSettings.claudeCodeMaxTurns;
+  if (maxTurns !== undefined) args.push("--max-turns", String(maxTurns));
   return args;
-}
-
-export function buildClaudeArgsFromSettings(
-  prompt: string,
-  sessionId: string | null,
-  systemPrompt: string | null,
-  bridgeSettings: ClaudeBridgeSettings,
-  opts?: { maxTurns?: number },
-): string[] {
-  return buildClaudeArgsWithOptions(prompt, sessionId, systemPrompt, {
-    model: bridgeSettings.claudeCodeModel?.trim(),
-    allowedTools: bridgeSettings.claudeCodeAllowedTools?.trim(),
-    appendSystemPrompt: bridgeSettings.claudeCodeAppendSystemPrompt?.trim(),
-    maxTurns: opts?.maxTurns ?? bridgeSettings.claudeCodeMaxTurns,
-  });
 }
