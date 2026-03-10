@@ -195,12 +195,12 @@ export function listConfigDirCandidates(
     });
   }
 
-  const homeConfigDir = path.join(resolveBaseHome(env), ".configs", "pub");
+  const homeConfigDir = path.join(resolveBaseHome(env), ".config", "pub");
   candidates.push({
     dir: homeConfigDir,
     exists: pathExists(homeConfigDir),
     source: "HOME_CONFIG",
-    description: "derived from ~/.configs/pub",
+    description: "derived from ~/.config/pub",
   });
 
   return candidates;

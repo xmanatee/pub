@@ -48,7 +48,7 @@ describe("config", () => {
   });
 
   function makeHomeConfigDir(): string {
-    const dir = path.join(tmpDir, ".configs", "pub");
+    const dir = path.join(tmpDir, ".config", "pub");
     fs.mkdirSync(dir, { recursive: true });
     return dir;
   }
@@ -65,7 +65,7 @@ describe("config", () => {
     expect(readConfig()).toBeNull();
   });
 
-  it("saves and loads config in ~/.configs/pub", () => {
+  it("saves and loads config in ~/.config/pub", () => {
     makeHomeConfigDir();
     saveConfig({ apiKey: "pub_test" });
     expect(readConfig()).toEqual({ apiKey: "pub_test" });
@@ -135,7 +135,7 @@ describe("config", () => {
     expect(getConfigDir()).toBe(dir);
   });
 
-  it("uses ~/.configs/pub when it is the only existing location", () => {
+  it("uses ~/.config/pub when it is the only existing location", () => {
     const dir = makeHomeConfigDir();
     expect(getConfigDir()).toBe(dir);
   });
