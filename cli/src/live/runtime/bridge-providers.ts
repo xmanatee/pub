@@ -2,13 +2,16 @@ import type { PubBridgeConfig, BridgeSettings } from "../../core/config/index.js
 import {
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
-} from "../bridge/providers/claude-code.js";
+} from "../bridge/providers/claude-code/index.js";
 import {
   isClaudeSdkAvailableInEnv,
   isClaudeSdkImportable,
   runClaudeSdkBridgeStartupProbe,
-} from "../bridge/providers/claude-sdk.js";
-import { isOpenClawAvailable, runOpenClawBridgeStartupProbe } from "../bridge/providers/openclaw.js";
+} from "../bridge/providers/claude-sdk/index.js";
+import {
+  isOpenClawAvailable,
+  runOpenClawBridgeStartupProbe,
+} from "../bridge/providers/openclaw/index.js";
 import type { BridgeMode } from "../daemon/shared.js";
 
 interface BridgeProvider {
@@ -95,7 +98,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       const sdkAvailable = await isClaudeSdkImportable();
       if (!sdkAvailable) {
         throw new Error(
-          "Claude Agent SDK (@anthropic-ai/claude-agent-sdk) is not importable. Install it or use --bridge claude-code.",
+          "Claude Agent SDK (@anthropic-ai/claude-agent-sdk) is not importable. Install it or set `bridge.mode=claude-code`.",
         );
       }
       const runtime = await runClaudeSdkBridgeStartupProbe(env, bridgeConfig, options);
@@ -174,29 +177,12 @@ function getBridgeProvider(mode: BridgeMode): BridgeProvider {
   return provider;
 }
 
-export interface BridgeSelection {
-  mode: BridgeMode;
-  source: "explicit" | "config";
-  detail: string;
-}
-
-export function createBridgeSelection(
-  mode: BridgeMode,
-  source: "explicit" | "config",
-): BridgeSelection {
-  return {
-    mode,
-    source,
-    detail: source === "explicit" ? "requested via --bridge" : "loaded from config",
-  };
-}
-
 export async function runBridgeStartupPreflight(
-  selection: BridgeSelection,
+  mode: BridgeMode,
   env: NodeJS.ProcessEnv = process.env,
   bridgeSettings: BridgeSettings,
 ): Promise<BridgeStartupProbeResult> {
-  return await getBridgeProvider(selection.mode).startupProbe(env, bridgeSettings, {
+  return await getBridgeProvider(mode).startupProbe(env, bridgeSettings, {
     strictConfig: true,
   });
 }

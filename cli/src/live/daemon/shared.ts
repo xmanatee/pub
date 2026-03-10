@@ -52,7 +52,6 @@ export interface DaemonConfig {
 
 export const OFFER_TIMEOUT_MS = 10_000;
 export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;
-export const WRITE_ACK_TIMEOUT_MS = 5_000;
 export const PING_INTERVAL_MS = 10_000;
 export const PONG_TIMEOUT_MS = 15_000;
 

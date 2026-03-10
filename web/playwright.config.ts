@@ -26,7 +26,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "VITE_E2E_AUTH_BASE_URL=https://example.convex.cloud pnpm dev",
+    command: "VITE_CONVEX_URL=https://example.convex.cloud pnpm dev",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

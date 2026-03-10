@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { errorMessage } from "../../../core/errors/cli-error.js";
-import type { BridgeSessionSource } from "../types.js";
-import { resolveOpenClawStateDir } from "./openclaw-paths.js";
+import { errorMessage } from "../../../../core/errors/cli-error.js";
+import type { BridgeSessionSource } from "../../types.js";
+import { resolveOpenClawStateDir } from "./paths.js";
 
-export { resolveOpenClawHome, resolveOpenClawStateDir } from "./openclaw-paths.js";
+export { resolveOpenClawHome, resolveOpenClawStateDir } from "./paths.js";
 
 const OPENCLAW_MAIN_SESSION_KEY = "agent:main:main";
 

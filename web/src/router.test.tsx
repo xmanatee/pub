@@ -27,6 +27,8 @@ vi.mock("posthog-js", () => ({ default: { capture: vi.fn() } }));
 
 vi.mock("./routeTree.gen", () => ({ routeTree: {} }));
 
+vi.stubEnv("VITE_CONVEX_URL", "https://example.convex.cloud");
+
 vi.stubGlobal("window", {
   requestAnimationFrame: vi.fn(),
   history: { state: {}, replaceState: vi.fn() },

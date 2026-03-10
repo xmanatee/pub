@@ -1,23 +1,16 @@
 import { PubApiClient } from "../../core/api/client.js";
-import { errorMessage } from "../../core/errors/cli-error.js";
-import type { PubTelegramConfig } from "../../core/config/index.js";
-import { resolvePubSettings } from "../../core/config/index.js";
+import type { ApiClientSettings, PubTelegramConfig } from "../../core/config/index.js";
 import { telegramGetMe, telegramSetMenuButton } from "./telegram.js";
 
-function resolveTelegramMutationApiKey(explicitApiKey?: string): string {
-  const trimmedExplicit = explicitApiKey?.trim();
-  if (trimmedExplicit) return trimmedExplicit;
-
-  const resolved = resolvePubSettings();
-  const resolvedApiKey = resolved.core.apiKey?.value?.trim();
-  if (resolvedApiKey) return resolvedApiKey;
-
+function requireTelegramApiClientSettings(
+  apiClientSettings?: ApiClientSettings,
+): ApiClientSettings {
+  if (apiClientSettings?.apiKey.trim()) return apiClientSettings;
   throw new Error("Pub API key is required for Telegram bot token changes.");
 }
 
-function createTelegramApiClient(apiKey: string): PubApiClient {
-  const resolved = resolvePubSettings();
-  return new PubApiClient(resolved.core.baseUrl.value, apiKey);
+function createTelegramApiClient(apiClientSettings: ApiClientSettings): PubApiClient {
+  return new PubApiClient(apiClientSettings.baseUrl, apiClientSettings.apiKey);
 }
 
 function trimToUndefined(value: string | undefined): string | undefined {
@@ -28,28 +21,19 @@ function trimToUndefined(value: string | undefined): string | undefined {
 export async function reconcileTelegramConfigChange(params: {
   previous: PubTelegramConfig | undefined;
   next: PubTelegramConfig;
-  explicitApiKey?: string;
+  apiClientSettings?: ApiClientSettings;
 }): Promise<void> {
   const previousToken = trimToUndefined(params.previous?.botToken);
   const nextToken = trimToUndefined(params.next.botToken);
 
   if (previousToken && !nextToken) {
-    const apiKey = resolveTelegramMutationApiKey(params.explicitApiKey);
+    const apiClientSettings = requireTelegramApiClientSettings(params.apiClientSettings);
 
-    try {
-      await telegramSetMenuButton(previousToken, { type: "default" });
-      console.log("Telegram menu button reset to default.");
-    } catch (error) {
-      console.error(`Warning: failed to reset Telegram menu button: ${errorMessage(error)}`);
-    }
-
-    try {
-      await createTelegramApiClient(apiKey).deleteBotToken();
-      console.log("Bot token removed from server.");
-    } catch (error) {
-      throw new Error(`Failed to remove bot token from server: ${errorMessage(error)}`);
-    }
-
+    await telegramSetMenuButton(previousToken, { type: "default" });
+    console.log("Telegram menu button reset to default.");
+    await createTelegramApiClient(apiClientSettings).deleteBotToken();
+    console.log("Bot token removed from server.");
+    delete params.next.botToken;
     delete params.next.botUsername;
     delete params.next.hasMainWebApp;
     return;
@@ -65,7 +49,7 @@ export async function reconcileTelegramConfigChange(params: {
     return;
   }
 
-  const apiKey = resolveTelegramMutationApiKey(params.explicitApiKey);
+  const apiClientSettings = requireTelegramApiClientSettings(params.apiClientSettings);
   console.log("Verifying Telegram bot token...");
   const bot = await telegramGetMe(nextToken);
   params.next.botToken = nextToken;
@@ -86,7 +70,7 @@ export async function reconcileTelegramConfigChange(params: {
     console.log("    Set Web App URL to: https://pub.blue");
   }
 
-  await createTelegramApiClient(apiKey).uploadBotToken({
+  await createTelegramApiClient(apiClientSettings).uploadBotToken({
     botToken: nextToken,
     botUsername: bot.username,
   });

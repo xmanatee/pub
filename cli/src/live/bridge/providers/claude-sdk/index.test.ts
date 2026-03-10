@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildSdkSessionOptions, isClaudeSdkAvailableInEnv } from "./claude-sdk.js";
+import { buildSdkSessionOptions, isClaudeSdkAvailableInEnv } from "./index.js";
 
 const envKeys = [
   "CLAUDE_CODE_PATH",

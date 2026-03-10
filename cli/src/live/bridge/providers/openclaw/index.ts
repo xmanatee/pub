@@ -1,12 +1,12 @@
-import { CHANNELS, generateMessageId } from "../../../../../shared/bridge-protocol-core";
-import { errorMessage } from "../../../core/errors/cli-error.js";
+import { CHANNELS, generateMessageId } from "../../../../../../shared/bridge-protocol-core";
+import { errorMessage } from "../../../../core/errors/cli-error.js";
 import {
   type ActiveStream,
   ensureDirectoryWritable,
   handleAttachmentEntry,
   MONITORED_ATTACHMENT_CHANNELS,
-} from "../attachments.js";
-import { createBridgeEntryQueue } from "../queue.js";
+} from "../../attachments.js";
+import { createBridgeEntryQueue } from "../../queue.js";
 import {
   type BridgeRunner,
   type BridgeRunnerConfig,
@@ -17,23 +17,21 @@ import {
   readRenderErrorMessage,
   readTextChatMessage,
   shouldIncludeCanvasPolicyReminder,
-} from "../shared.js";
+} from "../../shared.js";
 import {
   deliverMessageToOpenClaw,
-  isOpenClawAvailable,
-  resolveOpenClawPath,
-  resolveOpenClawRuntime,
-  runOpenClawBridgeStartupProbe,
   runOpenClawPreflight,
-} from "./openclaw-runtime.js";
+} from "./runtime.js";
 
 export {
   deliverMessageToOpenClaw,
+} from "./runtime.js";
+export {
   isOpenClawAvailable,
   resolveOpenClawPath,
   resolveOpenClawRuntime,
-  runOpenClawBridgeStartupProbe,
-} from "./openclaw-runtime.js";
+} from "./discovery.js";
+export { runOpenClawBridgeStartupProbe } from "./probe.js";
 
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,

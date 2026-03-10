@@ -1,9 +1,15 @@
 import type { Command } from "commander";
-import type { PubBridgeConfig, PubConfig, PubTelegramConfig } from "../../core/config/index.js";
+import type {
+  ApiClientSettings,
+  PubBridgeConfig,
+  PubConfig,
+  PubTelegramConfig,
+  ResolvedPubSettings,
+} from "../../core/config/index.js";
 import {
   compactPubConfig,
   parseConfigAssignment,
-  readPubConfig,
+  resolvePubSettingsFromConfig,
   resolvePubSettings,
   setPubConfigValue,
   unsetPubConfigValue,
@@ -30,6 +36,58 @@ function clonePubConfig(config: PubConfig | null): PubConfig {
   };
 }
 
+function cloneTelegramConfig(config: PubConfig): PubTelegramConfig {
+  return config.telegram ? { ...config.telegram } : {};
+}
+
+const OPENCLAW_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
+  "openclawPath",
+  "openclawStateDir",
+  "sessionId",
+  "threadId",
+  "deliver",
+  "deliverChannel",
+];
+
+const CLAUDE_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
+  "claudeCodePath",
+  "claudeCodeModel",
+  "claudeCodeAllowedTools",
+  "claudeCodeAppendSystemPrompt",
+  "claudeCodeMaxTurns",
+];
+
+function stripProviderSpecificBridgeConfig(
+  bridgeConfig: PubBridgeConfig | undefined,
+  mode: NonNullable<PubBridgeConfig["mode"]>,
+): PubBridgeConfig {
+  const nextBridge: PubBridgeConfig = { ...(bridgeConfig ?? {}) };
+  const keysToDelete = mode === "openclaw" ? CLAUDE_ONLY_KEYS : OPENCLAW_ONLY_KEYS;
+
+  for (const key of keysToDelete) {
+    delete nextBridge[key];
+  }
+
+  return nextBridge;
+}
+
+function getTelegramApiClientSettingsForMutation(
+  nextConfig: PubConfig,
+  currentResolved: ResolvedPubSettings,
+): ApiClientSettings {
+  const nextResolved = resolvePubSettingsFromConfig(nextConfig);
+  const apiKey = nextResolved.core.apiKey?.value ?? currentResolved.core.apiKey?.value;
+
+  if (!apiKey) {
+    throw new Error("Pub API key is required for Telegram bot token changes.");
+  }
+
+  return {
+    apiKey,
+    baseUrl: nextResolved.core.baseUrl.value,
+  };
+}
+
 export function registerConfigCommand(program: Command): void {
   program
     .command("config")
@@ -45,8 +103,8 @@ export function registerConfigCommand(program: Command): void {
     )
     .option("--unset <key>", "Unset config key (repeatable)", collectValues, [])
     .action(async (opts: ConfigureCommandOptions) => {
-      const saved = readPubConfig();
       const resolved = resolvePubSettings();
+      const saved = resolved.rawConfig;
       const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
       const hasSet = opts.set.length > 0;
       const hasUnset = opts.unset.length > 0;
@@ -65,15 +123,16 @@ export function registerConfigCommand(program: Command): void {
       if (hasAuto) {
         const bridgeProcessEnv = buildBridgeProcessEnv();
         const result = await autoDetectBridgeConfig(bridgeProcessEnv, resolved.rawConfig.bridge);
+        const baseBridge = stripProviderSpecificBridgeConfig(saved.bridge, result.selected.mode);
         const nextBridge: PubBridgeConfig = {
-          ...(saved?.bridge ?? {}),
+          ...baseBridge,
           ...result.selected.configPatch,
           mode: result.selected.mode,
         };
         const nextConfig = compactPubConfig({
-          core: saved?.core ? { ...saved.core } : undefined,
+          core: saved.core ? { ...saved.core } : undefined,
           bridge: nextBridge,
-          telegram: saved?.telegram ? { ...saved.telegram } : undefined,
+          telegram: saved.telegram ? { ...saved.telegram } : undefined,
         });
         writePubConfig(nextConfig);
         printAutoDetectSummary([
@@ -95,12 +154,10 @@ export function registerConfigCommand(program: Command): void {
       }
 
       const nextConfig = clonePubConfig(saved);
-      const nextTelegram: PubTelegramConfig = { ...(nextConfig.telegram ?? {}) };
-      let explicitApiKey: string | undefined;
 
       if (hasApiUpdate) {
-        explicitApiKey = await resolveConfigureApiKey(opts);
-        setPubConfigValue(nextConfig, "apiKey", explicitApiKey);
+        const apiKey = await resolveConfigureApiKey(opts);
+        setPubConfigValue(nextConfig, "apiKey", apiKey);
       }
 
       for (const entry of opts.set) {
@@ -112,12 +169,17 @@ export function registerConfigCommand(program: Command): void {
         unsetPubConfigValue(nextConfig, key.trim());
       }
 
-      Object.assign(nextTelegram, nextConfig.telegram ?? {});
-      await reconcileTelegramConfigChange({
-        previous: saved?.telegram,
-        next: nextTelegram,
-        explicitApiKey,
-      });
+      const nextTelegram = cloneTelegramConfig(nextConfig);
+      const shouldReconcileTelegram =
+        Boolean(saved.telegram?.botToken?.trim()) || Boolean(nextTelegram.botToken?.trim());
+
+      if (shouldReconcileTelegram) {
+        await reconcileTelegramConfigChange({
+          previous: saved.telegram,
+          next: nextTelegram,
+          apiClientSettings: getTelegramApiClientSettingsForMutation(nextConfig, resolved),
+        });
+      }
 
       nextConfig.telegram = nextTelegram;
       compactPubConfig(nextConfig);

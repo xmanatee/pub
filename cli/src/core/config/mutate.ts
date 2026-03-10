@@ -8,7 +8,7 @@ import {
   SUPPORTED_CONFIG_KEYS,
   writePubConfigValue,
 } from "./registry.js";
-import type { ConfigSection } from "./registry.js";
+import type { ConfigVarDefinition, ConfigSection } from "./registry.js";
 import type { PubConfig } from "./types.js";
 
 export function parseConfigAssignment(raw: string): { key: string; value: string } {
@@ -52,15 +52,7 @@ function requireMutableConfigVar(key: string) {
   return definition;
 }
 
-export function setPubConfigValue(config: PubConfig, key: string, rawValue: string): void {
-  const definition = requireMutableConfigVar(key);
-  writePubConfigValue(config, definition, coerceConfigVarInput(definition, rawValue));
-  compactPubConfig(config);
-}
-
-export function unsetPubConfigValue(config: PubConfig, key: string): void {
-  const definition = requireMutableConfigVar(key);
-  deletePubConfigValue(config, definition);
+function applyCascadeUnset(config: PubConfig, definition: ConfigVarDefinition): void {
   if (definition.cascadeUnset) {
     for (const dependentKey of definition.cascadeUnset) {
       const dependentDefinition = getConfigVar(dependentKey);
@@ -68,6 +60,19 @@ export function unsetPubConfigValue(config: PubConfig, key: string): void {
       deletePubConfigValue(config, dependentDefinition);
     }
   }
+}
+
+export function setPubConfigValue(config: PubConfig, key: string, rawValue: string): void {
+  const definition = requireMutableConfigVar(key);
+  writePubConfigValue(config, definition, coerceConfigVarInput(definition, rawValue));
+  applyCascadeUnset(config, definition);
+  compactPubConfig(config);
+}
+
+export function unsetPubConfigValue(config: PubConfig, key: string): void {
+  const definition = requireMutableConfigVar(key);
+  deletePubConfigValue(config, definition);
+  applyCascadeUnset(config, definition);
   compactPubConfig(config);
 }
 

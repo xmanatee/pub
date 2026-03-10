@@ -148,6 +148,44 @@ describe("createLiveCommandHandler", () => {
     expect(results[0]).toMatchObject({ ok: true, value: "shell-ok" });
   });
 
+  it("prefers the requested call timeout over manifest/runtime defaults", async () => {
+    const { handler, sentMessages } = buildHandler();
+
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "slowEcho",
+          returns: "text",
+          timeoutMs: 1_000,
+          executor: {
+            kind: "exec",
+            command: process.execPath,
+            args: ["-e", "setTimeout(() => process.stdout.write('late'), 200)"],
+          },
+        },
+      ]),
+    );
+
+    await handler.onMessage(
+      makeEventMessage("command.invoke", {
+        v: 1,
+        callId: "call-timeout",
+        name: "slowEcho",
+        timeoutMs: 50,
+      }),
+    );
+
+    const results = commandResults(sentMessages).filter((entry) => entry.callId === "call-timeout");
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      ok: false,
+      error: {
+        code: "COMMAND_EXECUTION_FAILED",
+      },
+    });
+    expect(results[0].error?.message).toContain("timed out after 50ms");
+  });
+
   it("returns COMMAND_NOT_FOUND for unknown command", async () => {
     const { handler, sentMessages } = buildHandler();
 

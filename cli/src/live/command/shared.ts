@@ -35,6 +35,10 @@ export interface CommandRuntimeConfig {
   maxOutputBytes: number;
 }
 
+function readPositiveTimeoutMs(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 export function getCommandRuntimeConfig(
   bridgeSettings: BridgeSettings,
 ): CommandRuntimeConfig {
@@ -58,4 +62,16 @@ export function normalizeFunctionSpec(input: CommandFunctionSpec): CommandFuncti
     ...input,
     returns: input.returns === "text" || input.returns === "json" ? input.returns : "void",
   };
+}
+
+export function resolveCommandTimeoutMs(params: {
+  requestedTimeoutMs?: number;
+  spec: CommandFunctionSpec;
+  runtime: CommandRuntimeConfig;
+}): number {
+  const executorTimeoutMs = readPositiveTimeoutMs(params.spec.executor?.timeoutMs);
+  const specTimeoutMs = readPositiveTimeoutMs(params.spec.timeoutMs);
+  const requestedTimeoutMs = readPositiveTimeoutMs(params.requestedTimeoutMs);
+
+  return requestedTimeoutMs ?? executorTimeoutMs ?? specTimeoutMs ?? params.runtime.defaultTimeoutMs;
 }

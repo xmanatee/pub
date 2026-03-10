@@ -69,7 +69,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
-- `start --agent-name <name>` — registers agent presence and starts the per-user daemon; optional `--bridge openclaw|claude-code|claude-sdk`; `--agent-name` is required and shown in browser UI
+- `start --agent-name <name>` — registers agent presence and starts the per-user daemon using saved bridge config; `--agent-name` is required and shown in browser UI
 - `stop` — deregisters agent presence, closes active live, stops daemon
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
@@ -77,9 +77,9 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `config --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - `config --auto` — detects a working bridge, runs preflight, and saves bridge mode/path into config
 - Config: one `config.json` under the single resolved Pub config directory, plus env overrides like `PUB_API_KEY`
-- Config dir resolution: existing `PUB_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.configs/pub`; fail on ambiguity or no directory
+- Config dir resolution: existing `PUB_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.config/pub`; fail on ambiguity or no directory
 - OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
-- Bridge cwd resolution: `PUB_BRIDGE_CWD` overrides shared bridge cwd; `pub config --auto` only accepts OpenClaw when `OPENCLAW_WORKSPACE` is set, and runtime OpenClaw uses `OPENCLAW_WORKSPACE` or saved `bridge.cwd`
+- Bridge cwd resolution: `pub config --auto` only accepts OpenClaw when `OPENCLAW_WORKSPACE` is set, and runtime OpenClaw uses `OPENCLAW_WORKSPACE` or saved `bridge.cwd`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_BASE_URL` env var
 
 ### Content Serving

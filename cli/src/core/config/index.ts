@@ -24,10 +24,11 @@ export {
 } from "./registry.js";
 export {
   getApiClientSettings,
-  getBridgeMode,
+  getApiClientSettingsFromConfig,
   getResolvedSettingValue,
   getTelegramMiniAppUrl,
   resolvePubSettings,
+  resolvePubSettingsFromConfig,
 } from "./resolve.js";
 export { readPubConfig, writePubConfig } from "./store.js";
 export type {

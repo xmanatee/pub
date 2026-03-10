@@ -1,0 +1,109 @@
+import { spawn } from "node:child_process";
+import type { PubBridgeConfig, ClaudeBridgeSettings, BridgeSettings } from "../../../../core/config/index.js";
+import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
+import {
+  buildClaudeArgs,
+  resolveAutoDetectClaudeBridgeCwd,
+  resolveClaudeCodePath,
+} from "./discovery.js";
+import {
+  buildClaudeArgsFromSettings,
+  runClaudeCodePreflight,
+} from "./runtime.js";
+
+function getStrictClaudeCodePath(bridgeConfig: ClaudeBridgeSettings): string {
+  return bridgeConfig.claudeCodePath;
+}
+
+function getStrictClaudeBridgeCwd(bridgeConfig: ClaudeBridgeSettings): string {
+  return bridgeConfig.bridgeCwd;
+}
+
+async function runClaudeCodeWritePongProbe(
+  claudePath: string,
+  envInput: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: PubBridgeConfig,
+  options?: { strictConfig: boolean },
+): Promise<void> {
+  await runAgentWritePongProbe({
+    label: "Claude Code",
+    baseEnv: envInput,
+    execute: async (probeEnv, signal) => {
+      const env = { ...probeEnv };
+      delete env.CLAUDECODE;
+      const prompt = [
+        "This is a startup connectivity probe.",
+        "Run this exact shell command now:",
+        'pub write "pong"',
+        "Do not explain. Just execute it.",
+      ].join("\n");
+      const args =
+        options?.strictConfig && bridgeConfig
+          ? buildClaudeArgsFromSettings(
+              prompt,
+              null,
+              null,
+              bridgeConfig as ClaudeBridgeSettings,
+            )
+          : buildClaudeArgs(prompt, null, null, env, undefined, bridgeConfig);
+      if (!args.includes("--max-turns")) args.push("--max-turns", "2");
+
+      const cwd = options?.strictConfig
+        ? getStrictClaudeBridgeCwd(bridgeConfig as ClaudeBridgeSettings)
+        : resolveAutoDetectClaudeBridgeCwd(env, bridgeConfig);
+
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(claudePath, args, {
+          cwd,
+          env,
+          signal,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stderr = "";
+        child.stderr.on("data", (chunk: Buffer) => {
+          stderr += chunk.toString("utf-8");
+        });
+        child.on("error", (error) => {
+          reject(new Error(`Claude Code ping/pong preflight failed: ${error.message}`));
+        });
+        child.on("close", (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(
+            new Error(
+              stderr.trim().length > 0
+                ? `Claude Code ping/pong preflight failed (exit ${code}): ${stderr.trim()}`
+                : `Claude Code ping/pong preflight failed (exit ${code})`,
+            ),
+          );
+        });
+      });
+    },
+  });
+}
+
+export interface ClaudeCodeRuntimeResolution {
+  claudePath: string;
+  cwd?: string;
+}
+
+export async function runClaudeCodeBridgeStartupProbe(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: PubBridgeConfig | BridgeSettings,
+  options?: { strictConfig: boolean },
+): Promise<ClaudeCodeRuntimeResolution> {
+  const strictConfig = options?.strictConfig === true;
+  const claudePath =
+    strictConfig && bridgeConfig
+      ? getStrictClaudeCodePath(bridgeConfig as ClaudeBridgeSettings)
+      : resolveClaudeCodePath(env, bridgeConfig);
+  const cwd =
+    strictConfig && bridgeConfig
+      ? getStrictClaudeBridgeCwd(bridgeConfig as ClaudeBridgeSettings)
+      : resolveAutoDetectClaudeBridgeCwd(env, bridgeConfig);
+  await runClaudeCodePreflight(claudePath, env);
+  await runClaudeCodeWritePongProbe(claudePath, env, bridgeConfig, { strictConfig });
+  return { claudePath, cwd };
+}

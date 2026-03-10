@@ -1,22 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isClaudeCodeAvailableInEnv } from "../../live/bridge/providers/claude-code.js";
-import { isClaudeSdkAvailableInEnv } from "../../live/bridge/providers/claude-sdk.js";
-import { isOpenClawAvailable } from "../../live/bridge/providers/openclaw.js";
-import { createBridgeSelection, parseBridgeMode } from "../../live/runtime/bridge-runtime.js";
-import { getFollowReadDelayMs, messageContainsPong } from "../../live/runtime/command-utils.js";
-import { buildDaemonSpawnStdio } from "../../live/runtime/daemon-process.js";
 import { SUPPORTED_CONFIG_KEYS } from "../../core/config/index.js";
 import { parsePositiveInteger } from "../../core/utils/number.js";
+import { isClaudeCodeAvailableInEnv } from "../../live/bridge/providers/claude-code/index.js";
+import { isClaudeSdkAvailableInEnv } from "../../live/bridge/providers/claude-sdk/index.js";
+import { isOpenClawAvailable } from "../../live/bridge/providers/openclaw/index.js";
+import { getFollowReadDelayMs, messageContainsPong } from "../../live/runtime/command-utils.js";
+import { buildDaemonSpawnStdio } from "../../live/runtime/daemon-process.js";
 
-vi.mock("../../live/bridge/providers/openclaw.js", () => ({
+vi.mock("../../live/bridge/providers/openclaw/index.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
   runOpenClawBridgeStartupProbe: vi.fn(),
 }));
-vi.mock("../../live/bridge/providers/claude-code.js", () => ({
+vi.mock("../../live/bridge/providers/claude-code/index.js", () => ({
   isClaudeCodeAvailableInEnv: vi.fn(() => false),
   runClaudeCodeBridgeStartupProbe: vi.fn(),
 }));
-vi.mock("../../live/bridge/providers/claude-sdk.js", () => ({
+vi.mock("../../live/bridge/providers/claude-sdk/index.js", () => ({
   isClaudeSdkAvailableInEnv: vi.fn(() => false),
   isClaudeSdkImportable: vi.fn(async () => false),
   runClaudeSdkBridgeStartupProbe: vi.fn(),
@@ -66,43 +65,6 @@ describe("parsePositiveInteger", () => {
     expect(() => parsePositiveInteger("abc", "--timeout")).toThrow(
       "--timeout must be a positive integer",
     );
-  });
-});
-
-describe("parseBridgeMode", () => {
-  it("accepts supported bridge modes", () => {
-    expect(parseBridgeMode("openclaw")).toBe("openclaw");
-    expect(parseBridgeMode("claude-code")).toBe("claude-code");
-    expect(parseBridgeMode("claude-sdk")).toBe("claude-sdk");
-    expect(parseBridgeMode("OPENCLAW")).toBe("openclaw");
-    expect(parseBridgeMode("CLAUDE-CODE")).toBe("claude-code");
-    expect(parseBridgeMode("CLAUDE-SDK")).toBe("claude-sdk");
-  });
-
-  it("throws for unsupported bridge modes", () => {
-    expect(() => parseBridgeMode("invalid")).toThrow("--bridge must be one of");
-    expect(() => parseBridgeMode("none")).toThrow("--bridge must be one of");
-  });
-});
-
-describe("createBridgeSelection", () => {
-  beforeEach(() => {
-    vi.mocked(isOpenClawAvailable).mockReturnValue(false);
-    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(false);
-    vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(false);
-  });
-
-  it("records the selected mode and source", () => {
-    expect(createBridgeSelection("openclaw", "config")).toEqual({
-      mode: "openclaw",
-      source: "config",
-      detail: "loaded from config",
-    });
-    expect(createBridgeSelection("claude-code", "explicit")).toEqual({
-      mode: "claude-code",
-      source: "explicit",
-      detail: "requested via --bridge",
-    });
   });
 });
 

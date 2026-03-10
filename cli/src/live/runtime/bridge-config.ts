@@ -17,6 +17,44 @@ function trimToUndefined(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function parseBooleanEnv(envKey: string, raw: string | undefined): boolean | undefined {
+  const normalized = trimToUndefined(raw)?.toLowerCase();
+  if (normalized === undefined) return undefined;
+  if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on")
+    return true;
+  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off")
+    return false;
+  throw new Error(`Invalid boolean value for ${envKey}: ${raw}`);
+}
+
+function parsePositiveIntegerEnv(envKey: string, raw: string | undefined): number | undefined {
+  const trimmed = trimToUndefined(raw);
+  if (trimmed === undefined) return undefined;
+  const parsed = Number.parseInt(trimmed, 10);
+  if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  throw new Error(`Invalid positive integer value for ${envKey}: ${raw}`);
+}
+
+function stringValueOrEnv(value: string | undefined, envKey: string, env: NodeJS.ProcessEnv): string | undefined {
+  return trimToUndefined(env[envKey]) ?? trimToUndefined(value);
+}
+
+function booleanValueOrEnv(
+  value: boolean | undefined,
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+): boolean | undefined {
+  return parseBooleanEnv(envKey, env[envKey]) ?? value;
+}
+
+function integerValueOrEnv(
+  value: number | undefined,
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+): number | undefined {
+  return parsePositiveIntegerEnv(envKey, env[envKey]) ?? value;
+}
+
 function positiveIntOr(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -35,14 +73,6 @@ export function buildBridgeProcessEnv(): NodeJS.ProcessEnv {
     env.PUB_PROJECT_ROOT = process.cwd();
   }
   return env;
-}
-
-export function parseBridgeMode(raw: string): BridgeMode {
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "claude-code" || normalized === "claude-sdk") {
-    return normalized;
-  }
-  throw new Error(`--bridge must be one of: openclaw, claude-code, claude-sdk. Received: ${raw}`);
 }
 
 export function buildBridgeSettings(
@@ -71,7 +101,7 @@ export function buildBridgeSettings(
       bridgeConfig.canvasReminderEvery,
       DEFAULT_CANVAS_REMINDER_EVERY,
     ),
-    deliver: bridgeConfig.deliver === true,
+    deliver: booleanValueOrEnv(bridgeConfig.deliver, "OPENCLAW_DELIVER", env) === true,
     deliverTimeoutMs: positiveIntOr(
       bridgeConfig.deliverTimeoutMs,
       DEFAULT_BRIDGE_DELIVER_TIMEOUT_MS,
@@ -94,27 +124,46 @@ export function buildBridgeSettings(
       bridgeConfig.commandMaxConcurrent,
       DEFAULT_COMMAND_MAX_CONCURRENT,
     ),
-    openclawStateDir: trimToUndefined(bridgeConfig.openclawStateDir),
-    threadId: trimToUndefined(bridgeConfig.threadId),
-    deliverChannel: trimToUndefined(bridgeConfig.deliverChannel),
-    claudeCodeModel: trimToUndefined(bridgeConfig.claudeCodeModel),
-    claudeCodeAllowedTools: trimToUndefined(bridgeConfig.claudeCodeAllowedTools),
-    claudeCodeAppendSystemPrompt: trimToUndefined(bridgeConfig.claudeCodeAppendSystemPrompt),
-    claudeCodeMaxTurns: positiveIntOr(bridgeConfig.claudeCodeMaxTurns, 0) || undefined,
+    openclawStateDir: stringValueOrEnv(bridgeConfig.openclawStateDir, "OPENCLAW_STATE_DIR", env),
+    threadId: stringValueOrEnv(bridgeConfig.threadId, "OPENCLAW_THREAD_ID", env),
+    deliverChannel: stringValueOrEnv(bridgeConfig.deliverChannel, "OPENCLAW_DELIVER_CHANNEL", env),
+    claudeCodeModel: stringValueOrEnv(bridgeConfig.claudeCodeModel, "CLAUDE_CODE_MODEL", env),
+    claudeCodeAllowedTools: stringValueOrEnv(
+      bridgeConfig.claudeCodeAllowedTools,
+      "CLAUDE_CODE_ALLOWED_TOOLS",
+      env,
+    ),
+    claudeCodeAppendSystemPrompt: stringValueOrEnv(
+      bridgeConfig.claudeCodeAppendSystemPrompt,
+      "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
+      env,
+    ),
+    claudeCodeMaxTurns:
+      positiveIntOr(integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env), 0) ||
+      undefined,
   };
 
   if (mode === "openclaw") {
     return {
       ...base,
       mode,
-      openclawPath: requireString(trimToUndefined(bridgeConfig.openclawPath), "openclaw.path"),
-      sessionId: requireString(trimToUndefined(bridgeConfig.sessionId), "openclaw.sessionId"),
+      openclawPath: requireString(
+        stringValueOrEnv(bridgeConfig.openclawPath, "OPENCLAW_PATH", env),
+        "openclaw.path",
+      ),
+      sessionId: requireString(
+        stringValueOrEnv(bridgeConfig.sessionId, "OPENCLAW_SESSION_ID", env),
+        "openclaw.sessionId",
+      ),
     };
   }
 
   return {
     ...base,
     mode,
-    claudeCodePath: requireString(trimToUndefined(bridgeConfig.claudeCodePath), "claude-code.path"),
+    claudeCodePath: requireString(
+      stringValueOrEnv(bridgeConfig.claudeCodePath, "CLAUDE_CODE_PATH", env),
+      "claude-code.path",
+    ),
   };
 }

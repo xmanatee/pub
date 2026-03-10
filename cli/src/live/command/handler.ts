@@ -17,6 +17,7 @@ import {
   getCommandRuntimeConfig,
   normalizeFunctionSpec,
   type RecentCommandResult,
+  resolveCommandTimeoutMs,
   type RunningCommand,
 } from "./shared.js";
 import { interpolateTemplate, toCommandReturnValue } from "./template.js";
@@ -69,17 +70,13 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     spec: CommandFunctionSpec,
     args: Record<string, unknown>,
     abortSignal: AbortSignal,
+    requestedTimeoutMs?: number,
   ): Promise<unknown> {
     const executor = spec.executor;
     if (!executor) {
       throw new Error(`Function "${spec.name}" is missing executor definition.`);
     }
-    const timeoutMs =
-      (typeof executor.timeoutMs === "number" && executor.timeoutMs > 0
-        ? executor.timeoutMs
-        : undefined) ??
-      (typeof spec.timeoutMs === "number" && spec.timeoutMs > 0 ? spec.timeoutMs : undefined) ??
-      runtime.defaultTimeoutMs;
+    const timeoutMs = resolveCommandTimeoutMs({ requestedTimeoutMs, spec, runtime });
     const returnType = spec.returns === "json" || spec.returns === "text" ? spec.returns : "void";
 
     if (executor.kind === "exec") {
@@ -231,7 +228,12 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     running.set(message.callId, { abort, startedAt, cancelled: false });
 
     try {
-      const value = await executeFunction(spec, message.args ?? {}, abort.signal);
+      const value = await executeFunction(
+        spec,
+        message.args ?? {},
+        abort.signal,
+        message.timeoutMs,
+      );
       const active = running.get(message.callId);
       if (abort.signal.aborted || active?.cancelled) {
         params.debugLog(`commands invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`);

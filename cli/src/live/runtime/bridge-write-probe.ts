@@ -19,17 +19,38 @@ function isPongWriteRequest(req: ProbeRequest): boolean {
 
 function generateProbeSocketPath(): string {
   const suffix = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  return path.join(os.tmpdir(), `pub-agent-probe-${suffix}.sock`);
+  const socketDir =
+    process.platform !== "win32" && fs.existsSync("/tmp") ? "/tmp" : os.tmpdir();
+  return path.join(socketDir, `pub-agent-probe-${suffix}.sock`);
+}
+
+function createProbeTimeoutError(label: string, timeoutMs: number): Error {
+  return new Error(`${label} ping/pong preflight failed: timed out after ${timeoutMs}ms.`);
+}
+
+async function waitForPongWrite(params: {
+  label: string;
+  timeoutMs: number;
+  signal: AbortSignal;
+  isReceived: () => boolean;
+}): Promise<void> {
+  while (!params.isReceived()) {
+    if (params.signal.aborted) {
+      throw createProbeTimeoutError(params.label, params.timeoutMs);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
 }
 
 export async function runAgentWritePongProbe(params: {
   label: string;
   baseEnv: NodeJS.ProcessEnv;
-  execute: (probeEnv: NodeJS.ProcessEnv) => Promise<void>;
+  execute: (probeEnv: NodeJS.ProcessEnv, signal: AbortSignal) => Promise<void>;
   timeoutMs?: number;
 }): Promise<void> {
   const timeoutMs = params.timeoutMs ?? 20_000;
   const socketPath = generateProbeSocketPath();
+  const abortController = new AbortController();
   let receivedPongWrite = false;
   let serverClosed = false;
 
@@ -82,19 +103,32 @@ export async function runAgentWritePongProbe(params: {
     });
 
     const probeEnv: NodeJS.ProcessEnv = { ...params.baseEnv, PUB_AGENT_SOCKET: socketPath };
-    await params.execute(probeEnv);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        abortController.abort();
+        reject(createProbeTimeoutError(params.label, timeoutMs));
+      }, timeoutMs);
+    });
 
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < timeoutMs) {
-      if (receivedPongWrite) {
-        return;
+    try {
+      await Promise.race([
+        Promise.all([
+          params.execute(probeEnv, abortController.signal),
+          waitForPongWrite({
+            label: params.label,
+            timeoutMs,
+            signal: abortController.signal,
+            isReceived: () => receivedPongWrite,
+          }),
+        ]),
+        timeoutPromise,
+      ]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-      await new Promise((resolve) => setTimeout(resolve, 150));
     }
-
-    throw new Error(
-      `${params.label} ping/pong preflight failed: did not observe \`pub write "pong"\` within ${timeoutMs}ms.`,
-    );
   } finally {
     await cleanup();
   }

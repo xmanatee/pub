@@ -40,7 +40,7 @@ Key source: <https://pub.blue/dashboard>
 Pub resolves config from exactly one existing directory:
 - `PUB_CONFIG_DIR`
 - `OPENCLAW_HOME/.openclaw/pub`
-- `~/.configs/pub`
+- `~/.config/pub`
 
 If more than one exists, Pub fails until redundant config directories are removed.
 For OpenClaw bridge mode, set an explicit workspace before `pub config --auto`, for example `OPENCLAW_WORKSPACE=/absolute/path/to/workspace`.
@@ -77,15 +77,12 @@ Live is browser-initiated: the user opens the pub page; owner live mode connects
 1. Start the agent daemon:
 ```bash
 pub start --agent-name "<agent-name>"
-# optional explicit mode:
-pub start --agent-name "<agent-name>" --bridge openclaw
-pub start --agent-name "<agent-name>" --bridge claude-code
-pub start --agent-name "<agent-name>" --bridge claude-sdk
 ```
 
 Notes:
+- Bridge mode comes from saved config (`pub config --auto` or `pub config --set bridge.mode=...`).
 - Standalone binary installs fall back to `claude-code` when the Claude Agent SDK package is not locally importable.
-- `--bridge claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
+- `bridge.mode=claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
 
 2. Check runtime status:
 ```bash

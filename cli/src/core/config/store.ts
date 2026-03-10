@@ -12,7 +12,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-function readLegacyCoreConfig(root: Record<string, unknown>): PubCoreConfig | undefined {
+function readCoreConfig(root: Record<string, unknown>): PubCoreConfig | undefined {
   const core = asRecord(root.core);
   const apiKey = typeof root.apiKey === "string" ? root.apiKey : undefined;
   const baseUrl = typeof root.baseUrl === "string" ? root.baseUrl : undefined;
@@ -40,7 +40,7 @@ function normalizePubConfig(input: unknown): PubConfig {
   if (!root) return {};
 
   return compactPubConfig({
-    core: readLegacyCoreConfig(root),
+    core: readCoreConfig(root),
     bridge: readBridgeConfig(root),
     telegram: readTelegramConfig(root),
   });

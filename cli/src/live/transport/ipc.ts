@@ -5,12 +5,16 @@
  */
 
 import * as net from "node:net";
+import * as os from "node:os";
 import { type IpcRequest, type IpcResponseFor, parseIpcResponse } from "./ipc-protocol.js";
 
 export function getAgentSocketPath(): string {
   const override = process.env.PUB_AGENT_SOCKET?.trim();
   if (override && override.length > 0) return override;
-  return "/tmp/pub-agent.sock";
+
+  const userInfo = os.userInfo();
+  const suffix = userInfo.username ? `-${userInfo.username}` : "";
+  return `/tmp/pub-agent${suffix}.sock`;
 }
 
 export async function ipcCall<T extends IpcRequest["method"]>(

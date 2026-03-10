@@ -23,8 +23,35 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain("<body><div>fragment</div></body>");
   });
 
-  it("injects command bridge runtime and pub API helpers", () => {
+  it("keeps non-command canvases free of command helpers", () => {
     const input = "<html><head></head><body>ok</body></html>";
+    const output = buildCanvasSrcDoc(input);
+
+    expect(output).toContain('emit("ready",{})');
+    expect(output).not.toContain("api.command=invokeCommand");
+    expect(output).not.toContain("api.cancelCommand=cancelCommand");
+    expect(output).not.toContain('emit("command.invoke"');
+    expect(output).not.toContain('emit("command.cancel"');
+    expect(output).not.toContain("command.result");
+    expect(output).not.toContain("command.bind.result");
+    expect(output).not.toContain("application/pub-command-manifest+json");
+    expect(output).not.toContain("tryBindManifest");
+    expect(output).not.toContain("startManifestBinding");
+    expect(output).not.toContain("manifestRetryCount");
+    expect(output).not.toContain("bridgeToken");
+  });
+
+  it("injects command helpers only when the canvas declares a command manifest", () => {
+    const input = `
+      <html>
+        <head>
+          <script type="application/pub-command-manifest+json">
+            {"manifestId":"demo","functions":[{"name":"ping","returns":"text","executor":{"kind":"exec","command":"echo","args":["pong"]}}]}
+          </script>
+        </head>
+        <body>ok</body>
+      </html>
+    `;
     const output = buildCanvasSrcDoc(input);
 
     expect(output).toContain("api.command=invokeCommand");
@@ -32,12 +59,6 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain('emit("command.invoke"');
     expect(output).toContain('emit("command.cancel"');
     expect(output).toContain("command.result");
-    expect(output).toContain('emit("ready",{})');
-    expect(output).not.toContain("command.bind.result");
-    expect(output).not.toContain("application/pub-command-manifest+json");
-    expect(output).not.toContain("tryBindManifest");
-    expect(output).not.toContain("startManifestBinding");
-    expect(output).not.toContain("manifestRetryCount");
-    expect(output).not.toContain("bridgeToken");
+    expect(output).toContain("getGuardTimeoutMs");
   });
 });

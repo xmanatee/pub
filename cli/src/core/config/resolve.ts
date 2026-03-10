@@ -1,5 +1,4 @@
 import {
-  getConfigVar,
   getConfigVars,
   readEnvOverride,
   readPubConfigValue,
@@ -16,8 +15,10 @@ function toResolvedValue(value: unknown, source: "config" | "default"): Resolved
   return { value, source };
 }
 
-export function resolvePubSettings(env: NodeJS.ProcessEnv = process.env): ResolvedPubSettings {
-  const rawConfig = readPubConfig(env) ?? {};
+export function resolvePubSettingsFromConfig(
+  rawConfig: PubConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ResolvedPubSettings {
   const valuesByKey: Record<string, ResolvedValue<unknown> | null> = {};
 
   for (const definition of getConfigVars()) {
@@ -58,6 +59,10 @@ export function resolvePubSettings(env: NodeJS.ProcessEnv = process.env): Resolv
   };
 }
 
+export function resolvePubSettings(env: NodeJS.ProcessEnv = process.env): ResolvedPubSettings {
+  return resolvePubSettingsFromConfig(readPubConfig(env) ?? {}, env);
+}
+
 export function getResolvedSettingValue<T>(
   resolved: ResolvedPubSettings,
   key: string,
@@ -65,8 +70,11 @@ export function getResolvedSettingValue<T>(
   return (resolved.valuesByKey[key] as ResolvedValue<T> | null) ?? null;
 }
 
-export function getApiClientSettings(env: NodeJS.ProcessEnv = process.env): ApiClientSettings {
-  const resolved = resolvePubSettings(env);
+export function getApiClientSettingsFromConfig(
+  rawConfig: PubConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ApiClientSettings {
+  const resolved = resolvePubSettingsFromConfig(rawConfig, env);
   if (!resolved.core.apiKey) {
     throw new Error("Missing apiKey. Set it with `pub config --api-key` or PUB_API_KEY.");
   }
@@ -77,6 +85,10 @@ export function getApiClientSettings(env: NodeJS.ProcessEnv = process.env): ApiC
   };
 }
 
+export function getApiClientSettings(env: NodeJS.ProcessEnv = process.env): ApiClientSettings {
+  return getApiClientSettingsFromConfig(readPubConfig(env) ?? {}, env);
+}
+
 export function getTelegramMiniAppUrl(
   slug: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -84,11 +96,4 @@ export function getTelegramMiniAppUrl(
   const config = readPubConfig(env);
   const username = config?.telegram?.botUsername?.trim();
   return username ? `https://t.me/${username}?startapp=${slug}` : null;
-}
-
-export function getBridgeMode(config: PubConfig | null | undefined): string | null {
-  const definition = getConfigVar("bridge.mode");
-  if (!definition || !config) return null;
-  const value = readPubConfigValue(config, definition);
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }

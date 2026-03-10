@@ -1,12 +1,12 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 
 export const SCREENSHOT_DIR = "tests/e2e/snapshots";
-const DEFAULT_MAX_DIFF_RATIO = 0;
+const DEFAULT_MAX_DIFF_RATIO = 0.0015;
 export const ANIMATED_TOLERANCE = 0.005;
 
 interface StableScreenshotOptions {
@@ -15,12 +15,11 @@ interface StableScreenshotOptions {
 }
 
 /**
- * Take a screenshot and only overwrite the committed file when the pixel
- * difference exceeds `maxDiffRatio` (default 0 — exact match).
+ * Take a screenshot and compare it against the committed baseline.
  *
  * This absorbs tiny GPU-compositing jitter (backdrop-filter, mask-composite,
- * translateZ layers) that is visually imperceptible but produces different
- * bytes on every render.
+ * translateZ layers) that is visually imperceptible but produces different bytes
+ * on every render.
  */
 export async function stableScreenshot(
   target: Locator | Page,
@@ -33,9 +32,7 @@ export async function stableScreenshot(
   await target.screenshot({ path: tmpPath, fullPage: options?.fullPage });
 
   if (!existsSync(filePath)) {
-    mkdirSync(dirname(filePath), { recursive: true });
-    copyFileSync(tmpPath, filePath);
-    return;
+    throw new Error(`Missing screenshot baseline: ${filePath}. Candidate image: ${tmpPath}`);
   }
 
   const oldBuf = readFileSync(filePath);
@@ -47,8 +44,14 @@ export async function stableScreenshot(
   const newPng = PNG.sync.read(newBuf);
 
   if (oldPng.width !== newPng.width || oldPng.height !== newPng.height) {
-    copyFileSync(tmpPath, filePath);
-    return;
+    throw new Error(
+      [
+        `Screenshot dimensions changed for ${filePath}.`,
+        `Expected: ${oldPng.width}x${oldPng.height}`,
+        `Received: ${newPng.width}x${newPng.height}`,
+        `Candidate image: ${tmpPath}`,
+      ].join(" "),
+    );
   }
 
   const totalPixels = oldPng.width * oldPng.height;
@@ -57,7 +60,14 @@ export async function stableScreenshot(
   });
 
   if (diffPixels / totalPixels > maxDiffRatio) {
-    copyFileSync(tmpPath, filePath);
+    throw new Error(
+      [
+        `Screenshot diff exceeded tolerance for ${filePath}.`,
+        `Diff ratio: ${(diffPixels / totalPixels).toFixed(6)}`,
+        `Allowed ratio: ${maxDiffRatio.toFixed(6)}`,
+        `Candidate image: ${tmpPath}`,
+      ].join(" "),
+    );
   }
 }
 

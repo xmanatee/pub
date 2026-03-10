@@ -1,12 +1,12 @@
-import { CHANNELS, generateMessageId } from "../../../../../shared/bridge-protocol-core";
-import { errorMessage } from "../../../core/errors/cli-error.js";
+import { CHANNELS, generateMessageId } from "../../../../../../shared/bridge-protocol-core";
+import { errorMessage } from "../../../../core/errors/cli-error.js";
 import {
   type ActiveStream,
   ensureDirectoryWritable,
   handleAttachmentEntry,
   MONITORED_ATTACHMENT_CHANNELS,
-} from "../attachments.js";
-import { createBridgeEntryQueue } from "../queue.js";
+} from "../../attachments.js";
+import { createBridgeEntryQueue } from "../../queue.js";
 import {
   type BridgeRunner,
   type BridgeRunnerConfig,
@@ -17,22 +17,23 @@ import {
   readRenderErrorMessage,
   readTextChatMessage,
   shouldIncludeCanvasPolicyReminder,
-} from "../shared.js";
+} from "../../shared.js";
 import {
-  buildAppendSystemPrompt,
-  buildSdkSessionOptions,
-  isClaudeSdkAvailableInEnv,
-  isClaudeSdkImportable,
+  buildAppendSystemPromptFromSettings,
+  buildSdkSessionOptionsFromSettings,
   loadClaudeSdk,
-  runClaudeSdkBridgeStartupProbe,
-} from "./claude-sdk-runtime.js";
+} from "./runtime.js";
 
 export {
   buildSdkSessionOptions,
   isClaudeSdkAvailableInEnv,
+  buildAppendSystemPrompt,
+} from "./discovery.js";
+export {
+  buildSdkSessionOptionsFromSettings,
   isClaudeSdkImportable,
-  runClaudeSdkBridgeStartupProbe,
-} from "./claude-sdk-runtime.js";
+} from "./runtime.js";
+export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
 
 const MAX_SESSION_RECREATIONS = 2;
 
@@ -52,13 +53,12 @@ export async function createClaudeSdkBridgeRunner(
   }
   const loadedSdk = sdk;
 
-  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(
-    process.env,
+  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptionsFromSettings(
     bridgeSettings,
-  );
-  const appendSystemPrompt = buildAppendSystemPrompt(
-    config.instructions.systemPrompt,
     process.env,
+  );
+  const appendSystemPrompt = buildAppendSystemPromptFromSettings(
+    config.instructions.systemPrompt,
     bridgeSettings,
   );
   const attachmentRoot = bridgeSettings.attachmentDir;

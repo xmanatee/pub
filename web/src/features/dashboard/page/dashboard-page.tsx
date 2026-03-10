@@ -1,7 +1,7 @@
 import { api } from "@backend/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { FileText, Key, LogOut, User } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
@@ -9,36 +9,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { AccountTab } from "~/features/dashboard/components/account-tab";
 import { ApiKeysTab } from "~/features/dashboard/components/api-keys-tab";
 import { PubsTab } from "~/features/dashboard/components/pubs-tab";
-import { useEffectiveAuth } from "~/hooks/use-effective-auth";
 import { resetIdentity, trackDashboardTabChanged, trackSignOut } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
 
 export function DashboardPage() {
-  const {
-    isAuthenticated: effectiveIsAuthenticated,
-    isLoading: effectiveIsLoading,
-    hasConfiguredConvex,
-    hasE2EFallback,
-  } = useEffectiveAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
   const onlineAgentCount = useQuery(api.presence.getOnlineAgentCount);
 
   React.useEffect(() => {
     pushAuthDebug("dashboard_auth_state", {
-      isLoading: effectiveIsLoading,
-      isAuthenticated: effectiveIsAuthenticated,
-      hasConfiguredConvex,
-      hasE2EFallback,
+      isLoading,
+      isAuthenticated,
     });
-    if (!effectiveIsLoading && !effectiveIsAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       pushAuthDebug("dashboard_redirect_login", {});
       navigate({ to: "/login", replace: true });
     }
-  }, [effectiveIsLoading, effectiveIsAuthenticated, hasConfiguredConvex, hasE2EFallback, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  if (effectiveIsLoading || !effectiveIsAuthenticated) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-muted-foreground">Loading…</div>

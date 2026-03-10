@@ -39,10 +39,10 @@ describe("CLI command surface", () => {
     expect(optionFlags).toContain("--title");
   });
 
-  it("keeps start agent-name/bridge options", () => {
+  it("keeps start agent-name option", () => {
     const startCommand = requireCommand("start");
     const optionFlags = startCommand.options.map((option) => option.long);
     expect(optionFlags).toContain("--agent-name");
-    expect(optionFlags).toContain("--bridge");
+    expect(optionFlags).not.toContain("--bridge");
   });
 });

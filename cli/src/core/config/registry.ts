@@ -25,7 +25,6 @@ export interface ConfigVarDefinition {
   mutable?: boolean;
   displayAs?: ConfigDisplayMode;
   cascadeUnset?: readonly string[];
-  requiredWhen?: (config: PubConfig) => boolean;
 }
 
 export function declareConfigVar(definition: ConfigVarDefinition): ConfigVarDefinition {
@@ -89,37 +88,48 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   }),
   bridgeVar("openclaw.path", "openclawPath", "string", {
     description: "OpenClaw executable path.",
+    env: ["OPENCLAW_PATH"],
   }),
   bridgeVar("openclaw.stateDir", "openclawStateDir", "string", {
     description: "OpenClaw state directory.",
+    env: ["OPENCLAW_STATE_DIR"],
   }),
   bridgeVar("openclaw.sessionId", "sessionId", "string", {
     description: "OpenClaw session id used for live replies.",
+    env: ["OPENCLAW_SESSION_ID"],
   }),
   bridgeVar("openclaw.threadId", "threadId", "string", {
     description: "OpenClaw thread id used for session lookup.",
+    env: ["OPENCLAW_THREAD_ID"],
   }),
   bridgeVar("openclaw.deliver", "deliver", "boolean", {
     description: "Enable OpenClaw delivery tracking prompts.",
+    env: ["OPENCLAW_DELIVER"],
   }),
   bridgeVar("openclaw.deliverChannel", "deliverChannel", "string", {
     description: "OpenClaw delivery status channel.",
+    env: ["OPENCLAW_DELIVER_CHANNEL"],
   }),
   bridgeVar("claude-code.path", "claudeCodePath", "string", {
     description: "Claude executable path.",
+    env: ["CLAUDE_CODE_PATH"],
   }),
   bridgeVar("claude-code.model", "claudeCodeModel", "string", {
     description: "Claude model override.",
+    env: ["CLAUDE_CODE_MODEL"],
   }),
   bridgeVar("claude-code.allowedTools", "claudeCodeAllowedTools", "string", {
     description: "Claude allowed tools override.",
+    env: ["CLAUDE_CODE_ALLOWED_TOOLS"],
   }),
   bridgeVar("claude-code.appendSystemPrompt", "claudeCodeAppendSystemPrompt", "string", {
     description: "Extra Claude system prompt text.",
+    env: ["CLAUDE_CODE_APPEND_SYSTEM_PROMPT"],
     displayAs: "set-only",
   }),
   bridgeVar("claude-code.maxTurns", "claudeCodeMaxTurns", "integer", {
     description: "Claude max turns override.",
+    env: ["CLAUDE_CODE_MAX_TURNS"],
   }),
   bridgeVar("command.defaultTimeoutMs", "commandDefaultTimeoutMs", "integer", {
     description: "Default timeout for canvas command execution.",

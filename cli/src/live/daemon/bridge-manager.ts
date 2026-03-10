@@ -1,12 +1,12 @@
 import { type BridgeMessage } from "../../../../shared/bridge-protocol-core";
-import { createClaudeCodeBridgeRunner } from "../bridge/providers/claude-code.js";
-import { createClaudeSdkBridgeRunner } from "../bridge/providers/claude-sdk.js";
-import { createOpenClawBridgeRunner } from "../bridge/providers/openclaw.js";
+import { createClaudeCodeBridgeRunner } from "../bridge/providers/claude-code/index.js";
+import { createClaudeSdkBridgeRunner } from "../bridge/providers/claude-sdk/index.js";
+import { createOpenClawBridgeRunner } from "../bridge/providers/openclaw/index.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { buildBridgeInstructions } from "./shared.js";
-import type { DaemonState } from "./state.js";
 import type { BridgeSettings } from "../../core/config/index.js";
+import type { DaemonState } from "./state.js";
 
 export function createBridgeManager(params: {
   state: DaemonState;

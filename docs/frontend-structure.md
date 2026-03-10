@@ -46,7 +46,7 @@ Debug-route exception:
 Use this internal layout when a feature is non-trivial:
 
 ```text
-src/features/<feature>/
+web/src/features/<feature>/
   page/
   components/
   hooks/

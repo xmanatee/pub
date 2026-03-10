@@ -1,15 +1,14 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { CHANNELS, generateMessageId } from "../../../../../shared/bridge-protocol-core";
-import type { BridgeSettings } from "../../../core/config/index.js";
-import { errorMessage } from "../../../core/errors/cli-error.js";
+import { CHANNELS, generateMessageId } from "../../../../../../shared/bridge-protocol-core";
+import { errorMessage } from "../../../../core/errors/cli-error.js";
 import {
   type ActiveStream,
   ensureDirectoryWritable,
   handleAttachmentEntry,
   MONITORED_ATTACHMENT_CHANNELS,
-} from "../attachments.js";
-import { createBridgeEntryQueue } from "../queue.js";
+} from "../../attachments.js";
+import { createBridgeEntryQueue } from "../../queue.js";
 import {
   type BridgeRunner,
   type BridgeRunnerConfig,
@@ -20,15 +19,21 @@ import {
   readRenderErrorMessage,
   readTextChatMessage,
   shouldIncludeCanvasPolicyReminder,
-} from "../shared.js";
-import { buildClaudeArgs, runClaudeCodeBridgeStartupProbe, runClaudeCodePreflight } from "./claude-code-runtime.js";
+} from "../../shared.js";
+import {
+  buildClaudeArgsFromSettings,
+  runClaudeCodePreflight,
+} from "./runtime.js";
 
 export {
   buildClaudeArgs,
   isClaudeCodeAvailableInEnv,
   resolveClaudeCodePath,
-  runClaudeCodeBridgeStartupProbe,
-} from "./claude-code-runtime.js";
+} from "./discovery.js";
+export {
+  buildClaudeArgsFromSettings,
+} from "./runtime.js";
+export { runClaudeCodeBridgeStartupProbe } from "./probe.js";
 
 const SESSION_BRIEFING_MAX_TURNS = 3;
 
@@ -70,13 +75,12 @@ export async function createClaudeCodeBridgeRunner(
 
   async function deliverToClaudeCode(prompt: string, opts?: { maxTurns?: number }): Promise<void> {
     if (stopped) return;
-    const args = buildClaudeArgs(
+    const args = buildClaudeArgsFromSettings(
       prompt,
       sessionId,
       config.instructions.systemPrompt,
-      process.env,
-      opts,
       bridgeSettings,
+      opts,
     );
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 

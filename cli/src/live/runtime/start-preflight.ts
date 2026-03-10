@@ -11,21 +11,19 @@ import {
   resolvePubSettings,
 } from "../../core/config/index.js";
 import {
-  type BridgeSelection,
   buildBridgeProcessEnv,
   buildBridgeSettings,
-  createBridgeSelection,
-  parseBridgeMode,
   runBridgeStartupPreflight,
 } from "./bridge-runtime.js";
 import { formatApiError } from "./command-utils.js";
 import { stopOtherDaemons } from "./daemon-process.js";
+import type { BridgeMode } from "../daemon/shared.js";
 
 export interface StartPreflightResult {
   apiClientSettings: ApiClientSettings;
   bridgeSettings: BridgeSettings;
   bridgeProcessEnv: NodeJS.ProcessEnv;
-  bridgeSelection: BridgeSelection;
+  bridgeMode: BridgeMode;
   passedChecks: string[];
 }
 
@@ -58,14 +56,12 @@ function formatPreflightError(params: {
   lines.push("", "Debug tips:");
   lines.push("- Run `pub config` to inspect saved CLI configuration.");
   lines.push("- Run `pub config --auto` to detect and save a working bridge.");
-  lines.push(
-    "- Use `pub start --bridge openclaw|claude-code|claude-sdk` to force a bridge mode.",
-  );
+  lines.push("- Set `bridge.mode` in saved config before starting the daemon.");
 
   return lines.join("\n");
 }
 
-export async function runStartPreflight(opts: { bridge?: string }): Promise<StartPreflightResult> {
+export async function runStartPreflight(): Promise<StartPreflightResult> {
   const passed: CheckOutcome[] = [];
   const failures: CheckOutcome[] = [];
   const skipped: CheckOutcome[] = [];
@@ -73,7 +69,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   let resolvedSettings: ResolvedPubSettings | null = null;
   let apiClientSettings: ApiClientSettings | null = null;
   let bridgeSettings: BridgeSettings | null = null;
-  let bridgeSelection: BridgeSelection | null = null;
+  let bridgeMode: BridgeMode | null = null;
   let bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
 
   passed.push({ label: "webrtc", detail: "werift (pure TypeScript)" });
@@ -92,40 +88,30 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   }
 
   try {
-    const savedMode = resolvedSettings?.rawConfig.bridge?.mode;
-    if (!opts.bridge && !savedMode) {
-      throw new Error(
-        "No bridge configured. Run `pub config --auto` or pass --bridge openclaw|claude-code|claude-sdk.",
-      );
+    const savedMode = resolvedSettings?.rawConfig.bridge?.mode ?? null;
+    if (!savedMode) {
+      throw new Error("No bridge configured. Run `pub config --auto` or set `bridge.mode`.");
     }
-    const mode = opts.bridge ? parseBridgeMode(opts.bridge) : savedMode;
-    if (!mode) {
-      throw new Error("No bridge configured.");
-    }
-    bridgeSelection = createBridgeSelection(mode, opts.bridge ? "explicit" : "config");
+    bridgeMode = savedMode;
     passed.push({
       label: "bridge.mode",
-      detail: `${bridgeSelection.mode} (${bridgeSelection.detail})`,
+      detail: `${savedMode} (loaded from config)`,
     });
   } catch (error) {
     failures.push({ label: "bridge.mode", detail: errorMessage(error) });
   }
 
-  if (bridgeSelection) {
+  if (bridgeMode) {
     try {
       bridgeSettings = buildBridgeSettings(
-        bridgeSelection.mode,
+        bridgeMode,
         resolvedSettings?.rawConfig.bridge ?? {},
         bridgeProcessEnv,
       );
-      const probe = await runBridgeStartupPreflight(
-        bridgeSelection,
-        bridgeProcessEnv,
-        bridgeSettings,
-      );
+      const probe = await runBridgeStartupPreflight(bridgeMode, bridgeProcessEnv, bridgeSettings);
       passed.push({ label: "bridge.preflight", detail: probe.detailLines.join(" | ") });
     } catch (error) {
-      failures.push({ label: `bridge.${bridgeSelection.mode}`, detail: errorMessage(error) });
+      failures.push({ label: `bridge.${bridgeMode}`, detail: errorMessage(error) });
     }
   } else {
     skipped.push({
@@ -174,7 +160,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     throw new Error(formatPreflightError({ failures, passed, skipped }));
   }
 
-  if (!apiClientSettings || !bridgeSelection || !bridgeSettings) {
+  if (!apiClientSettings || !bridgeMode || !bridgeSettings) {
     throw new Error("Start preflight failed: internal error while resolving runtime settings.");
   }
 
@@ -182,7 +168,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     apiClientSettings,
     bridgeSettings,
     bridgeProcessEnv,
-    bridgeSelection,
+    bridgeMode,
     passedChecks: passed.map((entry) => `[${entry.label}] ${entry.detail}`),
   };
 }

@@ -1,26 +1,26 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { CHANNELS } from "../../../../../shared/bridge-protocol-core";
+import { CHANNELS } from "../../../../../../shared/bridge-protocol-core";
 import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
   type StagedAttachment,
-} from "../attachments.js";
+} from "../../attachments.js";
 import {
   resolveOpenClawHome,
   resolveOpenClawSessionsPath,
   resolveOpenClawStateDir,
   resolveSessionFromSessionsData,
-} from "./openclaw-session.js";
+} from "./session.js";
 import {
   buildInboundPrompt,
   buildRenderErrorPrompt,
   buildSessionBriefing,
   readRenderErrorMessage,
   shouldIncludeCanvasPolicyReminder,
-} from "../shared.js";
-import { buildBridgeInstructions } from "../../daemon/shared.js";
+} from "../../shared.js";
+import { buildBridgeInstructions } from "../../../daemon/shared.js";
 
 const openclawInstructions = buildBridgeInstructions("openclaw");
 const claudeCodeInstructions = buildBridgeInstructions("claude-code");

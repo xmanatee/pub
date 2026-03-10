@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { BridgeSettings } from "../../../core/config/index.js";
-import { buildClaudeArgs } from "../../bridge/providers/claude-code.js";
+import { buildClaudeArgsFromSettings } from "../../bridge/providers/claude-code/index.js";
 import { executeProcessCommand } from "./process.js";
 
 function readClaudeAssistantOutput(line: string): string {
@@ -41,12 +41,10 @@ export async function executeClaudeAgentCommand(params: {
 
   const claudePath = params.bridgeSettings.claudeCodePath;
   const cwd = params.bridgeSettings.bridgeCwd;
-  const args = buildClaudeArgs(
+  const args = buildClaudeArgsFromSettings(
     params.prompt,
     null,
     null,
-    process.env,
-    undefined,
     params.bridgeSettings,
   );
   if (!args.includes("--max-turns")) {

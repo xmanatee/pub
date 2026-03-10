@@ -1,24 +1,18 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
 import { useNavigate } from "@tanstack/react-router";
+import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { useEffectiveAuth } from "~/hooks/use-effective-auth";
 import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
 
 export function LoginPage() {
   const { signIn } = useAuthActions();
-  const {
-    isAuthenticated: effectiveIsAuthenticated,
-    isLoading: effectiveIsLoading,
-    hasConfiguredConvex,
-    hasE2EFallback,
-  } = useEffectiveAuth();
-  const e2eAuthBaseUrl = import.meta.env.VITE_E2E_AUTH_BASE_URL;
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const isStartingSignInRef = React.useRef(false);
   const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);
@@ -34,13 +28,6 @@ export function LoginPage() {
       trackSignInStarted(provider);
       pushAuthDebug("oauth_start", { provider, redirectTo: "/dashboard" });
 
-      if (!hasConfiguredConvex && hasE2EFallback && e2eAuthBaseUrl) {
-        const url = new URL(`/api/auth/signin/${provider}`, e2eAuthBaseUrl);
-        url.searchParams.set("redirectTo", "/dashboard");
-        window.location.assign(url.toString());
-        return;
-      }
-
       try {
         const result = await signIn(provider, { redirectTo: "/dashboard" });
         pushAuthDebug("oauth_start_result", {
@@ -54,7 +41,6 @@ export function LoginPage() {
           setPendingProvider(null);
         }
         if (!result.redirect && !result.signingIn) {
-          console.warn(`OAuth sign-in did not start for provider: ${provider}`);
           pushAuthDebug("oauth_start_incomplete", { provider });
           setAuthError("Could not start sign-in. Please try again.");
         }
@@ -65,22 +51,21 @@ export function LoginPage() {
         setAuthError("Could not start sign-in. Please try again.");
       }
     },
-    [hasConfiguredConvex, hasE2EFallback, pendingProvider, signIn],
+    [pendingProvider, signIn],
   );
 
   React.useEffect(() => {
     pushAuthDebug("login_auth_state", {
-      isLoading: effectiveIsLoading,
-      isAuthenticated: effectiveIsAuthenticated,
-      hasConfiguredConvex,
+      isLoading,
+      isAuthenticated,
     });
-    if (!effectiveIsLoading && effectiveIsAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       trackSignIn("oauth");
       navigate({ to: "/dashboard", replace: true });
     }
-  }, [effectiveIsAuthenticated, effectiveIsLoading, hasConfiguredConvex, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  if (effectiveIsLoading || effectiveIsAuthenticated) {
+  if (isLoading || isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
         <div className="text-muted-foreground text-sm">Loading…</div>
@@ -107,22 +92,6 @@ export function LoginPage() {
               </p>
             )}
           </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!hasConfiguredConvex && !hasE2EFallback) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <Card className="w-full max-w-sm border-border/50">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-4">
-              <PubLogo size={40} />
-            </div>
-            <CardTitle className="text-2xl">Configuration Required</CardTitle>
-            <CardDescription>Set `VITE_CONVEX_URL` to enable authentication.</CardDescription>
-          </CardHeader>
         </Card>
       </div>
     );
