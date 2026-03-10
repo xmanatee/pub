@@ -48,6 +48,9 @@ importers:
 
   cli:
     dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.2.0
+        version: 0.2.71(zod@4.3.6)
       commander:
         specifier: ^13.0.0
         version: 13.1.0
@@ -70,10 +73,6 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)
-    optionalDependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.0
-        version: 0.2.71(zod@4.3.6)
 
   web:
     dependencies:
@@ -3354,7 +3353,6 @@ snapshots:
       '@img/sharp-linuxmusl-x64': 0.34.5
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
-    optional: true
 
   '@asamuzakjp/css-color@5.0.1':
     dependencies:
