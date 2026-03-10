@@ -35,7 +35,7 @@ export async function executeClaudeAgentCommand(params: {
   signal: AbortSignal;
   bridgeSettings: BridgeSettings;
 }): Promise<unknown> {
-  if (params.bridgeSettings.mode === "openclaw") {
+  if (params.bridgeSettings.mode === "openclaw" || params.bridgeSettings.mode === "openclaw-like") {
     throw new Error("Claude runtime is not prepared for command execution.");
   }
 

@@ -131,6 +131,10 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "Claude max turns override.",
     env: ["CLAUDE_CODE_MAX_TURNS"],
   }),
+  bridgeVar("openclawLike.command", "openclawLikeCommand", "string", {
+    description: "Command path for openclaw-like bridge delivery.",
+    env: ["PUB_OPENCLAW_LIKE_COMMAND"],
+  }),
   bridgeVar("command.defaultTimeoutMs", "commandDefaultTimeoutMs", "integer", {
     description: "Default timeout for canvas command execution.",
   }),
@@ -174,7 +178,12 @@ function parseBooleanValue(raw: string, key: string): boolean {
 
 function parseBridgeModeValue(raw: string, key: string): BridgeMode {
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "claude-code" || normalized === "claude-sdk") {
+  if (
+    normalized === "openclaw" ||
+    normalized === "claude-code" ||
+    normalized === "claude-sdk" ||
+    normalized === "openclaw-like"
+  ) {
     return normalized;
   }
   throw new Error(`Invalid bridge mode for ${key}: ${raw}`);

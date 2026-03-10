@@ -2,6 +2,7 @@ import { type BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { createClaudeCodeBridgeRunner } from "../bridge/providers/claude-code/index.js";
 import { createClaudeSdkBridgeRunner } from "../bridge/providers/claude-sdk/index.js";
 import { createOpenClawBridgeRunner } from "../bridge/providers/openclaw/index.js";
+import { createOpenClawLikeBridgeRunner } from "../bridge/providers/openclaw-like/index.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { buildBridgeInstructions } from "./shared.js";
@@ -109,7 +110,9 @@ export function createBridgeManager(params: {
         ? await createClaudeSdkBridgeRunner(runnerConfig, abort.signal)
         : bridgeSettings.mode === "claude-code"
           ? await createClaudeCodeBridgeRunner(runnerConfig, abort.signal)
-          : await createOpenClawBridgeRunner(runnerConfig);
+          : bridgeSettings.mode === "openclaw-like"
+            ? await createOpenClawLikeBridgeRunner(runnerConfig)
+            : await createOpenClawBridgeRunner(runnerConfig);
 
     if (state.stopped || state.activeSlug !== slug || abort.signal.aborted) {
       await runner.stop();

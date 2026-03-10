@@ -57,12 +57,17 @@ const CLAUDE_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
   "claudeCodeMaxTurns",
 ];
 
+const OPENCLAW_LIKE_ONLY_KEYS: (keyof PubBridgeConfig)[] = ["openclawLikeCommand"];
+
 function stripProviderSpecificBridgeConfig(
   bridgeConfig: PubBridgeConfig | undefined,
   mode: NonNullable<PubBridgeConfig["mode"]>,
 ): PubBridgeConfig {
   const nextBridge: PubBridgeConfig = { ...(bridgeConfig ?? {}) };
-  const keysToDelete = mode === "openclaw" ? CLAUDE_ONLY_KEYS : OPENCLAW_ONLY_KEYS;
+  const keysToDelete: (keyof PubBridgeConfig)[] = [];
+  if (mode !== "openclaw") keysToDelete.push(...OPENCLAW_ONLY_KEYS);
+  if (mode !== "claude-code" && mode !== "claude-sdk") keysToDelete.push(...CLAUDE_ONLY_KEYS);
+  if (mode !== "openclaw-like") keysToDelete.push(...OPENCLAW_LIKE_ONLY_KEYS);
 
   for (const key of keysToDelete) {
     delete nextBridge[key];

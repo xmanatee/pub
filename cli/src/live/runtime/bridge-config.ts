@@ -158,6 +158,17 @@ export function buildBridgeSettings(
     };
   }
 
+  if (mode === "openclaw-like") {
+    return {
+      ...base,
+      mode,
+      openclawLikeCommand: requireString(
+        stringValueOrEnv(bridgeConfig.openclawLikeCommand, "PUB_OPENCLAW_LIKE_COMMAND", env),
+        "openclawLike.command",
+      ),
+    };
+  }
+
   return {
     ...base,
     mode,

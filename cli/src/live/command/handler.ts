@@ -127,6 +127,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
           ? "openclaw"
           : "claude-code";
 
+    if (provider === "claude-code" && params.bridgeSettings.mode === "openclaw-like") {
+      throw new Error("Canvas agent commands are not supported in openclaw-like bridge mode.");
+    }
+
     if (provider === "openclaw") {
       return await executeOpenClawAgentCommand({
         prompt,

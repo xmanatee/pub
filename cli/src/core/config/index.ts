@@ -39,6 +39,7 @@ export type {
   ConfigDirSource,
   ConfigLocation,
   OpenClawBridgeSettings,
+  OpenClawLikeBridgeSettings,
   PubBridgeConfig,
   PubConfig,
   PubCoreConfig,

@@ -34,6 +34,7 @@ export interface PubBridgeConfig {
   commandDefaultTimeoutMs?: number;
   commandMaxOutputBytes?: number;
   commandMaxConcurrent?: number;
+  openclawLikeCommand?: string;
 }
 
 export interface PubTelegramConfig {
@@ -79,7 +80,15 @@ export interface ClaudeBridgeSettings extends BridgeSettingsBase {
   claudeCodePath: string;
 }
 
-export type BridgeSettings = OpenClawBridgeSettings | ClaudeBridgeSettings;
+export interface OpenClawLikeBridgeSettings extends BridgeSettingsBase {
+  mode: "openclaw-like";
+  openclawLikeCommand: string;
+}
+
+export type BridgeSettings =
+  | OpenClawBridgeSettings
+  | ClaudeBridgeSettings
+  | OpenClawLikeBridgeSettings;
 
 export interface ApiClientSettings {
   apiKey: string;

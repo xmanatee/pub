@@ -3,7 +3,7 @@ import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "../bridge/prompt-content.js";
 
-export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk";
+export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk" | "openclaw-like";
 
 export interface BridgeInstructions {
   replyHint: string;
@@ -13,7 +13,7 @@ export interface BridgeInstructions {
 }
 
 export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
-  if (mode === "claude-code" || mode === "claude-sdk") {
+  if (mode === "claude-code" || mode === "claude-sdk" || mode === "openclaw-like") {
     return {
       replyHint: 'Reply command: pub write "<your reply>"',
       canvasHint: "Canvas command: pub write -c canvas -f /path/to/file.html",

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { PubBridgeConfig, BridgeSettings } from "../../core/config/index.js";
 import {
   isClaudeCodeAvailableInEnv,
@@ -150,6 +151,35 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
               : bridgeConfig?.claudeCodeMaxTurns,
           bridgeCwd: runtime.cwd,
         },
+      };
+    },
+  },
+  {
+    mode: "openclaw-like" as const,
+    priority: 0,
+    detect() {
+      return { available: false, detail: "openclaw-like is manual-config only" };
+    },
+    async startupProbe(
+      _env: NodeJS.ProcessEnv,
+      bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
+    ) {
+      const command =
+        (bridgeConfig && "openclawLikeCommand" in bridgeConfig
+          ? bridgeConfig.openclawLikeCommand
+          : undefined) ??
+        (bridgeConfig as PubBridgeConfig | undefined)?.openclawLikeCommand;
+      if (!command) {
+        throw new Error("openclawLike.command is not configured.");
+      }
+      if (!existsSync(command)) {
+        throw new Error(`openclaw-like command not found on disk: ${command}`);
+      }
+      return {
+        detailLines: [
+          `openclaw-like command: ${command}`,
+          "openclaw-like preflight: OK (file exists)",
+        ],
       };
     },
   },
