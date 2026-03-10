@@ -11,8 +11,7 @@ function sleep(ms: number): Promise<void> {
 function buildHandler() {
   const sentMessages: BridgeMessage[] = [];
   const handler = createLiveCommandHandler({
-    bridgeMode: "openclaw",
-    bridgeConfig: {
+    bridgeSettings: {
       mode: "openclaw",
       bridgeCwd: "/tmp/pub-bridge",
       canvasReminderEvery: 10,

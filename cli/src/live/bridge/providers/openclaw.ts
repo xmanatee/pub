@@ -39,15 +39,15 @@ export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
 ): Promise<BridgeRunner> {
   const { slug, debugLog, sessionBriefing } = config;
-  const prepared = config.bridgeConfig;
-  if (prepared.mode !== "openclaw") {
+  const bridgeSettings = config.bridgeSettings;
+  if (bridgeSettings.mode !== "openclaw") {
     throw new Error("OpenClaw runtime is not prepared.");
   }
 
-  const openclawPath = prepared.openclawPath;
-  const sessionId = prepared.sessionId;
-  const attachmentRoot = prepared.attachmentDir;
-  const attachmentMaxBytes = prepared.attachmentMaxBytes;
+  const openclawPath = bridgeSettings.openclawPath;
+  const sessionId = bridgeSettings.sessionId;
+  const attachmentRoot = bridgeSettings.attachmentDir;
+  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   ensureDirectoryWritable(attachmentRoot);
   await runOpenClawPreflight(openclawPath, process.env);
 
@@ -56,21 +56,25 @@ export async function createOpenClawBridgeRunner(
   let lastError: string | undefined;
   let stopped = false;
 
-  await deliverMessageToOpenClaw({ openclawPath, sessionId, text: sessionBriefing }, process.env, prepared);
+  await deliverMessageToOpenClaw(
+    { openclawPath, sessionId, text: sessionBriefing },
+    process.env,
+    bridgeSettings,
+  );
   debugLog("session briefing delivered");
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
       const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
         forwardedMessageCount + 1,
-        prepared.canvasReminderEvery,
+        bridgeSettings.canvasReminderEvery,
       );
       const chat = readTextChatMessage(entry);
       if (chat) {
         await deliverMessageToOpenClaw(
           { openclawPath, sessionId, text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions) },
           process.env,
-          prepared,
+          bridgeSettings,
         );
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
@@ -82,7 +86,7 @@ export async function createOpenClawBridgeRunner(
         await deliverMessageToOpenClaw(
           { openclawPath, sessionId, text: buildRenderErrorPrompt(slug, renderError, config.instructions) },
           process.env,
-          prepared,
+          bridgeSettings,
         );
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
@@ -95,7 +99,11 @@ export async function createOpenClawBridgeRunner(
         attachmentMaxBytes,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
-          await deliverMessageToOpenClaw({ openclawPath, sessionId, text: prompt }, process.env, prepared);
+          await deliverMessageToOpenClaw(
+            { openclawPath, sessionId, text: prompt },
+            process.env,
+            bridgeSettings,
+          );
         },
         entry,
         includeCanvasReminder,

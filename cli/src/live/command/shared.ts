@@ -4,8 +4,7 @@ import type {
   CommandFunctionSpec,
   CommandResultPayload,
 } from "../../../../shared/command-protocol-core";
-import type { PreparedBridgeConfig } from "../../core/config/index.js";
-import type { BridgeMode } from "../daemon/shared.js";
+import type { BridgeSettings } from "../../core/config/index.js";
 
 export const DEFAULT_RECENT_RESULT_TTL_MS = 120_000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
@@ -13,8 +12,7 @@ const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
 const DEFAULT_MAX_CONCURRENT = 6;
 
 export interface CommandHandlerParams {
-  bridgeMode: BridgeMode;
-  bridgeConfig: PreparedBridgeConfig;
+  bridgeSettings: BridgeSettings;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
@@ -38,12 +36,12 @@ export interface CommandRuntimeConfig {
 }
 
 export function getCommandRuntimeConfig(
-  bridgeConfig: PreparedBridgeConfig,
+  bridgeSettings: BridgeSettings,
 ): CommandRuntimeConfig {
   return {
-    defaultTimeoutMs: bridgeConfig.commandDefaultTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
-    maxOutputBytes: bridgeConfig.commandMaxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
-    maxConcurrent: bridgeConfig.commandMaxConcurrent ?? DEFAULT_MAX_CONCURRENT,
+    defaultTimeoutMs: bridgeSettings.commandDefaultTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
+    maxOutputBytes: bridgeSettings.commandMaxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
+    maxConcurrent: bridgeSettings.commandMaxConcurrent ?? DEFAULT_MAX_CONCURRENT,
   };
 }
 

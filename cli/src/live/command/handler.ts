@@ -22,7 +22,7 @@ import {
 import { interpolateTemplate, toCommandReturnValue } from "./template.js";
 
 export function createLiveCommandHandler(params: CommandHandlerParams) {
-  const runtime = getCommandRuntimeConfig(params.bridgeConfig);
+  const runtime = getCommandRuntimeConfig(params.bridgeSettings);
   const boundFunctions = new Map<string, CommandFunctionSpec>();
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
@@ -126,7 +126,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     const provider =
       agentSpec.provider && agentSpec.provider !== "auto"
         ? agentSpec.provider
-        : params.bridgeMode === "openclaw"
+        : params.bridgeSettings.mode === "openclaw"
           ? "openclaw"
           : "claude-code";
 
@@ -137,7 +137,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
         output,
         maxOutputBytes: runtime.maxOutputBytes,
         signal: abortSignal,
-        bridgeConfig: params.bridgeConfig,
+        bridgeSettings: params.bridgeSettings,
       });
     }
 
@@ -147,7 +147,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       output,
       maxOutputBytes: runtime.maxOutputBytes,
       signal: abortSignal,
-      bridgeConfig: params.bridgeConfig,
+      bridgeSettings: params.bridgeSettings,
     });
   }
 

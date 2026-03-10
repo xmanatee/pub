@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { BridgeConfig, PreparedBridgeConfig, PreparedOpenClawConfig } from "../../../core/config/index.js";
+import type { PubBridgeConfig, BridgeSettings, OpenClawBridgeSettings } from "../../../core/config/index.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import type { BridgeSessionSource } from "../types.js";
 import { resolveSessionFromOpenClaw } from "./openclaw-session.js";
@@ -26,7 +26,7 @@ function getOpenClawDiscoveryPaths(env: NodeJS.ProcessEnv = process.env): string
 
 function getConfiguredOpenClawPath(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.openclawPath;
   return env.OPENCLAW_PATH?.trim();
@@ -34,7 +34,7 @@ function getConfiguredOpenClawPath(
 
 function getConfiguredOpenClawStateDir(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.openclawStateDir;
   return env.OPENCLAW_STATE_DIR?.trim();
@@ -42,7 +42,7 @@ function getConfiguredOpenClawStateDir(
 
 function getConfiguredOpenClawSessionId(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.sessionId;
   return env.OPENCLAW_SESSION_ID?.trim();
@@ -50,7 +50,7 @@ function getConfiguredOpenClawSessionId(
 
 function getConfiguredOpenClawThreadId(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.threadId;
   return env.OPENCLAW_THREAD_ID?.trim();
@@ -58,7 +58,7 @@ function getConfiguredOpenClawThreadId(
 
 function buildOpenClawLookupEnv(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): NodeJS.ProcessEnv {
   const stateDir = getConfiguredOpenClawStateDir(env, bridgeConfig);
   if (!stateDir) return env;
@@ -70,7 +70,7 @@ function buildOpenClawLookupEnv(
 
 export function isOpenClawAvailable(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): boolean {
   const configured = getConfiguredOpenClawPath(env, bridgeConfig);
   if (configured) return existsSync(configured);
@@ -83,7 +83,7 @@ export function isOpenClawAvailable(
 
 export function resolveOpenClawPath(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string {
   const configuredPath = getConfiguredOpenClawPath(env, bridgeConfig);
   if (configuredPath) {
@@ -154,7 +154,7 @@ export async function runOpenClawPreflight(
   }
 }
 
-function getPreparedOpenClawCommandCwd(bridgeConfig: PreparedOpenClawConfig): string {
+function getStrictOpenClawCommandCwd(bridgeConfig: OpenClawBridgeSettings): string {
   return bridgeConfig.bridgeCwd;
 }
 
@@ -169,7 +169,7 @@ function getAutoDetectOpenClawCommandCwd(env: NodeJS.ProcessEnv = process.env): 
 export async function deliverMessageToOpenClaw(
   params: { openclawPath: string; sessionId: string; text: string },
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
   options?: { allowEnvFallback?: boolean },
 ): Promise<void> {
   const parsedTimeoutMs = bridgeConfig?.deliverTimeoutMs;
@@ -200,7 +200,7 @@ export async function deliverMessageToOpenClaw(
   const cwd =
     options?.allowEnvFallback || !bridgeConfig
       ? getAutoDetectOpenClawCommandCwd(env)
-      : getPreparedOpenClawCommandCwd(bridgeConfig as PreparedOpenClawConfig);
+      : getStrictOpenClawCommandCwd(bridgeConfig as OpenClawBridgeSettings);
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
       cwd,
@@ -221,7 +221,7 @@ export interface OpenClawRuntimeResolution {
 
 export function resolveOpenClawRuntime(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): OpenClawRuntimeResolution {
   const openclawPath = resolveOpenClawPath(env, bridgeConfig);
   const configuredSessionId = getConfiguredOpenClawSessionId(env, bridgeConfig);
@@ -265,14 +265,14 @@ export function resolveOpenClawRuntime(
 
 export async function runOpenClawBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig | PreparedBridgeConfig,
+  bridgeConfig?: PubBridgeConfig | BridgeSettings,
   options?: { strictConfig: boolean },
 ): Promise<OpenClawRuntimeResolution> {
   const strictConfig = options?.strictConfig === true;
   const runtime = strictConfig
     ? {
-        openclawPath: (bridgeConfig as PreparedOpenClawConfig).openclawPath,
-        sessionId: (bridgeConfig as PreparedOpenClawConfig).sessionId,
+        openclawPath: (bridgeConfig as OpenClawBridgeSettings).openclawPath,
+        sessionId: (bridgeConfig as OpenClawBridgeSettings).sessionId,
         sessionKey: "openclaw.sessionId",
         sessionSource: "config" as const,
       }

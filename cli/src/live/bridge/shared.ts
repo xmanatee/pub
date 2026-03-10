@@ -1,6 +1,6 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../../shared/bridge-protocol-core";
-import type { PreparedBridgeConfig } from "../../core/config/index.js";
+import type { BridgeSettings } from "../../core/config/index.js";
 import type { BridgeSessionSource } from "./types.js";
 import type { BridgeInstructions } from "../daemon/shared.js";
 export const MAX_SEEN_IDS = 10_000;
@@ -8,7 +8,7 @@ export const MAX_SEEN_IDS = 10_000;
 export interface BridgeRunnerConfig {
   slug: string;
   sessionBriefing: string;
-  bridgeConfig: PreparedBridgeConfig;
+  bridgeSettings: BridgeSettings;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onDeliveryUpdate?: (update: {
     channel: string;

@@ -41,8 +41,8 @@ export async function createClaudeSdkBridgeRunner(
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
-  const prepared = config.bridgeConfig;
-  if (prepared.mode !== "claude-sdk") {
+  const bridgeSettings = config.bridgeSettings;
+  if (bridgeSettings.mode !== "claude-sdk") {
     throw new Error("Claude SDK runtime is not prepared.");
   }
 
@@ -52,14 +52,17 @@ export async function createClaudeSdkBridgeRunner(
   }
   const loadedSdk = sdk;
 
-  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(process.env, prepared);
+  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(
+    process.env,
+    bridgeSettings,
+  );
   const appendSystemPrompt = buildAppendSystemPrompt(
     config.instructions.systemPrompt,
     process.env,
-    prepared,
+    bridgeSettings,
   );
-  const attachmentRoot = prepared.attachmentDir;
-  const attachmentMaxBytes = prepared.attachmentMaxBytes;
+  const attachmentRoot = bridgeSettings.attachmentDir;
+  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   const activeStreams = new Map<string, ActiveStream>();
   ensureDirectoryWritable(attachmentRoot);
 
@@ -149,7 +152,7 @@ export async function createClaudeSdkBridgeRunner(
     onEntry: async (entry: BufferedEntry) => {
       const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
         forwardedMessageCount + 1,
-        prepared.canvasReminderEvery,
+        bridgeSettings.canvasReminderEvery,
       );
       const chat = readTextChatMessage(entry);
       if (chat) {

@@ -1,81 +1,71 @@
-import type {
-  BridgeConfig,
-  ResolvedConfig,
-  SavedConfig,
-  TelegramConfig,
-} from "../../core/config/index.js";
-import { resolveConfig, resolveConfigLocation } from "../../core/config/index.js";
+import type { ResolvedPubSettings } from "../../core/config/index.js";
 import {
-  CONFIG_KEY_REGISTRY,
-  type ConfigKeyDef,
-  hasValues,
-} from "./schema.js";
+  getConfigVarsBySection,
+  getResolvedSettingValue,
+  resolveConfigLocation,
+  resolvePubSettings,
+} from "../../core/config/index.js";
+import type { ConfigVarDefinition } from "../../core/config/registry.js";
 
 function maskSecret(value: string): string {
   if (value.length <= 8) return "********";
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-function formatFieldValue(value: unknown, def: ConfigKeyDef): string {
-  if (def.displayAs === "set-only") return "(set)";
-  if (def.type === "boolean") return value ? "true" : "false";
+function formatFieldValue(value: unknown, definition: ConfigVarDefinition): string {
+  if (definition.displayAs === "set-only") return "(set)";
+  if (definition.secret && typeof value === "string") return maskSecret(value);
+  if (definition.type === "boolean") return value ? "true" : "false";
   return String(value);
 }
 
 function formatSourceLabel(source: string, envKey?: string): string {
-  if (source === "env") return envKey ? `env:${envKey}` : "env";
-  return source;
+  return source === "env" ? (envKey ? `env:${envKey}` : "env") : source;
 }
 
 function printValue(label: string, value: string, source: string): void {
   console.log(`  ${label}: ${value} (${source})`);
 }
 
-function printBridgeStatus(savedBridge: BridgeConfig | undefined, resolvedBridge: BridgeConfig): void {
-  if (!hasValues(resolvedBridge)) return;
-
-  console.log("");
-  console.log("Bridge:");
-  for (const [key, def] of Object.entries(CONFIG_KEY_REGISTRY)) {
-    if (def.target !== "bridge") continue;
-    const field = def.field as keyof BridgeConfig;
-    const value = resolvedBridge[field];
-    if (value === undefined) continue;
-    const source = savedBridge?.[field] !== undefined ? "config" : "config";
-    printValue(key, formatFieldValue(value, def), source);
-  }
-}
-
-function printTelegramStatus(telegram?: TelegramConfig): void {
-  console.log("");
-  console.log("Telegram:");
-  const printed = new Set<string>();
-  if (telegram?.botToken) {
-    printValue("telegram.botToken", maskSecret(telegram.botToken), "config");
-    printed.add("telegram.botToken");
-  }
-  if (telegram?.botUsername) {
-    printValue("telegram.botUsername", telegram.botUsername, "config");
-    printed.add("telegram.botUsername");
-  }
-  if (telegram?.hasMainWebApp !== undefined) {
-    printValue(
-      "telegram.hasMainWebApp",
-      telegram.hasMainWebApp ? "true" : "false",
-      "config",
+function printSection(title: string, section: "core" | "bridge" | "telegram", resolved: ResolvedPubSettings): void {
+  const entries = getConfigVarsBySection(section)
+    .map((definition) => ({
+      definition,
+      resolvedValue: getResolvedSettingValue(resolved, definition.key),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        definition: ConfigVarDefinition;
+        resolvedValue: NonNullable<ReturnType<typeof getResolvedSettingValue>>;
+      } => entry.resolvedValue !== null,
     );
-    printed.add("telegram.hasMainWebApp");
+
+  if (entries.length === 0) {
+    if (section === "telegram") {
+      console.log("");
+      console.log("Telegram:");
+      console.log("  not configured");
+    }
+    return;
   }
 
-  if (printed.size === 0) {
-    console.log("  not configured");
+  console.log("");
+  console.log(title);
+  for (const { definition, resolvedValue } of entries) {
+    printValue(
+      definition.key,
+      formatFieldValue(resolvedValue.value, definition),
+      formatSourceLabel(resolvedValue.source, resolvedValue.envKey),
+    );
   }
 }
 
-function printSetupInstructions(saved: SavedConfig | null, resolved: ResolvedConfig): void {
-  const needsApiKey = !resolved.apiKey;
-  const needsBridge = !resolved.bridge.mode;
-  const needsTelegram = !saved?.telegram?.botUsername;
+function printSetupInstructions(resolved: ResolvedPubSettings): void {
+  const needsApiKey = !resolved.core.apiKey;
+  const needsBridge = !getResolvedSettingValue(resolved, "bridge.mode");
+  const needsTelegram = !getResolvedSettingValue(resolved, "telegram.botUsername");
 
   if (!needsApiKey && !needsBridge && !needsTelegram) return;
 
@@ -99,37 +89,21 @@ function printSetupInstructions(saved: SavedConfig | null, resolved: ResolvedCon
   }
 }
 
-export function printConfigStatus(saved: SavedConfig | null): void {
+export function printConfigStatus(): void {
   const location = resolveConfigLocation();
-  const resolved = resolveConfig();
+  const resolved = resolvePubSettings();
 
   console.log(`Config directory: ${location.dir} (${location.source})`);
   console.log(`Config file: ${location.path}`);
 
-  console.log("");
-  console.log("Core:");
-  if (resolved.apiKey) {
-    printValue(
-      "apiKey",
-      maskSecret(resolved.apiKey.value),
-      formatSourceLabel(resolved.apiKey.source, resolved.apiKey.envKey),
-    );
-  } else {
-    console.log("  apiKey: not set");
-  }
-  printValue(
-    "baseUrl",
-    resolved.baseUrl.value,
-    formatSourceLabel(resolved.baseUrl.source, resolved.baseUrl.envKey),
-  );
-
-  printBridgeStatus(saved?.bridge, resolved.bridge);
-  printTelegramStatus(saved?.telegram);
-  printSetupInstructions(saved, resolved);
+  printSection("Core:", "core", resolved);
+  printSection("Bridge:", "bridge", resolved);
+  printSection("Telegram:", "telegram", resolved);
+  printSetupInstructions(resolved);
 }
 
-export function printMutationSummary(saved: SavedConfig | null): void {
-  printConfigStatus(saved);
+export function printMutationSummary(): void {
+  printConfigStatus();
 }
 
 export function printAutoDetectSummary(lines: string[]): void {

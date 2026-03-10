@@ -1,28 +1,29 @@
 import { PubApiClient } from "../../core/api/client.js";
 import { errorMessage } from "../../core/errors/cli-error.js";
 import type {
-  BridgeConfig,
-  PreparedBridgeConfig,
-  RequiredConfig,
-  ResolvedConfig,
+  ApiClientSettings,
+  BridgeSettings,
+  ResolvedPubSettings,
 } from "../../core/config/index.js";
-import { getConfig, getRequiredConfig } from "../../core/config/index.js";
-import type { BridgeMode } from "../daemon/shared.js";
+import {
+  getApiClientSettings,
+  listConfiguredKeys,
+  resolvePubSettings,
+} from "../../core/config/index.js";
 import {
   type BridgeSelection,
   buildBridgeProcessEnv,
+  buildBridgeSettings,
   createBridgeSelection,
   parseBridgeMode,
   runBridgeStartupPreflight,
-  validatePreparedBridgeConfig,
 } from "./bridge-runtime.js";
 import { formatApiError } from "./command-utils.js";
 import { stopOtherDaemons } from "./daemon-process.js";
 
 export interface StartPreflightResult {
-  runtimeConfig: RequiredConfig;
-  bridgeConfig: PreparedBridgeConfig;
-  bridgeMode: BridgeMode;
+  apiClientSettings: ApiClientSettings;
+  bridgeSettings: BridgeSettings;
   bridgeProcessEnv: NodeJS.ProcessEnv;
   bridgeSelection: BridgeSelection;
   passedChecks: string[];
@@ -31,36 +32,6 @@ export interface StartPreflightResult {
 interface CheckOutcome {
   label: string;
   detail: string;
-}
-
-const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> = [
-  { field: "mode", label: "bridge.mode" },
-  { field: "bridgeCwd", label: "bridge.cwd" },
-  { field: "canvasReminderEvery", label: "bridge.canvasReminderEvery" },
-  { field: "deliverTimeoutMs", label: "bridge.deliverTimeoutMs" },
-  { field: "attachmentDir", label: "bridge.attachmentDir" },
-  { field: "attachmentMaxBytes", label: "bridge.attachmentMaxBytes" },
-  { field: "openclawPath", label: "openclaw.path" },
-  { field: "openclawStateDir", label: "openclaw.stateDir" },
-  { field: "sessionId", label: "openclaw.sessionId" },
-  { field: "threadId", label: "openclaw.threadId" },
-  { field: "deliver", label: "openclaw.deliver" },
-  { field: "deliverChannel", label: "openclaw.deliverChannel" },
-  { field: "claudeCodePath", label: "claude-code.path" },
-  { field: "claudeCodeModel", label: "claude-code.model" },
-  { field: "claudeCodeAllowedTools", label: "claude-code.allowedTools" },
-  { field: "claudeCodeAppendSystemPrompt", label: "claude-code.appendSystemPrompt" },
-  { field: "claudeCodeMaxTurns", label: "claude-code.maxTurns" },
-  { field: "commandDefaultTimeoutMs", label: "command.defaultTimeoutMs" },
-  { field: "commandMaxOutputBytes", label: "command.maxOutputBytes" },
-  { field: "commandMaxConcurrent", label: "command.maxConcurrent" },
-];
-
-function listSavedBridgeConfigKeys(bridgeConfig?: BridgeConfig): string[] {
-  if (!bridgeConfig) return [];
-  return BRIDGE_CONFIG_FIELDS.filter(({ field }) => bridgeConfig[field] !== undefined).map(
-    ({ label }) => label,
-  );
 }
 
 function formatPreflightError(params: {
@@ -99,21 +70,21 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   const failures: CheckOutcome[] = [];
   const skipped: CheckOutcome[] = [];
 
-  let resolvedConfig: ResolvedConfig | null = null;
-  let runtimeConfig: RequiredConfig | null = null;
-  let preparedBridgeConfig: PreparedBridgeConfig | null = null;
+  let resolvedSettings: ResolvedPubSettings | null = null;
+  let apiClientSettings: ApiClientSettings | null = null;
+  let bridgeSettings: BridgeSettings | null = null;
   let bridgeSelection: BridgeSelection | null = null;
   let bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
 
   passed.push({ label: "webrtc", detail: "werift (pure TypeScript)" });
 
   try {
-    resolvedConfig = getConfig();
+    resolvedSettings = resolvePubSettings();
     bridgeProcessEnv = buildBridgeProcessEnv();
-    const savedBridgeConfig = listSavedBridgeConfigKeys(resolvedConfig.bridge);
+    const savedBridgeKeys = listConfiguredKeys(resolvedSettings.rawConfig, "bridge");
     passed.push({
       label: "bridge.config",
-      detail: `saved: ${savedBridgeConfig.join(", ") || "(none)"}`,
+      detail: `saved: ${savedBridgeKeys.join(", ") || "(none)"}`,
     });
   } catch (error) {
     failures.push({ label: "config", detail: errorMessage(error) });
@@ -121,7 +92,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   }
 
   try {
-    const savedMode = resolvedConfig?.bridge?.mode;
+    const savedMode = resolvedSettings?.rawConfig.bridge?.mode;
     if (!opts.bridge && !savedMode) {
       throw new Error(
         "No bridge configured. Run `pub config --auto` or pass --bridge openclaw|claude-code|claude-sdk.",
@@ -142,11 +113,16 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   if (bridgeSelection) {
     try {
-      preparedBridgeConfig = validatePreparedBridgeConfig(
+      bridgeSettings = buildBridgeSettings(
         bridgeSelection.mode,
-        resolvedConfig?.bridge ?? {},
+        resolvedSettings?.rawConfig.bridge ?? {},
+        bridgeProcessEnv,
       );
-      const probe = await runBridgeStartupPreflight(bridgeSelection, bridgeProcessEnv, preparedBridgeConfig);
+      const probe = await runBridgeStartupPreflight(
+        bridgeSelection,
+        bridgeProcessEnv,
+        bridgeSettings,
+      );
       passed.push({ label: "bridge.preflight", detail: probe.detailLines.join(" | ") });
     } catch (error) {
       failures.push({ label: `bridge.${bridgeSelection.mode}`, detail: errorMessage(error) });
@@ -159,20 +135,20 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   }
 
   try {
-    runtimeConfig = getRequiredConfig();
+    apiClientSettings = getApiClientSettings();
     const source = process.env.PUB_API_KEY?.trim() ? "env" : "saved config";
     passed.push({ label: "config", detail: `API key configured (${source})` });
   } catch (error) {
     failures.push({ label: "config", detail: errorMessage(error) });
   }
 
-  if (runtimeConfig) {
-    const client = new PubApiClient(runtimeConfig.baseUrl, runtimeConfig.apiKey);
+  if (apiClientSettings) {
+    const client = new PubApiClient(apiClientSettings.baseUrl, apiClientSettings.apiKey);
     try {
       await client.getLive();
       passed.push({
         label: "api",
-        detail: `authenticated and reachable at ${runtimeConfig.baseUrl}`,
+        detail: `authenticated and reachable at ${apiClientSettings.baseUrl}`,
       });
     } catch (error) {
       failures.push({ label: "api", detail: formatApiError(error) });
@@ -198,16 +174,13 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     throw new Error(formatPreflightError({ failures, passed, skipped }));
   }
 
-  if (!runtimeConfig || !bridgeSelection || !preparedBridgeConfig) {
-    throw new Error(
-      "Start preflight failed: internal error while resolving runtime configuration.",
-    );
+  if (!apiClientSettings || !bridgeSelection || !bridgeSettings) {
+    throw new Error("Start preflight failed: internal error while resolving runtime settings.");
   }
 
   return {
-    runtimeConfig,
-    bridgeConfig: preparedBridgeConfig,
-    bridgeMode: bridgeSelection.mode,
+    apiClientSettings,
+    bridgeSettings,
     bridgeProcessEnv,
     bridgeSelection,
     passedChecks: passed.map((entry) => `[${entry.label}] ${entry.detail}`),

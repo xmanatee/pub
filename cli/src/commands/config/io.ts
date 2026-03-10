@@ -13,13 +13,7 @@ export function resolveConfigureApiKey(opts: {
   if (opts.apiKeyStdin) {
     return readFromStdin();
   }
-
-  const envKey = process.env.PUB_API_KEY?.trim();
-  if (envKey) return Promise.resolve(envKey);
-
-  throw new Error(
-    "No API key provided. Use --api-key <KEY>, --api-key-stdin, or set PUB_API_KEY.",
-  );
+  throw new Error("No API key provided. Use --api-key <KEY> or --api-key-stdin.");
 }
 
 export function collectValues(value: string, previous: string[]): string[] {

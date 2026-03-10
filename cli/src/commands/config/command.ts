@@ -1,17 +1,18 @@
 import type { Command } from "commander";
-import { PubApiClient } from "../../core/api/client.js";
-import { errorMessage } from "../../core/errors/cli-error.js";
-import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../core/config/index.js";
-import { readConfig, resolveConfig, saveConfig } from "../../core/config/index.js";
+import type { PubBridgeConfig, PubConfig, PubTelegramConfig } from "../../core/config/index.js";
 import {
-  autoDetectBridgeConfig,
-  buildBridgeProcessEnv,
-  prepareBridgeConfigForSave,
-} from "../../live/runtime/bridge-runtime.js";
+  compactPubConfig,
+  parseConfigAssignment,
+  readPubConfig,
+  resolvePubSettings,
+  setPubConfigValue,
+  unsetPubConfigValue,
+  writePubConfig,
+} from "../../core/config/index.js";
+import { autoDetectBridgeConfig, buildBridgeProcessEnv } from "../../live/runtime/bridge-runtime.js";
 import { collectValues, resolveConfigureApiKey } from "./io.js";
+import { reconcileTelegramConfigChange } from "./reconcile.js";
 import { printAutoDetectSummary, printConfigStatus, printMutationSummary } from "./render.js";
-import { applyConfigSet, applyConfigUnset, hasValues, parseSetInput } from "./schema.js";
-import { telegramGetMe, telegramSetMenuButton } from "./telegram.js";
 
 interface ConfigureCommandOptions {
   apiKey?: string;
@@ -19,6 +20,14 @@ interface ConfigureCommandOptions {
   auto?: boolean;
   set: string[];
   unset: string[];
+}
+
+function clonePubConfig(config: PubConfig | null): PubConfig {
+  return {
+    core: config?.core ? { ...config.core } : undefined,
+    bridge: config?.bridge ? { ...config.bridge } : undefined,
+    telegram: config?.telegram ? { ...config.telegram } : undefined,
+  };
 }
 
 export function registerConfigCommand(program: Command): void {
@@ -36,8 +45,8 @@ export function registerConfigCommand(program: Command): void {
     )
     .option("--unset <key>", "Unset config key (repeatable)", collectValues, [])
     .action(async (opts: ConfigureCommandOptions) => {
-      const saved = readConfig();
-      const resolved = resolveConfig();
+      const saved = readPubConfig();
+      const resolved = resolvePubSettings();
       const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
       const hasSet = opts.set.length > 0;
       const hasUnset = opts.unset.length > 0;
@@ -49,29 +58,24 @@ export function registerConfigCommand(program: Command): void {
       }
 
       if (!hasMutation && !hasAuto) {
-        printConfigStatus(saved);
+        printConfigStatus();
         return;
       }
 
       if (hasAuto) {
         const bridgeProcessEnv = buildBridgeProcessEnv();
-        const result = await autoDetectBridgeConfig(bridgeProcessEnv, resolved.bridge);
-        const candidateBridge: BridgeConfig = {
-          ...resolved.bridge,
+        const result = await autoDetectBridgeConfig(bridgeProcessEnv, resolved.rawConfig.bridge);
+        const nextBridge: PubBridgeConfig = {
+          ...(saved?.bridge ?? {}),
           ...result.selected.configPatch,
           mode: result.selected.mode,
         };
-        const nextBridge = prepareBridgeConfigForSave(
-          result.selected.mode,
-          candidateBridge,
-          bridgeProcessEnv,
-        );
-        const nextConfig: SavedConfig = {
-          apiKey: saved?.apiKey,
+        const nextConfig = compactPubConfig({
+          core: saved?.core ? { ...saved.core } : undefined,
           bridge: nextBridge,
-          telegram: saved?.telegram,
-        };
-        saveConfig(nextConfig);
+          telegram: saved?.telegram ? { ...saved.telegram } : undefined,
+        });
+        writePubConfig(nextConfig);
         printAutoDetectSummary([
           ...result.attempts.map((attempt) => {
             if (!attempt.available) {
@@ -86,87 +90,39 @@ export function registerConfigCommand(program: Command): void {
         ]);
         console.log("");
         console.log("Configuration saved.");
-        printMutationSummary(readConfig());
+        printMutationSummary();
         return;
       }
 
-      let apiKey = saved?.apiKey;
-      if (hasApiUpdate) {
-        apiKey = await resolveConfigureApiKey(opts);
-      }
+      const nextConfig = clonePubConfig(saved);
+      const nextTelegram: PubTelegramConfig = { ...(nextConfig.telegram ?? {}) };
+      let explicitApiKey: string | undefined;
 
-      const nextBridge: BridgeConfig = { ...(saved?.bridge ?? {}) };
-      const nextTelegram: TelegramConfig = { ...(saved?.telegram ?? {}) };
-      let telegramTokenChanged = false;
+      if (hasApiUpdate) {
+        explicitApiKey = await resolveConfigureApiKey(opts);
+        setPubConfigValue(nextConfig, "apiKey", explicitApiKey);
+      }
 
       for (const entry of opts.set) {
-        const { key, value } = parseSetInput(entry);
-        applyConfigSet(nextBridge, nextTelegram, key, value);
-        if (key === "telegram.botToken") telegramTokenChanged = true;
+        const { key, value } = parseConfigAssignment(entry);
+        setPubConfigValue(nextConfig, key, value);
       }
+
       for (const key of opts.unset) {
-        if (key.trim() === "telegram.botToken" && nextTelegram.botToken) {
-          const resolvedApiKey = apiKey || process.env.PUB_API_KEY?.trim();
-          if (!resolvedApiKey) {
-            throw new Error("PUB_API_KEY or saved apiKey is required to unset telegram.botToken.");
-          }
-          try {
-            await telegramSetMenuButton(nextTelegram.botToken, { type: "default" });
-            console.log("Telegram menu button reset to default.");
-          } catch (error) {
-            console.error(`Warning: failed to reset Telegram menu button: ${errorMessage(error)}`);
-          }
-          try {
-            const api = new PubApiClient(resolveConfig().baseUrl.value, resolvedApiKey);
-            await api.deleteBotToken();
-            console.log("Bot token removed from server.");
-          } catch (error) {
-            console.error(
-              `Warning: failed to remove bot token from server: ${errorMessage(error)}`,
-            );
-          }
-        }
-        applyConfigUnset(nextBridge, nextTelegram, key.trim());
+        unsetPubConfigValue(nextConfig, key.trim());
       }
 
-      if (telegramTokenChanged && nextTelegram.botToken) {
-        const resolvedApiKey = apiKey || process.env.PUB_API_KEY?.trim();
-        if (!resolvedApiKey) {
-          throw new Error("PUB_API_KEY or saved apiKey is required to set telegram.botToken.");
-        }
-        console.log("Verifying Telegram bot token...");
-        const bot = await telegramGetMe(nextTelegram.botToken);
-        nextTelegram.botUsername = bot.username;
-        nextTelegram.hasMainWebApp = bot.hasMainWebApp;
-        console.log(`  Bot: @${bot.username}`);
-        await telegramSetMenuButton(nextTelegram.botToken, {
-          type: "web_app",
-          text: "Open",
-          web_app: { url: "https://pub.blue" },
-        });
-        console.log("  Menu button set to https://pub.blue");
-        if (!bot.hasMainWebApp) {
-          console.log("");
-          console.log("  Mini App not registered — deep links will open in browser, not Telegram.");
-          console.log("    @BotFather → /mybots → your bot → Bot Settings → Configure Mini App");
-          console.log("    Set Web App URL to: https://pub.blue");
-        }
+      Object.assign(nextTelegram, nextConfig.telegram ?? {});
+      await reconcileTelegramConfigChange({
+        previous: saved?.telegram,
+        next: nextTelegram,
+        explicitApiKey,
+      });
 
-        const api = new PubApiClient(resolveConfig().baseUrl.value, resolvedApiKey);
-        await api.uploadBotToken({
-          botToken: nextTelegram.botToken,
-          botUsername: bot.username,
-        });
-        console.log("  Bot token synced to server.");
-      }
-
-      const nextConfig: SavedConfig = {
-        apiKey,
-        bridge: hasValues(nextBridge) ? nextBridge : undefined,
-        telegram: hasValues(nextTelegram) ? nextTelegram : undefined,
-      };
-      saveConfig(nextConfig);
+      nextConfig.telegram = nextTelegram;
+      compactPubConfig(nextConfig);
+      writePubConfig(nextConfig);
       console.log("Configuration saved.");
-      printMutationSummary(readConfig());
+      printMutationSummary();
     });
 }

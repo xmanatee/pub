@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import type { PreparedBridgeConfig } from "../../../core/config/index.js";
+import type { BridgeSettings } from "../../../core/config/index.js";
 import { buildClaudeArgs } from "../../bridge/providers/claude-code.js";
 import { executeProcessCommand } from "./process.js";
 
@@ -33,15 +33,22 @@ export async function executeClaudeAgentCommand(params: {
   output: "text" | "json";
   maxOutputBytes: number;
   signal: AbortSignal;
-  bridgeConfig: PreparedBridgeConfig;
+  bridgeSettings: BridgeSettings;
 }): Promise<unknown> {
-  if (params.bridgeConfig.mode === "openclaw") {
+  if (params.bridgeSettings.mode === "openclaw") {
     throw new Error("Claude runtime is not prepared for command execution.");
   }
 
-  const claudePath = params.bridgeConfig.claudeCodePath;
-  const cwd = params.bridgeConfig.bridgeCwd;
-  const args = buildClaudeArgs(params.prompt, null, null, process.env, undefined, params.bridgeConfig);
+  const claudePath = params.bridgeSettings.claudeCodePath;
+  const cwd = params.bridgeSettings.bridgeCwd;
+  const args = buildClaudeArgs(
+    params.prompt,
+    null,
+    null,
+    process.env,
+    undefined,
+    params.bridgeSettings,
+  );
   if (!args.includes("--max-turns")) {
     args.push("--max-turns", "4");
   }
@@ -111,15 +118,15 @@ export async function executeOpenClawAgentCommand(params: {
   output: "text" | "json";
   maxOutputBytes: number;
   signal: AbortSignal;
-  bridgeConfig: PreparedBridgeConfig;
+  bridgeSettings: BridgeSettings;
 }): Promise<unknown> {
-  if (params.bridgeConfig.mode !== "openclaw") {
+  if (params.bridgeSettings.mode !== "openclaw") {
     throw new Error("OpenClaw runtime is not prepared for command execution.");
   }
 
-  const openclawPath = params.bridgeConfig.openclawPath;
-  const sessionId = params.bridgeConfig.sessionId;
-  const cwd = params.bridgeConfig.bridgeCwd;
+  const openclawPath = params.bridgeSettings.openclawPath;
+  const sessionId = params.bridgeSettings.sessionId;
+  const cwd = params.bridgeSettings.bridgeCwd;
   const invocationArgs = ["agent", "--local", "--session-id", sessionId, "-m", params.prompt];
   const command = openclawPath.endsWith(".js") ? process.execPath : openclawPath;
   const args = openclawPath.endsWith(".js") ? [openclawPath, ...invocationArgs] : invocationArgs;
