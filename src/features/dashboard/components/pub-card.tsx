@@ -61,6 +61,15 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
         </div>
         <div className="text-xs text-muted-foreground">
           /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
+          {pub.content && (
+            <span className="tabular-nums">
+              {" "}
+              &middot; {(() => {
+                const kb = new Blob([pub.content]).size / 1024;
+                return kb < 1 ? "< 1 KB" : `${kb.toFixed(1)} KB`;
+              })()}
+            </span>
+          )}
           {viewCount !== undefined && (
             <span className="tabular-nums"> &middot; {viewCount} views</span>
           )}

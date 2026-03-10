@@ -292,7 +292,7 @@ function registerWriteCommand(program: Command): void {
 function registerReadCommand(program: Command): void {
   program
     .command("read")
-    .description("Read buffered messages from live channels")
+    .description("Read buffered messages from live channels (debug only)")
     .option("-c, --channel <channel>", "Filter by channel")
     .option("--follow", "Stream messages continuously")
     .option("--all", "With --follow, include all channels instead of chat-only default")

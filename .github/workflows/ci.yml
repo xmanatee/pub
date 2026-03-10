@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint-and-test-web:
-    name: Lint & Test Web App
+  web:
+    name: Web App
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,23 +19,22 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install
-      - name: Generate Convex types
+      - run: pnpm install --frozen-lockfile
+      - name: Convex codegen
         run: pnpm convex codegen
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - name: Validate Convex deploy (dry-run)
+      - name: Convex deploy (dry-run)
         run: pnpm convex deploy --dry-run -y --codegen disable
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - name: Build (generates route tree + type checks)
-        run: pnpm build
+      - run: pnpm build
+      - run: pnpm lint
       - run: pnpm test
-      - name: Run Knip
-        run: pnpm knip
+      - run: pnpm knip
 
-  lint-and-test-cli:
-    name: Lint & Test CLI
+  cli:
+    name: CLI
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,9 +55,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-      - name: Smoke test linux binary
+      - name: Smoke test
         run: |
-          VERSION="$(node --print "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")"
-          ACTUAL="$(PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --version)"
+          VERSION=$(node -p "require('./package.json').version")
+          ACTUAL=$(PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --version)
           test "$ACTUAL" = "$VERSION"
           PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --help >/dev/null
