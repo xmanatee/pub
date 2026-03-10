@@ -99,6 +99,8 @@ function resolveInstalledBinaryPath(execPath = process.execPath): string {
 export async function fetchLatestRelease(
   fetchImpl: typeof fetch = fetch,
 ): Promise<LatestRelease> {
+  let best: LatestRelease | null = null;
+
   for (let page = 1; page <= MAX_RELEASE_PAGES; page += 1) {
     const res = await fetchImpl(
       `https://api.github.com/repos/${REPO}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`,
@@ -109,11 +111,17 @@ export async function fetchLatestRelease(
     }
 
     const releases = (await res.json()) as { tag_name: string }[];
-    const match = releases.find((release) => release.tag_name.startsWith("cli-v"));
-    if (match) {
-      return { tag: match.tag_name, version: versionFromTag(match.tag_name) };
-    }
     if (releases.length === 0) break;
+
+    for (const release of releases) {
+      if (!release.tag_name.startsWith("cli-v")) continue;
+      const version = versionFromTag(release.tag_name);
+      if (!best || isNewer(version, best.version)) {
+        best = { tag: release.tag_name, version };
+      }
+    }
+
+    if (best) return best;
   }
 
   throw new Error("No cli-v* release found");
