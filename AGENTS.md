@@ -61,7 +61,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
-- **`pubblue`** — Commander.js CLI (`pnpm add -g pubblue` or `pnpm dlx pubblue`)
+- **`pubblue`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
 - `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
@@ -100,7 +100,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - When CLI behavior changes, update `SKILL.md`, `claw.json` version, and AGENTS command notes together.
 
 ### CI (`.github/workflows/`)
-- **`ci.yml`** — lint, test, build for web app + CLI; auto-publishes CLI to npm on version bump
+- **`ci.yml`** — lint, test for web app + CLI
+- **`cli-binary.yml`** — builds standalone CLI binaries on `cli-v*` tags, uploads to GitHub Releases
 - **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`
 
 ### Integrations

@@ -3,11 +3,11 @@ name: pubblue
 description: >-
   Publish and visualize output via the pubblue CLI, with live P2P browser sessions.
 license: MIT
-compatibility: Requires Node.js 18+ with npm/pnpm/npx.
+compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
   version: "5.2.2"
-allowed-tools: Bash(pubblue:*) Bash(npx pubblue:*) Bash(node:*) Read Write
+allowed-tools: Bash(pubblue:*) Bash(node:*) Read Write
 ---
 
 # pubblue
@@ -20,7 +20,10 @@ Use **pubblue CLI 0.7.2+**.
 
 ```bash
 pubblue --version
-npm i -g pubblue@latest
+# Install or update:
+curl -fsSL https://pub.blue/install.sh | bash
+# Or self-update:
+pubblue upgrade
 ```
 
 ## Setup
