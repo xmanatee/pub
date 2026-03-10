@@ -2,7 +2,11 @@ import type { Command } from "commander";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { type StatusResponse } from "../../live/transport/ipc-protocol.js";
 import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
-import { printLocalRuntimeSummary } from "./support.js";
+import {
+  getConfiguredLiveDebugState,
+  printDaemonStatus,
+  printLocalRuntimeSummary,
+} from "./support.js";
 
 export function registerStatusCommand(program: Command): void {
   program
@@ -10,6 +14,7 @@ export function registerStatusCommand(program: Command): void {
     .description("Check agent daemon and live connection status")
     .action(async () => {
       const socketPath = getAgentSocketPath();
+      const liveDebug = getConfiguredLiveDebugState();
       let response: StatusResponse;
       try {
         response = await ipcCall(socketPath, { method: "status", params: {} });
@@ -25,40 +30,6 @@ export function registerStatusCommand(program: Command): void {
         failCli(`Failed to fetch daemon status: ${response.error || "unknown error"}`);
       }
 
-      console.log(`  Daemon: running`);
-      console.log(`  Active slug: ${response.activeSlug || "(none)"}`);
-      console.log(`  Status: ${response.connected ? "connected" : "waiting"}`);
-      if (typeof response.signalingConnected === "boolean") {
-        console.log(`  Signaling: ${response.signalingConnected ? "connected" : "reconnecting"}`);
-      }
-      console.log(`  Uptime: ${response.uptime}s`);
-      console.log(`  Channels: ${response.channels.join(", ") || "(none)"}`);
-      console.log(`  Buffered: ${response.bufferedMessages ?? 0} messages`);
-      if (typeof response.lastError === "string" && response.lastError.length > 0) {
-        console.log(`  Last error: ${response.lastError}`);
-      }
-      if (response.logPath) {
-        console.log(`  Log: ${response.logPath}`);
-      }
-      const bridge = response.bridge;
-      if (bridge) {
-        const bridgeLabel = response.bridgeMode ?? "unknown";
-        console.log(`  Bridge: ${bridgeLabel} (${bridge.running ? "running" : "stopped"})`);
-        if (bridge.sessionId) {
-          console.log(`  Bridge session: ${bridge.sessionId}`);
-        }
-        if (bridge.sessionSource) {
-          console.log(`  Bridge session source: ${bridge.sessionSource}`);
-        }
-        if (bridge.sessionKey) {
-          console.log(`  Bridge session key: ${bridge.sessionKey}`);
-        }
-        if (bridge.forwardedMessages !== undefined) {
-          console.log(`  Bridge forwarded: ${bridge.forwardedMessages} messages`);
-        }
-        if (bridge.lastError) {
-          console.log(`  Bridge last error: ${bridge.lastError}`);
-        }
-      }
+      printDaemonStatus(response, { debugEnabled: liveDebug?.enabled ?? null });
     });
 }

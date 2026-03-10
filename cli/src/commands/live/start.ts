@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import type { Command } from "commander";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { CLI_VERSION } from "../../core/version/version.js";
-import { getAgentSocketPath } from "../../live/transport/ipc.js";
+import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
 import {
   liveInfoPath,
   liveLogPath,
@@ -11,6 +11,10 @@ import {
 } from "../../live/runtime/daemon-files.js";
 import { buildDaemonSpawnStdio, waitForDaemonReady } from "../../live/runtime/daemon-process.js";
 import { runStartPreflight } from "../../live/runtime/start-preflight.js";
+import {
+  getLiveDebugEnableCommand,
+  printDaemonStatus,
+} from "./support.js";
 
 export function registerStartCommand(program: Command): void {
   program
@@ -52,6 +56,7 @@ export function registerStartCommand(program: Command): void {
           PUB_CLI_VERSION: CLI_VERSION,
           PUB_DAEMON_BRIDGE_SETTINGS: JSON.stringify(bridgeSettings),
           PUB_DAEMON_LOG: logPath,
+          PUB_LIVE_DEBUG: bridgeSettings.debug ? "1" : "0",
         },
       });
       fs.closeSync(daemonLogFd);
@@ -80,11 +85,32 @@ export function registerStartCommand(program: Command): void {
           lines.push(tail.trimEnd());
           lines.push("---- end daemon log tail ----");
         }
+        lines.push("");
+        lines.push("Troubleshooting:");
+        lines.push("- Inspect the daemon log path above.");
+        if (bridgeSettings.debug) {
+          lines.push("- Verbose daemon logging is already enabled; retry and check the log again.");
+        } else {
+          lines.push(
+            `- Enable verbose daemon logging and retry: \`${getLiveDebugEnableCommand()}\``,
+          );
+        }
         failCli(lines.join("\n"));
       }
 
       console.log("Agent daemon started. Waiting for browser to initiate live.");
-      console.log(`Daemon log: ${logPath}`);
+      console.log(`Log: ${logPath}`);
       console.log(`Bridge mode: ${bridgeSettings.mode}`);
+      console.log(`Debug logging: ${bridgeSettings.debug ? "enabled" : "disabled"}`);
+      try {
+        const status = await ipcCall(socketPath, { method: "status", params: {} });
+        if (status.ok) {
+          console.log("");
+          console.log("Current status:");
+          printDaemonStatus(status, { debugEnabled: bridgeSettings.debug });
+        }
+      } catch {
+        // Daemon is already up; failure to fetch status should not turn startup into an error.
+      }
     });
 }

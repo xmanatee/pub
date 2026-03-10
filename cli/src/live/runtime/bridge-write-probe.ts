@@ -25,7 +25,9 @@ function generateProbeSocketPath(): string {
 }
 
 function createProbeTimeoutError(label: string, timeoutMs: number): Error {
-  return new Error(`${label} ping/pong preflight failed: timed out after ${timeoutMs}ms.`);
+  return new Error(
+    `${label} ping/pong preflight failed: did not perform \`pub write "pong"\` within ${timeoutMs}ms.`,
+  );
 }
 
 async function waitForPongWrite(params: {

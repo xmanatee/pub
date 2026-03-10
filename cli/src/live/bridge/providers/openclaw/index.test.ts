@@ -295,6 +295,13 @@ describe("resolveSessionFromSessionsData", () => {
 });
 
 describe("buildSessionBriefing", () => {
+  it("uses explicit pub write instructions for openclaw mode", () => {
+    expect(openclawInstructions.replyHint).toBe('Reply command: pub write "<your reply>"');
+    expect(openclawInstructions.canvasHint).toBe(
+      "Canvas command: pub write -c canvas -f /path/to/file.html",
+    );
+  });
+
   it("includes pub context fields and canvas content file pointer", () => {
     const briefing = buildSessionBriefing(
       "my-demo",

@@ -69,12 +69,14 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
-- `start --agent-name <name>` — registers agent presence and starts the per-user daemon using saved bridge config; `--agent-name` is required and shown in browser UI
+- `start --agent-name <name>` — registers agent presence and starts the per-user daemon using saved bridge config; `--agent-name` is required and shown in browser UI; prints log path and current runtime status on success
 - `stop` — deregisters agent presence, closes active live, stops daemon
+- `status` — shows daemon/runtime state including signaling, bridge session, last error, and log path
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `config --set telegram.botToken=<token>` — enables Telegram Mini App deep links
+- `config --set bridge.debug=true` — enables verbose live daemon logging (same effect as `PUB_LIVE_DEBUG=1`)
 - `config --auto` — detects a working bridge, runs preflight, and saves bridge mode/path into config
 - Config: one `config.json` under the single resolved Pub config directory, plus env overrides like `PUB_API_KEY`
 - Config dir resolution: existing `PUB_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.config/pub`; fail on ambiguity or no directory

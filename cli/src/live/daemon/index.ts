@@ -22,7 +22,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const state = createDaemonState(buffer);
   const startTime = Date.now();
   const daemonSessionId = randomUUID();
-  const debugEnabled = process.env.PUB_LIVE_DEBUG === "1";
+  const debugEnabled = config.bridgeSettings.debug === true || process.env.PUB_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
 
   let channelManager!: ReturnType<typeof createDaemonChannelManager>;

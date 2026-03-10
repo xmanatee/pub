@@ -79,6 +79,12 @@ describe("setPubConfigValue", () => {
     expect(config.bridge?.canvasReminderEvery).toBe(123);
   });
 
+  it("sets boolean bridge keys with parsing", () => {
+    const config = makeConfig();
+    setPubConfigValue(config, "bridge.debug", "true");
+    expect(config.bridge?.debug).toBe(true);
+  });
+
   it("sets bridge.mode", () => {
     const config = makeConfig();
     setPubConfigValue(config, "bridge.mode", "claude-sdk");
@@ -139,9 +145,10 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(16);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(17);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.debug");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
   });
 });

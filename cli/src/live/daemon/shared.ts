@@ -30,8 +30,8 @@ export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
     };
   }
   return {
-    replyHint: 'Reply command: write "<your reply>"',
-    canvasHint: "Canvas command: write -c canvas -f /path/to/file.html",
+    replyHint: 'Reply command: pub write "<your reply>"',
+    canvasHint: "Canvas command: pub write -c canvas -f /path/to/file.html",
     systemPrompt: null,
     commandProtocolGuide: CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN,
   };
