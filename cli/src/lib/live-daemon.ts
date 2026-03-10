@@ -108,7 +108,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     debugLog: (message, error) => debugLog(message, error),
     markError,
     sendCommandMessage: async (msg) => {
-      if (!isLiveConnected()) return false;
+      if (!browserConnected) return false;
       return sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
         context: 'command outbound on "command"',
         maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
