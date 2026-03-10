@@ -3,7 +3,7 @@ import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { type StatusResponse } from "../../live/transport/ipc-protocol.js";
 import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
 import {
-  getConfiguredLiveDebugState,
+  getConfiguredLiveVerboseState,
   printDaemonStatus,
   printLocalRuntimeSummary,
 } from "./support.js";
@@ -14,12 +14,12 @@ export function registerStatusCommand(program: Command): void {
     .description("Check agent daemon and live connection status")
     .action(async () => {
       const socketPath = getAgentSocketPath();
-      let liveDebug: { enabled: boolean } | null = null;
-      let liveDebugError: string | null = null;
+      let liveVerbose: { enabled: boolean } | null = null;
+      let liveVerboseError: string | null = null;
       try {
-        liveDebug = getConfiguredLiveDebugState();
+        liveVerbose = getConfiguredLiveVerboseState();
       } catch (error) {
-        liveDebugError = errorMessage(error);
+        liveVerboseError = errorMessage(error);
       }
       let response: StatusResponse;
       try {
@@ -36,9 +36,9 @@ export function registerStatusCommand(program: Command): void {
         failCli(`Failed to fetch daemon status: ${response.error || "unknown error"}`);
       }
 
-      printDaemonStatus(response, { debugEnabled: liveDebug?.enabled ?? null });
-      if (liveDebugError) {
-        console.log(`  Debug config unavailable: ${liveDebugError}`);
+      printDaemonStatus(response, { verboseEnabled: liveVerbose?.enabled ?? null });
+      if (liveVerboseError) {
+        console.log(`  Verbose config unavailable: ${liveVerboseError}`);
       }
     });
 }

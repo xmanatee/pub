@@ -81,8 +81,8 @@ describe("setPubConfigValue", () => {
 
   it("sets boolean bridge keys with parsing", () => {
     const config = makeConfig();
-    setPubConfigValue(config, "bridge.debug", "true");
-    expect(config.bridge?.debug).toBe(true);
+    setPubConfigValue(config, "bridge.verbose", "true");
+    expect(config.bridge?.verbose).toBe(true);
   });
 
   it("sets bridge.mode", () => {
@@ -148,7 +148,7 @@ describe("SUPPORTED_CONFIG_KEYS", () => {
     expect(SUPPORTED_CONFIG_KEYS).toHaveLength(17);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
-    expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.debug");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.verbose");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
   });
 });

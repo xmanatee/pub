@@ -71,9 +71,8 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   bridgeVar("bridge.mode", "mode", "bridge-mode", {
     description: "Selected live bridge runtime.",
   }),
-  bridgeVar("bridge.debug", "debug", "boolean", {
+  bridgeVar("bridge.verbose", "verbose", "boolean", {
     description: "Enable verbose live daemon logging.",
-    env: ["PUB_LIVE_DEBUG"],
   }),
   bridgeVar("bridge.cwd", "bridgeCwd", "string", {
     description: "Working directory used by the live bridge runtime.",

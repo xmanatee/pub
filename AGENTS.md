@@ -76,7 +76,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `config --set telegram.botToken=<token>` — enables Telegram Mini App deep links
-- `config --set bridge.debug=true` — enables verbose live daemon logging (same effect as `PUB_LIVE_DEBUG=1`)
+- `config --set bridge.verbose=true` — enables verbose live daemon logging
 - `config --auto` — detects a working bridge, runs preflight, and saves bridge mode/path into config
 - Config: one `config.json` under the single resolved Pub config directory, plus env overrides like `PUB_API_KEY`
 - Config dir resolution: existing `PUB_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.config/pub`; fail on ambiguity or no directory

@@ -38,9 +38,9 @@ function formatOpenClawProbeFailure(params: {
         "- The selected session ignored the instruction or was busy.",
         "- A wrapper script intercepted or altered the OpenClaw invocation.",
         "",
-        "Debug tips:",
+        "Troubleshooting tips:",
         "- In that exact OpenClaw session, verify that `pub write \"pong\"` works.",
-        "- Enable verbose daemon logging with `pub config --set bridge.debug=true` before retrying.",
+        "- Enable verbose daemon logging with `pub config --set bridge.verbose=true` before retrying.",
       ].join("\n"),
     );
   }
@@ -55,10 +55,10 @@ function formatOpenClawProbeFailure(params: {
       `- sessionId: ${params.sessionId}`,
       `- bridge cwd: ${params.bridgeCwd}`,
       "",
-      "Debug tips:",
+      "Troubleshooting tips:",
       "- Run `pub config` to verify the saved OpenClaw runtime settings.",
       "- Verify that the selected OpenClaw executable and session id are correct.",
-      "- Enable verbose daemon logging with `pub config --set bridge.debug=true` before retrying.",
+      "- Enable verbose daemon logging with `pub config --set bridge.verbose=true` before retrying.",
     ].join("\n"),
   );
 }

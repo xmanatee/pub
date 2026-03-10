@@ -23,29 +23,6 @@ function parsePositiveIntegerEnv(envKey: string, raw: string | undefined): numbe
   throw new Error(`Invalid positive integer value for ${envKey}: ${raw}`);
 }
 
-function parseBooleanEnv(envKey: string, raw: string | undefined): boolean | undefined {
-  const trimmed = trimToUndefined(raw);
-  if (trimmed === undefined) return undefined;
-  const normalized = trimmed.toLowerCase();
-  if (
-    normalized === "1" ||
-    normalized === "true" ||
-    normalized === "yes" ||
-    normalized === "on"
-  ) {
-    return true;
-  }
-  if (
-    normalized === "0" ||
-    normalized === "false" ||
-    normalized === "no" ||
-    normalized === "off"
-  ) {
-    return false;
-  }
-  throw new Error(`Invalid boolean value for ${envKey}: ${raw}`);
-}
-
 function stringValueOrEnv(value: string | undefined, envKey: string, env: NodeJS.ProcessEnv): string | undefined {
   return trimToUndefined(env[envKey]) ?? trimToUndefined(value);
 }
@@ -56,14 +33,6 @@ function integerValueOrEnv(
   env: NodeJS.ProcessEnv,
 ): number | undefined {
   return parsePositiveIntegerEnv(envKey, env[envKey]) ?? value;
-}
-
-function booleanValueOrEnv(
-  value: boolean | undefined,
-  envKey: string,
-  env: NodeJS.ProcessEnv,
-): boolean | undefined {
-  return parseBooleanEnv(envKey, env[envKey]) ?? value;
 }
 
 function positiveIntOr(value: number | undefined, fallback: number): number {
@@ -107,7 +76,7 @@ export function buildBridgeSettings(
 
   const base = {
     mode,
-    debug: booleanValueOrEnv(bridgeConfig.debug, "PUB_LIVE_DEBUG", env) === true,
+    verbose: bridgeConfig.verbose === true,
     bridgeCwd,
     canvasReminderEvery: positiveIntOr(
       bridgeConfig.canvasReminderEvery,

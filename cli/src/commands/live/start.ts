@@ -12,7 +12,7 @@ import {
 import { buildDaemonSpawnStdio, waitForDaemonReady } from "../../live/runtime/daemon-process.js";
 import { runStartPreflight } from "../../live/runtime/start-preflight.js";
 import {
-  getLiveDebugEnableCommand,
+  getLiveVerboseEnableCommand,
   printDaemonStatus,
 } from "./support.js";
 
@@ -56,7 +56,6 @@ export function registerStartCommand(program: Command): void {
           PUB_CLI_VERSION: CLI_VERSION,
           PUB_DAEMON_BRIDGE_SETTINGS: JSON.stringify(bridgeSettings),
           PUB_DAEMON_LOG: logPath,
-          PUB_LIVE_DEBUG: bridgeSettings.debug ? "1" : "0",
         },
       });
       fs.closeSync(daemonLogFd);
@@ -88,11 +87,11 @@ export function registerStartCommand(program: Command): void {
         lines.push("");
         lines.push("Troubleshooting:");
         lines.push("- Inspect the daemon log path above.");
-        if (bridgeSettings.debug) {
+        if (bridgeSettings.verbose) {
           lines.push("- Verbose daemon logging is already enabled; retry and check the log again.");
         } else {
           lines.push(
-            `- Enable verbose daemon logging and retry: \`${getLiveDebugEnableCommand()}\``,
+            `- Enable verbose daemon logging and retry: \`${getLiveVerboseEnableCommand()}\``,
           );
         }
         failCli(lines.join("\n"));
@@ -105,7 +104,7 @@ export function registerStartCommand(program: Command): void {
         if (status.ok) {
           console.log("");
           console.log("Current status:");
-          printDaemonStatus(status, { debugEnabled: bridgeSettings.debug });
+          printDaemonStatus(status, { verboseEnabled: bridgeSettings.verbose });
         } else {
           startupStatusError = status.error || "unknown error";
         }
@@ -115,7 +114,7 @@ export function registerStartCommand(program: Command): void {
       if (startupStatusError) {
         console.log(`Status fetch failed after startup: ${startupStatusError}`);
         console.log(`Bridge mode: ${bridgeSettings.mode}`);
-        console.log(`Debug logging: ${bridgeSettings.debug ? "enabled" : "disabled"}`);
+        console.log(`Verbose logging: ${bridgeSettings.verbose ? "enabled" : "disabled"}`);
         console.log(`Log: ${logPath}`);
         console.log("Run `pub status` for a fresh status check.");
       }

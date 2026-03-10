@@ -8,16 +8,13 @@ describe("bridge-runtime", () => {
   const originalEnv = {
     PUB_CONFIG_DIR: process.env.PUB_CONFIG_DIR,
     PUB_PROJECT_ROOT: process.env.PUB_PROJECT_ROOT,
-    PUB_LIVE_DEBUG: process.env.PUB_LIVE_DEBUG,
   };
 
   afterEach(() => {
     process.env.PUB_CONFIG_DIR = originalEnv.PUB_CONFIG_DIR;
     process.env.PUB_PROJECT_ROOT = originalEnv.PUB_PROJECT_ROOT;
-    process.env.PUB_LIVE_DEBUG = originalEnv.PUB_LIVE_DEBUG;
     if (!originalEnv.PUB_CONFIG_DIR) delete process.env.PUB_CONFIG_DIR;
     if (!originalEnv.PUB_PROJECT_ROOT) delete process.env.PUB_PROJECT_ROOT;
-    if (!originalEnv.PUB_LIVE_DEBUG) delete process.env.PUB_LIVE_DEBUG;
   });
 
   it("adds PUB_PROJECT_ROOT when missing", () => {
@@ -51,24 +48,24 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.attachmentDir).toContain("/attachments");
     expect(bridgeSettings.canvasReminderEvery).toBe(10);
     expect(bridgeSettings.commandDefaultTimeoutMs).toBe(15_000);
-    expect(bridgeSettings.debug).toBe(false);
+    expect(bridgeSettings.verbose).toBe(false);
   });
 
-  it("uses PUB_LIVE_DEBUG env override for bridge debug", () => {
+  it("uses saved bridge.verbose for runtime verbosity", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
     process.env.PUB_CONFIG_DIR = tempDir;
     process.env.PUB_PROJECT_ROOT = "/tmp/pub-project";
-    process.env.PUB_LIVE_DEBUG = "1";
 
     const bridgeSettings = buildBridgeSettings(
       "claude-code",
       {
         claudeCodePath: "/usr/local/bin/claude",
+        verbose: true,
       },
       buildBridgeProcessEnv(),
     );
 
-    expect(bridgeSettings.debug).toBe(true);
+    expect(bridgeSettings.verbose).toBe(true);
   });
 
   it("requires explicit OpenClaw workspace in runtime settings", () => {

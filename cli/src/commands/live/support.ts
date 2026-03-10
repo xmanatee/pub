@@ -6,25 +6,25 @@ import {
 } from "../../core/config/index.js";
 import type { StatusResponse } from "../../live/transport/ipc-protocol.js";
 
-export function getLiveDebugEnableCommand(): string {
-  return "pub config --set bridge.debug=true";
+export function getLiveVerboseEnableCommand(): string {
+  return "pub config --set bridge.verbose=true";
 }
 
-export function getConfiguredLiveDebugState(
+export function getConfiguredLiveVerboseState(
   env: NodeJS.ProcessEnv = process.env,
 ): { enabled: boolean } {
   const resolved = resolvePubSettings(env);
-  const debug = getResolvedSettingValue<boolean>(resolved, "bridge.debug");
+  const verbose = getResolvedSettingValue<boolean>(resolved, "bridge.verbose");
   return {
-    enabled: debug?.value === true,
+    enabled: verbose?.value === true,
   };
 }
 
 export function printDaemonStatus(
   response: StatusResponse,
-  options?: { debugEnabled?: boolean | null },
+  options?: { verboseEnabled?: boolean | null },
 ): void {
-  const debugEnabled = options?.debugEnabled ?? null;
+  const verboseEnabled = options?.verboseEnabled ?? null;
 
   console.log(`  Daemon: running`);
   console.log(`  Active slug: ${response.activeSlug || "(none)"}`);
@@ -35,14 +35,14 @@ export function printDaemonStatus(
   console.log(`  Uptime: ${response.uptime}s`);
   console.log(`  Channels: ${response.channels.join(", ") || "(none)"}`);
   console.log(`  Buffered: ${response.bufferedMessages ?? 0} messages`);
-  if (debugEnabled !== null) {
-    console.log(`  Debug logging: ${debugEnabled ? "enabled" : "disabled"}`);
+  if (verboseEnabled !== null) {
+    console.log(`  Verbose logging: ${verboseEnabled ? "enabled" : "disabled"}`);
   }
   if (typeof response.lastError === "string" && response.lastError.length > 0) {
     console.log(`  Last error: ${response.lastError}`);
-    if (debugEnabled === false) {
+    if (verboseEnabled === false) {
       console.log(
-        `  Tip: enable verbose daemon logs with \`${getLiveDebugEnableCommand()}\` and retry.`,
+        `  Tip: enable verbose daemon logs with \`${getLiveVerboseEnableCommand()}\` and retry.`,
       );
     }
   }
@@ -81,13 +81,14 @@ export function printLocalRuntimeSummary(): void {
     : "not configured";
   const bridgeMode =
     getResolvedSettingValue<string>(resolved, "bridge.mode")?.value || "not configured";
-  const liveDebug = getResolvedSettingValue<boolean>(resolved, "bridge.debug")?.value === true;
+  const liveVerbose =
+    getResolvedSettingValue<boolean>(resolved, "bridge.verbose")?.value === true;
 
   console.log("Local runtime configuration:");
   console.log(`  API key source: ${apiSource}`);
   console.log(`  Base URL: ${resolved.core.baseUrl.value}`);
   console.log(`  Bridge mode: ${bridgeMode}`);
-  console.log(`  Debug logging: ${liveDebug ? "enabled" : "disabled"}`);
+  console.log(`  Verbose logging: ${liveVerbose ? "enabled" : "disabled"}`);
   if (saved?.bridge) {
     const configuredKeys = listConfiguredKeys(saved, "bridge");
     console.log(`  Saved bridge keys: ${configuredKeys.join(", ") || "(none)"}`);

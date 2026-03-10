@@ -17,7 +17,7 @@ export interface PubBridgeConfig {
   openclawStateDir?: string;
   sessionId?: string;
   threadId?: string;
-  debug?: boolean;
+  verbose?: boolean;
   bridgeCwd?: string;
   canvasReminderEvery?: number;
   attachmentDir?: string;
@@ -42,7 +42,7 @@ export interface PubConfig {
 
 interface BridgeSettingsBase {
   mode: BridgeMode;
-  debug: boolean;
+  verbose: boolean;
   bridgeCwd: string;
   canvasReminderEvery: number;
   attachmentDir: string;
