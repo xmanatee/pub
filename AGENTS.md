@@ -63,7 +63,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### CLI (`cli/`)
 - **`pub`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
-- **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
+- **Pub commands**: `config`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
 - `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
@@ -74,9 +74,10 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
-- `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
-- Config: `~/.openclaw/pub/config.json` or env var `PUB_API_KEY`
-- Config dir resolution: `PUB_CONFIG_DIR` → `OPENCLAW_STATE_DIR/pub` → `OPENCLAW_HOME/.openclaw/pub` (or `~/.openclaw/pub`)
+- `config --set telegram.botToken=<token>` — enables Telegram Mini App deep links
+- `config --auto` — detects a working bridge, runs preflight, and saves bridge mode/path into config
+- Config: one `config.json` under the single resolved Pub config directory, plus env overrides like `PUB_API_KEY`
+- Config dir resolution: existing `PUBBLUE_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.configs/pub`; fail on ambiguity or no directory
 - OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
 - OpenClaw workspace resolution: `OPENCLAW_WORKSPACE` → `OPENCLAW_CONFIG_PATH` (`agents.defaults.workspace` / legacy `workspace`) → `OPENCLAW_STATE_DIR/workspace` (or `~/.openclaw/workspace`)
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_URL` env var

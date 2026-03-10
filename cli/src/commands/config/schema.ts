@@ -1,5 +1,6 @@
 import type { BridgeConfig, TelegramConfig } from "../../lib/config.js";
 import { parsePositiveInteger } from "../../lib/number.js";
+import type { BridgeMode } from "../../lib/live-daemon-shared.js";
 
 export { parsePositiveInteger };
 
@@ -26,12 +27,13 @@ export function parseBooleanValue(raw: string, key: string): boolean {
 export interface ConfigKeyDef {
   target: "bridge" | "telegram";
   field: keyof BridgeConfig | keyof TelegramConfig;
-  type: "string" | "boolean" | "integer";
+  type: "string" | "boolean" | "integer" | "bridge-mode";
   displayAs?: "set-only";
   cascadeUnset?: Array<keyof TelegramConfig>;
 }
 
 export const CONFIG_KEY_REGISTRY: Record<string, ConfigKeyDef> = {
+  "bridge.mode": { target: "bridge", field: "mode", type: "bridge-mode" },
   "openclaw.path": { target: "bridge", field: "openclawPath", type: "string" },
   "openclaw.stateDir": { target: "bridge", field: "openclawStateDir", type: "string" },
   "openclaw.workspace": { target: "bridge", field: "openclawWorkspace", type: "string" },
@@ -88,9 +90,20 @@ function coerceValue(
   raw: string,
   type: ConfigKeyDef["type"],
   key: string,
-): string | number | boolean {
+): string | number | boolean | BridgeMode {
   if (type === "integer") return parsePositiveInteger(raw, key);
   if (type === "boolean") return parseBooleanValue(raw, key);
+  if (type === "bridge-mode") {
+    const normalized = raw.trim().toLowerCase();
+    if (
+      normalized === "openclaw" ||
+      normalized === "claude-code" ||
+      normalized === "claude-sdk"
+    ) {
+      return normalized as BridgeMode;
+    }
+    throw new Error(`Invalid bridge mode for ${key}: ${raw}`);
+  }
   return raw;
 }
 

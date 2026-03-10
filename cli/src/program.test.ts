@@ -16,7 +16,7 @@ describe("CLI command surface", () => {
     const names = program.commands.map((command) => command.name()).sort();
     expect(names).toEqual([
       "channels",
-      "configure",
+      "config",
       "create",
       "delete",
       "doctor",

@@ -20,24 +20,33 @@ export interface UpdateCheckResult {
   requiresUpgrade: boolean;
 }
 
-function cachePath(): string {
-  return path.join(getConfigDir(), "latest-version.json");
+function cachePath(): string | null {
+  try {
+    return path.join(getConfigDir(), "latest-version.json");
+  } catch {
+    return null;
+  }
 }
 
 function readCache(): VersionCache | null {
+  const cacheFile = cachePath();
+  if (!cacheFile) return null;
   try {
-    return JSON.parse(fs.readFileSync(cachePath(), "utf-8")) as VersionCache;
+    return JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as VersionCache;
   } catch {
     return null;
   }
 }
 
 function writeCache(cache: VersionCache): void {
+  const cacheFile = cachePath();
+  if (!cacheFile) return;
   try {
-    const p = cachePath();
-    fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, JSON.stringify(cache));
-  } catch {}
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+    fs.writeFileSync(cacheFile, JSON.stringify(cache));
+  } catch {
+    // Update checks are best-effort; ignore cache write failures.
+  }
 }
 
 export function isMinorOrMajorBump(latest: string, current: string): boolean {

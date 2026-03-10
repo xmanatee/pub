@@ -8,7 +8,7 @@ import {
   generateMessageId,
 } from "../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../lib/cli-error.js";
-import { DEFAULT_BASE_URL, readConfig } from "../lib/config.js";
+import { DEFAULT_BASE_URL, readConfig, resolveConfig } from "../lib/config.js";
 import { getAgentSocketPath, ipcCall } from "../lib/live-ipc.js";
 import type { StatusResponse } from "../lib/live-ipc-protocol.js";
 import { detectBridgeAvailability } from "../lib/live-runtime/bridge-runtime.js";
@@ -48,15 +48,13 @@ export function registerLiveCommands(program: Command): void {
 
 function printLocalRuntimeSummary(): void {
   const saved = readConfig();
-  const hasEnvApiKey =
-    typeof process.env.PUB_API_KEY === "string" &&
-    process.env.PUB_API_KEY.trim().length > 0;
-  const apiSource = hasEnvApiKey
-    ? "PUB_API_KEY env"
-    : saved?.apiKey
-      ? "saved config"
-      : "not configured";
-  const baseUrl = process.env.PUB_URL?.trim() || DEFAULT_BASE_URL;
+  const resolved = resolveConfig();
+  const apiSource = resolved.apiKey
+    ? resolved.apiKey.source === "env"
+      ? resolved.apiKey.envKey || "env"
+      : "saved config"
+    : "not configured";
+  const baseUrl = resolved.baseUrl.value || DEFAULT_BASE_URL;
 
   console.log("Local runtime configuration:");
   console.log(`  API key source: ${apiSource}`);

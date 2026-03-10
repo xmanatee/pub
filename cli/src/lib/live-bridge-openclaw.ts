@@ -84,7 +84,7 @@ export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): strin
   throw new Error(
     [
       "OpenClaw executable was not found.",
-      "Configure it with: pub configure --set openclaw.path=/absolute/path/to/openclaw",
+      "Configure it with: pub config --set openclaw.path=/absolute/path/to/openclaw",
       "Or set OPENCLAW_PATH in environment.",
       `Checked: ${discoveryPaths.join(", ")}`,
     ].join(" "),
@@ -210,8 +210,8 @@ export function resolveOpenClawRuntime(
         : "",
       resolvedSession.readError ? `Session lookup error: ${resolvedSession.readError}` : "",
       "Configure one of:",
-      "  pub configure --set openclaw.sessionId=<session-id>",
-      "  pub configure --set openclaw.threadId=<thread-id>",
+      "  pub config --set openclaw.sessionId=<session-id>",
+      "  pub config --set openclaw.threadId=<thread-id>",
       "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
     ]
       .filter(Boolean)

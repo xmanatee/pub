@@ -30,15 +30,19 @@ pub upgrade
 
 ```bash
 # One-time auth
-pub configure --api-key pub_KEY
+pub config --api-key pub_KEY
 # or
-echo "pub_KEY" | pub configure --api-key-stdin
+echo "pub_KEY" | pub config --api-key-stdin
 ```
 
 Key source: <https://pub.blue/dashboard>
 
-By default, config is stored at `~/.openclaw/pub/config.json`.
-Override config directory with `PUB_CONFIG_DIR` env var (useful in sandboxed environments).
+Pub resolves config from exactly one existing directory:
+- `PUBBLUE_CONFIG_DIR`
+- `OPENCLAW_HOME/.openclaw/pub`
+- `~/.configs/pub`
+
+If more than one exists, Pub fails until redundant config directories are removed.
 For OpenClaw bridge mode, daemon runtime defaults to `OPENCLAW_WORKSPACE=~/.openclaw/workspace`.
 
 ## Core Commands
@@ -119,6 +123,6 @@ Important:
 ## Advanced Details (On Demand)
 
 Only when needed:
-- Show effective saved config: `pub configure`
+- Show effective saved config: `pub config`
 - Inspect runtime and bridge state: `pub status`
 - See command-specific options: `pub <command> --help`

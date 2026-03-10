@@ -7,7 +7,7 @@ import {
   parseBooleanValue,
   parseSetInput,
   SUPPORTED_KEYS,
-} from "./configure/schema.js";
+} from "./config/schema.js";
 
 describe("parseSetInput", () => {
   it("splits on first = sign", () => {
@@ -134,6 +134,13 @@ describe("applyConfigSet", () => {
     expect(bridge.deliver).toBe(true);
   });
 
+  it("sets bridge.mode", () => {
+    const bridge = makeBridge();
+    const telegram = makeTelegram();
+    applyConfigSet(bridge, telegram, "bridge.mode", "claude-sdk");
+    expect(bridge.mode).toBe("claude-sdk");
+  });
+
   it("sets all claude-code string keys", () => {
     const ccKeys: Array<{ key: string; field: keyof BridgeConfig }> = [
       { key: "claude-code.path", field: "claudeCodePath" },
@@ -223,25 +230,29 @@ describe("applyConfigUnset", () => {
 });
 
 describe("SUPPORTED_KEYS", () => {
-  it("lists all 22 config keys", () => {
-    expect(SUPPORTED_KEYS).toHaveLength(22);
+  it("lists all 23 config keys", () => {
+    expect(SUPPORTED_KEYS).toHaveLength(23);
   });
 
   it("every key is handled by applyConfigSet without throwing", () => {
     for (const key of SUPPORTED_KEYS) {
       const bridge: BridgeConfig = {};
       const telegram: TelegramConfig = {};
-      const value =
+      let value = "test-value";
+      if (key === "bridge.mode") {
+        value = "openclaw";
+      } else if (
         key.includes("Every") ||
         key.includes("Timeout") ||
         key.includes("Max") ||
         key.includes("max") ||
         key.includes("Concurrent") ||
         key.includes("maxTurns")
-          ? "10"
-          : key === "openclaw.deliver"
-            ? "true"
-            : "test-value";
+      ) {
+        value = "10";
+      } else if (key === "openclaw.deliver") {
+        value = "true";
+      }
       expect(() => applyConfigSet(bridge, telegram, key, value)).not.toThrow();
     }
   });

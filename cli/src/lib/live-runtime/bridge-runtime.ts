@@ -68,7 +68,12 @@ interface BridgeProvider {
   mode: BridgeMode;
   priority: number;
   detect(env: NodeJS.ProcessEnv): { available: boolean; detail: string };
-  startupProbe(env: NodeJS.ProcessEnv): Promise<string[]>;
+  startupProbe(env: NodeJS.ProcessEnv): Promise<BridgeStartupProbeResult>;
+}
+
+export interface BridgeStartupProbeResult {
+  detailLines: string[];
+  configPatch?: Partial<BridgeConfig>;
 }
 
 function describeConfiguredPath(key: string, env: NodeJS.ProcessEnv): string {
@@ -95,11 +100,17 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     },
     async startupProbe(env: NodeJS.ProcessEnv) {
       const runtime = await runOpenClawBridgeStartupProbe(env);
-      return [
-        `OpenClaw executable: ${runtime.openclawPath}`,
-        `OpenClaw session: ${runtime.sessionId} (${runtime.sessionSource ?? "unknown"})`,
-        'OpenClaw communication via `pub write "pong"`: OK',
-      ];
+      return {
+        detailLines: [
+          `OpenClaw executable: ${runtime.openclawPath}`,
+          `OpenClaw session: ${runtime.sessionId} (${runtime.sessionSource ?? "unknown"})`,
+          'OpenClaw communication via `pub write "pong"`: OK',
+        ],
+        configPatch: {
+          mode: "openclaw" as const,
+          openclawPath: runtime.openclawPath,
+        },
+      };
     },
   },
   {
@@ -132,12 +143,18 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       }
       const runtime = await runClaudeSdkBridgeStartupProbe(env);
       const cwd = runtime.cwd || env.PUB_PROJECT_ROOT || process.cwd();
-      return [
-        `Claude executable: ${runtime.claudePath}`,
-        `Claude SDK: available`,
-        `Claude cwd: ${cwd}`,
-        'Claude SDK communication via `pub write "pong"`: OK',
-      ];
+      return {
+        detailLines: [
+          `Claude executable: ${runtime.claudePath}`,
+          `Claude SDK: available`,
+          `Claude cwd: ${cwd}`,
+          'Claude SDK communication via `pub write "pong"`: OK',
+        ],
+        configPatch: {
+          mode: "claude-sdk" as const,
+          claudeCodePath: runtime.claudePath,
+        },
+      };
     },
   },
   {
@@ -159,11 +176,17 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     async startupProbe(env: NodeJS.ProcessEnv) {
       const runtime = await runClaudeCodeBridgeStartupProbe(env);
       const cwd = runtime.cwd || env.PUB_PROJECT_ROOT || process.cwd();
-      return [
-        `Claude executable: ${runtime.claudePath}`,
-        `Claude cwd: ${cwd}`,
-        'Claude communication via `pub write "pong"`: OK',
-      ];
+      return {
+        detailLines: [
+          `Claude executable: ${runtime.claudePath}`,
+          `Claude cwd: ${cwd}`,
+          'Claude communication via `pub write "pong"`: OK',
+        ],
+        configPatch: {
+          mode: "claude-code" as const,
+          claudeCodePath: runtime.claudePath,
+        },
+      };
     },
   },
 ].sort((a, b) => b.priority - a.priority);
@@ -250,7 +273,86 @@ export async function runBridgeStartupPreflight(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string[]> {
   const provider = getBridgeProvider(selection.mode);
-  return provider.startupProbe(env);
+  return (await provider.startupProbe(env)).detailLines;
+}
+
+export interface BridgeAutoDetectAttempt {
+  mode: BridgeMode;
+  available: boolean;
+  detail: string;
+  success: boolean;
+  detailLines?: string[];
+  error?: string;
+}
+
+export interface BridgeAutoDetectResult {
+  attempts: BridgeAutoDetectAttempt[];
+  selected: {
+    mode: BridgeMode;
+    source: "auto";
+    detail: string;
+    detailLines: string[];
+    configPatch: Partial<BridgeConfig>;
+  };
+}
+
+export async function autoDetectBridgeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<BridgeAutoDetectResult> {
+  const attempts: BridgeAutoDetectAttempt[] = [];
+
+  for (const provider of BRIDGE_PROVIDERS) {
+    const detection = provider.detect(env);
+    if (!detection.available) {
+      attempts.push({
+        mode: provider.mode,
+        available: false,
+        detail: detection.detail,
+        success: false,
+      });
+      continue;
+    }
+
+    try {
+      const probe = await provider.startupProbe(env);
+      attempts.push({
+        mode: provider.mode,
+        available: true,
+        detail: detection.detail,
+        success: true,
+        detailLines: probe.detailLines,
+      });
+      return {
+        attempts,
+        selected: {
+          mode: provider.mode,
+          source: "auto",
+          detail: detection.detail,
+          detailLines: probe.detailLines,
+          configPatch: probe.configPatch ?? { mode: provider.mode },
+        },
+      };
+    } catch (error) {
+      attempts.push({
+        mode: provider.mode,
+        available: true,
+        detail: detection.detail,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  throw new Error(
+    [
+      "No working bridge configuration detected.",
+      ...attempts.map((attempt) =>
+        attempt.available
+          ? `- ${attempt.mode}: ${attempt.success ? "ok" : attempt.error || attempt.detail}`
+          : `- ${attempt.mode}: ${attempt.detail}`,
+      ),
+    ].join("\n"),
+  );
 }
 
 export function resolveBridgeMode(

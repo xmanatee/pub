@@ -10,7 +10,7 @@ import {
 import { getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
 import { buildDaemonSpawnStdio } from "../lib/live-runtime/daemon-process.js";
 import { parsePositiveInteger } from "../lib/number.js";
-import { SUPPORTED_KEYS } from "./configure/schema.js";
+import { SUPPORTED_KEYS } from "./config/schema.js";
 
 vi.mock("../lib/live-bridge-openclaw.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
@@ -27,8 +27,8 @@ vi.mock("../lib/live-bridge-claude-sdk.js", () => ({
 }));
 
 describe("SUPPORTED_KEYS", () => {
-  it("does not include bridge.mode", () => {
-    expect(SUPPORTED_KEYS).not.toContain("bridge.mode");
+  it("includes bridge.mode", () => {
+    expect(SUPPORTED_KEYS).toContain("bridge.mode");
   });
 });
 

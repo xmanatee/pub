@@ -28,6 +28,7 @@ interface CheckOutcome {
 }
 
 const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> = [
+  { field: "mode", label: "bridge.mode" },
   { field: "openclawPath", label: "openclaw.path" },
   { field: "openclawStateDir", label: "openclaw.stateDir" },
   { field: "openclawWorkspace", label: "openclaw.workspace" },
@@ -119,7 +120,8 @@ function formatPreflightError(params: {
   }
 
   lines.push("", "Debug tips:");
-  lines.push("- Run `pub configure` to inspect saved CLI configuration.");
+  lines.push("- Run `pub config` to inspect saved CLI configuration.");
+  lines.push("- Run `pub config --auto` to detect and save a working bridge.");
   lines.push(
     "- Use `pub start --bridge openclaw|claude-code|claude-sdk` to force a bridge mode.",
   );
@@ -140,7 +142,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   try {
     runtimeConfig = getConfig();
-    const source = process.env.PUB_API_KEY?.trim() ? "PUB_API_KEY env" : "saved config";
+    const source = process.env.PUB_API_KEY?.trim() ? "env" : "saved config";
     passed.push({ label: "config", detail: `API key configured (${source})` });
     bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
     const savedBridgeConfig = listSavedBridgeConfigKeys(runtimeConfig.bridge);
@@ -161,7 +163,16 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
   });
 
   try {
-    bridgeSelection = resolveBridgeSelection(opts, bridgeProcessEnv);
+    const savedMode = runtimeConfig?.bridge?.mode;
+    if (opts.bridge) {
+      bridgeSelection = resolveBridgeSelection(opts, bridgeProcessEnv);
+    } else if (savedMode) {
+      bridgeSelection = resolveBridgeSelection({ bridge: savedMode }, bridgeProcessEnv);
+    } else {
+      throw new Error(
+        "No bridge configured. Run `pub config --auto` or pass --bridge openclaw|claude-code|claude-sdk.",
+      );
+    }
     passed.push({
       label: "bridge.resolve",
       detail: `${bridgeSelection.mode} (${bridgeSelection.source}, ${bridgeSelection.detail})`,
