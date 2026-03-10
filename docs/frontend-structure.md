@@ -11,19 +11,19 @@ This document defines frontend ownership and dependency direction.
 
 ## Top-level ownership
 
-- `src/routes/*`: route registration and route-level guards only. No feature-heavy UI or orchestration logic.
-- `src/features/<feature>/*`: all feature UI, hooks, types, and feature-local utilities.
-- `src/components/ui/*`: design-system primitives only.
-- `src/lib/*`: cross-feature infrastructure (analytics, telemetry, app-wide integrations).
-- `src/hooks/*`: cross-feature hooks only.
-- `src/devtools/*`: development-only debug tooling and pages.
+- `web/src/routes/*`: route registration and route-level guards only. No feature-heavy UI or orchestration logic.
+- `web/src/features/<feature>/*`: all feature UI, hooks, types, and feature-local utilities.
+- `web/src/components/ui/*`: design-system primitives only.
+- `web/src/lib/*`: cross-feature infrastructure (analytics, telemetry, app-wide integrations).
+- `web/src/hooks/*`: cross-feature hooks only.
+- `web/src/devtools/*`: development-only debug tooling and pages.
 
 ## Route Wrapper Rule
 
 Each route file should primarily:
 
 1. define `createFileRoute(...)`
-2. import one page component from `src/features/*/page/*` (or `src/devtools/pages/*` for debug routes)
+2. import one page component from `web/src/features/*/page/*` (or `web/src/devtools/pages/*` for debug routes)
 3. render it
 
 Allowed extras in route files:
@@ -39,7 +39,7 @@ Not allowed in route files:
 
 Debug-route exception:
 
-- `/debug/*` routes may import from `src/devtools/pages/*` and use `requireDevRoute`.
+- `/debug/*` routes may import from `web/src/devtools/pages/*` and use `requireDevRoute`.
 
 ## Feature folder template
 
@@ -74,7 +74,7 @@ Disallowed directions:
 - `components/ui -> features`
 - `features/<x> -> routes`
 
-When a feature needs something from another feature, prefer extracting that logic into `src/lib` or `src/hooks` if it is truly shared.
+When a feature needs something from another feature, prefer extracting that logic into `web/src/lib` or `web/src/hooks` if it is truly shared.
 
 ## Naming
 
@@ -95,7 +95,7 @@ When a feature needs something from another feature, prefer extracting that logi
 A frontend restructure is complete when:
 
 - Route files are thin wrappers.
-- Feature logic is owned by `src/features/*`.
+- Feature logic is owned by `web/src/features/*`.
 - No temporary re-export shims remain.
 - No dead modules or duplicate implementations remain.
 - `pnpm check` and `pnpm test:e2e` pass.

@@ -5,9 +5,9 @@ This document defines test placement, naming, and scope for Pub.
 ## Test levels
 
 - Unit and component tests: colocated with source as `*.test.ts` or `*.test.tsx`.
-- End-to-end tests: `tests/e2e/specs/*.spec.ts`.
-- E2E helpers and fixtures: `tests/e2e/helpers/*`.
-- E2E screenshot baselines: `tests/e2e/snapshots/*`.
+- End-to-end tests: `web/tests/e2e/specs/*.spec.ts`.
+- E2E helpers and fixtures: `web/tests/e2e/helpers/*`.
+- E2E screenshot baselines: `web/tests/e2e/snapshots/*`.
 
 ## Why colocate unit/component tests
 
@@ -27,8 +27,8 @@ This document defines test placement, naming, and scope for Pub.
 
 Examples:
 
-- `src/features/live/components/panels/chat-panel.test.tsx`
-- `tests/e2e/specs/control-bar-screenshots.spec.ts`
+- `web/src/features/live/components/panels/chat-panel.test.tsx`
+- `web/tests/e2e/specs/control-bar-screenshots.spec.ts`
 
 ## Snapshot and screenshot policy
 
@@ -44,7 +44,7 @@ Debug pages are allowed when they support deterministic screenshot capture and l
 Rules:
 
 - Must be dev-gated (`import.meta.env.DEV` guard).
-- Must live under `src/devtools` for implementation, with route wrappers under `src/routes`.
+- Must live under `web/src/devtools` for implementation, with route wrappers under `web/src/routes`.
 - Must not contain production-only business logic.
 
 ## Required Validation

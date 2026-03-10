@@ -5,7 +5,7 @@
 This document is the source of truth for PostHog usage in Pub.
 
 Rules:
-- Keep this file aligned with actual code in `src/lib/analytics.ts`, `src/lib/posthog.ts`, and `src/router.tsx`.
+- Keep this file aligned with actual code in `web/src/lib/analytics.ts`, `web/src/lib/posthog.ts`, and `web/src/router.tsx`.
 - Separate implemented behavior from planned behavior.
 - Prefer small, stable event taxonomy over frequent renames.
 
@@ -13,9 +13,9 @@ Rules:
 
 ### SDK setup
 
-- Initialization: `src/lib/posthog.ts`
-- Provider: `PostHogProvider` in `src/features/app-shell/page/root-layout-page.tsx`
-- SPA pageviews: captured on router navigation in `src/router.tsx`
+- Initialization: `web/src/lib/posthog.ts`
+- Provider: `PostHogProvider` in `web/src/features/app-shell/page/root-layout-page.tsx`
+- SPA pageviews: captured on router navigation in `web/src/router.tsx`
 - Identity:
   - `identifyUser(userId, traits?)` on auth
   - `resetIdentity()` on sign-out
@@ -26,7 +26,7 @@ Rules:
 
 | Event | Source | Notes |
 |---|---|---|
-| `$pageview` | `src/router.tsx` | Includes `$current_url` and `path` |
+| `$pageview` | `web/src/router.tsx` | Includes `$current_url` and `path` |
 
 #### Auth
 

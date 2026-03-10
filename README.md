@@ -82,9 +82,10 @@ pnpm check        # lint + test + build + knip
 ## Project Structure
 
 ```
-src/           Frontend (TanStack Router file-based routes)
+web/           Frontend (TanStack Router file-based routes)
 convex/        Backend (Convex schema, functions, HTTP routes)
 cli/           CLI tool (pubblue)
+shared/        Shared protocol types
 skills/        Claude Code skill
 ```
 
