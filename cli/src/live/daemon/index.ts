@@ -17,7 +17,7 @@ import { createDaemonState } from "./state.js";
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
-  const { apiClient, socketPath, infoPath, cliVersion, agentName } = config;
+  const { apiClient, socketPath, infoPath, logPath, cliVersion, agentName } = config;
   const buffer: ChannelBuffer = { messages: [] };
   const state = createDaemonState(buffer);
   const startTime = Date.now();
@@ -170,6 +170,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     getLastError: () => state.lastError,
     getBridgeMode: () => config.bridgeSettings.mode,
     getBridgeStatus: () => state.bridgeRunner?.status() ?? null,
+    getLogPath: () => logPath ?? null,
     getWriteReadinessError: () => getLiveWriteReadinessError(lifecycle.isLiveConnected()),
     openDataChannel: channelManager.openDataChannel,
     waitForChannelOpen: channelManager.waitForChannelOpen,
@@ -190,7 +191,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   fs.writeFileSync(
     infoPath,
-    JSON.stringify({ pid: process.pid, socketPath, startedAt: startTime, cliVersion }),
+    JSON.stringify({ pid: process.pid, socketPath, logPath, startedAt: startTime, cliVersion }),
   );
 
   lifecycle.startHealthCheckTimer();

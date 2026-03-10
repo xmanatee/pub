@@ -1,7 +1,5 @@
-import * as fs from "node:fs";
 import type { Command } from "commander";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
-import { liveLogPath } from "../../live/runtime/daemon-files.js";
 import { type StatusResponse } from "../../live/transport/ipc-protocol.js";
 import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
 import { printLocalRuntimeSummary } from "./support.js";
@@ -39,9 +37,8 @@ export function registerStatusCommand(program: Command): void {
       if (typeof response.lastError === "string" && response.lastError.length > 0) {
         console.log(`  Last error: ${response.lastError}`);
       }
-      const logPath = liveLogPath("agent");
-      if (fs.existsSync(logPath)) {
-        console.log(`  Log: ${logPath}`);
+      if (response.logPath) {
+        console.log(`  Log: ${response.logPath}`);
       }
       const bridge = response.bridge;
       if (bridge) {

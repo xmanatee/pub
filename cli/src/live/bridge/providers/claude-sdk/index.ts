@@ -41,17 +41,13 @@ export async function createClaudeSdkBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
-  const { slug, sendMessage, debugLog, sessionBriefing } = config;
-  const bridgeSettings = config.bridgeSettings;
-  if (bridgeSettings.mode !== "claude-sdk") {
+  if (config.bridgeSettings.mode !== "claude-sdk") {
     throw new Error("Claude SDK runtime is not prepared.");
   }
+  const { slug, sendMessage, debugLog, sessionBriefing } = config;
+  const bridgeSettings = config.bridgeSettings;
 
-  const sdk = await loadClaudeSdk();
-  if (!sdk) {
-    throw new Error("Claude Agent SDK is not importable.");
-  }
-  const loadedSdk = sdk;
+  const loadedSdk = loadClaudeSdk();
 
   const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptionsFromSettings(
     bridgeSettings,

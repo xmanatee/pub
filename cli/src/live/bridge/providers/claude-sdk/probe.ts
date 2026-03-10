@@ -59,12 +59,7 @@ export async function runClaudeSdkBridgeStartupProbe(
       ? getStrictClaudeSdkCwd(bridgeConfig as ClaudeBridgeSettings)
       : resolveAutoDetectClaudeSdkCwd(env, bridgeConfig);
 
-  const sdk = await loadClaudeSdk();
-  if (!sdk) {
-    throw new Error(
-      "Claude Agent SDK (@anthropic-ai/claude-agent-sdk) is not importable. Install it and retry.",
-    );
-  }
+  const sdk = loadClaudeSdk();
 
   await runAgentWritePongProbe({
     label: "Claude SDK",

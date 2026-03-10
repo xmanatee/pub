@@ -33,7 +33,8 @@ export function registerStartCommand(program: Command): void {
 
       const socketPath = getAgentSocketPath();
       const infoPath = liveInfoPath("agent");
-      const logPath = liveLogPath("agent");
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_").replace("Z", "");
+      const logPath = liveLogPath(`agent-${ts}`);
 
       const { spawn } = await import("node:child_process");
       const daemonLogFd = fs.openSync(logPath, "a");
@@ -50,6 +51,7 @@ export function registerStartCommand(program: Command): void {
           PUB_DAEMON_AGENT_NAME: opts.agentName,
           PUB_CLI_VERSION: CLI_VERSION,
           PUB_DAEMON_BRIDGE_SETTINGS: JSON.stringify(bridgeSettings),
+          PUB_DAEMON_LOG: logPath,
         },
       });
       fs.closeSync(daemonLogFd);

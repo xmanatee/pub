@@ -1,19 +1,14 @@
+import * as sdk from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeBridgeSettings } from "../../../../core/config/index.js";
-
-const CLAUDE_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 
 type ClaudeSdk = typeof import("@anthropic-ai/claude-agent-sdk");
 
-export async function loadClaudeSdk(): Promise<ClaudeSdk | null> {
-  try {
-    return await import(CLAUDE_SDK_PACKAGE);
-  } catch {
-    return null;
-  }
+export function loadClaudeSdk(): ClaudeSdk {
+  return sdk;
 }
 
 export async function isClaudeSdkImportable(): Promise<boolean> {
-  return (await loadClaudeSdk()) !== null;
+  return true;
 }
 
 function parseAllowedTools(raw: string | undefined): string[] | undefined {
@@ -28,6 +23,9 @@ function parseAllowedTools(raw: string | undefined): string[] | undefined {
 function buildSdkEnv(baseEnv: NodeJS.ProcessEnv): Record<string, string | undefined> {
   const sdkEnv: Record<string, string | undefined> = { ...baseEnv };
   delete sdkEnv.CLAUDECODE;
+  for (const key of Object.keys(sdkEnv)) {
+    if (key.startsWith("PUB_DAEMON_")) delete sdkEnv[key];
+  }
   return sdkEnv;
 }
 

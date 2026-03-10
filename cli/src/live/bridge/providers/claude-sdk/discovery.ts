@@ -1,21 +1,8 @@
-import { createRequire } from "node:module";
 import type { PubBridgeConfig } from "../../../../core/config/index.js";
 import {
   isClaudeCodeAvailableInEnv,
   resolveClaudeCodePath,
 } from "../claude-code/discovery.js";
-
-const require = createRequire(import.meta.url);
-const CLAUDE_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-
-function isClaudeSdkResolvable(): boolean {
-  try {
-    require.resolve(CLAUDE_SDK_PACKAGE);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function parseAllowedTools(raw: string | undefined): string[] | undefined {
   const trimmed = raw?.trim();
@@ -29,6 +16,9 @@ function parseAllowedTools(raw: string | undefined): string[] | undefined {
 function buildSdkEnv(baseEnv: NodeJS.ProcessEnv): Record<string, string | undefined> {
   const sdkEnv: Record<string, string | undefined> = { ...baseEnv };
   delete sdkEnv.CLAUDECODE;
+  for (const key of Object.keys(sdkEnv)) {
+    if (key.startsWith("PUB_DAEMON_")) delete sdkEnv[key];
+  }
   return sdkEnv;
 }
 
@@ -36,7 +26,7 @@ export function isClaudeSdkAvailableInEnv(
   env: NodeJS.ProcessEnv,
   bridgeConfig?: PubBridgeConfig,
 ): boolean {
-  return isClaudeCodeAvailableInEnv(env, bridgeConfig) && isClaudeSdkResolvable();
+  return isClaudeCodeAvailableInEnv(env, bridgeConfig);
 }
 
 export function buildSdkSessionOptions(

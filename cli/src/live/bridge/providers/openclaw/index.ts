@@ -36,11 +36,11 @@ export { runOpenClawBridgeStartupProbe } from "./probe.js";
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
 ): Promise<BridgeRunner> {
-  const { slug, debugLog, sessionBriefing } = config;
-  const bridgeSettings = config.bridgeSettings;
-  if (bridgeSettings.mode !== "openclaw") {
+  if (config.bridgeSettings.mode !== "openclaw") {
     throw new Error("OpenClaw runtime is not prepared.");
   }
+  const { slug, debugLog, sessionBriefing } = config;
+  const bridgeSettings = config.bridgeSettings;
 
   const openclawPath = bridgeSettings.openclawPath;
   const sessionId = bridgeSettings.sessionId;

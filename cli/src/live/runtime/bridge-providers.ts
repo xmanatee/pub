@@ -4,7 +4,6 @@ import {
   runClaudeCodeBridgeStartupProbe,
 } from "../bridge/providers/claude-code/index.js";
 import {
-  isClaudeSdkAvailableInEnv,
   isClaudeSdkImportable,
   runClaudeSdkBridgeStartupProbe,
 } from "../bridge/providers/claude-sdk/index.js";
@@ -79,15 +78,9 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
           detail: `Claude CLI not detected (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
         };
       }
-      if (!isClaudeSdkAvailableInEnv(env, bridgeConfig)) {
-        return {
-          available: false,
-          detail: `Claude Agent SDK not importable (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
-        };
-      }
       return {
         available: true,
-        detail: `Claude CLI detected and SDK importable (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
+        detail: `Claude CLI detected, SDK bundled (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
       };
     },
     async startupProbe(
@@ -177,11 +170,29 @@ function getBridgeProvider(mode: BridgeMode): BridgeProvider {
   return provider;
 }
 
-export async function runBridgeStartupPreflight(
+export interface BridgeSelection {
+  mode: BridgeMode;
+  source: "explicit" | "config";
+  detail: string;
+}
+
+export function createBridgeSelection(
   mode: BridgeMode,
+  source: "explicit" | "config",
+): BridgeSelection {
+  return {
+    mode,
+    source,
+    detail: source === "explicit" ? "requested via --bridge" : "loaded from config",
+  };
+}
+
+export async function runBridgeStartupPreflight(
+  selection: BridgeSelection | BridgeMode,
   env: NodeJS.ProcessEnv = process.env,
   bridgeSettings: BridgeSettings,
 ): Promise<BridgeStartupProbeResult> {
+  const mode = typeof selection === "string" ? selection : selection.mode;
   return await getBridgeProvider(mode).startupProbe(env, bridgeSettings, {
     strictConfig: true,
   });

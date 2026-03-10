@@ -41,11 +41,11 @@ export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
-  const { slug, sendMessage, debugLog, sessionBriefing } = config;
-  const bridgeSettings = config.bridgeSettings;
-  if (bridgeSettings.mode !== "claude-code") {
+  if (config.bridgeSettings.mode !== "claude-code") {
     throw new Error("Claude Code runtime is not prepared.");
   }
+  const { slug, sendMessage, debugLog, sessionBriefing } = config;
+  const bridgeSettings = config.bridgeSettings;
 
   const claudePath = bridgeSettings.claudeCodePath;
   const cwd = bridgeSettings.bridgeCwd;
@@ -86,6 +86,9 @@ export async function createClaudeCodeBridgeRunner(
 
     const spawnEnv = { ...process.env };
     delete spawnEnv.CLAUDECODE;
+    for (const key of Object.keys(spawnEnv)) {
+      if (key.startsWith("PUB_DAEMON_")) delete spawnEnv[key];
+    }
     const child = spawn(claudePath, args, {
       cwd,
       env: spawnEnv,
