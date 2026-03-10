@@ -13,7 +13,7 @@
       "!**/convex/_generated",
       "!**/cli/dist",
       "!**/cli/node_modules",
-      "!src/routeTree.gen.ts",
+      "!web/src/routeTree.gen.ts",
       "!**/.vercel",
       "!**/.claude",
       "!**/test-results",

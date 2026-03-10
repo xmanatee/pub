@@ -3,7 +3,8 @@
 # Allowed: download links (<a ... download=), in-page anchors (href="#"), external links (href="http")
 set -euo pipefail
 
-violations=$(grep -rn --include='*.tsx' '<a ' src/ \
+SEARCH_DIR="${1:-web/src/}"
+violations=$(grep -rn --include='*.tsx' '<a ' "$SEARCH_DIR" \
   | grep -v 'download=' \
   | grep -v 'href="#' \
   | grep -v 'href="http' \

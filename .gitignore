@@ -7,7 +7,7 @@ dist-bin/
 .vercel
 
 convex/_generated/
-src/routeTree.gen.ts
+web/src/routeTree.gen.ts
 
 # Firebase
 firebase-debug.log

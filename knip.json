@@ -4,26 +4,20 @@
   "ignoreDependencies": ["tw-animate-css", "tailwindcss"],
   "workspaces": {
     ".": {
-      "entry": [
-        "shared/*.ts",
-        "convex/**/*.ts",
-        "!convex/**/*.test.ts",
-        "!convex/_generated/**",
-        "src/routes/**/*.tsx"
-      ],
-      "project": [
-        "src/**/*.{ts,tsx}",
-        "convex/**/*.ts",
-        "shared/**/*.ts",
-        "tests/**/*.ts",
-        "!convex/_generated/**"
-      ],
+      "entry": ["shared/*.ts", "convex/**/*.ts", "!convex/**/*.test.ts", "!convex/_generated/**"],
+      "project": ["convex/**/*.ts", "shared/**/*.ts", "!convex/_generated/**"]
+    },
+    "web": {
+      "entry": ["src/routes/**/*.tsx"],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"],
       "paths": {
-        "~/*": ["./src/*"]
+        "~/*": ["./src/*"],
+        "@backend/*": ["../convex/*"],
+        "@shared/*": ["../shared/*"]
       }
     },
     "cli": {
-      "entry": ["src/live-daemon-entry.ts"],
+      "entry": ["src/index.ts", "src/live-daemon-entry.ts"],
       "project": ["src/**/*.ts"]
     }
   }

@@ -1,11 +1,9 @@
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
   test: {
-    include: ["**/*.test.ts", "**/*.test.tsx"],
-    exclude: ["cli/**", "node_modules/**", ".worktrees/**"],
+    include: ["convex/**/*.test.ts", "shared/**/*.test.ts"],
+    exclude: ["node_modules/**", ".worktrees/**"],
     environment: "node",
   },
 });

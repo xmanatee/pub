@@ -1,0 +1,58 @@
+import type { Id } from "@backend/_generated/dataModel";
+import { Button } from "~/components/ui/button";
+import { PubCard } from "./pub-card";
+
+export interface PubGridItem {
+  _id: Id<"pubs">;
+  slug: string;
+  title?: string;
+  isPublic: boolean;
+  createdAt: number;
+  content?: string;
+}
+
+export function PubsGrid({
+  pubs,
+  viewCounts,
+  liveSlugs,
+  status,
+  onLoadMore,
+  onToggleVisibility,
+  onDelete,
+}: {
+  pubs: PubGridItem[];
+  viewCounts?: Record<string, number>;
+  liveSlugs: Set<string>;
+  status: "Exhausted" | "CanLoadMore" | "LoadingMore";
+  onLoadMore: () => void;
+  onToggleVisibility: (id: Id<"pubs">) => void;
+  onDelete: (id: Id<"pubs">) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {pubs.map((pub) => (
+        <PubCard
+          key={pub._id}
+          pub={pub}
+          viewCount={viewCounts?.[pub.slug]}
+          isLive={liveSlugs.has(pub.slug)}
+          onToggleVisibility={onToggleVisibility}
+          onDelete={onDelete}
+        />
+      ))}
+
+      {status === "CanLoadMore" && (
+        <div className="col-span-full text-center pt-4">
+          <Button variant="outline" size="sm" onClick={onLoadMore}>
+            Load more
+          </Button>
+        </div>
+      )}
+      {status === "LoadingMore" && (
+        <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
+          Loading more\u2026
+        </div>
+      )}
+    </div>
+  );
+}

@@ -24,8 +24,8 @@ pnpm format           # Biome format
 
 The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` (uses Bun compile).
 
-### Frontend (`src/`)
-- **Routing**: TanStack Router file-based routes in `src/routes/`
+### Frontend (`web/src/`)
+- **Routing**: TanStack Router file-based routes in `web/src/routes/`
   - `__root.tsx` — root layout (header with Explore link, footer, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
@@ -35,12 +35,13 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
-- **Components**: Shadcn UI (`src/components/ui/`) built on Radix primitives; live session components in `src/features/live/components/`
+- **Components**: Shadcn UI (`web/src/components/ui/`) built on Radix primitives; live session components in `web/src/features/live/components/`
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
-- **Styling**: Tailwind v4 with oklch design tokens in `src/styles/app.css`
+- **Styling**: Tailwind v4 with oklch design tokens in `web/src/styles/app.css`
 - **Telegram Mini App**: `@telegram-apps/sdk-react` v3 for TMA detection, theme, back button, deep link routing via `startapp` parameter
-- **Path alias**: `~/*` maps to `src/*`
+- **Path aliases**: `~/*` → `web/src/*`, `@backend/*` → `convex/*`, `@shared/*` → `shared/*`
+- **Package**: `web/package.json` (`pub-web`) — web-specific deps and scripts
 
 ### Backend (`convex/`)
 - **Schema** (`schema.ts`): `pubs` (content optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
@@ -105,8 +106,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`
 
 ### Integrations
-- **Sentry**: error tracking + performance (configured in `src/lib/sentry.ts`, Vite plugin for source maps)
-- **PostHog**: product analytics with centralized event tracking in `src/lib/analytics.ts`
+- **Sentry**: error tracking + performance (configured in `web/src/lib/sentry.ts`, Vite plugin for source maps)
+- **PostHog**: product analytics with centralized event tracking in `web/src/lib/analytics.ts`
 
 ## Code Style
 

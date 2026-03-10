@@ -1,8 +1,8 @@
 {
-  "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'npm run build'",
+  "buildCommand": "npx convex codegen && npx convex deploy -y --cmd 'pnpm --filter pub-web build'",
   "installCommand": "pnpm install",
   "framework": null,
-  "outputDirectory": "dist",
+  "outputDirectory": "web/dist",
   "rewrites": [
     {
       "source": "/ph/static/:path(.*)",
