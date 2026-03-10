@@ -170,7 +170,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   }, [outboundCanvasBridgeMessage]);
 
   const trackCommandStart = useCallback((callId: string, name: string) => {
-    console.debug("[cmd] start", name, callId);
     setCommandState((current) => ({
       activeById: {
         ...current.activeById,
@@ -223,7 +222,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
 
   const trackCommandResult = useCallback(
     (params: { callId: string; errorMessage: string | null; name: string | null; ok: boolean }) => {
-      console.debug("[cmd] result", params.ok ? "ok" : "fail", params.callId, params.errorMessage);
       setCommandState((current) => {
         const nextActiveById = { ...current.activeById };
         const existing = nextActiveById[params.callId];
@@ -276,11 +274,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     (params: { code: string; message: string }) => {
       const interrupted = buildInterruptedCommandState(activeCommandsRef.current, params);
       if (!interrupted) return;
-      console.debug(
-        "[cmd] interrupting active commands:",
-        params.code,
-        Object.keys(activeCommandsRef.current),
-      );
       for (const message of interrupted.outboundMessages) {
         enqueueOutboundCanvasMessage(message);
       }
@@ -316,12 +309,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   const dispatchCommand = useCallback(
     (message: CanvasBridgeCommandMessage) => {
       const bridge = bridgeRef.current;
-      console.debug(
-        "[cmd] dispatch",
-        message.type,
-        message.payload.callId,
-        bridge ? "bridge-ok" : "no-bridge",
-      );
       if (!bridge) {
         emitCommandFailureToCanvas({
           callId: message.payload.callId,
@@ -359,7 +346,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
 
       void ensureChannelReady(bridge, CHANNELS.COMMAND)
         .then(async (ready) => {
-          console.debug("[cmd] channel ready?", ready, invokePayload.callId);
           if (!ready) {
             emitCommandFailureToCanvas({
               callId: invokePayload.callId,
@@ -374,7 +360,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
             makeCommandInvokeMessage(invokePayload),
             COMMAND_ACK_TIMEOUT_MS,
           );
-          console.debug("[cmd] delivered?", delivered, invokePayload.callId);
           if (!delivered) {
             emitCommandFailureToCanvas({
               callId: invokePayload.callId,
@@ -409,7 +394,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   const onCanvasBridgeMessage = useCallback(
     (message: CanvasBridgeCommandMessage) => {
       const callId = message.payload.callId;
-      console.debug("[cmd] canvas→parent", message.type, callId, { bridgeState, liveMode });
 
       if (!liveMode) {
         emitCommandFailureToCanvas({
@@ -430,7 +414,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
       }
 
       if (bridgeState === "connecting") {
-        console.debug("[cmd] queued (bridge connecting)", callId);
         pendingCommandQueueRef.current.push(message);
         return;
       }
@@ -443,9 +426,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   useEffect(() => {
     if (bridgeState !== "connected") return;
     const queued = pendingCommandQueueRef.current.splice(0);
-    if (queued.length > 0) {
-      console.debug("[cmd] draining queue on connect:", queued.length, "commands");
-    }
     for (const message of queued) {
       dispatchCommand(message);
     }
@@ -454,9 +434,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   useEffect(() => {
     if (liveMode && bridgeState !== "disconnected" && bridgeState !== "closed") return;
     const queued = pendingCommandQueueRef.current.splice(0);
-    if (queued.length > 0) {
-      console.debug("[cmd] failing queued commands (offline):", queued.length);
-    }
     for (const message of queued) {
       emitCommandFailureToCanvas({
         callId: message.payload.callId,
@@ -470,11 +447,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     (cm: ChannelMessage) => {
       if (cm.channel !== CHANNELS.COMMAND) return;
       const result = parseCommandResultMessage(cm.message);
-      if (!result) {
-        console.warn("[cmd] unparseable result from bridge", cm.message);
-        return;
-      }
-      console.debug("[cmd] bridge→parent result", result.ok ? "ok" : "fail", result.callId);
+      if (!result) return;
       trackCommandResult({
         callId: result.callId,
         errorMessage: result.error?.message ?? null,

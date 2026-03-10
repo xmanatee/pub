@@ -470,9 +470,13 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   function bindFromHtml(html: string): void {
     const manifest = extractManifestFromHtml(html);
     if (!manifest) {
-      clearBindings();
-      manifestLoaded = true;
+      boundFunctions.clear();
       params.debugLog("commands no manifest found in HTML");
+      const queued = pendingUntilManifest.splice(0);
+      manifestLoaded = true;
+      for (const message of queued) {
+        void handleBridgeMessage(message);
+      }
       return;
     }
     params.debugLog(`commands manifestId=${manifest.manifestId}`);
@@ -612,12 +616,8 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   return {
-    bindFromHtml(html: string): void {
-      bindFromHtml(html);
-    },
-    clearBindings(): void {
-      clearBindings();
-    },
+    bindFromHtml,
+    clearBindings,
     stop(): void {
       for (const [callId, active] of running) {
         active.abort.abort();
