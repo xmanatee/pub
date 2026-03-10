@@ -168,7 +168,6 @@ export const listPublic = query({
         slug: p.slug,
         title: p.title,
         createdAt: p.createdAt,
-        contentPreview: (p.content ?? "").slice(0, 2000),
         contentSize: p.content ? new TextEncoder().encode(p.content).byteLength : 0,
       })),
     };
