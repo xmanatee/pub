@@ -61,3 +61,12 @@ jobs:
           ACTUAL=$(PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --version)
           test "$ACTUAL" = "$VERSION"
           PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --help >/dev/null
+      - name: Smoke test (daemon code path)
+        run: |
+          OUTPUT=$(PUB_DAEMON_MODE=1 ./dist-bin/pub-linux-x64 2>&1 || true)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -qi "require.*polyfill\|cannot find\|module not found\|not resolve"; then
+            echo "FAIL: daemon code path has missing/broken imports"
+            exit 1
+          fi
+          echo "$OUTPUT" | grep -q "Missing PUB_DAEMON_BRIDGE_MODE"

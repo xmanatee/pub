@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-export {};
+import "reflect-metadata";
 
 if (process.env.PUB_DAEMON_MODE === "1") {
   const { runDaemonFromEnv } = await import("./app/live-daemon-entry.js");

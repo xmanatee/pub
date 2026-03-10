@@ -12,6 +12,7 @@
   "dependencies": {
     "commander": "^13.0.0",
     "convex": "^1.19.0",
+    "reflect-metadata": "^0.2.2",
     "werift": "^0.22.9"
   },
   "optionalDependencies": {
