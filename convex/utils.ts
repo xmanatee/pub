@@ -1,4 +1,4 @@
-export const MAX_CONTENT_SIZE = 100 * 1024; // 100KB
+export const MAX_CONTENT_SIZE = 300 * 1024; // 300KB
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
