@@ -31,6 +31,12 @@ export interface CanvasBridgeErrorMessage {
   payload: CanvasRenderErrorPayload;
 }
 
+export interface CanvasBridgeReadyMessage {
+  source: typeof CANVAS_TO_PARENT_SOURCE;
+  type: "ready";
+  payload: Record<string, never>;
+}
+
 export interface CanvasBridgeInvokeMessage {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "command.invoke";
@@ -46,6 +52,7 @@ export interface CanvasBridgeCancelMessage {
 export type CanvasBridgeCommandMessage = CanvasBridgeInvokeMessage | CanvasBridgeCancelMessage;
 
 export type CanvasBridgeInboundMessage =
+  | CanvasBridgeReadyMessage
   | CanvasBridgeErrorMessage
   | CanvasBridgeInvokeMessage
   | CanvasBridgeCancelMessage;
@@ -79,6 +86,12 @@ export function parseCanvasBridgeInboundMessage(input: unknown): CanvasBridgeInb
 
   const type = readString(record.type);
   if (!type) return null;
+
+  if (type === "ready") {
+    const payload = readRecord(record.payload);
+    if (!payload) return null;
+    return { source: CANVAS_TO_PARENT_SOURCE, type, payload: {} };
+  }
 
   if (type === "error") {
     const payload = parseCanvasRenderErrorPayload(record.payload);

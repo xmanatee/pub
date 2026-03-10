@@ -26,7 +26,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Frontend (`web/src/`)
 - **Routing**: TanStack Router file-based routes in `web/src/routes/`
-  - `__root.tsx` — root layout (header with Explore link, footer, providers)
+  - `__root.tsx` — root layout (header, footer with Explore link, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
   - `dashboard.tsx` — protected; paginated pubs (with view counts + live status) + API keys + RSS feed URL + Telegram linking

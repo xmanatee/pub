@@ -13,6 +13,13 @@ interface VersionCache {
   checkedAt: number;
 }
 
+function isIgnorableCacheError(error: unknown): boolean {
+  if (error instanceof SyntaxError) return true;
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string";
+}
+
 export interface UpdateCheckResult {
   latest: string;
   tag: string;
@@ -33,7 +40,8 @@ function readCache(): VersionCache | null {
   if (!cacheFile) return null;
   try {
     return JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as VersionCache;
-  } catch {
+  } catch (error) {
+    if (!isIgnorableCacheError(error)) throw error;
     return null;
   }
 }
@@ -44,8 +52,8 @@ function writeCache(cache: VersionCache): void {
   try {
     fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
     fs.writeFileSync(cacheFile, JSON.stringify(cache));
-  } catch {
-    // Update checks are best-effort; ignore cache write failures.
+  } catch (error) {
+    if (!isIgnorableCacheError(error)) throw error;
   }
 }
 

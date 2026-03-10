@@ -7,6 +7,20 @@ import {
 } from "./canvas-bridge-protocol-core";
 
 describe("canvas-bridge-protocol-core", () => {
+  it("parses canvas ready envelopes", () => {
+    expect(
+      parseCanvasBridgeInboundMessage({
+        source: CANVAS_TO_PARENT_SOURCE,
+        type: "ready",
+        payload: {},
+      }),
+    ).toEqual({
+      source: CANVAS_TO_PARENT_SOURCE,
+      type: "ready",
+      payload: {},
+    });
+  });
+
   it("parses command invoke envelopes", () => {
     expect(
       parseCanvasBridgeInboundMessage({

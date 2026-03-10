@@ -27,7 +27,7 @@ This document defines test placement, naming, and scope for Pub.
 
 Examples:
 
-- `web/src/features/live/components/panels/chat-panel.test.tsx`
+- `web/src/features/live-chat/components/chat-panel.test.tsx`
 - `web/tests/e2e/specs/control-bar-screenshots.spec.ts`
 
 ## Snapshot and screenshot policy

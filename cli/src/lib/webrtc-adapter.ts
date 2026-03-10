@@ -154,9 +154,7 @@ export class AdapterPeerConnection {
   }
 
   async close(): Promise<void> {
-    try {
-      await this.pc.close();
-    } catch {}
+    await this.pc.close();
   }
 }
 
