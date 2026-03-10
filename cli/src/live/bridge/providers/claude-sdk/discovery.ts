@@ -43,18 +43,6 @@ export function buildSdkSessionOptions(
   };
 }
 
-export function buildAppendSystemPrompt(
-  bridgeSystemPrompt: string | null,
-  env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
-): string | undefined {
-  const userSystemPrompt =
-    env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim() ||
-    bridgeConfig?.claudeCodeAppendSystemPrompt?.trim();
-  const effective = [bridgeSystemPrompt, userSystemPrompt].filter(Boolean).join("\n\n");
-  return effective.length > 0 ? effective : undefined;
-}
-
 export function resolveAutoDetectClaudeSdkCwd(
   env: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig,

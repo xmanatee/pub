@@ -27,11 +27,9 @@ import {
 export {
   buildSdkSessionOptions,
   isClaudeSdkAvailableInEnv,
-  buildAppendSystemPrompt,
 } from "./discovery.js";
 export {
   buildSdkSessionOptionsFromSettings,
-  isClaudeSdkImportable,
 } from "./runtime.js";
 export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
 
@@ -194,9 +192,13 @@ export async function createClaudeSdkBridgeRunner(
       const message = errorMessage(error);
       lastError = message;
       debugLog(`bridge entry processing failed: ${message}`, error);
+      const deliveryMessageId =
+        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+          ? entry.msg.meta.streamId
+          : entry.msg.id;
       config.onDeliveryUpdate?.({
         channel: entry.channel,
-        messageId: entry.msg.id,
+        messageId: deliveryMessageId,
         stage: "failed",
         error: message,
       });

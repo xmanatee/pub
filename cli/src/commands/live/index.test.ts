@@ -17,7 +17,6 @@ vi.mock("../../live/bridge/providers/claude-code/index.js", () => ({
 }));
 vi.mock("../../live/bridge/providers/claude-sdk/index.js", () => ({
   isClaudeSdkAvailableInEnv: vi.fn(() => false),
-  isClaudeSdkImportable: vi.fn(async () => false),
   runClaudeSdkBridgeStartupProbe: vi.fn(),
 }));
 

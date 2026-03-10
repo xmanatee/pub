@@ -75,14 +75,6 @@ export function buildBridgeProcessEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-export function parseBridgeMode(raw: string): BridgeMode {
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === "openclaw" || normalized === "claude-code" || normalized === "claude-sdk") {
-    return normalized;
-  }
-  throw new Error(`--bridge must be one of: openclaw, claude-code, claude-sdk. Received: ${raw}`);
-}
-
 export function buildBridgeSettings(
   mode: BridgeMode,
   bridgeConfig: PubBridgeConfig,

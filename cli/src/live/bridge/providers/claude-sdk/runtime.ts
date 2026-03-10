@@ -7,10 +7,6 @@ export function loadClaudeSdk(): ClaudeSdk {
   return sdk;
 }
 
-export async function isClaudeSdkImportable(): Promise<boolean> {
-  return true;
-}
-
 function parseAllowedTools(raw: string | undefined): string[] | undefined {
   const trimmed = raw?.trim();
   if (!trimmed) return undefined;

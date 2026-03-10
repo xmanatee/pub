@@ -5,7 +5,7 @@ import {
   resolveOpenClawStateDir,
 } from "./paths.js";
 
-describe("openclaw-paths", () => {
+describe("openclaw/paths", () => {
   describe("resolveOpenClawHome", () => {
     it("uses OPENCLAW_HOME when set", () => {
       expect(resolveOpenClawHome({ OPENCLAW_HOME: "/custom/home" })).toBe("/custom/home");

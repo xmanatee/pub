@@ -4,7 +4,6 @@ import {
   runClaudeCodeBridgeStartupProbe,
 } from "../bridge/providers/claude-code/index.js";
 import {
-  isClaudeSdkImportable,
   runClaudeSdkBridgeStartupProbe,
 } from "../bridge/providers/claude-sdk/index.js";
 import {
@@ -88,12 +87,6 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
       options: { strictConfig: boolean },
     ) {
-      const sdkAvailable = await isClaudeSdkImportable();
-      if (!sdkAvailable) {
-        throw new Error(
-          "Claude Agent SDK (@anthropic-ai/claude-agent-sdk) is not importable. Install it or set `bridge.mode=claude-code`.",
-        );
-      }
       const runtime = await runClaudeSdkBridgeStartupProbe(env, bridgeConfig, options);
       const cwd = runtime.cwd || env.PUB_PROJECT_ROOT || process.cwd();
       return {
@@ -170,29 +163,11 @@ function getBridgeProvider(mode: BridgeMode): BridgeProvider {
   return provider;
 }
 
-export interface BridgeSelection {
-  mode: BridgeMode;
-  source: "explicit" | "config";
-  detail: string;
-}
-
-export function createBridgeSelection(
-  mode: BridgeMode,
-  source: "explicit" | "config",
-): BridgeSelection {
-  return {
-    mode,
-    source,
-    detail: source === "explicit" ? "requested via --bridge" : "loaded from config",
-  };
-}
-
 export async function runBridgeStartupPreflight(
-  selection: BridgeSelection | BridgeMode,
+  mode: BridgeMode,
   env: NodeJS.ProcessEnv = process.env,
   bridgeSettings: BridgeSettings,
 ): Promise<BridgeStartupProbeResult> {
-  const mode = typeof selection === "string" ? selection : selection.mode;
   return await getBridgeProvider(mode).startupProbe(env, bridgeSettings, {
     strictConfig: true,
   });

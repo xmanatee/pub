@@ -84,13 +84,9 @@ export function LoginPage() {
             <CardTitle className="text-2xl">Sign in to Pub</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            {authError ? (
-              <p className="text-center text-sm text-destructive">{authError}</p>
-            ) : (
-              <p className="text-center text-sm text-muted-foreground">
-                Telegram sign-in could not be completed. Please try reopening the app.
-              </p>
-            )}
+            <p className="text-center text-sm text-muted-foreground">
+              Telegram sign-in could not be completed. Please try reopening the app.
+            </p>
           </CardContent>
         </Card>
       </div>
