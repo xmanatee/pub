@@ -9,7 +9,6 @@ import * as path from "node:path";
 
 const ENTRY = "src/index.ts";
 const OUT_DIR = "dist-bin";
-const EXTERNAL = "@anthropic-ai/claude-agent-sdk";
 
 const TARGETS = [
   { bun: "bun-darwin-arm64", suffix: "darwin-arm64" },
@@ -22,7 +21,7 @@ if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
 for (const target of TARGETS) {
   const outfile = path.join(OUT_DIR, `pub-${target.suffix}`);
-  const cmd = `bun build --compile --target=${target.bun} --external ${EXTERNAL} --minify ${ENTRY} --outfile ${outfile}`;
+  const cmd = `bun build --compile --target=${target.bun} --minify ${ENTRY} --outfile ${outfile}`;
   console.log(`Building ${target.suffix}...`);
   execSync(cmd, { stdio: "inherit" });
   console.log(`Done: ${outfile}`);

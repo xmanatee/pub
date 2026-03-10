@@ -3,11 +3,7 @@ import {
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
 } from "../bridge/providers/claude-code.js";
-import {
-  isClaudeSdkAvailableInEnv,
-  isClaudeSdkImportable,
-  runClaudeSdkBridgeStartupProbe,
-} from "../bridge/providers/claude-sdk.js";
+import { runClaudeSdkBridgeStartupProbe } from "../bridge/providers/claude-sdk.js";
 import { isOpenClawAvailable, runOpenClawBridgeStartupProbe } from "../bridge/providers/openclaw.js";
 import type { BridgeMode } from "../daemon/shared.js";
 
@@ -76,15 +72,9 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
           detail: `Claude CLI not detected (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
         };
       }
-      if (!isClaudeSdkAvailableInEnv(env, bridgeConfig)) {
-        return {
-          available: false,
-          detail: `Claude Agent SDK not importable (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
-        };
-      }
       return {
         available: true,
-        detail: `Claude CLI detected and SDK importable (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
+        detail: `Claude CLI detected, SDK bundled (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
       };
     },
     async startupProbe(
@@ -92,12 +82,6 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
       options: { strictConfig: boolean },
     ) {
-      const sdkAvailable = await isClaudeSdkImportable();
-      if (!sdkAvailable) {
-        throw new Error(
-          "Claude Agent SDK (@anthropic-ai/claude-agent-sdk) is not importable. Install it or use --bridge claude-code.",
-        );
-      }
       const runtime = await runClaudeSdkBridgeStartupProbe(env, bridgeConfig, options);
       const cwd = runtime.cwd || env.PUB_PROJECT_ROOT || process.cwd();
       return {

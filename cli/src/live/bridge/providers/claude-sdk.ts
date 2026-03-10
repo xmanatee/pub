@@ -46,11 +46,7 @@ export async function createClaudeSdkBridgeRunner(
     throw new Error("Claude SDK runtime is not prepared.");
   }
 
-  const sdk = await loadClaudeSdk();
-  if (!sdk) {
-    throw new Error("Claude Agent SDK is not importable.");
-  }
-  const loadedSdk = sdk;
+  const loadedSdk = loadClaudeSdk();
 
   const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(
     process.env,

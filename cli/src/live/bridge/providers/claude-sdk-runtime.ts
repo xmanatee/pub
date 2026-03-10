@@ -1,66 +1,27 @@
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
-import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as sdk from "@anthropic-ai/claude-agent-sdk";
 import { errorMessage } from "../../../core/errors/cli-error.js";
 import type { PubBridgeConfig, BridgeSettings, ClaudeBridgeSettings } from "../../../core/config/index.js";
 import { isClaudeCodeAvailableInEnv, resolveClaudeCodePath } from "./claude-code-runtime.js";
 import { runAgentWritePongProbe } from "../../runtime/bridge-write-probe.js";
 
-const require = createRequire(import.meta.url);
-const CLAUDE_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-
 type ClaudeSdk = typeof import("@anthropic-ai/claude-agent-sdk");
 
-let _cachedSdkPath: string | null | undefined;
-
-function resolveSdkPath(): string | null {
-  if (_cachedSdkPath !== undefined) return _cachedSdkPath;
-
-  const strategies: (() => string)[] = [
-    () => require.resolve(CLAUDE_SDK_PACKAGE),
-    () => createRequire(path.join(process.cwd(), "noop.js")).resolve(CLAUDE_SDK_PACKAGE),
-    () => {
-      const root = execFileSync("npm", ["root", "-g"], { encoding: "utf8", timeout: 5000 }).trim();
-      return createRequire(path.join(root, "noop.js")).resolve(CLAUDE_SDK_PACKAGE);
-    },
-  ];
-
-  for (const strategy of strategies) {
-    try {
-      _cachedSdkPath = strategy();
-      return _cachedSdkPath;
-    } catch {}
-  }
-
-  _cachedSdkPath = null;
-  return null;
-}
-
-export async function loadClaudeSdk(): Promise<ClaudeSdk | null> {
-  const sdkPath = resolveSdkPath();
-  if (!sdkPath) return null;
-  try {
-    return await import(sdkPath);
-  } catch {
-    return null;
-  }
-}
-
-function isClaudeSdkResolvable(): boolean {
-  return resolveSdkPath() !== null;
+export function loadClaudeSdk(): ClaudeSdk {
+  return sdk;
 }
 
 export function isClaudeSdkAvailableInEnv(
   env: NodeJS.ProcessEnv,
   bridgeConfig?: PubBridgeConfig,
 ): boolean {
-  return isClaudeCodeAvailableInEnv(env, bridgeConfig) && isClaudeSdkResolvable();
+  return isClaudeCodeAvailableInEnv(env, bridgeConfig);
 }
 
 export async function isClaudeSdkImportable(): Promise<boolean> {
-  return (await loadClaudeSdk()) !== null;
+  return true;
 }
 
 export function buildSdkSessionOptions(
@@ -136,13 +97,6 @@ export async function runClaudeSdkBridgeStartupProbe(
     strictConfig && bridgeConfig
       ? getStrictClaudeSdkCwd(bridgeConfig as ClaudeBridgeSettings)
       : getAutoDetectClaudeSdkCwd(env, bridgeConfig);
-
-  const sdk = await loadClaudeSdk();
-  if (!sdk) {
-    throw new Error(
-      "Claude Agent SDK (@anthropic-ai/claude-agent-sdk) is not importable. Install it and retry.",
-    );
-  }
 
   await runAgentWritePongProbe({
     label: "Claude SDK",

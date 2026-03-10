@@ -1,6 +1,6 @@
 {
   "name": "pub",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "CLI for publishing and visualizing AI-agent output via pub.blue",
   "type": "module",
   "scripts": {
@@ -10,13 +10,11 @@
     "build": "bun run build-binary.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0",
     "commander": "^13.0.0",
     "convex": "^1.19.0",
     "reflect-metadata": "^0.2.2",
     "werift": "^0.22.9"
-  },
-  "optionalDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.12.0",
