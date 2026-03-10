@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveAckChannel } from "../../../shared/ack-routing-core";
+import { resolveAckChannel } from "../../../../shared/ack-routing-core";
 import {
   getLiveWriteReadinessError,
   shouldRecoverForBrowserOfferChange,
-} from "../live/daemon/shared.js";
+} from "./shared.js";
 
 describe("getLiveWriteReadinessError", () => {
   it("blocks writes before live session establishment", () => {

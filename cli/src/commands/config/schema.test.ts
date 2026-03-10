@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { BridgeConfig, TelegramConfig } from "../core/config/index.js";
-import { parsePositiveInteger } from "../core/utils/number.js";
+import type { BridgeConfig, TelegramConfig } from "../../core/config/index.js";
+import { parsePositiveInteger } from "../../core/utils/number.js";
 import {
   applyConfigSet,
   applyConfigUnset,
   parseBooleanValue,
   parseSetInput,
   SUPPORTED_KEYS,
-} from "./config/schema.js";
+} from "./schema.js";
 
 describe("parseSetInput", () => {
   it("splits on first = sign", () => {

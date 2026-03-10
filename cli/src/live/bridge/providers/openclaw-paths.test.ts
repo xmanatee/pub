@@ -3,7 +3,7 @@ import {
   resolveOpenClawConfigPath,
   resolveOpenClawHome,
   resolveOpenClawStateDir,
-} from "../live/bridge/providers/openclaw-paths.js";
+} from "./openclaw-paths.js";
 
 describe("openclaw-paths", () => {
   describe("resolveOpenClawHome", () => {

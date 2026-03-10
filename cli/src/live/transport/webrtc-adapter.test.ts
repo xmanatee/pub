@@ -1,11 +1,11 @@
 import * as dgram from "node:dgram";
 import { afterEach, describe, expect, it } from "vitest";
-import { WEBRTC_STUN_URLS } from "../../../shared/webrtc-transport-core";
+import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
 import {
   type AdapterDataChannel,
   type AdapterPeerConnection,
   createPeerConnection,
-} from "../live/transport/webrtc-adapter.js";
+} from "./webrtc-adapter.js";
 
 const PEER_EVENT_TIMEOUT_MS = 7_500;
 const PEER_NEGOTIATION_TIMEOUT_MS = 25_000;
@@ -371,7 +371,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
     async () => {
       await withPeerRetry(async () => {
         const { encodeMessage, decodeMessage, makeTextMessage, makeHtmlMessage } = await import(
-          "../../../shared/bridge-protocol-core"
+          "../../../../shared/bridge-protocol-core"
         );
 
         peerA = createPeerConnection(LOOPBACK_PEER_CONFIG);

@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isClaudeCodeAvailableInEnv } from "../live/bridge/providers/claude-code.js";
-import { isClaudeSdkAvailableInEnv } from "../live/bridge/providers/claude-sdk.js";
-import { isOpenClawAvailable } from "../live/bridge/providers/openclaw.js";
-import { createBridgeSelection, parseBridgeMode } from "../live/runtime/bridge-runtime.js";
-import { getFollowReadDelayMs, messageContainsPong } from "../live/runtime/command-utils.js";
-import { buildDaemonSpawnStdio } from "../live/runtime/daemon-process.js";
-import { parsePositiveInteger } from "../core/utils/number.js";
-import { SUPPORTED_KEYS } from "./config/schema.js";
+import { isClaudeCodeAvailableInEnv } from "../../live/bridge/providers/claude-code.js";
+import { isClaudeSdkAvailableInEnv } from "../../live/bridge/providers/claude-sdk.js";
+import { isOpenClawAvailable } from "../../live/bridge/providers/openclaw.js";
+import { createBridgeSelection, parseBridgeMode } from "../../live/runtime/bridge-runtime.js";
+import { getFollowReadDelayMs, messageContainsPong } from "../../live/runtime/command-utils.js";
+import { buildDaemonSpawnStdio } from "../../live/runtime/daemon-process.js";
+import { parsePositiveInteger } from "../../core/utils/number.js";
+import { SUPPORTED_KEYS } from "../config/schema.js";
 
-vi.mock("../live/bridge/providers/openclaw.js", () => ({
+vi.mock("../../live/bridge/providers/openclaw.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
   runOpenClawBridgeStartupProbe: vi.fn(),
 }));
-vi.mock("../live/bridge/providers/claude-code.js", () => ({
+vi.mock("../../live/bridge/providers/claude-code.js", () => ({
   isClaudeCodeAvailableInEnv: vi.fn(() => false),
   runClaudeCodeBridgeStartupProbe: vi.fn(),
 }));
-vi.mock("../live/bridge/providers/claude-sdk.js", () => ({
+vi.mock("../../live/bridge/providers/claude-sdk.js", () => ({
   isClaudeSdkAvailableInEnv: vi.fn(() => false),
   isClaudeSdkImportable: vi.fn(async () => false),
   runClaudeSdkBridgeStartupProbe: vi.fn(),

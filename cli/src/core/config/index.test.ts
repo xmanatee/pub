@@ -11,7 +11,7 @@ import {
   resolveConfig,
   resolveConfigLocation,
   saveConfig,
-} from "../core/config/index.js";
+} from "./index.js";
 
 describe("config", () => {
   let tmpDir: string;

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
-import { makeEventMessage } from "../../../shared/bridge-protocol-core";
-import { parseCommandResultMessage } from "../../../shared/command-protocol-core";
-import { createLiveCommandHandler } from "../live/command/handler.js";
+import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
+import { makeEventMessage } from "../../../../shared/bridge-protocol-core";
+import { parseCommandResultMessage } from "../../../../shared/command-protocol-core";
+import { createLiveCommandHandler } from "./handler.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

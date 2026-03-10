@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildClaudeArgs, resolveClaudeCodePath } from "../live/bridge/providers/claude-code.js";
+import { buildClaudeArgs, resolveClaudeCodePath } from "./claude-code.js";
 
 const envKeys = [
   "CLAUDE_CODE_PATH",
