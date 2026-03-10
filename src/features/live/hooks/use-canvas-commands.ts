@@ -141,6 +141,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     lastCompleted: null,
   });
   const activeCommandsRef = useRef<CommandLifecycleState["activeById"]>({});
+  const pendingCommandQueueRef = useRef<CanvasBridgeCommandMessage[]>([]);
 
   const command = useMemo(() => summarizeCommands(commandState), [commandState]);
 
@@ -305,23 +306,12 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     });
   }, [bridgeState, interruptActiveCommands, liveMode]);
 
-  const onCanvasBridgeMessage = useCallback(
+  const dispatchCommand = useCallback(
     (message: CanvasBridgeCommandMessage) => {
-      const callId = message.payload.callId;
-
-      if (!liveMode || bridgeState !== "connected") {
-        emitCommandFailureToCanvas({
-          callId,
-          code: "AGENT_NOT_CONNECTED",
-          message: "Agent is not connected. Commands are unavailable.",
-        });
-        return;
-      }
-
       const bridge = bridgeRef.current;
       if (!bridge) {
         emitCommandFailureToCanvas({
-          callId,
+          callId: message.payload.callId,
           code: "BRIDGE_UNAVAILABLE",
           message: "Command failed because live bridge is unavailable.",
         });
@@ -394,14 +384,64 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     },
     [
       bridgeRef,
-      bridgeState,
       emitCommandFailureToCanvas,
-      liveMode,
       trackCommandCancel,
       trackCommandRunning,
       trackCommandStart,
     ],
   );
+
+  const onCanvasBridgeMessage = useCallback(
+    (message: CanvasBridgeCommandMessage) => {
+      const callId = message.payload.callId;
+
+      if (!liveMode) {
+        emitCommandFailureToCanvas({
+          callId,
+          code: "AGENT_NOT_CONNECTED",
+          message: "Agent is not connected. Commands are unavailable.",
+        });
+        return;
+      }
+
+      if (bridgeState === "disconnected" || bridgeState === "closed") {
+        emitCommandFailureToCanvas({
+          callId,
+          code: "AGENT_NOT_CONNECTED",
+          message: "Agent is not connected. Commands are unavailable.",
+        });
+        return;
+      }
+
+      if (bridgeState === "connecting") {
+        pendingCommandQueueRef.current.push(message);
+        return;
+      }
+
+      dispatchCommand(message);
+    },
+    [bridgeState, dispatchCommand, emitCommandFailureToCanvas, liveMode],
+  );
+
+  useEffect(() => {
+    if (bridgeState !== "connected") return;
+    const queued = pendingCommandQueueRef.current.splice(0);
+    for (const message of queued) {
+      dispatchCommand(message);
+    }
+  }, [bridgeState, dispatchCommand]);
+
+  useEffect(() => {
+    if (liveMode && bridgeState !== "disconnected" && bridgeState !== "closed") return;
+    const queued = pendingCommandQueueRef.current.splice(0);
+    for (const message of queued) {
+      emitCommandFailureToCanvas({
+        callId: message.payload.callId,
+        code: "AGENT_NOT_CONNECTED",
+        message: "Agent is not connected. Commands are unavailable.",
+      });
+    }
+  }, [bridgeState, emitCommandFailureToCanvas, liveMode]);
 
   const handleBridgeCommandMessage = useCallback(
     (cm: ChannelMessage) => {
