@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as os from "node:os";
@@ -12,21 +13,43 @@ const CLAUDE_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 
 type ClaudeSdk = typeof import("@anthropic-ai/claude-agent-sdk");
 
+let _cachedSdkPath: string | null | undefined;
+
+function resolveSdkPath(): string | null {
+  if (_cachedSdkPath !== undefined) return _cachedSdkPath;
+
+  const strategies: (() => string)[] = [
+    () => require.resolve(CLAUDE_SDK_PACKAGE),
+    () => createRequire(path.join(process.cwd(), "noop.js")).resolve(CLAUDE_SDK_PACKAGE),
+    () => {
+      const root = execFileSync("npm", ["root", "-g"], { encoding: "utf8", timeout: 5000 }).trim();
+      return createRequire(path.join(root, "noop.js")).resolve(CLAUDE_SDK_PACKAGE);
+    },
+  ];
+
+  for (const strategy of strategies) {
+    try {
+      _cachedSdkPath = strategy();
+      return _cachedSdkPath;
+    } catch {}
+  }
+
+  _cachedSdkPath = null;
+  return null;
+}
+
 export async function loadClaudeSdk(): Promise<ClaudeSdk | null> {
+  const sdkPath = resolveSdkPath();
+  if (!sdkPath) return null;
   try {
-    return await import(CLAUDE_SDK_PACKAGE);
+    return await import(sdkPath);
   } catch {
     return null;
   }
 }
 
 function isClaudeSdkResolvable(): boolean {
-  try {
-    require.resolve(CLAUDE_SDK_PACKAGE);
-    return true;
-  } catch {
-    return false;
-  }
+  return resolveSdkPath() !== null;
 }
 
 export function isClaudeSdkAvailableInEnv(
