@@ -3,12 +3,7 @@
   "version": "0.7.2",
   "description": "CLI for publishing and visualizing AI-agent output via pub.blue",
   "type": "module",
-  "bin": {
-    "pubblue": "./dist/index.js"
-  },
   "scripts": {
-    "build": "tsup src/index.ts src/live-daemon-entry.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/live-daemon-entry.ts --format esm --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
@@ -25,20 +20,13 @@
   },
   "devDependencies": {
     "@types/node": "22.10.2",
-    "tsup": "^8.3.6",
     "typescript": "^5.7.2",
     "vitest": "^3.0.0"
   },
-  "files": [
-    "dist"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xmanatee/pub.git",
     "directory": "cli"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -7,7 +7,6 @@ if (process.env.PUBBLUE_DAEMON_MODE === "1") {
 } else {
   const { toCliFailure } = await import("./lib/cli-error.js");
   const { buildProgram } = await import("./program.js");
-  const { isBinaryInstall } = await import("./lib/self-update.js");
   const { CLI_VERSION } = await import("./lib/version.js");
   const { getUpdateCheck } = await import("./lib/version-check.js");
 
@@ -16,11 +15,8 @@ if (process.env.PUBBLUE_DAEMON_MODE === "1") {
   const isGated = command !== "upgrade" && command !== "--version" && command !== "-V";
 
   if (updateCheck?.requiresUpgrade && isGated) {
-    const upgradeCmd = isBinaryInstall()
-      ? "`pubblue upgrade`"
-      : "`npm update -g pubblue`";
     console.error(
-      `pubblue v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun ${upgradeCmd} to update.`,
+      `pubblue v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun \`pubblue upgrade\` to update.`,
     );
     process.exit(1);
   }

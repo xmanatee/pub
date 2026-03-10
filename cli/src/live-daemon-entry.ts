@@ -1,5 +1,4 @@
 import { PubApiClient } from "./lib/api.js";
-import { errorMessage } from "./lib/cli-error.js";
 import { startDaemon } from "./lib/live-daemon.js";
 import type { BridgeMode } from "./lib/live-daemon-shared.js";
 
@@ -24,12 +23,4 @@ export async function runDaemonFromEnv(): Promise<void> {
 
   const apiClient = new PubApiClient(baseUrl, apiKey);
   await startDaemon({ apiClient, socketPath, infoPath, cliVersion, bridgeMode, agentName });
-}
-
-// Top-level call for backward compat with npm distribution (tsup entry point)
-if (!process.env.PUBBLUE_DAEMON_MODE) {
-  void runDaemonFromEnv().catch((error) => {
-    console.error(`Daemon failed to start: ${errorMessage(error)}`);
-    process.exit(1);
-  });
 }

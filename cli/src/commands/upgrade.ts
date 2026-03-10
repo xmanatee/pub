@@ -1,10 +1,8 @@
 import type { Command } from "commander";
-import { failCli } from "../lib/cli-error.js";
 import {
   detectTarget,
   downloadAndReplace,
   fetchLatestRelease,
-  isBinaryInstall,
   isNewer,
 } from "../lib/self-update.js";
 import { CLI_VERSION } from "../lib/version.js";
@@ -15,10 +13,6 @@ export function registerUpgradeCommand(program: Command): void {
     .description("Check for updates and self-update the binary")
     .option("--check", "Only check if an update is available")
     .action(async (opts: { check?: boolean }) => {
-      if (!isBinaryInstall()) {
-        failCli("Self-update is only available for standalone binaries.\nUse `npm update -g pubblue` or `pnpm update -g pubblue` instead.");
-      }
-
       const latest = await fetchLatestRelease();
 
       if (!isNewer(latest.version, CLI_VERSION)) {

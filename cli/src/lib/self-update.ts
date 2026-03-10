@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 const REPO = "xmanatee/pub";
 
@@ -44,11 +43,6 @@ export async function fetchLatestRelease(): Promise<LatestRelease> {
 
 export function binaryDownloadUrl(tag: string, target: string): string {
   return `https://github.com/${REPO}/releases/download/${tag}/pubblue-${target}`;
-}
-
-export function isBinaryInstall(): boolean {
-  const exe = process.execPath;
-  return !exe.includes("node") && !exe.includes("bun") && !exe.includes("deno");
 }
 
 export async function downloadAndReplace(tag: string, target: string): Promise<void> {
