@@ -8,6 +8,7 @@ import {
 } from "../../attachments.js";
 import { createBridgeEntryQueue } from "../../queue.js";
 import {
+  applyBridgeSystemPrompt,
   type BridgeRunner,
   type BridgeRunnerConfig,
   type BridgeStatus,
@@ -18,20 +19,15 @@ import {
   readTextChatMessage,
   shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
-import {
-  deliverMessageToOpenClaw,
-  runOpenClawPreflight,
-} from "./runtime.js";
+import { deliverMessageToOpenClaw, runOpenClawPreflight } from "./runtime.js";
 
-export {
-  deliverMessageToOpenClaw,
-} from "./runtime.js";
 export {
   isOpenClawAvailable,
   resolveOpenClawPath,
   resolveOpenClawRuntime,
 } from "./discovery.js";
 export { runOpenClawBridgeStartupProbe } from "./probe.js";
+export { deliverMessageToOpenClaw } from "./runtime.js";
 
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
@@ -53,8 +49,10 @@ export async function createOpenClawBridgeRunner(
   let lastError: string | undefined;
   let stopped = false;
 
+  const withSystemPrompt = (prompt: string) => applyBridgeSystemPrompt(prompt, config.instructions);
+
   await deliverMessageToOpenClaw(
-    { openclawPath, sessionId, text: sessionBriefing },
+    { openclawPath, sessionId, text: withSystemPrompt(sessionBriefing) },
     process.env,
     bridgeSettings,
   );
@@ -69,24 +67,42 @@ export async function createOpenClawBridgeRunner(
       const chat = readTextChatMessage(entry);
       if (chat) {
         await deliverMessageToOpenClaw(
-          { openclawPath, sessionId, text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions) },
+          {
+            openclawPath,
+            sessionId,
+            text: withSystemPrompt(
+              buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
+            ),
+          },
           process.env,
           bridgeSettings,
         );
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
         await deliverMessageToOpenClaw(
-          { openclawPath, sessionId, text: buildRenderErrorPrompt(slug, renderError, config.instructions) },
+          {
+            openclawPath,
+            sessionId,
+            text: withSystemPrompt(buildRenderErrorPrompt(slug, renderError, config.instructions)),
+          },
           process.env,
           bridgeSettings,
         );
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
@@ -96,7 +112,7 @@ export async function createOpenClawBridgeRunner(
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverMessageToOpenClaw(
-            { openclawPath, sessionId, text: prompt },
+            { openclawPath, sessionId, text: withSystemPrompt(prompt) },
             process.env,
             bridgeSettings,
           );
@@ -113,7 +129,11 @@ export async function createOpenClawBridgeRunner(
             ? entry.msg.meta.streamId
             : entry.msg.id;
         if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
-          config.onDeliveryUpdate?.({ channel: entry.channel, messageId: deliveryMessageId, stage: "confirmed" });
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
         }
       }
     },

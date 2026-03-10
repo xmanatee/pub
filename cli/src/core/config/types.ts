@@ -50,9 +50,13 @@ interface BridgeSettingsBase {
   commandDefaultTimeoutMs: number;
   commandMaxOutputBytes: number;
   commandMaxConcurrent: number;
+  openclawPath?: string;
   openclawStateDir?: string;
+  sessionId?: string;
   threadId?: string;
+  claudeCodePath?: string;
   claudeCodeMaxTurns?: number;
+  openclawLikeCommand?: string;
 }
 
 export interface OpenClawBridgeSettings extends BridgeSettingsBase {

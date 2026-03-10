@@ -2,17 +2,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CHANNELS } from "../../../../../../shared/bridge-protocol-core";
+import { buildBridgeInstructions } from "../../../daemon/shared.js";
 import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
   type StagedAttachment,
 } from "../../attachments.js";
-import {
-  resolveOpenClawHome,
-  resolveOpenClawSessionsPath,
-  resolveOpenClawStateDir,
-  resolveSessionFromSessionsData,
-} from "./session.js";
 import {
   buildInboundPrompt,
   buildRenderErrorPrompt,
@@ -20,7 +15,12 @@ import {
   readRenderErrorMessage,
   shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
-import { buildBridgeInstructions } from "../../../daemon/shared.js";
+import {
+  resolveOpenClawHome,
+  resolveOpenClawSessionsPath,
+  resolveOpenClawStateDir,
+  resolveSessionFromSessionsData,
+} from "./session.js";
 
 const openclawInstructions = buildBridgeInstructions("openclaw");
 const claudeCodeInstructions = buildBridgeInstructions("claude-code");
@@ -233,10 +233,7 @@ describe("resolveSessionFromSessionsData", () => {
     expect(resolved.sessionId).toBe("session-legacy");
     expect(resolved.sessionSource).toBe("thread-legacy");
     expect(resolved.sessionKey).toBe("agent:main:pub");
-    expect(resolved.attemptedKeys).toEqual([
-      "agent:main:main:thread:pub",
-      "agent:main:pub",
-    ]);
+    expect(resolved.attemptedKeys).toEqual(["agent:main:main:thread:pub", "agent:main:pub"]);
   });
 
   it("falls back to main session key when thread keys are absent", () => {
@@ -299,6 +296,10 @@ describe("buildSessionBriefing", () => {
     expect(openclawInstructions.replyHint).toBe('Reply command: pub write "<your reply>"');
     expect(openclawInstructions.canvasHint).toBe(
       "Canvas command: pub write -c canvas -f /path/to/file.html",
+    );
+    expect(openclawInstructions.systemPrompt).toBe(claudeCodeInstructions.systemPrompt);
+    expect(openclawInstructions.systemPrompt).toContain(
+      "Always communicate by running `pub write` commands.",
     );
   });
 

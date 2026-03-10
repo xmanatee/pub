@@ -43,4 +43,9 @@ export const CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN = [
   "3. Return semantics:",
   '   - `returns: "void"` for side effects (resolves `null`).',
   '   - `returns: "text" | "json"` for payload responses (promise resolves with value; errors reject).',
+  "4. Agent executors:",
+  '   - `executor.kind = "agent"` uses a local agent runtime, not the browser.',
+  '   - `provider: "auto"` prefers the current bridge runtime when it supports agent execution, otherwise Claude Code, otherwise OpenClaw.',
+  '   - `provider: "claude-code"` requires `claude-code.path` or `CLAUDE_CODE_PATH`.',
+  '   - `provider: "openclaw"` requires `openclaw.path` and `openclaw.sessionId`, or the matching environment variables.',
 ].join("\n");

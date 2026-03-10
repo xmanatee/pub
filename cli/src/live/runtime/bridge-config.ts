@@ -23,7 +23,11 @@ function parsePositiveIntegerEnv(envKey: string, raw: string | undefined): numbe
   throw new Error(`Invalid positive integer value for ${envKey}: ${raw}`);
 }
 
-function stringValueOrEnv(value: string | undefined, envKey: string, env: NodeJS.ProcessEnv): string | undefined {
+function stringValueOrEnv(
+  value: string | undefined,
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+): string | undefined {
   return trimToUndefined(env[envKey]) ?? trimToUndefined(value);
 }
 
@@ -96,25 +100,29 @@ export function buildBridgeSettings(
       bridgeConfig.commandMaxConcurrent,
       DEFAULT_COMMAND_MAX_CONCURRENT,
     ),
+    openclawPath: stringValueOrEnv(bridgeConfig.openclawPath, "OPENCLAW_PATH", env),
     openclawStateDir: stringValueOrEnv(bridgeConfig.openclawStateDir, "OPENCLAW_STATE_DIR", env),
+    sessionId: stringValueOrEnv(bridgeConfig.sessionId, "OPENCLAW_SESSION_ID", env),
     threadId: stringValueOrEnv(bridgeConfig.threadId, "OPENCLAW_THREAD_ID", env),
+    claudeCodePath: stringValueOrEnv(bridgeConfig.claudeCodePath, "CLAUDE_CODE_PATH", env),
     claudeCodeMaxTurns:
-      positiveIntOr(integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env), 0) ||
-      undefined,
+      positiveIntOr(
+        integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env),
+        0,
+      ) || undefined,
+    openclawLikeCommand: stringValueOrEnv(
+      bridgeConfig.openclawLikeCommand,
+      "PUB_OPENCLAW_LIKE_COMMAND",
+      env,
+    ),
   };
 
   if (mode === "openclaw") {
     return {
       ...base,
       mode,
-      openclawPath: requireString(
-        stringValueOrEnv(bridgeConfig.openclawPath, "OPENCLAW_PATH", env),
-        "openclaw.path",
-      ),
-      sessionId: requireString(
-        stringValueOrEnv(bridgeConfig.sessionId, "OPENCLAW_SESSION_ID", env),
-        "openclaw.sessionId",
-      ),
+      openclawPath: requireString(base.openclawPath, "openclaw.path"),
+      sessionId: requireString(base.sessionId, "openclaw.sessionId"),
     };
   }
 
@@ -122,19 +130,13 @@ export function buildBridgeSettings(
     return {
       ...base,
       mode,
-      openclawLikeCommand: requireString(
-        stringValueOrEnv(bridgeConfig.openclawLikeCommand, "PUB_OPENCLAW_LIKE_COMMAND", env),
-        "openclawLike.command",
-      ),
+      openclawLikeCommand: requireString(base.openclawLikeCommand, "openclawLike.command"),
     };
   }
 
   return {
     ...base,
     mode,
-    claudeCodePath: requireString(
-      stringValueOrEnv(bridgeConfig.claudeCodePath, "CLAUDE_CODE_PATH", env),
-      "claude-code.path",
-    ),
+    claudeCodePath: requireString(base.claudeCodePath, "claude-code.path"),
   };
 }

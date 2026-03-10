@@ -1,22 +1,23 @@
-import { existsSync } from "node:fs";
-import type { PubBridgeConfig, BridgeSettings } from "../../core/config/index.js";
+import type { BridgeSettings, PubBridgeConfig } from "../../core/config/index.js";
 import {
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
 } from "../bridge/providers/claude-code/index.js";
-import {
-  runClaudeSdkBridgeStartupProbe,
-} from "../bridge/providers/claude-sdk/index.js";
+import { runClaudeSdkBridgeStartupProbe } from "../bridge/providers/claude-sdk/index.js";
 import {
   isOpenClawAvailable,
   runOpenClawBridgeStartupProbe,
 } from "../bridge/providers/openclaw/index.js";
+import { runOpenClawLikeBridgeStartupProbe } from "../bridge/providers/openclaw-like/index.js";
 import type { BridgeMode } from "../daemon/shared.js";
 
 interface BridgeProvider {
   mode: BridgeMode;
   priority: number;
-  detect(env: NodeJS.ProcessEnv, bridgeConfig?: PubBridgeConfig): { available: boolean; detail: string };
+  detect(
+    env: NodeJS.ProcessEnv,
+    bridgeConfig?: PubBridgeConfig,
+  ): { available: boolean; detail: string };
   startupProbe(
     env: NodeJS.ProcessEnv,
     bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
@@ -100,10 +101,9 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         configPatch: {
           mode: "claude-sdk" as const,
           claudeCodePath: runtime.claudePath,
-          claudeCodeMaxTurns:
-            env.CLAUDE_CODE_MAX_TURNS?.trim()
-              ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
-              : bridgeConfig?.claudeCodeMaxTurns,
+          claudeCodeMaxTurns: env.CLAUDE_CODE_MAX_TURNS?.trim()
+            ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
+            : bridgeConfig?.claudeCodeMaxTurns,
           bridgeCwd: runtime.cwd,
         },
       };
@@ -135,10 +135,9 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         configPatch: {
           mode: "claude-code" as const,
           claudeCodePath: runtime.claudePath,
-          claudeCodeMaxTurns:
-            env.CLAUDE_CODE_MAX_TURNS?.trim()
-              ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
-              : bridgeConfig?.claudeCodeMaxTurns,
+          claudeCodeMaxTurns: env.CLAUDE_CODE_MAX_TURNS?.trim()
+            ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
+            : bridgeConfig?.claudeCodeMaxTurns,
           bridgeCwd: runtime.cwd,
         },
       };
@@ -151,23 +150,16 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       return { available: false, detail: "openclaw-like is manual-config only" };
     },
     async startupProbe(
-      _env: NodeJS.ProcessEnv,
+      env: NodeJS.ProcessEnv,
       bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
+      options: { strictConfig: boolean },
     ) {
-      const command =
-        bridgeConfig && "openclawLikeCommand" in bridgeConfig
-          ? (bridgeConfig.openclawLikeCommand as string | undefined)
-          : undefined;
-      if (!command) {
-        throw new Error("openclawLike.command is not configured.");
-      }
-      if (!existsSync(command)) {
-        throw new Error(`openclaw-like command not found on disk: ${command}`);
-      }
+      const runtime = await runOpenClawLikeBridgeStartupProbe(env, bridgeConfig, options);
       return {
         detailLines: [
-          `openclaw-like command: ${command}`,
-          "openclaw-like preflight: OK (file exists)",
+          `openclaw-like command: ${runtime.command}`,
+          `openclaw-like cwd: ${runtime.cwd}`,
+          'openclaw-like communication via `pub write "pong"`: OK',
         ],
       };
     },

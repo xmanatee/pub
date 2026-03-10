@@ -3,6 +3,8 @@ import type { BridgeSettings } from "../../../core/config/index.js";
 import { buildClaudeArgsFromSettings } from "../../bridge/providers/claude-code/index.js";
 import { executeProcessCommand } from "./process.js";
 
+export type AgentCommandProvider = "claude-code" | "openclaw";
+
 function readClaudeAssistantOutput(line: string): string {
   if (!line.trim().startsWith("{")) return "";
   try {
@@ -27,6 +29,85 @@ function readClaudeAssistantOutput(line: string): string {
   }
 }
 
+function getClaudeCommandRuntime(bridgeSettings: BridgeSettings): {
+  bridgeCwd: string;
+  claudeCodeMaxTurns?: number;
+  claudePath: string;
+} {
+  const claudePath = bridgeSettings.claudeCodePath?.trim();
+  if (!claudePath) {
+    throw new Error(
+      "Claude runtime is not configured for canvas agent commands. Set `claude-code.path` or `CLAUDE_CODE_PATH`.",
+    );
+  }
+
+  return {
+    claudePath,
+    bridgeCwd: bridgeSettings.bridgeCwd,
+    claudeCodeMaxTurns: bridgeSettings.claudeCodeMaxTurns,
+  };
+}
+
+function getOpenClawCommandRuntime(bridgeSettings: BridgeSettings): {
+  bridgeCwd: string;
+  openclawPath: string;
+  sessionId: string;
+} {
+  const openclawPath = bridgeSettings.openclawPath?.trim();
+  const sessionId = bridgeSettings.sessionId?.trim();
+  if (!openclawPath || !sessionId) {
+    throw new Error(
+      "OpenClaw runtime is not configured for canvas agent commands. Set `openclaw.path` and `openclaw.sessionId`, or the matching environment variables.",
+    );
+  }
+
+  return {
+    openclawPath,
+    sessionId,
+    bridgeCwd: bridgeSettings.bridgeCwd,
+  };
+}
+
+function hasClaudeCommandRuntime(bridgeSettings: BridgeSettings): boolean {
+  return Boolean(bridgeSettings.claudeCodePath?.trim());
+}
+
+function hasOpenClawCommandRuntime(bridgeSettings: BridgeSettings): boolean {
+  return Boolean(bridgeSettings.openclawPath?.trim() && bridgeSettings.sessionId?.trim());
+}
+
+export function resolveAgentCommandProvider(params: {
+  bridgeSettings: BridgeSettings;
+  provider?: AgentCommandProvider | "auto";
+}): AgentCommandProvider {
+  const requested = params.provider;
+  if (requested === "claude-code") {
+    getClaudeCommandRuntime(params.bridgeSettings);
+    return "claude-code";
+  }
+  if (requested === "openclaw") {
+    getOpenClawCommandRuntime(params.bridgeSettings);
+    return "openclaw";
+  }
+
+  if (
+    params.bridgeSettings.mode === "openclaw" &&
+    hasOpenClawCommandRuntime(params.bridgeSettings)
+  ) {
+    return "openclaw";
+  }
+  if (hasClaudeCommandRuntime(params.bridgeSettings)) {
+    return "claude-code";
+  }
+  if (hasOpenClawCommandRuntime(params.bridgeSettings)) {
+    return "openclaw";
+  }
+
+  throw new Error(
+    "No local agent runtime is configured for canvas agent commands. Configure `claude-code.path` or `openclaw.path` + `openclaw.sessionId`.",
+  );
+}
+
 export async function executeClaudeAgentCommand(params: {
   prompt: string;
   timeoutMs: number;
@@ -35,25 +116,15 @@ export async function executeClaudeAgentCommand(params: {
   signal: AbortSignal;
   bridgeSettings: BridgeSettings;
 }): Promise<unknown> {
-  if (params.bridgeSettings.mode === "openclaw" || params.bridgeSettings.mode === "openclaw-like") {
-    throw new Error("Claude runtime is not prepared for command execution.");
-  }
-
-  const claudePath = params.bridgeSettings.claudeCodePath;
-  const cwd = params.bridgeSettings.bridgeCwd;
-  const args = buildClaudeArgsFromSettings(
-    params.prompt,
-    null,
-    null,
-    params.bridgeSettings,
-  );
+  const runtime = getClaudeCommandRuntime(params.bridgeSettings);
+  const args = buildClaudeArgsFromSettings(params.prompt, null, null, runtime);
   if (!args.includes("--max-turns")) {
     args.push("--max-turns", "4");
   }
 
   const outputText = await new Promise<string>((resolve, reject) => {
-    const child = spawn(claudePath, args, {
-      cwd,
+    const child = spawn(runtime.claudePath, args, {
+      cwd: runtime.bridgeCwd,
       env: { ...process.env },
       signal: params.signal,
       stdio: ["ignore", "pipe", "pipe"],
@@ -118,20 +189,23 @@ export async function executeOpenClawAgentCommand(params: {
   signal: AbortSignal;
   bridgeSettings: BridgeSettings;
 }): Promise<unknown> {
-  if (params.bridgeSettings.mode !== "openclaw") {
-    throw new Error("OpenClaw runtime is not prepared for command execution.");
-  }
-
-  const openclawPath = params.bridgeSettings.openclawPath;
-  const sessionId = params.bridgeSettings.sessionId;
-  const cwd = params.bridgeSettings.bridgeCwd;
-  const invocationArgs = ["agent", "--local", "--session-id", sessionId, "-m", params.prompt];
-  const command = openclawPath.endsWith(".js") ? process.execPath : openclawPath;
-  const args = openclawPath.endsWith(".js") ? [openclawPath, ...invocationArgs] : invocationArgs;
+  const runtime = getOpenClawCommandRuntime(params.bridgeSettings);
+  const invocationArgs = [
+    "agent",
+    "--local",
+    "--session-id",
+    runtime.sessionId,
+    "-m",
+    params.prompt,
+  ];
+  const command = runtime.openclawPath.endsWith(".js") ? process.execPath : runtime.openclawPath;
+  const args = runtime.openclawPath.endsWith(".js")
+    ? [runtime.openclawPath, ...invocationArgs]
+    : invocationArgs;
   const result = await executeProcessCommand({
     command,
     args,
-    cwd,
+    cwd: runtime.bridgeCwd,
     timeoutMs: params.timeoutMs,
     maxOutputBytes: params.maxOutputBytes,
     signal: params.signal,

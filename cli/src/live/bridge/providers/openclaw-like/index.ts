@@ -8,6 +8,7 @@ import {
 } from "../../attachments.js";
 import { createBridgeEntryQueue } from "../../queue.js";
 import {
+  applyBridgeSystemPrompt,
   type BridgeRunner,
   type BridgeRunnerConfig,
   type BridgeStatus,
@@ -19,6 +20,8 @@ import {
   shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
 import { deliverMessageToCommand } from "./runtime.js";
+
+export { runOpenClawLikeBridgeStartupProbe } from "./probe.js";
 
 export async function createOpenClawLikeBridgeRunner(
   config: BridgeRunnerConfig,
@@ -38,8 +41,10 @@ export async function createOpenClawLikeBridgeRunner(
   let lastError: string | undefined;
   let stopped = false;
 
+  const withSystemPrompt = (prompt: string) => applyBridgeSystemPrompt(prompt, config.instructions);
+
   await deliverMessageToCommand(
-    { command, text: sessionBriefing },
+    { command, text: withSystemPrompt(sessionBriefing) },
     process.env,
     bridgeSettings,
   );
@@ -54,24 +59,40 @@ export async function createOpenClawLikeBridgeRunner(
       const chat = readTextChatMessage(entry);
       if (chat) {
         await deliverMessageToCommand(
-          { command, text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions) },
+          {
+            command,
+            text: withSystemPrompt(
+              buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
+            ),
+          },
           process.env,
           bridgeSettings,
         );
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
         await deliverMessageToCommand(
-          { command, text: buildRenderErrorPrompt(slug, renderError, config.instructions) },
+          {
+            command,
+            text: withSystemPrompt(buildRenderErrorPrompt(slug, renderError, config.instructions)),
+          },
           process.env,
           bridgeSettings,
         );
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
@@ -81,7 +102,7 @@ export async function createOpenClawLikeBridgeRunner(
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverMessageToCommand(
-            { command, text: prompt },
+            { command, text: withSystemPrompt(prompt) },
             process.env,
             bridgeSettings,
           );
@@ -98,7 +119,11 @@ export async function createOpenClawLikeBridgeRunner(
             ? entry.msg.meta.streamId
             : entry.msg.id;
         if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
-          config.onDeliveryUpdate?.({ channel: entry.channel, messageId: deliveryMessageId, stage: "confirmed" });
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
         }
       }
     },

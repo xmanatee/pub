@@ -6,7 +6,7 @@ license: MIT
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.3"
+  version: "5.2.4"
 allowed-tools: Bash(pub:*) Bash(node:*) Read Write
 ---
 
@@ -81,9 +81,13 @@ pub start --agent-name "<agent-name>"
 
 Notes:
 - Bridge mode comes from saved config (`pub config --auto` or `pub config --set bridge.mode=...`).
+- Supported bridge modes: `openclaw`, `claude-code`, `claude-sdk`, and `openclaw-like`.
 - Enable verbose live daemon logging with `pub config --set bridge.verbose=true` when startup or bridge delivery is hard to diagnose.
 - Standalone binary installs fall back to `claude-code` when the Claude Agent SDK package is not locally importable.
 - `bridge.mode=claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
+- Canvas command-manifest `agent` executors require a local agent runtime:
+  `provider: "claude-code"` needs `claude-code.path` or `CLAUDE_CODE_PATH`;
+  `provider: "openclaw"` needs `openclaw.path` and `openclaw.sessionId` or matching env vars.
 - On success, `pub start` prints the daemon log path and current runtime status.
 - On failure, inspect the reported log path first; if logs are sparse, enable `bridge.verbose=true` and retry.
 

@@ -8,7 +8,11 @@ import {
   parseCommandCancelMessage,
   parseCommandInvokeMessage,
 } from "../../../../shared/command-protocol-core";
-import { executeClaudeAgentCommand, executeOpenClawAgentCommand } from "./executors/agent.js";
+import {
+  executeClaudeAgentCommand,
+  executeOpenClawAgentCommand,
+  resolveAgentCommandProvider,
+} from "./executors/agent.js";
 import { executeProcessCommand, executeShellCommand } from "./executors/process.js";
 import {
   buildCommandError,
@@ -17,8 +21,8 @@ import {
   getCommandRuntimeConfig,
   normalizeFunctionSpec,
   type RecentCommandResult,
-  resolveCommandTimeoutMs,
   type RunningCommand,
+  resolveCommandTimeoutMs,
 } from "./shared.js";
 import { interpolateTemplate, toCommandReturnValue } from "./template.js";
 
@@ -120,16 +124,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     const agentSpec = executor as CommandAgentSpec;
     const prompt = interpolateTemplate(agentSpec.prompt, args);
     const output = agentSpec.output === "json" ? "json" : "text";
-    const provider =
-      agentSpec.provider && agentSpec.provider !== "auto"
-        ? agentSpec.provider
-        : params.bridgeSettings.mode === "openclaw"
-          ? "openclaw"
-          : "claude-code";
-
-    if (provider === "claude-code" && params.bridgeSettings.mode === "openclaw-like") {
-      throw new Error("Canvas agent commands are not supported in openclaw-like bridge mode.");
-    }
+    const provider = resolveAgentCommandProvider({
+      bridgeSettings: params.bridgeSettings,
+      provider: agentSpec.provider,
+    });
 
     if (provider === "openclaw") {
       return await executeOpenClawAgentCommand({
@@ -217,7 +215,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
         v: COMMAND_PROTOCOL_VERSION,
         callId: message.callId,
         ok: false,
-        error: buildCommandError("COMMAND_NOT_FOUND", `Command "${message.name}" is not registered.`),
+        error: buildCommandError(
+          "COMMAND_NOT_FOUND",
+          `Command "${message.name}" is not registered.`,
+        ),
         durationMs: 0,
       });
       return;
@@ -240,7 +241,9 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       );
       const active = running.get(message.callId);
       if (abort.signal.aborted || active?.cancelled) {
-        params.debugLog(`commands invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`);
+        params.debugLog(
+          `commands invoke "${message.name}" cancelled after ${Date.now() - startedAt}ms`,
+        );
         await sendResult(buildCancelledResult(message.callId, startedAt));
         return;
       }

@@ -1,8 +1,8 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
-import type { BridgeSessionSource } from "./types.js";
 import type { BridgeInstructions } from "../daemon/shared.js";
+import type { BridgeSessionSource } from "./types.js";
 export const MAX_SEEN_IDS = 10_000;
 
 export interface BridgeRunnerConfig {
@@ -141,6 +141,12 @@ export function buildSessionBriefing(
   }
 
   return lines.join("\n");
+}
+
+export function applyBridgeSystemPrompt(prompt: string, instructions: BridgeInstructions): string {
+  const systemPrompt = instructions.systemPrompt?.trim();
+  if (!systemPrompt) return prompt;
+  return [systemPrompt, "", "---", "", prompt].join("\n");
 }
 
 export function readTextChatMessage(entry: BufferedEntry): string | null {

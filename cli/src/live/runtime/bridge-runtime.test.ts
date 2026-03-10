@@ -68,6 +68,32 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.verbose).toBe(true);
   });
 
+  it("keeps optional local agent runtimes available across bridge modes", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
+
+    const bridgeSettings = buildBridgeSettings(
+      "openclaw-like",
+      {
+        bridgeCwd: "/tmp/shared-runtime",
+        claudeCodePath: "/usr/local/bin/claude",
+        openclawLikeCommand: "/tmp/openclaw-like-command",
+        openclawPath: "/usr/local/bin/openclaw",
+        sessionId: "session-2",
+      },
+      {
+        ...process.env,
+        PUB_CONFIG_DIR: tempDir,
+        PUB_PROJECT_ROOT: "/tmp/pub-project",
+      },
+    );
+
+    expect(bridgeSettings.mode).toBe("openclaw-like");
+    expect(bridgeSettings.bridgeCwd).toBe("/tmp/shared-runtime");
+    expect(bridgeSettings.claudeCodePath).toBe("/usr/local/bin/claude");
+    expect(bridgeSettings.openclawPath).toBe("/usr/local/bin/openclaw");
+    expect(bridgeSettings.sessionId).toBe("session-2");
+  });
+
   it("requires explicit OpenClaw workspace in runtime settings", () => {
     expect(() =>
       buildBridgeSettings(

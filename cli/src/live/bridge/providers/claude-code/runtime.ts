@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
-import type { ClaudeBridgeSettings } from "../../../../core/config/index.js";
+
+interface ClaudeArgsSettings {
+  claudeCodeMaxTurns?: number;
+}
 
 export async function runClaudeCodePreflight(
   claudePath: string,
@@ -25,7 +28,7 @@ export function buildClaudeArgsFromSettings(
   prompt: string,
   sessionId: string | null,
   systemPrompt: string | null,
-  bridgeSettings: ClaudeBridgeSettings,
+  bridgeSettings: ClaudeArgsSettings,
   opts?: { maxTurns?: number },
 ): string[] {
   const args = [
