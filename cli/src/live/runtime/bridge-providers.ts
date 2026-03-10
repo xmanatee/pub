@@ -165,10 +165,9 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
     ) {
       const command =
-        (bridgeConfig && "openclawLikeCommand" in bridgeConfig
-          ? bridgeConfig.openclawLikeCommand
-          : undefined) ??
-        (bridgeConfig as PubBridgeConfig | undefined)?.openclawLikeCommand;
+        bridgeConfig && "openclawLikeCommand" in bridgeConfig
+          ? (bridgeConfig.openclawLikeCommand as string | undefined)
+          : undefined;
       if (!command) {
         throw new Error("openclawLike.command is not configured.");
       }
