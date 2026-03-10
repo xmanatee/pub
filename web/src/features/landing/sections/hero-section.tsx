@@ -9,8 +9,8 @@ export function HeroSection() {
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/8 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/12 rounded-full blur-3xl" />
       </div>
 
       <div className="px-4 sm:px-6">

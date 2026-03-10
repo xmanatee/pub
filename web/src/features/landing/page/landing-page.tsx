@@ -23,7 +23,7 @@ export function LandingPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col fade-edges">
       <HeroSection />
       <LogoBar />
       <FeaturesSection />
