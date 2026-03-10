@@ -1,3 +1,4 @@
+import * as dgram from "node:dgram";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type AdapterDataChannel,
@@ -7,6 +8,34 @@ import {
 
 const PEER_EVENT_TIMEOUT_MS = 7_500;
 const PEER_NEGOTIATION_TIMEOUT_MS = 25_000;
+const LOOPBACK_PEER_CONFIG = {
+  iceServers: [],
+  iceAdditionalHostAddresses: ["127.0.0.1"],
+  iceUseIpv6: false,
+} as const;
+
+async function canBindUdpSocket(): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
+    const socket = dgram.createSocket("udp4");
+    let settled = false;
+
+    const finish = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      try {
+        socket.close();
+      } catch {
+        /* ignore close failures during preflight */
+      }
+      resolve(result);
+    };
+
+    socket.once("error", () => finish(false));
+    socket.bind(0, "0.0.0.0", () => finish(true));
+  });
+}
+
+const describeWebRtc = (await canBindUdpSocket()) ? describe : describe.skip;
 
 function waitForPeerEvent<T>(
   subscribe: (resolve: (value: T) => void) => void,
@@ -25,7 +54,7 @@ function waitForPeerEvent<T>(
   });
 }
 
-describe("WebRTC P2P integration (werift adapter)", () => {
+describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
   let peerA: AdapterPeerConnection;
   let peerB: AdapterPeerConnection;
 
@@ -130,69 +159,64 @@ describe("WebRTC P2P integration (werift adapter)", () => {
   it(
     "establishes a connection and exchanges messages via DataChannel",
     async () => {
-      try {
-        await withPeerRetry(async () => {
-          peerA = createPeerConnection({ iceServers: [] });
-          peerB = createPeerConnection({ iceServers: [] });
+      await withPeerRetry(async () => {
+        peerA = createPeerConnection(LOOPBACK_PEER_CONFIG);
+        peerB = createPeerConnection(LOOPBACK_PEER_CONFIG);
 
-          setupSafeSignaling(peerA, peerB);
+        setupSafeSignaling(peerA, peerB);
 
-          const stateChanges: string[] = [];
-          peerA.onStateChange((state) => stateChanges.push(state));
+        const stateChanges: string[] = [];
+        peerA.onStateChange((state) => stateChanges.push(state));
 
-          const dcA = peerA.createDataChannel("chat", { ordered: true });
+        const dcA = peerA.createDataChannel("chat", { ordered: true });
 
-          const dcB = await waitForPeerEvent<AdapterDataChannel>(
-            (resolve) => {
-              peerB.onDataChannel((dc) => resolve(dc));
-              peerA.setLocalDescription();
-            },
-            PEER_EVENT_TIMEOUT_MS,
-            "remote data channel",
-          );
+        const dcB = await waitForPeerEvent<AdapterDataChannel>(
+          (resolve) => {
+            peerB.onDataChannel((dc) => resolve(dc));
+            peerA.setLocalDescription();
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          "remote data channel",
+        );
 
-          await waitForPeerEvent<void>(
-            (resolve) => {
-              if (dcA.isOpen()) return resolve();
-              dcA.onOpen(() => resolve());
-            },
-            PEER_EVENT_TIMEOUT_MS,
-            'local "chat" channel to open',
-          );
-          await waitForPeerEvent<void>(
-            (resolve) => {
-              if (dcB.isOpen()) return resolve();
-              dcB.onOpen(() => resolve());
-            },
-            PEER_EVENT_TIMEOUT_MS,
-            'remote "chat" channel to open',
-          );
+        await waitForPeerEvent<void>(
+          (resolve) => {
+            if (dcA.isOpen()) return resolve();
+            dcA.onOpen(() => resolve());
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          'local "chat" channel to open',
+        );
+        await waitForPeerEvent<void>(
+          (resolve) => {
+            if (dcB.isOpen()) return resolve();
+            dcB.onOpen(() => resolve());
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          'remote "chat" channel to open',
+        );
 
-          const receivedByB: string[] = [];
-          dcB.onMessage((data) => {
-            if (typeof data === "string") receivedByB.push(data);
-          });
-
-          dcA.sendMessage("hello from A");
-
-          await new Promise((r) => setTimeout(r, 200));
-          expect(receivedByB).toContain("hello from A");
-
-          const receivedByA: string[] = [];
-          dcA.onMessage((data) => {
-            if (typeof data === "string") receivedByA.push(data);
-          });
-
-          dcB.sendMessage("hello from B");
-          await new Promise((r) => setTimeout(r, 200));
-          expect(receivedByA).toContain("hello from B");
-
-          expect(stateChanges).toContain("connected");
+        const receivedByB: string[] = [];
+        dcB.onMessage((data) => {
+          if (typeof data === "string") receivedByB.push(data);
         });
-      } catch (error) {
-        if (!isPeerEventTimeoutError(error)) throw error;
-        console.warn("Skipping connection assertion: peer negotiation unavailable");
-      }
+
+        dcA.sendMessage("hello from A");
+
+        await new Promise((r) => setTimeout(r, 200));
+        expect(receivedByB).toContain("hello from A");
+
+        const receivedByA: string[] = [];
+        dcA.onMessage((data) => {
+          if (typeof data === "string") receivedByA.push(data);
+        });
+
+        dcB.sendMessage("hello from B");
+        await new Promise((r) => setTimeout(r, 200));
+        expect(receivedByA).toContain("hello from B");
+
+        expect(stateChanges).toContain("connected");
+      });
     },
     PEER_NEGOTIATION_TIMEOUT_MS,
   );
@@ -200,87 +224,82 @@ describe("WebRTC P2P integration (werift adapter)", () => {
   it(
     "supports multiple named channels",
     async () => {
-      try {
-        await withPeerRetry(async () => {
-          peerA = createPeerConnection({ iceServers: [] });
-          peerB = createPeerConnection({ iceServers: [] });
+      await withPeerRetry(async () => {
+        peerA = createPeerConnection(LOOPBACK_PEER_CONFIG);
+        peerB = createPeerConnection(LOOPBACK_PEER_CONFIG);
 
-          setupSafeSignaling(peerA, peerB);
+        setupSafeSignaling(peerA, peerB);
 
-          const chatA = peerA.createDataChannel("chat", { ordered: true });
-          const canvasA = peerA.createDataChannel("canvas", { ordered: true });
+        const chatA = peerA.createDataChannel("chat", { ordered: true });
+        const canvasA = peerA.createDataChannel("canvas", { ordered: true });
 
-          const remoteDcs = new Map<string, AdapterDataChannel>();
-          const allReceived = waitForPeerEvent<void>(
+        const remoteDcs = new Map<string, AdapterDataChannel>();
+        const allReceived = waitForPeerEvent<void>(
+          (resolve) => {
+            peerB.onDataChannel((dc) => {
+              remoteDcs.set(dc.getLabel(), dc);
+              if (remoteDcs.size === 2) resolve();
+            });
+            peerA.setLocalDescription();
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          "all remote data channels",
+        );
+
+        await allReceived;
+
+        for (const dc of [chatA, canvasA]) {
+          await waitForPeerEvent<void>(
             (resolve) => {
-              peerB.onDataChannel((dc) => {
-                remoteDcs.set(dc.getLabel(), dc);
-                if (remoteDcs.size === 2) resolve();
-              });
-              peerA.setLocalDescription();
+              if (dc.isOpen()) return resolve();
+              dc.onOpen(() => resolve());
             },
             PEER_EVENT_TIMEOUT_MS,
-            "all remote data channels",
+            `local "${dc.getLabel()}" channel to open`,
           );
+        }
+        for (const dc of remoteDcs.values()) {
+          await waitForPeerEvent<void>(
+            (resolve) => {
+              if (dc.isOpen()) return resolve();
+              dc.onOpen(() => resolve());
+            },
+            PEER_EVENT_TIMEOUT_MS,
+            `remote "${dc.getLabel()}" channel to open`,
+          );
+        }
 
-          await allReceived;
-
-          for (const dc of [chatA, canvasA]) {
-            await waitForPeerEvent<void>(
-              (resolve) => {
-                if (dc.isOpen()) return resolve();
-                dc.onOpen(() => resolve());
-              },
-              PEER_EVENT_TIMEOUT_MS,
-              `local "${dc.getLabel()}" channel to open`,
-            );
-          }
-          for (const dc of remoteDcs.values()) {
-            await waitForPeerEvent<void>(
-              (resolve) => {
-                if (dc.isOpen()) return resolve();
-                dc.onOpen(() => resolve());
-              },
-              PEER_EVENT_TIMEOUT_MS,
-              `remote "${dc.getLabel()}" channel to open`,
-            );
-          }
-
-          const chatMessages: string[] = [];
-          const chatB = remoteDcs.get("chat");
-          expect(chatB).toBeDefined();
-          chatB?.onMessage((data) => {
-            if (typeof data === "string") chatMessages.push(data);
-          });
-          chatA.sendMessage("chat msg");
-
-          const canvasMessages: string[] = [];
-          const canvasB = remoteDcs.get("canvas");
-          expect(canvasB).toBeDefined();
-          canvasB?.onMessage((data) => {
-            if (typeof data === "string") canvasMessages.push(data);
-          });
-          const htmlPayload = JSON.stringify({
-            id: "test-1",
-            type: "html",
-            data: "<h1>Hello</h1>",
-            meta: { title: "Test" },
-          });
-          canvasA.sendMessage(htmlPayload);
-
-          await new Promise((r) => setTimeout(r, 200));
-
-          expect(chatMessages).toContain("chat msg");
-          expect(canvasMessages).toHaveLength(1);
-          const parsed = JSON.parse(canvasMessages[0]);
-          expect(parsed.type).toBe("html");
-          expect(parsed.data).toBe("<h1>Hello</h1>");
-          expect(parsed.meta.title).toBe("Test");
+        const chatMessages: string[] = [];
+        const chatB = remoteDcs.get("chat");
+        expect(chatB).toBeDefined();
+        chatB?.onMessage((data) => {
+          if (typeof data === "string") chatMessages.push(data);
         });
-      } catch (error) {
-        if (!isPeerEventTimeoutError(error)) throw error;
-        console.warn("Skipping multi-channel assertion: negotiation unavailable");
-      }
+        chatA.sendMessage("chat msg");
+
+        const canvasMessages: string[] = [];
+        const canvasB = remoteDcs.get("canvas");
+        expect(canvasB).toBeDefined();
+        canvasB?.onMessage((data) => {
+          if (typeof data === "string") canvasMessages.push(data);
+        });
+        const htmlPayload = JSON.stringify({
+          id: "test-1",
+          type: "html",
+          data: "<h1>Hello</h1>",
+          meta: { title: "Test" },
+        });
+        canvasA.sendMessage(htmlPayload);
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(chatMessages).toContain("chat msg");
+        expect(canvasMessages).toHaveLength(1);
+        const parsed = JSON.parse(canvasMessages[0]);
+        expect(parsed.type).toBe("html");
+        expect(parsed.data).toBe("<h1>Hello</h1>");
+        expect(parsed.meta.title).toBe("Test");
+      });
     },
     PEER_NEGOTIATION_TIMEOUT_MS,
   );
@@ -290,6 +309,8 @@ describe("WebRTC P2P integration (werift adapter)", () => {
     async () => {
       const peer = createPeerConnection({
         iceServers: ["stun:stun.l.google.com:19302"],
+        iceAdditionalHostAddresses: ["127.0.0.1"],
+        iceUseIpv6: false,
       });
       const cleanup = () => {
         try {
@@ -345,73 +366,68 @@ describe("WebRTC P2P integration (werift adapter)", () => {
   it(
     "bridge protocol messages round-trip over DataChannel",
     async () => {
-      try {
-        await withPeerRetry(async () => {
-          const { encodeMessage, decodeMessage, makeTextMessage, makeHtmlMessage } = await import(
-            "../../../shared/bridge-protocol-core"
-          );
+      await withPeerRetry(async () => {
+        const { encodeMessage, decodeMessage, makeTextMessage, makeHtmlMessage } = await import(
+          "../../../shared/bridge-protocol-core"
+        );
 
-          peerA = createPeerConnection({ iceServers: [] });
-          peerB = createPeerConnection({ iceServers: [] });
+        peerA = createPeerConnection(LOOPBACK_PEER_CONFIG);
+        peerB = createPeerConnection(LOOPBACK_PEER_CONFIG);
 
-          setupSafeSignaling(peerA, peerB);
+        setupSafeSignaling(peerA, peerB);
 
-          const dcA = peerA.createDataChannel("chat", { ordered: true });
-          const dcB = await waitForPeerEvent<AdapterDataChannel>(
-            (resolve) => {
-              peerB.onDataChannel((dc) => resolve(dc));
-              peerA.setLocalDescription();
-            },
-            PEER_EVENT_TIMEOUT_MS,
-            "remote data channel",
-          );
+        const dcA = peerA.createDataChannel("chat", { ordered: true });
+        const dcB = await waitForPeerEvent<AdapterDataChannel>(
+          (resolve) => {
+            peerB.onDataChannel((dc) => resolve(dc));
+            peerA.setLocalDescription();
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          "remote data channel",
+        );
 
-          await waitForPeerEvent<void>(
-            (resolve) => {
-              if (dcA.isOpen()) return resolve();
-              dcA.onOpen(() => resolve());
-            },
-            PEER_EVENT_TIMEOUT_MS,
-            'local "chat" channel to open',
-          );
-          await waitForPeerEvent<void>(
-            (resolve) => {
-              if (dcB.isOpen()) return resolve();
-              dcB.onOpen(() => resolve());
-            },
-            PEER_EVENT_TIMEOUT_MS,
-            'remote "chat" channel to open',
-          );
+        await waitForPeerEvent<void>(
+          (resolve) => {
+            if (dcA.isOpen()) return resolve();
+            dcA.onOpen(() => resolve());
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          'local "chat" channel to open',
+        );
+        await waitForPeerEvent<void>(
+          (resolve) => {
+            if (dcB.isOpen()) return resolve();
+            dcB.onOpen(() => resolve());
+          },
+          PEER_EVENT_TIMEOUT_MS,
+          'remote "chat" channel to open',
+        );
 
-          const received: string[] = [];
-          dcB.onMessage((data) => {
-            if (typeof data === "string") received.push(data);
-          });
-
-          const textMsg = makeTextMessage("hello bridge");
-          dcA.sendMessage(encodeMessage(textMsg));
-
-          const htmlMsg = makeHtmlMessage("<p>test</p>", "Title");
-          dcA.sendMessage(encodeMessage(htmlMsg));
-
-          await new Promise((r) => setTimeout(r, 200));
-
-          expect(received).toHaveLength(2);
-
-          const decoded0 = decodeMessage(received[0]);
-          expect(decoded0?.type).toBe("text");
-          expect(decoded0?.data).toBe("hello bridge");
-          expect(decoded0?.id).toBe(textMsg.id);
-
-          const decoded1 = decodeMessage(received[1]);
-          expect(decoded1?.type).toBe("html");
-          expect(decoded1?.data).toBe("<p>test</p>");
-          expect(decoded1?.meta?.title).toBe("Title");
+        const received: string[] = [];
+        dcB.onMessage((data) => {
+          if (typeof data === "string") received.push(data);
         });
-      } catch (error) {
-        if (!isPeerEventTimeoutError(error)) throw error;
-        console.warn("Skipping bridge protocol assertion: negotiation unavailable");
-      }
+
+        const textMsg = makeTextMessage("hello bridge");
+        dcA.sendMessage(encodeMessage(textMsg));
+
+        const htmlMsg = makeHtmlMessage("<p>test</p>", "Title");
+        dcA.sendMessage(encodeMessage(htmlMsg));
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(received).toHaveLength(2);
+
+        const decoded0 = decodeMessage(received[0]);
+        expect(decoded0?.type).toBe("text");
+        expect(decoded0?.data).toBe("hello bridge");
+        expect(decoded0?.id).toBe(textMsg.id);
+
+        const decoded1 = decodeMessage(received[1]);
+        expect(decoded1?.type).toBe("html");
+        expect(decoded1?.data).toBe("<p>test</p>");
+        expect(decoded1?.meta?.title).toBe("Title");
+      });
     },
     PEER_NEGOTIATION_TIMEOUT_MS,
   );

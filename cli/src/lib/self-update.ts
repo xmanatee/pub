@@ -10,10 +10,36 @@ export interface LatestRelease {
   version: string;
 }
 
+export function resolveTarget(platform: NodeJS.Platform, arch: string): string {
+  let normalizedPlatform: "darwin" | "linux";
+  switch (platform) {
+    case "darwin":
+      normalizedPlatform = "darwin";
+      break;
+    case "linux":
+      normalizedPlatform = "linux";
+      break;
+    default:
+      throw new Error(`Unsupported platform for binary upgrade: ${platform}`);
+  }
+
+  let normalizedArch: "arm64" | "x64";
+  switch (arch) {
+    case "arm64":
+      normalizedArch = "arm64";
+      break;
+    case "x64":
+      normalizedArch = "x64";
+      break;
+    default:
+      throw new Error(`Unsupported architecture for binary upgrade: ${arch}`);
+  }
+
+  return `${normalizedPlatform}-${normalizedArch}`;
+}
+
 export function detectTarget(): string {
-  const platform = process.platform === "darwin" ? "darwin" : "linux";
-  const arch = process.arch === "arm64" ? "arm64" : "x64";
-  return `${platform}-${arch}`;
+  return resolveTarget(process.platform, process.arch);
 }
 
 export function isNewer(latest: string, current: string): boolean {

@@ -83,7 +83,7 @@ add_to_path() {
 }
 
 main() {
-  local target tag url bin_path
+  local target tag url bin_path tmp_path
 
   target="$(detect_target)"
   echo "Detected platform: ${target}"
@@ -102,15 +102,20 @@ main() {
   local version="${tag#cli-v}"
   url="https://github.com/${REPO}/releases/download/${tag}/${BIN_NAME}-${target}"
   bin_path="${INSTALL_DIR}/${BIN_NAME}"
+  tmp_path="${INSTALL_DIR}/.${BIN_NAME}.tmp.$$"
 
   mkdir -p "$INSTALL_DIR"
   echo "Downloading ${BIN_NAME} v${version} for ${target}..."
-  curl -fSL --progress-bar -o "$bin_path" "$url"
-  chmod +x "$bin_path"
+  trap 'rm -f "$tmp_path"' EXIT
+  curl -fSL --progress-bar -o "$tmp_path" "$url"
+  chmod +x "$tmp_path"
 
-  if ! "$bin_path" --version >/dev/null 2>&1; then
+  if ! "$tmp_path" --version >/dev/null 2>&1; then
     echo "Warning: installed binary failed to run." >&2
   fi
+
+  mv "$tmp_path" "$bin_path"
+  trap - EXIT
 
   echo ""
   echo "pubblue v${version} installed to ${bin_path}"

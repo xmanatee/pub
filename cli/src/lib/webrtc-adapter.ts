@@ -16,6 +16,13 @@ export interface DataChannelOptions {
   protocol?: string;
 }
 
+export interface PeerConnectionOptions {
+  iceServers?: readonly string[];
+  iceAdditionalHostAddresses?: readonly string[];
+  iceUseIpv4?: boolean;
+  iceUseIpv6?: boolean;
+}
+
 export class AdapterDataChannel {
   constructor(private readonly dc: RTCDataChannel) {}
 
@@ -68,9 +75,16 @@ export class AdapterPeerConnection {
   private readonly pc: RTCPeerConnection;
   private localDescriptionCb: ((sdp: string, type: string) => void) | null = null;
 
-  constructor(config?: { iceServers?: string[] }) {
+  constructor(config?: PeerConnectionOptions) {
     const iceServers: RTCIceServer[] = (config?.iceServers ?? []).map((url) => ({ urls: url }));
-    this.pc = new RTCPeerConnection({ iceServers });
+    this.pc = new RTCPeerConnection({
+      iceServers,
+      iceAdditionalHostAddresses: config?.iceAdditionalHostAddresses
+        ? [...config.iceAdditionalHostAddresses]
+        : undefined,
+      iceUseIpv4: config?.iceUseIpv4,
+      iceUseIpv6: config?.iceUseIpv6,
+    });
   }
 
   onLocalCandidate(cb: (candidate: string, mid: string) => void): void {
@@ -147,6 +161,6 @@ export class AdapterPeerConnection {
   }
 }
 
-export function createPeerConnection(config?: { iceServers?: string[] }): AdapterPeerConnection {
+export function createPeerConnection(config?: PeerConnectionOptions): AdapterPeerConnection {
   return new AdapterPeerConnection(config);
 }

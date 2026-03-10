@@ -11,20 +11,36 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
       - name: Install dependencies
-        working-directory: cli
-        run: bun install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint CLI
+        run: pnpm lint
+
+      - name: Test CLI
+        run: pnpm test
 
       - name: Build binaries (cross-compile)
-        working-directory: cli
-        run: bun run build
+        run: pnpm build
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2

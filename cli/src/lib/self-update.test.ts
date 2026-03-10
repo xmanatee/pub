@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { binaryDownloadUrl, detectTarget, isNewer } from "./self-update.js";
+import { binaryDownloadUrl, detectTarget, isNewer, resolveTarget } from "./self-update.js";
 
 describe("isNewer", () => {
   it("returns true when latest is a major bump", () => {
@@ -28,6 +28,18 @@ describe("detectTarget", () => {
   it("returns a valid target string", () => {
     const target = detectTarget();
     expect(target).toMatch(/^(darwin|linux)-(arm64|x64)$/);
+  });
+});
+
+describe("resolveTarget", () => {
+  it("maps supported targets", () => {
+    expect(resolveTarget("darwin", "arm64")).toBe("darwin-arm64");
+    expect(resolveTarget("linux", "x64")).toBe("linux-x64");
+  });
+
+  it("rejects unsupported platforms and architectures", () => {
+    expect(() => resolveTarget("win32", "x64")).toThrow("Unsupported platform");
+    expect(() => resolveTarget("linux", "ia32")).toThrow("Unsupported architecture");
   });
 });
 
