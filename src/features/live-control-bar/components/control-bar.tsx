@@ -39,7 +39,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   const {
     agentName,
     audio,
-    command,
     connected,
     controlBarCollapsed,
     controlBarState,
@@ -220,14 +219,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   if (expanded) {
     topAddon = (
       <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
-    );
-  } else if (command.phase === "running" || command.phase === "canceling") {
-    const label =
-      command.phase === "canceling"
-        ? `Canceling ${command.activeCommandName ?? "command"}`
-        : `Running ${command.activeCommandName ?? "command"}`;
-    topAddon = (
-      <div className="px-4 py-2.5 text-sm leading-tight text-muted-foreground">{label}</div>
     );
   } else if (preview && !isEditing) {
     const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
