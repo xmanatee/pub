@@ -2,64 +2,63 @@ name: CLI Binary Release
 
 on:
   push:
-    tags:
-      - "cli-v*"
+    branches: [main]
+    paths:
+      - "cli/package.json"
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  check:
+    name: Check Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          VERSION=$(node -p "require('./cli/package.json').version")
+          if git ls-remote --tags origin "refs/tags/cli-v$VERSION" | grep -q .; then
+            echo "cli-v$VERSION already released"
+          else
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Build & Release
+    needs: check
+    if: needs.check.outputs.version
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: cli
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: latest
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint CLI
-        run: pnpm lint
-
-      - name: Test CLI
-        run: pnpm test
-
-      - name: Verify release tag matches CLI version
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Smoke test
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="$(node --print "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")"
-          if [ "$TAG" != "cli-v$VERSION" ]; then
-            echo "Tag $TAG does not match cli/package.json version $VERSION" >&2
-            exit 1
-          fi
-
-      - name: Build binaries (cross-compile)
-        run: pnpm build
-
-      - name: Smoke test linux binary
-        run: |
-          VERSION="$(node --print "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")"
-          ACTUAL="$(PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --version)"
-          test "$ACTUAL" = "$VERSION"
+          ACTUAL=$(PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --version)
+          test "$ACTUAL" = "${{ needs.check.outputs.version }}"
           PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --help >/dev/null
-
-      - name: Upload binaries to GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Tag and release
+        run: |
+          git tag "cli-v${{ needs.check.outputs.version }}"
+          git push origin "cli-v${{ needs.check.outputs.version }}"
+      - uses: softprops/action-gh-release@v2
         with:
+          tag_name: cli-v${{ needs.check.outputs.version }}
           files: cli/dist-bin/pubblue-*
           generate_release_notes: true

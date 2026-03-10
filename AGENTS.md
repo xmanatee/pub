@@ -101,7 +101,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### CI (`.github/workflows/`)
 - **`ci.yml`** — lint (Biome + tsc), test, build, knip for web app; lint, test, build + smoke test for CLI
-- **`cli-binary.yml`** — on `cli-v*` tags: verifies tag matches version, builds binaries, uploads to GitHub Releases (lint/test already covered by `ci.yml`)
+- **`cli-binary.yml`** — auto-releases CLI binaries when `cli/package.json` version changes on `main`; creates git tag, builds binaries, uploads to GitHub Releases
 - **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`
 
 ### Integrations
