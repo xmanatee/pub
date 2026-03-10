@@ -6,6 +6,7 @@ import { readConfig, resolveConfig, saveConfig } from "../../lib/config.js";
 import {
   autoDetectBridgeConfig,
   buildBridgeProcessEnv,
+  prepareBridgeConfigForSave,
 } from "../../lib/live-runtime/bridge-runtime.js";
 import { collectValues, resolveConfigureApiKey } from "./io.js";
 import { printAutoDetectSummary, printConfigStatus, printMutationSummary } from "./render.js";
@@ -36,6 +37,7 @@ export function registerConfigCommand(program: Command): void {
     .option("--unset <key>", "Unset config key (repeatable)", collectValues, [])
     .action(async (opts: ConfigureCommandOptions) => {
       const saved = readConfig();
+      const resolved = resolveConfig();
       const hasApiUpdate = Boolean(opts.apiKey || opts.apiKeyStdin);
       const hasSet = opts.set.length > 0;
       const hasUnset = opts.unset.length > 0;
@@ -52,15 +54,21 @@ export function registerConfigCommand(program: Command): void {
       }
 
       if (hasAuto) {
-        const bridgeProcessEnv = buildBridgeProcessEnv(saved?.bridge);
-        const result = await autoDetectBridgeConfig(bridgeProcessEnv);
-        const nextBridge: BridgeConfig = {
-          ...(saved?.bridge ?? {}),
+        const bridgeProcessEnv = buildBridgeProcessEnv();
+        const result = await autoDetectBridgeConfig(bridgeProcessEnv, resolved.bridge);
+        const candidateBridge: BridgeConfig = {
+          ...resolved.bridge,
           ...result.selected.configPatch,
+          mode: result.selected.mode,
         };
+        const nextBridge = prepareBridgeConfigForSave(
+          result.selected.mode,
+          candidateBridge,
+          bridgeProcessEnv,
+        );
         const nextConfig: SavedConfig = {
           apiKey: saved?.apiKey,
-          bridge: hasValues(nextBridge) ? nextBridge : undefined,
+          bridge: nextBridge,
           telegram: saved?.telegram,
         };
         saveConfig(nextConfig);

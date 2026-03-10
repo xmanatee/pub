@@ -5,10 +5,8 @@ import { CHANNELS } from "../../../shared/bridge-protocol-core";
 import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
-  resolveAttachmentMaxBytes,
-  resolveAttachmentRootDir,
   type StagedAttachment,
-} from "./live-bridge-openclaw-attachments.js";
+} from "./live-bridge-attachments.js";
 import {
   resolveOpenClawHome,
   resolveOpenClawSessionsPath,
@@ -20,7 +18,6 @@ import {
   buildRenderErrorPrompt,
   buildSessionBriefing,
   readRenderErrorMessage,
-  resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-shared.js";
 import { buildBridgeInstructions } from "./live-daemon-shared.js";
@@ -29,20 +26,15 @@ const openclawInstructions = buildBridgeInstructions("openclaw");
 const claudeCodeInstructions = buildBridgeInstructions("claude-code");
 
 const originalEnv = {
-  OPENCLAW_ATTACHMENT_DIR: process.env.OPENCLAW_ATTACHMENT_DIR,
-  OPENCLAW_ATTACHMENT_MAX_BYTES: process.env.OPENCLAW_ATTACHMENT_MAX_BYTES,
-  OPENCLAW_CANVAS_REMINDER_EVERY: process.env.OPENCLAW_CANVAS_REMINDER_EVERY,
   OPENCLAW_HOME: process.env.OPENCLAW_HOME,
   OPENCLAW_STATE_DIR: process.env.OPENCLAW_STATE_DIR,
 };
 
 afterEach(() => {
-  process.env.OPENCLAW_ATTACHMENT_DIR = originalEnv.OPENCLAW_ATTACHMENT_DIR;
-  process.env.OPENCLAW_ATTACHMENT_MAX_BYTES = originalEnv.OPENCLAW_ATTACHMENT_MAX_BYTES;
-  process.env.OPENCLAW_CANVAS_REMINDER_EVERY = originalEnv.OPENCLAW_CANVAS_REMINDER_EVERY;
   process.env.OPENCLAW_HOME = originalEnv.OPENCLAW_HOME;
   process.env.OPENCLAW_STATE_DIR = originalEnv.OPENCLAW_STATE_DIR;
   if (!originalEnv.OPENCLAW_HOME) delete process.env.OPENCLAW_HOME;
+  if (!originalEnv.OPENCLAW_STATE_DIR) delete process.env.OPENCLAW_STATE_DIR;
 });
 
 describe("resolveOpenClawHome", () => {
@@ -77,59 +69,12 @@ describe("resolveOpenClawStateDir", () => {
   });
 });
 
-describe("resolveAttachmentRootDir", () => {
-  it("prefers OPENCLAW_ATTACHMENT_DIR when set", () => {
-    process.env.OPENCLAW_ATTACHMENT_DIR = "/tmp/pub-attachments";
-    process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-state";
-    expect(resolveAttachmentRootDir()).toBe("/tmp/pub-attachments");
-  });
-
-  it("falls back to OPENCLAW_STATE_DIR/pub-inbox", () => {
-    delete process.env.OPENCLAW_ATTACHMENT_DIR;
-    process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-state";
-    expect(resolveAttachmentRootDir()).toBe("/tmp/openclaw-state/pub-inbox");
-  });
-});
-
 describe("resolveOpenClawSessionsPath", () => {
   it("resolves sessions.json under OPENCLAW_STATE_DIR when set", () => {
     process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-custom-state";
     expect(resolveOpenClawSessionsPath()).toBe(
       "/tmp/openclaw-custom-state/agents/main/sessions/sessions.json",
     );
-  });
-});
-
-describe("resolveAttachmentMaxBytes", () => {
-  it("uses default when env is absent or invalid", () => {
-    delete process.env.OPENCLAW_ATTACHMENT_MAX_BYTES;
-    expect(resolveAttachmentMaxBytes()).toBe(5 * 1024 * 1024);
-
-    process.env.OPENCLAW_ATTACHMENT_MAX_BYTES = "NaN";
-    expect(resolveAttachmentMaxBytes()).toBe(5 * 1024 * 1024);
-  });
-
-  it("uses configured positive value", () => {
-    process.env.OPENCLAW_ATTACHMENT_MAX_BYTES = "12345";
-    expect(resolveAttachmentMaxBytes()).toBe(12345);
-  });
-});
-
-describe("resolveCanvasReminderEvery", () => {
-  it("uses default when env is absent or invalid", () => {
-    delete process.env.OPENCLAW_CANVAS_REMINDER_EVERY;
-    expect(resolveCanvasReminderEvery()).toBe(10);
-
-    process.env.OPENCLAW_CANVAS_REMINDER_EVERY = "NaN";
-    expect(resolveCanvasReminderEvery()).toBe(10);
-
-    process.env.OPENCLAW_CANVAS_REMINDER_EVERY = "0";
-    expect(resolveCanvasReminderEvery()).toBe(10);
-  });
-
-  it("uses configured positive value", () => {
-    process.env.OPENCLAW_CANVAS_REMINDER_EVERY = "12";
-    expect(resolveCanvasReminderEvery()).toBe(12);
   });
 });
 

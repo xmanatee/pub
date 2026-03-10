@@ -2,11 +2,14 @@ import { createHash } from "node:crypto";
 import { mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { type BridgeMessage } from "../../../shared/bridge-protocol-core";
-import { resolveOpenClawStateDir } from "./live-bridge-openclaw-session.js";
+import { CHANNELS } from "../../../shared/bridge-protocol-core";
 import { type BufferedEntry, buildCanvasPolicyReminderBlock } from "./live-bridge-shared.js";
 import type { BridgeInstructions } from "./live-daemon-shared.js";
-
-const DEFAULT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+export const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
+  CHANNELS.AUDIO,
+  CHANNELS.FILE,
+  CHANNELS.MEDIA,
+]);
 
 export interface ActiveStream {
   bytes: number;
@@ -26,18 +29,6 @@ export interface StagedAttachment {
   size: number;
   streamId?: string;
   streamStatus: "single" | "complete" | "interrupted";
-}
-
-export function resolveAttachmentRootDir(): string {
-  const configured = process.env.OPENCLAW_ATTACHMENT_DIR?.trim();
-  if (configured) return configured;
-  return join(resolveOpenClawStateDir(), "pub-inbox");
-}
-
-export function resolveAttachmentMaxBytes(): number {
-  const raw = Number.parseInt(process.env.OPENCLAW_ATTACHMENT_MAX_BYTES ?? "", 10);
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_ATTACHMENT_MAX_BYTES;
-  return raw;
 }
 
 function inferExtensionFromMime(mime: string): string {

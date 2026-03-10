@@ -94,14 +94,13 @@ describe("applyConfigSet", () => {
 
   it("sets all openclaw string keys", () => {
     const stringKeys: Array<{ key: string; field: keyof BridgeConfig }> = [
+      { key: "bridge.cwd", field: "bridgeCwd" },
+      { key: "bridge.attachmentDir", field: "attachmentDir" },
       { key: "openclaw.path", field: "openclawPath" },
       { key: "openclaw.stateDir", field: "openclawStateDir" },
-      { key: "openclaw.workspace", field: "openclawWorkspace" },
       { key: "openclaw.sessionId", field: "sessionId" },
       { key: "openclaw.threadId", field: "threadId" },
       { key: "openclaw.deliverChannel", field: "deliverChannel" },
-      { key: "openclaw.replyTo", field: "replyTo" },
-      { key: "openclaw.attachmentDir", field: "attachmentDir" },
     ];
 
     for (const { key, field } of stringKeys) {
@@ -114,9 +113,9 @@ describe("applyConfigSet", () => {
 
   it("sets openclaw integer keys with parsing", () => {
     const intKeys: Array<{ key: string; field: keyof BridgeConfig }> = [
-      { key: "openclaw.canvasReminderEvery", field: "canvasReminderEvery" },
-      { key: "openclaw.deliverTimeoutMs", field: "deliverTimeoutMs" },
-      { key: "openclaw.attachmentMaxBytes", field: "attachmentMaxBytes" },
+      { key: "bridge.canvasReminderEvery", field: "canvasReminderEvery" },
+      { key: "bridge.deliverTimeoutMs", field: "deliverTimeoutMs" },
+      { key: "bridge.attachmentMaxBytes", field: "attachmentMaxBytes" },
     ];
 
     for (const { key, field } of intKeys) {
@@ -147,7 +146,6 @@ describe("applyConfigSet", () => {
       { key: "claude-code.model", field: "claudeCodeModel" },
       { key: "claude-code.allowedTools", field: "claudeCodeAllowedTools" },
       { key: "claude-code.appendSystemPrompt", field: "claudeCodeAppendSystemPrompt" },
-      { key: "claude-code.cwd", field: "claudeCodeCwd" },
     ];
 
     for (const { key, field } of ccKeys) {
@@ -230,8 +228,8 @@ describe("applyConfigUnset", () => {
 });
 
 describe("SUPPORTED_KEYS", () => {
-  it("lists all 23 config keys", () => {
-    expect(SUPPORTED_KEYS).toHaveLength(23);
+  it("lists all 21 config keys", () => {
+    expect(SUPPORTED_KEYS).toHaveLength(21);
   });
 
   it("every key is handled by applyConfigSet without throwing", () => {

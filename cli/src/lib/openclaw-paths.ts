@@ -1,6 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 function trimToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -52,45 +51,4 @@ export function resolveOpenClawConfigPath(env: NodeJS.ProcessEnv = process.env):
   const configured = trimToUndefined(env.OPENCLAW_CONFIG_PATH);
   if (configured) return resolvePathFromInput(configured, env);
   return join(resolveOpenClawStateDir(env), "openclaw.json");
-}
-
-function readWorkspaceFromOpenClawConfig(configPath: string): string | null {
-  if (!existsSync(configPath)) return null;
-  try {
-    const cfg = JSON.parse(readFileSync(configPath, "utf-8")) as {
-      workspace?: unknown;
-      agents?: { defaults?: { workspace?: unknown } };
-    };
-
-    const defaultsWorkspace = cfg.agents?.defaults?.workspace;
-    if (typeof defaultsWorkspace === "string" && defaultsWorkspace.trim()) {
-      return defaultsWorkspace.trim();
-    }
-
-    const legacyWorkspace = cfg.workspace;
-    if (typeof legacyWorkspace === "string" && legacyWorkspace.trim()) {
-      return legacyWorkspace.trim();
-    }
-  } catch {
-    // ignore parse errors and fall back to default workspace path
-  }
-  return null;
-}
-
-function resolveWorkspacePath(input: string, configPath: string, env: NodeJS.ProcessEnv): string {
-  const home = resolveOpenClawHome(env);
-  const expanded = expandHomePrefix(input, home);
-  if (isAbsolute(expanded)) return resolve(expanded);
-  return resolve(dirname(configPath), expanded);
-}
-
-export function resolveOpenClawWorkspaceDir(env: NodeJS.ProcessEnv = process.env): string {
-  const explicit = trimToUndefined(env.OPENCLAW_WORKSPACE);
-  if (explicit) return resolvePathFromInput(explicit, env);
-
-  const configPath = resolveOpenClawConfigPath(env);
-  const fromConfig = readWorkspaceFromOpenClawConfig(configPath);
-  if (fromConfig) return resolveWorkspacePath(fromConfig, configPath, env);
-
-  return join(resolveOpenClawStateDir(env), "workspace");
 }

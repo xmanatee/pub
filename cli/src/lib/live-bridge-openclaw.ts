@@ -3,15 +3,15 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
+import type { BridgeConfig, PreparedBridgeConfig, PreparedOpenClawConfig } from "./config.js";
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import {
   type ActiveStream,
   ensureDirectoryWritable,
   handleAttachmentEntry,
-  resolveAttachmentMaxBytes,
-  resolveAttachmentRootDir,
-} from "./live-bridge-openclaw-attachments.js";
+  MONITORED_ATTACHMENT_CHANNELS,
+} from "./live-bridge-attachments.js";
 import { resolveSessionFromOpenClaw } from "./live-bridge-openclaw-session.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
@@ -23,26 +23,19 @@ import {
   buildRenderErrorPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-shared.js";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
-import {
-  resolveOpenClawHome,
-  resolveOpenClawStateDir,
-  resolveOpenClawWorkspaceDir,
-} from "./openclaw-paths.js";
+import { resolveOpenClawHome } from "./openclaw-paths.js";
 
 const execFileAsync = promisify(execFile);
 function getOpenClawDiscoveryPaths(env: NodeJS.ProcessEnv = process.env): string[] {
   const home = resolveOpenClawHome(env);
-  const stateDir = resolveOpenClawStateDir(env);
   return [
     ...new Set([
       "/app/dist/index.js",
       join(home, "openclaw", "dist", "index.js"),
-      join(stateDir, "openclaw"),
       join(home, ".openclaw", "openclaw"),
       "/usr/local/bin/openclaw",
       "/opt/homebrew/bin/openclaw",
@@ -50,22 +43,68 @@ function getOpenClawDiscoveryPaths(env: NodeJS.ProcessEnv = process.env): string
   ];
 }
 
-export function isOpenClawAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
-  const configured = env.OPENCLAW_PATH?.trim();
+function getConfiguredOpenClawPath(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.openclawPath;
+  return env.OPENCLAW_PATH?.trim();
+}
+
+function getConfiguredOpenClawStateDir(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.openclawStateDir;
+  return env.OPENCLAW_STATE_DIR?.trim();
+}
+
+function getConfiguredOpenClawSessionId(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.sessionId;
+  return env.OPENCLAW_SESSION_ID?.trim();
+}
+
+function getConfiguredOpenClawThreadId(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.threadId;
+  return env.OPENCLAW_THREAD_ID?.trim();
+}
+
+function buildOpenClawLookupEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): NodeJS.ProcessEnv {
+  const stateDir = getConfiguredOpenClawStateDir(env, bridgeConfig);
+  if (!stateDir) return env;
+  return {
+    ...env,
+    OPENCLAW_STATE_DIR: stateDir,
+  };
+}
+
+export function isOpenClawAvailable(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): boolean {
+  const configured = getConfiguredOpenClawPath(env, bridgeConfig);
   if (configured) return existsSync(configured);
   const pathFromShell = resolveCommandFromPath("openclaw");
   if (pathFromShell) return true;
-  return getOpenClawDiscoveryPaths(env).some((p) => existsSync(p));
+  return getOpenClawDiscoveryPaths(buildOpenClawLookupEnv(env, bridgeConfig)).some((p) =>
+    existsSync(p),
+  );
 }
 
-const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
-  CHANNELS.AUDIO,
-  CHANNELS.FILE,
-  CHANNELS.MEDIA,
-]);
-
-export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): string {
-  const configuredPath = env.OPENCLAW_PATH?.trim();
+export function resolveOpenClawPath(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string {
+  const configuredPath = getConfiguredOpenClawPath(env, bridgeConfig);
   if (configuredPath) {
     if (!existsSync(configuredPath)) {
       throw new Error(`OPENCLAW_PATH does not exist: ${configuredPath}`);
@@ -76,7 +115,7 @@ export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): strin
   const pathFromShell = resolveCommandFromPath("openclaw");
   if (pathFromShell) return pathFromShell;
 
-  const discoveryPaths = getOpenClawDiscoveryPaths(env);
+  const discoveryPaths = getOpenClawDiscoveryPaths(buildOpenClawLookupEnv(env, bridgeConfig));
   for (const candidate of discoveryPaths) {
     if (existsSync(candidate)) return candidate;
   }
@@ -137,10 +176,16 @@ export async function runOpenClawPreflight(
   }
 }
 
-function resolveOpenClawCommandCwd(env: NodeJS.ProcessEnv = process.env): string {
-  const workspace = env.OPENCLAW_WORKSPACE?.trim();
-  if (workspace) return workspace;
-  return resolveOpenClawWorkspaceDir(env);
+function getPreparedOpenClawCommandCwd(bridgeConfig: PreparedOpenClawConfig): string {
+  return bridgeConfig.bridgeCwd;
+}
+
+function getAutoDetectOpenClawCommandCwd(env: NodeJS.ProcessEnv = process.env): string {
+  const envWorkspace = env.OPENCLAW_WORKSPACE?.trim();
+  if (envWorkspace) return envWorkspace;
+  throw new Error(
+    "OpenClaw workspace is not configured. Set OPENCLAW_WORKSPACE before `pub config --auto`.",
+  );
 }
 
 export async function deliverMessageToOpenClaw(
@@ -150,26 +195,39 @@ export async function deliverMessageToOpenClaw(
     text: string;
   },
   env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+  options?: { allowEnvFallback?: boolean },
 ): Promise<void> {
-  const timeoutMs = Number.parseInt(env.OPENCLAW_DELIVER_TIMEOUT_MS ?? "", 10);
-  const effectiveTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000;
+  const parsedTimeoutMs = bridgeConfig?.deliverTimeoutMs;
+  const effectiveTimeoutMs =
+    typeof parsedTimeoutMs === "number" && Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0
+      ? parsedTimeoutMs
+      : 120_000;
 
   const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
 
   const shouldDeliver =
-    env.OPENCLAW_DELIVER === "1" ||
-    Boolean(env.OPENCLAW_DELIVER_CHANNEL) ||
-    Boolean(env.OPENCLAW_REPLY_TO);
+    bridgeConfig !== undefined
+      ? bridgeConfig.deliver === true || Boolean(bridgeConfig.deliverChannel)
+      : options?.allowEnvFallback
+        ? env.OPENCLAW_DELIVER === "1" || Boolean(env.OPENCLAW_DELIVER_CHANNEL)
+        : false;
   if (shouldDeliver) args.push("--deliver");
-  if (env.OPENCLAW_DELIVER_CHANNEL) {
-    args.push("--channel", env.OPENCLAW_DELIVER_CHANNEL);
-  }
-  if (env.OPENCLAW_REPLY_TO) {
-    args.push("--reply-to", env.OPENCLAW_REPLY_TO);
+  const deliverChannel =
+    bridgeConfig !== undefined
+      ? bridgeConfig.deliverChannel?.trim()
+      : options?.allowEnvFallback
+        ? env.OPENCLAW_DELIVER_CHANNEL?.trim()
+        : undefined;
+  if (deliverChannel) {
+    args.push("--channel", deliverChannel);
   }
 
   const invocation = getOpenClawInvocation(params.openclawPath, args);
-  const cwd = resolveOpenClawCommandCwd(env);
+  const cwd =
+    options?.allowEnvFallback || !bridgeConfig
+      ? getAutoDetectOpenClawCommandCwd(env)
+      : getPreparedOpenClawCommandCwd(bridgeConfig as PreparedOpenClawConfig);
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
       cwd,
@@ -190,17 +248,21 @@ export interface OpenClawRuntimeResolution {
 
 export function resolveOpenClawRuntime(
   env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
 ): OpenClawRuntimeResolution {
-  const openclawPath = resolveOpenClawPath(env);
-  const configuredSessionId = env.OPENCLAW_SESSION_ID?.trim();
+  const openclawPath = resolveOpenClawPath(env, bridgeConfig);
+  const configuredSessionId = getConfiguredOpenClawSessionId(env, bridgeConfig);
   const resolvedSession = configuredSessionId
     ? {
         attemptedKeys: [],
         sessionId: configuredSessionId,
-        sessionKey: "OPENCLAW_SESSION_ID",
-        sessionSource: "env" as const,
+        sessionKey: bridgeConfig ? "openclaw.sessionId" : "OPENCLAW_SESSION_ID",
+        sessionSource: bridgeConfig ? ("config" as const) : ("env" as const),
       }
-    : resolveSessionFromOpenClaw(env.OPENCLAW_THREAD_ID, env);
+    : resolveSessionFromOpenClaw(
+        getConfiguredOpenClawThreadId(env, bridgeConfig),
+        buildOpenClawLookupEnv(env, bridgeConfig),
+      );
 
   if (!resolvedSession.sessionId) {
     const details = [
@@ -229,8 +291,22 @@ export function resolveOpenClawRuntime(
 
 export async function runOpenClawBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig | PreparedBridgeConfig,
+  options?: { strictConfig: boolean },
 ): Promise<OpenClawRuntimeResolution> {
-  const runtime = resolveOpenClawRuntime(env);
+  const strictConfig = options?.strictConfig === true;
+  const runtime = strictConfig
+    ? {
+        openclawPath: (bridgeConfig as PreparedOpenClawConfig).openclawPath,
+        sessionId: (bridgeConfig as PreparedOpenClawConfig).sessionId,
+        sessionKey: "openclaw.sessionId",
+        sessionSource: "config" as const,
+      }
+    : resolveOpenClawRuntime(env, bridgeConfig);
+  if (!runtime.openclawPath || !runtime.sessionId) {
+    throw new Error("OpenClaw runtime is not prepared. Run `pub config --auto` again.");
+  }
+  const allowEnvFallback = !strictConfig;
   await runOpenClawPreflight(runtime.openclawPath, env);
   await runAgentWritePongProbe({
     label: "OpenClaw",
@@ -248,6 +324,8 @@ export async function runOpenClawBridgeStartupProbe(
           ].join("\n"),
         },
         probeEnv,
+        bridgeConfig,
+        { allowEnvFallback },
       );
     },
   });
@@ -258,21 +336,28 @@ export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
 ): Promise<BridgeRunner> {
   const { slug, debugLog, sessionBriefing } = config;
-
-  const runtime = resolveOpenClawRuntime(process.env);
-  const { openclawPath, sessionId } = runtime;
-  const attachmentRoot = resolveAttachmentRootDir();
-  const attachmentMaxBytes = resolveAttachmentMaxBytes();
+  const prepared = config.bridgeConfig;
+  if (prepared.mode !== "openclaw") {
+    throw new Error("OpenClaw runtime is not prepared.");
+  }
+  const openclawPath = prepared.openclawPath;
+  const sessionId = prepared.sessionId;
+  const attachmentRoot = prepared.attachmentDir;
+  const attachmentMaxBytes = prepared.attachmentMaxBytes;
   ensureDirectoryWritable(attachmentRoot);
 
   await runOpenClawPreflight(openclawPath, process.env);
 
   const activeStreams = new Map<string, ActiveStream>();
-  const canvasReminderEvery = resolveCanvasReminderEvery();
+  const canvasReminderEvery = prepared.canvasReminderEvery;
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
   let stopped = false;
-  await deliverMessageToOpenClaw({ openclawPath, sessionId, text: sessionBriefing });
+  await deliverMessageToOpenClaw(
+    { openclawPath, sessionId, text: sessionBriefing },
+    process.env,
+    prepared,
+  );
   debugLog("session briefing delivered");
 
   const queue = createBridgeEntryQueue({
@@ -287,7 +372,7 @@ export async function createOpenClawBridgeRunner(
           openclawPath,
           sessionId,
           text: buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
-        });
+        }, process.env, prepared);
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -303,7 +388,7 @@ export async function createOpenClawBridgeRunner(
           openclawPath,
           sessionId,
           text: buildRenderErrorPrompt(slug, renderError, config.instructions),
-        });
+        }, process.env, prepared);
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -319,7 +404,11 @@ export async function createOpenClawBridgeRunner(
         attachmentMaxBytes,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
-          await deliverMessageToOpenClaw({ openclawPath, sessionId, text: prompt });
+          await deliverMessageToOpenClaw(
+            { openclawPath, sessionId, text: prompt },
+            process.env,
+            prepared,
+          );
         },
         entry,
         includeCanvasReminder,
@@ -363,7 +452,7 @@ export async function createOpenClawBridgeRunner(
     },
   });
 
-  debugLog(`bridge runner started (session=${sessionId}, key=${runtime.sessionKey || "n/a"})`);
+  debugLog(`bridge runner started (session=${sessionId})`);
 
   return {
     enqueue: (entries) => queue.enqueue(entries),
@@ -378,8 +467,6 @@ export async function createOpenClawBridgeRunner(
       return {
         running: !stopped,
         sessionId,
-        sessionKey: runtime.sessionKey,
-        sessionSource: runtime.sessionSource,
         lastError,
         forwardedMessages: forwardedMessageCount,
       };

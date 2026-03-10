@@ -79,7 +79,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Config: one `config.json` under the single resolved Pub config directory, plus env overrides like `PUB_API_KEY`
 - Config dir resolution: existing `PUB_CONFIG_DIR` → existing `OPENCLAW_HOME/.openclaw/pub` → existing `~/.configs/pub`; fail on ambiguity or no directory
 - OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
-- OpenClaw workspace resolution: `OPENCLAW_WORKSPACE` → `OPENCLAW_CONFIG_PATH` (`agents.defaults.workspace` / legacy `workspace`) → `OPENCLAW_STATE_DIR/workspace` (or `~/.openclaw/workspace`)
+- Bridge cwd resolution: `PUB_BRIDGE_CWD` overrides shared bridge cwd; `pub config --auto` only accepts OpenClaw when `OPENCLAW_WORKSPACE` is set, and runtime OpenClaw uses `OPENCLAW_WORKSPACE` or saved `bridge.cwd`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_BASE_URL` env var
 
 ### Content Serving

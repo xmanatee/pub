@@ -107,6 +107,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let bridgeRunner: BridgeRunner | null = null;
   const commandHandler = createLiveCommandHandler({
     bridgeMode: config.bridgeMode,
+    bridgeConfig: config.bridgeConfig,
     debugLog: (message, error) => debugLog(message, error),
     markError,
     sendCommandMessage: async (msg) => {
@@ -884,9 +885,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function startBridge(slug: string): Promise<void> {
     if (stopped) return;
-    if (!config.bridgeMode) {
-      throw new Error("Bridge mode is required for live session bootstrap.");
-    }
     if (activeSlug !== slug) return;
     await stopBridge();
     const abort = new AbortController();
@@ -896,6 +894,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     const bridgeConfig = {
       slug,
       sessionBriefing,
+      bridgeConfig: config.bridgeConfig,
       sendMessage: sendOnChannel,
       onDeliveryUpdate: ({
         channel,

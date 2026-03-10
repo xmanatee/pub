@@ -4,6 +4,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
+import type { BridgeConfig, PreparedBridgeConfig, PreparedClaudeBridgeConfig } from "./config.js";
+import {
+  type ActiveStream,
+  ensureDirectoryWritable,
+  handleAttachmentEntry,
+  MONITORED_ATTACHMENT_CHANNELS,
+} from "./live-bridge-attachments.js";
 import { isClaudeCodeAvailableInEnv, resolveClaudeCodePath } from "./live-bridge-claude-code.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
@@ -15,7 +22,6 @@ import {
   buildRenderErrorPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-shared.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
@@ -42,19 +48,31 @@ function isClaudeSdkResolvable(): boolean {
   }
 }
 
-export function isClaudeSdkAvailableInEnv(env: NodeJS.ProcessEnv): boolean {
-  return isClaudeCodeAvailableInEnv(env) && isClaudeSdkResolvable();
+export function isClaudeSdkAvailableInEnv(
+  env: NodeJS.ProcessEnv,
+  bridgeConfig?: BridgeConfig,
+): boolean {
+  return isClaudeCodeAvailableInEnv(env, bridgeConfig) && isClaudeSdkResolvable();
 }
 
 export async function isClaudeSdkImportable(): Promise<boolean> {
   return (await tryImportSdk()) !== null;
 }
 
-export function buildSdkSessionOptions(env: NodeJS.ProcessEnv = process.env) {
-  const model = env.CLAUDE_CODE_MODEL?.trim() || "claude-sonnet-4-6";
-  const claudePath = resolveClaudeCodePath(env);
+export function buildSdkSessionOptions(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+) {
+  const model =
+    bridgeConfig !== undefined
+      ? bridgeConfig.claudeCodeModel || "claude-sonnet-4-6"
+      : env.CLAUDE_CODE_MODEL?.trim() || "claude-sonnet-4-6";
+  const claudePath = resolveClaudeCodePath(env, bridgeConfig);
 
-  const allowedToolsRaw = env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
+  const allowedToolsRaw =
+    bridgeConfig !== undefined
+      ? bridgeConfig.claudeCodeAllowedTools
+      : env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
   const allowedTools = allowedToolsRaw
     ? allowedToolsRaw
         .split(",")
@@ -68,20 +86,49 @@ export function buildSdkSessionOptions(env: NodeJS.ProcessEnv = process.env) {
   return { model, claudePath, allowedTools, sdkEnv };
 }
 
+function getAutoDetectClaudeSdkCwd(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string {
+  return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
+}
+
+function getStrictClaudeSdkCwd(bridgeConfig: PreparedClaudeBridgeConfig): string {
+  return bridgeConfig.bridgeCwd;
+}
+
+function getStrictClaudeSdkPath(bridgeConfig: PreparedClaudeBridgeConfig): string {
+  return bridgeConfig.claudeCodePath;
+}
+
 function buildAppendSystemPrompt(
   bridgeSystemPrompt: string | null,
   env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
 ): string | undefined {
-  const userSystemPrompt = env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
+  const userSystemPrompt =
+    bridgeConfig !== undefined
+      ? bridgeConfig.claudeCodeAppendSystemPrompt
+      : env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
   const effective = [bridgeSystemPrompt, userSystemPrompt].filter(Boolean).join("\n\n");
   return effective.length > 0 ? effective : undefined;
 }
 
 export async function runClaudeSdkBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig | PreparedBridgeConfig,
+  options?: { strictConfig: boolean },
 ): Promise<{ claudePath: string; cwd?: string }> {
-  const { model, claudePath, allowedTools } = buildSdkSessionOptions(env);
-  const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUB_PROJECT_ROOT || undefined;
+  const strictConfig = options?.strictConfig === true;
+  const { model, allowedTools } = buildSdkSessionOptions(env, bridgeConfig);
+  const claudePath =
+    strictConfig && bridgeConfig
+      ? getStrictClaudeSdkPath(bridgeConfig as PreparedClaudeBridgeConfig)
+      : resolveClaudeCodePath(env, bridgeConfig);
+  const cwd =
+    strictConfig && bridgeConfig
+      ? getStrictClaudeSdkCwd(bridgeConfig as PreparedClaudeBridgeConfig)
+      : getAutoDetectClaudeSdkCwd(env, bridgeConfig);
 
   const sdk = await tryImportSdk();
   if (!sdk) {
@@ -125,7 +172,7 @@ export async function runClaudeSdkBridgeStartupProbe(
           pathToClaudeCodeExecutable: claudePath,
           env: probeEnvClean,
           allowedTools,
-          cwd: os.tmpdir(),
+          cwd: cwd || os.tmpdir(),
           maxTurns: 2,
           persistSession: false,
           canUseTool: async (toolName, input) => {
@@ -154,6 +201,10 @@ export async function createClaudeSdkBridgeRunner(
 ): Promise<BridgeRunner> {
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
   const env = process.env;
+  const prepared = config.bridgeConfig;
+  if (prepared.mode !== "claude-sdk") {
+    throw new Error("Claude SDK runtime is not prepared.");
+  }
 
   const sdk = await tryImportSdk();
   if (!sdk) {
@@ -161,8 +212,20 @@ export async function createClaudeSdkBridgeRunner(
   }
   const loadedSdk = sdk;
 
-  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(env);
-  const appendSystemPrompt = buildAppendSystemPrompt(config.instructions.systemPrompt, env);
+  const { model, claudePath, allowedTools, sdkEnv } = buildSdkSessionOptions(
+    env,
+    prepared,
+  );
+  const appendSystemPrompt = buildAppendSystemPrompt(
+    config.instructions.systemPrompt,
+    env,
+    prepared,
+  );
+  const attachmentRoot = prepared.attachmentDir;
+  const attachmentMaxBytes = prepared.attachmentMaxBytes;
+  const activeStreams = new Map<string, ActiveStream>();
+
+  ensureDirectoryWritable(attachmentRoot);
 
   let sessionId: string | undefined;
   let forwardedMessageCount = 0;
@@ -184,7 +247,7 @@ export async function createClaudeSdkBridgeRunner(
     );
   }
 
-  const canvasReminderEvery = resolveCanvasReminderEvery();
+  const canvasReminderEvery = prepared.canvasReminderEvery;
 
   function createSession(): SdkSession {
     const session = loadedSdk.unstable_v2_createSession({
@@ -287,6 +350,35 @@ export async function createClaudeSdkBridgeRunner(
           messageId: entry.msg.id,
           stage: "confirmed",
         });
+        return;
+      }
+
+      if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
+      const deliveredAttachment = await handleAttachmentEntry({
+        activeStreams,
+        attachmentMaxBytes,
+        attachmentRoot,
+        deliverPrompt: async (prompt) => {
+          await deliverWithRecovery(prompt);
+        },
+        entry,
+        includeCanvasReminder,
+        instructions: config.instructions,
+        slug,
+      });
+      if (deliveredAttachment) {
+        forwardedMessageCount += 1;
+        const deliveryMessageId =
+          entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+            ? entry.msg.meta.streamId
+            : entry.msg.id;
+        if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
+        }
       }
     },
     onError: (error, entry) => {

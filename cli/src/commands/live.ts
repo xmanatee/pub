@@ -73,7 +73,7 @@ function registerStartCommand(program: Command): void {
     .option("--bridge <mode>", "Bridge mode: openclaw|claude-code|claude-sdk")
     .action(async (opts: { agentName: string; bridge?: string }) => {
       const preflight = await runStartPreflight({ bridge: opts.bridge });
-      const { runtimeConfig, bridgeMode, bridgeProcessEnv } = preflight;
+      const { runtimeConfig, bridgeConfig, bridgeMode, bridgeProcessEnv } = preflight;
       try {
         writeLatestCliVersion(CLI_VERSION);
       } catch (error) {
@@ -104,6 +104,7 @@ function registerStartCommand(program: Command): void {
           PUB_DAEMON_AGENT_NAME: opts.agentName,
           PUB_CLI_VERSION: CLI_VERSION,
           PUB_DAEMON_BRIDGE_MODE: bridgeMode,
+          PUB_DAEMON_BRIDGE_CONFIG: JSON.stringify(bridgeConfig),
         },
       });
       fs.closeSync(daemonLogFd);

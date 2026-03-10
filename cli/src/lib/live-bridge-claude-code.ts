@@ -4,6 +4,12 @@ import { createInterface } from "node:readline";
 import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
 import { errorMessage } from "./cli-error.js";
 import { resolveCommandFromPath } from "./command-path.js";
+import {
+  type ActiveStream,
+  ensureDirectoryWritable,
+  handleAttachmentEntry,
+  MONITORED_ATTACHMENT_CHANNELS,
+} from "./live-bridge-attachments.js";
 import { createBridgeEntryQueue } from "./live-bridge-queue.js";
 import {
   type BridgeRunner,
@@ -14,13 +20,60 @@ import {
   buildRenderErrorPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  resolveCanvasReminderEvery,
   shouldIncludeCanvasPolicyReminder,
 } from "./live-bridge-shared.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
+import type { BridgeConfig, PreparedClaudeBridgeConfig, PreparedBridgeConfig } from "./config.js";
 
-export function isClaudeCodeAvailableInEnv(env: NodeJS.ProcessEnv): boolean {
-  const configured = env.CLAUDE_CODE_PATH?.trim();
+function getConfiguredClaudeCodePath(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.claudeCodePath;
+  return env.CLAUDE_CODE_PATH?.trim();
+}
+
+function getConfiguredClaudeCodeModel(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.claudeCodeModel;
+  return env.CLAUDE_CODE_MODEL?.trim();
+}
+
+function getConfiguredClaudeCodeAllowedTools(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.claudeCodeAllowedTools;
+  return env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
+}
+
+function getConfiguredClaudeCodeAppendPrompt(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) return bridgeConfig.claudeCodeAppendSystemPrompt;
+  return env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
+}
+
+function getConfiguredClaudeCodeMaxTurns(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string | undefined {
+  if (bridgeConfig) {
+    return bridgeConfig.claudeCodeMaxTurns !== undefined
+      ? String(bridgeConfig.claudeCodeMaxTurns)
+      : undefined;
+  }
+  return env.CLAUDE_CODE_MAX_TURNS?.trim();
+}
+
+export function isClaudeCodeAvailableInEnv(
+  env: NodeJS.ProcessEnv,
+  bridgeConfig?: BridgeConfig,
+): boolean {
+  const configured = getConfiguredClaudeCodePath(env, bridgeConfig);
   if (configured) {
     if (existsSync(configured)) return true;
     return resolveCommandFromPath(configured) !== null;
@@ -28,8 +81,11 @@ export function isClaudeCodeAvailableInEnv(env: NodeJS.ProcessEnv): boolean {
   return resolveCommandFromPath("claude") !== null;
 }
 
-export function resolveClaudeCodePath(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = env.CLAUDE_CODE_PATH?.trim();
+export function resolveClaudeCodePath(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string {
+  const configured = getConfiguredClaudeCodePath(env, bridgeConfig);
   if (configured) {
     if (existsSync(configured)) return configured;
     const resolvedConfigured = resolveCommandFromPath(configured);
@@ -61,12 +117,28 @@ async function runClaudeCodePreflight(
   });
 }
 
+function getAutoDetectClaudeBridgeCwd(
+  env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+): string {
+  return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
+}
+
+function getStrictClaudeCodePath(bridgeConfig: PreparedClaudeBridgeConfig): string {
+  return bridgeConfig.claudeCodePath;
+}
+
+function getStrictClaudeBridgeCwd(bridgeConfig: PreparedClaudeBridgeConfig): string {
+  return bridgeConfig.bridgeCwd;
+}
+
 export function buildClaudeArgs(
   prompt: string,
   sessionId: string | null,
   systemPrompt: string | null,
   env: NodeJS.ProcessEnv = process.env,
   opts?: { maxTurns?: number },
+  bridgeConfig?: BridgeConfig,
 ): string[] {
   const args = [
     "-p",
@@ -78,20 +150,20 @@ export function buildClaudeArgs(
   ];
   if (sessionId) args.push("--resume", sessionId);
 
-  const model = env.CLAUDE_CODE_MODEL?.trim();
+  const model = getConfiguredClaudeCodeModel(env, bridgeConfig);
   if (model) args.push("--model", model);
 
-  const allowedTools = env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
+  const allowedTools = getConfiguredClaudeCodeAllowedTools(env, bridgeConfig);
   if (allowedTools) args.push("--allowedTools", allowedTools);
 
-  const userSystemPrompt = env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
+  const userSystemPrompt = getConfiguredClaudeCodeAppendPrompt(env, bridgeConfig);
   const effectiveSystemPrompt = [systemPrompt, userSystemPrompt].filter(Boolean).join("\n\n");
   if (effectiveSystemPrompt) args.push("--append-system-prompt", effectiveSystemPrompt);
 
   if (opts?.maxTurns !== undefined) {
     args.push("--max-turns", String(opts.maxTurns));
   } else {
-    const maxTurns = env.CLAUDE_CODE_MAX_TURNS?.trim();
+    const maxTurns = getConfiguredClaudeCodeMaxTurns(env, bridgeConfig);
     if (maxTurns) args.push("--max-turns", maxTurns);
   }
 
@@ -101,6 +173,8 @@ export function buildClaudeArgs(
 async function runClaudeCodeWritePongProbe(
   claudePath: string,
   envInput: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig,
+  options?: { strictConfig: boolean },
 ): Promise<void> {
   await runAgentWritePongProbe({
     label: "Claude Code",
@@ -114,10 +188,12 @@ async function runClaudeCodeWritePongProbe(
         'pub write "pong"',
         "Do not explain. Just execute it.",
       ].join("\n");
-      const args = buildClaudeArgs(prompt, null, null, env);
+      const args = buildClaudeArgs(prompt, null, null, env, undefined, bridgeConfig);
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 
-      const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUB_PROJECT_ROOT || undefined;
+      const cwd = options?.strictConfig
+        ? getStrictClaudeBridgeCwd(bridgeConfig as PreparedClaudeBridgeConfig)
+        : getAutoDetectClaudeBridgeCwd(env, bridgeConfig);
 
       await new Promise<void>((resolve, reject) => {
         const child = spawn(claudePath, args, {
@@ -157,11 +233,20 @@ export interface ClaudeCodeRuntimeResolution {
 
 export async function runClaudeCodeBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
+  bridgeConfig?: BridgeConfig | PreparedBridgeConfig,
+  options?: { strictConfig: boolean },
 ): Promise<ClaudeCodeRuntimeResolution> {
-  const claudePath = resolveClaudeCodePath(env);
-  const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUB_PROJECT_ROOT || undefined;
+  const strictConfig = options?.strictConfig === true;
+  const claudePath =
+    strictConfig && bridgeConfig
+      ? getStrictClaudeCodePath(bridgeConfig as PreparedClaudeBridgeConfig)
+      : resolveClaudeCodePath(env, bridgeConfig);
+  const cwd =
+    strictConfig && bridgeConfig
+      ? getStrictClaudeBridgeCwd(bridgeConfig as PreparedClaudeBridgeConfig)
+      : getAutoDetectClaudeBridgeCwd(env, bridgeConfig);
   await runClaudeCodePreflight(claudePath, env);
-  await runClaudeCodeWritePongProbe(claudePath, env);
+  await runClaudeCodeWritePongProbe(claudePath, env, bridgeConfig, { strictConfig });
   return { claudePath, cwd };
 }
 
@@ -172,9 +257,18 @@ export async function createClaudeCodeBridgeRunner(
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
+  const prepared = config.bridgeConfig;
+  if (prepared.mode !== "claude-code") {
+    throw new Error("Claude Code runtime is not prepared.");
+  }
+  const claudePath = prepared.claudeCodePath;
+  const cwd = prepared.bridgeCwd;
+  const preparedClaudePath = claudePath;
+  const attachmentRoot = prepared.attachmentDir;
+  const attachmentMaxBytes = prepared.attachmentMaxBytes;
+  const activeStreams = new Map<string, ActiveStream>();
 
-  const claudePath = resolveClaudeCodePath(process.env);
-  const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUB_PROJECT_ROOT || undefined;
+  ensureDirectoryWritable(attachmentRoot);
 
   await runClaudeCodePreflight(claudePath, process.env);
 
@@ -182,7 +276,7 @@ export async function createClaudeCodeBridgeRunner(
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
-  let activeChild: ReturnType<typeof spawn> | null = null;
+  let activeChild: import("node:child_process").ChildProcess | null = null;
 
   if (abortSignal) {
     abortSignal.addEventListener(
@@ -197,7 +291,7 @@ export async function createClaudeCodeBridgeRunner(
     );
   }
 
-  const canvasReminderEvery = resolveCanvasReminderEvery();
+  const canvasReminderEvery = prepared.canvasReminderEvery;
 
   async function deliverToClaudeCode(prompt: string, opts?: { maxTurns?: number }): Promise<void> {
     if (stopped) return;
@@ -207,12 +301,13 @@ export async function createClaudeCodeBridgeRunner(
       config.instructions.systemPrompt,
       process.env,
       opts,
+      prepared,
     );
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 
     const spawnEnv = { ...process.env };
     delete spawnEnv.CLAUDECODE;
-    const child = spawn(claudePath, args, {
+    const child = spawn(preparedClaudePath, args, {
       cwd,
       env: spawnEnv,
       stdio: ["ignore", "pipe", "pipe"],
@@ -315,27 +410,34 @@ export async function createClaudeCodeBridgeRunner(
         return;
       }
 
-      if (
-        entry.msg.type === "binary" ||
-        entry.msg.type === "stream-start" ||
-        entry.msg.type === "stream-end"
-      ) {
-        const streamId =
-          typeof entry.msg.meta?.streamId === "string" ? entry.msg.meta.streamId : undefined;
-        if (entry.msg.type === "binary" && streamId) return;
+      if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
+      const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
+        forwardedMessageCount + 1,
+        canvasReminderEvery,
+      );
+      const deliveredAttachment = await handleAttachmentEntry({
+        activeStreams,
+        attachmentMaxBytes,
+        attachmentRoot,
+        deliverPrompt: async (prompt) => {
+          await deliverToClaudeCode(prompt);
+        },
+        entry,
+        includeCanvasReminder,
+        instructions: config.instructions,
+        slug,
+      });
+      if (deliveredAttachment) {
+        forwardedMessageCount += 1;
         const deliveryMessageId =
-          entry.msg.type === "stream-end" && streamId ? streamId : entry.msg.id;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: deliveryMessageId,
-          stage: "failed",
-          error: "Attachments are not supported in Claude Code bridge mode.",
-        });
-        if (entry.msg.type !== "stream-end") {
-          void sendMessage(CHANNELS.CHAT, {
-            id: generateMessageId(),
-            type: "text",
-            data: "Attachments are not supported in Claude Code bridge mode.",
+          entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
+            ? entry.msg.meta.streamId
+            : entry.msg.id;
+        if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
           });
         }
       }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isClaudeCodeAvailableInEnv } from "../lib/live-bridge-claude-code.js";
 import { isClaudeSdkAvailableInEnv } from "../lib/live-bridge-claude-sdk.js";
 import { isOpenClawAvailable } from "../lib/live-bridge-openclaw.js";
-import { parseBridgeMode, validateBridgeSelection } from "../lib/live-runtime/bridge-runtime.js";
+import { createBridgeSelection, parseBridgeMode } from "../lib/live-runtime/bridge-runtime.js";
 import { getFollowReadDelayMs, messageContainsPong } from "../lib/live-runtime/command-utils.js";
 import { buildDaemonSpawnStdio } from "../lib/live-runtime/daemon-process.js";
 import { parsePositiveInteger } from "../lib/number.js";
@@ -85,29 +85,24 @@ describe("parseBridgeMode", () => {
   });
 });
 
-describe("validateBridgeSelection", () => {
+describe("createBridgeSelection", () => {
   beforeEach(() => {
     vi.mocked(isOpenClawAvailable).mockReturnValue(false);
     vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(false);
     vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(false);
   });
 
-  it("accepts configured modes when the selected bridge is available", () => {
-    vi.mocked(isOpenClawAvailable).mockReturnValue(true);
-    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
-    vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(true);
-    expect(validateBridgeSelection("openclaw", "config").mode).toBe("openclaw");
-    expect(validateBridgeSelection("claude-code", "explicit").mode).toBe("claude-code");
-    expect(validateBridgeSelection("claude-sdk", "config").mode).toBe("claude-sdk");
-  });
-
-  it("throws when the selected bridge is unavailable", () => {
-    expect(() => validateBridgeSelection("openclaw", "config")).toThrow(
-      'Configured bridge "openclaw" is unavailable',
-    );
-    expect(() => validateBridgeSelection("openclaw", "explicit")).toThrow(
-      'Requested bridge "openclaw" is unavailable',
-    );
+  it("records the selected mode and source", () => {
+    expect(createBridgeSelection("openclaw", "config")).toEqual({
+      mode: "openclaw",
+      source: "config",
+      detail: "loaded from config",
+    });
+    expect(createBridgeSelection("claude-code", "explicit")).toEqual({
+      mode: "claude-code",
+      source: "explicit",
+      detail: "requested via --bridge",
+    });
   });
 });
 

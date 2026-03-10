@@ -1,4 +1,5 @@
 import { PubApiClient } from "./lib/api.js";
+import type { PreparedBridgeConfig } from "./lib/config.js";
 import { startDaemon } from "./lib/live-daemon.js";
 import type { BridgeMode } from "./lib/live-daemon-shared.js";
 
@@ -10,11 +11,27 @@ export async function runDaemonFromEnv(): Promise<void> {
   const cliVersion = process.env.PUB_CLI_VERSION;
   const agentName = process.env.PUB_DAEMON_AGENT_NAME;
   const bridgeModeRaw = process.env.PUB_DAEMON_BRIDGE_MODE;
+  const bridgeConfigRaw = process.env.PUB_DAEMON_BRIDGE_CONFIG;
   if (!bridgeModeRaw) {
     console.error("Missing PUB_DAEMON_BRIDGE_MODE env var.");
     process.exit(1);
   }
   const bridgeMode = bridgeModeRaw as BridgeMode;
+  if (!bridgeConfigRaw?.trim()) {
+    console.error("Missing PUB_DAEMON_BRIDGE_CONFIG env var.");
+    process.exit(1);
+  }
+  let bridgeConfig: PreparedBridgeConfig;
+  try {
+    bridgeConfig = JSON.parse(bridgeConfigRaw) as PreparedBridgeConfig;
+  } catch (error) {
+    console.error(
+      `Invalid PUB_DAEMON_BRIDGE_CONFIG env var: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    process.exit(1);
+  }
 
   if (!baseUrl || !apiKey || !socketPath || !infoPath) {
     console.error("Missing required env vars for daemon.");
@@ -22,5 +39,13 @@ export async function runDaemonFromEnv(): Promise<void> {
   }
 
   const apiClient = new PubApiClient(baseUrl, apiKey);
-  await startDaemon({ apiClient, socketPath, infoPath, cliVersion, bridgeMode, agentName });
+  await startDaemon({
+    apiClient,
+    socketPath,
+    infoPath,
+    cliVersion,
+    bridgeMode,
+    bridgeConfig,
+    agentName,
+  });
 }

@@ -43,7 +43,7 @@ Pub resolves config from exactly one existing directory:
 - `~/.configs/pub`
 
 If more than one exists, Pub fails until redundant config directories are removed.
-For OpenClaw bridge mode, daemon runtime defaults to `OPENCLAW_WORKSPACE=~/.openclaw/workspace`.
+For OpenClaw bridge mode, set an explicit workspace before `pub config --auto`, for example `OPENCLAW_WORKSPACE=/absolute/path/to/workspace`.
 
 ## Core Commands
 

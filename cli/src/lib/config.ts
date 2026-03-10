@@ -4,18 +4,23 @@ import * as path from "node:path";
 import type { BridgeMode } from "./live-daemon-shared.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
+export const DEFAULT_CANVAS_REMINDER_EVERY = 10;
+export const DEFAULT_BRIDGE_DELIVER_TIMEOUT_MS = 120_000;
+export const DEFAULT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
+export const DEFAULT_COMMAND_MAX_OUTPUT_BYTES = 256 * 1024;
+export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
 
 export interface BridgeConfig {
   mode?: BridgeMode;
   openclawPath?: string;
   openclawStateDir?: string;
-  openclawWorkspace?: string;
   sessionId?: string;
   threadId?: string;
+  bridgeCwd?: string;
   canvasReminderEvery?: number;
   deliver?: boolean;
   deliverChannel?: string;
-  replyTo?: string;
   deliverTimeoutMs?: number;
   attachmentDir?: string;
   attachmentMaxBytes?: number;
@@ -24,11 +29,43 @@ export interface BridgeConfig {
   claudeCodeAllowedTools?: string;
   claudeCodeAppendSystemPrompt?: string;
   claudeCodeMaxTurns?: number;
-  claudeCodeCwd?: string;
   commandDefaultTimeoutMs?: number;
   commandMaxOutputBytes?: number;
   commandMaxConcurrent?: number;
 }
+
+interface PreparedBridgeConfigBase {
+  mode: BridgeMode;
+  bridgeCwd: string;
+  canvasReminderEvery: number;
+  deliver: boolean;
+  deliverTimeoutMs: number;
+  attachmentDir: string;
+  attachmentMaxBytes: number;
+  commandDefaultTimeoutMs: number;
+  commandMaxOutputBytes: number;
+  commandMaxConcurrent: number;
+  openclawStateDir?: string;
+  threadId?: string;
+  deliverChannel?: string;
+  claudeCodeModel?: string;
+  claudeCodeAllowedTools?: string;
+  claudeCodeAppendSystemPrompt?: string;
+  claudeCodeMaxTurns?: number;
+}
+
+export interface PreparedOpenClawConfig extends PreparedBridgeConfigBase {
+  mode: "openclaw";
+  openclawPath: string;
+  sessionId: string;
+}
+
+export interface PreparedClaudeBridgeConfig extends PreparedBridgeConfigBase {
+  mode: "claude-code" | "claude-sdk";
+  claudeCodePath: string;
+}
+
+export type PreparedBridgeConfig = PreparedOpenClawConfig | PreparedClaudeBridgeConfig;
 
 export interface TelegramConfig {
   botToken?: string;
@@ -240,137 +277,11 @@ function readEnvValue(
   return null;
 }
 
-function mergeBridgeValue<K extends keyof BridgeConfig>(
-  saved: BridgeConfig | undefined,
-  field: K,
-  envKeys: string[],
-  env: NodeJS.ProcessEnv,
-  coerce: (raw: string) => BridgeConfig[K],
-  output: BridgeConfig,
-): void {
-  const envValue = readEnvValue(envKeys, env);
-  if (envValue) {
-    output[field] = coerce(envValue.value);
-    return;
-  }
-  const savedValue = saved?.[field];
-  if (savedValue !== undefined) {
-    output[field] = savedValue;
-  }
-}
-
 export function resolveConfig(env: NodeJS.ProcessEnv = process.env): ResolvedConfig {
   const saved = readConfig(env);
   const envApiKey = readEnvValue(["PUB_API_KEY"], env);
   const envBaseUrl = readEnvValue(["PUB_BASE_URL"], env);
-
-  const bridge: BridgeConfig = {};
-  mergeBridgeValue(saved?.bridge, "mode", [], env, (raw) => raw as BridgeMode, bridge);
-  mergeBridgeValue(saved?.bridge, "openclawPath", ["OPENCLAW_PATH"], env, String, bridge);
-  mergeBridgeValue(saved?.bridge, "openclawStateDir", ["OPENCLAW_STATE_DIR"], env, String, bridge);
-  mergeBridgeValue(saved?.bridge, "openclawWorkspace", ["OPENCLAW_WORKSPACE"], env, String, bridge);
-  mergeBridgeValue(saved?.bridge, "sessionId", ["OPENCLAW_SESSION_ID"], env, String, bridge);
-  mergeBridgeValue(saved?.bridge, "threadId", ["OPENCLAW_THREAD_ID"], env, String, bridge);
-  mergeBridgeValue(
-    saved?.bridge,
-    "canvasReminderEvery",
-    ["OPENCLAW_CANVAS_REMINDER_EVERY"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "deliver",
-    ["OPENCLAW_DELIVER"],
-    env,
-    (raw) => raw === "1" || raw.toLowerCase() === "true",
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "deliverChannel",
-    ["OPENCLAW_DELIVER_CHANNEL"],
-    env,
-    String,
-    bridge,
-  );
-  mergeBridgeValue(saved?.bridge, "replyTo", ["OPENCLAW_REPLY_TO"], env, String, bridge);
-  mergeBridgeValue(
-    saved?.bridge,
-    "deliverTimeoutMs",
-    ["OPENCLAW_DELIVER_TIMEOUT_MS"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "attachmentDir",
-    ["OPENCLAW_ATTACHMENT_DIR"],
-    env,
-    String,
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "attachmentMaxBytes",
-    ["OPENCLAW_ATTACHMENT_MAX_BYTES"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
-  mergeBridgeValue(saved?.bridge, "claudeCodePath", ["CLAUDE_CODE_PATH"], env, String, bridge);
-  mergeBridgeValue(saved?.bridge, "claudeCodeModel", ["CLAUDE_CODE_MODEL"], env, String, bridge);
-  mergeBridgeValue(
-    saved?.bridge,
-    "claudeCodeAllowedTools",
-    ["CLAUDE_CODE_ALLOWED_TOOLS"],
-    env,
-    String,
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "claudeCodeAppendSystemPrompt",
-    ["CLAUDE_CODE_APPEND_SYSTEM_PROMPT"],
-    env,
-    String,
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "claudeCodeMaxTurns",
-    ["CLAUDE_CODE_MAX_TURNS"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
-  mergeBridgeValue(saved?.bridge, "claudeCodeCwd", ["CLAUDE_CODE_CWD"], env, String, bridge);
-  mergeBridgeValue(
-    saved?.bridge,
-    "commandDefaultTimeoutMs",
-    ["PUB_COMMAND_DEFAULT_TIMEOUT_MS"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "commandMaxOutputBytes",
-    ["PUB_COMMAND_MAX_OUTPUT_BYTES"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
-  mergeBridgeValue(
-    saved?.bridge,
-    "commandMaxConcurrent",
-    ["PUB_COMMAND_MAX_CONCURRENT"],
-    env,
-    (raw) => Number.parseInt(raw, 10),
-    bridge,
-  );
+  const bridge: BridgeConfig = saved?.bridge ? { ...saved.bridge } : {};
 
   const telegram: TelegramConfig = {
     botToken: saved?.telegram?.botToken,

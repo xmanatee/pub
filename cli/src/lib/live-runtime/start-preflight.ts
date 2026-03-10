@@ -1,20 +1,27 @@
 import { PubApiClient } from "../api.js";
 import { errorMessage } from "../cli-error.js";
-import type { BridgeConfig, RequiredConfig, ResolvedConfig } from "../config.js";
+import type {
+  BridgeConfig,
+  PreparedBridgeConfig,
+  RequiredConfig,
+  ResolvedConfig,
+} from "../config.js";
 import { getConfig, getRequiredConfig } from "../config.js";
 import type { BridgeMode } from "../live-daemon-shared.js";
 import {
   type BridgeSelection,
   buildBridgeProcessEnv,
+  createBridgeSelection,
   parseBridgeMode,
   runBridgeStartupPreflight,
-  validateBridgeSelection,
+  validatePreparedBridgeConfig,
 } from "./bridge-runtime.js";
 import { formatApiError } from "./command-utils.js";
 import { stopOtherDaemons } from "./daemon-process.js";
 
 export interface StartPreflightResult {
   runtimeConfig: RequiredConfig;
+  bridgeConfig: PreparedBridgeConfig;
   bridgeMode: BridgeMode;
   bridgeProcessEnv: NodeJS.ProcessEnv;
   bridgeSelection: BridgeSelection;
@@ -28,65 +35,32 @@ interface CheckOutcome {
 
 const BRIDGE_CONFIG_FIELDS: Array<{ field: keyof BridgeConfig; label: string }> = [
   { field: "mode", label: "bridge.mode" },
+  { field: "bridgeCwd", label: "bridge.cwd" },
+  { field: "canvasReminderEvery", label: "bridge.canvasReminderEvery" },
+  { field: "deliverTimeoutMs", label: "bridge.deliverTimeoutMs" },
+  { field: "attachmentDir", label: "bridge.attachmentDir" },
+  { field: "attachmentMaxBytes", label: "bridge.attachmentMaxBytes" },
   { field: "openclawPath", label: "openclaw.path" },
   { field: "openclawStateDir", label: "openclaw.stateDir" },
-  { field: "openclawWorkspace", label: "openclaw.workspace" },
   { field: "sessionId", label: "openclaw.sessionId" },
   { field: "threadId", label: "openclaw.threadId" },
-  { field: "canvasReminderEvery", label: "openclaw.canvasReminderEvery" },
   { field: "deliver", label: "openclaw.deliver" },
   { field: "deliverChannel", label: "openclaw.deliverChannel" },
-  { field: "replyTo", label: "openclaw.replyTo" },
-  { field: "deliverTimeoutMs", label: "openclaw.deliverTimeoutMs" },
-  { field: "attachmentDir", label: "openclaw.attachmentDir" },
-  { field: "attachmentMaxBytes", label: "openclaw.attachmentMaxBytes" },
   { field: "claudeCodePath", label: "claude-code.path" },
   { field: "claudeCodeModel", label: "claude-code.model" },
   { field: "claudeCodeAllowedTools", label: "claude-code.allowedTools" },
   { field: "claudeCodeAppendSystemPrompt", label: "claude-code.appendSystemPrompt" },
   { field: "claudeCodeMaxTurns", label: "claude-code.maxTurns" },
-  { field: "claudeCodeCwd", label: "claude-code.cwd" },
   { field: "commandDefaultTimeoutMs", label: "command.defaultTimeoutMs" },
   { field: "commandMaxOutputBytes", label: "command.maxOutputBytes" },
   { field: "commandMaxConcurrent", label: "command.maxConcurrent" },
 ];
-
-const BRIDGE_ENV_OVERRIDE_KEYS = [
-  "OPENCLAW_PATH",
-  "OPENCLAW_STATE_DIR",
-  "OPENCLAW_WORKSPACE",
-  "OPENCLAW_SESSION_ID",
-  "OPENCLAW_THREAD_ID",
-  "OPENCLAW_CANVAS_REMINDER_EVERY",
-  "OPENCLAW_DELIVER",
-  "OPENCLAW_DELIVER_CHANNEL",
-  "OPENCLAW_REPLY_TO",
-  "OPENCLAW_DELIVER_TIMEOUT_MS",
-  "OPENCLAW_ATTACHMENT_DIR",
-  "OPENCLAW_ATTACHMENT_MAX_BYTES",
-  "CLAUDE_CODE_PATH",
-  "CLAUDE_CODE_MODEL",
-  "CLAUDE_CODE_ALLOWED_TOOLS",
-  "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
-  "CLAUDE_CODE_MAX_TURNS",
-  "CLAUDE_CODE_CWD",
-  "PUB_COMMAND_DEFAULT_TIMEOUT_MS",
-  "PUB_COMMAND_MAX_OUTPUT_BYTES",
-  "PUB_COMMAND_MAX_CONCURRENT",
-] as const;
 
 function listSavedBridgeConfigKeys(bridgeConfig?: BridgeConfig): string[] {
   if (!bridgeConfig) return [];
   return BRIDGE_CONFIG_FIELDS.filter(({ field }) => bridgeConfig[field] !== undefined).map(
     ({ label }) => label,
   );
-}
-
-function listBridgeEnvOverrides(env: NodeJS.ProcessEnv = process.env): string[] {
-  return BRIDGE_ENV_OVERRIDE_KEYS.filter((key) => {
-    const value = env[key];
-    return typeof value === "string" && value.trim().length > 0;
-  });
 }
 
 function formatPreflightError(params: {
@@ -127,6 +101,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   let resolvedConfig: ResolvedConfig | null = null;
   let runtimeConfig: RequiredConfig | null = null;
+  let preparedBridgeConfig: PreparedBridgeConfig | null = null;
   let bridgeSelection: BridgeSelection | null = null;
   let bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
 
@@ -134,12 +109,11 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   try {
     resolvedConfig = getConfig();
-    bridgeProcessEnv = buildBridgeProcessEnv(resolvedConfig.bridge);
+    bridgeProcessEnv = buildBridgeProcessEnv();
     const savedBridgeConfig = listSavedBridgeConfigKeys(resolvedConfig.bridge);
-    const envOverrides = listBridgeEnvOverrides();
     passed.push({
       label: "bridge.config",
-      detail: `saved: ${savedBridgeConfig.join(", ") || "(none)"} | env overrides: ${envOverrides.join(", ") || "(none)"}`,
+      detail: `saved: ${savedBridgeConfig.join(", ") || "(none)"}`,
     });
   } catch (error) {
     failures.push({ label: "config", detail: errorMessage(error) });
@@ -157,14 +131,10 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     if (!mode) {
       throw new Error("No bridge configured.");
     }
-    bridgeSelection = validateBridgeSelection(
-      mode,
-      opts.bridge ? "explicit" : "config",
-      bridgeProcessEnv,
-    );
+    bridgeSelection = createBridgeSelection(mode, opts.bridge ? "explicit" : "config");
     passed.push({
       label: "bridge.mode",
-      detail: `${bridgeSelection.mode} (${bridgeSelection.source}, ${bridgeSelection.detail})`,
+      detail: `${bridgeSelection.mode} (${bridgeSelection.detail})`,
     });
   } catch (error) {
     failures.push({ label: "bridge.mode", detail: errorMessage(error) });
@@ -172,8 +142,12 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   if (bridgeSelection) {
     try {
-      const details = await runBridgeStartupPreflight(bridgeSelection, bridgeProcessEnv);
-      passed.push({ label: "bridge.preflight", detail: details.join(" | ") });
+      preparedBridgeConfig = validatePreparedBridgeConfig(
+        bridgeSelection.mode,
+        resolvedConfig?.bridge ?? {},
+      );
+      const probe = await runBridgeStartupPreflight(bridgeSelection, bridgeProcessEnv, preparedBridgeConfig);
+      passed.push({ label: "bridge.preflight", detail: probe.detailLines.join(" | ") });
     } catch (error) {
       failures.push({ label: `bridge.${bridgeSelection.mode}`, detail: errorMessage(error) });
     }
@@ -224,7 +198,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
     throw new Error(formatPreflightError({ failures, passed, skipped }));
   }
 
-  if (!runtimeConfig || !bridgeSelection) {
+  if (!runtimeConfig || !bridgeSelection || !preparedBridgeConfig) {
     throw new Error(
       "Start preflight failed: internal error while resolving runtime configuration.",
     );
@@ -232,6 +206,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   return {
     runtimeConfig,
+    bridgeConfig: preparedBridgeConfig,
     bridgeMode: bridgeSelection.mode,
     bridgeProcessEnv,
     bridgeSelection,

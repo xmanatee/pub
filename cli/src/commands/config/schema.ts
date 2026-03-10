@@ -34,22 +34,29 @@ export interface ConfigKeyDef {
 
 export const CONFIG_KEY_REGISTRY: Record<string, ConfigKeyDef> = {
   "bridge.mode": { target: "bridge", field: "mode", type: "bridge-mode" },
-  "openclaw.path": { target: "bridge", field: "openclawPath", type: "string" },
-  "openclaw.stateDir": { target: "bridge", field: "openclawStateDir", type: "string" },
-  "openclaw.workspace": { target: "bridge", field: "openclawWorkspace", type: "string" },
-  "openclaw.sessionId": { target: "bridge", field: "sessionId", type: "string" },
-  "openclaw.threadId": { target: "bridge", field: "threadId", type: "string" },
-  "openclaw.canvasReminderEvery": {
+  "bridge.cwd": { target: "bridge", field: "bridgeCwd", type: "string" },
+  "bridge.canvasReminderEvery": {
     target: "bridge",
     field: "canvasReminderEvery",
     type: "integer",
   },
+  "bridge.deliverTimeoutMs": {
+    target: "bridge",
+    field: "deliverTimeoutMs",
+    type: "integer",
+  },
+  "bridge.attachmentDir": { target: "bridge", field: "attachmentDir", type: "string" },
+  "bridge.attachmentMaxBytes": {
+    target: "bridge",
+    field: "attachmentMaxBytes",
+    type: "integer",
+  },
+  "openclaw.path": { target: "bridge", field: "openclawPath", type: "string" },
+  "openclaw.stateDir": { target: "bridge", field: "openclawStateDir", type: "string" },
+  "openclaw.sessionId": { target: "bridge", field: "sessionId", type: "string" },
+  "openclaw.threadId": { target: "bridge", field: "threadId", type: "string" },
   "openclaw.deliver": { target: "bridge", field: "deliver", type: "boolean" },
   "openclaw.deliverChannel": { target: "bridge", field: "deliverChannel", type: "string" },
-  "openclaw.replyTo": { target: "bridge", field: "replyTo", type: "string" },
-  "openclaw.deliverTimeoutMs": { target: "bridge", field: "deliverTimeoutMs", type: "integer" },
-  "openclaw.attachmentDir": { target: "bridge", field: "attachmentDir", type: "string" },
-  "openclaw.attachmentMaxBytes": { target: "bridge", field: "attachmentMaxBytes", type: "integer" },
   "claude-code.path": { target: "bridge", field: "claudeCodePath", type: "string" },
   "claude-code.model": { target: "bridge", field: "claudeCodeModel", type: "string" },
   "claude-code.allowedTools": { target: "bridge", field: "claudeCodeAllowedTools", type: "string" },
@@ -60,7 +67,6 @@ export const CONFIG_KEY_REGISTRY: Record<string, ConfigKeyDef> = {
     displayAs: "set-only",
   },
   "claude-code.maxTurns": { target: "bridge", field: "claudeCodeMaxTurns", type: "integer" },
-  "claude-code.cwd": { target: "bridge", field: "claudeCodeCwd", type: "string" },
   "command.defaultTimeoutMs": {
     target: "bridge",
     field: "commandDefaultTimeoutMs",

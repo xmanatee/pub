@@ -12,8 +12,8 @@ import {
   parseCommandCancelMessage,
   parseCommandInvokeMessage,
 } from "../../../shared/command-protocol-core";
-import { buildClaudeArgs, resolveClaudeCodePath } from "./live-bridge-claude-code.js";
-import { resolveOpenClawRuntime } from "./live-bridge-openclaw.js";
+import { buildClaudeArgs } from "./live-bridge-claude-code.js";
+import type { PreparedBridgeConfig } from "./config.js";
 import type { BridgeMode } from "./live-daemon-shared.js";
 
 const DEFAULT_RECENT_RESULT_TTL_MS = 120_000;
@@ -22,7 +22,8 @@ const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
 const DEFAULT_MAX_CONCURRENT = 6;
 
 interface CommandHandlerParams {
-  bridgeMode?: BridgeMode;
+  bridgeMode: BridgeMode;
+  bridgeConfig: PreparedBridgeConfig;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
@@ -45,25 +46,11 @@ interface CommandRuntimeConfig {
   maxOutputBytes: number;
 }
 
-function readPositiveNumberEnv(key: string, fallback: number): number {
-  const value = process.env[key];
-  if (!value) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-
-function readRuntimeConfig(): CommandRuntimeConfig {
+function getCommandRuntimeConfig(bridgeConfig: PreparedBridgeConfig): CommandRuntimeConfig {
   return {
-    defaultTimeoutMs: readPositiveNumberEnv(
-      "PUB_COMMAND_DEFAULT_TIMEOUT_MS",
-      DEFAULT_COMMAND_TIMEOUT_MS,
-    ),
-    maxOutputBytes: readPositiveNumberEnv(
-      "PUB_COMMAND_MAX_OUTPUT_BYTES",
-      DEFAULT_MAX_OUTPUT_BYTES,
-    ),
-    maxConcurrent: readPositiveNumberEnv("PUB_COMMAND_MAX_CONCURRENT", DEFAULT_MAX_CONCURRENT),
+    defaultTimeoutMs: bridgeConfig.commandDefaultTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
+    maxOutputBytes: bridgeConfig.commandMaxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
+    maxConcurrent: bridgeConfig.commandMaxConcurrent ?? DEFAULT_MAX_CONCURRENT,
   };
 }
 
@@ -216,13 +203,17 @@ async function executeClaudeAgentCommand(params: {
   output: "text" | "json";
   maxOutputBytes: number;
   signal: AbortSignal;
+  bridgeConfig: PreparedBridgeConfig;
 }): Promise<unknown> {
-  const claudePath = resolveClaudeCodePath(process.env);
-  const args = buildClaudeArgs(params.prompt, null, null, process.env);
+  if (params.bridgeConfig.mode === "openclaw") {
+    throw new Error("Claude runtime is not prepared for command execution.");
+  }
+  const claudePath = params.bridgeConfig.claudeCodePath;
+  const cwd = params.bridgeConfig.bridgeCwd;
+  const args = buildClaudeArgs(params.prompt, null, null, process.env, undefined, params.bridgeConfig);
   if (!args.includes("--max-turns")) {
     args.push("--max-turns", "4");
   }
-  const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUB_PROJECT_ROOT || undefined;
 
   const outputText = await new Promise<string>((resolve, reject) => {
     const child = spawn(claudePath, args, {
@@ -289,24 +280,30 @@ async function executeOpenClawAgentCommand(params: {
   output: "text" | "json";
   maxOutputBytes: number;
   signal: AbortSignal;
+  bridgeConfig: PreparedBridgeConfig;
 }): Promise<unknown> {
-  const runtime = resolveOpenClawRuntime(process.env);
+  if (params.bridgeConfig.mode !== "openclaw") {
+    throw new Error("OpenClaw runtime is not prepared for command execution.");
+  }
+  const openclawPath = params.bridgeConfig.openclawPath;
+  const sessionId = params.bridgeConfig.sessionId;
+  const cwd = params.bridgeConfig.bridgeCwd;
   const invocationArgs = [
     "agent",
     "--local",
     "--session-id",
-    runtime.sessionId,
+    sessionId,
     "-m",
     params.prompt,
   ];
-  const command = runtime.openclawPath.endsWith(".js") ? process.execPath : runtime.openclawPath;
-  const args = runtime.openclawPath.endsWith(".js")
-    ? [runtime.openclawPath, ...invocationArgs]
+  const command = openclawPath.endsWith(".js") ? process.execPath : openclawPath;
+  const args = openclawPath.endsWith(".js")
+    ? [openclawPath, ...invocationArgs]
     : invocationArgs;
   const result = await executeProcessCommand({
     command,
     args,
-    cwd: process.env.PUB_PROJECT_ROOT || process.cwd(),
+    cwd,
     timeoutMs: params.timeoutMs,
     maxOutputBytes: params.maxOutputBytes,
     signal: params.signal,
@@ -327,7 +324,7 @@ function normalizeFunctionSpec(input: CommandFunctionSpec): CommandFunctionSpec 
 }
 
 export function createLiveCommandHandler(params: CommandHandlerParams) {
-  const runtime = readRuntimeConfig();
+  const runtime = getCommandRuntimeConfig(params.bridgeConfig);
   const boundFunctions = new Map<string, CommandFunctionSpec>();
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
@@ -442,6 +439,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
         output,
         maxOutputBytes: runtime.maxOutputBytes,
         signal: abortSignal,
+        bridgeConfig: params.bridgeConfig,
       });
     }
     return await executeClaudeAgentCommand({
@@ -450,6 +448,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       output,
       maxOutputBytes: runtime.maxOutputBytes,
       signal: abortSignal,
+      bridgeConfig: params.bridgeConfig,
     });
   }
 

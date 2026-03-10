@@ -1,5 +1,6 @@
 import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import type { PubApiClient } from "./api.js";
+import type { PreparedBridgeConfig } from "./config.js";
 import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "./live-prompt-content.js";
 
 export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk";
@@ -45,7 +46,8 @@ export interface DaemonConfig {
   apiClient: PubApiClient;
   socketPath: string;
   infoPath: string;
-  bridgeMode?: BridgeMode;
+  bridgeMode: BridgeMode;
+  bridgeConfig: PreparedBridgeConfig;
   agentName?: string;
 }
 

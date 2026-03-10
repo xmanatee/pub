@@ -106,7 +106,7 @@ describe("config", () => {
     expect(() => getRequiredConfig()).toThrow("Missing PUB_API_KEY");
   });
 
-  it("shows env vs config sources in resolved config", () => {
+  it("keeps bridge config sourced from saved config", () => {
     makeHomeConfigDir();
     saveConfig({
       apiKey: "pub_saved",
@@ -119,7 +119,7 @@ describe("config", () => {
     expect(resolved.apiKey?.source).toBe("config");
     expect(resolved.baseUrl.source).toBe("env");
     expect(resolved.bridge.mode).toBe("claude-code");
-    expect(resolved.bridge.claudeCodePath).toBe("/env/claude");
+    expect(resolved.bridge.claudeCodePath).toBe("/config/claude");
   });
 
   it("uses PUB_CONFIG_DIR when set and it exists", () => {

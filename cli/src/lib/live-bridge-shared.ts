@@ -1,14 +1,14 @@
 import type { BridgeMessage } from "../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../shared/bridge-protocol-core";
+import type { PreparedBridgeConfig } from "./config.js";
 import type { BridgeSessionSource } from "./live-bridge-types.js";
 import type { BridgeInstructions } from "./live-daemon-shared.js";
-
-const DEFAULT_CANVAS_REMINDER_EVERY = 10;
 export const MAX_SEEN_IDS = 10_000;
 
 export interface BridgeRunnerConfig {
   slug: string;
   sessionBriefing: string;
+  bridgeConfig: PreparedBridgeConfig;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onDeliveryUpdate?: (update: {
     channel: string;
@@ -54,12 +54,6 @@ export function buildCanvasPolicyReminderBlock(): string {
     "- Keep chat concise.",
     "",
   ].join("\n");
-}
-
-export function resolveCanvasReminderEvery(env: NodeJS.ProcessEnv = process.env): number {
-  const raw = Number.parseInt(env.OPENCLAW_CANVAS_REMINDER_EVERY ?? "", 10);
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CANVAS_REMINDER_EVERY;
-  return raw;
 }
 
 export function shouldIncludeCanvasPolicyReminder(

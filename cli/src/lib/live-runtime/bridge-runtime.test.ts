@@ -1,51 +1,65 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildBridgeProcessEnv } from "./bridge-runtime.js";
+import { buildBridgeProcessEnv, prepareBridgeConfigForSave } from "./bridge-runtime.js";
 
 describe("bridge-runtime", () => {
   const originalEnv = {
-    OPENCLAW_HOME: process.env.OPENCLAW_HOME,
-    OPENCLAW_STATE_DIR: process.env.OPENCLAW_STATE_DIR,
-    OPENCLAW_CONFIG_PATH: process.env.OPENCLAW_CONFIG_PATH,
-    OPENCLAW_WORKSPACE: process.env.OPENCLAW_WORKSPACE,
+    PUB_CONFIG_DIR: process.env.PUB_CONFIG_DIR,
     PUB_PROJECT_ROOT: process.env.PUB_PROJECT_ROOT,
   };
 
   afterEach(() => {
-    process.env.OPENCLAW_HOME = originalEnv.OPENCLAW_HOME;
-    process.env.OPENCLAW_STATE_DIR = originalEnv.OPENCLAW_STATE_DIR;
-    process.env.OPENCLAW_CONFIG_PATH = originalEnv.OPENCLAW_CONFIG_PATH;
-    process.env.OPENCLAW_WORKSPACE = originalEnv.OPENCLAW_WORKSPACE;
+    process.env.PUB_CONFIG_DIR = originalEnv.PUB_CONFIG_DIR;
     process.env.PUB_PROJECT_ROOT = originalEnv.PUB_PROJECT_ROOT;
-    if (!originalEnv.OPENCLAW_HOME) delete process.env.OPENCLAW_HOME;
-    if (!originalEnv.OPENCLAW_STATE_DIR) delete process.env.OPENCLAW_STATE_DIR;
-    if (!originalEnv.OPENCLAW_CONFIG_PATH) delete process.env.OPENCLAW_CONFIG_PATH;
-    if (!originalEnv.OPENCLAW_WORKSPACE) delete process.env.OPENCLAW_WORKSPACE;
+    if (!originalEnv.PUB_CONFIG_DIR) delete process.env.PUB_CONFIG_DIR;
     if (!originalEnv.PUB_PROJECT_ROOT) delete process.env.PUB_PROJECT_ROOT;
   });
 
-  it("sets OPENCLAW_WORKSPACE to <OPENCLAW_STATE_DIR>/workspace when no explicit workspace exists", () => {
-    delete process.env.OPENCLAW_WORKSPACE;
-    process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-state";
-    delete process.env.OPENCLAW_CONFIG_PATH;
+  it("adds PUB_PROJECT_ROOT when missing", () => {
+    delete process.env.PUB_PROJECT_ROOT;
 
     const env = buildBridgeProcessEnv();
-    expect(env.OPENCLAW_WORKSPACE).toBe("/tmp/openclaw-state/workspace");
+    expect(env.PUB_PROJECT_ROOT).toBe(process.cwd());
   });
 
-  it("does not override existing OPENCLAW_WORKSPACE", () => {
-    process.env.OPENCLAW_WORKSPACE = "/tmp/existing-workspace";
-    delete process.env.OPENCLAW_CONFIG_PATH;
+  it("does not override an existing PUB_PROJECT_ROOT", () => {
+    process.env.PUB_PROJECT_ROOT = "/tmp/existing-project-root";
 
     const env = buildBridgeProcessEnv();
-    expect(env.OPENCLAW_WORKSPACE).toBe("/tmp/existing-workspace");
+    expect(env.PUB_PROJECT_ROOT).toBe("/tmp/existing-project-root");
   });
 
-  it("uses bridge config openclawWorkspace when env has no workspace", () => {
-    delete process.env.OPENCLAW_WORKSPACE;
-    delete process.env.OPENCLAW_STATE_DIR;
-    delete process.env.OPENCLAW_CONFIG_PATH;
+  it("prepares concrete runtime defaults for claude bridges", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
+    process.env.PUB_CONFIG_DIR = tempDir;
+    process.env.PUB_PROJECT_ROOT = "/tmp/pub-project";
 
-    const env = buildBridgeProcessEnv({ openclawWorkspace: "/tmp/config-workspace" });
-    expect(env.OPENCLAW_WORKSPACE).toBe("/tmp/config-workspace");
+    const prepared = prepareBridgeConfigForSave(
+      "claude-code",
+      {
+        claudeCodePath: "/usr/local/bin/claude",
+      },
+      buildBridgeProcessEnv(),
+    );
+
+    expect(prepared.bridgeCwd).toBe("/tmp/pub-project");
+    expect(prepared.attachmentDir).toContain("/attachments");
+    expect(prepared.canvasReminderEvery).toBe(10);
+    expect(prepared.commandDefaultTimeoutMs).toBe(15_000);
+  });
+
+  it("requires explicit OpenClaw workspace in prepared runtime config", () => {
+    expect(() =>
+      prepareBridgeConfigForSave(
+        "openclaw",
+        {
+          openclawPath: "/usr/local/bin/openclaw",
+          sessionId: "session-1",
+        },
+        buildBridgeProcessEnv(),
+      ),
+    ).toThrow(/OpenClaw workspace is not configured/);
   });
 });
