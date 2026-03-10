@@ -1,5 +1,6 @@
 import * as dgram from "node:dgram";
 import { afterEach, describe, expect, it } from "vitest";
+import { WEBRTC_STUN_URLS } from "../../../shared/webrtc-transport-core";
 import {
   type AdapterDataChannel,
   type AdapterPeerConnection,
@@ -10,6 +11,11 @@ const PEER_EVENT_TIMEOUT_MS = 7_500;
 const PEER_NEGOTIATION_TIMEOUT_MS = 25_000;
 const LOOPBACK_PEER_CONFIG = {
   iceServers: [],
+  iceAdditionalHostAddresses: ["127.0.0.1"],
+  iceUseIpv6: false,
+} as const;
+const STUN_LOOPBACK_PEER_CONFIG = {
+  iceServers: [...WEBRTC_STUN_URLS],
   iceAdditionalHostAddresses: ["127.0.0.1"],
   iceUseIpv6: false,
 } as const;
@@ -31,7 +37,7 @@ async function canBindUdpSocket(): Promise<boolean> {
     };
 
     socket.once("error", () => finish(false));
-    socket.bind(0, "0.0.0.0", () => finish(true));
+    socket.bind(0, "127.0.0.1", () => finish(true));
   });
 }
 
@@ -68,11 +74,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
       while (pendingForA.length > 0) {
         const next = pendingForA.shift();
         if (!next) break;
-        try {
-          a.addRemoteCandidate(next.candidate, next.mid);
-        } catch {
+        void a.addRemoteCandidate(next.candidate, next.mid).catch(() => {
           // Ignore invalid/out-of-order candidates during handshake.
-        }
+        });
       }
     };
 
@@ -80,11 +84,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
       while (pendingForB.length > 0) {
         const next = pendingForB.shift();
         if (!next) break;
-        try {
-          b.addRemoteCandidate(next.candidate, next.mid);
-        } catch {
+        void b.addRemoteCandidate(next.candidate, next.mid).catch(() => {
           // Ignore invalid/out-of-order candidates during handshake.
-        }
+        });
       }
     };
 
@@ -93,11 +95,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         pendingForB.push({ candidate, mid });
         return;
       }
-      try {
-        b.addRemoteCandidate(candidate, mid);
-      } catch {
+      void b.addRemoteCandidate(candidate, mid).catch(() => {
         // Ignore invalid/out-of-order candidates during handshake.
-      }
+      });
     });
 
     b.onLocalCandidate((candidate, mid) => {
@@ -105,11 +105,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         pendingForA.push({ candidate, mid });
         return;
       }
-      try {
-        a.addRemoteCandidate(candidate, mid);
-      } catch {
+      void a.addRemoteCandidate(candidate, mid).catch(() => {
         // Ignore invalid/out-of-order candidates during handshake.
-      }
+      });
     });
 
     a.onLocalDescription((sdp, type) => {
@@ -127,9 +125,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
     });
   }
 
-  afterEach(() => {
-    peerA?.close();
-    peerB?.close();
+  afterEach(async () => {
+    await peerA?.close();
+    await peerB?.close();
   });
 
   function isPeerEventTimeoutError(error: unknown): boolean {
@@ -145,8 +143,8 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         return;
       } catch (error) {
         lastError = error;
-        peerA?.close();
-        peerB?.close();
+        await peerA?.close();
+        await peerB?.close();
         if (attempt === 2 || !isPeerEventTimeoutError(error)) {
           throw error;
         }
@@ -160,8 +158,8 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
     "establishes a connection and exchanges messages via DataChannel",
     async () => {
       await withPeerRetry(async () => {
-        peerA = createPeerConnection(LOOPBACK_PEER_CONFIG);
-        peerB = createPeerConnection(LOOPBACK_PEER_CONFIG);
+        peerA = createPeerConnection(STUN_LOOPBACK_PEER_CONFIG);
+        peerB = createPeerConnection(STUN_LOOPBACK_PEER_CONFIG);
 
         setupSafeSignaling(peerA, peerB);
 
@@ -173,7 +171,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         const dcB = await waitForPeerEvent<AdapterDataChannel>(
           (resolve) => {
             peerB.onDataChannel((dc) => resolve(dc));
-            peerA.setLocalDescription();
+            void peerA.setLocalDescription().catch(() => {});
           },
           PEER_EVENT_TIMEOUT_MS,
           "remote data channel",
@@ -240,7 +238,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
               remoteDcs.set(dc.getLabel(), dc);
               if (remoteDcs.size === 2) resolve();
             });
-            peerA.setLocalDescription();
+            void peerA.setLocalDescription().catch(() => {});
           },
           PEER_EVENT_TIMEOUT_MS,
           "all remote data channels",
@@ -312,9 +310,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         iceAdditionalHostAddresses: ["127.0.0.1"],
         iceUseIpv6: false,
       });
-      const cleanup = () => {
+      const cleanup = async () => {
         try {
-          peer.close();
+          await peer.close();
         } catch {
           /* already closed */
         }
@@ -351,13 +349,18 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
             }
           }, 10_000);
 
-          peer.setLocalDescription();
+          void peer.setLocalDescription().catch((error) => {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(timeout);
+            reject(error);
+          });
         });
 
         expect(offer.sdp).toContain("v=0");
         expect(offer.type).toBe("offer");
       } finally {
-        cleanup();
+        await cleanup();
       }
     },
     15_000,
@@ -380,7 +383,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         const dcB = await waitForPeerEvent<AdapterDataChannel>(
           (resolve) => {
             peerB.onDataChannel((dc) => resolve(dc));
-            peerA.setLocalDescription();
+            void peerA.setLocalDescription().catch(() => {});
           },
           PEER_EVENT_TIMEOUT_MS,
           "remote data channel",

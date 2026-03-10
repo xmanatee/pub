@@ -74,7 +74,6 @@
     "onlyBuiltDependencies": [
       "@sentry/cli",
       "esbuild",
-      "node-datachannel",
       "protobufjs"
     ]
   }

@@ -241,9 +241,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     activeSlug = null;
     commandHandler.stop();
     resetNegotiationState();
-    closeCurrentPeer();
-    void stopBridge().catch((error) => {
-      markError("failed to stop bridge after connection closed", error);
+    void (async () => {
+      await closeCurrentPeer();
+      await stopBridge();
+    })().catch((error) => {
+      markError("failed to clean up after connection closed", error);
     });
   }
 
@@ -627,7 +629,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     attachPeerHandlers(nextPeer);
   }
 
-  function closeCurrentPeer(): void {
+  async function closeCurrentPeer(): Promise<void> {
     failPendingAcks();
     for (const dc of channels.values()) {
       try {
@@ -642,7 +644,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     seenInboundMessageKeys.clear();
     if (peer) {
       try {
-        peer.close();
+        await peer.close();
       } catch (error) {
         debugLog("failed to close peer connection cleanly", error);
       }
@@ -672,7 +674,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     activeSlug = null;
     await stopBridge();
     commandHandler.stop();
-    closeCurrentPeer();
+    await closeCurrentPeer();
     resetNegotiationState();
   }
 
@@ -728,7 +730,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         if (typeof parsed.candidate !== "string") continue;
         const sdpMid = typeof parsed.sdpMid === "string" ? parsed.sdpMid : "0";
         if (!peer) continue;
-        peer.addRemoteCandidate(parsed.candidate, sdpMid);
+        await peer.addRemoteCandidate(parsed.candidate, sdpMid);
       } catch (error) {
         debugLog("failed to parse/apply browser ICE candidate", error);
       }
@@ -975,7 +977,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     await stopBridge();
     commandHandler.stop();
-    closeCurrentPeer();
+    await closeCurrentPeer();
     ipcServer.close();
 
     try {

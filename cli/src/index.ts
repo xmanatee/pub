@@ -10,7 +10,8 @@ if (process.env.PUBBLUE_DAEMON_MODE === "1") {
   const { CLI_VERSION } = await import("./lib/version.js");
   const { getUpdateCheck } = await import("./lib/version-check.js");
 
-  const updateCheck = await getUpdateCheck();
+  const skipUpdateCheck = process.env.PUBBLUE_SKIP_UPDATE_CHECK === "1";
+  const updateCheck = skipUpdateCheck ? null : await getUpdateCheck();
   const command = process.argv[2];
   const isGated = command !== "upgrade" && command !== "--version" && command !== "-V";
 

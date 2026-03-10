@@ -76,7 +76,12 @@ pubblue start --agent-name "<agent-name>"
 # optional explicit mode:
 pubblue start --agent-name "<agent-name>" --bridge openclaw
 pubblue start --agent-name "<agent-name>" --bridge claude-code
+pubblue start --agent-name "<agent-name>" --bridge claude-sdk
 ```
+
+Notes:
+- Standalone binary installs fall back to `claude-code` when the Claude Agent SDK package is not locally importable.
+- `--bridge claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
 
 2. Check runtime status:
 ```bash

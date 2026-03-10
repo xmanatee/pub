@@ -111,6 +111,12 @@ describe("resolveBridgeMode", () => {
     );
   });
 
+  it("falls back to claude-code when the SDK is unavailable", () => {
+    vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
+    vi.mocked(isClaudeSdkAvailableInEnv).mockReturnValue(false);
+    expect(autoDetectBridgeMode()).toBe("claude-code");
+  });
+
   it("auto-detects claude-code when only claude is available", () => {
     vi.mocked(isClaudeCodeAvailableInEnv).mockReturnValue(true);
     expect(autoDetectBridgeMode()).toBe("claude-code");

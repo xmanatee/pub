@@ -56,3 +56,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+      - name: Smoke test linux binary
+        run: |
+          VERSION="$(node --print "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")"
+          ACTUAL="$(PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --version)"
+          test "$ACTUAL" = "$VERSION"
+          PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --help >/dev/null

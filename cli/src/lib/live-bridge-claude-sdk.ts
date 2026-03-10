@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
 import { CHANNELS, generateMessageId } from "../../../shared/bridge-protocol-core";
@@ -19,18 +20,30 @@ import {
 } from "./live-bridge-shared.js";
 import { runAgentWritePongProbe } from "./live-runtime/bridge-write-probe.js";
 
+const require = createRequire(import.meta.url);
+const CLAUDE_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
+
 type ClaudeSdk = typeof import("@anthropic-ai/claude-agent-sdk");
 
 async function tryImportSdk(): Promise<ClaudeSdk | null> {
   try {
-    return await import("@anthropic-ai/claude-agent-sdk");
+    return await import(CLAUDE_SDK_PACKAGE);
   } catch {
     return null;
   }
 }
 
+function isClaudeSdkResolvable(): boolean {
+  try {
+    require.resolve(CLAUDE_SDK_PACKAGE);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function isClaudeSdkAvailableInEnv(env: NodeJS.ProcessEnv): boolean {
-  return isClaudeCodeAvailableInEnv(env);
+  return isClaudeCodeAvailableInEnv(env) && isClaudeSdkResolvable();
 }
 
 export async function isClaudeSdkImportable(): Promise<boolean> {

@@ -78,9 +78,13 @@ function registerStartCommand(program: Command): void {
     .requiredOption("--agent-name <name>", "Agent display name shown to the browser user")
     .option("--bridge <mode>", "Bridge mode: openclaw|claude-code|claude-sdk")
     .action(async (opts: { agentName: string; bridge?: string }) => {
-      writeLatestCliVersion(CLI_VERSION);
       const preflight = await runStartPreflight({ bridge: opts.bridge });
       const { runtimeConfig, bridgeMode, bridgeProcessEnv } = preflight;
+      try {
+        writeLatestCliVersion(CLI_VERSION);
+      } catch (error) {
+        failCli(`Failed to write CLI runtime metadata: ${errorMessage(error)}`);
+      }
 
       console.log("Preflight checks passed:");
       for (const line of preflight.passedChecks) {

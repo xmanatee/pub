@@ -39,8 +39,24 @@ jobs:
       - name: Test CLI
         run: pnpm test
 
+      - name: Verify release tag matches CLI version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="$(node --print "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")"
+          if [ "$TAG" != "cli-v$VERSION" ]; then
+            echo "Tag $TAG does not match cli/package.json version $VERSION" >&2
+            exit 1
+          fi
+
       - name: Build binaries (cross-compile)
         run: pnpm build
+
+      - name: Smoke test linux binary
+        run: |
+          VERSION="$(node --print "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")"
+          ACTUAL="$(PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --version)"
+          test "$ACTUAL" = "$VERSION"
+          PUBBLUE_SKIP_UPDATE_CHECK=1 ./dist-bin/pubblue-linux-x64 --help >/dev/null
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2

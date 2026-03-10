@@ -12,6 +12,7 @@
 - Per-user daemon (not per-slug): `pubblue start` registers agent presence, daemon polls for incoming live requests
 - Browser-initiated live: browser creates WebRTC offer, daemon creates answer
 - Supported bridge modes: `openclaw`, `claude-code`, and `claude-sdk` (`pubblue start --bridge <mode>`)
+- `claude-sdk` is only available when `@anthropic-ai/claude-agent-sdk` is locally importable; standalone binary installs otherwise fall back to `claude-code`
 - Socket path: `/tmp/pubblue-agent.sock` (fixed, not slug-dependent)
 - Commands that need the active slug (`write`, `read`, `doctor`) resolve it via IPC to the daemon; `channels` queries daemon state directly
 - Daemon spawned via `spawn(process.execPath, [])` with `PUBBLUE_DAEMON_MODE=1` env var (binary re-executes itself)

@@ -106,16 +106,21 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     mode: "claude-sdk" as const,
     priority: 75,
     detect(env: NodeJS.ProcessEnv) {
-      const cliAvailable = isClaudeSdkAvailableInEnv(env);
-      if (!cliAvailable) {
+      if (!isClaudeCodeAvailableInEnv(env)) {
         return {
           available: false,
           detail: `Claude CLI not detected (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
         };
       }
+      if (!isClaudeSdkAvailableInEnv(env)) {
+        return {
+          available: false,
+          detail: `Claude Agent SDK not importable (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
+        };
+      }
       return {
         available: true,
-        detail: `Claude CLI detected; SDK import checked at startup (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
+        detail: `Claude CLI detected and SDK importable (${describeConfiguredPath("CLAUDE_CODE_PATH", env)})`,
       };
     },
     async startupProbe(env: NodeJS.ProcessEnv) {

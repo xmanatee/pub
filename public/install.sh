@@ -32,10 +32,26 @@ detect_target() {
 }
 
 get_latest_tag() {
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=10" \
-    | grep -o '"tag_name": *"cli-v[^"]*"' \
-    | head -1 \
-    | sed 's/"tag_name": *"//;s/"//'
+  local page response tag
+
+  for page in 1 2 3 4 5 6 7 8 9 10; do
+    response="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100&page=${page}")"
+    tag="$(printf '%s' "$response" \
+      | grep -o '"tag_name": *"cli-v[^"]*"' \
+      | head -1 \
+      | sed 's/"tag_name": *"//;s/"//')"
+
+    if [ -n "$tag" ]; then
+      printf '%s\n' "$tag"
+      return 0
+    fi
+
+    if ! printf '%s' "$response" | grep -q '"tag_name"'; then
+      break
+    fi
+  done
+
+  return 1
 }
 
 detect_shell_rc() {
@@ -83,7 +99,7 @@ add_to_path() {
 }
 
 main() {
-  local target tag url bin_path tmp_path
+  local target tag url bin_path tmp_path reported_version
 
   target="$(detect_target)"
   echo "Detected platform: ${target}"
@@ -110,8 +126,14 @@ main() {
   curl -fSL --progress-bar -o "$tmp_path" "$url"
   chmod +x "$tmp_path"
 
-  if ! "$tmp_path" --version >/dev/null 2>&1; then
-    echo "Warning: installed binary failed to run." >&2
+  if ! reported_version="$(PUBBLUE_SKIP_UPDATE_CHECK=1 "$tmp_path" --version 2>/dev/null)"; then
+    echo "Downloaded binary failed validation; aborting install." >&2
+    exit 1
+  fi
+  reported_version="$(printf '%s' "$reported_version" | tr -d '\r' | tail -n 1)"
+  if [ "$reported_version" != "$version" ]; then
+    echo "Downloaded binary reported version ${reported_version:-<empty>}; expected ${version}. Aborting install." >&2
+    exit 1
   fi
 
   mv "$tmp_path" "$bin_path"

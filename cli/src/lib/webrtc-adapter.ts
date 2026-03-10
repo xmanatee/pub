@@ -133,8 +133,8 @@ export class AdapterPeerConnection {
     return { sdp: desc.sdp, type: desc.type };
   }
 
-  addRemoteCandidate(candidate: string, mid: string): void {
-    void this.pc.addIceCandidate({ candidate, sdpMid: mid });
+  async addRemoteCandidate(candidate: string, mid: string): Promise<void> {
+    await this.pc.addIceCandidate({ candidate, sdpMid: mid });
   }
 
   createDataChannel(label: string, opts?: DataChannelOptions): AdapterDataChannel {
@@ -146,17 +146,16 @@ export class AdapterPeerConnection {
     return new AdapterDataChannel(dc);
   }
 
-  setLocalDescription(): void {
-    void this.pc.setLocalDescription().then(() => {
-      if (this.localDescriptionCb && this.pc.localDescription) {
-        this.localDescriptionCb(this.pc.localDescription.sdp, this.pc.localDescription.type);
-      }
-    });
+  async setLocalDescription(): Promise<void> {
+    await this.pc.setLocalDescription();
+    if (this.localDescriptionCb && this.pc.localDescription) {
+      this.localDescriptionCb(this.pc.localDescription.sdp, this.pc.localDescription.type);
+    }
   }
 
-  close(): void {
+  async close(): Promise<void> {
     try {
-      this.pc.close();
+      await this.pc.close();
     } catch {}
   }
 }

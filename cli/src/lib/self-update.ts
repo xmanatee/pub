@@ -1,9 +1,12 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 const REPO = "xmanatee/pub";
+const RELEASES_PER_PAGE = 100;
+const MAX_RELEASE_PAGES = 10;
 
 export interface LatestRelease {
   tag: string;
@@ -51,20 +54,69 @@ export function isNewer(latest: string, current: string): boolean {
   return lc > cc;
 }
 
-export async function fetchLatestRelease(): Promise<LatestRelease> {
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO}/releases?per_page=10`,
-    { headers: { Accept: "application/vnd.github+json" } },
-  );
-  if (!res.ok) {
-    throw new Error(`GitHub API returned ${res.status}: ${res.statusText}`);
+export function versionFromTag(tag: string): string {
+  if (!tag.startsWith("cli-v")) {
+    throw new Error(`Invalid CLI release tag: ${tag}`);
   }
-  const releases = (await res.json()) as { tag_name: string }[];
-  const match = releases.find((r) => r.tag_name.startsWith("cli-v"));
-  if (!match) {
-    throw new Error("No cli-v* release found");
+  return tag.replace("cli-v", "");
+}
+
+function validateDownloadedBinary(binaryPath: string, expectedVersion: string): void {
+  let output: string;
+  try {
+    output = execFileSync(binaryPath, ["--version"], {
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        PUBBLUE_SKIP_UPDATE_CHECK: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    throw new Error(
+      `Downloaded binary failed validation: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-  return { tag: match.tag_name, version: match.tag_name.replace("cli-v", "") };
+
+  const reportedVersion = output.trim();
+  if (reportedVersion !== expectedVersion) {
+    throw new Error(
+      `Downloaded binary reported version ${reportedVersion || "(empty)"}; expected ${expectedVersion}.`,
+    );
+  }
+}
+
+function resolveInstalledBinaryPath(execPath = process.execPath): string {
+  const executableName = path.basename(execPath);
+  if (!executableName.startsWith("pubblue")) {
+    throw new Error(
+      `Self-update is only supported for installed pubblue binaries. Current executable: ${execPath}`,
+    );
+  }
+  return execPath;
+}
+
+export async function fetchLatestRelease(
+  fetchImpl: typeof fetch = fetch,
+): Promise<LatestRelease> {
+  for (let page = 1; page <= MAX_RELEASE_PAGES; page += 1) {
+    const res = await fetchImpl(
+      `https://api.github.com/repos/${REPO}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`,
+      { headers: { Accept: "application/vnd.github+json" } },
+    );
+    if (!res.ok) {
+      throw new Error(`GitHub API returned ${res.status}: ${res.statusText}`);
+    }
+
+    const releases = (await res.json()) as { tag_name: string }[];
+    const match = releases.find((release) => release.tag_name.startsWith("cli-v"));
+    if (match) {
+      return { tag: match.tag_name, version: versionFromTag(match.tag_name) };
+    }
+    if (releases.length === 0) break;
+  }
+
+  throw new Error("No cli-v* release found");
 }
 
 export function binaryDownloadUrl(tag: string, target: string): string {
@@ -73,8 +125,10 @@ export function binaryDownloadUrl(tag: string, target: string): string {
 
 export async function downloadAndReplace(tag: string, target: string): Promise<void> {
   const url = binaryDownloadUrl(tag, target);
-  const execPath = process.execPath;
+  const execPath = resolveInstalledBinaryPath();
+  const expectedVersion = versionFromTag(tag);
   const tmpPath = path.join(path.dirname(execPath), `.pubblue-update-${process.pid}`);
+  const backupPath = path.join(path.dirname(execPath), `.pubblue-backup-${process.pid}`);
 
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok) {
@@ -86,13 +140,25 @@ export async function downloadAndReplace(tag: string, target: string): Promise<v
 
   const out = fs.createWriteStream(tmpPath, { mode: 0o755 });
   await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream), out);
+  validateDownloadedBinary(tmpPath, expectedVersion);
 
-  if (process.platform === "win32") {
-    const backupPath = `${execPath}.old`;
+  try {
+    fs.rmSync(backupPath, { force: true });
     fs.renameSync(execPath, backupPath);
     fs.renameSync(tmpPath, execPath);
-    fs.unlinkSync(backupPath);
-  } else {
-    fs.renameSync(tmpPath, execPath);
+    fs.rmSync(backupPath, { force: true });
+  } catch (error) {
+    try {
+      if (!fs.existsSync(execPath) && fs.existsSync(backupPath)) {
+        fs.renameSync(backupPath, execPath);
+      }
+    } catch {
+      /* best-effort rollback */
+    }
+    throw error;
+  } finally {
+    if (fs.existsSync(tmpPath)) {
+      fs.rmSync(tmpPath, { force: true });
+    }
   }
 }

@@ -22,7 +22,7 @@ pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
 ```
 
-The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` (uses tsup).
+The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` (uses Bun compile).
 
 ### Frontend (`src/`)
 - **Routing**: TanStack Router file-based routes in `src/routes/`
