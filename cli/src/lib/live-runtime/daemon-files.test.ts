@@ -8,7 +8,7 @@ import {
   readLatestCliVersion,
   readLogTail,
   writeLiveSessionContentFile,
-} from "./daemon-files.js";
+} from "../../live/runtime/daemon-files.js";
 
 describe("daemon-files", () => {
   const tempRoots: string[] = [];

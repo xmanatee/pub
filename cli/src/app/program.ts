@@ -1,0 +1,20 @@
+import { Command } from "commander";
+import { registerConfigCommand } from "../commands/config/index.js";
+import { registerLiveCommands } from "../commands/live/index.js";
+import { registerPubCommands } from "../commands/pub/index.js";
+import { registerUpgradeCommand } from "../commands/upgrade/index.js";
+import { CLI_VERSION } from "../core/version/version.js";
+
+export function buildProgram(): Command {
+  const program = new Command();
+  program.exitOverride();
+
+  program.name("pub").description("Publish content and go live").version(CLI_VERSION);
+
+  registerConfigCommand(program);
+  registerPubCommands(program);
+  registerLiveCommands(program);
+  registerUpgradeCommand(program);
+
+  return program;
+}

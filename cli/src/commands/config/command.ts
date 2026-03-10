@@ -1,13 +1,13 @@
 import type { Command } from "commander";
-import { PubApiClient } from "../../lib/api.js";
-import { errorMessage } from "../../lib/cli-error.js";
-import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../lib/config.js";
-import { readConfig, resolveConfig, saveConfig } from "../../lib/config.js";
+import { PubApiClient } from "../../core/api/client.js";
+import { errorMessage } from "../../core/errors/cli-error.js";
+import type { BridgeConfig, SavedConfig, TelegramConfig } from "../../core/config/index.js";
+import { readConfig, resolveConfig, saveConfig } from "../../core/config/index.js";
 import {
   autoDetectBridgeConfig,
   buildBridgeProcessEnv,
   prepareBridgeConfigForSave,
-} from "../../lib/live-runtime/bridge-runtime.js";
+} from "../../live/runtime/bridge-runtime.js";
 import { collectValues, resolveConfigureApiKey } from "./io.js";
 import { printAutoDetectSummary, printConfigStatus, printMutationSummary } from "./render.js";
 import { applyConfigSet, applyConfigUnset, hasValues, parseSetInput } from "./schema.js";

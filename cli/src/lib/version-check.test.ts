@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isMinorOrMajorBump } from "./version-check.js";
+import { isMinorOrMajorBump } from "../core/version/version-check.js";
 
 describe("isMinorOrMajorBump", () => {
   it("returns true for major bump", () => {

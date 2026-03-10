@@ -1,4 +1,4 @@
-import { readFromStdin } from "../shared.js";
+import { readFromStdin } from "../shared/index.js";
 
 export function resolveConfigureApiKey(opts: {
   apiKey?: string;

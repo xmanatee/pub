@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseIpcRequest, parseIpcResponse } from "./live-ipc-protocol.js";
+import { parseIpcRequest, parseIpcResponse } from "../live/transport/ipc-protocol.js";
 
 describe("live-ipc-protocol", () => {
   it("parses write requests with bridge messages", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { BridgeConfig, TelegramConfig } from "../lib/config.js";
-import { parsePositiveInteger } from "../lib/number.js";
+import type { BridgeConfig, TelegramConfig } from "../core/config/index.js";
+import { parsePositiveInteger } from "../core/utils/number.js";
 import {
   applyConfigSet,
   applyConfigUnset,

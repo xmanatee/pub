@@ -6,7 +6,7 @@ import {
   isNewer,
   resolveTarget,
   versionFromTag,
-} from "./self-update.js";
+} from "../core/version/self-update.js";
 
 describe("isNewer", () => {
   it("returns true when latest is a major bump", () => {

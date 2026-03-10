@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProgram } from "./program.js";
+import { buildProgram } from "./app/program.js";
 
 function requireCommand(name: string) {
   const program = buildProgram();

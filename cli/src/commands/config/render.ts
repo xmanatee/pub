@@ -3,8 +3,8 @@ import type {
   ResolvedConfig,
   SavedConfig,
   TelegramConfig,
-} from "../../lib/config.js";
-import { resolveConfig, resolveConfigLocation } from "../../lib/config.js";
+} from "../../core/config/index.js";
+import { resolveConfig, resolveConfigLocation } from "../../core/config/index.js";
 import {
   CONFIG_KEY_REGISTRY,
   type ConfigKeyDef,

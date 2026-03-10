@@ -1,6 +1,6 @@
-import type { BridgeConfig, TelegramConfig } from "../../lib/config.js";
-import { parsePositiveInteger } from "../../lib/number.js";
-import type { BridgeMode } from "../../lib/live-daemon-shared.js";
+import type { BridgeConfig, TelegramConfig } from "../../core/config/index.js";
+import { parsePositiveInteger } from "../../core/utils/number.js";
+import type { BridgeMode } from "../../live/daemon/shared.js";
 
 export { parsePositiveInteger };
 

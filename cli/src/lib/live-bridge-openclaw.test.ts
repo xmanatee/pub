@@ -6,21 +6,21 @@ import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
   type StagedAttachment,
-} from "./live-bridge-attachments.js";
+} from "../live/bridge/attachments.js";
 import {
   resolveOpenClawHome,
   resolveOpenClawSessionsPath,
   resolveOpenClawStateDir,
   resolveSessionFromSessionsData,
-} from "./live-bridge-openclaw-session.js";
+} from "../live/bridge/providers/openclaw-session.js";
 import {
   buildInboundPrompt,
   buildRenderErrorPrompt,
   buildSessionBriefing,
   readRenderErrorMessage,
   shouldIncludeCanvasPolicyReminder,
-} from "./live-bridge-shared.js";
-import { buildBridgeInstructions } from "./live-daemon-shared.js";
+} from "../live/bridge/shared.js";
+import { buildBridgeInstructions } from "../live/daemon/shared.js";
 
 const openclawInstructions = buildBridgeInstructions("openclaw");
 const claudeCodeInstructions = buildBridgeInstructions("claude-code");

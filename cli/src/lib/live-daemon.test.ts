@@ -3,7 +3,7 @@ import { resolveAckChannel } from "../../../shared/ack-routing-core";
 import {
   getLiveWriteReadinessError,
   shouldRecoverForBrowserOfferChange,
-} from "./live-daemon-shared.js";
+} from "../live/daemon/shared.js";
 
 describe("getLiveWriteReadinessError", () => {
   it("blocks writes before live session establishment", () => {

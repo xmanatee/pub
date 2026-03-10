@@ -1,0 +1,76 @@
+import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
+import type { BridgeRunner } from "../bridge/shared.js";
+import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
+import type { ChannelBuffer } from "./shared.js";
+
+export interface PendingOutboundAck {
+  channel: string;
+  messageId: string;
+}
+
+export interface PendingDeliveryAck {
+  resolve: (received: boolean) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+export interface DaemonState {
+  buffer: ChannelBuffer;
+  stopped: boolean;
+  browserConnected: boolean;
+  bridgePrimed: boolean;
+  bridgePriming: Promise<void> | null;
+  bridgeAbort: AbortController | null;
+  recovering: boolean;
+  activeSlug: string | null;
+  lastAppliedBrowserOffer: string | null;
+  lastBrowserCandidateCount: number;
+  lastSentCandidateCount: number;
+  localCandidates: string[];
+  pendingOutboundAcks: Map<string, PendingOutboundAck>;
+  pendingDeliveryAcks: Map<string, PendingDeliveryAck>;
+  peer: AdapterPeerConnection | null;
+  channels: Map<string, AdapterDataChannel>;
+  pendingInboundBinaryMeta: Map<string, BridgeMessage>;
+  inboundStreams: Map<string, { streamId: string }>;
+  seenInboundMessageKeys: Set<string>;
+  heartbeatTimer: ReturnType<typeof setInterval> | null;
+  localCandidateInterval: ReturnType<typeof setInterval> | null;
+  localCandidateStopTimer: ReturnType<typeof setTimeout> | null;
+  healthCheckTimer: ReturnType<typeof setInterval> | null;
+  pingTimer: ReturnType<typeof setInterval> | null;
+  pongTimeout: ReturnType<typeof setTimeout> | null;
+  lastError: string | null;
+  bridgeRunner: BridgeRunner | null;
+}
+
+export function createDaemonState(buffer: ChannelBuffer): DaemonState {
+  return {
+    buffer,
+    stopped: false,
+    browserConnected: false,
+    bridgePrimed: false,
+    bridgePriming: null,
+    bridgeAbort: null,
+    recovering: false,
+    activeSlug: null,
+    lastAppliedBrowserOffer: null,
+    lastBrowserCandidateCount: 0,
+    lastSentCandidateCount: 0,
+    localCandidates: [],
+    pendingOutboundAcks: new Map(),
+    pendingDeliveryAcks: new Map(),
+    peer: null,
+    channels: new Map(),
+    pendingInboundBinaryMeta: new Map(),
+    inboundStreams: new Map(),
+    seenInboundMessageKeys: new Set(),
+    heartbeatTimer: null,
+    localCandidateInterval: null,
+    localCandidateStopTimer: null,
+    healthCheckTimer: null,
+    pingTimer: null,
+    pongTimeout: null,
+    lastError: null,
+    bridgeRunner: null,
+  };
+}

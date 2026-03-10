@@ -5,7 +5,7 @@ import {
   type AdapterDataChannel,
   type AdapterPeerConnection,
   createPeerConnection,
-} from "./webrtc-adapter.js";
+} from "../live/transport/webrtc-adapter.js";
 
 const PEER_EVENT_TIMEOUT_MS = 7_500;
 const PEER_NEGOTIATION_TIMEOUT_MS = 25_000;

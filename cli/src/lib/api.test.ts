@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PubApiClient } from "./api.js";
+import { PubApiClient } from "../core/api/client.js";
 
 describe("PubApiClient", () => {
   const baseUrl = "https://test.convex.site";

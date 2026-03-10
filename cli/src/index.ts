@@ -2,13 +2,13 @@
 export {};
 
 if (process.env.PUB_DAEMON_MODE === "1") {
-  const { runDaemonFromEnv } = await import("./live-daemon-entry.js");
+  const { runDaemonFromEnv } = await import("./app/live-daemon-entry.js");
   await runDaemonFromEnv();
 } else {
-  const { toCliFailure } = await import("./lib/cli-error.js");
-  const { buildProgram } = await import("./program.js");
-  const { CLI_VERSION } = await import("./lib/version.js");
-  const { getUpdateCheck } = await import("./lib/version-check.js");
+  const { toCliFailure } = await import("./core/errors/cli-error.js");
+  const { buildProgram } = await import("./app/program.js");
+  const { CLI_VERSION } = await import("./core/version/version.js");
+  const { getUpdateCheck } = await import("./core/version/version-check.js");
 
   const skipUpdateCheck = process.env.PUB_SKIP_UPDATE_CHECK === "1";
   const updateCheck = skipUpdateCheck ? null : await getUpdateCheck();
