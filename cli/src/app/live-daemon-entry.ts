@@ -8,6 +8,7 @@ export async function runDaemonFromEnv(): Promise<void> {
   const socketPath = process.env.PUB_DAEMON_SOCKET;
   const infoPath = process.env.PUB_DAEMON_INFO;
   const cliVersion = process.env.PUB_CLI_VERSION;
+  const logPath = process.env.PUB_DAEMON_LOG;
   const agentName = process.env.PUB_DAEMON_AGENT_NAME;
   const bridgeSettingsRaw = process.env.PUB_DAEMON_BRIDGE_SETTINGS;
   if (!bridgeSettingsRaw?.trim()) {
@@ -36,6 +37,7 @@ export async function runDaemonFromEnv(): Promise<void> {
     apiClient,
     socketPath,
     infoPath,
+    logPath,
     cliVersion,
     bridgeSettings,
     agentName,

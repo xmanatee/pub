@@ -46,6 +46,7 @@ export interface DaemonConfig {
   apiClient: PubApiClient;
   socketPath: string;
   infoPath: string;
+  logPath?: string;
   bridgeSettings: BridgeSettings;
   agentName?: string;
 }

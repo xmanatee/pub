@@ -22,6 +22,7 @@ interface DaemonIpcHandlerParams {
   getLastError: () => string | null;
   getBridgeMode: () => string | null;
   getBridgeStatus: () => unknown;
+  getLogPath: () => string | null;
   getWriteReadinessError: () => string | null;
   openDataChannel: (channel: string) => AdapterDataChannel;
   waitForChannelOpen: (channel: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
@@ -169,6 +170,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
           lastError: params.getLastError(),
           bridgeMode: params.getBridgeMode(),
           bridge: params.getBridgeStatus(),
+          logPath: params.getLogPath(),
         };
       }
 

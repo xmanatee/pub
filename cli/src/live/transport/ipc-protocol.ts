@@ -25,6 +25,7 @@ export interface StatusResponse {
   lastError: string | null;
   bridgeMode: string | null;
   bridge: BridgeStatus | null;
+  logPath: string | null;
   error?: string;
 }
 
@@ -288,6 +289,10 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     if (channels.length !== record.channels.length) return null;
     const bridge = record.bridge === undefined ? null : parseBridgeStatus(record.bridge);
     if (record.bridge !== undefined && bridge === null && record.bridge !== null) return null;
+    const logPath =
+      record.logPath === null || record.logPath === undefined
+        ? null
+        : readString(record.logPath) ?? null;
     return {
       ok,
       connected,
@@ -299,6 +304,7 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
       lastError,
       bridgeMode,
       bridge,
+      logPath,
       error,
     } as IpcResponseFor<T>;
   }

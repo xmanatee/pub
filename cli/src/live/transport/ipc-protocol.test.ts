@@ -38,6 +38,7 @@ describe("live-ipc-protocol", () => {
         lastError: null,
         bridgeMode: "openclaw",
         bridge: { running: true, forwardedMessages: 3 },
+        logPath: "/tmp/agent-2026-03-10.log",
       }),
     ).toEqual({
       ok: true,
@@ -50,6 +51,7 @@ describe("live-ipc-protocol", () => {
       lastError: null,
       bridgeMode: "openclaw",
       bridge: { running: true, forwardedMessages: 3 },
+      logPath: "/tmp/agent-2026-03-10.log",
       error: undefined,
     });
   });
