@@ -13,12 +13,10 @@ function buildHandler() {
   const handler = createLiveCommandHandler({
     bridgeSettings: {
       mode: "openclaw",
+      verbose: false,
       bridgeCwd: "/tmp/pub-bridge",
       canvasReminderEvery: 10,
-      deliver: false,
-      deliverTimeoutMs: 120_000,
       attachmentDir: "/tmp/pub-attachments",
-      attachmentMaxBytes: 5 * 1024 * 1024,
       commandDefaultTimeoutMs: 15_000,
       commandMaxOutputBytes: 256 * 1024,
       commandMaxConcurrent: 6,

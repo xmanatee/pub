@@ -22,7 +22,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const state = createDaemonState(buffer);
   const startTime = Date.now();
   const daemonSessionId = randomUUID();
-  const debugEnabled = process.env.PUB_LIVE_DEBUG === "1";
+  const verboseEnabled = config.bridgeSettings.verbose === true;
   const versionFilePath = latestCliVersionPath();
 
   let channelManager!: ReturnType<typeof createDaemonChannelManager>;
@@ -54,7 +54,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     state,
     cliVersion,
     versionFilePath,
-    debugEnabled,
+    debugEnabled: verboseEnabled,
     closeCurrentPeer: async () => await peerManager.closeCurrentPeer(),
     stopBridge: async () => await bridgeManager.stopBridge(),
     resetNegotiationState: () => peerManager.resetNegotiationState(),

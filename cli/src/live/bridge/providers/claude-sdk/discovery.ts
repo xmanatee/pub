@@ -4,14 +4,7 @@ import {
   resolveClaudeCodePath,
 } from "../claude-code/discovery.js";
 
-function parseAllowedTools(raw: string | undefined): string[] | undefined {
-  const trimmed = raw?.trim();
-  if (!trimmed) return undefined;
-  return trimmed
-    .split(",")
-    .map((tool) => tool.trim())
-    .filter(Boolean);
-}
+const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 function buildSdkEnv(baseEnv: NodeJS.ProcessEnv): Record<string, string | undefined> {
   const sdkEnv: Record<string, string | undefined> = { ...baseEnv };
@@ -34,11 +27,8 @@ export function buildSdkSessionOptions(
   bridgeConfig?: PubBridgeConfig,
 ) {
   return {
-    model: env.CLAUDE_CODE_MODEL?.trim() || bridgeConfig?.claudeCodeModel || "claude-sonnet-4-6",
+    model: DEFAULT_MODEL,
     claudePath: resolveClaudeCodePath(env, bridgeConfig),
-    allowedTools: parseAllowedTools(
-      env.CLAUDE_CODE_ALLOWED_TOOLS?.trim() || bridgeConfig?.claudeCodeAllowedTools?.trim(),
-    ),
     sdkEnv: buildSdkEnv(env),
   };
 }

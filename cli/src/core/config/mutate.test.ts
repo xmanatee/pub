@@ -17,9 +17,9 @@ describe("parseConfigAssignment", () => {
   });
 
   it("handles values containing =", () => {
-    expect(parseConfigAssignment("claude-code.appendSystemPrompt=a=b=c")).toEqual({
-      key: "claude-code.appendSystemPrompt",
-      value: "a=b=c",
+    expect(parseConfigAssignment("baseUrl=https://example.com?foo=bar")).toEqual({
+      key: "baseUrl",
+      value: "https://example.com?foo=bar",
     });
   });
 
@@ -64,7 +64,6 @@ describe("setPubConfigValue", () => {
       { key: "openclaw.stateDir", field: "openclawStateDir" },
       { key: "openclaw.sessionId", field: "sessionId" },
       { key: "openclaw.threadId", field: "threadId" },
-      { key: "openclaw.deliverChannel", field: "deliverChannel" },
     ];
 
     for (const { key, field } of stringKeys) {
@@ -74,12 +73,16 @@ describe("setPubConfigValue", () => {
     }
   });
 
-  it("sets integer and boolean bridge keys with parsing", () => {
+  it("sets integer bridge keys with parsing", () => {
     const config = makeConfig();
     setPubConfigValue(config, "bridge.canvasReminderEvery", "123");
-    setPubConfigValue(config, "openclaw.deliver", "true");
     expect(config.bridge?.canvasReminderEvery).toBe(123);
-    expect(config.bridge?.deliver).toBe(true);
+  });
+
+  it("sets boolean bridge keys with parsing", () => {
+    const config = makeConfig();
+    setPubConfigValue(config, "bridge.verbose", "true");
+    expect(config.bridge?.verbose).toBe(true);
   });
 
   it("sets bridge.mode", () => {
@@ -142,9 +145,10 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(24);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(18);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.verbose");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
   });
 });

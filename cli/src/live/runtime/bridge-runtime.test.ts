@@ -48,6 +48,24 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.attachmentDir).toContain("/attachments");
     expect(bridgeSettings.canvasReminderEvery).toBe(10);
     expect(bridgeSettings.commandDefaultTimeoutMs).toBe(15_000);
+    expect(bridgeSettings.verbose).toBe(false);
+  });
+
+  it("uses saved bridge.verbose for runtime verbosity", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
+    process.env.PUB_CONFIG_DIR = tempDir;
+    process.env.PUB_PROJECT_ROOT = "/tmp/pub-project";
+
+    const bridgeSettings = buildBridgeSettings(
+      "claude-code",
+      {
+        claudeCodePath: "/usr/local/bin/claude",
+        verbose: true,
+      },
+      buildBridgeProcessEnv(),
+    );
+
+    expect(bridgeSettings.verbose).toBe(true);
   });
 
   it("requires explicit OpenClaw workspace in runtime settings", () => {

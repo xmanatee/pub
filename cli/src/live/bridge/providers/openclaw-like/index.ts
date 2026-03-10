@@ -31,7 +31,6 @@ export async function createOpenClawLikeBridgeRunner(
 
   const command = bridgeSettings.openclawLikeCommand;
   const attachmentRoot = bridgeSettings.attachmentDir;
-  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   ensureDirectoryWritable(attachmentRoot);
 
   const activeStreams = new Map<string, ActiveStream>();
@@ -79,7 +78,6 @@ export async function createOpenClawLikeBridgeRunner(
       if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
       const deliveredAttachment = await handleAttachmentEntry({
         activeStreams,
-        attachmentMaxBytes,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverMessageToCommand(

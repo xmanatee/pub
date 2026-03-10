@@ -53,10 +53,11 @@ function formatPreflightError(params: {
     lines.push(...skipped.map((entry) => `- [${entry.label}] ${entry.detail}`));
   }
 
-  lines.push("", "Debug tips:");
+  lines.push("", "Troubleshooting tips:");
   lines.push("- Run `pub config` to inspect saved CLI configuration.");
   lines.push("- Run `pub config --auto` to detect and save a working bridge.");
   lines.push("- Set `bridge.mode` in saved config before starting the daemon.");
+  lines.push("- Enable verbose daemon logs with `pub config --set bridge.verbose=true`.");
 
   return lines.join("\n");
 }

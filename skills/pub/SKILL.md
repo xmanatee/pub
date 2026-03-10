@@ -6,7 +6,7 @@ license: MIT
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.2"
+  version: "5.2.3"
 allowed-tools: Bash(pub:*) Bash(node:*) Read Write
 ---
 
@@ -81,8 +81,11 @@ pub start --agent-name "<agent-name>"
 
 Notes:
 - Bridge mode comes from saved config (`pub config --auto` or `pub config --set bridge.mode=...`).
+- Enable verbose live daemon logging with `pub config --set bridge.verbose=true` when startup or bridge delivery is hard to diagnose.
 - Standalone binary installs fall back to `claude-code` when the Claude Agent SDK package is not locally importable.
 - `bridge.mode=claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
+- On success, `pub start` prints the daemon log path and current runtime status.
+- On failure, inspect the reported log path first; if logs are sparse, enable `bridge.verbose=true` and retry.
 
 2. Check runtime status:
 ```bash
@@ -122,4 +125,5 @@ Important:
 Only when needed:
 - Show effective saved config: `pub config`
 - Inspect runtime and bridge state: `pub status`
+- Toggle verbose daemon logging: `pub config --set bridge.verbose=true`
 - See command-specific options: `pub <command> --help`

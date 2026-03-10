@@ -26,11 +26,10 @@ export async function runOpenClawPreflight(
   }
 }
 
+const OPENCLAW_DELIVER_TIMEOUT_MS = 120_000;
+
 interface OpenClawDeliverySettings {
   bridgeCwd: string;
-  deliver?: boolean;
-  deliverChannel?: string;
-  deliverTimeoutMs?: number;
 }
 
 export async function deliverMessageToOpenClaw(
@@ -38,26 +37,13 @@ export async function deliverMessageToOpenClaw(
   env: NodeJS.ProcessEnv = process.env,
   deliverySettings: OpenClawDeliverySettings,
 ): Promise<void> {
-  const parsedTimeoutMs = deliverySettings.deliverTimeoutMs;
-  const effectiveTimeoutMs =
-    typeof parsedTimeoutMs === "number" && Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0
-      ? parsedTimeoutMs
-      : 120_000;
-
   const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
-  const shouldDeliver =
-    deliverySettings.deliver === true || Boolean(deliverySettings.deliverChannel);
-  if (shouldDeliver) args.push("--deliver");
-  const deliverChannel = deliverySettings.deliverChannel?.trim();
-  if (deliverChannel) {
-    args.push("--channel", deliverChannel);
-  }
 
   const invocation = getOpenClawInvocation(params.openclawPath, args);
   try {
     await execFileAsync(invocation.cmd, invocation.args, {
       cwd: deliverySettings.bridgeCwd,
-      timeout: effectiveTimeoutMs,
+      timeout: OPENCLAW_DELIVER_TIMEOUT_MS,
       env,
     });
   } catch (error) {

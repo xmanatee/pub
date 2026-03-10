@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import type { Command } from "commander";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { CLI_VERSION } from "../../core/version/version.js";
-import { getAgentSocketPath } from "../../live/transport/ipc.js";
+import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
 import {
   liveInfoPath,
   liveLogPath,
@@ -11,6 +11,10 @@ import {
 } from "../../live/runtime/daemon-files.js";
 import { buildDaemonSpawnStdio, waitForDaemonReady } from "../../live/runtime/daemon-process.js";
 import { runStartPreflight } from "../../live/runtime/start-preflight.js";
+import {
+  getLiveVerboseEnableCommand,
+  printDaemonStatus,
+} from "./support.js";
 
 export function registerStartCommand(program: Command): void {
   program
@@ -80,11 +84,39 @@ export function registerStartCommand(program: Command): void {
           lines.push(tail.trimEnd());
           lines.push("---- end daemon log tail ----");
         }
+        lines.push("");
+        lines.push("Troubleshooting:");
+        lines.push("- Inspect the daemon log path above.");
+        if (bridgeSettings.verbose) {
+          lines.push("- Verbose daemon logging is already enabled; retry and check the log again.");
+        } else {
+          lines.push(
+            `- Enable verbose daemon logging and retry: \`${getLiveVerboseEnableCommand()}\``,
+          );
+        }
         failCli(lines.join("\n"));
       }
 
       console.log("Agent daemon started. Waiting for browser to initiate live.");
-      console.log(`Daemon log: ${logPath}`);
-      console.log(`Bridge mode: ${bridgeSettings.mode}`);
+      let startupStatusError: string | null = null;
+      try {
+        const status = await ipcCall(socketPath, { method: "status", params: {} });
+        if (status.ok) {
+          console.log("");
+          console.log("Current status:");
+          printDaemonStatus(status, { verboseEnabled: bridgeSettings.verbose });
+        } else {
+          startupStatusError = status.error || "unknown error";
+        }
+      } catch (error) {
+        startupStatusError = errorMessage(error);
+      }
+      if (startupStatusError) {
+        console.log(`Status fetch failed after startup: ${startupStatusError}`);
+        console.log(`Bridge mode: ${bridgeSettings.mode}`);
+        console.log(`Verbose logging: ${bridgeSettings.verbose ? "enabled" : "disabled"}`);
+        console.log(`Log: ${logPath}`);
+        console.log("Run `pub status` for a fresh status check.");
+      }
     });
 }

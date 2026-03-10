@@ -45,7 +45,6 @@ export async function createOpenClawBridgeRunner(
   const openclawPath = bridgeSettings.openclawPath;
   const sessionId = bridgeSettings.sessionId;
   const attachmentRoot = bridgeSettings.attachmentDir;
-  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   ensureDirectoryWritable(attachmentRoot);
   await runOpenClawPreflight(openclawPath, process.env);
 
@@ -94,7 +93,6 @@ export async function createOpenClawBridgeRunner(
       if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
       const deliveredAttachment = await handleAttachmentEntry({
         activeStreams,
-        attachmentMaxBytes,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverMessageToOpenClaw(

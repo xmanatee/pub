@@ -45,15 +45,10 @@ const OPENCLAW_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
   "openclawStateDir",
   "sessionId",
   "threadId",
-  "deliver",
-  "deliverChannel",
 ];
 
 const CLAUDE_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
   "claudeCodePath",
-  "claudeCodeModel",
-  "claudeCodeAllowedTools",
-  "claudeCodeAppendSystemPrompt",
   "claudeCodeMaxTurns",
 ];
 

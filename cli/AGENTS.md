@@ -12,6 +12,7 @@
 - Per-user daemon (not per-slug): `pub start` registers agent presence, daemon polls for incoming live requests
 - Browser-initiated live: browser creates WebRTC offer, daemon creates answer
 - Supported bridge modes: `openclaw`, `claude-code`, and `claude-sdk` (selected from saved config)
+- Verbose daemon logging can be enabled with saved config `bridge.verbose=true`
 - `claude-sdk` is only available when `@anthropic-ai/claude-agent-sdk` is locally importable; standalone binary installs otherwise fall back to `claude-code`
 - Socket path: `/tmp/pub-agent.sock` (fixed, not slug-dependent)
 - Commands that need the active slug (`write`, `read`, `doctor`) resolve it via IPC to the daemon; `channels` queries daemon state directly

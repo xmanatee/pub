@@ -9,30 +9,6 @@ function getConfiguredClaudeCodePath(
   return env.CLAUDE_CODE_PATH?.trim() || bridgeConfig?.claudeCodePath?.trim();
 }
 
-function getConfiguredClaudeCodeModel(
-  env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
-): string | undefined {
-  return env.CLAUDE_CODE_MODEL?.trim() || bridgeConfig?.claudeCodeModel?.trim();
-}
-
-function getConfiguredClaudeCodeAllowedTools(
-  env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
-): string | undefined {
-  return env.CLAUDE_CODE_ALLOWED_TOOLS?.trim() || bridgeConfig?.claudeCodeAllowedTools?.trim();
-}
-
-function getConfiguredClaudeCodeAppendPrompt(
-  env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
-): string | undefined {
-  return (
-    env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim() ||
-    bridgeConfig?.claudeCodeAppendSystemPrompt?.trim()
-  );
-}
-
 function getConfiguredClaudeCodeMaxTurns(
   env: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig,
@@ -51,18 +27,13 @@ function parseConfiguredMaxTurns(value: string | undefined): number | undefined 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-interface ClaudeArgsOptions {
-  model?: string;
-  allowedTools?: string;
-  appendSystemPrompt?: string;
-  maxTurns?: number;
-}
-
-function buildClaudeArgsWithOptions(
+export function buildClaudeArgs(
   prompt: string,
   sessionId: string | null,
   systemPrompt: string | null,
-  options: ClaudeArgsOptions,
+  env: NodeJS.ProcessEnv = process.env,
+  opts?: { maxTurns?: number },
+  bridgeConfig?: PubBridgeConfig,
 ): string[] {
   const args = [
     "-p",
@@ -73,32 +44,11 @@ function buildClaudeArgsWithOptions(
     "--dangerously-skip-permissions",
   ];
   if (sessionId) args.push("--resume", sessionId);
-  if (options.model) args.push("--model", options.model);
-  if (options.allowedTools) args.push("--allowedTools", options.allowedTools);
-
-  const effectiveSystemPrompt = [systemPrompt, options.appendSystemPrompt]
-    .filter(Boolean)
-    .join("\n\n");
-  if (effectiveSystemPrompt) args.push("--append-system-prompt", effectiveSystemPrompt);
-  if (options.maxTurns !== undefined) args.push("--max-turns", String(options.maxTurns));
-  return args;
-}
-
-export function buildClaudeArgs(
-  prompt: string,
-  sessionId: string | null,
-  systemPrompt: string | null,
-  env: NodeJS.ProcessEnv = process.env,
-  opts?: { maxTurns?: number },
-  bridgeConfig?: PubBridgeConfig,
-): string[] {
+  if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
   const configuredMaxTurns = getConfiguredClaudeCodeMaxTurns(env, bridgeConfig);
-  return buildClaudeArgsWithOptions(prompt, sessionId, systemPrompt, {
-    model: getConfiguredClaudeCodeModel(env, bridgeConfig),
-    allowedTools: getConfiguredClaudeCodeAllowedTools(env, bridgeConfig),
-    appendSystemPrompt: getConfiguredClaudeCodeAppendPrompt(env, bridgeConfig),
-    maxTurns: opts?.maxTurns ?? parseConfiguredMaxTurns(configuredMaxTurns),
-  });
+  const maxTurns = opts?.maxTurns ?? parseConfiguredMaxTurns(configuredMaxTurns);
+  if (maxTurns !== undefined) args.push("--max-turns", String(maxTurns));
+  return args;
 }
 
 export function isClaudeCodeAvailableInEnv(
