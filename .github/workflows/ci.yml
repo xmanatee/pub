@@ -28,8 +28,8 @@ jobs:
         run: pnpm convex deploy --dry-run -y --codegen disable
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - run: pnpm lint
       - run: pnpm build
+      - run: pnpm lint
       - run: pnpm test
       - run: pnpm knip
 
