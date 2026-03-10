@@ -12,10 +12,10 @@ pnpm dev              # Start both web + Convex backend (runs convex dev --once 
 pnpm dev:web          # Vite dev server only
 pnpm dev:db           # Convex backend dev server only
 
-# Validation (`pnpm check` runs lint + test + build + knip)
-pnpm lint             # Biome check + tsc --noEmit
-pnpm test             # vitest run
-pnpm build            # vite build + tsc --noEmit
+# Validation (`pnpm check` runs build + lint + test + knip)
+pnpm build            # vite build (generates route tree)
+pnpm lint             # Biome check + tsc --noEmit + no-raw-anchor
+pnpm test             # vitest run (root + web)
 
 # Fixing
 pnpm lint:fix         # Biome auto-fix

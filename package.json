@@ -12,11 +12,11 @@
     "test": "vitest run && pnpm --filter pub-web test",
     "test:watch": "pnpm --filter pub-web test:watch",
     "test:e2e": "pnpm --filter pub-web test:e2e",
-    "lint": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json convex docs shared skills web && pnpm --filter pub-web lint",
-    "lint:fix": "biome check --fix AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json convex docs shared skills web",
-    "format": "biome format --write AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json convex docs shared skills web",
+    "lint": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills web && pnpm --filter pub-web lint",
+    "lint:fix": "biome check --fix AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills web",
+    "format": "biome format --write AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills web",
     "knip": "knip",
-    "check": "pnpm lint && pnpm test && pnpm build && pnpm knip"
+    "check": "pnpm build && pnpm lint && pnpm test && pnpm knip"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",

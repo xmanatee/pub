@@ -28,10 +28,10 @@ jobs:
         run: pnpm convex deploy --dry-run -y --codegen disable
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      - name: Build (generates route tree)
+        run: pnpm build
       - name: Lint (Biome + tsc + no-raw-anchor)
         run: pnpm lint
-      - name: Build (generates route tree + type checks)
-        run: pnpm build
       - run: pnpm test
       - name: Run Knip
         run: pnpm knip

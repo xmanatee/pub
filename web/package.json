@@ -2,10 +2,9 @@
   "name": "pub-web",
   "private": true,
   "type": "module",
-  "sideEffects": false,
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && tsc --noEmit",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
