@@ -331,14 +331,21 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   const boundFunctions = new Map<string, CommandFunctionSpec>();
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
-  let manifestLoaded = false;
+  let manifestLoaded = true;
   let pendingUntilManifest: BridgeMessage[] = [];
 
   function clearBindings(): void {
     boundFunctions.clear();
-    manifestLoaded = false;
+    manifestLoaded = true;
     pendingUntilManifest = [];
     params.debugLog("commands cleared bindings");
+  }
+
+  function beginManifestLoad(): void {
+    boundFunctions.clear();
+    manifestLoaded = false;
+    pendingUntilManifest = [];
+    params.debugLog("commands awaiting manifest load");
   }
 
   function buildCancelledResult(callId: string, startedAt: number): CommandResultPayload {
@@ -617,6 +624,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
   return {
     bindFromHtml,
+    beginManifestLoad,
     clearBindings,
     stop(): void {
       for (const [callId, active] of running) {

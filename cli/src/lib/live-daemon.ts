@@ -858,6 +858,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     slug: string;
     instructions: ReturnType<typeof buildBridgeInstructions>;
   }): Promise<string> {
+    commandHandler.beginManifestLoad();
     const pub = await apiClient.get(params.slug);
     const content = typeof pub.content === "string" ? pub.content : "";
     if (content.length > 0) commandHandler.bindFromHtml(content);
