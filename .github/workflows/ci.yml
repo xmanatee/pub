@@ -69,4 +69,4 @@ jobs:
             echo "FAIL: daemon code path has missing/broken imports"
             exit 1
           fi
-          echo "$OUTPUT" | grep -q "Missing PUB_DAEMON_BRIDGE_MODE"
+          echo "$OUTPUT" | grep -q "Missing PUB_DAEMON_BRIDGE_SETTINGS"
