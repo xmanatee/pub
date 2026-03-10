@@ -24,7 +24,7 @@ jobs:
 
       - name: Build binaries (cross-compile)
         working-directory: cli
-        run: bun run build:bin
+        run: bun run build
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2

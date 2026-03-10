@@ -1,10 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Build standalone binaries for multiple targets using `bun build --compile`.
- *
- * Usage:
- *   bun run build-binary.ts            # all targets
- *   bun run build-binary.ts --local    # current platform only
+ * Build standalone binaries for all targets using `bun build --compile`.
  */
 
 import { execSync } from "node:child_process";
@@ -22,22 +18,12 @@ const TARGETS = [
   { bun: "bun-linux-arm64", suffix: "linux-arm64" },
 ] as const;
 
-const isLocal = process.argv.includes("--local");
-
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
-if (isLocal) {
-  const outfile = path.join(OUT_DIR, "pubblue");
-  const cmd = `bun build --compile --external ${EXTERNAL} --minify ${ENTRY} --outfile ${outfile}`;
-  console.log(`Building local binary: ${outfile}`);
+for (const target of TARGETS) {
+  const outfile = path.join(OUT_DIR, `pubblue-${target.suffix}`);
+  const cmd = `bun build --compile --target=${target.bun} --external ${EXTERNAL} --minify ${ENTRY} --outfile ${outfile}`;
+  console.log(`Building ${target.suffix}...`);
   execSync(cmd, { stdio: "inherit" });
   console.log(`Done: ${outfile}`);
-} else {
-  for (const target of TARGETS) {
-    const outfile = path.join(OUT_DIR, `pubblue-${target.suffix}`);
-    const cmd = `bun build --compile --target=${target.bun} --external ${EXTERNAL} --minify ${ENTRY} --outfile ${outfile}`;
-    console.log(`Building ${target.suffix}...`);
-    execSync(cmd, { stdio: "inherit" });
-    console.log(`Done: ${outfile}`);
-  }
 }
