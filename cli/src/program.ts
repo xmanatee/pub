@@ -9,7 +9,7 @@ export function buildProgram(): Command {
   const program = new Command();
   program.exitOverride();
 
-  program.name("pubblue").description("Publish content and go live").version(CLI_VERSION);
+  program.name("pub").description("Publish content and go live").version(CLI_VERSION);
 
   registerConfigureCommand(program);
   registerPubCommands(program);

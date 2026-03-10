@@ -105,7 +105,7 @@ export function PubsTab() {
               Use the CLI or API to create your first pub.
             </p>
             <div className="rounded-lg bg-navy text-white px-4 py-3 font-mono text-sm">
-              <span className="text-primary">$</span> pubblue create index.html
+              <span className="text-primary">$</span> pub create index.html
             </div>
           </CardContent>
         </Card>

@@ -45,11 +45,11 @@ export function registerConfigureCommand(program: Command): void {
         apiKey = await resolveConfigureApiKey(opts);
       }
       if (!apiKey) {
-        const envKey = process.env.PUBBLUE_API_KEY?.trim();
+        const envKey = process.env.PUB_API_KEY?.trim();
         if (envKey) {
           apiKey = envKey;
         } else {
-          throw new Error("No API key configured. Set it first: pubblue configure --api-key <KEY>");
+          throw new Error("No API key configured. Set it first: pub configure --api-key <KEY>");
         }
       }
 
@@ -71,7 +71,7 @@ export function registerConfigureCommand(program: Command): void {
             console.error(`Warning: failed to reset Telegram menu button: ${errorMessage(error)}`);
           }
           try {
-            const api = new PubApiClient(process.env.PUBBLUE_URL || DEFAULT_BASE_URL, apiKey);
+            const api = new PubApiClient(process.env.PUB_URL || DEFAULT_BASE_URL, apiKey);
             await api.deleteBotToken();
             console.log("Bot token removed from server.");
           } catch (error) {
@@ -102,7 +102,7 @@ export function registerConfigureCommand(program: Command): void {
           console.log("    Set Web App URL to: https://pub.blue");
         }
 
-        const api = new PubApiClient(process.env.PUBBLUE_URL || DEFAULT_BASE_URL, apiKey);
+        const api = new PubApiClient(process.env.PUB_URL || DEFAULT_BASE_URL, apiKey);
         await api.uploadBotToken({
           botToken: nextTelegram.botToken,
           botUsername: bot.username,

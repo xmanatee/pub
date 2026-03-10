@@ -6,24 +6,24 @@ import { DEFAULT_BASE_URL, getConfig, getConfigDir, readConfig, saveConfig } fro
 
 describe("config", () => {
   let tmpDir: string;
-  const originalPubblueConfigDir = process.env.PUBBLUE_CONFIG_DIR;
+  const originalPubConfigDir = process.env.PUB_CONFIG_DIR;
   const originalOpenClawStateDir = process.env.OPENCLAW_STATE_DIR;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pubblue-test-"));
-    delete process.env.PUBBLUE_API_KEY;
-    delete process.env.PUBBLUE_URL;
-    delete process.env.PUBBLUE_CONFIG_DIR;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-test-"));
+    delete process.env.PUB_API_KEY;
+    delete process.env.PUB_URL;
+    delete process.env.PUB_CONFIG_DIR;
     delete process.env.OPENCLAW_STATE_DIR;
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    delete process.env.PUBBLUE_API_KEY;
-    delete process.env.PUBBLUE_URL;
-    process.env.PUBBLUE_CONFIG_DIR = originalPubblueConfigDir;
+    delete process.env.PUB_API_KEY;
+    delete process.env.PUB_URL;
+    process.env.PUB_CONFIG_DIR = originalPubConfigDir;
     process.env.OPENCLAW_STATE_DIR = originalOpenClawStateDir;
-    if (!originalPubblueConfigDir) delete process.env.PUBBLUE_CONFIG_DIR;
+    if (!originalPubConfigDir) delete process.env.PUB_CONFIG_DIR;
     if (!originalOpenClawStateDir) delete process.env.OPENCLAW_STATE_DIR;
   });
 
@@ -64,16 +64,16 @@ describe("config", () => {
     expect(config.bridge).toBeUndefined();
   });
 
-  it("PUBBLUE_URL env var overrides the default base URL", () => {
+  it("PUB_URL env var overrides the default base URL", () => {
     saveConfig({ apiKey: "pub_saved" }, tmpDir);
-    process.env.PUBBLUE_URL = "https://custom.convex.site";
+    process.env.PUB_URL = "https://custom.convex.site";
 
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_saved");
     expect(config.baseUrl).toBe("https://custom.convex.site");
   });
 
-  it("prefers PUBBLUE_API_KEY env var over saved config", () => {
+  it("prefers PUB_API_KEY env var over saved config", () => {
     saveConfig(
       {
         apiKey: "pub_saved",
@@ -81,7 +81,7 @@ describe("config", () => {
       },
       tmpDir,
     );
-    process.env.PUBBLUE_API_KEY = "pub_env";
+    process.env.PUB_API_KEY = "pub_env";
 
     const config = getConfig(tmpDir);
     expect(config.apiKey).toBe("pub_env");
@@ -94,23 +94,23 @@ describe("config", () => {
   });
 
   describe("getConfigDir", () => {
-    it("uses PUBBLUE_CONFIG_DIR when set", () => {
-      process.env.PUBBLUE_CONFIG_DIR = "/custom/config";
+    it("uses PUB_CONFIG_DIR when set", () => {
+      process.env.PUB_CONFIG_DIR = "/custom/config";
       expect(getConfigDir()).toBe("/custom/config");
     });
 
-    it("falls back to homeDir/.openclaw/pubblue when no PUBBLUE_CONFIG_DIR is set", () => {
-      expect(getConfigDir("/home/test")).toBe(path.join("/home/test", ".openclaw", "pubblue"));
+    it("falls back to homeDir/.openclaw/pub when no PUB_CONFIG_DIR is set", () => {
+      expect(getConfigDir("/home/test")).toBe(path.join("/home/test", ".openclaw", "pub"));
     });
 
-    it("falls back to OPENCLAW_STATE_DIR/pubblue when no args are provided", () => {
+    it("falls back to OPENCLAW_STATE_DIR/pub when no args are provided", () => {
       process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-state";
-      expect(getConfigDir()).toBe(path.join("/tmp/openclaw-state", "pubblue"));
+      expect(getConfigDir()).toBe(path.join("/tmp/openclaw-state", "pub"));
     });
 
-    it("ignores blank PUBBLUE_CONFIG_DIR", () => {
-      process.env.PUBBLUE_CONFIG_DIR = "   ";
-      expect(getConfigDir("/home/test")).toBe(path.join("/home/test", ".openclaw", "pubblue"));
+    it("ignores blank PUB_CONFIG_DIR", () => {
+      process.env.PUB_CONFIG_DIR = "   ";
+      expect(getConfigDir("/home/test")).toBe(path.join("/home/test", ".openclaw", "pub"));
     });
   });
 });

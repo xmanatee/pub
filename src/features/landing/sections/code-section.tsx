@@ -26,7 +26,7 @@ export function CodeSection() {
               <div>
                 <div className="text-white/40 text-xs mb-1"># Create page</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubblue create index.html
+                  <span className="text-primary">$</span> pub create index.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/k8f2m9</div>
               </div>
@@ -34,8 +34,8 @@ export function CodeSection() {
               <div>
                 <div className="text-white/40 text-xs mb-1"># Set slug + title</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubblue create --slug my-demo --title
-                  "Demo Page" page.html
+                  <span className="text-primary">$</span> pub create --slug my-demo --title "Demo
+                  Page" page.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/my-demo</div>
               </div>
@@ -43,7 +43,7 @@ export function CodeSection() {
               <div>
                 <div className="text-white/40 text-xs mb-1"># Push live canvas</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pubblue write -c canvas -f ./visual.html
+                  <span className="text-primary">$</span> pub write -c canvas -f ./visual.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">Delivered: canvas update confirmed</div>
               </div>

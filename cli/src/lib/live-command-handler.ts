@@ -56,14 +56,14 @@ function readPositiveNumberEnv(key: string, fallback: number): number {
 function readRuntimeConfig(): CommandRuntimeConfig {
   return {
     defaultTimeoutMs: readPositiveNumberEnv(
-      "PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS",
+      "PUB_COMMAND_DEFAULT_TIMEOUT_MS",
       DEFAULT_COMMAND_TIMEOUT_MS,
     ),
     maxOutputBytes: readPositiveNumberEnv(
-      "PUBBLUE_COMMAND_MAX_OUTPUT_BYTES",
+      "PUB_COMMAND_MAX_OUTPUT_BYTES",
       DEFAULT_MAX_OUTPUT_BYTES,
     ),
-    maxConcurrent: readPositiveNumberEnv("PUBBLUE_COMMAND_MAX_CONCURRENT", DEFAULT_MAX_CONCURRENT),
+    maxConcurrent: readPositiveNumberEnv("PUB_COMMAND_MAX_CONCURRENT", DEFAULT_MAX_CONCURRENT),
   };
 }
 
@@ -222,7 +222,7 @@ async function executeClaudeAgentCommand(params: {
   if (!args.includes("--max-turns")) {
     args.push("--max-turns", "4");
   }
-  const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUBBLUE_PROJECT_ROOT || undefined;
+  const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUB_PROJECT_ROOT || undefined;
 
   const outputText = await new Promise<string>((resolve, reject) => {
     const child = spawn(claudePath, args, {
@@ -306,7 +306,7 @@ async function executeOpenClawAgentCommand(params: {
   const result = await executeProcessCommand({
     command,
     args,
-    cwd: process.env.PUBBLUE_PROJECT_ROOT || process.cwd(),
+    cwd: process.env.PUB_PROJECT_ROOT || process.cwd(),
     timeoutMs: params.timeoutMs,
     maxOutputBytes: params.maxOutputBytes,
     signal: params.signal,

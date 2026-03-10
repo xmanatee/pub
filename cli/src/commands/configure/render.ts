@@ -51,13 +51,13 @@ function printSetupInstructions(saved: SavedConfig | null): void {
   console.log("");
 
   if (needsApiKey) {
-    console.log("  pubblue configure --api-key <KEY>");
+    console.log("  pub configure --api-key <KEY>");
     console.log("    Get your key at https://pub.blue/dashboard");
     if (needsTelegram) console.log("");
   }
 
   if (needsTelegram) {
-    console.log("  pubblue configure --set telegram.botToken=<TOKEN>  (optional)");
+    console.log("  pub configure --set telegram.botToken=<TOKEN>  (optional)");
     console.log("    Prints a t.me/<bot> deep link when you create or update a pub.");
     console.log("    Requires a Telegram bot with Mini App URL set to https://pub.blue");
     console.log("    (@BotFather → /newbot → Bot Settings → Configure Mini App)");

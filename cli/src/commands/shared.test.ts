@@ -36,7 +36,7 @@ describe("formatVisibility", () => {
 
 describe("readFile", () => {
   it("reads existing file content", () => {
-    const dir = mkdtempSync(join(tmpdir(), "pubblue-read-file-"));
+    const dir = mkdtempSync(join(tmpdir(), "pub-read-file-"));
     const filePath = join(dir, "sample.txt");
     writeFileSync(filePath, "hello");
 
@@ -46,7 +46,7 @@ describe("readFile", () => {
   });
 
   it("throws clear error for missing files", () => {
-    const missing = join(tmpdir(), "pubblue-missing-file.txt");
+    const missing = join(tmpdir(), "pub-missing-file.txt");
     expect(() => readFile(missing)).toThrow(`File not found: ${missing}`);
   });
 });

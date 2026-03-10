@@ -19,7 +19,7 @@ function isPongWriteRequest(req: ProbeRequest): boolean {
 
 function generateProbeSocketPath(): string {
   const suffix = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  return path.join(os.tmpdir(), `pubblue-agent-probe-${suffix}.sock`);
+  return path.join(os.tmpdir(), `pub-agent-probe-${suffix}.sock`);
 }
 
 export async function runAgentWritePongProbe(params: {
@@ -81,7 +81,7 @@ export async function runAgentWritePongProbe(params: {
       server.listen(socketPath, () => resolve());
     });
 
-    const probeEnv: NodeJS.ProcessEnv = { ...params.baseEnv, PUBBLUE_AGENT_SOCKET: socketPath };
+    const probeEnv: NodeJS.ProcessEnv = { ...params.baseEnv, PUB_AGENT_SOCKET: socketPath };
     await params.execute(probeEnv);
 
     const startedAt = Date.now();
@@ -93,7 +93,7 @@ export async function runAgentWritePongProbe(params: {
     }
 
     throw new Error(
-      `${params.label} ping/pong preflight failed: did not observe \`pubblue write "pong"\` within ${timeoutMs}ms.`,
+      `${params.label} ping/pong preflight failed: did not observe \`pub write "pong"\` within ${timeoutMs}ms.`,
     );
   } finally {
     await cleanup();

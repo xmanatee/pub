@@ -15,8 +15,8 @@ import {
   readString,
 } from "./protocol-runtime-core";
 
-export const CANVAS_TO_PARENT_SOURCE = "pubblue-canvas";
-export const PARENT_TO_CANVAS_SOURCE = "pubblue-parent";
+export const CANVAS_TO_PARENT_SOURCE = "pub-canvas";
+export const PARENT_TO_CANVAS_SOURCE = "pub-parent";
 
 export interface CanvasRenderErrorPayload {
   message: string;

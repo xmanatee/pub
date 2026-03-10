@@ -47,14 +47,13 @@ export interface Config {
 }
 
 export function getConfigDir(homeDir?: string): string {
-  const explicit = process.env.PUBBLUE_CONFIG_DIR?.trim();
+  const explicit = process.env.PUB_CONFIG_DIR?.trim();
   if (explicit) return explicit;
 
   if (homeDir) {
-    return path.join(path.resolve(homeDir), ".openclaw", "pubblue");
+    return path.join(path.resolve(homeDir), ".openclaw", "pub");
   }
-
-  return path.join(resolveOpenClawStateDir(), "pubblue");
+  return path.join(resolveOpenClawStateDir(), "pub");
 }
 
 function getConfigPath(homeDir?: string): string {
@@ -78,8 +77,8 @@ export function saveConfig(config: SavedConfig, homeDir?: string): void {
 }
 
 export function getConfig(homeDir?: string): Config {
-  const envKey = process.env.PUBBLUE_API_KEY;
-  const envUrl = process.env.PUBBLUE_URL;
+  const envKey = process.env.PUB_API_KEY;
+  const envUrl = process.env.PUB_URL;
   const baseUrl = envUrl || DEFAULT_BASE_URL;
   const saved = readConfig(homeDir);
 
@@ -89,7 +88,7 @@ export function getConfig(homeDir?: string): Config {
 
   if (!saved) {
     throw new Error(
-      "Not configured. Run `pubblue configure` or set PUBBLUE_API_KEY environment variable.",
+      "Not configured. Run `pub configure` or set PUB_API_KEY environment variable.",
     );
   }
 

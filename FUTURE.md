@@ -94,5 +94,5 @@ userProfiles: defineTable({
 
 ## Runtime TODO
 
-- CLI update check so every `pubblue` command can warn when a newer version exists.
+- CLI update check so every `pub` command can warn when a newer version exists.
 - Daemon update-awareness: stop for upgrade only after configured idle time.

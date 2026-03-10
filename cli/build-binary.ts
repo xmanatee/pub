@@ -21,7 +21,7 @@ const TARGETS = [
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
 for (const target of TARGETS) {
-  const outfile = path.join(OUT_DIR, `pubblue-${target.suffix}`);
+  const outfile = path.join(OUT_DIR, `pub-${target.suffix}`);
   const cmd = `bun build --compile --target=${target.bun} --external ${EXTERNAL} --minify ${ENTRY} --outfile ${outfile}`;
   console.log(`Building ${target.suffix}...`);
   execSync(cmd, { stdio: "inherit" });

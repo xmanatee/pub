@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 export {};
 
-if (process.env.PUBBLUE_DAEMON_MODE === "1") {
+if (process.env.PUB_DAEMON_MODE === "1") {
   const { runDaemonFromEnv } = await import("./live-daemon-entry.js");
   await runDaemonFromEnv();
 } else {
@@ -10,14 +10,14 @@ if (process.env.PUBBLUE_DAEMON_MODE === "1") {
   const { CLI_VERSION } = await import("./lib/version.js");
   const { getUpdateCheck } = await import("./lib/version-check.js");
 
-  const skipUpdateCheck = process.env.PUBBLUE_SKIP_UPDATE_CHECK === "1";
+  const skipUpdateCheck = process.env.PUB_SKIP_UPDATE_CHECK === "1";
   const updateCheck = skipUpdateCheck ? null : await getUpdateCheck();
   const command = process.argv[2];
   const isGated = command !== "upgrade" && command !== "--version" && command !== "-V";
 
   if (updateCheck?.requiresUpgrade && isGated) {
     console.error(
-      `pubblue v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun \`pubblue upgrade\` to update.`,
+      `pub v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun \`pub upgrade\` to update.`,
     );
     process.exit(1);
   }
@@ -34,7 +34,7 @@ if (process.env.PUBBLUE_DAEMON_MODE === "1") {
 
   if (updateCheck?.updateAvailable && !updateCheck.requiresUpgrade) {
     console.error(
-      `\nUpdate available: v${updateCheck.latest} (current: v${CLI_VERSION}). Run \`pubblue upgrade\` to update.`,
+      `\nUpdate available: v${updateCheck.latest} (current: v${CLI_VERSION}). Run \`pub upgrade\` to update.`,
     );
   }
 }

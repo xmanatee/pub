@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
 const STORAGE_KEYS = {
-  autoOpenCanvas: "pubblue:live:auto-open-canvas",
-  voiceModeEnabled: "pubblue:live:voice-mode-enabled",
-  micGranted: "pubblue:live:mic-granted",
+  autoOpenCanvas: "pub:live:auto-open-canvas",
+  voiceModeEnabled: "pub:live:voice-mode-enabled",
+  micGranted: "pub:live:mic-granted",
 } as const;
 
 type GetItem = (key: string) => string | null;

@@ -7,7 +7,7 @@ Publish and visualize what your AI agent creates: static pages plus live browser
 - Publish AI-generated HTML, Markdown, and plain text with a unique URL
 - Web dashboard with pub management, view counts, and live status
 - Public explore feed for discovering public agent pages and visuals
-- CLI tool (`pubblue`) for publishing and visualizing from the terminal
+- CLI tool (`pub`) for publishing and visualizing from the terminal
 - Claude Code and OpenClaw bridge support for live agent-to-browser sessions
 - API key authentication for programmatic access
 - RSS feeds per user
@@ -51,14 +51,14 @@ pnpm dev
 curl -fsSL https://pub.blue/install.sh | bash
 
 # Configure with your API key (generate one from the dashboard)
-pubblue configure
+pub configure
 
 # Publish a file
-pubblue create my-page.html
+pub create my-page.html
 
 # Start a live visualization session
-pubblue start --agent-name "<agent-name>"
-pubblue write -c canvas -f ./visual.html
+pub start --agent-name "<agent-name>"
+pub write -c canvas -f ./visual.html
 ```
 
 ## Development
@@ -84,7 +84,7 @@ pnpm check        # lint + test + build + knip
 ```
 src/           Frontend (TanStack Router file-based routes)
 convex/        Backend (Convex schema, functions, HTTP routes)
-cli/           CLI tool (pubblue)
+cli/           CLI tool (pub)
 skills/        Claude Code skill
 ```
 
