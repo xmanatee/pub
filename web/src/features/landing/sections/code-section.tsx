@@ -7,9 +7,11 @@ export function CodeSection() {
       <div className="px-4 sm:px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-            From command to live
+            From terminal to interface
           </h2>
-          <p className="text-muted-foreground text-lg">Create a page, then stream live updates.</p>
+          <p className="text-muted-foreground text-lg">
+            Create apps, push updates, go live — all from the command line.
+          </p>
         </div>
 
         <div className="max-w-2xl mx-auto">
@@ -24,26 +26,27 @@ export function CodeSection() {
           >
             <div className="p-6 font-mono text-sm leading-relaxed space-y-6">
               <div>
-                <div className="text-white/40 text-xs mb-1"># Create page</div>
+                <div className="text-white/40 text-xs mb-1"># Create an app</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pub create index.html
+                  <span className="text-primary">$</span> pub create --slug my-app dashboard.html
                 </div>
-                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/k8f2m9</div>
+                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/my-app</div>
               </div>
 
               <div>
-                <div className="text-white/40 text-xs mb-1"># Set slug + title</div>
+                <div className="text-white/40 text-xs mb-1"># Start a live session</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pub create --slug my-demo --title "Demo
-                  Page" page.html
+                  <span className="text-primary">$</span> pub start --agent-name "my-agent"
                 </div>
-                <div className="text-emerald-400 mt-0.5">Created: https://pub.blue/p/my-demo</div>
+                <div className="text-emerald-400 mt-0.5">
+                  Agent online. Waiting for connection...
+                </div>
               </div>
 
               <div>
-                <div className="text-white/40 text-xs mb-1"># Push live canvas</div>
+                <div className="text-white/40 text-xs mb-1"># Push a real-time interface</div>
                 <div className="text-white/70">
-                  <span className="text-primary">$</span> pub write -c canvas -f ./visual.html
+                  <span className="text-primary">$</span> pub write -c canvas -f ./interface.html
                 </div>
                 <div className="text-emerald-400 mt-0.5">Delivered: canvas update confirmed</div>
               </div>

@@ -1,7 +1,7 @@
 ---
 name: pub
 description: >-
-  Publish and visualize output via the pub CLI, with live P2P browser sessions.
+  Create adaptive interfaces and real-time experiences via the pub CLI, with live P2P browser sessions.
 license: MIT
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
@@ -12,7 +12,7 @@ allowed-tools: Bash(pub:*) Bash(node:*) Read Write
 
 # pub
 
-Use this skill when the user asks about publishing, showing, or visualizing agent output on pub.blue.
+Use this skill when the user asks about creating adaptive interfaces, publishing content, or running live sessions on pub.blue.
 
 ## Required CLI Version
 
@@ -63,7 +63,7 @@ pub delete <slug>
 ```
 
 Notes:
-- Pub is built for agent-driven output sharing and live visualization.
+- Pub is built for adaptive interfaces — agents generate real-time UIs tailored to the user's task.
 - Pubs are **private by default**.
 - **Reuse existing pubs** for regular or repeated tasks. Use `pub list` to check if a relevant pub already exists, then `pub update <slug>` instead of creating a new one. Each user is limited to 10 pubs.
 - `create` supports `--title`, `--slug`.

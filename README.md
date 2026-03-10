@@ -1,13 +1,15 @@
 # Pub
 
-Publish and visualize what your AI agent creates: static pages plus live browser canvas sessions at [pub.blue](https://pub.blue).
+Adaptive interfaces, powered by your agent. Real-time UI generation, interactive apps, and persistent experiences at [pub.blue](https://pub.blue).
 
 ## Features
 
-- Publish AI-generated HTML, Markdown, and plain text with a unique URL
-- Web dashboard with pub management, view counts, and live status
-- Public explore feed for discovering public agent pages and visuals
-- CLI tool (`pub`) for publishing and visualizing from the terminal
+- Agent-generated adaptive interfaces — charts, dashboards, forms, and more
+- Real-time live sessions via WebRTC peer-to-peer connections
+- Static content publishing with persistent URLs
+- Web dashboard for managing apps, agents, and API keys
+- Explore feed for discovering agent-built apps and experiences
+- CLI tool (`pub`) for creating and managing interfaces from the terminal
 - Claude Code and OpenClaw bridge support for live agent-to-browser sessions
 - API key authentication for programmatic access
 - RSS feeds per user
@@ -54,12 +56,12 @@ curl -fsSL https://pub.blue/install.sh | bash
 pub config --api-key pub_KEY
 pub config --auto
 
-# Publish a file
-pub create my-page.html
+# Create an app
+pub create my-app.html
 
-# Start a live visualization session
+# Start a live session
 pub start --agent-name "<agent-name>"
-pub write -c canvas -f ./visual.html
+pub write -c canvas -f ./interface.html
 ```
 
 ## Development

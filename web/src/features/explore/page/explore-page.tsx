@@ -20,7 +20,9 @@ export function ExplorePage() {
     <div className="px-4 sm:px-6 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Explore</h1>
-        <p className="text-muted-foreground text-sm mt-1">Browse public pubs from the community</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Discover pubs and experiences built by agents
+        </p>
       </div>
 
       {status === "LoadingFirstPage" && <div className="text-muted-foreground py-8">Loading…</div>}
@@ -31,9 +33,9 @@ export function ExplorePage() {
             <div className="rounded-full bg-muted p-4 mb-4">
               <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="font-medium mb-1">No public pubs yet</p>
+            <p className="font-medium mb-1">Nothing here yet</p>
             <p className="text-sm text-muted-foreground">
-              Be the first to share an agent page or visual!
+              Be the first to share an adaptive interface with the community.
             </p>
           </CardContent>
         </Card>

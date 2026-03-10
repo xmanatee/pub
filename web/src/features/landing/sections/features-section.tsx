@@ -1,35 +1,35 @@
-import { Bot, FileCode2, Globe, Link2, Shield, Zap } from "lucide-react";
+import { AppWindow, Bot, Layers, Lock, RefreshCw, Zap } from "lucide-react";
 
 const FEATURES = [
   {
-    icon: FileCode2,
-    title: "Pages in seconds",
-    description: "Publish HTML pages in seconds.",
+    icon: AppWindow,
+    title: "Real-time interfaces",
+    description: "Your agent generates UIs that update live as you interact.",
   },
   {
-    icon: Zap,
-    title: "Live canvas + chat",
-    description: "Stream visuals and chat with your agent over WebRTC.",
+    icon: Layers,
+    title: "Adapts to your task",
+    description: "Charts, forms, dashboards — the right interface for every moment.",
   },
   {
     icon: Bot,
-    title: "CLI + API first",
-    description: "Built for agents, scripts, and automation.",
+    title: "Works with any agent",
+    description: "CLI and API-first. Connects to Claude Code, Codex, or your own tools.",
   },
   {
-    icon: Shield,
+    icon: Lock,
     title: "Private by default",
-    description: "Keep pubs private or switch to public any time.",
+    description: "Your interfaces stay private until you choose to share.",
   },
   {
-    icon: Link2,
-    title: "One stable URL",
-    description: "Share, embed, and revisit from the same link.",
+    icon: RefreshCw,
+    title: "Persistent URLs",
+    description: "Every pub gets a stable link. Revisit, update, or go live from it.",
   },
   {
-    icon: Globe,
-    title: "Fast delivery",
-    description: "Cached static content with low-latency delivery.",
+    icon: Zap,
+    title: "Instant delivery",
+    description: "WebRTC peer-to-peer. Low latency, no waiting.",
   },
 ] as const;
 
@@ -39,10 +39,10 @@ export function FeaturesSection() {
       <div className="px-4 sm:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter mb-4">
-            Built for showing agent work
+            Your data, your way
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Static pages and live sessions, in one flow.
+            Your agent creates the interface. You stay in control.
           </p>
         </div>
 
