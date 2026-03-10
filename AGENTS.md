@@ -71,7 +71,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `start --agent-name <name>` — registers agent presence and starts the per-user daemon; optional `--bridge openclaw|claude-code|claude-sdk`; `--agent-name` is required and shown in browser UI
 - `stop` — deregisters agent presence, closes active live, stops daemon
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
-- `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC
+- `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - Config: `~/.openclaw/pubblue/config.json` or env var `PUBBLUE_API_KEY`
@@ -100,8 +100,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - When CLI behavior changes, update `SKILL.md`, `claw.json` version, and AGENTS command notes together.
 
 ### CI (`.github/workflows/`)
-- **`ci.yml`** — lint, test for web app + CLI
-- **`cli-binary.yml`** — builds standalone CLI binaries on `cli-v*` tags, uploads to GitHub Releases
+- **`ci.yml`** — lint (Biome + tsc), test, build, knip for web app; lint, test, build + smoke test for CLI
+- **`cli-binary.yml`** — on `cli-v*` tags: verifies tag matches version, builds binaries, uploads to GitHub Releases (lint/test already covered by `ci.yml`)
 - **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`
 
 ### Integrations
