@@ -46,13 +46,13 @@ export function buildBridgeProcessEnv(bridgeConfig?: BridgeConfig): NodeJS.Proce
     setIfMissing("CLAUDE_CODE_APPEND_SYSTEM_PROMPT", bridgeConfig.claudeCodeAppendSystemPrompt);
     setIfMissing("CLAUDE_CODE_MAX_TURNS", bridgeConfig.claudeCodeMaxTurns);
     setIfMissing("CLAUDE_CODE_CWD", bridgeConfig.claudeCodeCwd);
-    setIfMissing("PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS", bridgeConfig.commandDefaultTimeoutMs);
-    setIfMissing("PUBBLUE_COMMAND_MAX_OUTPUT_BYTES", bridgeConfig.commandMaxOutputBytes);
-    setIfMissing("PUBBLUE_COMMAND_MAX_CONCURRENT", bridgeConfig.commandMaxConcurrent);
+    setIfMissing("PUB_COMMAND_DEFAULT_TIMEOUT_MS", bridgeConfig.commandDefaultTimeoutMs);
+    setIfMissing("PUB_COMMAND_MAX_OUTPUT_BYTES", bridgeConfig.commandMaxOutputBytes);
+    setIfMissing("PUB_COMMAND_MAX_CONCURRENT", bridgeConfig.commandMaxConcurrent);
   }
 
   setIfMissing("OPENCLAW_WORKSPACE", resolveOpenClawWorkspaceDir(env));
-  setIfMissing("PUBBLUE_PROJECT_ROOT", process.cwd());
+  setIfMissing("PUB_PROJECT_ROOT", process.cwd());
   return env;
 }
 
@@ -98,7 +98,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       return [
         `OpenClaw executable: ${runtime.openclawPath}`,
         `OpenClaw session: ${runtime.sessionId} (${runtime.sessionSource ?? "unknown"})`,
-        'OpenClaw communication via `pubblue write "pong"`: OK',
+        'OpenClaw communication via `pub write "pong"`: OK',
       ];
     },
   },
@@ -131,12 +131,12 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         );
       }
       const runtime = await runClaudeSdkBridgeStartupProbe(env);
-      const cwd = runtime.cwd || env.PUBBLUE_PROJECT_ROOT || process.cwd();
+      const cwd = runtime.cwd || env.PUB_PROJECT_ROOT || process.cwd();
       return [
         `Claude executable: ${runtime.claudePath}`,
         `Claude SDK: available`,
         `Claude cwd: ${cwd}`,
-        'Claude SDK communication via `pubblue write "pong"`: OK',
+        'Claude SDK communication via `pub write "pong"`: OK',
       ];
     },
   },
@@ -158,11 +158,11 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     },
     async startupProbe(env: NodeJS.ProcessEnv) {
       const runtime = await runClaudeCodeBridgeStartupProbe(env);
-      const cwd = runtime.cwd || env.PUBBLUE_PROJECT_ROOT || process.cwd();
+      const cwd = runtime.cwd || env.PUB_PROJECT_ROOT || process.cwd();
       return [
         `Claude executable: ${runtime.claudePath}`,
         `Claude cwd: ${cwd}`,
-        'Claude communication via `pubblue write "pong"`: OK',
+        'Claude communication via `pub write "pong"`: OK',
       ];
     },
   },

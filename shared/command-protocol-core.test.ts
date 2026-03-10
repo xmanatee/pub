@@ -93,7 +93,7 @@ describe("command-protocol-core", () => {
 
   it("extracts manifest from HTML with script tag", () => {
     const html = `<html><head>
-      <script type="application/pubblue-command-manifest+json">
+      <script type="application/pub-command-manifest+json">
       {"manifestId":"m1","functions":[{"name":"foo","returns":"text","executor":{"kind":"exec","command":"echo"}}]}
       </script>
     </head><body></body></html>`;
@@ -110,7 +110,7 @@ describe("command-protocol-core", () => {
   });
 
   it("returns null for empty manifest script tag", () => {
-    const html = `<script type="application/pubblue-command-manifest+json"></script>`;
+    const html = `<script type="application/pub-command-manifest+json"></script>`;
     expect(extractManifestFromHtml(html)).toBeNull();
   });
 });

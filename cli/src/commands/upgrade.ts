@@ -25,7 +25,7 @@ export function registerUpgradeCommand(program: Command): void {
       if (opts.check) return;
 
       const target = detectTarget();
-      console.log(`Downloading pubblue-${target}...`);
+      console.log(`Downloading pub-${target}...`);
       await downloadAndReplace(latest.tag, target);
       console.log(`Updated to v${latest.version}.`);
     });

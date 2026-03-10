@@ -8,9 +8,9 @@ import * as net from "node:net";
 import { type IpcRequest, type IpcResponseFor, parseIpcResponse } from "./live-ipc-protocol.js";
 
 export function getAgentSocketPath(): string {
-  const override = process.env.PUBBLUE_AGENT_SOCKET?.trim();
+  const override = process.env.PUB_AGENT_SOCKET?.trim();
   if (override && override.length > 0) return override;
-  return "/tmp/pubblue-agent.sock";
+  return "/tmp/pub-agent.sock";
 }
 
 export async function ipcCall<T extends IpcRequest["method"]>(

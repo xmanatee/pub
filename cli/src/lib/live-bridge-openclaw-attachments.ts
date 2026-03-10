@@ -31,7 +31,7 @@ export interface StagedAttachment {
 export function resolveAttachmentRootDir(): string {
   const configured = process.env.OPENCLAW_ATTACHMENT_DIR?.trim();
   if (configured) return configured;
-  return join(resolveOpenClawStateDir(), "pubblue-inbox");
+  return join(resolveOpenClawStateDir(), "pub-inbox");
 }
 
 export function resolveAttachmentMaxBytes(): number {

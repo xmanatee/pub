@@ -81,7 +81,7 @@ export async function runClaudeSdkBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<{ claudePath: string; cwd?: string }> {
   const { model, claudePath, allowedTools } = buildSdkSessionOptions(env);
-  const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUBBLUE_PROJECT_ROOT || undefined;
+  const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUB_PROJECT_ROOT || undefined;
 
   const sdk = await tryImportSdk();
   if (!sdk) {
@@ -97,13 +97,13 @@ export async function runClaudeSdkBridgeStartupProbe(
       const probeEnvClean: Record<string, string | undefined> = { ...probeEnv };
       delete probeEnvClean.CLAUDECODE;
 
-      const socketPath = probeEnv.PUBBLUE_AGENT_SOCKET ?? "";
-      const logPath = path.join(os.tmpdir(), "pubblue-sdk-probe.log");
+      const socketPath = probeEnv.PUB_AGENT_SOCKET ?? "";
+      const logPath = path.join(os.tmpdir(), "pub-sdk-probe.log");
       const appendLog = (line: string) => {
         try {
           fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`);
         } catch (error) {
-          if (process.env.PUBBLUE_DEBUG === "1") {
+          if (process.env.PUB_DEBUG === "1") {
             console.warn(`Warning: failed to append SDK probe log: ${errorMessage(error)}`);
           }
         }
@@ -114,7 +114,7 @@ export async function runClaudeSdkBridgeStartupProbe(
       const prompt = [
         "This is a startup connectivity probe.",
         "Run this exact shell command now:",
-        `PUBBLUE_AGENT_SOCKET=${socketPath} pubblue write "pong"`,
+        `PUB_AGENT_SOCKET=${socketPath} pub write "pong"`,
         "Do not explain. Just execute it.",
       ].join("\n");
 

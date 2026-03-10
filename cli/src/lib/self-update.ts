@@ -68,7 +68,7 @@ function validateDownloadedBinary(binaryPath: string, expectedVersion: string): 
       encoding: "utf-8",
       env: {
         ...process.env,
-        PUBBLUE_SKIP_UPDATE_CHECK: "1",
+        PUB_SKIP_UPDATE_CHECK: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -88,9 +88,9 @@ function validateDownloadedBinary(binaryPath: string, expectedVersion: string): 
 
 function resolveInstalledBinaryPath(execPath = process.execPath): string {
   const executableName = path.basename(execPath);
-  if (!executableName.startsWith("pubblue")) {
+  if (!executableName.startsWith("pub")) {
     throw new Error(
-      `Self-update is only supported for installed pubblue binaries. Current executable: ${execPath}`,
+      `Self-update is only supported for installed pub binaries. Current executable: ${execPath}`,
     );
   }
   return execPath;
@@ -120,15 +120,15 @@ export async function fetchLatestRelease(
 }
 
 export function binaryDownloadUrl(tag: string, target: string): string {
-  return `https://github.com/${REPO}/releases/download/${tag}/pubblue-${target}`;
+  return `https://github.com/${REPO}/releases/download/${tag}/pub-${target}`;
 }
 
 export async function downloadAndReplace(tag: string, target: string): Promise<void> {
   const url = binaryDownloadUrl(tag, target);
   const execPath = resolveInstalledBinaryPath();
   const expectedVersion = versionFromTag(tag);
-  const tmpPath = path.join(path.dirname(execPath), `.pubblue-update-${process.pid}`);
-  const backupPath = path.join(path.dirname(execPath), `.pubblue-backup-${process.pid}`);
+  const tmpPath = path.join(path.dirname(execPath), `.pub-update-${process.pid}`);
+  const backupPath = path.join(path.dirname(execPath), `.pub-backup-${process.pid}`);
 
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok) {

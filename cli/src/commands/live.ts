@@ -49,14 +49,14 @@ export function registerLiveCommands(program: Command): void {
 function printLocalRuntimeSummary(): void {
   const saved = readConfig();
   const hasEnvApiKey =
-    typeof process.env.PUBBLUE_API_KEY === "string" &&
-    process.env.PUBBLUE_API_KEY.trim().length > 0;
+    typeof process.env.PUB_API_KEY === "string" &&
+    process.env.PUB_API_KEY.trim().length > 0;
   const apiSource = hasEnvApiKey
-    ? "PUBBLUE_API_KEY env"
+    ? "PUB_API_KEY env"
     : saved?.apiKey
       ? "saved config"
       : "not configured";
-  const baseUrl = process.env.PUBBLUE_URL?.trim() || DEFAULT_BASE_URL;
+  const baseUrl = process.env.PUB_URL?.trim() || DEFAULT_BASE_URL;
 
   console.log("Local runtime configuration:");
   console.log(`  API key source: ${apiSource}`);
@@ -102,14 +102,14 @@ function registerStartCommand(program: Command): void {
         stdio: buildDaemonSpawnStdio(daemonLogFd),
         env: {
           ...bridgeProcessEnv,
-          PUBBLUE_DAEMON_MODE: "1",
-          PUBBLUE_DAEMON_BASE_URL: runtimeConfig.baseUrl,
-          PUBBLUE_DAEMON_API_KEY: runtimeConfig.apiKey,
-          PUBBLUE_DAEMON_SOCKET: socketPath,
-          PUBBLUE_DAEMON_INFO: infoPath,
-          PUBBLUE_DAEMON_AGENT_NAME: opts.agentName,
-          PUBBLUE_CLI_VERSION: CLI_VERSION,
-          PUBBLUE_DAEMON_BRIDGE_MODE: bridgeMode,
+          PUB_DAEMON_MODE: "1",
+          PUB_DAEMON_BASE_URL: runtimeConfig.baseUrl,
+          PUB_DAEMON_API_KEY: runtimeConfig.apiKey,
+          PUB_DAEMON_SOCKET: socketPath,
+          PUB_DAEMON_INFO: infoPath,
+          PUB_DAEMON_AGENT_NAME: opts.agentName,
+          PUB_CLI_VERSION: CLI_VERSION,
+          PUB_DAEMON_BRIDGE_MODE: bridgeMode,
         },
       });
       fs.closeSync(daemonLogFd);
@@ -387,7 +387,7 @@ function registerDoctorCommand(program: Command): void {
         const timeoutMs = timeoutSeconds * 1_000;
         const socketPath = getAgentSocketPath();
         const slug = await resolveActiveSlug().catch((error: unknown) =>
-          failCli(`No active daemon. Run \`pubblue start\` first. (${errorMessage(error)})`),
+          failCli(`No active daemon. Run \`pub start\` first. (${errorMessage(error)})`),
         );
         const apiClient = createClient();
 

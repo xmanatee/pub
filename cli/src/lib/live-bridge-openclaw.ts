@@ -84,7 +84,7 @@ export function resolveOpenClawPath(env: NodeJS.ProcessEnv = process.env): strin
   throw new Error(
     [
       "OpenClaw executable was not found.",
-      "Configure it with: pubblue configure --set openclaw.path=/absolute/path/to/openclaw",
+      "Configure it with: pub configure --set openclaw.path=/absolute/path/to/openclaw",
       "Or set OPENCLAW_PATH in environment.",
       `Checked: ${discoveryPaths.join(", ")}`,
     ].join(" "),
@@ -210,8 +210,8 @@ export function resolveOpenClawRuntime(
         : "",
       resolvedSession.readError ? `Session lookup error: ${resolvedSession.readError}` : "",
       "Configure one of:",
-      "  pubblue configure --set openclaw.sessionId=<session-id>",
-      "  pubblue configure --set openclaw.threadId=<thread-id>",
+      "  pub configure --set openclaw.sessionId=<session-id>",
+      "  pub configure --set openclaw.threadId=<thread-id>",
       "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
     ]
       .filter(Boolean)
@@ -241,9 +241,9 @@ export async function runOpenClawBridgeStartupProbe(
           openclawPath: runtime.openclawPath,
           sessionId: runtime.sessionId,
           text: [
-            "[pubblue preflight] Connectivity probe.",
+            "[pub preflight] Connectivity probe.",
             "Run this exact command now:",
-            'pubblue write "pong"',
+            'pub write "pong"',
             "Do not explain. Just execute it.",
           ].join("\n"),
         },

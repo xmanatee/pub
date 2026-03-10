@@ -111,13 +111,13 @@ async function runClaudeCodeWritePongProbe(
       const prompt = [
         "This is a startup connectivity probe.",
         "Run this exact shell command now:",
-        'pubblue write "pong"',
+        'pub write "pong"',
         "Do not explain. Just execute it.",
       ].join("\n");
       const args = buildClaudeArgs(prompt, null, null, env);
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 
-      const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUBBLUE_PROJECT_ROOT || undefined;
+      const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUB_PROJECT_ROOT || undefined;
 
       await new Promise<void>((resolve, reject) => {
         const child = spawn(claudePath, args, {
@@ -159,7 +159,7 @@ export async function runClaudeCodeBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<ClaudeCodeRuntimeResolution> {
   const claudePath = resolveClaudeCodePath(env);
-  const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUBBLUE_PROJECT_ROOT || undefined;
+  const cwd = env.CLAUDE_CODE_CWD?.trim() || env.PUB_PROJECT_ROOT || undefined;
   await runClaudeCodePreflight(claudePath, env);
   await runClaudeCodeWritePongProbe(claudePath, env);
   return { claudePath, cwd };
@@ -174,7 +174,7 @@ export async function createClaudeCodeBridgeRunner(
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
 
   const claudePath = resolveClaudeCodePath(process.env);
-  const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUBBLUE_PROJECT_ROOT || undefined;
+  const cwd = process.env.CLAUDE_CODE_CWD?.trim() || process.env.PUB_PROJECT_ROOT || undefined;
 
   await runClaudeCodePreflight(claudePath, process.env);
 

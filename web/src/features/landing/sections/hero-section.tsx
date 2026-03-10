@@ -58,7 +58,7 @@ export function HeroSection() {
           <div className="mt-16 max-w-xl mx-auto">
             <TerminalPreview className="shadow-2xl shadow-primary/10">
               <div className="p-5 font-mono text-sm leading-relaxed">
-                <div className="text-white/40">$ pubblue create index.html</div>
+                <div className="text-white/40">$ pub create index.html</div>
                 <div className="text-emerald-400 mt-1">Created: https://pub.blue/p/k8f2m9</div>
               </div>
             </TerminalPreview>

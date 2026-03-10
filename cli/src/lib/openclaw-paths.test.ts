@@ -19,7 +19,7 @@ describe("openclaw-paths", () => {
     tempRoots.length = 0;
   });
 
-  function makeTempDir(prefix = "pubblue-openclaw-paths-"): string {
+  function makeTempDir(prefix = "pub-openclaw-paths-"): string {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
     tempRoots.push(dir);
     return dir;

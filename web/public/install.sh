@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO="xmanatee/pub"
-INSTALL_DIR="${PUBBLUE_INSTALL_DIR:-$HOME/.local/bin}"
-BIN_NAME="pubblue"
+INSTALL_DIR="${PUB_INSTALL_DIR:-$HOME/.local/bin}"
+BIN_NAME="pub"
 
 detect_target() {
   local os arch
@@ -92,10 +92,10 @@ add_to_path() {
   fi
 
   echo "" >> "$rc_file"
-  echo "# Added by pubblue installer" >> "$rc_file"
+  echo "# Added by pub installer" >> "$rc_file"
   echo "$export_line" >> "$rc_file"
   echo "Added ${INSTALL_DIR} to PATH in ${rc_file}"
-  echo "Run \`source ${rc_file}\` or open a new terminal to use pubblue."
+  echo "Run \`source ${rc_file}\` or open a new terminal to use pub."
 }
 
 main() {
@@ -126,7 +126,7 @@ main() {
   curl -fSL --progress-bar -o "$tmp_path" "$url"
   chmod +x "$tmp_path"
 
-  if ! reported_version="$(PUBBLUE_SKIP_UPDATE_CHECK=1 "$tmp_path" --version 2>/dev/null)"; then
+  if ! reported_version="$(PUB_SKIP_UPDATE_CHECK=1 "$tmp_path" --version 2>/dev/null)"; then
     echo "Downloaded binary failed validation; aborting install." >&2
     exit 1
   fi
@@ -140,7 +140,7 @@ main() {
   trap - EXIT
 
   echo ""
-  echo "pubblue v${version} installed to ${bin_path}"
+  echo "pub v${version} installed to ${bin_path}"
 
   if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then
     add_to_path

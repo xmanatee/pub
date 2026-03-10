@@ -46,7 +46,6 @@ export function ExplorePage() {
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
                 <div className="aspect-[1200/630] overflow-hidden bg-white">
                   <PubPreviewIframe
-                    content={pub.contentPreview}
                     htmlSrc={`${siteUrl}/serve/${pub.slug}?preview=1`}
                     title={pub.title || pub.slug}
                   />

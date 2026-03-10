@@ -54,7 +54,7 @@ describe("binaryDownloadUrl", () => {
   it("builds the correct URL", () => {
     const url = binaryDownloadUrl("cli-v1.0.0", "darwin-arm64");
     expect(url).toBe(
-      "https://github.com/xmanatee/pub/releases/download/cli-v1.0.0/pubblue-darwin-arm64",
+      "https://github.com/xmanatee/pub/releases/download/cli-v1.0.0/pub-darwin-arm64",
     );
   });
 });

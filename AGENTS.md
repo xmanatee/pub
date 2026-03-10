@@ -62,7 +62,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)
-- **`pubblue`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
+- **`pub`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
 - **Pub commands**: `configure`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
 - `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
@@ -75,11 +75,11 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `configure --set telegram.botToken=<token>` — enables Telegram Mini App deep links
-- Config: `~/.openclaw/pubblue/config.json` or env var `PUBBLUE_API_KEY`
-- Config dir resolution: `PUBBLUE_CONFIG_DIR` → `OPENCLAW_STATE_DIR/pubblue` → `OPENCLAW_HOME/.openclaw/pubblue` (or `~/.openclaw/pubblue`)
+- Config: `~/.openclaw/pub/config.json` or env var `PUB_API_KEY`
+- Config dir resolution: `PUB_CONFIG_DIR` → `OPENCLAW_STATE_DIR/pub` → `OPENCLAW_HOME/.openclaw/pub` (or `~/.openclaw/pub`)
 - OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
 - OpenClaw workspace resolution: `OPENCLAW_WORKSPACE` → `OPENCLAW_CONFIG_PATH` (`agents.defaults.workspace` / legacy `workspace`) → `OPENCLAW_STATE_DIR/workspace` (or `~/.openclaw/workspace`)
-- Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUBBLUE_URL` env var
+- Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_URL` env var
 
 ### Content Serving
 - **`/p/:slug`** — SPA route → unified pub page (content + live mode toggle), auth-aware
@@ -89,7 +89,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)
-- **`pubblue`** — Claude Code skill for publishing and visualizing agent output via the CLI
+- **`pub`** — Claude Code skill for publishing and visualizing agent output via the CLI
 - Each skill has a `SKILL.md` (instructions) and `claw.json` (ClawHub manifest)
 - Published to ClawHub automatically on push to `main` (see `.github/workflows/clawhub.yml`)
 
@@ -102,7 +102,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### CI (`.github/workflows/`)
 - **`ci.yml`** — lint (Biome + tsc), test, build, knip for web app; lint, test, build + smoke test for CLI
-- **`cli-binary.yml`** — on `cli-v*` tags: verifies tag matches version, builds binaries, uploads to GitHub Releases (lint/test already covered by `ci.yml`)
+- **`cli-binary.yml`** — auto-releases CLI binaries when `cli/package.json` version changes on `main`; creates git tag, builds binaries, uploads to GitHub Releases
 - **`clawhub.yml`** — auto-publishes changed skills to ClawHub on push to `main`
 
 ### Integrations

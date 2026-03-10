@@ -70,9 +70,9 @@ const BRIDGE_ENV_OVERRIDE_KEYS = [
   "CLAUDE_CODE_APPEND_SYSTEM_PROMPT",
   "CLAUDE_CODE_MAX_TURNS",
   "CLAUDE_CODE_CWD",
-  "PUBBLUE_COMMAND_DEFAULT_TIMEOUT_MS",
-  "PUBBLUE_COMMAND_MAX_OUTPUT_BYTES",
-  "PUBBLUE_COMMAND_MAX_CONCURRENT",
+  "PUB_COMMAND_DEFAULT_TIMEOUT_MS",
+  "PUB_COMMAND_MAX_OUTPUT_BYTES",
+  "PUB_COMMAND_MAX_CONCURRENT",
 ] as const;
 
 function listSavedBridgeConfigKeys(bridgeConfig?: BridgeConfig): string[] {
@@ -119,9 +119,9 @@ function formatPreflightError(params: {
   }
 
   lines.push("", "Debug tips:");
-  lines.push("- Run `pubblue configure` to inspect saved CLI configuration.");
+  lines.push("- Run `pub configure` to inspect saved CLI configuration.");
   lines.push(
-    "- Use `pubblue start --bridge openclaw|claude-code|claude-sdk` to force a bridge mode.",
+    "- Use `pub start --bridge openclaw|claude-code|claude-sdk` to force a bridge mode.",
   );
 
   return lines.join("\n");
@@ -140,7 +140,7 @@ export async function runStartPreflight(opts: { bridge?: string }): Promise<Star
 
   try {
     runtimeConfig = getConfig();
-    const source = process.env.PUBBLUE_API_KEY?.trim() ? "PUBBLUE_API_KEY env" : "saved config";
+    const source = process.env.PUB_API_KEY?.trim() ? "PUB_API_KEY env" : "saved config";
     passed.push({ label: "config", detail: `API key configured (${source})` });
     bridgeProcessEnv = buildBridgeProcessEnv(runtimeConfig.bridge);
     const savedBridgeConfig = listSavedBridgeConfigKeys(runtimeConfig.bridge);

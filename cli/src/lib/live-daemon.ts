@@ -102,7 +102,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let pongTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastError: string | null = null;
-  const debugEnabled = process.env.PUBBLUE_LIVE_DEBUG === "1";
+  const debugEnabled = process.env.PUB_LIVE_DEBUG === "1";
   const versionFilePath = latestCliVersionPath();
   let bridgeRunner: BridgeRunner | null = null;
   const commandHandler = createLiveCommandHandler({
@@ -130,7 +130,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
                 ? error
                 : JSON.stringify(error)
           }`;
-    console.error(`[pubblue-agent] ${message}${detail}`);
+    console.error(`[pub-agent] ${message}${detail}`);
   }
 
   function markError(message: string, error?: unknown): void {

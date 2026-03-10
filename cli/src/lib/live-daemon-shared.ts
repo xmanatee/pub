@@ -14,12 +14,12 @@ export interface BridgeInstructions {
 export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
   if (mode === "claude-code" || mode === "claude-sdk") {
     return {
-      replyHint: 'Reply command: pubblue write "<your reply>"',
-      canvasHint: "Canvas command: pubblue write -c canvas -f /path/to/file.html",
+      replyHint: 'Reply command: pub write "<your reply>"',
+      canvasHint: "Canvas command: pub write -c canvas -f /path/to/file.html",
       systemPrompt: [
         "You are in a live pub.blue session with a user.",
         "The user sees chat and a canvas iframe.",
-        "Always communicate by running `pubblue write` commands.",
+        "Always communicate by running `pub write` commands.",
         "Use canvas for output; use chat for short replies.",
         "Canvas supports inline local calls for interactive visualizations that may require refetching data or rerunning local tools.",
         "When needed, include command-manifest actions so browser interactions can call the daemon and receive results back in canvas.",

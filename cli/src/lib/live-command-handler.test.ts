@@ -28,7 +28,7 @@ function buildHandler() {
 
 function buildManifestHtml(functions: Array<Record<string, unknown>>): string {
   const manifest = JSON.stringify({ manifestId: "test-manifest", functions });
-  return `<html><head><script type="application/pubblue-command-manifest+json">${manifest}</script></head><body></body></html>`;
+  return `<html><head><script type="application/pub-command-manifest+json">${manifest}</script></head><body></body></html>`;
 }
 
 function commandResults(messages: BridgeMessage[]) {

@@ -14,11 +14,11 @@ export function resolveConfigureApiKey(opts: {
     return readFromStdin();
   }
 
-  const envKey = process.env.PUBBLUE_API_KEY?.trim();
+  const envKey = process.env.PUB_API_KEY?.trim();
   if (envKey) return Promise.resolve(envKey);
 
   throw new Error(
-    "No API key provided. Use --api-key <KEY>, --api-key-stdin, or set PUBBLUE_API_KEY.",
+    "No API key provided. Use --api-key <KEY>, --api-key-stdin, or set PUB_API_KEY.",
   );
 }
 
