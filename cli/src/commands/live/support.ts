@@ -12,25 +12,19 @@ export function getLiveDebugEnableCommand(): string {
 
 export function getConfiguredLiveDebugState(
   env: NodeJS.ProcessEnv = process.env,
-): { enabled: boolean; source: string } | null {
-  try {
-    const resolved = resolvePubSettings(env);
-    const debug = getResolvedSettingValue<boolean>(resolved, "bridge.debug");
-    return {
-      enabled: debug?.value === true,
-      source: debug?.source ?? "default",
-    };
-  } catch {
-    return null;
-  }
+): { enabled: boolean } {
+  const resolved = resolvePubSettings(env);
+  const debug = getResolvedSettingValue<boolean>(resolved, "bridge.debug");
+  return {
+    enabled: debug?.value === true,
+  };
 }
 
 export function printDaemonStatus(
   response: StatusResponse,
   options?: { debugEnabled?: boolean | null },
 ): void {
-  const debugEnabled =
-    options?.debugEnabled ?? getConfiguredLiveDebugState()?.enabled ?? null;
+  const debugEnabled = options?.debugEnabled ?? null;
 
   console.log(`  Daemon: running`);
   console.log(`  Active slug: ${response.activeSlug || "(none)"}`);

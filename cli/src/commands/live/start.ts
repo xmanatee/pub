@@ -99,18 +99,25 @@ export function registerStartCommand(program: Command): void {
       }
 
       console.log("Agent daemon started. Waiting for browser to initiate live.");
-      console.log(`Log: ${logPath}`);
-      console.log(`Bridge mode: ${bridgeSettings.mode}`);
-      console.log(`Debug logging: ${bridgeSettings.debug ? "enabled" : "disabled"}`);
+      let startupStatusError: string | null = null;
       try {
         const status = await ipcCall(socketPath, { method: "status", params: {} });
         if (status.ok) {
           console.log("");
           console.log("Current status:");
           printDaemonStatus(status, { debugEnabled: bridgeSettings.debug });
+        } else {
+          startupStatusError = status.error || "unknown error";
         }
-      } catch {
-        // Daemon is already up; failure to fetch status should not turn startup into an error.
+      } catch (error) {
+        startupStatusError = errorMessage(error);
+      }
+      if (startupStatusError) {
+        console.log(`Status fetch failed after startup: ${startupStatusError}`);
+        console.log(`Bridge mode: ${bridgeSettings.mode}`);
+        console.log(`Debug logging: ${bridgeSettings.debug ? "enabled" : "disabled"}`);
+        console.log(`Log: ${logPath}`);
+        console.log("Run `pub status` for a fresh status check.");
       }
     });
 }

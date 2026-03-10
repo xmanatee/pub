@@ -14,7 +14,13 @@ export function registerStatusCommand(program: Command): void {
     .description("Check agent daemon and live connection status")
     .action(async () => {
       const socketPath = getAgentSocketPath();
-      const liveDebug = getConfiguredLiveDebugState();
+      let liveDebug: { enabled: boolean } | null = null;
+      let liveDebugError: string | null = null;
+      try {
+        liveDebug = getConfiguredLiveDebugState();
+      } catch (error) {
+        liveDebugError = errorMessage(error);
+      }
       let response: StatusResponse;
       try {
         response = await ipcCall(socketPath, { method: "status", params: {} });
@@ -31,5 +37,8 @@ export function registerStatusCommand(program: Command): void {
       }
 
       printDaemonStatus(response, { debugEnabled: liveDebug?.enabled ?? null });
+      if (liveDebugError) {
+        console.log(`  Debug config unavailable: ${liveDebugError}`);
+      }
     });
 }

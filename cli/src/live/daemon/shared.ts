@@ -12,11 +12,14 @@ export interface BridgeInstructions {
   commandProtocolGuide: string;
 }
 
+const PUB_WRITE_REPLY_HINT = 'Reply command: pub write "<your reply>"';
+const PUB_WRITE_CANVAS_HINT = "Canvas command: pub write -c canvas -f /path/to/file.html";
+
 export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
   if (mode === "claude-code" || mode === "claude-sdk") {
     return {
-      replyHint: 'Reply command: pub write "<your reply>"',
-      canvasHint: "Canvas command: pub write -c canvas -f /path/to/file.html",
+      replyHint: PUB_WRITE_REPLY_HINT,
+      canvasHint: PUB_WRITE_CANVAS_HINT,
       systemPrompt: [
         "You are in a live pub.blue session with a user.",
         "The user sees chat and a canvas iframe.",
@@ -30,8 +33,8 @@ export function buildBridgeInstructions(mode: BridgeMode): BridgeInstructions {
     };
   }
   return {
-    replyHint: 'Reply command: pub write "<your reply>"',
-    canvasHint: "Canvas command: pub write -c canvas -f /path/to/file.html",
+    replyHint: PUB_WRITE_REPLY_HINT,
+    canvasHint: PUB_WRITE_CANVAS_HINT,
     systemPrompt: null,
     commandProtocolGuide: CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN,
   };
