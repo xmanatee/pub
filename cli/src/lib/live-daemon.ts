@@ -110,7 +110,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     debugLog: (message, error) => debugLog(message, error),
     markError,
     sendCommandMessage: async (msg) => {
-      if (!isLiveConnected()) return false;
+      if (!browserConnected) return false;
       return sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
         context: 'command outbound on "command"',
         maxAttempts: OUTBOUND_SEND_MAX_ATTEMPTS,
@@ -299,6 +299,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     });
 
     dc.onMessage((data: string | Buffer) => {
+      try {
       if (typeof data === "string") {
         const msg = decodeMessage(data);
         if (!msg) return;
@@ -404,6 +405,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
       if (!activeStream) {
         emitDeliveryStatus({ channel: name, messageId: binMsg.id, stage: "received" });
+      }
+      } catch (error) {
+        debugLog(`datachannel "${name}" onMessage error`, error);
       }
     });
   }

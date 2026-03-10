@@ -29,8 +29,8 @@ export function PubsTab() {
   const slugs = pubs?.map((p) => p.slug) ?? [];
   const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
   const lives = useQuery(api.pubs.listActiveLives);
-  const liveStatusBySlug = React.useMemo<Map<string, boolean>>(
-    () => new Map(lives?.map((live) => [live.slug, live.hasConnection]) ?? []),
+  const liveSlugs = React.useMemo<Set<string>>(
+    () => new Set(lives?.map((live) => live.slug) ?? []),
     [lives],
   );
 
@@ -119,7 +119,7 @@ export function PubsTab() {
       <PubsGrid
         pubs={pubs}
         viewCounts={viewCounts}
-        liveStatusBySlug={liveStatusBySlug}
+        liveSlugs={liveSlugs}
         status={status}
         onLoadMore={() => loadMore(12)}
         onToggleVisibility={(id) => toggleVisibility({ id })}

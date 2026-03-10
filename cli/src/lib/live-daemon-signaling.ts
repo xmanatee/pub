@@ -8,7 +8,7 @@ const LIVE_SIGNAL_QUERY = makeFunctionReference<
   "query",
   { apiKey: string; daemonSessionId: string },
   LiveInfo | null
->("pubs:getLive");
+>("pubs:getLiveForAgent");
 
 export function parseLiveSnapshot(result: unknown): LiveInfo | null {
   const live = parseLiveInfo(result);

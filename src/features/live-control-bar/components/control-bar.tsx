@@ -18,6 +18,7 @@ import { ControlBarInputRow } from "./control-bar-input-row";
 import { ControlBarOfflineMode } from "./control-bar-offline-mode";
 import { ControlBarRecordingMode } from "./control-bar-recording-mode";
 import { ControlBarTakeoverMode } from "./control-bar-takeover-mode";
+import { controlBarStyleFromTone } from "./control-bar-theme";
 import { ControlBarVoiceMode } from "./control-bar-voice-mode";
 import { ExtendedOptions } from "./extended-options";
 
@@ -38,7 +39,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   const {
     agentName,
     audio,
-    command,
     connected,
     controlBarCollapsed,
     controlBarState,
@@ -220,14 +220,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     topAddon = (
       <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
     );
-  } else if (command.phase === "running" || command.phase === "canceling") {
-    const label =
-      command.phase === "canceling"
-        ? `Canceling ${command.activeCommandName ?? "command"}`
-        : `Running ${command.activeCommandName ?? "command"}`;
-    topAddon = (
-      <div className="px-4 py-2.5 text-sm leading-tight text-muted-foreground">{label}</div>
-    );
   } else if (preview && !isEditing) {
     const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
     const previewLabelClass =
@@ -261,6 +253,8 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasCanvasContent} />
   ) : null;
 
+  const shellStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
+
   return (
     <>
       <button
@@ -287,6 +281,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
             : ""
         }
         isInteracting={isEditing}
+        shellStyle={shellStyle as React.CSSProperties}
       />
     </>
   );

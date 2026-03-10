@@ -17,31 +17,25 @@ interface PubCardProps {
     title?: string;
     isPublic: boolean;
     createdAt: number;
-    contentPreview: string;
+    content?: string;
   };
   viewCount?: number;
-  liveStatus?: "waiting" | "connected" | null;
+  isLive?: boolean;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
 }
 
-export function PubCard({
-  pub,
-  viewCount,
-  liveStatus,
-  onToggleVisibility,
-  onDelete,
-}: PubCardProps) {
+export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white">
-          {!pub.contentPreview ? (
+          {!pub.content ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
-            <PubPreviewIframe contentPreview={pub.contentPreview} title={pub.title || pub.slug} />
+            <PubPreviewIframe content={pub.content} title={pub.title || pub.slug} />
           )}
         </div>
       </Link>
@@ -55,13 +49,13 @@ export function PubCard({
             {pub.title || pub.slug}
           </Link>
           <VisibilityBadge isPublic={pub.isPublic} />
-          {liveStatus && (
+          {isLive && (
             <Badge
               variant="outline"
               className="gap-1 text-emerald-600 border-emerald-600/20 text-xs"
             >
               <Radio className="h-3 w-3 animate-pulse" aria-hidden="true" />
-              {liveStatus === "connected" ? "Live" : "Live setup"}
+              Live
             </Badge>
           )}
         </div>
@@ -69,12 +63,6 @@ export function PubCard({
           /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
           {viewCount !== undefined && (
             <span className="tabular-nums"> &middot; {viewCount} views</span>
-          )}
-          {liveStatus && (
-            <span className="tabular-nums">
-              {" "}
-              &middot; {liveStatus === "connected" ? "connected" : "waiting for agent"}
-            </span>
           )}
         </div>
         <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5">

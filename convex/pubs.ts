@@ -147,7 +147,7 @@ export const listByUser = query({
       ...result,
       page: result.page.map((p) => ({
         ...mapPub(p),
-        contentPreview: (p.content ?? "").slice(0, 2000),
+        content: p.content,
       })),
     };
   },
@@ -213,17 +213,7 @@ export const listActiveLives = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const now = Date.now();
-    const presences = await ctx.db
-      .query("agentPresence")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const freshIds = new Set(listFreshOnlinePresences(presences, now).map((p) => p._id));
-
-    return lives.map((s) => ({
-      slug: s.slug,
-      hasConnection: !!s.agentAnswer && !!s.targetPresenceId && freshIds.has(s.targetPresenceId),
-    }));
+    return lives.map((s) => ({ slug: s.slug }));
   },
 });
 
@@ -366,6 +356,54 @@ export const getLive = internalQuery({
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", resolvedUserId))
+      .order("desc")
+      .collect();
+
+    const pending = lives.find((s) => matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer);
+    const active = pending ?? lives.find((s) => matchesCurrentAgent(s));
+
+    return active ? mapAgentLiveInfo(active) : null;
+  },
+});
+
+export const getLiveForAgent = query({
+  args: { apiKey: v.string(), daemonSessionId: v.string() },
+  handler: async (ctx, { apiKey, daemonSessionId }) => {
+    const now = Date.now();
+    const keyHash = await hashApiKey(apiKey);
+    const key = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
+      .unique();
+    if (!key) throw new Error("Invalid API key");
+
+    const byApiKey = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
+      .collect();
+
+    const presence = byApiKey.find(
+      (entry) =>
+        entry.daemonSessionId === daemonSessionId &&
+        entry.status === "online" &&
+        now - entry.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
+    );
+    if (!presence) return null;
+
+    const allPresences = await ctx.db
+      .query("agentPresence")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
+      .collect();
+    const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
+
+    const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
+      if (live.targetPresenceId) return live.targetPresenceId === presence._id;
+      return freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === presence._id;
+    };
+
+    const lives = await ctx.db
+      .query("lives")
+      .withIndex("by_user", (q) => q.eq("userId", key.userId))
       .order("desc")
       .collect();
 
@@ -693,7 +731,6 @@ export const listLivesByUserInternal = internalQuery({
     return lives.map((s) => ({
       slug: s.slug,
       status: s.status,
-      hasConnection: !!s.agentAnswer,
       createdAt: s.createdAt,
     }));
   },

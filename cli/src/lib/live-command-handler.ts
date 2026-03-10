@@ -331,9 +331,13 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   const boundFunctions = new Map<string, CommandFunctionSpec>();
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
+  let manifestLoaded = false;
+  let pendingUntilManifest: BridgeMessage[] = [];
 
   function clearBindings(): void {
     boundFunctions.clear();
+    manifestLoaded = false;
+    pendingUntilManifest = [];
     params.debugLog("commands cleared bindings");
   }
 
@@ -443,7 +447,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   function bindFunctions(functions: CommandFunctionSpec[]): void {
-    clearBindings();
+    boundFunctions.clear();
     for (const entry of functions) {
       const normalized = normalizeFunctionSpec(entry);
       if (!normalized.executor) {
@@ -453,13 +457,26 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       boundFunctions.set(normalized.name, normalized);
     }
     params.debugLog(`commands bound=[${[...boundFunctions.keys()].join(", ")}]`);
+    const queued = pendingUntilManifest.splice(0);
+    manifestLoaded = true;
+    if (queued.length > 0) {
+      params.debugLog(`commands replaying ${queued.length} queued message(s)`);
+      for (const message of queued) {
+        void handleBridgeMessage(message);
+      }
+    }
   }
 
   function bindFromHtml(html: string): void {
     const manifest = extractManifestFromHtml(html);
     if (!manifest) {
-      clearBindings();
+      boundFunctions.clear();
       params.debugLog("commands no manifest found in HTML");
+      const queued = pendingUntilManifest.splice(0);
+      manifestLoaded = true;
+      for (const message of queued) {
+        void handleBridgeMessage(message);
+      }
       return;
     }
     params.debugLog(`commands manifestId=${manifest.manifestId}`);
@@ -574,6 +591,12 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       `commands message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
     );
 
+    if (!manifestLoaded) {
+      params.debugLog("commands queuing message (manifest not loaded yet)");
+      pendingUntilManifest.push(message);
+      return;
+    }
+
     for (const [callId, result] of recentResults) {
       if (result.expiresAt <= Date.now()) {
         recentResults.delete(callId);
@@ -593,12 +616,8 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   }
 
   return {
-    bindFromHtml(html: string): void {
-      bindFromHtml(html);
-    },
-    clearBindings(): void {
-      clearBindings();
-    },
+    bindFromHtml,
+    clearBindings,
     stop(): void {
       for (const [callId, active] of running) {
         active.abort.abort();

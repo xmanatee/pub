@@ -1,12 +1,12 @@
 interface PubPreviewIframeProps {
-  contentPreview: string;
+  content?: string;
   htmlSrc?: string;
   htmlSandbox?: string;
   title: string;
 }
 
 export function PubPreviewIframe({
-  contentPreview,
+  content,
   htmlSrc,
   htmlSandbox = "allow-scripts",
   title,
@@ -14,7 +14,7 @@ export function PubPreviewIframe({
   return (
     <iframe
       src={htmlSrc}
-      srcDoc={htmlSrc ? undefined : contentPreview}
+      srcDoc={htmlSrc ? undefined : content}
       sandbox={htmlSandbox}
       loading="lazy"
       tabIndex={-1}
