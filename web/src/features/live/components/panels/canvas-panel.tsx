@@ -130,7 +130,7 @@ export function CanvasPanel({
           key={html}
           ref={iframeRef}
           srcDoc={buildCanvasSrcDoc(html)}
-          sandbox="allow-scripts allow-popups allow-forms allow-downloads"
+          sandbox="allow-scripts allow-popups allow-forms allow-downloads allow-pointer-lock"
           className={cn(
             "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
             loadedHtml === html ? "opacity-100" : "opacity-0",
