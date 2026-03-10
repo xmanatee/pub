@@ -53,8 +53,9 @@ export function RootLayoutPage() {
 
   return (
     <PostHogProvider client={posthog}>
+      {/* @ts-expect-error Sentry ErrorBoundary types target React 17 class components */}
       <Sentry.ErrorBoundary
-        fallback={({ error }) => (
+        fallback={({ error }: { error: unknown }) => (
           <RootRouteErrorPage error={error instanceof Error ? error : new Error(String(error))} />
         )}
       >
