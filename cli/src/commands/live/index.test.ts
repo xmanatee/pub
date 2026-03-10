@@ -5,8 +5,8 @@ import { isOpenClawAvailable } from "../../live/bridge/providers/openclaw.js";
 import { createBridgeSelection, parseBridgeMode } from "../../live/runtime/bridge-runtime.js";
 import { getFollowReadDelayMs, messageContainsPong } from "../../live/runtime/command-utils.js";
 import { buildDaemonSpawnStdio } from "../../live/runtime/daemon-process.js";
+import { SUPPORTED_CONFIG_KEYS } from "../../core/config/index.js";
 import { parsePositiveInteger } from "../../core/utils/number.js";
-import { SUPPORTED_KEYS } from "../config/schema.js";
 
 vi.mock("../../live/bridge/providers/openclaw.js", () => ({
   isOpenClawAvailable: vi.fn(() => false),
@@ -22,9 +22,9 @@ vi.mock("../../live/bridge/providers/claude-sdk.js", () => ({
   runClaudeSdkBridgeStartupProbe: vi.fn(),
 }));
 
-describe("SUPPORTED_KEYS", () => {
+describe("SUPPORTED_CONFIG_KEYS", () => {
   it("includes bridge.mode", () => {
-    expect(SUPPORTED_KEYS).toContain("bridge.mode");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.mode");
   });
 });
 

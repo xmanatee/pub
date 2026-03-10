@@ -1,8 +1,8 @@
 import { PubApiClient } from "../../core/api/client.js";
-import type { RequiredConfig } from "../../core/config/index.js";
-import { getRequiredConfig } from "../../core/config/index.js";
+import type { ApiClientSettings } from "../../core/config/index.js";
+import { getApiClientSettings } from "../../core/config/index.js";
 
-export function createClient(configOverride?: RequiredConfig): PubApiClient {
-  const config = configOverride || getRequiredConfig();
-  return new PubApiClient(config.baseUrl, config.apiKey);
+export function createClient(settingsOverride?: ApiClientSettings): PubApiClient {
+  const settings = settingsOverride || getApiClientSettings();
+  return new PubApiClient(settings.baseUrl, settings.apiKey);
 }

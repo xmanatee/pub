@@ -31,8 +31,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let shuttingDown = false;
 
   const commandHandler = createLiveCommandHandler({
-    bridgeMode: config.bridgeMode,
-    bridgeConfig: config.bridgeConfig,
+    bridgeSettings: config.bridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
     markError: (message, error) => lifecycle.markError(message, error),
     sendCommandMessage: async (msg) => {
@@ -72,7 +71,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   bridgeManager = createBridgeManager({
     state,
-    config: { bridgeMode: config.bridgeMode, bridgeConfig: config.bridgeConfig },
+    bridgeSettings: config.bridgeSettings,
     commandHandler,
     apiClient,
     debugLog: lifecycle.debugLog,
@@ -169,7 +168,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       state.buffer.messages = messages;
     },
     getLastError: () => state.lastError,
-    getBridgeMode: () => config.bridgeMode ?? null,
+    getBridgeMode: () => config.bridgeSettings.mode,
     getBridgeStatus: () => state.bridgeRunner?.status() ?? null,
     getWriteReadinessError: () => getLiveWriteReadinessError(lifecycle.isLiveConnected()),
     openDataChannel: channelManager.openDataChannel,

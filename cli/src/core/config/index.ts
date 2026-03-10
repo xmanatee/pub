@@ -5,22 +5,46 @@ export {
   resolveConfigLocation,
   trimToUndefined,
 } from "./location.js";
-export { getConfig, getRequiredConfig, getTelegramMiniAppUrl, resolveConfig } from "./resolve.js";
-export { readConfig, saveConfig } from "./store.js";
+export {
+  compactPubConfig,
+  hasConfigValues,
+  listConfiguredKeys,
+  parseConfigAssignment,
+  setPubConfigValue,
+  unsetPubConfigValue,
+} from "./mutate.js";
+export {
+  CONFIG_VAR_REGISTRY,
+  getConfigVar,
+  getConfigVars,
+  getConfigVarsBySection,
+  isMutableConfigVar,
+  readPubConfigValue,
+  SUPPORTED_CONFIG_KEYS,
+} from "./registry.js";
+export {
+  getApiClientSettings,
+  getBridgeMode,
+  getResolvedSettingValue,
+  getTelegramMiniAppUrl,
+  resolvePubSettings,
+} from "./resolve.js";
+export { readPubConfig, writePubConfig } from "./store.js";
 export type {
-  BridgeConfig,
+  ApiClientSettings,
+  BridgeSettings,
+  ClaudeBridgeSettings,
   ConfigDirCandidate,
   ConfigDirSource,
-  ConfigField,
   ConfigLocation,
-  ConfigValueSource,
-  PreparedBridgeConfig,
-  PreparedClaudeBridgeConfig,
-  PreparedOpenClawConfig,
-  RequiredConfig,
-  ResolvedConfig,
-  SavedConfig,
-  TelegramConfig,
+  OpenClawBridgeSettings,
+  PubBridgeConfig,
+  PubConfig,
+  PubCoreConfig,
+  PubTelegramConfig,
+  ResolvedPubSettings,
+  ResolvedValue,
+  SettingSource,
 } from "./types.js";
 export {
   DEFAULT_ATTACHMENT_MAX_BYTES,

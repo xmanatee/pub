@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
 import { errorMessage } from "../../../core/errors/cli-error.js";
-import type { BridgeConfig, PreparedBridgeConfig, PreparedClaudeBridgeConfig } from "../../../core/config/index.js";
+import type { PubBridgeConfig, BridgeSettings, ClaudeBridgeSettings } from "../../../core/config/index.js";
 import { isClaudeCodeAvailableInEnv, resolveClaudeCodePath } from "./claude-code-runtime.js";
 import { runAgentWritePongProbe } from "../../runtime/bridge-write-probe.js";
 
@@ -31,7 +31,7 @@ function isClaudeSdkResolvable(): boolean {
 
 export function isClaudeSdkAvailableInEnv(
   env: NodeJS.ProcessEnv,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): boolean {
   return isClaudeCodeAvailableInEnv(env, bridgeConfig) && isClaudeSdkResolvable();
 }
@@ -42,7 +42,7 @@ export async function isClaudeSdkImportable(): Promise<boolean> {
 
 export function buildSdkSessionOptions(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ) {
   const model =
     bridgeConfig !== undefined
@@ -69,23 +69,23 @@ export function buildSdkSessionOptions(
 
 function getAutoDetectClaudeSdkCwd(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string {
   return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }
 
-function getStrictClaudeSdkCwd(bridgeConfig: PreparedClaudeBridgeConfig): string {
+function getStrictClaudeSdkCwd(bridgeConfig: ClaudeBridgeSettings): string {
   return bridgeConfig.bridgeCwd;
 }
 
-function getStrictClaudeSdkPath(bridgeConfig: PreparedClaudeBridgeConfig): string {
+function getStrictClaudeSdkPath(bridgeConfig: ClaudeBridgeSettings): string {
   return bridgeConfig.claudeCodePath;
 }
 
 export function buildAppendSystemPrompt(
   bridgeSystemPrompt: string | null,
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   const userSystemPrompt =
     bridgeConfig !== undefined
@@ -97,18 +97,18 @@ export function buildAppendSystemPrompt(
 
 export async function runClaudeSdkBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig | PreparedBridgeConfig,
+  bridgeConfig?: PubBridgeConfig | BridgeSettings,
   options?: { strictConfig: boolean },
 ): Promise<{ claudePath: string; cwd?: string }> {
   const strictConfig = options?.strictConfig === true;
   const { model, allowedTools } = buildSdkSessionOptions(env, bridgeConfig);
   const claudePath =
     strictConfig && bridgeConfig
-      ? getStrictClaudeSdkPath(bridgeConfig as PreparedClaudeBridgeConfig)
+      ? getStrictClaudeSdkPath(bridgeConfig as ClaudeBridgeSettings)
       : resolveClaudeCodePath(env, bridgeConfig);
   const cwd =
     strictConfig && bridgeConfig
-      ? getStrictClaudeSdkCwd(bridgeConfig as PreparedClaudeBridgeConfig)
+      ? getStrictClaudeSdkCwd(bridgeConfig as ClaudeBridgeSettings)
       : getAutoDetectClaudeSdkCwd(env, bridgeConfig);
 
   const sdk = await loadClaudeSdk();

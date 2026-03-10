@@ -20,7 +20,7 @@ export function registerStartCommand(program: Command): void {
     .option("--bridge <mode>", "Bridge mode: openclaw|claude-code|claude-sdk")
     .action(async (opts: { agentName: string; bridge?: string }) => {
       const preflight = await runStartPreflight({ bridge: opts.bridge });
-      const { runtimeConfig, bridgeConfig, bridgeMode, bridgeProcessEnv } = preflight;
+      const { apiClientSettings, bridgeSettings, bridgeProcessEnv } = preflight;
       try {
         writeLatestCliVersion(CLI_VERSION);
       } catch (error) {
@@ -44,14 +44,13 @@ export function registerStartCommand(program: Command): void {
         env: {
           ...bridgeProcessEnv,
           PUB_DAEMON_MODE: "1",
-          PUB_DAEMON_API_BASE_URL: runtimeConfig.baseUrl,
-          PUB_DAEMON_API_KEY: runtimeConfig.apiKey,
+          PUB_DAEMON_API_BASE_URL: apiClientSettings.baseUrl,
+          PUB_DAEMON_API_KEY: apiClientSettings.apiKey,
           PUB_DAEMON_SOCKET: socketPath,
           PUB_DAEMON_INFO: infoPath,
           PUB_DAEMON_AGENT_NAME: opts.agentName,
           PUB_CLI_VERSION: CLI_VERSION,
-          PUB_DAEMON_BRIDGE_MODE: bridgeMode,
-          PUB_DAEMON_BRIDGE_CONFIG: JSON.stringify(bridgeConfig),
+          PUB_DAEMON_BRIDGE_SETTINGS: JSON.stringify(bridgeSettings),
         },
       });
       fs.closeSync(daemonLogFd);
@@ -85,6 +84,6 @@ export function registerStartCommand(program: Command): void {
 
       console.log("Agent daemon started. Waiting for browser to initiate live.");
       console.log(`Daemon log: ${logPath}`);
-      console.log(`Bridge mode: ${bridgeMode}`);
+      console.log(`Bridge mode: ${bridgeSettings.mode}`);
     });
 }

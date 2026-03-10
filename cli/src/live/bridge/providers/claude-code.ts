@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { CHANNELS, generateMessageId } from "../../../../../shared/bridge-protocol-core";
-import type { PreparedBridgeConfig } from "../../../core/config/index.js";
+import type { BridgeSettings } from "../../../core/config/index.js";
 import { errorMessage } from "../../../core/errors/cli-error.js";
 import {
   type ActiveStream,
@@ -37,15 +37,15 @@ export async function createClaudeCodeBridgeRunner(
   abortSignal?: AbortSignal,
 ): Promise<BridgeRunner> {
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
-  const prepared = config.bridgeConfig;
-  if (prepared.mode !== "claude-code") {
+  const bridgeSettings = config.bridgeSettings;
+  if (bridgeSettings.mode !== "claude-code") {
     throw new Error("Claude Code runtime is not prepared.");
   }
 
-  const claudePath = prepared.claudeCodePath;
-  const cwd = prepared.bridgeCwd;
-  const attachmentRoot = prepared.attachmentDir;
-  const attachmentMaxBytes = prepared.attachmentMaxBytes;
+  const claudePath = bridgeSettings.claudeCodePath;
+  const cwd = bridgeSettings.bridgeCwd;
+  const attachmentRoot = bridgeSettings.attachmentDir;
+  const attachmentMaxBytes = bridgeSettings.attachmentMaxBytes;
   const activeStreams = new Map<string, ActiveStream>();
 
   ensureDirectoryWritable(attachmentRoot);
@@ -76,7 +76,7 @@ export async function createClaudeCodeBridgeRunner(
       config.instructions.systemPrompt,
       process.env,
       opts,
-      prepared,
+      bridgeSettings,
     );
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 
@@ -145,7 +145,7 @@ export async function createClaudeCodeBridgeRunner(
     onEntry: async (entry: BufferedEntry) => {
       const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
         forwardedMessageCount + 1,
-        prepared.canvasReminderEvery,
+        bridgeSettings.canvasReminderEvery,
       );
       const chat = readTextChatMessage(entry);
       if (chat) {

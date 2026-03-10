@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildBridgeProcessEnv, prepareBridgeConfigForSave } from "./bridge-runtime.js";
+import { buildBridgeProcessEnv, buildBridgeSettings } from "./bridge-runtime.js";
 
 describe("bridge-runtime", () => {
   const originalEnv = {
@@ -31,12 +31,12 @@ describe("bridge-runtime", () => {
     expect(env.PUB_PROJECT_ROOT).toBe("/tmp/existing-project-root");
   });
 
-  it("prepares concrete runtime defaults for claude bridges", () => {
+  it("builds concrete runtime defaults for claude bridges", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
     process.env.PUB_CONFIG_DIR = tempDir;
     process.env.PUB_PROJECT_ROOT = "/tmp/pub-project";
 
-    const prepared = prepareBridgeConfigForSave(
+    const bridgeSettings = buildBridgeSettings(
       "claude-code",
       {
         claudeCodePath: "/usr/local/bin/claude",
@@ -44,15 +44,15 @@ describe("bridge-runtime", () => {
       buildBridgeProcessEnv(),
     );
 
-    expect(prepared.bridgeCwd).toBe("/tmp/pub-project");
-    expect(prepared.attachmentDir).toContain("/attachments");
-    expect(prepared.canvasReminderEvery).toBe(10);
-    expect(prepared.commandDefaultTimeoutMs).toBe(15_000);
+    expect(bridgeSettings.bridgeCwd).toBe("/tmp/pub-project");
+    expect(bridgeSettings.attachmentDir).toContain("/attachments");
+    expect(bridgeSettings.canvasReminderEvery).toBe(10);
+    expect(bridgeSettings.commandDefaultTimeoutMs).toBe(15_000);
   });
 
-  it("requires explicit OpenClaw workspace in prepared runtime config", () => {
+  it("requires explicit OpenClaw workspace in runtime settings", () => {
     expect(() =>
-      prepareBridgeConfigForSave(
+      buildBridgeSettings(
         "openclaw",
         {
           openclawPath: "/usr/local/bin/openclaw",

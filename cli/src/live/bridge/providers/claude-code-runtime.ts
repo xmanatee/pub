@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import type { BridgeConfig, PreparedClaudeBridgeConfig, PreparedBridgeConfig } from "../../../core/config/index.js";
+import type { PubBridgeConfig, ClaudeBridgeSettings, BridgeSettings } from "../../../core/config/index.js";
 import { resolveCommandFromPath } from "./command-path.js";
 import { runAgentWritePongProbe } from "../../runtime/bridge-write-probe.js";
 
 function getConfiguredClaudeCodePath(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.claudeCodePath;
   return env.CLAUDE_CODE_PATH?.trim();
@@ -14,7 +14,7 @@ function getConfiguredClaudeCodePath(
 
 function getConfiguredClaudeCodeModel(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.claudeCodeModel;
   return env.CLAUDE_CODE_MODEL?.trim();
@@ -22,7 +22,7 @@ function getConfiguredClaudeCodeModel(
 
 function getConfiguredClaudeCodeAllowedTools(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.claudeCodeAllowedTools;
   return env.CLAUDE_CODE_ALLOWED_TOOLS?.trim();
@@ -30,7 +30,7 @@ function getConfiguredClaudeCodeAllowedTools(
 
 function getConfiguredClaudeCodeAppendPrompt(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) return bridgeConfig.claudeCodeAppendSystemPrompt;
   return env.CLAUDE_CODE_APPEND_SYSTEM_PROMPT?.trim();
@@ -38,7 +38,7 @@ function getConfiguredClaudeCodeAppendPrompt(
 
 function getConfiguredClaudeCodeMaxTurns(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string | undefined {
   if (bridgeConfig) {
     return bridgeConfig.claudeCodeMaxTurns !== undefined
@@ -50,7 +50,7 @@ function getConfiguredClaudeCodeMaxTurns(
 
 export function isClaudeCodeAvailableInEnv(
   env: NodeJS.ProcessEnv,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): boolean {
   const configured = getConfiguredClaudeCodePath(env, bridgeConfig);
   if (configured) {
@@ -62,7 +62,7 @@ export function isClaudeCodeAvailableInEnv(
 
 export function resolveClaudeCodePath(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string {
   const configured = getConfiguredClaudeCodePath(env, bridgeConfig);
   if (configured) {
@@ -98,16 +98,16 @@ export async function runClaudeCodePreflight(
 
 function getAutoDetectClaudeBridgeCwd(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string {
   return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }
 
-function getStrictClaudeCodePath(bridgeConfig: PreparedClaudeBridgeConfig): string {
+function getStrictClaudeCodePath(bridgeConfig: ClaudeBridgeSettings): string {
   return bridgeConfig.claudeCodePath;
 }
 
-function getStrictClaudeBridgeCwd(bridgeConfig: PreparedClaudeBridgeConfig): string {
+function getStrictClaudeBridgeCwd(bridgeConfig: ClaudeBridgeSettings): string {
   return bridgeConfig.bridgeCwd;
 }
 
@@ -117,7 +117,7 @@ export function buildClaudeArgs(
   systemPrompt: string | null,
   env: NodeJS.ProcessEnv = process.env,
   opts?: { maxTurns?: number },
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): string[] {
   const args = [
     "-p",
@@ -152,7 +152,7 @@ export function buildClaudeArgs(
 async function runClaudeCodeWritePongProbe(
   claudePath: string,
   envInput: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
   options?: { strictConfig: boolean },
 ): Promise<void> {
   await runAgentWritePongProbe({
@@ -171,7 +171,7 @@ async function runClaudeCodeWritePongProbe(
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 
       const cwd = options?.strictConfig
-        ? getStrictClaudeBridgeCwd(bridgeConfig as PreparedClaudeBridgeConfig)
+        ? getStrictClaudeBridgeCwd(bridgeConfig as ClaudeBridgeSettings)
         : getAutoDetectClaudeBridgeCwd(env, bridgeConfig);
 
       await new Promise<void>((resolve, reject) => {
@@ -212,17 +212,17 @@ export interface ClaudeCodeRuntimeResolution {
 
 export async function runClaudeCodeBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig | PreparedBridgeConfig,
+  bridgeConfig?: PubBridgeConfig | BridgeSettings,
   options?: { strictConfig: boolean },
 ): Promise<ClaudeCodeRuntimeResolution> {
   const strictConfig = options?.strictConfig === true;
   const claudePath =
     strictConfig && bridgeConfig
-      ? getStrictClaudeCodePath(bridgeConfig as PreparedClaudeBridgeConfig)
+      ? getStrictClaudeCodePath(bridgeConfig as ClaudeBridgeSettings)
       : resolveClaudeCodePath(env, bridgeConfig);
   const cwd =
     strictConfig && bridgeConfig
-      ? getStrictClaudeBridgeCwd(bridgeConfig as PreparedClaudeBridgeConfig)
+      ? getStrictClaudeBridgeCwd(bridgeConfig as ClaudeBridgeSettings)
       : getAutoDetectClaudeBridgeCwd(env, bridgeConfig);
   await runClaudeCodePreflight(claudePath, env);
   await runClaudeCodeWritePongProbe(claudePath, env, bridgeConfig, { strictConfig });

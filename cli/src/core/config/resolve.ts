@@ -1,65 +1,79 @@
-import { readConfig } from "./store.js";
 import {
-  DEFAULT_BASE_URL,
-  type BridgeConfig,
-  type RequiredConfig,
-  type ResolvedConfig,
-  type TelegramConfig,
+  getConfigVar,
+  getConfigVars,
+  readEnvOverride,
+  readPubConfigValue,
+} from "./registry.js";
+import { readPubConfig } from "./store.js";
+import type {
+  ApiClientSettings,
+  PubConfig,
+  ResolvedPubSettings,
+  ResolvedValue,
 } from "./types.js";
-import { trimToUndefined } from "./location.js";
 
-function readEnvValue(
-  keys: string[],
-  env: NodeJS.ProcessEnv = process.env,
-): { key: string; value: string } | null {
-  for (const key of keys) {
-    const value = trimToUndefined(env[key]);
-    if (value) return { key, value };
-  }
-  return null;
+function toResolvedValue(value: unknown, source: "config" | "default"): ResolvedValue<unknown> {
+  return { value, source };
 }
 
-export function resolveConfig(env: NodeJS.ProcessEnv = process.env): ResolvedConfig {
-  const saved = readConfig(env);
-  const envApiKey = readEnvValue(["PUB_API_KEY"], env);
-  const envBaseUrl = readEnvValue(["PUB_BASE_URL"], env);
-  const bridge: BridgeConfig = saved?.bridge ? { ...saved.bridge } : {};
+export function resolvePubSettings(env: NodeJS.ProcessEnv = process.env): ResolvedPubSettings {
+  const rawConfig = readPubConfig(env) ?? {};
+  const valuesByKey: Record<string, ResolvedValue<unknown> | null> = {};
 
-  const telegram: TelegramConfig = {
-    botToken: saved?.telegram?.botToken,
-    botUsername: saved?.telegram?.botUsername,
-    hasMainWebApp: saved?.telegram?.hasMainWebApp,
-  };
+  for (const definition of getConfigVars()) {
+    const envOverride = readEnvOverride(definition, env);
+    if (envOverride) {
+      valuesByKey[definition.key] = {
+        value: envOverride.value,
+        source: "env",
+        envKey: envOverride.key,
+      };
+      continue;
+    }
 
-  return {
-    apiKey: envApiKey
-      ? { value: envApiKey.value, source: "env", envKey: envApiKey.key }
-      : saved?.apiKey
-        ? { value: saved.apiKey, source: "config" }
-        : null,
-    baseUrl: envBaseUrl
-      ? { value: envBaseUrl.value, source: "env", envKey: envBaseUrl.key }
-      : { value: DEFAULT_BASE_URL, source: "default" },
-    bridge,
-    telegram,
-  };
-}
+    const configValue = readPubConfigValue(rawConfig, definition);
+    if (configValue !== undefined) {
+      valuesByKey[definition.key] = toResolvedValue(configValue, "config");
+      continue;
+    }
 
-export function getConfig(env: NodeJS.ProcessEnv = process.env): ResolvedConfig {
-  return resolveConfig(env);
-}
+    if (definition.defaultValue !== undefined) {
+      valuesByKey[definition.key] = toResolvedValue(definition.defaultValue, "default");
+      continue;
+    }
 
-export function getRequiredConfig(env: NodeJS.ProcessEnv = process.env): RequiredConfig {
-  const resolved = getConfig(env);
-
-  if (!resolved.apiKey) {
-    throw new Error("Missing PUB_API_KEY. Set it with `pub config --api-key` or PUB_API_KEY.");
+    valuesByKey[definition.key] = null;
   }
 
+  const resolvedApiKey = valuesByKey.apiKey as ResolvedValue<string> | null;
+  const resolvedBaseUrl = valuesByKey.baseUrl as ResolvedValue<string>;
+
   return {
-    apiKey: resolved.apiKey.value,
-    baseUrl: resolved.baseUrl.value,
-    bridge: Object.keys(resolved.bridge).length > 0 ? resolved.bridge : undefined,
+    rawConfig,
+    core: {
+      apiKey: resolvedApiKey,
+      baseUrl: resolvedBaseUrl,
+    },
+    valuesByKey,
+  };
+}
+
+export function getResolvedSettingValue<T>(
+  resolved: ResolvedPubSettings,
+  key: string,
+): ResolvedValue<T> | null {
+  return (resolved.valuesByKey[key] as ResolvedValue<T> | null) ?? null;
+}
+
+export function getApiClientSettings(env: NodeJS.ProcessEnv = process.env): ApiClientSettings {
+  const resolved = resolvePubSettings(env);
+  if (!resolved.core.apiKey) {
+    throw new Error("Missing apiKey. Set it with `pub config --api-key` or PUB_API_KEY.");
+  }
+
+  return {
+    apiKey: resolved.core.apiKey.value,
+    baseUrl: resolved.core.baseUrl.value,
   };
 }
 
@@ -67,7 +81,14 @@ export function getTelegramMiniAppUrl(
   slug: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  const saved = readConfig(env);
-  if (!saved?.telegram?.botUsername) return null;
-  return `https://t.me/${saved.telegram.botUsername}?startapp=${slug}`;
+  const config = readPubConfig(env);
+  const username = config?.telegram?.botUsername?.trim();
+  return username ? `https://t.me/${username}?startapp=${slug}` : null;
+}
+
+export function getBridgeMode(config: PubConfig | null | undefined): string | null {
+  const definition = getConfigVar("bridge.mode");
+  if (!definition || !config) return null;
+  const value = readPubConfigValue(config, definition);
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }

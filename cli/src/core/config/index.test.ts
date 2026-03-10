@@ -4,13 +4,13 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_BASE_URL,
-  getConfig,
+  getApiClientSettings,
   getConfigDir,
-  getRequiredConfig,
-  readConfig,
-  resolveConfig,
+  getResolvedSettingValue,
+  readPubConfig,
   resolveConfigLocation,
-  saveConfig,
+  resolvePubSettings,
+  writePubConfig,
 } from "./index.js";
 
 describe("config", () => {
@@ -62,64 +62,78 @@ describe("config", () => {
 
   it("returns null when no config file exists in the selected config dir", () => {
     makeHomeConfigDir();
-    expect(readConfig()).toBeNull();
+    expect(readPubConfig()).toBeNull();
   });
 
   it("saves and loads config in ~/.config/pub", () => {
     makeHomeConfigDir();
-    saveConfig({ apiKey: "pub_test" });
-    expect(readConfig()).toEqual({ apiKey: "pub_test" });
+    writePubConfig({ core: { apiKey: "pub_test" } });
+    expect(readPubConfig()).toEqual({ core: { apiKey: "pub_test" } });
+  });
+
+  it("normalizes legacy top-level apiKey into core.apiKey", () => {
+    const dir = makeHomeConfigDir();
+    fs.writeFileSync(
+      path.join(dir, "config.json"),
+      `${JSON.stringify({ apiKey: "pub_legacy", bridge: { mode: "claude-code" } }, null, 2)}\n`,
+      "utf-8",
+    );
+
+    expect(readPubConfig()).toEqual({
+      core: { apiKey: "pub_legacy" },
+      bridge: { mode: "claude-code" },
+    });
   });
 
   it("uses default base URL when no env var is set", () => {
     makeHomeConfigDir();
-    saveConfig({ apiKey: "pub_test" });
-    const config = getRequiredConfig();
-    expect(config.apiKey).toBe("pub_test");
-    expect(config.baseUrl).toBe(DEFAULT_BASE_URL);
+    writePubConfig({ core: { apiKey: "pub_test" } });
+    const settings = getApiClientSettings();
+    expect(settings.apiKey).toBe("pub_test");
+    expect(settings.baseUrl).toBe(DEFAULT_BASE_URL);
   });
 
   it("prefers PUB_API_KEY env var over saved config", () => {
     makeHomeConfigDir();
-    saveConfig({
-      apiKey: "pub_saved",
+    writePubConfig({
+      core: { apiKey: "pub_saved" },
       bridge: { mode: "claude-code", threadId: "thread-a" },
     });
     process.env.PUB_API_KEY = "pub_env";
 
-    const config = getRequiredConfig();
-    expect(config.apiKey).toBe("pub_env");
-    expect(config.bridge).toEqual({ mode: "claude-code", threadId: "thread-a" });
+    const settings = getApiClientSettings();
+    expect(settings.apiKey).toBe("pub_env");
   });
 
-  it("getConfig does not require an api key", () => {
+  it("resolvePubSettings does not require an api key", () => {
     makeHomeConfigDir();
-    saveConfig({ bridge: { mode: "claude-code" } });
-    const config = getConfig();
-    expect(config.apiKey).toBeNull();
-    expect(config.bridge.mode).toBe("claude-code");
+    writePubConfig({ bridge: { mode: "claude-code" } });
+    const resolved = resolvePubSettings();
+    expect(resolved.core.apiKey).toBeNull();
+    expect(resolved.rawConfig.bridge?.mode).toBe("claude-code");
   });
 
-  it("getRequiredConfig throws when api key is missing", () => {
+  it("getApiClientSettings throws when api key is missing", () => {
     makeHomeConfigDir();
-    saveConfig({ bridge: { mode: "claude-code" } });
-    expect(() => getRequiredConfig()).toThrow("Missing PUB_API_KEY");
+    writePubConfig({ bridge: { mode: "claude-code" } });
+    expect(() => getApiClientSettings()).toThrow("Missing apiKey");
   });
 
-  it("keeps bridge config sourced from saved config", () => {
+  it("tracks source per config key", () => {
     makeHomeConfigDir();
-    saveConfig({
-      apiKey: "pub_saved",
+    writePubConfig({
+      core: { apiKey: "pub_saved" },
       bridge: { mode: "claude-code", claudeCodePath: "/config/claude" },
     });
     process.env.PUB_BASE_URL = "https://custom.convex.site";
     process.env.CLAUDE_CODE_PATH = "/env/claude";
 
-    const resolved = resolveConfig();
-    expect(resolved.apiKey?.source).toBe("config");
-    expect(resolved.baseUrl.source).toBe("env");
-    expect(resolved.bridge.mode).toBe("claude-code");
-    expect(resolved.bridge.claudeCodePath).toBe("/config/claude");
+    const resolved = resolvePubSettings();
+    expect(resolved.core.apiKey?.source).toBe("config");
+    expect(resolved.core.baseUrl.source).toBe("env");
+    expect(getResolvedSettingValue(resolved, "bridge.mode")?.source).toBe("config");
+    expect(resolved.rawConfig.bridge?.mode).toBe("claude-code");
+    expect(resolved.rawConfig.bridge?.claudeCodePath).toBe("/config/claude");
   });
 
   it("uses PUB_CONFIG_DIR when set and it exists", () => {
@@ -149,5 +163,4 @@ describe("config", () => {
   it("throws when no config directory exists", () => {
     expect(() => resolveConfigLocation()).toThrow("No Pub config directory found.");
   });
-
 });

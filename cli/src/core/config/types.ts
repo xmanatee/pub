@@ -8,7 +8,12 @@ export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 export const DEFAULT_COMMAND_MAX_OUTPUT_BYTES = 256 * 1024;
 export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
 
-export interface BridgeConfig {
+export interface PubCoreConfig {
+  apiKey?: string;
+  baseUrl?: string;
+}
+
+export interface PubBridgeConfig {
   mode?: BridgeMode;
   openclawPath?: string;
   openclawStateDir?: string;
@@ -31,7 +36,19 @@ export interface BridgeConfig {
   commandMaxConcurrent?: number;
 }
 
-interface PreparedBridgeConfigBase {
+export interface PubTelegramConfig {
+  botToken?: string;
+  botUsername?: string;
+  hasMainWebApp?: boolean;
+}
+
+export interface PubConfig {
+  core?: PubCoreConfig;
+  bridge?: PubBridgeConfig;
+  telegram?: PubTelegramConfig;
+}
+
+interface BridgeSettingsBase {
   mode: BridgeMode;
   bridgeCwd: string;
   canvasReminderEvery: number;
@@ -51,50 +68,39 @@ interface PreparedBridgeConfigBase {
   claudeCodeMaxTurns?: number;
 }
 
-export interface PreparedOpenClawConfig extends PreparedBridgeConfigBase {
+export interface OpenClawBridgeSettings extends BridgeSettingsBase {
   mode: "openclaw";
   openclawPath: string;
   sessionId: string;
 }
 
-export interface PreparedClaudeBridgeConfig extends PreparedBridgeConfigBase {
+export interface ClaudeBridgeSettings extends BridgeSettingsBase {
   mode: "claude-code" | "claude-sdk";
   claudeCodePath: string;
 }
 
-export type PreparedBridgeConfig = PreparedOpenClawConfig | PreparedClaudeBridgeConfig;
+export type BridgeSettings = OpenClawBridgeSettings | ClaudeBridgeSettings;
 
-export interface TelegramConfig {
-  botToken?: string;
-  botUsername?: string;
-  hasMainWebApp?: boolean;
-}
-
-export interface SavedConfig {
-  apiKey?: string;
-  bridge?: BridgeConfig;
-  telegram?: TelegramConfig;
-}
-
-export interface RequiredConfig {
+export interface ApiClientSettings {
   apiKey: string;
   baseUrl: string;
-  bridge?: BridgeConfig;
 }
 
-export type ConfigValueSource = "env" | "config" | "default";
+export type SettingSource = "env" | "config" | "default";
 
-export interface ConfigField<T> {
+export interface ResolvedValue<T> {
   value: T;
-  source: ConfigValueSource;
+  source: SettingSource;
   envKey?: string;
 }
 
-export interface ResolvedConfig {
-  apiKey: ConfigField<string> | null;
-  baseUrl: ConfigField<string>;
-  bridge: BridgeConfig;
-  telegram: TelegramConfig;
+export interface ResolvedPubSettings {
+  rawConfig: PubConfig;
+  core: {
+    apiKey: ResolvedValue<string> | null;
+    baseUrl: ResolvedValue<string>;
+  };
+  valuesByKey: Record<string, ResolvedValue<unknown> | null>;
 }
 
 export type ConfigDirSource = "PUB_CONFIG_DIR" | "OPENCLAW_HOME" | "HOME_CONFIG";

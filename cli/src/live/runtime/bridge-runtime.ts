@@ -1,8 +1,7 @@
 export {
+  buildBridgeSettings,
   buildBridgeProcessEnv,
   parseBridgeMode,
-  prepareBridgeConfigForSave,
-  validatePreparedBridgeConfig,
 } from "./bridge-config.js";
 export {
   autoDetectBridgeConfig,

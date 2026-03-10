@@ -1,4 +1,4 @@
-import type { BridgeConfig, PreparedBridgeConfig } from "../../core/config/index.js";
+import type { PubBridgeConfig, BridgeSettings } from "../../core/config/index.js";
 import {
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
@@ -14,17 +14,17 @@ import type { BridgeMode } from "../daemon/shared.js";
 interface BridgeProvider {
   mode: BridgeMode;
   priority: number;
-  detect(env: NodeJS.ProcessEnv, bridgeConfig?: BridgeConfig): { available: boolean; detail: string };
+  detect(env: NodeJS.ProcessEnv, bridgeConfig?: PubBridgeConfig): { available: boolean; detail: string };
   startupProbe(
     env: NodeJS.ProcessEnv,
-    bridgeConfig: BridgeConfig | PreparedBridgeConfig | undefined,
+    bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
     options: { strictConfig: boolean },
   ): Promise<BridgeStartupProbeResult>;
 }
 
 export interface BridgeStartupProbeResult {
   detailLines: string[];
-  configPatch?: Partial<BridgeConfig>;
+  configPatch?: Partial<PubBridgeConfig>;
 }
 
 function describeConfiguredPath(key: string, env: NodeJS.ProcessEnv): string {
@@ -36,7 +36,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
   {
     mode: "openclaw" as const,
     priority: 100,
-    detect(env: NodeJS.ProcessEnv, bridgeConfig?: BridgeConfig) {
+    detect(env: NodeJS.ProcessEnv, bridgeConfig?: PubBridgeConfig) {
       const available = isOpenClawAvailable(env, bridgeConfig);
       return {
         available,
@@ -45,7 +45,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     },
     async startupProbe(
       env: NodeJS.ProcessEnv,
-      bridgeConfig: BridgeConfig | PreparedBridgeConfig | undefined,
+      bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
       options: { strictConfig: boolean },
     ) {
       const runtime = await runOpenClawBridgeStartupProbe(env, bridgeConfig, options);
@@ -69,7 +69,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
   {
     mode: "claude-sdk" as const,
     priority: 75,
-    detect(env: NodeJS.ProcessEnv, bridgeConfig?: BridgeConfig) {
+    detect(env: NodeJS.ProcessEnv, bridgeConfig?: PubBridgeConfig) {
       if (!isClaudeCodeAvailableInEnv(env, bridgeConfig)) {
         return {
           available: false,
@@ -89,7 +89,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     },
     async startupProbe(
       env: NodeJS.ProcessEnv,
-      bridgeConfig: BridgeConfig | PreparedBridgeConfig | undefined,
+      bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
       options: { strictConfig: boolean },
     ) {
       const sdkAvailable = await isClaudeSdkImportable();
@@ -127,7 +127,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
   {
     mode: "claude-code" as const,
     priority: 50,
-    detect(env: NodeJS.ProcessEnv, bridgeConfig?: BridgeConfig) {
+    detect(env: NodeJS.ProcessEnv, bridgeConfig?: PubBridgeConfig) {
       const available = isClaudeCodeAvailableInEnv(env, bridgeConfig);
       return {
         available,
@@ -136,7 +136,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     },
     async startupProbe(
       env: NodeJS.ProcessEnv,
-      bridgeConfig: BridgeConfig | PreparedBridgeConfig | undefined,
+      bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
       options: { strictConfig: boolean },
     ) {
       const runtime = await runClaudeCodeBridgeStartupProbe(env, bridgeConfig, options);
@@ -194,9 +194,9 @@ export function createBridgeSelection(
 export async function runBridgeStartupPreflight(
   selection: BridgeSelection,
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig: PreparedBridgeConfig,
+  bridgeSettings: BridgeSettings,
 ): Promise<BridgeStartupProbeResult> {
-  return await getBridgeProvider(selection.mode).startupProbe(env, bridgeConfig, {
+  return await getBridgeProvider(selection.mode).startupProbe(env, bridgeSettings, {
     strictConfig: true,
   });
 }
@@ -217,13 +217,13 @@ export interface BridgeAutoDetectResult {
     source: "auto";
     detail: string;
     detailLines: string[];
-    configPatch: Partial<BridgeConfig>;
+    configPatch: Partial<PubBridgeConfig>;
   };
 }
 
 export async function autoDetectBridgeConfig(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: BridgeConfig,
+  bridgeConfig?: PubBridgeConfig,
 ): Promise<BridgeAutoDetectResult> {
   const attempts: BridgeAutoDetectAttempt[] = [];
 

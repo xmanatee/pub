@@ -6,10 +6,11 @@ import { buildSessionBriefing } from "../bridge/shared.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { buildBridgeInstructions } from "./shared.js";
 import type { DaemonState } from "./state.js";
+import type { BridgeSettings } from "../../core/config/index.js";
 
 export function createBridgeManager(params: {
   state: DaemonState;
-  config: { bridgeMode: "openclaw" | "claude-code" | "claude-sdk"; bridgeConfig: any };
+  bridgeSettings: BridgeSettings;
   commandHandler: {
     beginManifestLoad: () => void;
     bindFromHtml: (html: string) => void;
@@ -32,7 +33,7 @@ export function createBridgeManager(params: {
 }) {
   const {
     state,
-    config,
+    bridgeSettings,
     commandHandler,
     apiClient,
     debugLog,
@@ -79,12 +80,12 @@ export function createBridgeManager(params: {
     await stopBridge();
     const abort = new AbortController();
     state.bridgeAbort = abort;
-    const instructions = buildBridgeInstructions(config.bridgeMode);
+    const instructions = buildBridgeInstructions(bridgeSettings.mode);
     const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
-    const bridgeConfig = {
+    const runnerConfig = {
       slug,
       sessionBriefing,
-      bridgeConfig: config.bridgeConfig,
+      bridgeSettings,
       sendMessage: sendOnChannel,
       onDeliveryUpdate: ({
         channel,
@@ -104,11 +105,11 @@ export function createBridgeManager(params: {
     };
 
     const runner =
-      config.bridgeMode === "claude-sdk"
-        ? await createClaudeSdkBridgeRunner(bridgeConfig, abort.signal)
-        : config.bridgeMode === "claude-code"
-          ? await createClaudeCodeBridgeRunner(bridgeConfig, abort.signal)
-          : await createOpenClawBridgeRunner(bridgeConfig);
+      bridgeSettings.mode === "claude-sdk"
+        ? await createClaudeSdkBridgeRunner(runnerConfig, abort.signal)
+        : bridgeSettings.mode === "claude-code"
+          ? await createClaudeCodeBridgeRunner(runnerConfig, abort.signal)
+          : await createOpenClawBridgeRunner(runnerConfig);
 
     if (state.stopped || state.activeSlug !== slug || abort.signal.aborted) {
       await runner.stop();
