@@ -31,18 +31,36 @@ detect_target() {
   echo "${os}-${arch}"
 }
 
+version_gt() {
+  local IFS=.
+  local -a a=($1) b=($2)
+  local i
+  for i in 0 1 2; do
+    if [ "${a[$i]:-0}" -gt "${b[$i]:-0}" ]; then return 0; fi
+    if [ "${a[$i]:-0}" -lt "${b[$i]:-0}" ]; then return 1; fi
+  done
+  return 1
+}
+
 get_latest_tag() {
-  local page response tag
+  local page response best_tag="" best_ver="0.0.0" tag ver
 
   for page in 1 2 3 4 5 6 7 8 9 10; do
     response="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100&page=${page}")"
-    tag="$(printf '%s' "$response" \
+
+    while IFS= read -r tag; do
+      [ -z "$tag" ] && continue
+      ver="${tag#cli-v}"
+      if version_gt "$ver" "$best_ver"; then
+        best_tag="$tag"
+        best_ver="$ver"
+      fi
+    done <<< "$(printf '%s' "$response" \
       | grep -o '"tag_name": *"cli-v[^"]*"' \
-      | head -1 \
       | sed 's/"tag_name": *"//;s/"//')"
 
-    if [ -n "$tag" ]; then
-      printf '%s\n' "$tag"
+    if [ -n "$best_tag" ]; then
+      printf '%s\n' "$best_tag"
       return 0
     fi
 
