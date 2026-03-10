@@ -82,6 +82,9 @@ export async function createClaudeCodeBridgeRunner(
 
     const spawnEnv = { ...process.env };
     delete spawnEnv.CLAUDECODE;
+    for (const key of Object.keys(spawnEnv)) {
+      if (key.startsWith("PUB_DAEMON_")) delete spawnEnv[key];
+    }
     const child = spawn(claudePath, args, {
       cwd,
       env: spawnEnv,

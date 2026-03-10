@@ -86,6 +86,9 @@ export function buildSdkSessionOptions(
 
   const sdkEnv: Record<string, string | undefined> = { ...env };
   delete sdkEnv.CLAUDECODE;
+  for (const key of Object.keys(sdkEnv)) {
+    if (key.startsWith("PUB_DAEMON_")) delete sdkEnv[key];
+  }
 
   return { model, claudePath, allowedTools, sdkEnv };
 }
