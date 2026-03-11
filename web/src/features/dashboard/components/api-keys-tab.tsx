@@ -131,15 +131,23 @@ export function ApiKeysTab() {
                   {k.lastUsedAt && ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive hover-reveal"
-                onClick={() => handleDelete(k._id)}
-                aria-label="Delete key"
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
+              <div className="flex items-center gap-2">
+                {k.agentName && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {k.agentName}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive hover-reveal"
+                  onClick={() => handleDelete(k._id)}
+                  aria-label="Delete key"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
