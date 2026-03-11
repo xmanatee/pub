@@ -153,12 +153,18 @@ export function usePubLiveModel({
     onCommandMessageRef: commandMessageHandlerRef,
   });
 
-  const canvasCommands = useCanvasCommands({
+  const {
+    command,
+    handleBridgeCommandMessage,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
+    reset: resetCanvasCommands,
+  } = useCanvasCommands({
     bridgeRef,
     bridgeState,
     liveMode,
   });
-  commandMessageHandlerRef.current = canvasCommands.handleBridgeCommandMessage;
+  commandMessageHandlerRef.current = handleBridgeCommandMessage;
 
   const audio = useControlBarAudio({
     disabled: bridgeState !== "connected",
@@ -189,7 +195,7 @@ export function usePubLiveModel({
     audioMode: audio.machineMode,
     bridgeState,
     canvasError,
-    command: canvasCommands.command,
+    command,
     contentState: effectiveContentState,
     lastAgentOutput,
     lastUserDeliveredAt,
@@ -253,8 +259,22 @@ export function usePubLiveModel({
     dismissPreview();
     clearMessages();
     clearFiles();
+    resetCanvasCommands();
     resetSession();
-  }, [baseContentHtml, slug, dismissPreview, clearMessages, clearFiles, resetSession]);
+  }, [
+    baseContentHtml,
+    slug,
+    dismissPreview,
+    clearMessages,
+    clearFiles,
+    resetCanvasCommands,
+    resetSession,
+  ]);
+
+  useEffect(() => {
+    if (!needsAgentSelection) return;
+    resetCanvasCommands();
+  }, [needsAgentSelection, resetCanvasCommands]);
 
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
@@ -284,9 +304,17 @@ export function usePubLiveModel({
     clearFiles();
     clearMessages();
     clearSessionError();
+    resetCanvasCommands();
     setCanvasError(null);
     setViewMode("canvas");
-  }, [clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
+  }, [
+    clearFiles,
+    clearMessages,
+    clearSessionError,
+    dismissPreview,
+    resetCanvasCommands,
+    setViewMode,
+  ]);
 
   const handleClose = useCallback(() => {
     setControlBarCollapsed(false);
@@ -321,7 +349,7 @@ export function usePubLiveModel({
     clearMessages,
     clearSessionError,
     closeLive: handleClose,
-    command: canvasCommands.command,
+    command,
     connected: viewState.transportStatus === "connected",
     contentState: effectiveContentState,
     controlBarCollapsed,
@@ -336,8 +364,8 @@ export function usePubLiveModel({
     messages,
     messagesEndRef,
     micGranted,
-    onCanvasBridgeMessage: canvasCommands.onCanvasBridgeMessage,
-    outboundCanvasBridgeMessage: canvasCommands.outboundCanvasBridgeMessage,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     preview,
     retryConnection,
     sendAudio,

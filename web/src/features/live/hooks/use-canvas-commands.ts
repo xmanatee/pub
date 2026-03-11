@@ -47,6 +47,11 @@ interface CommandLifecycleState {
   } | null;
 }
 
+const EMPTY_COMMAND_STATE: CommandLifecycleState = {
+  activeById: {},
+  lastCompleted: null,
+};
+
 function getLatestActiveCommand(
   activeById: CommandLifecycleState["activeById"],
 ): ActiveCommand | null {
@@ -136,10 +141,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
     useState<CanvasBridgeOutboundMessage | null>(null);
   const [outboundQueue, setOutboundQueue] = useState<CanvasBridgeOutboundMessage[]>([]);
-  const [commandState, setCommandState] = useState<CommandLifecycleState>({
-    activeById: {},
-    lastCompleted: null,
-  });
+  const [commandState, setCommandState] = useState<CommandLifecycleState>(EMPTY_COMMAND_STATE);
   const activeCommandsRef = useRef<CommandLifecycleState["activeById"]>({});
   const pendingCommandQueueRef = useRef<CanvasBridgeCommandMessage[]>([]);
 
@@ -148,6 +150,14 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   useEffect(() => {
     activeCommandsRef.current = commandState.activeById;
   }, [commandState.activeById]);
+
+  const reset = useCallback(() => {
+    activeCommandsRef.current = {};
+    pendingCommandQueueRef.current = [];
+    setCommandState(EMPTY_COMMAND_STATE);
+    setOutboundCanvasBridgeMessage(null);
+    setOutboundQueue([]);
+  }, []);
 
   const enqueueOutboundCanvasMessage = useCallback((message: CanvasBridgeOutboundMessage) => {
     setOutboundQueue((current) => [...current, message]);
@@ -472,5 +482,6 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
     handleBridgeCommandMessage,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
+    reset,
   };
 }
