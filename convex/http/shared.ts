@@ -52,8 +52,8 @@ export function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-export function errorResponse(message: string, status: number) {
-  return jsonResponse({ error: message }, status);
+export function errorResponse(message: string, status: number, code?: string) {
+  return jsonResponse(code ? { error: message, code } : { error: message }, status);
 }
 
 export function getApiKey(request: Request): string | null {
@@ -67,6 +67,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public code?: string,
   ) {
     super(message);
   }
@@ -101,7 +102,7 @@ export async function executeAction<T>(
     const result = await fn();
     return onSuccess(result);
   } catch (e: unknown) {
-    if (e instanceof ApiError) return errorResponse(e.message, e.status);
+    if (e instanceof ApiError) return errorResponse(e.message, e.status, e.code);
     console.error("Unexpected HTTP action failure", e);
     return errorResponse("Internal error", 500);
   }

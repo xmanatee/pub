@@ -168,16 +168,6 @@ export function useLiveSessionModel(slug: string) {
     setSessionError(null);
   }, []);
 
-  const restartSession = useCallback(() => {
-    setWasConnected(false);
-    setSessionError(null);
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-    setConnectionAttempt((prev) => prev + 1);
-  }, []);
-
   const retryConnection = useCallback(() => {
     setSessionError(null);
     if (retryTimerRef.current) {
@@ -195,7 +185,6 @@ export function useLiveSessionModel(slug: string) {
     connectionAttempt,
     live,
     markBridgeConnected,
-    restartSession,
     resetSession,
     retryConnection,
     sessionState,

@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
-import type { PubApiClient } from "../../core/api/client.js";
+import { PubApiError, type PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
 import CANVAS_COMMAND_PROTOCOL_GUIDE from "../bridge/prompts/canvas-command-protocol.md";
@@ -55,4 +55,12 @@ export function shouldRecoverForBrowserOfferChange(params: {
   if (!incomingBrowserOffer) return false;
   if (!lastAppliedBrowserOffer) return false;
   return incomingBrowserOffer !== lastAppliedBrowserOffer;
+}
+
+export function isPresenceExpiredError(error: unknown): boolean {
+  return error instanceof PubApiError && error.code === "presence_not_online";
+}
+
+export function isPresenceOwnershipConflictError(error: unknown): boolean {
+  return error instanceof PubApiError && error.code === "presence_api_key_in_use";
 }

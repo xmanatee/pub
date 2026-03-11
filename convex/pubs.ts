@@ -284,6 +284,7 @@ export const getLiveBySlug = query({
     if (!live || live.userId !== userId) return null;
 
     return {
+      _id: live._id,
       slug: live.slug,
       status: live.status,
       targetPresenceId: live.targetPresenceId,
@@ -505,14 +506,20 @@ export const takeoverLive = mutation({
     const targetPresence = pickTargetPresence(freshOnlinePresences, live.targetPresenceId);
     if (!targetPresence) throw new Error("Agent offline");
 
-    await ctx.db.patch(live._id, {
-      browserSessionId: sessionId,
+    const now = Date.now();
+    await ctx.db.insert("lives", {
+      slug: live.slug,
+      userId: live.userId,
+      status: "active",
       targetPresenceId: targetPresence._id,
       agentName: targetPresence.agentName,
-      agentAnswer: undefined,
       agentCandidates: [],
-      lastTakeoverAt: Date.now(),
+      browserCandidates: [],
+      browserSessionId: sessionId,
+      lastTakeoverAt: now,
+      createdAt: now,
     });
+    await ctx.db.delete(live._id);
   },
 });
 

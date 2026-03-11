@@ -51,7 +51,6 @@ export function usePubLiveModel({
     connectionAttempt,
     live,
     markBridgeConnected,
-    restartSession,
     resetSession,
     retryConnection,
     sessionState,
@@ -106,8 +105,11 @@ export function usePubLiveModel({
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
+  const lastLiveSessionIdRef = useRef<string | null>(null);
+  const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
+  const transportSessionKey = selectedPresenceId === null ? null : String(selectedPresenceId);
 
   const enabled =
     liveMode &&
@@ -130,6 +132,7 @@ export function usePubLiveModel({
     slug,
     enabled,
     connectionAttempt,
+    sessionKey: transportSessionKey,
     agentAnswer: liveMode && sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: liveMode && sessionState === "active" ? live?.agentCandidates : undefined,
     storeBrowserOffer,
@@ -251,6 +254,8 @@ export function usePubLiveModel({
     lastSlugRef.current = slug;
     lastSessionErrorRef.current = null;
     notifiedStatusRef.current = null;
+    lastLiveSessionIdRef.current = null;
+    lastSelectedPresenceIdRef.current = null;
     setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
     setControlBarCollapsed(false);
@@ -270,11 +275,6 @@ export function usePubLiveModel({
     resetCanvasCommands,
     resetSession,
   ]);
-
-  useEffect(() => {
-    if (!needsAgentSelection) return;
-    resetCanvasCommands();
-  }, [needsAgentSelection, resetCanvasCommands]);
 
   useEffect(() => {
     if (bridgeState === "connected") markBridgeConnected();
@@ -306,8 +306,10 @@ export function usePubLiveModel({
     clearSessionError();
     resetCanvasCommands();
     setCanvasError(null);
+    setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
   }, [
+    baseContentHtml,
     clearFiles,
     clearMessages,
     clearSessionError,
@@ -315,6 +317,46 @@ export function usePubLiveModel({
     resetCanvasCommands,
     setViewMode,
   ]);
+
+  useEffect(() => {
+    if (!liveMode) {
+      lastLiveSessionIdRef.current = null;
+      return;
+    }
+
+    const nextLiveSessionId = live?._id ?? null;
+    const previousLiveSessionId = lastLiveSessionIdRef.current;
+
+    if (nextLiveSessionId !== null) {
+      lastLiveSessionIdRef.current = nextLiveSessionId;
+    }
+
+    if (
+      previousLiveSessionId === null ||
+      nextLiveSessionId === null ||
+      previousLiveSessionId === nextLiveSessionId
+    ) {
+      return;
+    }
+
+    resetLiveSurface();
+  }, [live?._id, liveMode, resetLiveSurface]);
+
+  useEffect(() => {
+    if (!liveMode) {
+      lastSelectedPresenceIdRef.current = null;
+      return;
+    }
+
+    const previousPresenceId = lastSelectedPresenceIdRef.current;
+    lastSelectedPresenceIdRef.current = selectedPresenceId;
+
+    if (previousPresenceId === null || previousPresenceId === selectedPresenceId) {
+      return;
+    }
+
+    resetLiveSurface();
+  }, [liveMode, resetLiveSurface, selectedPresenceId]);
 
   const handleClose = useCallback(() => {
     setControlBarCollapsed(false);
@@ -327,10 +369,8 @@ export function usePubLiveModel({
     (presenceId: typeof selectedPresenceId) => {
       if (presenceId === selectedPresenceId) return;
       setSelectedPresenceId(presenceId);
-      resetLiveSurface();
-      restartSession();
     },
-    [resetLiveSurface, restartSession, selectedPresenceId, setSelectedPresenceId],
+    [selectedPresenceId, setSelectedPresenceId],
   );
 
   return {

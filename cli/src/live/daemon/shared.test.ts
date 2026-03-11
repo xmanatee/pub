@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { resolveAckChannel } from "../../../../shared/ack-routing-core";
+import { PubApiError } from "../../core/api/client.js";
 import {
   getLiveWriteReadinessError,
+  isPresenceExpiredError,
+  isPresenceOwnershipConflictError,
   shouldRecoverForBrowserOfferChange,
 } from "./shared.js";
 
@@ -84,5 +87,32 @@ describe("resolveAckChannel", () => {
         messageChannel: "chat",
       }),
     ).toBeNull();
+  });
+});
+
+describe("presence error helpers", () => {
+  it("detects stale presence errors from the API", () => {
+    expect(
+      isPresenceExpiredError(new PubApiError("Not online", 409, undefined, "presence_not_online")),
+    ).toBe(true);
+    expect(
+      isPresenceOwnershipConflictError(
+        new PubApiError("API key already in use", 409, undefined, "presence_api_key_in_use"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match unrelated API errors", () => {
+    expect(
+      isPresenceExpiredError(
+        new PubApiError("API key already in use", 409, undefined, "presence_api_key_in_use"),
+      ),
+    ).toBe(false);
+    expect(
+      isPresenceOwnershipConflictError(
+        new PubApiError("Not online", 409, undefined, "presence_not_online"),
+      ),
+    ).toBe(false);
+    expect(isPresenceExpiredError(new Error("Not online"))).toBe(false);
   });
 });

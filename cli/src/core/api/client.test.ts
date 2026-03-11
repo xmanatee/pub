@@ -244,6 +244,27 @@ describe("PubApiClient", () => {
         }),
       );
     });
+
+    it("preserves typed presence error codes on failure responses", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: "Not online",
+            code: "presence_not_online",
+          }),
+          {
+            status: 409,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+
+      await expect(client.heartbeat({ daemonSessionId: "daemon-1" })).rejects.toMatchObject({
+        message: "Not online",
+        status: 409,
+        code: "presence_not_online",
+      });
+    });
   });
 
   describe("agent live methods", () => {
