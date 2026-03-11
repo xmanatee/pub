@@ -1,7 +1,8 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
-import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "../bridge/prompt-content.js";
+import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
+import CANVAS_COMMAND_PROTOCOL_GUIDE from "../bridge/prompts/canvas-command-protocol.md";
 
 export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk" | "openclaw-like";
 
@@ -14,22 +15,12 @@ export interface BridgeInstructions {
 
 const PUB_WRITE_REPLY_HINT = 'Reply command: pub write "<your reply>"';
 const PUB_WRITE_CANVAS_HINT = "Canvas command: pub write -c canvas -f /path/to/file.html";
-const BRIDGE_SYSTEM_PROMPT = [
-  "You are in a live pub.blue session with a user.",
-  "The user sees chat and a canvas iframe.",
-  "Always communicate by running `pub write` commands.",
-  "Use canvas for output; use chat for short replies.",
-  "Canvas supports inline local calls for interactive visualizations that may require refetching data or rerunning local tools.",
-  "When needed, include command-manifest actions so browser interactions can call the daemon and receive results back in canvas.",
-  "Follow the Canvas Command Channel protocol from the session briefing exactly.",
-].join("\n");
-
 export function buildBridgeInstructions(_mode: BridgeMode): BridgeInstructions {
   return {
     replyHint: PUB_WRITE_REPLY_HINT,
     canvasHint: PUB_WRITE_CANVAS_HINT,
-    systemPrompt: BRIDGE_SYSTEM_PROMPT,
-    commandProtocolGuide: CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN,
+    systemPrompt: BRIDGE_SYSTEM_PROMPT.trimEnd(),
+    commandProtocolGuide: CANVAS_COMMAND_PROTOCOL_GUIDE.trimEnd(),
   };
 }
 

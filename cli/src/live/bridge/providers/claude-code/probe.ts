@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import type { PubBridgeConfig, ClaudeBridgeSettings, BridgeSettings } from "../../../../core/config/index.js";
 import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
+import PROBE_PROMPT from "./prompts/probe.md";
 import {
   buildClaudeArgs,
   resolveAutoDetectClaudeBridgeCwd,
@@ -31,12 +32,7 @@ async function runClaudeCodeWritePongProbe(
     execute: async (probeEnv, signal) => {
       const env = { ...probeEnv };
       delete env.CLAUDECODE;
-      const prompt = [
-        "This is a startup connectivity probe.",
-        "Run this exact shell command now:",
-        'pub write "pong"',
-        "Do not explain. Just execute it.",
-      ].join("\n");
+      const prompt = PROBE_PROMPT.trimEnd();
       const args =
         options?.strictConfig && bridgeConfig
           ? buildClaudeArgsFromSettings(

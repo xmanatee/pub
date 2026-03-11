@@ -3,6 +3,7 @@ import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import type { BridgeInstructions } from "../daemon/shared.js";
 import type { BridgeSessionSource } from "./types.js";
+import CANVAS_POLICY_REMINDER from "./prompts/canvas-policy-reminder.md";
 export const MAX_SEEN_IDS = 10_000;
 
 export interface BridgeRunnerConfig {
@@ -47,13 +48,7 @@ export interface SessionBriefingContext {
 }
 
 export function buildCanvasPolicyReminderBlock(): string {
-  return [
-    "[Canvas policy reminder: do not reply to this reminder block]",
-    "- Prefer canvas for output.",
-    "- Use chat for short clarifications, confirmations, or blockers.",
-    "- Keep chat concise.",
-    "",
-  ].join("\n");
+  return `${CANVAS_POLICY_REMINDER.trimEnd()}\n`;
 }
 
 export function shouldIncludeCanvasPolicyReminder(
