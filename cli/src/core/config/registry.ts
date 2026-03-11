@@ -1,11 +1,10 @@
+import type { BridgeMode } from "../../live/bridge/providers/types.js";
 import { parsePositiveInteger } from "../utils/number.js";
-import type { BridgeMode } from "../../live/daemon/shared.js";
 import { trimToUndefined } from "./location.js";
 import {
   DEFAULT_BASE_URL,
   type PubBridgeConfig,
   type PubConfig,
-  type PubCoreConfig,
   type PubTelegramConfig,
 } from "./types.js";
 
@@ -209,7 +208,10 @@ export function readEnvOverride(
   return null;
 }
 
-function getSection(config: PubConfig, section: ConfigSection): Record<string, unknown> | undefined {
+function getSection(
+  config: PubConfig,
+  section: ConfigSection,
+): Record<string, unknown> | undefined {
   if (section === "core") return config.core as Record<string, unknown> | undefined;
   if (section === "bridge") return config.bridge as Record<string, unknown> | undefined;
   return config.telegram as Record<string, unknown> | undefined;

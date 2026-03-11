@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveAgentCommandProvider } from "./agent.js";
+import { resolveAgentCommandProvider } from "../../bridge/providers/agent-command.js";
 
 const baseBridgeSettings = {
   verbose: false,

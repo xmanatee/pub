@@ -4,8 +4,6 @@ import type { BridgeSettings } from "../../core/config/index.js";
 import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
 import CANVAS_COMMAND_PROTOCOL_GUIDE from "../bridge/prompts/canvas-command-protocol.md";
 
-export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk" | "openclaw-like";
-
 export interface BridgeInstructions {
   replyHint: string;
   canvasHint: string;
@@ -15,7 +13,7 @@ export interface BridgeInstructions {
 
 const PUB_WRITE_REPLY_HINT = 'Reply command: pub write "<your reply>"';
 const PUB_WRITE_CANVAS_HINT = "Canvas command: pub write -c canvas -f /path/to/file.html";
-export function buildBridgeInstructions(_mode: BridgeMode): BridgeInstructions {
+export function buildBridgeInstructions(): BridgeInstructions {
   return {
     replyHint: PUB_WRITE_REPLY_HINT,
     canvasHint: PUB_WRITE_CANVAS_HINT,

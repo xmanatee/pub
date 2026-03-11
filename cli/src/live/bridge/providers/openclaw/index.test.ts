@@ -22,8 +22,8 @@ import {
   resolveSessionFromSessionsData,
 } from "./session.js";
 
-const openclawInstructions = buildBridgeInstructions("openclaw");
-const claudeCodeInstructions = buildBridgeInstructions("claude-code");
+const openclawInstructions = buildBridgeInstructions();
+const claudeCodeInstructions = buildBridgeInstructions();
 
 const originalEnv = {
   OPENCLAW_HOME: process.env.OPENCLAW_HOME,

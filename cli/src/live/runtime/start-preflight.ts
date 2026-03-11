@@ -1,5 +1,4 @@
 import { PubApiClient } from "../../core/api/client.js";
-import { errorMessage } from "../../core/errors/cli-error.js";
 import type {
   ApiClientSettings,
   BridgeSettings,
@@ -10,6 +9,8 @@ import {
   listConfiguredKeys,
   resolvePubSettings,
 } from "../../core/config/index.js";
+import { errorMessage } from "../../core/errors/cli-error.js";
+import type { BridgeMode } from "../bridge/providers/types.js";
 import {
   buildBridgeProcessEnv,
   buildBridgeSettings,
@@ -17,7 +18,6 @@ import {
 } from "./bridge-runtime.js";
 import { formatApiError } from "./command-utils.js";
 import { stopOtherDaemons } from "./daemon-process.js";
-import type { BridgeMode } from "../daemon/shared.js";
 
 export interface StartPreflightResult {
   apiClientSettings: ApiClientSettings;

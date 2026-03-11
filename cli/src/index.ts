@@ -32,7 +32,7 @@ if (process.env.PUB_DAEMON_MODE === "1") {
     process.exit(failure.exitCode);
   });
 
-  if (updateCheck?.updateAvailable && !updateCheck.requiresUpgrade) {
+  if (updateCheck?.updateAvailable && !updateCheck.requiresUpgrade && isGated) {
     console.error(
       `\nUpdate available: v${updateCheck.latest} (current: v${CLI_VERSION}). Run \`pub upgrade\` to update.`,
     );

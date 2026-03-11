@@ -7,8 +7,8 @@ import {
   DEFAULT_COMMAND_TIMEOUT_MS,
   getConfigDir,
   type PubBridgeConfig,
-} from "../../core/config/index.js";
-import type { BridgeMode } from "../daemon/shared.js";
+} from "../../../core/config/index.js";
+import type { BridgeMode } from "./types.js";
 
 function trimToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -41,6 +41,10 @@ function integerValueOrEnv(
 
 function positiveIntOr(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function positiveIntOrUndefined(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 function requireString(value: string | undefined, label: string): string {
@@ -105,11 +109,9 @@ export function buildBridgeSettings(
     sessionId: stringValueOrEnv(bridgeConfig.sessionId, "OPENCLAW_SESSION_ID", env),
     threadId: stringValueOrEnv(bridgeConfig.threadId, "OPENCLAW_THREAD_ID", env),
     claudeCodePath: stringValueOrEnv(bridgeConfig.claudeCodePath, "CLAUDE_CODE_PATH", env),
-    claudeCodeMaxTurns:
-      positiveIntOr(
-        integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env),
-        0,
-      ) || undefined,
+    claudeCodeMaxTurns: positiveIntOrUndefined(
+      integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env),
+    ),
     openclawLikeCommand: stringValueOrEnv(
       bridgeConfig.openclawLikeCommand,
       "PUB_OPENCLAW_LIKE_COMMAND",

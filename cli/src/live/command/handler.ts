@@ -8,11 +8,7 @@ import {
   parseCommandCancelMessage,
   parseCommandInvokeMessage,
 } from "../../../../shared/command-protocol-core";
-import {
-  executeClaudeAgentCommand,
-  executeOpenClawAgentCommand,
-  resolveAgentCommandProvider,
-} from "./executors/agent.js";
+import { executeAgentCommand } from "../bridge/providers/agent-command.js";
 import { executeProcessCommand, executeShellCommand } from "./executors/process.js";
 import {
   buildCommandError,
@@ -124,29 +120,14 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     const agentSpec = executor as CommandAgentSpec;
     const prompt = interpolateTemplate(agentSpec.prompt, args);
     const output = agentSpec.output === "json" ? "json" : "text";
-    const provider = resolveAgentCommandProvider({
-      bridgeSettings: params.bridgeSettings,
-      provider: agentSpec.provider,
-    });
-
-    if (provider === "openclaw") {
-      return await executeOpenClawAgentCommand({
-        prompt,
-        timeoutMs,
-        output,
-        maxOutputBytes: runtime.maxOutputBytes,
-        signal: abortSignal,
-        bridgeSettings: params.bridgeSettings,
-      });
-    }
-
-    return await executeClaudeAgentCommand({
+    return executeAgentCommand({
       prompt,
       timeoutMs,
       output,
       maxOutputBytes: runtime.maxOutputBytes,
       signal: abortSignal,
       bridgeSettings: params.bridgeSettings,
+      provider: agentSpec.provider,
     });
   }
 

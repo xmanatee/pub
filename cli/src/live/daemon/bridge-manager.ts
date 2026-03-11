@@ -1,12 +1,9 @@
 import { type BridgeMessage } from "../../../../shared/bridge-protocol-core";
-import { createClaudeCodeBridgeRunner } from "../bridge/providers/claude-code/index.js";
-import { createClaudeSdkBridgeRunner } from "../bridge/providers/claude-sdk/index.js";
-import { createOpenClawBridgeRunner } from "../bridge/providers/openclaw/index.js";
-import { createOpenClawLikeBridgeRunner } from "../bridge/providers/openclaw-like/index.js";
+import type { BridgeSettings } from "../../core/config/index.js";
+import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { buildBridgeInstructions } from "./shared.js";
-import type { BridgeSettings } from "../../core/config/index.js";
 import type { DaemonState } from "./state.js";
 
 export function createBridgeManager(params: {
@@ -17,7 +14,9 @@ export function createBridgeManager(params: {
     bindFromHtml: (html: string) => void;
     clearBindings: () => void;
   };
-  apiClient: { get: (slug: string) => Promise<{ title?: string; isPublic?: boolean; content?: string | null }> };
+  apiClient: {
+    get: (slug: string) => Promise<{ title?: string; isPublic?: boolean; content?: string | null }>;
+  };
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendOutboundMessageWithAck: (
@@ -45,7 +44,7 @@ export function createBridgeManager(params: {
 
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
     if (state.stopped || !(state.browserConnected && state.bridgePrimed)) return false;
-    return await sendOutboundMessageWithAck(channel, msg, {
+    return sendOutboundMessageWithAck(channel, msg, {
       context: `bridge outbound on "${channel}"`,
       maxAttempts: 2,
     });
@@ -61,9 +60,7 @@ export function createBridgeManager(params: {
     if (content.length > 0) commandHandler.bindFromHtml(content);
     else commandHandler.clearBindings();
     const canvasContentFilePath =
-      content.length > 0
-        ? writeLiveSessionContentFile({ slug: params.slug, content })
-        : undefined;
+      content.length > 0 ? writeLiveSessionContentFile({ slug: params.slug, content }) : undefined;
 
     return buildSessionBriefing(
       params.slug,
@@ -81,7 +78,7 @@ export function createBridgeManager(params: {
     await stopBridge();
     const abort = new AbortController();
     state.bridgeAbort = abort;
-    const instructions = buildBridgeInstructions(bridgeSettings.mode);
+    const instructions = buildBridgeInstructions();
     const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
     const runnerConfig = {
       slug,
@@ -105,14 +102,11 @@ export function createBridgeManager(params: {
       instructions,
     };
 
-    const runner =
-      bridgeSettings.mode === "claude-sdk"
-        ? await createClaudeSdkBridgeRunner(runnerConfig, abort.signal)
-        : bridgeSettings.mode === "claude-code"
-          ? await createClaudeCodeBridgeRunner(runnerConfig, abort.signal)
-          : bridgeSettings.mode === "openclaw-like"
-            ? await createOpenClawLikeBridgeRunner(runnerConfig)
-            : await createOpenClawBridgeRunner(runnerConfig);
+    const runner = await createBridgeRunnerForSettings({
+      bridgeSettings,
+      config: runnerConfig,
+      abortSignal: abort.signal,
+    });
 
     if (state.stopped || state.activeSlug !== slug || abort.signal.aborted) {
       await runner.stop();
@@ -122,7 +116,13 @@ export function createBridgeManager(params: {
   }
 
   async function ensureBridgePrimed(): Promise<void> {
-    if (state.stopped || !state.browserConnected || state.bridgePrimed || state.bridgePriming || !state.activeSlug) {
+    if (
+      state.stopped ||
+      !state.browserConnected ||
+      state.bridgePrimed ||
+      state.bridgePriming ||
+      !state.activeSlug
+    ) {
       return;
     }
 
