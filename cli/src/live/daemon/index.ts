@@ -11,7 +11,11 @@ import { createBridgeManager } from "./bridge-manager.js";
 import { createDaemonLifecycle } from "./lifecycle.js";
 import { createSignalingController } from "./signaling.js";
 import type { ChannelBuffer, DaemonConfig } from "./shared.js";
-import { getLiveWriteReadinessError } from "./shared.js";
+import {
+  getLiveWriteReadinessError,
+  isPresenceExpiredError,
+  isPresenceOwnershipConflictError,
+} from "./shared.js";
 import { createDaemonState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -29,6 +33,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let bridgeManager!: ReturnType<typeof createBridgeManager>;
   let peerManager!: ReturnType<typeof createPeerManager>;
   let shuttingDown = false;
+  let presenceGeneration = 0;
 
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
@@ -46,6 +51,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   async function shutdown(exitCode = 0): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
+    presenceGeneration += 1;
     await cleanup();
     process.exit(exitCode);
   }
@@ -142,12 +148,54 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }
 
+  async function handlePresenceOwnershipConflict(error: unknown): Promise<void> {
+    lifecycle.markError("presence ownership lost", error);
+    await shutdown(1);
+  }
+
+  async function reRegisterPresence(generation: number): Promise<void> {
+    if (shuttingDown || state.stopped || generation !== presenceGeneration) return;
+    lifecycle.debugLog("presence expired, re-registering");
+
+    try {
+      await apiClient.goOnline({ daemonSessionId, agentName });
+    } catch (error) {
+      if (isPresenceOwnershipConflictError(error)) {
+        await handlePresenceOwnershipConflict(error);
+        return;
+      }
+      lifecycle.markError("presence re-registration failed", error);
+      return;
+    }
+
+    if (shuttingDown || state.stopped || generation !== presenceGeneration) {
+      lifecycle.debugLog("presence re-registered during shutdown, going offline again");
+      try {
+        await apiClient.goOffline({ daemonSessionId });
+      } catch (error) {
+        lifecycle.debugLog("failed to roll back presence after shutdown", error);
+      }
+      return;
+    }
+
+    lifecycle.debugLog("presence re-registered successfully");
+  }
+
   await apiClient.goOnline({ daemonSessionId, agentName });
   state.heartbeatTimer = setInterval(async () => {
-    if (state.stopped) return;
+    if (state.stopped || shuttingDown) return;
+    const generation = presenceGeneration;
     try {
       await apiClient.heartbeat({ daemonSessionId });
     } catch (error) {
+      if (isPresenceExpiredError(error)) {
+        await reRegisterPresence(generation);
+        return;
+      }
+      if (isPresenceOwnershipConflictError(error)) {
+        await handlePresenceOwnershipConflict(error);
+        return;
+      }
       lifecycle.markError("heartbeat failed", error);
     }
   }, HEARTBEAT_INTERVAL_MS);

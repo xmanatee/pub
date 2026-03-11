@@ -50,6 +50,11 @@ interface CommandLifecycleState {
   } | null;
 }
 
+const EMPTY_COMMAND_STATE: CommandLifecycleState = {
+  activeById: {},
+  lastCompleted: null,
+};
+
 function getLatestActiveCommand(
   activeById: CommandLifecycleState["activeById"],
 ): ActiveCommand | null {
@@ -146,10 +151,7 @@ export function useCanvasCommands({
   const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
     useState<CanvasBridgeOutboundMessage | null>(null);
   const [outboundQueue, setOutboundQueue] = useState<CanvasBridgeOutboundMessage[]>([]);
-  const [commandState, setCommandState] = useState<CommandLifecycleState>({
-    activeById: {},
-    lastCompleted: null,
-  });
+  const [commandState, setCommandState] = useState<CommandLifecycleState>(EMPTY_COMMAND_STATE);
   const activeCommandsRef = useRef<CommandLifecycleState["activeById"]>({});
   const pendingCommandQueueRef = useRef<CanvasBridgeCommandMessage[]>([]);
   const lastCanvasScopeKeyRef = useRef<string | null>(null);
@@ -157,6 +159,13 @@ export function useCanvasCommands({
 
   const command = useMemo(() => summarizeCommands(commandState), [commandState]);
 
+  const reset = useCallback(() => {
+    activeCommandsRef.current = {};
+    pendingCommandQueueRef.current = [];
+    setCommandState(EMPTY_COMMAND_STATE);
+    setOutboundQueue([]);
+    setOutboundCanvasBridgeMessage(null);
+  }, []);
   const enqueueOutboundCanvasMessage = useCallback((message: CanvasBridgeOutboundMessage) => {
     setOutboundQueue((current) => [...current, message]);
   }, []);
@@ -293,17 +302,6 @@ export function useCanvasCommands({
     [enqueueOutboundCanvasMessage],
   );
 
-  const resetCanvasCommandState = useCallback(() => {
-    activeCommandsRef.current = {};
-    pendingCommandQueueRef.current = [];
-    setCommandState({
-      activeById: {},
-      lastCompleted: null,
-    });
-    setOutboundQueue([]);
-    setOutboundCanvasBridgeMessage(null);
-  }, []);
-
   useEffect(() => {
     if (lastCanvasScopeKeyRef.current === null) {
       lastCanvasScopeKeyRef.current = canvasScopeKey;
@@ -311,8 +309,8 @@ export function useCanvasCommands({
     }
     if (lastCanvasScopeKeyRef.current === canvasScopeKey) return;
     lastCanvasScopeKeyRef.current = canvasScopeKey;
-    resetCanvasCommandState();
-  }, [canvasScopeKey, resetCanvasCommandState]);
+    reset();
+  }, [canvasScopeKey, reset]);
 
   useEffect(() => {
     if (lastSessionKeyRef.current === null) {
@@ -508,5 +506,6 @@ export function useCanvasCommands({
     handleBridgeCommandMessage,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
+    reset,
   };
 }

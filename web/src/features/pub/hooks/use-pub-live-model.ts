@@ -110,6 +110,8 @@ export function usePubLiveModel({
     html: baseContentHtml ?? null,
     slug,
   });
+  const lastLiveSessionIdRef = useRef<string | null>(null);
+  const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
@@ -160,7 +162,13 @@ export function usePubLiveModel({
     onCommandMessageRef: commandMessageHandlerRef,
   });
 
-  const canvasCommands = useCanvasCommands({
+  const {
+    command,
+    handleBridgeCommandMessage,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
+    reset: resetCanvasCommands,
+  } = useCanvasCommands({
     bridgeRef,
     bridgeState,
     canvasScopeKey,
@@ -168,7 +176,7 @@ export function usePubLiveModel({
     liveMode,
     sessionKey: transportKey,
   });
-  commandMessageHandlerRef.current = canvasCommands.handleBridgeCommandMessage;
+  commandMessageHandlerRef.current = handleBridgeCommandMessage;
 
   const audio = useControlBarAudio({
     disabled: !liveReady,
@@ -207,7 +215,7 @@ export function usePubLiveModel({
     bridgeState,
     liveReady,
     canvasError,
-    command: canvasCommands.command,
+    command,
     contentState: effectiveContentState,
     lastAgentOutput,
     lastUserDeliveredAt,
@@ -263,6 +271,8 @@ export function usePubLiveModel({
     lastSlugRef.current = slug;
     lastSessionErrorRef.current = null;
     notifiedStatusRef.current = null;
+    lastLiveSessionIdRef.current = null;
+    lastSelectedPresenceIdRef.current = null;
     setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
     setControlBarCollapsed(false);
@@ -271,8 +281,17 @@ export function usePubLiveModel({
     dismissPreview();
     clearMessages();
     clearFiles();
+    resetCanvasCommands();
     resetSession();
-  }, [baseContentHtml, slug, dismissPreview, clearMessages, clearFiles, resetSession]);
+  }, [
+    baseContentHtml,
+    slug,
+    dismissPreview,
+    clearMessages,
+    clearFiles,
+    resetCanvasCommands,
+    resetSession,
+  ]);
 
   useEffect(() => {
     if (liveReady) markBridgeConnected();
@@ -302,9 +321,59 @@ export function usePubLiveModel({
     clearFiles();
     clearMessages();
     clearSessionError();
+    resetCanvasCommands();
     setCanvasError(null);
+    setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
-  }, [clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
+  }, [
+    baseContentHtml,
+    clearFiles,
+    clearMessages,
+    clearSessionError,
+    dismissPreview,
+    resetCanvasCommands,
+    setViewMode,
+  ]);
+
+  useEffect(() => {
+    if (!liveMode) {
+      lastLiveSessionIdRef.current = null;
+      return;
+    }
+
+    const nextLiveSessionId = live?._id ?? null;
+    const previousLiveSessionId = lastLiveSessionIdRef.current;
+
+    if (nextLiveSessionId !== null) {
+      lastLiveSessionIdRef.current = nextLiveSessionId;
+    }
+
+    if (
+      previousLiveSessionId === null ||
+      nextLiveSessionId === null ||
+      previousLiveSessionId === nextLiveSessionId
+    ) {
+      return;
+    }
+
+    resetLiveSurface();
+  }, [live?._id, liveMode, resetLiveSurface]);
+
+  useEffect(() => {
+    if (!liveMode) {
+      lastSelectedPresenceIdRef.current = null;
+      return;
+    }
+
+    const previousPresenceId = lastSelectedPresenceIdRef.current;
+    lastSelectedPresenceIdRef.current = selectedPresenceId;
+
+    if (previousPresenceId === null || previousPresenceId === selectedPresenceId) {
+      return;
+    }
+
+    resetLiveSurface();
+  }, [liveMode, resetLiveSurface, selectedPresenceId]);
 
   const handleClose = useCallback(() => {
     setControlBarCollapsed(false);
@@ -317,9 +386,8 @@ export function usePubLiveModel({
     (presenceId: typeof selectedPresenceId) => {
       if (presenceId === selectedPresenceId) return;
       setSelectedPresenceId(presenceId);
-      resetLiveSurface();
     },
-    [resetLiveSurface, selectedPresenceId, setSelectedPresenceId],
+    [selectedPresenceId, setSelectedPresenceId],
   );
 
   return {
@@ -339,7 +407,7 @@ export function usePubLiveModel({
     clearMessages,
     clearSessionError,
     closeLive: handleClose,
-    command: canvasCommands.command,
+    command,
     connected: viewState.transportStatus === "connected",
     contentState: effectiveContentState,
     controlBarCollapsed,
@@ -354,8 +422,8 @@ export function usePubLiveModel({
     messages,
     messagesEndRef,
     micGranted,
-    onCanvasBridgeMessage: canvasCommands.onCanvasBridgeMessage,
-    outboundCanvasBridgeMessage: canvasCommands.outboundCanvasBridgeMessage,
+    onCanvasBridgeMessage,
+    outboundCanvasBridgeMessage,
     preview,
     retryConnection,
     sendAudio,

@@ -34,6 +34,7 @@ export class PubApiError extends Error {
     message: string,
     public status: number,
     public retryAfterSeconds?: number,
+    public code?: string,
   ) {
     super(message);
     this.name = "PubApiError";
@@ -78,7 +79,7 @@ export class PubApiClient {
         : undefined;
 
     const responseText = await res.text();
-    let data: { error?: string } & Record<string, unknown>;
+    let data: { error?: string; code?: string } & Record<string, unknown>;
     if (responseText.trim().length === 0) {
       data = {};
     } else {
@@ -108,7 +109,12 @@ export class PubApiClient {
           retryAfterSeconds !== undefined ? ` Retry after ${retryAfterSeconds}s.` : "";
         throw new PubApiError(`Rate limit exceeded.${retrySuffix}`, res.status, retryAfterSeconds);
       }
-      throw new PubApiError(data.error || `Request failed with status ${res.status}`, res.status);
+      throw new PubApiError(
+        data.error || `Request failed with status ${res.status}`,
+        res.status,
+        undefined,
+        typeof data.code === "string" ? data.code : undefined,
+      );
     }
     return data as T;
   }

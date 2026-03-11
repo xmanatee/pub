@@ -20,7 +20,10 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
   function rethrowPresenceApiError(error: unknown): never {
     const message = error instanceof Error ? error.message : String(error);
     if (message === "API key already in use") {
-      throw new ApiError(message, 409);
+      throw new ApiError(message, 409, "presence_api_key_in_use");
+    }
+    if (message === "Not online") {
+      throw new ApiError(message, 409, "presence_not_online");
     }
     throw error;
   }
@@ -87,10 +90,14 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
 
       return executeAction(
         async () => {
-          await ctx.runMutation(internal.presence.heartbeat, {
-            apiKeyId: user.apiKeyId,
-            daemonSessionId: body.daemonSessionId,
-          });
+          try {
+            await ctx.runMutation(internal.presence.heartbeat, {
+              apiKeyId: user.apiKeyId,
+              daemonSessionId: body.daemonSessionId,
+            });
+          } catch (error) {
+            rethrowPresenceApiError(error);
+          }
         },
         () => jsonResponse({ ok: true }),
       );
