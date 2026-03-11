@@ -12,17 +12,25 @@ if (process.env.PUB_DAEMON_MODE === "1") {
 
   const skipUpdateCheck = process.env.PUB_SKIP_UPDATE_CHECK === "1";
   const updateCheck = skipUpdateCheck ? null : await getUpdateCheck();
-  const command = process.argv[2];
-  const isGated = command !== "upgrade" && command !== "--version" && command !== "-V";
-
-  if (updateCheck?.requiresUpgrade && isGated) {
-    console.error(
-      `pub v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun \`pub upgrade\` to update.`,
-    );
-    process.exit(1);
-  }
 
   const program = buildProgram();
+
+  program.hook("preAction", (_, actionCommand) => {
+    if (updateCheck?.requiresUpgrade && actionCommand.name() !== "upgrade") {
+      console.error(
+        `pub v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun \`pub upgrade\` to update.`,
+      );
+      process.exit(1);
+    }
+  });
+
+  program.hook("postAction", (_, actionCommand) => {
+    if (updateCheck?.updateAvailable && !updateCheck.requiresUpgrade && actionCommand.name() !== "upgrade") {
+      console.error(
+        `\nUpdate available: v${updateCheck.latest} (current: v${CLI_VERSION}). Run \`pub upgrade\` to update.`,
+      );
+    }
+  });
 
   await program.parseAsync(process.argv).catch((error: unknown) => {
     const failure = toCliFailure(error);
@@ -31,10 +39,4 @@ if (process.env.PUB_DAEMON_MODE === "1") {
     }
     process.exit(failure.exitCode);
   });
-
-  if (updateCheck?.updateAvailable && !updateCheck.requiresUpgrade && isGated) {
-    console.error(
-      `\nUpdate available: v${updateCheck.latest} (current: v${CLI_VERSION}). Run \`pub upgrade\` to update.`,
-    );
-  }
 }

@@ -13,16 +13,8 @@ interface VersionCache {
   checkedAt: number;
 }
 
-function isIgnorableCacheError(error: unknown): boolean {
-  if (error instanceof SyntaxError) return true;
-  if (typeof error !== "object" || error === null || !("code" in error)) return false;
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string";
-}
-
 export interface UpdateCheckResult {
   latest: string;
-  tag: string;
   updateAvailable: boolean;
   requiresUpgrade: boolean;
 }
@@ -40,8 +32,7 @@ function readCache(): VersionCache | null {
   if (!cacheFile) return null;
   try {
     return JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as VersionCache;
-  } catch (error) {
-    if (!isIgnorableCacheError(error)) throw error;
+  } catch {
     return null;
   }
 }
@@ -52,9 +43,7 @@ function writeCache(cache: VersionCache): void {
   try {
     fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
     fs.writeFileSync(cacheFile, JSON.stringify(cache));
-  } catch (error) {
-    if (!isIgnorableCacheError(error)) throw error;
-  }
+  } catch {}
 }
 
 export function isMinorOrMajorBump(latest: string, current: string): boolean {
@@ -67,7 +56,6 @@ function toResult(cache: VersionCache): UpdateCheckResult {
   const updateAvailable = isNewer(cache.version, CLI_VERSION);
   return {
     latest: cache.version,
-    tag: cache.tag,
     updateAvailable,
     requiresUpgrade: updateAvailable && isMinorOrMajorBump(cache.version, CLI_VERSION),
   };

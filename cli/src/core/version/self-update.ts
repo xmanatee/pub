@@ -160,9 +160,7 @@ export async function downloadAndReplace(tag: string, target: string): Promise<v
       if (!fs.existsSync(execPath) && fs.existsSync(backupPath)) {
         fs.renameSync(backupPath, execPath);
       }
-    } catch {
-      /* best-effort rollback */
-    }
+    } catch {}
     throw error;
   } finally {
     if (fs.existsSync(tmpPath)) {
