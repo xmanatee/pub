@@ -8,6 +8,7 @@ interface UseLiveBridgeOptions {
   slug: string;
   enabled: boolean;
   connectionAttempt: number;
+  sessionKey: string | null;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
@@ -26,6 +27,7 @@ export function useLiveBridge({
   slug,
   enabled,
   connectionAttempt,
+  sessionKey,
   agentAnswer,
   agentCandidates,
   storeBrowserOffer,
@@ -152,7 +154,7 @@ export function useLiveBridge({
         bridgeRef.current = null;
       }
     };
-  }, [enabled, slug, connectionAttempt]);
+  }, [enabled, slug, connectionAttempt, sessionKey]);
 
   // Sync agent signaling data (answer + ICE candidates) to the bridge
   useEffect(() => {

@@ -27,6 +27,7 @@ interface UseLiveTransportOptions {
   slug: string;
   enabled: boolean;
   connectionAttempt: number;
+  sessionKey: string | null;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
@@ -93,6 +94,7 @@ export function useLiveTransport({
   slug,
   enabled,
   connectionAttempt,
+  sessionKey,
   agentAnswer,
   agentCandidates,
   storeBrowserOffer,
@@ -252,6 +254,7 @@ export function useLiveTransport({
     slug,
     enabled,
     connectionAttempt,
+    sessionKey,
     agentAnswer,
     agentCandidates,
     storeBrowserOffer,
