@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   AlertTriangle,
-  ArrowDown,
   Check,
   CheckCheck,
   Clock,
@@ -9,7 +8,7 @@ import {
   ImageIcon,
   Paperclip,
 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { AudioBubble } from "~/features/live-chat/components/audio-bubble";
@@ -34,17 +33,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 
 const NEAR_BOTTOM_PX = 72;
-const JUMP_MIN_DISTANCE_PX = 96;
-const JUMP_FAR_DISTANCE_PX = 240;
-const ESTIMATED_MESSAGE_HEIGHT_PX = 56;
-const MIN_HIDDEN_MESSAGES = 2;
-
-function shouldShowJumpToLatest(distanceFromBottom: number): boolean {
-  if (distanceFromBottom <= JUMP_MIN_DISTANCE_PX) return false;
-  if (distanceFromBottom >= JUMP_FAR_DISTANCE_PX) return true;
-  const hiddenMessages = Math.floor(distanceFromBottom / ESTIMATED_MESSAGE_HEIGHT_PX);
-  return hiddenMessages >= MIN_HIDDEN_MESSAGES;
-}
 
 function deliveryLabel(delivery: ChatDeliveryState): string {
   if (delivery === "sending") return "Sending";
@@ -197,25 +185,16 @@ function DayDivider({ timestamp }: { timestamp: number }) {
 export function ChatPanel() {
   const { files, messages, messagesEndRef } = useLiveSession();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const hasMountedRef = useRef(false);
   const messageCount = messages.length;
   const fileCount = files.length;
 
-  const getDistanceFromBottom = useCallback(() => {
+  const isNearBottom = useCallback(() => {
     const container = containerRef.current;
-    if (!container) return 0;
-    return Math.max(0, container.scrollHeight - container.scrollTop - container.clientHeight);
+    if (!container) return true;
+    const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distance <= NEAR_BOTTOM_PX;
   }, []);
-
-  const isNearBottom = useCallback(
-    () => getDistanceFromBottom() <= NEAR_BOTTOM_PX,
-    [getDistanceFromBottom],
-  );
-
-  const shouldShowJump = useCallback(
-    () => shouldShowJumpToLatest(getDistanceFromBottom()),
-    [getDistanceFromBottom],
-  );
 
   const scrollToLatest = useCallback(
     (behavior: ScrollBehavior) => {
@@ -226,31 +205,20 @@ export function ChatPanel() {
     [messagesEndRef],
   );
 
+  // Scroll to bottom on mount (instant)
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    scrollToLatest("instant");
+    hasMountedRef.current = true;
+  }, [scrollToLatest]);
 
-    const onScroll = () => {
-      setShowJumpToLatest(shouldShowJump());
-    };
-
-    onScroll();
-    container.addEventListener("scroll", onScroll);
-    return () => container.removeEventListener("scroll", onScroll);
-  }, [shouldShowJump]);
-
+  // Auto-scroll on new messages when near bottom
   useEffect(() => {
-    if (messageCount === 0 && fileCount === 0) {
-      setShowJumpToLatest(false);
-      return;
-    }
+    if (!hasMountedRef.current) return;
+    if (messageCount === 0 && fileCount === 0) return;
     if (isNearBottom()) {
       scrollToLatest("smooth");
-      setShowJumpToLatest(false);
-      return;
     }
-    setShowJumpToLatest(shouldShowJump());
-  }, [fileCount, isNearBottom, messageCount, scrollToLatest, shouldShowJump]);
+  }, [fileCount, isNearBottom, messageCount, scrollToLatest]);
 
   const rows: ReactNode[] = [];
   for (let i = 0; i < messages.length; i += 1) {
@@ -307,25 +275,6 @@ export function ChatPanel() {
           </CardContent>
         </Card>
       )}
-
-      {showJumpToLatest ? (
-        <div className="pointer-events-none absolute right-4 bottom-30 z-20">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="pointer-events-auto gap-1 rounded-full border-border/70 bg-background/88 shadow-lg backdrop-blur-xl hover:bg-background/95"
-            onClick={() => {
-              scrollToLatest("smooth");
-              setShowJumpToLatest(false);
-            }}
-            aria-label="Jump to latest message"
-          >
-            <ArrowDown className="size-4" />
-            Latest
-          </Button>
-        </div>
-      ) : null}
 
       <div ref={messagesEndRef} />
     </div>
