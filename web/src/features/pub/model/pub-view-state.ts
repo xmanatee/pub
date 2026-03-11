@@ -16,6 +16,7 @@ export interface PubViewSourceState {
   agentOnline: boolean | undefined;
   audioMode: AudioMachineMode;
   bridgeState: BridgeState;
+  liveReady: boolean;
   canvasError: string | null;
   command: LiveCommandSummary;
   contentState: LiveContentState;
@@ -38,19 +39,20 @@ export interface PubViewState {
 export function resolveTransportStatus({
   agentOnline,
   bridgeState,
+  liveReady,
   liveMode,
   sessionState,
 }: Pick<
   PubViewSourceState,
-  "agentOnline" | "bridgeState" | "liveMode" | "sessionState"
+  "agentOnline" | "bridgeState" | "liveMode" | "sessionState" | "liveReady"
 >): LiveTransportStatus {
   if (!liveMode) return "disabled";
   if (agentOnline === undefined) return "connecting";
   if (agentOnline !== true) return "disabled";
   if (sessionState === "needs-takeover" || sessionState === "taken-over") return "disabled";
-  if (bridgeState === "connected") return "connected";
+  if (liveReady) return "connected";
   if (bridgeState === "failed") return "disconnected";
-  if (bridgeState === "disconnected") return "connecting";
+  if (bridgeState === "disconnected") return "disconnected";
   if (bridgeState === "closed") return "disconnected";
   return "connecting";
 }

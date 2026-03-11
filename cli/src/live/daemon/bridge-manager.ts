@@ -1,4 +1,9 @@
-import { type BridgeMessage } from "../../../../shared/bridge-protocol-core";
+import {
+  CONTROL_CHANNEL,
+  makeErrorMessage,
+  makeStatusMessage,
+  type BridgeMessage,
+} from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
@@ -47,6 +52,45 @@ export function createBridgeManager(params: {
     return sendOutboundMessageWithAck(channel, msg, {
       context: `bridge outbound on "${channel}"`,
       maxAttempts: 2,
+    });
+  }
+
+  async function notifyBrowserReady(slug: string): Promise<void> {
+    const delivered = await sendOutboundMessageWithAck(
+      CONTROL_CHANNEL,
+      makeStatusMessage({
+        connected: true,
+        ready: true,
+        slug,
+        channels: [...state.channels.keys()],
+      }),
+      {
+        context: 'bridge ready status on "_control"',
+        maxAttempts: 2,
+      },
+    );
+
+    if (!delivered) {
+      throw new Error(`Failed to deliver ready status for "${slug}"`);
+    }
+  }
+
+  async function notifyBrowserPrimeFailed(slug: string, error: unknown): Promise<void> {
+    await sendOutboundMessageWithAck(
+      CONTROL_CHANNEL,
+      makeErrorMessage({
+        code: "BRIDGE_PRIME_FAILED",
+        message:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : `Failed to prime bridge session for "${slug}"`,
+      }),
+      {
+        context: 'bridge error status on "_control"',
+        maxAttempts: 1,
+      },
+    ).catch((notifyError) => {
+      debugLog(`failed to notify browser about priming error for "${slug}"`, notifyError);
     });
   }
 
@@ -132,9 +176,14 @@ export function createBridgeManager(params: {
         await startBridge(slug);
         if (state.stopped || !state.browserConnected || state.activeSlug !== slug) return;
         state.bridgePrimed = true;
+        await notifyBrowserReady(slug);
         debugLog(`bridge primed for "${slug}"`);
       } catch (error) {
         state.bridgePrimed = false;
+        await notifyBrowserPrimeFailed(slug, error);
+        await stopBridge().catch((stopError) => {
+          debugLog(`failed to stop bridge after priming error for "${slug}"`, stopError);
+        });
         markError(`failed to prime bridge session for "${slug}"`, error);
       } finally {
         state.bridgePriming = null;

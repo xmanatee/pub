@@ -7,7 +7,7 @@ import { trackError } from "~/lib/analytics";
 interface UseLiveBridgeOptions {
   slug: string;
   enabled: boolean;
-  connectionAttempt: number;
+  transportKey: string;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
@@ -25,7 +25,7 @@ interface UseLiveBridgeOptions {
 export function useLiveBridge({
   slug,
   enabled,
-  connectionAttempt,
+  transportKey,
   agentAnswer,
   agentCandidates,
   storeBrowserOffer,
@@ -37,6 +37,7 @@ export function useLiveBridge({
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("closed");
+  const [liveReady, setLiveReady] = useState(false);
 
   const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
@@ -58,12 +59,14 @@ export function useLiveBridge({
   storeBrowserCandidatesRef.current = storeBrowserCandidates;
 
   // Browser is the offerer in this signaling flow.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: connectionAttempt is a prop used to force reconnection
+  // biome-ignore lint/correctness/useExhaustiveDependencies: transportKey is used to force a fresh negotiation cycle
   useEffect(() => {
     if (!enabled) {
+      setLiveReady(false);
       setBridgeState("closed");
       return;
     }
+    setLiveReady(false);
     setBridgeState("connecting");
 
     const bridge = new BrowserBridge();
@@ -71,6 +74,14 @@ export function useLiveBridge({
     lastAgentCandidateCountRef.current = 0;
     lastHandledAnswerRef.current = null;
     bridge.setOnStateChange(setBridgeState);
+    bridge.setOnLiveReadyChange(setLiveReady);
+    bridge.setOnControlError((error) => {
+      onSystemMessageRef.current?.({
+        content: error.message,
+        dedupeKey: `bridge-control-error:${error.code}`,
+        severity: "error",
+      });
+    });
     bridge.setOnMessage((message) => onMessageRef.current(message));
     bridge.setOnTrack(() => onTrackActivityRef.current("track"));
     bridge.setOnDeliveryReceipt((receipt) => onDeliveryReceiptRef.current(receipt));
@@ -134,6 +145,7 @@ export function useLiveBridge({
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;
         }
+        setLiveReady(false);
         setBridgeState("failed");
       }
     })();
@@ -151,8 +163,9 @@ export function useLiveBridge({
       if (bridgeRef.current === bridge) {
         bridgeRef.current = null;
       }
+      setLiveReady(false);
     };
-  }, [enabled, slug, connectionAttempt]);
+  }, [enabled, slug, transportKey]);
 
   // Sync agent signaling data (answer + ICE candidates) to the bridge
   useEffect(() => {
@@ -195,5 +208,6 @@ export function useLiveBridge({
   return {
     bridgeRef,
     bridgeState,
+    liveReady,
   };
 }

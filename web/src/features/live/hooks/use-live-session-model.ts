@@ -1,13 +1,10 @@
 import { api } from "@backend/_generated/api";
 import type { Id } from "@backend/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SessionState } from "~/features/live/types/live-types";
 
 const SESSION_STORAGE_PREFIX = "pub-live-session:";
-const MAX_CONNECTION_RETRIES = 3;
-const CONNECTION_RETRY_DELAY_MS = 3_000;
-
 function getOrCreateSessionId(slug: string): string {
   const key = `${SESSION_STORAGE_PREFIX}${slug}`;
   const existing = sessionStorage.getItem(key);
@@ -38,40 +35,13 @@ export function useLiveSessionModel(slug: string) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [selectedPresenceId, setSelectedPresenceId] = useState<Id<"agentPresence"> | null>(null);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevAgentOnlineRef = useRef<boolean | undefined>(undefined);
 
   const resetSession = useCallback(() => {
     setWasConnected(false);
     setSessionError(null);
     setSelectedPresenceId(null);
     setConnectionAttempt(0);
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
   }, []);
-
-  useEffect(() => {
-    return () => {
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const prev = prevAgentOnlineRef.current;
-    prevAgentOnlineRef.current = agentOnline;
-    if (prev === false && agentOnline === true) {
-      setConnectionAttempt(0);
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    }
-  }, [agentOnline]);
 
   useEffect(() => {
     if (!availableAgents) return;
@@ -110,17 +80,10 @@ export function useLiveSessionModel(slug: string) {
         return result;
       } catch (error) {
         setSessionError(errorMessage(error));
-        if (connectionAttempt < MAX_CONNECTION_RETRIES) {
-          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-          retryTimerRef.current = setTimeout(() => {
-            retryTimerRef.current = null;
-            setConnectionAttempt((prev) => prev + 1);
-          }, CONNECTION_RETRY_DELAY_MS);
-        }
         throw error;
       }
     },
-    [browserSessionId, connectionAttempt, requestLiveMutation, selectedPresenceId],
+    [browserSessionId, requestLiveMutation, selectedPresenceId],
   );
 
   const storeBrowserCandidates = useCallback(
@@ -168,22 +131,8 @@ export function useLiveSessionModel(slug: string) {
     setSessionError(null);
   }, []);
 
-  const restartSession = useCallback(() => {
-    setWasConnected(false);
-    setSessionError(null);
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-    setConnectionAttempt((prev) => prev + 1);
-  }, []);
-
   const retryConnection = useCallback(() => {
     setSessionError(null);
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
     setConnectionAttempt((prev) => prev + 1);
   }, []);
 
@@ -195,7 +144,6 @@ export function useLiveSessionModel(slug: string) {
     connectionAttempt,
     live,
     markBridgeConnected,
-    restartSession,
     resetSession,
     retryConnection,
     sessionState,

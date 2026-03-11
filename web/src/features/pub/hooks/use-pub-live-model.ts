@@ -51,7 +51,6 @@ export function usePubLiveModel({
     connectionAttempt,
     live,
     markBridgeConnected,
-    restartSession,
     resetSession,
     retryConnection,
     sessionState,
@@ -99,6 +98,7 @@ export function usePubLiveModel({
 
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
+  const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
   const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
@@ -106,6 +106,10 @@ export function usePubLiveModel({
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
+  const lastCanvasScopeRef = useRef<{ html: string | null; slug: string }>({
+    html: baseContentHtml ?? null,
+    slug,
+  });
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
@@ -114,10 +118,13 @@ export function usePubLiveModel({
     agentOnline === true &&
     selectedPresenceId !== null &&
     (sessionState === "inactive" || sessionState === "active");
+  const transportKey = [slug, selectedPresenceId ?? "unselected", connectionAttempt].join(":");
+  const canvasScopeKey = `${slug}:${canvasScopeVersion}`;
 
   const {
     bridgeRef,
     bridgeState,
+    liveReady,
     lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,
@@ -129,7 +136,7 @@ export function usePubLiveModel({
   } = useLiveTransport({
     slug,
     enabled,
-    connectionAttempt,
+    transportKey,
     agentAnswer: liveMode && sessionState === "active" ? live?.agentAnswer : undefined,
     agentCandidates: liveMode && sessionState === "active" ? live?.agentCandidates : undefined,
     storeBrowserOffer,
@@ -156,12 +163,15 @@ export function usePubLiveModel({
   const canvasCommands = useCanvasCommands({
     bridgeRef,
     bridgeState,
+    canvasScopeKey,
+    liveReady,
     liveMode,
+    sessionKey: transportKey,
   });
   commandMessageHandlerRef.current = canvasCommands.handleBridgeCommandMessage;
 
   const audio = useControlBarAudio({
-    disabled: bridgeState !== "connected",
+    disabled: !liveReady,
     bridge: bridgeRef.current,
     micGranted,
     onMicGranted: setMicGranted,
@@ -181,6 +191,13 @@ export function usePubLiveModel({
     setCanvasHtml(baseContentHtml ?? null);
   }, [baseContentHtml]);
 
+  useEffect(() => {
+    const previous = lastCanvasScopeRef.current;
+    if (previous.slug === slug && previous.html === canvasHtml) return;
+    lastCanvasScopeRef.current = { slug, html: canvasHtml };
+    setCanvasScopeVersion((current) => current + 1);
+  }, [canvasHtml, slug]);
+
   const effectiveContentState = canvasHtml ? "ready" : contentState;
   const hasCanvasContent = Boolean(canvasHtml);
   const needsAgentSelection = availableAgents.length > 1 && selectedPresenceId === null;
@@ -188,6 +205,7 @@ export function usePubLiveModel({
     agentOnline,
     audioMode: audio.machineMode,
     bridgeState,
+    liveReady,
     canvasError,
     command: canvasCommands.command,
     contentState: effectiveContentState,
@@ -257,8 +275,8 @@ export function usePubLiveModel({
   }, [baseContentHtml, slug, dismissPreview, clearMessages, clearFiles, resetSession]);
 
   useEffect(() => {
-    if (bridgeState === "connected") markBridgeConnected();
-  }, [bridgeState, markBridgeConnected]);
+    if (liveReady) markBridgeConnected();
+  }, [liveReady, markBridgeConnected]);
 
   useEffect(() => {
     const previousCanvasHtml = lastCanvasHtmlRef.current;
@@ -300,9 +318,8 @@ export function usePubLiveModel({
       if (presenceId === selectedPresenceId) return;
       setSelectedPresenceId(presenceId);
       resetLiveSurface();
-      restartSession();
     },
-    [resetLiveSurface, restartSession, selectedPresenceId, setSelectedPresenceId],
+    [resetLiveSurface, selectedPresenceId, setSelectedPresenceId],
   );
 
   return {
@@ -314,6 +331,7 @@ export function usePubLiveModel({
     autoOpenCanvas,
     bridgeRef,
     bridgeState,
+    liveReady,
     canvasError,
     canvasHtml,
     canUseDeveloperMode,

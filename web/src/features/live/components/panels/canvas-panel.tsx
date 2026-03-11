@@ -38,14 +38,22 @@ export function CanvasPanel({
     CanvasBridgeOutboundMessage[]
   >([]);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const latestOutboundCanvasBridgeMessageRef = useRef<CanvasBridgeOutboundMessage | null>(
+    outboundCanvasBridgeMessage ?? null,
+  );
+  const lastAcceptedOutboundMessageRef = useRef<CanvasBridgeOutboundMessage | null>(null);
   const lastReportedErrorRef = useRef<{ key: string; timestamp: number } | null>(null);
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
+  latestOutboundCanvasBridgeMessageRef.current = outboundCanvasBridgeMessage ?? null;
 
   useEffect(() => {
     setCanvasBridgeReady(false);
+    setCanvasError(null);
+    setPendingOutboundCanvasBridgeMessages([]);
+    lastAcceptedOutboundMessageRef.current = latestOutboundCanvasBridgeMessageRef.current;
+    lastReportedErrorRef.current = null;
     if (!html) {
-      setCanvasError(null);
-      setPendingOutboundCanvasBridgeMessages([]);
+      setLoadedHtml(null);
     }
   }, [html]);
 
@@ -112,6 +120,8 @@ export function CanvasPanel({
 
   useEffect(() => {
     if (!outboundCanvasBridgeMessage) return;
+    if (lastAcceptedOutboundMessageRef.current === outboundCanvasBridgeMessage) return;
+    lastAcceptedOutboundMessageRef.current = outboundCanvasBridgeMessage;
     setPendingOutboundCanvasBridgeMessages((current) => [...current, outboundCanvasBridgeMessage]);
   }, [outboundCanvasBridgeMessage]);
 

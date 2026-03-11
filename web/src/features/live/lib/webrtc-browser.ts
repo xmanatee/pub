@@ -18,11 +18,14 @@ import {
   DATACHANNEL_OPTIONS,
   type DeliveryReceiptPayload,
   decodeMessage,
+  type ErrorPayload,
   encodeMessage,
   makeAckMessage,
   makeEventMessage,
   parseAckMessage,
   parseDeliveryReceiptMessage,
+  parseErrorMessage,
+  parseStatusMessage,
   STUN_SERVERS,
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
@@ -37,6 +40,8 @@ export interface ChannelMessage {
 }
 
 type StateChangeHandler = (state: BridgeState) => void;
+type LiveReadyChangeHandler = (ready: boolean) => void;
+type ControlErrorHandler = (error: ErrorPayload) => void;
 type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
 type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
@@ -63,6 +68,8 @@ export class BrowserBridge {
   private channels = new Map<string, RTCDataChannel>();
   private state: BridgeState = "connecting";
   private onStateChange: StateChangeHandler | null = null;
+  private onLiveReadyChange: LiveReadyChangeHandler | null = null;
+  private onControlError: ControlErrorHandler | null = null;
   private onMessage: MessageHandler | null = null;
   private onTrack: TrackHandler | null = null;
   private onDeliveryReceipt: DeliveryReceiptHandler | null = null;
@@ -76,6 +83,7 @@ export class BrowserBridge {
   private seenInboundMessageKeys = new Set<string>();
   private remoteDescriptionSet = false;
   private offerSent = false;
+  private liveReady = false;
 
   markOfferSent(): void {
     this.offerSent = true;
@@ -83,6 +91,14 @@ export class BrowserBridge {
 
   setOnStateChange(handler: StateChangeHandler): void {
     this.onStateChange = handler;
+  }
+
+  setOnLiveReadyChange(handler: LiveReadyChangeHandler): void {
+    this.onLiveReadyChange = handler;
+  }
+
+  setOnControlError(handler: ControlErrorHandler): void {
+    this.onControlError = handler;
   }
 
   setOnMessage(handler: MessageHandler): void {
@@ -104,6 +120,7 @@ export class BrowserBridge {
   async createOffer(): Promise<string> {
     const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
     this.pc = pc;
+    this.setLiveReady(false);
     this.setupPeerCallbacks();
 
     this.openChannel(CONTROL_CHANNEL);
@@ -246,6 +263,7 @@ export class BrowserBridge {
 
   close(): void {
     this.failPendingAcks();
+    this.setLiveReady(false);
     this.setState("closed");
     for (const dc of this.channels.values()) {
       dc.close();
@@ -280,6 +298,21 @@ export class BrowserBridge {
           const receipt = parseDeliveryReceiptMessage(msg);
           if (receipt) {
             this.onDeliveryReceipt?.(receipt);
+            return;
+          }
+
+          const status = parseStatusMessage(msg);
+          if (status) {
+            this.setLiveReady(status.connected === true && status.ready === true);
+            return;
+          }
+
+          const errorPayload = parseErrorMessage(msg);
+          if (errorPayload) {
+            console.warn("Received live bridge control error", errorPayload);
+            this.onControlError?.(errorPayload);
+            this.setLiveReady(false);
+            this.setState("failed");
             return;
           }
 
@@ -342,6 +375,9 @@ export class BrowserBridge {
     dc.onclose = () => {
       this.channels.delete(dc.label);
       this.pendingBinaryMeta.delete(dc.label);
+      if (dc.label === CONTROL_CHANNEL || dc.label === CHANNELS.COMMAND) {
+        this.setLiveReady(false);
+      }
     };
   }
 
@@ -380,9 +416,16 @@ export class BrowserBridge {
     if (this.state === newState || this.state === "closed") return;
     if (newState === "disconnected" || newState === "failed" || newState === "closed") {
       this.failPendingAcks();
+      this.setLiveReady(false);
     }
     this.state = newState;
     this.onStateChange?.(newState);
+  }
+
+  private setLiveReady(ready: boolean): void {
+    if (this.liveReady === ready) return;
+    this.liveReady = ready;
+    this.onLiveReadyChange?.(ready);
   }
 
   private sendAck(messageId: string, channel: string): void {

@@ -26,7 +26,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 interface UseLiveTransportOptions {
   slug: string;
   enabled: boolean;
-  connectionAttempt: number;
+  transportKey: string;
   agentAnswer: string | undefined;
   agentCandidates: string[] | undefined;
   storeBrowserOffer: (input: { slug: string; offer: string }) => Promise<unknown>;
@@ -92,7 +92,7 @@ interface UseLiveTransportOptions {
 export function useLiveTransport({
   slug,
   enabled,
-  connectionAttempt,
+  transportKey,
   agentAnswer,
   agentCandidates,
   storeBrowserOffer,
@@ -248,10 +248,10 @@ export function useLiveTransport({
     [markMessageConfirmed, markMessageFailed, markMessageReceived],
   );
 
-  const { bridgeRef, bridgeState } = useLiveBridge({
+  const { bridgeRef, bridgeState, liveReady } = useLiveBridge({
     slug,
     enabled,
-    connectionAttempt,
+    transportKey,
     agentAnswer,
     agentCandidates,
     storeBrowserOffer,
@@ -307,18 +307,18 @@ export function useLiveTransport({
     (text: string) => {
       const msg = makeTextMessage(text);
       addUserPendingMessage({ id: msg.id, content: text });
-      if (bridgeState !== "connected") {
+      if (!liveReady) {
         pendingChatQueueRef.current.push({ msg });
         return;
       }
       dispatchChatMessage(msg);
     },
-    [addUserPendingMessage, bridgeState, dispatchChatMessage],
+    [addUserPendingMessage, dispatchChatMessage, liveReady],
   );
 
   const sendRenderError = useCallback(
     (payload: LiveRenderErrorPayload) => {
-      if (bridgeState !== "connected") return;
+      if (!liveReady) return;
       const bridge = bridgeRef.current;
       if (!bridge) return;
 
@@ -344,7 +344,7 @@ export function useLiveTransport({
         await bridge.sendWithAck(CHANNELS.RENDER_ERROR, msg, RENDER_ERROR_ACK_TIMEOUT_MS);
       })();
     },
-    [bridgeRef, bridgeState],
+    [bridgeRef, liveReady],
   );
 
   const dispatchAudio = useCallback(
@@ -431,13 +431,13 @@ export function useLiveTransport({
         ({ duration, peaks }) => updateAudioMessageAnalysis(id, duration, peaks),
         (err) => console.warn("Audio analysis failed:", err),
       );
-      if (bridgeState !== "connected") {
+      if (!liveReady) {
         pendingAudioQueueRef.current.push({ blob, id });
         return;
       }
       dispatchAudio(blob, id);
     },
-    [addUserPendingAudioMessage, bridgeState, dispatchAudio, updateAudioMessageAnalysis],
+    [addUserPendingAudioMessage, dispatchAudio, liveReady, updateAudioMessageAnalysis],
   );
 
   const dispatchFile = useCallback(
@@ -551,7 +551,7 @@ export function useLiveTransport({
       }
 
       const channel = isImage ? CHANNELS.MEDIA : CHANNELS.FILE;
-      if (bridgeState !== "connected") {
+      if (!liveReady) {
         pendingFileQueueRef.current.push({ channel, file, id });
         return;
       }
@@ -560,14 +560,14 @@ export function useLiveTransport({
     [
       addUserPendingAttachmentMessage,
       addUserPendingImageMessage,
-      bridgeState,
       dispatchFile,
       emitSystemMessage,
+      liveReady,
     ],
   );
 
   useEffect(() => {
-    if (bridgeState !== "connected") return;
+    if (!liveReady) return;
 
     const chatQueue = pendingChatQueueRef.current.splice(0);
     for (const { msg } of chatQueue) {
@@ -583,7 +583,7 @@ export function useLiveTransport({
     for (const entry of fileQueue) {
       dispatchFile(entry.file, entry.id, entry.channel);
     }
-  }, [bridgeState, dispatchAudio, dispatchChatMessage, dispatchFile]);
+  }, [dispatchAudio, dispatchChatMessage, dispatchFile, liveReady]);
 
   useEffect(() => {
     if (bridgeState === "failed") {
@@ -599,6 +599,7 @@ export function useLiveTransport({
   return {
     bridgeRef,
     bridgeState,
+    liveReady,
     lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,

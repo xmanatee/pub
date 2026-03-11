@@ -9,6 +9,7 @@ describe("resolveTransportStatus", () => {
       resolveTransportStatus({
         agentOnline: true,
         bridgeState: "connected",
+        liveReady: true,
         liveMode: false,
         sessionState: "active",
       }),
@@ -20,6 +21,7 @@ describe("resolveTransportStatus", () => {
       resolveTransportStatus({
         agentOnline: true,
         bridgeState: "connected",
+        liveReady: false,
         liveMode: true,
         sessionState: "needs-takeover",
       }),
@@ -31,6 +33,7 @@ describe("resolveTransportStatus", () => {
       resolveTransportStatus({
         agentOnline: true,
         bridgeState: "connecting",
+        liveReady: false,
         liveMode: true,
         sessionState: "active",
       }),
@@ -40,21 +43,23 @@ describe("resolveTransportStatus", () => {
       resolveTransportStatus({
         agentOnline: true,
         bridgeState: "failed",
+        liveReady: false,
         liveMode: true,
         sessionState: "active",
       }),
     ).toBe("disconnected");
   });
 
-  it("treats recoverable ICE disconnect as connecting", () => {
+  it("treats ICE disconnect without app-ready handshake as disconnected", () => {
     expect(
       resolveTransportStatus({
         agentOnline: true,
         bridgeState: "disconnected",
+        liveReady: false,
         liveMode: true,
         sessionState: "active",
       }),
-    ).toBe("connecting");
+    ).toBe("disconnected");
   });
 });
 
@@ -65,6 +70,7 @@ describe("derivePubViewState", () => {
         agentOnline: true,
         audioMode: "idle",
         bridgeState: "failed",
+        liveReady: false,
         canvasError: null,
         command: {
           activeCallId: null,
@@ -86,12 +92,13 @@ describe("derivePubViewState", () => {
     ).toBe("disconnected");
   });
 
-  it("derives connecting control state for recoverable ICE disconnect", () => {
+  it("derives disconnected control state until app-ready handshake completes", () => {
     expect(
       derivePubViewState({
         agentOnline: true,
         audioMode: "idle",
         bridgeState: "disconnected",
+        liveReady: false,
         canvasError: null,
         command: {
           activeCallId: null,
@@ -110,7 +117,7 @@ describe("derivePubViewState", () => {
         sessionError: null,
         sessionState: "active",
       }).controlBarState,
-    ).toBe("connecting");
+    ).toBe("disconnected");
   });
 
   it("keeps command execution orthogonal to idle control-bar mode", () => {
@@ -118,6 +125,7 @@ describe("derivePubViewState", () => {
       agentOnline: true,
       audioMode: "idle",
       bridgeState: "connected",
+      liveReady: true,
       canvasError: null,
       command: {
         activeCallId: "cmd-1",
@@ -146,6 +154,7 @@ describe("derivePubViewState", () => {
       agentOnline: true,
       audioMode: "idle",
       bridgeState: "connected",
+      liveReady: true,
       canvasError: "ReferenceError",
       command: {
         activeCallId: null,

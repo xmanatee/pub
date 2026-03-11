@@ -84,7 +84,9 @@ export interface ChannelEventPayload {
 
 export interface StatusPayload {
   connected: boolean;
-  channels: string[];
+  channels?: string[];
+  ready?: boolean;
+  slug?: string;
 }
 
 export interface ErrorPayload {
@@ -208,6 +210,14 @@ export function makeEventMessage(event: ControlEvent, meta?: BridgeMessageMeta):
   return { id: generateMessageId(), type: "event", data: event, meta };
 }
 
+export function makeStatusMessage(payload: StatusPayload): BridgeMessage {
+  return makeEventMessage("status", { ...payload });
+}
+
+export function makeErrorMessage(payload: ErrorPayload): BridgeMessage {
+  return makeEventMessage("error", { ...payload });
+}
+
 export function makeAckMessage(messageId: string, channel: string): BridgeMessage {
   return makeEventMessage("ack", { messageId, channel, receivedAt: Date.now() });
 }
@@ -262,6 +272,41 @@ export function parseDeliveryReceiptMessage(msg: BridgeMessage): DeliveryReceipt
   const at = typeof msg.meta.at === "number" ? msg.meta.at : undefined;
   const error = typeof msg.meta.error === "string" ? msg.meta.error : undefined;
   return { messageId, channel, stage, at, error };
+}
+
+export function parseStatusMessage(msg: BridgeMessage): StatusPayload | null {
+  if (msg.type !== "event" || msg.data !== "status" || !msg.meta) return null;
+
+  const connected = msg.meta.connected === true;
+  if (msg.meta.connected !== true && msg.meta.connected !== false) return null;
+
+  const channels = Array.isArray(msg.meta.channels)
+    ? msg.meta.channels.filter((entry): entry is string => typeof entry === "string")
+    : undefined;
+  const ready = msg.meta.ready === true ? true : msg.meta.ready === false ? false : undefined;
+  const slug = typeof msg.meta.slug === "string" ? msg.meta.slug : undefined;
+
+  return {
+    connected,
+    channels,
+    ready,
+    slug,
+  };
+}
+
+export function parseErrorMessage(msg: BridgeMessage): ErrorPayload | null {
+  if (msg.type !== "event" || msg.data !== "error" || !msg.meta) return null;
+
+  const code = typeof msg.meta.code === "string" ? msg.meta.code : null;
+  const message = typeof msg.meta.message === "string" ? msg.meta.message : null;
+  const channel = typeof msg.meta.channel === "string" ? msg.meta.channel : undefined;
+  if (!code || !message) return null;
+
+  return {
+    code,
+    message,
+    channel,
+  };
 }
 
 export function shouldAcknowledgeMessage(channel: string, msg: BridgeMessage): boolean {

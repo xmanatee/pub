@@ -92,6 +92,7 @@ export function createMockLiveSession(
     autoOpenCanvas: false,
     bridgeRef: { current: null },
     bridgeState: "connected",
+    liveReady: true,
     canvasError: null,
     canvasHtml: null,
     clearFiles: noop,
