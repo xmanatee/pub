@@ -1,15 +1,21 @@
-import type { BridgeSettings, PubBridgeConfig } from "../../core/config/index.js";
+import type { BridgeSettings, PubBridgeConfig } from "../../../core/config/index.js";
+import type { BridgeRunner, BridgeRunnerConfig } from "../shared.js";
 import {
+  createClaudeCodeBridgeRunner,
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
-} from "../bridge/providers/claude-code/index.js";
-import { runClaudeSdkBridgeStartupProbe } from "../bridge/providers/claude-sdk/index.js";
+} from "./claude-code/index.js";
+import { createClaudeSdkBridgeRunner, runClaudeSdkBridgeStartupProbe } from "./claude-sdk/index.js";
 import {
+  createOpenClawBridgeRunner,
   isOpenClawAvailable,
   runOpenClawBridgeStartupProbe,
-} from "../bridge/providers/openclaw/index.js";
-import { runOpenClawLikeBridgeStartupProbe } from "../bridge/providers/openclaw-like/index.js";
-import type { BridgeMode } from "../daemon/shared.js";
+} from "./openclaw/index.js";
+import {
+  createOpenClawLikeBridgeRunner,
+  runOpenClawLikeBridgeStartupProbe,
+} from "./openclaw-like/index.js";
+import type { BridgeMode } from "./types.js";
 
 interface BridgeProvider {
   mode: BridgeMode;
@@ -23,6 +29,8 @@ interface BridgeProvider {
     bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
     options: { strictConfig: boolean },
   ): Promise<BridgeStartupProbeResult>;
+  createRunner(config: BridgeRunnerConfig, abortSignal?: AbortSignal): Promise<BridgeRunner>;
+  prepareAutoDetectConfig?(bridgeConfig?: PubBridgeConfig): PubBridgeConfig | undefined;
 }
 
 export interface BridgeStartupProbeResult {
@@ -30,9 +38,43 @@ export interface BridgeStartupProbeResult {
   configPatch?: Partial<PubBridgeConfig>;
 }
 
+export interface BridgeAutoDetectAttempt {
+  mode: BridgeMode;
+  available: boolean;
+  detail: string;
+  success: boolean;
+  detailLines?: string[];
+  error?: string;
+}
+
+export interface BridgeAutoDetectResult {
+  attempts: BridgeAutoDetectAttempt[];
+  selected: {
+    mode: BridgeMode;
+    source: "auto";
+    detail: string;
+    detailLines: string[];
+    configPatch: Partial<PubBridgeConfig>;
+  };
+}
+
 function describeConfiguredPath(key: string, env: NodeJS.ProcessEnv): string {
   const configured = env[key]?.trim();
   return configured ? `${key}=${configured}` : `${key} not set`;
+}
+
+function configuredPositiveInteger(
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+  value: number | undefined,
+): number | undefined {
+  const raw = env[envKey]?.trim();
+  if (!raw) return value;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid positive integer value for ${envKey}: ${env[envKey]}`);
+  }
+  return parsed;
 }
 
 const BRIDGE_PROVIDERS: BridgeProvider[] = [
@@ -68,6 +110,10 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         },
       };
     },
+    createRunner: createOpenClawBridgeRunner,
+    prepareAutoDetectConfig(bridgeConfig?: PubBridgeConfig) {
+      return bridgeConfig ? { ...bridgeConfig, bridgeCwd: undefined } : { bridgeCwd: undefined };
+    },
   },
   {
     mode: "claude-sdk" as const,
@@ -94,20 +140,23 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       return {
         detailLines: [
           `Claude executable: ${runtime.claudePath}`,
-          `Claude SDK: available`,
+          "Claude SDK: available",
           `Claude cwd: ${cwd}`,
           'Claude SDK communication via `pub write "pong"`: OK',
         ],
         configPatch: {
           mode: "claude-sdk" as const,
           claudeCodePath: runtime.claudePath,
-          claudeCodeMaxTurns: env.CLAUDE_CODE_MAX_TURNS?.trim()
-            ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
-            : bridgeConfig?.claudeCodeMaxTurns,
+          claudeCodeMaxTurns: configuredPositiveInteger(
+            "CLAUDE_CODE_MAX_TURNS",
+            env,
+            bridgeConfig?.claudeCodeMaxTurns,
+          ),
           bridgeCwd: runtime.cwd,
         },
       };
     },
+    createRunner: createClaudeSdkBridgeRunner,
   },
   {
     mode: "claude-code" as const,
@@ -135,13 +184,16 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         configPatch: {
           mode: "claude-code" as const,
           claudeCodePath: runtime.claudePath,
-          claudeCodeMaxTurns: env.CLAUDE_CODE_MAX_TURNS?.trim()
-            ? Number.parseInt(env.CLAUDE_CODE_MAX_TURNS, 10)
-            : bridgeConfig?.claudeCodeMaxTurns,
+          claudeCodeMaxTurns: configuredPositiveInteger(
+            "CLAUDE_CODE_MAX_TURNS",
+            env,
+            bridgeConfig?.claudeCodeMaxTurns,
+          ),
           bridgeCwd: runtime.cwd,
         },
       };
     },
+    createRunner: createClaudeCodeBridgeRunner,
   },
   {
     mode: "openclaw-like" as const,
@@ -163,10 +215,11 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         ],
       };
     },
+    createRunner: createOpenClawLikeBridgeRunner,
   },
 ].sort((a, b) => b.priority - a.priority);
 
-function getBridgeProvider(mode: BridgeMode): BridgeProvider {
+export function getBridgeProvider(mode: BridgeMode): BridgeProvider {
   const provider = BRIDGE_PROVIDERS.find((entry) => entry.mode === mode);
   if (!provider) {
     throw new Error(`Unsupported bridge provider: ${mode}`);
@@ -174,34 +227,25 @@ function getBridgeProvider(mode: BridgeMode): BridgeProvider {
   return provider;
 }
 
+export async function createBridgeRunnerForSettings(params: {
+  bridgeSettings: BridgeSettings;
+  config: BridgeRunnerConfig;
+  abortSignal?: AbortSignal;
+}): Promise<BridgeRunner> {
+  return getBridgeProvider(params.bridgeSettings.mode).createRunner(
+    params.config,
+    params.abortSignal,
+  );
+}
+
 export async function runBridgeStartupPreflight(
   mode: BridgeMode,
   env: NodeJS.ProcessEnv = process.env,
   bridgeSettings: BridgeSettings,
 ): Promise<BridgeStartupProbeResult> {
-  return await getBridgeProvider(mode).startupProbe(env, bridgeSettings, {
+  return getBridgeProvider(mode).startupProbe(env, bridgeSettings, {
     strictConfig: true,
   });
-}
-
-export interface BridgeAutoDetectAttempt {
-  mode: BridgeMode;
-  available: boolean;
-  detail: string;
-  success: boolean;
-  detailLines?: string[];
-  error?: string;
-}
-
-export interface BridgeAutoDetectResult {
-  attempts: BridgeAutoDetectAttempt[];
-  selected: {
-    mode: BridgeMode;
-    source: "auto";
-    detail: string;
-    detailLines: string[];
-    configPatch: Partial<PubBridgeConfig>;
-  };
 }
 
 export async function autoDetectBridgeConfig(
@@ -211,12 +255,9 @@ export async function autoDetectBridgeConfig(
   const attempts: BridgeAutoDetectAttempt[] = [];
 
   for (const provider of BRIDGE_PROVIDERS) {
-    const providerConfig =
-      provider.mode === "openclaw"
-        ? bridgeConfig
-          ? { ...bridgeConfig, bridgeCwd: undefined }
-          : { bridgeCwd: undefined }
-        : bridgeConfig;
+    const providerConfig = provider.prepareAutoDetectConfig
+      ? provider.prepareAutoDetectConfig(bridgeConfig)
+      : bridgeConfig;
     const detection = provider.detect(env, providerConfig);
     if (!detection.available) {
       attempts.push({
@@ -260,12 +301,12 @@ export async function autoDetectBridgeConfig(
 
   throw new Error(
     [
-      "No working bridge configuration detected.",
-      ...attempts.map((attempt) =>
-        attempt.available
-          ? `- ${attempt.mode}: ${attempt.success ? "ok" : attempt.error || attempt.detail}`
-          : `- ${attempt.mode}: ${attempt.detail}`,
+      "No working bridge runtime was detected.",
+      ...attempts.map(
+        (attempt) =>
+          `${attempt.mode}: ${attempt.available ? attempt.error || attempt.detail : attempt.detail}`,
       ),
+      "Configure one manually with `pub config --set bridge.mode=...` or install a supported runtime.",
     ].join("\n"),
   );
 }

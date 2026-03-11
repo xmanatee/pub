@@ -1,11 +1,11 @@
 import { spawn } from "node:child_process";
 import type { BridgeSettings } from "../../../core/config/index.js";
-import { buildClaudeArgsFromSettings } from "../../bridge/providers/claude-code/index.js";
-import { executeProcessCommand } from "./process.js";
+import { executeProcessCommand } from "../../command/executors/process.js";
+import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
 
 export type AgentCommandProvider = "claude-code" | "openclaw";
 
-function readClaudeAssistantOutput(line: string): string {
+function readClaudeAssistantOutput(line: string): string | null {
   if (!line.trim().startsWith("{")) return "";
   try {
     const event = JSON.parse(line) as {
@@ -25,7 +25,7 @@ function readClaudeAssistantOutput(line: string): string {
     }
     return "";
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -108,7 +108,7 @@ export function resolveAgentCommandProvider(params: {
   );
 }
 
-export async function executeClaudeAgentCommand(params: {
+async function executeClaudeAgentCommand(params: {
   prompt: string;
   timeoutMs: number;
   output: "text" | "json";
@@ -167,9 +167,19 @@ export async function executeClaudeAgentCommand(params: {
         return;
       }
       const lines = stdout.split(/\r?\n/);
-      const chunks = lines.map(readClaudeAssistantOutput).filter((entry) => entry.length > 0);
+      let sawMalformedStructuredOutput = false;
+      const chunks = lines.flatMap((line) => {
+        const extracted = readClaudeAssistantOutput(line);
+        if (extracted === null) {
+          sawMalformedStructuredOutput = true;
+          return [];
+        }
+        return extracted.length > 0 ? [extracted] : [];
+      });
       const joined = chunks.join("").trim();
-      finish(() => resolve(joined.length > 0 ? joined : stdout.trim()));
+      finish(() =>
+        resolve(sawMalformedStructuredOutput || joined.length === 0 ? stdout.trim() : joined),
+      );
     });
   });
 
@@ -181,7 +191,7 @@ export async function executeClaudeAgentCommand(params: {
   return outputText;
 }
 
-export async function executeOpenClawAgentCommand(params: {
+async function executeOpenClawAgentCommand(params: {
   prompt: string;
   timeoutMs: number;
   output: "text" | "json";
@@ -216,4 +226,25 @@ export async function executeOpenClawAgentCommand(params: {
     return output.length === 0 ? {} : (JSON.parse(output) as unknown);
   }
   return output;
+}
+
+export async function executeAgentCommand(params: {
+  prompt: string;
+  timeoutMs: number;
+  output: "text" | "json";
+  maxOutputBytes: number;
+  signal: AbortSignal;
+  bridgeSettings: BridgeSettings;
+  provider?: AgentCommandProvider | "auto";
+}): Promise<unknown> {
+  const provider = resolveAgentCommandProvider({
+    bridgeSettings: params.bridgeSettings,
+    provider: params.provider,
+  });
+
+  if (provider === "openclaw") {
+    return executeOpenClawAgentCommand(params);
+  }
+
+  return executeClaudeAgentCommand(params);
 }

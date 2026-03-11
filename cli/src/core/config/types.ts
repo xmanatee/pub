@@ -1,4 +1,4 @@
-import type { BridgeMode } from "../../live/daemon/shared.js";
+import type { BridgeMode } from "../../live/bridge/providers/types.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
 export const DEFAULT_CANVAS_REMINDER_EVERY = 10;

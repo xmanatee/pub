@@ -9,13 +9,16 @@ import type {
 import {
   compactPubConfig,
   parseConfigAssignment,
-  resolvePubSettingsFromConfig,
   resolvePubSettings,
+  resolvePubSettingsFromConfig,
   setPubConfigValue,
   unsetPubConfigValue,
   writePubConfig,
 } from "../../core/config/index.js";
-import { autoDetectBridgeConfig, buildBridgeProcessEnv } from "../../live/runtime/bridge-runtime.js";
+import {
+  autoDetectBridgeConfig,
+  buildBridgeProcessEnv,
+} from "../../live/runtime/bridge-runtime.js";
 import { collectValues, resolveConfigureApiKey } from "./io.js";
 import { reconcileTelegramConfigChange } from "./reconcile.js";
 import { printAutoDetectSummary, printConfigStatus, printMutationSummary } from "./render.js";
@@ -38,37 +41,6 @@ function clonePubConfig(config: PubConfig | null): PubConfig {
 
 function cloneTelegramConfig(config: PubConfig): PubTelegramConfig {
   return config.telegram ? { ...config.telegram } : {};
-}
-
-const OPENCLAW_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
-  "openclawPath",
-  "openclawStateDir",
-  "sessionId",
-  "threadId",
-];
-
-const CLAUDE_ONLY_KEYS: (keyof PubBridgeConfig)[] = [
-  "claudeCodePath",
-  "claudeCodeMaxTurns",
-];
-
-const OPENCLAW_LIKE_ONLY_KEYS: (keyof PubBridgeConfig)[] = ["openclawLikeCommand"];
-
-function stripProviderSpecificBridgeConfig(
-  bridgeConfig: PubBridgeConfig | undefined,
-  mode: NonNullable<PubBridgeConfig["mode"]>,
-): PubBridgeConfig {
-  const nextBridge: PubBridgeConfig = { ...(bridgeConfig ?? {}) };
-  const keysToDelete: (keyof PubBridgeConfig)[] = [];
-  if (mode !== "openclaw") keysToDelete.push(...OPENCLAW_ONLY_KEYS);
-  if (mode !== "claude-code" && mode !== "claude-sdk") keysToDelete.push(...CLAUDE_ONLY_KEYS);
-  if (mode !== "openclaw-like") keysToDelete.push(...OPENCLAW_LIKE_ONLY_KEYS);
-
-  for (const key of keysToDelete) {
-    delete nextBridge[key];
-  }
-
-  return nextBridge;
 }
 
 function getTelegramApiClientSettingsForMutation(
@@ -123,9 +95,8 @@ export function registerConfigCommand(program: Command): void {
       if (hasAuto) {
         const bridgeProcessEnv = buildBridgeProcessEnv();
         const result = await autoDetectBridgeConfig(bridgeProcessEnv, resolved.rawConfig.bridge);
-        const baseBridge = stripProviderSpecificBridgeConfig(saved.bridge, result.selected.mode);
         const nextBridge: PubBridgeConfig = {
-          ...baseBridge,
+          ...(saved.bridge ?? {}),
           ...result.selected.configPatch,
           mode: result.selected.mode,
         };

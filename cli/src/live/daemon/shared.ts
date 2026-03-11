@@ -3,8 +3,6 @@ import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { CANVAS_COMMAND_PROTOCOL_GUIDE_MARKDOWN } from "../bridge/prompt-content.js";
 
-export type BridgeMode = "openclaw" | "claude-code" | "claude-sdk" | "openclaw-like";
-
 export interface BridgeInstructions {
   replyHint: string;
   canvasHint: string;
@@ -24,7 +22,7 @@ const BRIDGE_SYSTEM_PROMPT = [
   "Follow the Canvas Command Channel protocol from the session briefing exactly.",
 ].join("\n");
 
-export function buildBridgeInstructions(_mode: BridgeMode): BridgeInstructions {
+export function buildBridgeInstructions(): BridgeInstructions {
   return {
     replyHint: PUB_WRITE_REPLY_HINT,
     canvasHint: PUB_WRITE_CANVAS_HINT,
