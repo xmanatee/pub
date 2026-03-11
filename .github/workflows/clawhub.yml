@@ -45,7 +45,9 @@ jobs:
             clawhub publish "./$SKILL_DIR" \
               --slug "$NAME" \
               --version "$VERSION" \
-              --changelog "Auto-publish from commit ${{ github.sha }}"
+              --changelog "Auto-publish from commit ${{ github.sha }}" \
+              --source-repo "https://github.com/${{ github.repository }}" \
+              --source-commit "${{ github.sha }}"
           done
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}

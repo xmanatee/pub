@@ -3,10 +3,22 @@ name: pub
 description: >-
   Create adaptive interfaces and real-time experiences via the pub CLI, with live P2P browser sessions.
 license: MIT
+homepage: https://pub.blue
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.4"
+  version: "5.2.5"
+  openclaw:
+    homepage: https://pub.blue
+    primaryEnv: PUB_API_KEY
+    requires:
+      env:
+        - PUB_API_KEY
+      bins:
+        - pub
+    install:
+      - kind: download
+        url: https://github.com/xmanatee/pub/releases/latest
 allowed-tools: Bash(pub:*) Bash(node:*) Read Write
 ---
 
@@ -18,11 +30,15 @@ Use this skill when the user asks about creating adaptive interfaces, publishing
 
 Use **pub CLI 0.7.2+**.
 
+Source: <https://github.com/xmanatee/pub> (MIT license)
+
 ```bash
 pub --version
-# Install or update:
+# Install from GitHub Releases:
+# https://github.com/xmanatee/pub/releases/latest
+# Or via install script:
 curl -fsSL https://pub.blue/install.sh | bash
-# Or self-update:
+# Or self-update an existing install:
 pub upgrade
 ```
 
