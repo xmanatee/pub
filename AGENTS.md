@@ -45,7 +45,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Backend (`convex/`)
 - **Schema** (`schema.ts`): `pubs` (content optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user; 1 live per user
+- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user; 1 live per agent; 1 live per slug
 - **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
 - **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
@@ -58,7 +58,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Pub Limits
 - **Total**: max 10 pubs per user (enforced on create)
-- **Live**: max 1 concurrent live per user (reopening the same slug closes the previous live first)
+- **Live**: max 1 concurrent live per agent; max 1 live per slug (starting a new live on the same slug or same agent replaces the previous session; if the selected agent goes offline, that live closes)
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)

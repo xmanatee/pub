@@ -18,13 +18,6 @@ function isFreshOnlinePresence(
   return now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS;
 }
 
-async function listPresencesByUser(db: GenericDatabaseReader<DataModel>, userId: Id<"users">) {
-  return db
-    .query("agentPresence")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
-}
-
 async function listPresencesByApiKey(
   db: GenericDatabaseReader<DataModel>,
   apiKeyId: Id<"apiKeys">,
@@ -49,37 +42,18 @@ export function listFreshOnlinePresences(
     .sort((a, b) => b.lastHeartbeatAt - a.lastHeartbeatAt);
 }
 
-async function reassignLivesForUser(
+async function deleteLivesForPresence(
   db: GenericDatabaseWriter<DataModel>,
   userId: Id<"users">,
-  replacementPresenceId: Id<"agentPresence">,
-  replacementAgentName: string | undefined,
-  displacedPresenceId: Id<"agentPresence">,
+  presenceId: Id<"agentPresence">,
 ) {
   const lives = await db
     .query("lives")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   for (const live of lives) {
-    if (live.targetPresenceId !== displacedPresenceId) continue;
-    if (!live.browserOffer) continue;
-
-    const patch: {
-      targetPresenceId: Id<"agentPresence">;
-      agentName: string | undefined;
-      agentAnswer?: undefined;
-      agentCandidates?: string[];
-    } = {
-      targetPresenceId: replacementPresenceId,
-      agentName: replacementAgentName,
-    };
-
-    if (live.agentAnswer) {
-      patch.agentAnswer = undefined;
-      patch.agentCandidates = [];
-    }
-
-    await db.patch(live._id, patch);
+    if (live.targetPresenceId !== presenceId) continue;
+    await db.delete(live._id);
   }
 }
 
@@ -177,21 +151,7 @@ export const goOffline = internalMutation({
 
     const now = Date.now();
     await ctx.db.patch(presence._id, { status: "offline", updatedAt: now });
-
-    const userPresences = await listPresencesByUser(ctx.db, presence.userId);
-    const freshOnlinePresences = listFreshOnlinePresences(userPresences, now);
-    if (freshOnlinePresences.length === 0) {
-      await deleteActiveLivesForUser(ctx.db, presence.userId);
-      return;
-    }
-    const replacement = freshOnlinePresences[0];
-    await reassignLivesForUser(
-      ctx.db,
-      presence.userId,
-      replacement._id,
-      replacement.agentName,
-      presence._id,
-    );
+    await deleteLivesForPresence(ctx.db, presence.userId, presence._id);
   },
 });
 
@@ -213,24 +173,7 @@ export const checkStaleness = internalMutation({
     }
 
     await ctx.db.patch(presenceId, { status: "offline", updatedAt: now });
-
-    const userPresences = await listPresencesByUser(ctx.db, presence.userId);
-    const freshOnlinePresences = listFreshOnlinePresences(
-      userPresences.filter((entry) => entry._id !== presenceId),
-      now,
-    );
-    if (freshOnlinePresences.length === 0) {
-      await deleteActiveLivesForUser(ctx.db, presence.userId);
-      return;
-    }
-    const replacement = freshOnlinePresences[0];
-    await reassignLivesForUser(
-      ctx.db,
-      presence.userId,
-      replacement._id,
-      replacement.agentName,
-      presenceId,
-    );
+    await deleteLivesForPresence(ctx.db, presence.userId, presenceId);
   },
 });
 
@@ -306,13 +249,3 @@ export const isCurrentUserAgentOnline = query({
     return listFreshOnlinePresences(presences, Date.now()).length > 0;
   },
 });
-
-async function deleteActiveLivesForUser(db: GenericDatabaseWriter<DataModel>, userId: Id<"users">) {
-  const lives = await db
-    .query("lives")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
-  for (const live of lives) {
-    await db.delete(live._id);
-  }
-}

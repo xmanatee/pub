@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPubPatch } from "./pubs";
+import { buildPubPatch, liveConflictsWithRequest } from "./pubs";
 
 describe("update patch construction", () => {
   it("includes only provided fields plus updatedAt", () => {
@@ -25,5 +25,43 @@ describe("update patch construction", () => {
   it("includes slug for rename", () => {
     const patch = buildPubPatch({ slug: "new-slug" });
     expect(patch.slug).toBe("new-slug");
+  });
+});
+
+describe("liveConflictsWithRequest", () => {
+  it("treats the same slug as conflicting even for another agent", () => {
+    expect(
+      liveConflictsWithRequest(
+        { slug: "demo", targetPresenceId: "agent-a" },
+        { slug: "demo", targetPresenceId: "agent-b" },
+      ),
+    ).toBe(true);
+  });
+
+  it("treats the same target agent as conflicting across slugs", () => {
+    expect(
+      liveConflictsWithRequest(
+        { slug: "alpha", targetPresenceId: "agent-a" },
+        { slug: "beta", targetPresenceId: "agent-a" },
+      ),
+    ).toBe(true);
+  });
+
+  it("allows different slug and different agent", () => {
+    expect(
+      liveConflictsWithRequest(
+        { slug: "alpha", targetPresenceId: "agent-a" },
+        { slug: "beta", targetPresenceId: "agent-b" },
+      ),
+    ).toBe(false);
+  });
+
+  it("replaces untargeted lives that have no agent target", () => {
+    expect(
+      liveConflictsWithRequest(
+        { slug: "untargeted" },
+        { slug: "fresh", targetPresenceId: "agent-a" },
+      ),
+    ).toBe(true);
   });
 });

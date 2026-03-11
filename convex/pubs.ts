@@ -41,6 +41,20 @@ async function getLatestLiveBySlug(db: GenericDatabaseReader<DataModel>, slug: s
     .first();
 }
 
+export function liveConflictsWithRequest<TPresenceId extends string>(
+  live: { slug: string; targetPresenceId?: TPresenceId },
+  request: { slug: string; targetPresenceId: TPresenceId },
+) {
+  // TODO(2026-03-13): Remove the untargeted-live cleanup after Friday, March 13, 2026.
+  // Rows without a targetPresenceId are ambiguous, so replace them
+  // when creating a new targeted live rather than letting them linger.
+  return (
+    live.slug === request.slug ||
+    live.targetPresenceId === request.targetPresenceId ||
+    live.targetPresenceId === undefined
+  );
+}
+
 async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slug: string) {
   const lives = await db
     .query("lives")
@@ -335,29 +349,16 @@ export const getLive = internalQuery({
       throw new Error("Missing authentication for live snapshot");
     }
 
-    const allPresences = await ctx.db
-      .query("agentPresence")
-      .withIndex("by_user", (q) => q.eq("userId", resolvedUserId))
-      .collect();
-    const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
-
-    const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
-      if (live.targetPresenceId) {
-        return live.targetPresenceId === resolvedPresenceId;
-      }
-      return (
-        freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === resolvedPresenceId
-      );
-    };
-
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", resolvedUserId))
       .order("desc")
       .collect();
 
-    const pending = lives.find((s) => matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer);
-    const active = pending ?? lives.find((s) => matchesCurrentAgent(s));
+    const pending = lives.find(
+      (s) => s.targetPresenceId === resolvedPresenceId && s.browserOffer && !s.agentAnswer,
+    );
+    const active = pending ?? lives.find((s) => s.targetPresenceId === resolvedPresenceId);
 
     return active ? mapAgentLiveInfo(active) : null;
   },
@@ -387,25 +388,16 @@ export const getLiveForAgent = query({
     );
     if (!presence) return null;
 
-    const allPresences = await ctx.db
-      .query("agentPresence")
-      .withIndex("by_user", (q) => q.eq("userId", key.userId))
-      .collect();
-    const freshOnlinePresences = listFreshOnlinePresences(allPresences, now);
-
-    const matchesCurrentAgent = (live: { targetPresenceId?: Id<"agentPresence"> }) => {
-      if (live.targetPresenceId) return live.targetPresenceId === presence._id;
-      return freshOnlinePresences.length === 1 && freshOnlinePresences[0]?._id === presence._id;
-    };
-
     const lives = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", key.userId))
       .order("desc")
       .collect();
 
-    const pending = lives.find((s) => matchesCurrentAgent(s) && s.browserOffer && !s.agentAnswer);
-    const active = pending ?? lives.find((s) => matchesCurrentAgent(s));
+    const pending = lives.find(
+      (s) => s.targetPresenceId === presence._id && s.browserOffer && !s.agentAnswer,
+    );
+    const active = pending ?? lives.find((s) => s.targetPresenceId === presence._id);
 
     return active ? mapAgentLiveInfo(active) : null;
   },
@@ -447,6 +439,7 @@ export const requestLive = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     for (const live of existing) {
+      if (!liveConflictsWithRequest(live, { slug, targetPresenceId: targetPresence._id })) continue;
       await ctx.db.delete(live._id);
     }
 
@@ -663,34 +656,18 @@ export const storeAgentAnswer = internalMutation({
   ) => {
     const live = await getLatestLiveBySlug(ctx.db, slug);
     if (!live || live.userId !== userId) throw new Error("Live not found");
-    const now = Date.now();
+    if (!live.targetPresenceId) throw new Error("Live assigned to another agent");
 
-    let targetPresenceName: string | undefined;
-    if (live.targetPresenceId) {
-      const targetPresence = await ctx.db.get(live.targetPresenceId);
-      const isAssignedAgent =
-        !!targetPresence &&
-        targetPresence.apiKeyId === apiKeyId &&
-        targetPresence.daemonSessionId === daemonSessionId;
-      if (!isAssignedAgent) throw new Error("Live assigned to another agent");
-      targetPresenceName = targetPresence.agentName;
-    } else {
-      const byApiKey = await ctx.db
-        .query("agentPresence")
-        .withIndex("by_api_key", (q) => q.eq("apiKeyId", apiKeyId))
-        .collect();
-      const hasMatchingPresence = byApiKey.some(
-        (presence) =>
-          presence.daemonSessionId === daemonSessionId &&
-          presence.status === "online" &&
-          now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS,
-      );
-      if (!hasMatchingPresence) throw new Error("Live assigned to another agent");
-    }
+    const targetPresence = await ctx.db.get(live.targetPresenceId);
+    const isAssignedAgent =
+      !!targetPresence &&
+      targetPresence.apiKeyId === apiKeyId &&
+      targetPresence.daemonSessionId === daemonSessionId;
+    if (!isAssignedAgent) throw new Error("Live assigned to another agent");
 
     const patch: Record<string, unknown> = {};
     if (answer !== undefined) patch.agentAnswer = answer;
-    const resolvedAgentName = targetPresenceName ?? agentName;
+    const resolvedAgentName = targetPresence.agentName ?? agentName;
     if (resolvedAgentName !== undefined) patch.agentName = resolvedAgentName;
     if (candidates?.length) {
       const merged = [...live.agentCandidates, ...candidates].slice(0, MAX_CANDIDATES);
