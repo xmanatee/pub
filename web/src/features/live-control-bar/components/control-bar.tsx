@@ -231,7 +231,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     topAddon = (
       <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
     );
-  } else if (preview && !isEditing) {
+  } else if (preview) {
     const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
     const previewLabelClass =
       preview.source === "system"
