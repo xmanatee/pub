@@ -586,7 +586,7 @@ export function useLiveTransport({
   }, [bridgeState, dispatchAudio, dispatchChatMessage, dispatchFile]);
 
   useEffect(() => {
-    if (bridgeState === "disconnected") {
+    if (bridgeState === "failed") {
       failSentMessages();
       emitSystemMessage({
         content: "Live connection dropped. Pending messages may have failed.",

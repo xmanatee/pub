@@ -49,7 +49,9 @@ export function resolveTransportStatus({
   if (agentOnline !== true) return "disabled";
   if (sessionState === "needs-takeover" || sessionState === "taken-over") return "disabled";
   if (bridgeState === "connected") return "connected";
-  if (bridgeState === "disconnected" || bridgeState === "closed") return "disconnected";
+  if (bridgeState === "failed") return "disconnected";
+  if (bridgeState === "disconnected") return "connecting";
+  if (bridgeState === "closed") return "disconnected";
   return "connecting";
 }
 

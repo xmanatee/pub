@@ -134,7 +134,7 @@ export function useLiveBridge({
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;
         }
-        setBridgeState("disconnected");
+        setBridgeState("failed");
       }
     })();
 

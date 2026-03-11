@@ -298,7 +298,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
       return;
     }
 
-    if (bridgeState !== "disconnected" && bridgeState !== "closed") return;
+    if (bridgeState !== "failed") return;
 
     interruptActiveCommands({
       code: "COMMAND_INTERRUPTED",
@@ -404,7 +404,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
         return;
       }
 
-      if (bridgeState === "disconnected" || bridgeState === "closed") {
+      if (bridgeState === "failed") {
         emitCommandFailureToCanvas({
           callId,
           code: "AGENT_NOT_CONNECTED",
@@ -413,7 +413,11 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
         return;
       }
 
-      if (bridgeState === "connecting") {
+      if (
+        bridgeState === "connecting" ||
+        bridgeState === "disconnected" ||
+        bridgeState === "closed"
+      ) {
         pendingCommandQueueRef.current.push(message);
         return;
       }
@@ -432,7 +436,7 @@ export function useCanvasCommands({ bridgeRef, bridgeState, liveMode }: UseCanva
   }, [bridgeState, dispatchCommand]);
 
   useEffect(() => {
-    if (liveMode && bridgeState !== "disconnected" && bridgeState !== "closed") return;
+    if (liveMode && bridgeState !== "failed") return;
     const queued = pendingCommandQueueRef.current.splice(0);
     for (const message of queued) {
       emitCommandFailureToCanvas({

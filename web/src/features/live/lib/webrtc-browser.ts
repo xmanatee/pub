@@ -27,7 +27,7 @@ import {
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
 
-export type BridgeState = "connecting" | "connected" | "disconnected" | "closed";
+export type BridgeState = "connecting" | "connected" | "disconnected" | "failed" | "closed";
 
 export interface ChannelMessage {
   channel: string;
@@ -158,8 +158,11 @@ export class BrowserBridge {
       const iceState = this.pc.iceConnectionState;
       if (iceState === "connected" || iceState === "completed") {
         this.setState("connected");
-      } else if (iceState === "disconnected" || iceState === "failed") {
+      } else if (iceState === "disconnected") {
         this.setState("disconnected");
+        console.warn("Peer ICE connection became unhealthy", { iceState });
+      } else if (iceState === "failed") {
+        this.setState("failed");
         console.warn("Peer ICE connection became unhealthy", { iceState });
       }
     };
@@ -375,7 +378,7 @@ export class BrowserBridge {
 
   private setState(newState: BridgeState): void {
     if (this.state === newState || this.state === "closed") return;
-    if (newState === "disconnected" || newState === "closed") {
+    if (newState === "disconnected" || newState === "failed" || newState === "closed") {
       this.failPendingAcks();
     }
     this.state = newState;
