@@ -1,14 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { makeEventMessage } from "../../../../shared/bridge-protocol-core";
 import { parseCommandResultMessage } from "../../../../shared/command-protocol-core";
+import type { BridgeRunner } from "../bridge/shared.js";
 import { createLiveCommandHandler } from "./handler.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildHandler() {
+function buildHandler(overrides?: {
+  getBridgeRunner?: () => BridgeRunner | null;
+}) {
   const sentMessages: BridgeMessage[] = [];
   const handler = createLiveCommandHandler({
     bridgeSettings: {
@@ -20,11 +23,13 @@ function buildHandler() {
       commandDefaultTimeoutMs: 15_000,
       commandMaxOutputBytes: 256 * 1024,
       commandMaxConcurrent: 6,
+      commandAgentDefaultProfile: "default",
       openclawPath: "/usr/local/bin/openclaw",
       sessionId: "session-1",
     },
     debugLog: () => {},
     markError: () => {},
+    getBridgeRunner: overrides?.getBridgeRunner,
     sendCommandMessage: async (msg) => {
       sentMessages.push(msg);
       return true;
@@ -286,6 +291,57 @@ describe("createLiveCommandHandler", () => {
       error: {
         code: "COMMAND_CANCELLED",
       },
+    });
+  });
+
+  it("routes main-mode agent commands through the active bridge runner", async () => {
+    const invokeAgentCommand = vi.fn(async () => "bridge-result");
+    const { handler, sentMessages } = buildHandler({
+      getBridgeRunner: () => ({
+        enqueue: () => {},
+        stop: async () => {},
+        status: () => ({ running: true, forwardedMessages: 0 }),
+        invokeAgentCommand,
+      }),
+    });
+
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "askMainAgent",
+          returns: "text",
+          executor: {
+            kind: "agent",
+            mode: "main",
+            prompt: "Explain {{value}}",
+          },
+        },
+      ]),
+    );
+
+    await handler.onMessage(
+      makeEventMessage("command.invoke", {
+        v: 1,
+        callId: "call-main-agent",
+        name: "askMainAgent",
+        args: { value: "state" },
+      }),
+    );
+
+    expect(invokeAgentCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "Explain state",
+        output: "text",
+      }),
+    );
+
+    const results = commandResults(sentMessages).filter(
+      (entry) => entry.callId === "call-main-agent",
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      ok: true,
+      value: "bridge-result",
     });
   });
 });

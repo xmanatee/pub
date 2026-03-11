@@ -34,6 +34,12 @@ export interface BridgeRunner {
   enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void;
   stop(): Promise<void>;
   status(): BridgeStatus;
+  invokeAgentCommand?(params: {
+    prompt: string;
+    output: "text" | "json";
+    timeoutMs: number;
+    signal: AbortSignal;
+  }): Promise<unknown>;
 }
 
 export interface BufferedEntry {

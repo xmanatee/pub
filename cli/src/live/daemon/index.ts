@@ -39,6 +39,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     bridgeSettings: config.bridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
     markError: (message, error) => lifecycle.markError(message, error),
+    getBridgeRunner: () => state.bridgeRunner,
     sendCommandMessage: async (msg) => {
       if (!state.browserConnected) return false;
       return await channelManager.sendOutboundMessageWithAck("command", msg, {

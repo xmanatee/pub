@@ -19,7 +19,11 @@ import {
   readTextChatMessage,
   shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
-import { deliverMessageToOpenClaw, runOpenClawPreflight } from "./runtime.js";
+import {
+  deliverMessageToOpenClaw,
+  invokeOpenClawPrompt,
+  runOpenClawPreflight,
+} from "./runtime.js";
 
 export {
   isOpenClawAvailable,
@@ -48,8 +52,26 @@ export async function createOpenClawBridgeRunner(
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
   let stopped = false;
+  let sessionTaskChain = Promise.resolve();
 
   const withSystemPrompt = (prompt: string) => applyBridgeSystemPrompt(prompt, config.instructions);
+  function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
+    const next = sessionTaskChain.then(task);
+    sessionTaskChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+  async function deliverQueued(prompt: string): Promise<void> {
+    await queueSessionTask(async () => {
+      await deliverMessageToOpenClaw(
+        { openclawPath, sessionId, text: withSystemPrompt(prompt) },
+        process.env,
+        bridgeSettings,
+      );
+    });
+  }
 
   await deliverMessageToOpenClaw(
     { openclawPath, sessionId, text: withSystemPrompt(sessionBriefing) },
@@ -66,17 +88,7 @@ export async function createOpenClawBridgeRunner(
       );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        await deliverMessageToOpenClaw(
-          {
-            openclawPath,
-            sessionId,
-            text: withSystemPrompt(
-              buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
-            ),
-          },
-          process.env,
-          bridgeSettings,
-        );
+        await deliverQueued(buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions));
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -88,15 +100,7 @@ export async function createOpenClawBridgeRunner(
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        await deliverMessageToOpenClaw(
-          {
-            openclawPath,
-            sessionId,
-            text: withSystemPrompt(buildRenderErrorPrompt(slug, renderError, config.instructions)),
-          },
-          process.env,
-          bridgeSettings,
-        );
+        await deliverQueued(buildRenderErrorPrompt(slug, renderError, config.instructions));
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -111,11 +115,7 @@ export async function createOpenClawBridgeRunner(
         activeStreams,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
-          await deliverMessageToOpenClaw(
-            { openclawPath, sessionId, text: withSystemPrompt(prompt) },
-            process.env,
-            bridgeSettings,
-          );
+          await deliverQueued(prompt);
         },
         entry,
         includeCanvasReminder,
@@ -161,6 +161,20 @@ export async function createOpenClawBridgeRunner(
 
   return {
     enqueue: (entries) => queue.enqueue(entries),
+    invokeAgentCommand: async ({ prompt, output }) =>
+      await queueSessionTask(async () => {
+        const text = await invokeOpenClawPrompt({
+          openclawPath,
+          sessionId,
+          text: withSystemPrompt(prompt),
+          bridgeCwd: bridgeSettings.bridgeCwd,
+          env: process.env,
+        });
+        if (output === "json") {
+          return text.length === 0 ? {} : (JSON.parse(text) as unknown);
+        }
+        return text;
+      }),
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;

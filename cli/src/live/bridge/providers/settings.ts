@@ -1,11 +1,14 @@
 import { join } from "node:path";
 import {
   type BridgeSettings,
+  DEFAULT_COMMAND_AGENT_PROFILE,
   DEFAULT_CANVAS_REMINDER_EVERY,
   DEFAULT_COMMAND_MAX_CONCURRENT,
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
   DEFAULT_COMMAND_TIMEOUT_MS,
   getConfigDir,
+  type CommandAgentProfile,
+  type DetachedAgentProvider,
   type PubBridgeConfig,
 } from "../../../core/config/index.js";
 import type { BridgeMode } from "./types.js";
@@ -37,6 +40,28 @@ function integerValueOrEnv(
   env: NodeJS.ProcessEnv,
 ): number | undefined {
   return parsePositiveIntegerEnv(envKey, env[envKey]) ?? value;
+}
+
+function commandAgentProfileValueOrEnv(
+  value: CommandAgentProfile | undefined,
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+): CommandAgentProfile | undefined {
+  const raw = trimToUndefined(env[envKey]);
+  if (raw === undefined) return value;
+  if (raw === "fast" || raw === "default" || raw === "deep") return raw;
+  throw new Error(`Invalid agent profile value for ${envKey}: ${raw}`);
+}
+
+function detachedAgentProviderValueOrEnv(
+  value: DetachedAgentProvider | undefined,
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+): DetachedAgentProvider | undefined {
+  const raw = trimToUndefined(env[envKey]);
+  if (raw === undefined) return value;
+  if (raw === "claude-code" || raw === "claude-sdk" || raw === "openclaw") return raw;
+  throw new Error(`Invalid detached agent provider value for ${envKey}: ${raw}`);
 }
 
 function positiveIntOr(value: number | undefined, fallback: number): number {
@@ -104,6 +129,17 @@ export function buildBridgeSettings(
       bridgeConfig.commandMaxConcurrent,
       DEFAULT_COMMAND_MAX_CONCURRENT,
     ),
+    commandAgentDefaultProfile:
+      commandAgentProfileValueOrEnv(
+        bridgeConfig.commandAgentDefaultProfile,
+        "PUB_COMMAND_AGENT_DEFAULT_PROFILE",
+        env,
+      ) ?? DEFAULT_COMMAND_AGENT_PROFILE,
+    commandAgentDetachedProvider: detachedAgentProviderValueOrEnv(
+      bridgeConfig.commandAgentDetachedProvider,
+      "PUB_COMMAND_AGENT_DETACHED_PROVIDER",
+      env,
+    ),
     openclawPath: stringValueOrEnv(bridgeConfig.openclawPath, "OPENCLAW_PATH", env),
     openclawStateDir: stringValueOrEnv(bridgeConfig.openclawStateDir, "OPENCLAW_STATE_DIR", env),
     sessionId: stringValueOrEnv(bridgeConfig.sessionId, "OPENCLAW_SESSION_ID", env),
@@ -111,6 +147,36 @@ export function buildBridgeSettings(
     claudeCodePath: stringValueOrEnv(bridgeConfig.claudeCodePath, "CLAUDE_CODE_PATH", env),
     claudeCodeMaxTurns: positiveIntOrUndefined(
       integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env),
+    ),
+    claudeCodeCommandModelDefault: stringValueOrEnv(
+      bridgeConfig.claudeCodeCommandModelDefault,
+      "CLAUDE_CODE_COMMAND_MODEL_DEFAULT",
+      env,
+    ),
+    claudeCodeCommandModelFast: stringValueOrEnv(
+      bridgeConfig.claudeCodeCommandModelFast,
+      "CLAUDE_CODE_COMMAND_MODEL_FAST",
+      env,
+    ),
+    claudeCodeCommandModelDeep: stringValueOrEnv(
+      bridgeConfig.claudeCodeCommandModelDeep,
+      "CLAUDE_CODE_COMMAND_MODEL_DEEP",
+      env,
+    ),
+    claudeSdkCommandModelDefault: stringValueOrEnv(
+      bridgeConfig.claudeSdkCommandModelDefault,
+      "CLAUDE_SDK_COMMAND_MODEL_DEFAULT",
+      env,
+    ),
+    claudeSdkCommandModelFast: stringValueOrEnv(
+      bridgeConfig.claudeSdkCommandModelFast,
+      "CLAUDE_SDK_COMMAND_MODEL_FAST",
+      env,
+    ),
+    claudeSdkCommandModelDeep: stringValueOrEnv(
+      bridgeConfig.claudeSdkCommandModelDeep,
+      "CLAUDE_SDK_COMMAND_MODEL_DEEP",
+      env,
     ),
     openclawLikeCommand: stringValueOrEnv(
       bridgeConfig.openclawLikeCommand,

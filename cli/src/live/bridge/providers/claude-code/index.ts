@@ -60,6 +60,7 @@ export async function createClaudeCodeBridgeRunner(
   let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
   let activeChild: import("node:child_process").ChildProcess | null = null;
+  let sessionTaskChain = Promise.resolve();
 
   if (abortSignal) {
     abortSignal.addEventListener(
@@ -72,8 +73,11 @@ export async function createClaudeCodeBridgeRunner(
     );
   }
 
-  async function deliverToClaudeCode(prompt: string, opts?: { maxTurns?: number }): Promise<void> {
-    if (stopped) return;
+  async function runClaudeCodePrompt(
+    prompt: string,
+    opts?: { maxTurns?: number; signal?: AbortSignal },
+  ): Promise<string> {
+    if (stopped) return "";
     const args = buildClaudeArgsFromSettings(
       prompt,
       sessionId,
@@ -102,6 +106,11 @@ export async function createClaudeCodeBridgeRunner(
 
     const rl = createInterface({ input: child.stdout, crlfDelay: Number.POSITIVE_INFINITY });
     let capturedSessionId: string | null = null;
+    const assistantChunks: string[] = [];
+    const onAbort = () => {
+      child.kill("SIGINT");
+    };
+    opts?.signal?.addEventListener("abort", onAbort, { once: true });
 
     for await (const line of rl) {
       if (stopped) break;
@@ -116,10 +125,30 @@ export async function createClaudeCodeBridgeRunner(
         continue;
       }
 
-      if (event.type === "result") {
+      const parsed = event as {
+        type?: string;
+        text?: unknown;
+        delta?: { text?: unknown } | null;
+        message?: { role?: unknown; content?: unknown } | null;
+      };
+
+      if (parsed.type === "result") {
         const result = event as { session_id?: string };
         if (typeof result.session_id === "string" && result.session_id.length > 0) {
           capturedSessionId = result.session_id;
+        }
+      } else {
+        const text =
+          typeof parsed.text === "string"
+            ? parsed.text
+            : parsed.delta && typeof parsed.delta.text === "string"
+              ? parsed.delta.text
+              : parsed.message?.role === "assistant" &&
+                  typeof parsed.message.content === "string"
+                ? parsed.message.content
+                : "";
+        if (text.length > 0) {
+          assistantChunks.push(text);
         }
       }
     }
@@ -133,6 +162,7 @@ export async function createClaudeCodeBridgeRunner(
     });
 
     activeChild = null;
+    opts?.signal?.removeEventListener("abort", onAbort);
     if (capturedSessionId) {
       sessionId = capturedSessionId;
       debugLog(`captured session_id: ${sessionId}`);
@@ -142,6 +172,22 @@ export async function createClaudeCodeBridgeRunner(
       const detail = stderrChunks.join("").trim() || `exit code ${exitCode}`;
       throw new Error(`Claude Code exited with error: ${detail}`);
     }
+    return assistantChunks.join("").trim();
+  }
+
+  function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
+    const next = sessionTaskChain.then(task);
+    sessionTaskChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  async function deliverToClaudeCode(prompt: string, opts?: { maxTurns?: number }): Promise<void> {
+    await queueSessionTask(async () => {
+      await runClaudeCodePrompt(prompt, opts);
+    });
   }
 
   await deliverToClaudeCode(sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
@@ -216,6 +262,15 @@ export async function createClaudeCodeBridgeRunner(
 
   return {
     enqueue: (entries) => queue.enqueue(entries),
+    invokeAgentCommand: async ({ prompt, output, signal }) =>
+      await queueSessionTask(async () => {
+        const text = await runClaudeCodePrompt(prompt, { signal });
+        if (output === "json") {
+          const trimmed = text.trim();
+          return trimmed.length === 0 ? {} : (JSON.parse(trimmed) as unknown);
+        }
+        return text;
+      }),
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;

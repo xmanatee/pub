@@ -2,6 +2,9 @@ import type { BridgeMode } from "../../live/bridge/providers/types.js";
 import { parsePositiveInteger } from "../utils/number.js";
 import { trimToUndefined } from "./location.js";
 import {
+  DEFAULT_COMMAND_AGENT_PROFILE,
+  type CommandAgentProfile,
+  type DetachedAgentProvider,
   DEFAULT_BASE_URL,
   type PubBridgeConfig,
   type PubConfig,
@@ -9,7 +12,13 @@ import {
 } from "./types.js";
 
 export type ConfigSection = "core" | "bridge" | "telegram";
-export type ConfigValueType = "string" | "boolean" | "integer" | "bridge-mode";
+export type ConfigValueType =
+  | "string"
+  | "boolean"
+  | "integer"
+  | "bridge-mode"
+  | "agent-profile"
+  | "detached-agent-provider";
 export type ConfigDisplayMode = "value" | "set-only";
 
 export interface ConfigVarDefinition {
@@ -119,6 +128,44 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   bridgeVar("command.maxConcurrent", "commandMaxConcurrent", "integer", {
     description: "Maximum concurrent canvas commands.",
   }),
+  bridgeVar("command.agent.defaultProfile", "commandAgentDefaultProfile", "agent-profile", {
+    description: "Default profile used for detached canvas agent commands.",
+    env: ["PUB_COMMAND_AGENT_DEFAULT_PROFILE"],
+    defaultValue: DEFAULT_COMMAND_AGENT_PROFILE,
+  }),
+  bridgeVar(
+    "command.agent.detachedProvider",
+    "commandAgentDetachedProvider",
+    "detached-agent-provider",
+    {
+      description: "Default provider used for detached canvas agent commands.",
+      env: ["PUB_COMMAND_AGENT_DETACHED_PROVIDER"],
+    },
+  ),
+  bridgeVar("claude-code.commandModelDefault", "claudeCodeCommandModelDefault", "string", {
+    description: "Claude detached model used for default-profile agent commands.",
+    env: ["CLAUDE_CODE_COMMAND_MODEL_DEFAULT"],
+  }),
+  bridgeVar("claude-code.commandModelFast", "claudeCodeCommandModelFast", "string", {
+    description: "Claude detached model used for fast-profile agent commands.",
+    env: ["CLAUDE_CODE_COMMAND_MODEL_FAST"],
+  }),
+  bridgeVar("claude-code.commandModelDeep", "claudeCodeCommandModelDeep", "string", {
+    description: "Claude detached model used for deep-profile agent commands.",
+    env: ["CLAUDE_CODE_COMMAND_MODEL_DEEP"],
+  }),
+  bridgeVar("claude-sdk.commandModelDefault", "claudeSdkCommandModelDefault", "string", {
+    description: "Claude SDK detached model used for default-profile agent commands.",
+    env: ["CLAUDE_SDK_COMMAND_MODEL_DEFAULT"],
+  }),
+  bridgeVar("claude-sdk.commandModelFast", "claudeSdkCommandModelFast", "string", {
+    description: "Claude SDK detached model used for fast-profile agent commands.",
+    env: ["CLAUDE_SDK_COMMAND_MODEL_FAST"],
+  }),
+  bridgeVar("claude-sdk.commandModelDeep", "claudeSdkCommandModelDeep", "string", {
+    description: "Claude SDK detached model used for deep-profile agent commands.",
+    env: ["CLAUDE_SDK_COMMAND_MODEL_DEEP"],
+  }),
   telegramVar("telegram.botToken", "botToken", "string", {
     description: "Telegram bot token used for Mini App deep links.",
     secret: true,
@@ -164,6 +211,22 @@ function parseBridgeModeValue(raw: string, key: string): BridgeMode {
   throw new Error(`Invalid bridge mode for ${key}: ${raw}`);
 }
 
+function parseAgentProfileValue(raw: string, key: string): CommandAgentProfile {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "fast" || normalized === "default" || normalized === "deep") {
+    return normalized;
+  }
+  throw new Error(`Invalid agent profile for ${key}: ${raw}`);
+}
+
+function parseDetachedAgentProviderValue(raw: string, key: string): DetachedAgentProvider {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "claude-code" || normalized === "claude-sdk" || normalized === "openclaw") {
+    return normalized;
+  }
+  throw new Error(`Invalid detached agent provider for ${key}: ${raw}`);
+}
+
 export function getConfigVars(): ConfigVarDefinition[] {
   return [...CONFIG_VARS];
 }
@@ -183,17 +246,24 @@ export function isMutableConfigVar(definition: ConfigVarDefinition): boolean {
 export function coerceConfigVarInput(
   definition: ConfigVarDefinition,
   raw: string,
-): string | number | boolean | BridgeMode {
+): string | number | boolean | BridgeMode | CommandAgentProfile | DetachedAgentProvider {
   if (definition.type === "integer") return parsePositiveInteger(raw, definition.key);
   if (definition.type === "boolean") return parseBooleanValue(raw, definition.key);
   if (definition.type === "bridge-mode") return parseBridgeModeValue(raw, definition.key);
+  if (definition.type === "agent-profile") return parseAgentProfileValue(raw, definition.key);
+  if (definition.type === "detached-agent-provider") {
+    return parseDetachedAgentProviderValue(raw, definition.key);
+  }
   return raw.trim();
 }
 
 export function readEnvOverride(
   definition: ConfigVarDefinition,
   env: NodeJS.ProcessEnv = process.env,
-): { key: string; value: string | number | boolean | BridgeMode } | null {
+): {
+  key: string;
+  value: string | number | boolean | BridgeMode | CommandAgentProfile | DetachedAgentProvider;
+} | null {
   if (!definition.env || definition.env.length === 0) return null;
 
   for (const envKey of definition.env) {

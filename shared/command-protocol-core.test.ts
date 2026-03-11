@@ -28,6 +28,8 @@ describe("command-protocol-core", () => {
         returns: "text",
         executor: {
           kind: "agent",
+          mode: "detached",
+          profile: "fast",
           prompt: "Summarize {{emailId}}",
           output: "text",
         },
@@ -37,6 +39,38 @@ describe("command-protocol-core", () => {
     expect(functions).toHaveLength(2);
     expect(functions[0]?.name).toBe("archiveEmail");
     expect(functions[1]?.name).toBe("summarizeEmail");
+    expect(functions[1]?.executor).toMatchObject({
+      kind: "agent",
+      mode: "detached",
+      profile: "fast",
+    });
+  });
+
+  it("parses extended agent executor fields", () => {
+    const [fn] = parseCommandFunctionList([
+      {
+        name: "classify",
+        returns: "json",
+        executor: {
+          kind: "agent",
+          provider: "claude-sdk",
+          mode: "detached",
+          profile: "deep",
+          model: "claude-sonnet-x",
+          prompt: "Return JSON",
+          output: "json",
+        },
+      },
+    ]);
+
+    expect(fn?.executor).toMatchObject({
+      kind: "agent",
+      provider: "claude-sdk",
+      mode: "detached",
+      profile: "deep",
+      model: "claude-sonnet-x",
+      output: "json",
+    });
   });
 
   it("caps parsed function list to manifest max", () => {

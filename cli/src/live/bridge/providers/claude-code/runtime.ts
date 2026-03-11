@@ -29,7 +29,7 @@ export function buildClaudeArgsFromSettings(
   sessionId: string | null,
   systemPrompt: string | null,
   bridgeSettings: ClaudeArgsSettings,
-  opts?: { maxTurns?: number },
+  opts?: { maxTurns?: number; model?: string },
 ): string[] {
   const args = [
     "-p",
@@ -41,6 +41,7 @@ export function buildClaudeArgsFromSettings(
   ];
   if (sessionId) args.push("--resume", sessionId);
   if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
+  if (opts?.model?.trim()) args.push("--model", opts.model.trim());
   const maxTurns = opts?.maxTurns ?? bridgeSettings.claudeCodeMaxTurns;
   if (maxTurns !== undefined) args.push("--max-turns", String(maxTurns));
   return args;

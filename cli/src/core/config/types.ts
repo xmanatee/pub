@@ -5,6 +5,10 @@ export const DEFAULT_CANVAS_REMINDER_EVERY = 10;
 export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 export const DEFAULT_COMMAND_MAX_OUTPUT_BYTES = 256 * 1024;
 export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
+export const DEFAULT_COMMAND_AGENT_PROFILE = "default";
+
+export type CommandAgentProfile = "fast" | "default" | "deep";
+export type DetachedAgentProvider = "claude-code" | "claude-sdk" | "openclaw";
 
 export interface PubCoreConfig {
   apiKey?: string;
@@ -26,6 +30,14 @@ export interface PubBridgeConfig {
   commandDefaultTimeoutMs?: number;
   commandMaxOutputBytes?: number;
   commandMaxConcurrent?: number;
+  commandAgentDefaultProfile?: CommandAgentProfile;
+  commandAgentDetachedProvider?: DetachedAgentProvider;
+  claudeCodeCommandModelDefault?: string;
+  claudeCodeCommandModelFast?: string;
+  claudeCodeCommandModelDeep?: string;
+  claudeSdkCommandModelDefault?: string;
+  claudeSdkCommandModelFast?: string;
+  claudeSdkCommandModelDeep?: string;
   openclawLikeCommand?: string;
 }
 
@@ -50,12 +62,20 @@ interface BridgeSettingsBase {
   commandDefaultTimeoutMs: number;
   commandMaxOutputBytes: number;
   commandMaxConcurrent: number;
+  commandAgentDefaultProfile: CommandAgentProfile;
+  commandAgentDetachedProvider?: DetachedAgentProvider;
   openclawPath?: string;
   openclawStateDir?: string;
   sessionId?: string;
   threadId?: string;
   claudeCodePath?: string;
   claudeCodeMaxTurns?: number;
+  claudeCodeCommandModelDefault?: string;
+  claudeCodeCommandModelFast?: string;
+  claudeCodeCommandModelDeep?: string;
+  claudeSdkCommandModelDefault?: string;
+  claudeSdkCommandModelFast?: string;
+  claudeSdkCommandModelDeep?: string;
   openclawLikeCommand?: string;
 }
 
