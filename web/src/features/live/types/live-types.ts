@@ -42,6 +42,7 @@ export interface LiveErrorSummary {
 }
 
 export type LiveControlBarState =
+  | "agent-selection"
   | "offline"
   | "connecting"
   | "disconnected"

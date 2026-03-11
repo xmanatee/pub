@@ -22,6 +22,7 @@ export interface PubViewSourceState {
   lastAgentOutput: AgentOutputActivity | null;
   lastUserDeliveredAt: number | null;
   liveMode: boolean;
+  needsAgentSelection: boolean;
   now: number;
   sessionError: string | null;
   sessionState: SessionState;
@@ -53,12 +54,16 @@ export function resolveTransportStatus({
 }
 
 export function resolveControlBarState(
-  source: Pick<PubViewSourceState, "agentOnline" | "audioMode" | "liveMode" | "sessionState"> & {
+  source: Pick<
+    PubViewSourceState,
+    "agentOnline" | "audioMode" | "liveMode" | "needsAgentSelection" | "sessionState"
+  > & {
     transportStatus: LiveTransportStatus;
   },
 ): LiveControlBarState {
   if (!source.liveMode) return "idle";
   if (source.agentOnline === false) return "offline";
+  if (source.needsAgentSelection) return "agent-selection";
   if (source.sessionState === "needs-takeover") return "needs-takeover";
   if (source.sessionState === "taken-over") return "taken-over";
   if (source.audioMode === "starting-recording") return "starting-recording";
@@ -108,6 +113,7 @@ export function derivePubViewState(source: PubViewSourceState): PubViewState {
     liveMode: source.liveMode,
     agentOnline: source.agentOnline,
     audioMode: source.audioMode,
+    needsAgentSelection: source.needsAgentSelection,
     sessionState: source.sessionState,
     transportStatus,
   });

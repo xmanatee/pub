@@ -183,6 +183,7 @@ export function usePubLiveModel({
 
   const effectiveContentState = canvasHtml ? "ready" : contentState;
   const hasCanvasContent = Boolean(canvasHtml);
+  const needsAgentSelection = availableAgents.length > 1 && selectedPresenceId === null;
   const viewState = derivePubViewState({
     agentOnline,
     audioMode: audio.machineMode,
@@ -193,6 +194,7 @@ export function usePubLiveModel({
     lastAgentOutput,
     lastUserDeliveredAt,
     liveMode,
+    needsAgentSelection,
     now,
     sessionError,
     sessionState,

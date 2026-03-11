@@ -7,6 +7,7 @@ import { ControlBar } from "./control-bar";
 const mockSession = {
   agentName: null as string | null,
   agentOnline: true,
+  availableAgents: [],
   audio: {
     barMode: "idle",
     machineMode: "idle",
@@ -41,6 +42,7 @@ const mockSession = {
   preview: null,
   retryConnection: vi.fn(),
   setControlBarCollapsed: vi.fn(),
+  setSelectedPresenceId: vi.fn(),
   setCanvasError: vi.fn(),
   setMicGranted: vi.fn(),
   setViewMode: vi.fn(),

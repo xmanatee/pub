@@ -11,6 +11,7 @@ import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-r
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { cn } from "~/lib/utils";
 import { ControlBarPrimitive } from "../architecture/control-bar-primitive";
+import { ControlBarAgentSelectionMode } from "./control-bar-agent-selection-mode";
 import { ControlBarBusyMode } from "./control-bar-busy-mode";
 import { CB } from "./control-bar-classes";
 import { ControlBarDisconnectedMode } from "./control-bar-disconnected-mode";
@@ -39,6 +40,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   const {
     agentName,
     audio,
+    availableAgents,
     connected,
     controlBarCollapsed,
     controlBarState,
@@ -49,6 +51,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     preview,
     retryConnection,
     setControlBarCollapsed,
+    setSelectedPresenceId,
     setViewMode,
     sendChat,
     sendFile,
@@ -120,7 +123,15 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   );
 
   let centerContent: ReactNode;
-  if (controlBarState === "offline") {
+  if (controlBarState === "agent-selection") {
+    centerContent = (
+      <ControlBarAgentSelectionMode
+        agents={availableAgents}
+        onExit={closeLive}
+        onSelect={setSelectedPresenceId}
+      />
+    );
+  } else if (controlBarState === "offline") {
     centerContent = <ControlBarOfflineMode onExit={closeLive} />;
   } else if (controlBarState === "disconnected") {
     centerContent = <ControlBarDisconnectedMode onExit={closeLive} onReconnect={retryConnection} />;

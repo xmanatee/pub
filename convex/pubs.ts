@@ -55,10 +55,8 @@ function pickTargetPresence(
   presences: Array<{ _id: Id<"agentPresence">; agentName?: string; lastHeartbeatAt: number }>,
   preferredPresenceId?: Id<"agentPresence">,
 ) {
-  if (preferredPresenceId) {
-    return presences.find((presence) => presence._id === preferredPresenceId) ?? null;
-  }
-  return presences[0] ?? null;
+  if (!preferredPresenceId) return null;
+  return presences.find((presence) => presence._id === preferredPresenceId) ?? null;
 }
 
 function mapPub(
@@ -418,7 +416,7 @@ export const requestLive = mutation({
     slug: v.string(),
     browserSessionId: v.string(),
     browserOffer: v.string(),
-    targetPresenceId: v.optional(v.id("agentPresence")),
+    targetPresenceId: v.id("agentPresence"),
   },
   handler: async (ctx, { slug, browserSessionId, browserOffer, targetPresenceId }) => {
     const userId = await getAuthUserId(ctx);

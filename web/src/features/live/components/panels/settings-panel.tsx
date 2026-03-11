@@ -1,4 +1,3 @@
-import type { Id } from "@backend/_generated/dataModel";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
@@ -7,7 +6,6 @@ import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 
 export function SettingsPanel() {
   const {
-    availableAgents,
     autoOpenCanvas,
     canUseDeveloperMode,
     clearFiles,
@@ -16,10 +14,8 @@ export function SettingsPanel() {
     files,
     hasCanvasContent,
     messages,
-    selectedPresenceId,
     setAutoOpenCanvas,
     setDeveloperModeEnabled,
-    setSelectedPresenceId,
     setVoiceModeEnabled,
     voiceModeEnabled,
   } = useLiveSession();
@@ -58,38 +54,6 @@ export function SettingsPanel() {
             </div>
             <Switch checked={voiceModeEnabled} onCheckedChange={setVoiceModeEnabled} disabled />
           </div>
-
-          {availableAgents.length > 1 && (
-            <>
-              <Separator />
-
-              <div className="space-y-2">
-                <div>
-                  <div className="text-sm font-medium">Target agent</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Switch the live session to a specific online agent.
-                  </div>
-                </div>
-                <select
-                  value={selectedPresenceId ?? ""}
-                  onChange={(event) =>
-                    setSelectedPresenceId(
-                      event.target.value.length > 0
-                        ? (event.target.value as Id<"agentPresence">)
-                        : null,
-                    )
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {availableAgents.map((agent) => (
-                    <option key={agent.presenceId} value={agent.presenceId}>
-                      {agent.agentName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
 
           {canUseDeveloperMode && (
             <>

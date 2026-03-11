@@ -83,7 +83,11 @@ export function useLiveSessionModel(slug: string) {
       (agent: { presenceId: Id<"agentPresence"> }) => agent.presenceId === selectedPresenceId,
     );
     if (stillAvailable) return;
-    setSelectedPresenceId(availableAgents[0]?.presenceId ?? null);
+    if (availableAgents.length === 1) {
+      setSelectedPresenceId(availableAgents[0].presenceId);
+    } else {
+      setSelectedPresenceId(null);
+    }
   }, [availableAgents, selectedPresenceId]);
 
   const sessionState: SessionState = useMemo(() => {
@@ -94,12 +98,13 @@ export function useLiveSessionModel(slug: string) {
 
   const storeBrowserOffer = useCallback(
     async (input: { slug: string; offer: string }) => {
+      if (!selectedPresenceId) throw new Error("No agent selected");
       try {
         const result = await requestLiveMutation({
           slug: input.slug,
           browserSessionId,
           browserOffer: input.offer,
-          targetPresenceId: selectedPresenceId ?? undefined,
+          targetPresenceId: selectedPresenceId,
         });
         setSessionError(null);
         return result;
