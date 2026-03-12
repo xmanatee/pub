@@ -1,13 +1,11 @@
 import { spawn } from "node:child_process";
 import type {
-  CommandAgentMode,
   CommandAgentProfile,
   CommandAgentProvider,
   CommandAgentSpec,
 } from "../../../../../shared/command-protocol-core.js";
 import type { BridgeSettings, ClaudeBridgeSettings } from "../../../core/config/index.js";
 import type { BridgeRunner } from "../shared.js";
-import { executeProcessCommand } from "../../command/executors/process.js";
 import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
 import { buildSdkSessionOptionsFromSettings } from "./claude-sdk/index.js";
 import { loadClaudeSdk } from "./claude-sdk/runtime.js";
@@ -98,26 +96,6 @@ function getClaudeCommandRuntime(bridgeSettings: BridgeSettings): {
     commandModelDefault: bridgeSettings.claudeCodeCommandModelDefault,
     commandModelFast: bridgeSettings.claudeCodeCommandModelFast,
     commandModelDeep: bridgeSettings.claudeCodeCommandModelDeep,
-  };
-}
-
-function getOpenClawCommandRuntime(bridgeSettings: BridgeSettings): {
-  bridgeCwd: string;
-  openclawPath: string;
-  sessionId: string;
-} {
-  const openclawPath = bridgeSettings.openclawPath?.trim();
-  const sessionId = bridgeSettings.sessionId?.trim();
-  if (!openclawPath || !sessionId) {
-    throw new Error(
-      "OpenClaw runtime is not configured for canvas agent commands. Set `openclaw.path` and `openclaw.sessionId`, or the matching environment variables.",
-    );
-  }
-
-  return {
-    openclawPath,
-    sessionId,
-    bridgeCwd: bridgeSettings.bridgeCwd,
   };
 }
 
@@ -382,24 +360,41 @@ async function executeDetachedClaudeSdkAgentCommand(params: {
   const outputText = await new Promise<string>((resolve, reject) => {
     let settled = false;
     let collected = "";
-    const finish = (fn: () => void) => {
+    const finish = (result: { ok: true; value: string } | { ok: false; error: unknown }) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       params.signal.removeEventListener("abort", onAbort);
       try {
         session.close();
-      } catch {
-        // ignore close failures during detached cleanup
+      } catch (closeError) {
+        if (!result.ok) {
+          reject(
+            new AggregateError(
+              [result.error, closeError],
+              "Detached Claude SDK agent command failed and session cleanup also failed.",
+            ),
+          );
+          return;
+        }
+        reject(closeError);
+        return;
       }
-      fn();
+      if (result.ok) {
+        resolve(result.value);
+        return;
+      }
+      reject(result.error);
     };
     const onAbort = () => {
-      finish(() => reject(new Error("Agent command was aborted.")));
+      finish({ ok: false, error: new Error("Agent command was aborted.") });
     };
     params.signal.addEventListener("abort", onAbort, { once: true });
     const timeout = setTimeout(() => {
-      finish(() => reject(new Error(`Agent command timed out after ${params.timeoutMs}ms`)));
+      finish({
+        ok: false,
+        error: new Error(`Agent command timed out after ${params.timeoutMs}ms`),
+      });
     }, params.timeoutMs);
 
     void (async () => {
@@ -425,47 +420,14 @@ async function executeDetachedClaudeSdkAgentCommand(params: {
             }
           }
         }
-        finish(() => resolve(collected.trim()));
+        finish({ ok: true, value: collected.trim() });
       } catch (error) {
-        finish(() => reject(error));
+        finish({ ok: false, error });
       }
     })();
   });
 
   return parseAgentOutput(outputText, params.output);
-}
-
-async function executeOpenClawAgentCommand(params: {
-  prompt: string;
-  timeoutMs: number;
-  output: "text" | "json";
-  maxOutputBytes: number;
-  signal: AbortSignal;
-  bridgeSettings: BridgeSettings;
-}): Promise<unknown> {
-  const runtime = getOpenClawCommandRuntime(params.bridgeSettings);
-  const invocationArgs = [
-    "agent",
-    "--local",
-    "--session-id",
-    runtime.sessionId,
-    "-m",
-    params.prompt,
-  ];
-  const command = runtime.openclawPath.endsWith(".js") ? process.execPath : runtime.openclawPath;
-  const args = runtime.openclawPath.endsWith(".js")
-    ? [runtime.openclawPath, ...invocationArgs]
-    : invocationArgs;
-  const result = await executeProcessCommand({
-    command,
-    args,
-    cwd: runtime.bridgeCwd,
-    timeoutMs: params.timeoutMs,
-    maxOutputBytes: params.maxOutputBytes,
-    signal: params.signal,
-  });
-
-  return parseAgentOutput(result.stdout.trim(), params.output);
 }
 
 export function resolveDetachedAgentCommand(params: {
