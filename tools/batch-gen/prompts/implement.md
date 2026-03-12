@@ -173,21 +173,19 @@ waitForPub();
 <quality_standards>
 This should feel like a finished product, not a prototype.
 
-- **Performance**: Smooth 60fps. Use `requestAnimationFrame` for render loops. Avoid layout thrashing. Debounce resize handlers.
-- **Responsive**: Works from 320px (phone) to 1920px (desktop). No horizontal scrollbars. Touch-friendly tap targets (min 44px).
-- **Accessible**: Sufficient color contrast (WCAG AA). Keyboard navigation where it makes sense. `prefers-reduced-motion` media query for heavy animations.
-- **Robust**: Graceful degradation if a browser API is unavailable (show a message, don't crash). Handle window resize mid-interaction. Handle command failures gracefully (show error in UI, don't crash).
-- **Clean code**: Modern ES2020+. CSS custom properties for colors and spacing. Semantic HTML. No comments unless the logic is genuinely non-obvious.
+- **Performance**: Smooth 60fps. `requestAnimationFrame` for render loops. Debounce resize handlers.
+- **Responsive**: Works from 320px to 1920px. No horizontal scrollbars. Touch-friendly tap targets (min 44px).
+- **Accessible**: Sufficient color contrast (WCAG AA). `prefers-reduced-motion` for heavy animations.
+- **Clean code**: Modern ES2020+. CSS custom properties. Semantic HTML. No comments.
 </quality_standards>
 
 <frontend_aesthetics>
 You tend to converge toward generic outputs. Fight this:
 
-- **Typography**: Use the fonts specified in the design doc. Never default to Inter, Roboto, Arial, or system fonts unless the design explicitly calls for them.
-- **Color**: Commit fully to the design doc's palette. Use CSS custom properties. Dominant colors with sharp accents beat timid, evenly-distributed palettes.
-- **Motion**: Staggered reveals on load (use `animation-delay`). Easing functions that feel physical (`cubic-bezier`), not linear. One polished entrance animation beats ten scattered hover effects.
-- **Backgrounds**: Create atmosphere. Layer gradients, use subtle patterns, or add contextual effects. No bare `#ffffff` or `#000000` backgrounds unless that's the intentional aesthetic.
-- **Details**: Hover states, focus rings, transitions on state changes. The gap between "works" and "feels great" is in these details.
+- Use the fonts from the design doc. Never default to Inter/Roboto/system fonts.
+- Commit fully to the design palette via CSS custom properties.
+- Use physical easing (`cubic-bezier`), not linear. One polished entrance animation beats ten scattered hover effects.
+- Create atmosphere with backgrounds — gradients, subtle patterns, or contextual effects.
 </frontend_aesthetics>
 
 <meta_json>

@@ -39,44 +39,31 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 
 const consoleLogs = [];
 page.on("console", (msg) => {
-  consoleLogs.push({
-    type: msg.type(),
-    text: msg.text(),
-    location: msg.location(),
-  });
+  consoleLogs.push({ type: msg.type(), text: msg.text(), location: msg.location() });
 });
 page.on("pageerror", (err) => {
-  consoleLogs.push({
-    type: "uncaught-error",
-    text: err.message,
-    stack: err.stack,
-  });
+  consoleLogs.push({ type: "uncaught-error", text: err.message, stack: err.stack });
 });
 
 await page.addInitScript((mockData) => {
   window.pub = {
-    commands: new Proxy(
-      {},
-      {
-        get(_target, prop) {
-          if (typeof prop !== "string") return undefined;
-          return async function () {
-            if (prop in mockData) {
-              const mock = mockData[prop];
-              if (mock.returns === "void") return null;
-              return mock.value;
-            }
-            console.warn(`[pub-mock] Unknown command: ${prop}`);
-            return null;
-          };
-        },
-      }
-    ),
+    commands: new Proxy({}, {
+      get(_target, prop) {
+        if (typeof prop !== "string") return undefined;
+        return async function () {
+          if (prop in mockData) {
+            const mock = mockData[prop];
+            return mock.returns === "void" ? null : mock.value;
+          }
+          console.warn(`[pub-mock] Unknown command: ${prop}`);
+          return null;
+        };
+      },
+    }),
     command: async function (name) {
       if (name in mockData) {
         const mock = mockData[name];
-        if (mock.returns === "void") return null;
-        return mock.value;
+        return mock.returns === "void" ? null : mock.value;
       }
       console.warn(`[pub-mock] Unknown command: ${name}`);
       return null;
@@ -85,10 +72,7 @@ await page.addInitScript((mockData) => {
 }, mocks);
 
 try {
-  await page.goto(`http://127.0.0.1:${port}`, {
-    waitUntil: "networkidle",
-    timeout: 30000,
-  });
+  await page.goto(`http://127.0.0.1:${port}`, { waitUntil: "networkidle", timeout: 30000 });
 } catch (e) {
   consoleLogs.push({ type: "navigation-error", text: e.message });
 }
@@ -97,44 +81,32 @@ await page.waitForTimeout(3000);
 await page.screenshot({ path: screenshotPath, fullPage: true });
 
 let buttonsClicked = 0;
-try {
-  const els = await page.$$(
-    "button:visible, [role='button']:visible, input[type='submit']:visible"
-  );
-  for (const el of els.slice(0, 5)) {
-    try {
-      await el.click({ timeout: 2000 });
-      buttonsClicked++;
-      await page.waitForTimeout(500);
-    } catch {}
+const els = await page.$$("button:visible, [role='button']:visible, input[type='submit']:visible");
+for (const el of els.slice(0, 5)) {
+  try {
+    await el.click({ timeout: 2000 });
+    buttonsClicked++;
+    await page.waitForTimeout(500);
+  } catch (e) {
+    consoleLogs.push({ type: "click-failed", text: e.message });
   }
-} catch {}
+}
 
 await page.waitForTimeout(1000);
 await page.screenshot({ path: screenshotAfterPath, fullPage: true });
 
 const errors = consoleLogs.filter(
-  (l) =>
-    l.type === "error" ||
-    l.type === "uncaught-error" ||
-    l.type === "navigation-error"
+  (l) => l.type === "error" || l.type === "uncaught-error" || l.type === "navigation-error"
 );
 
-writeFileSync(
-  reportPath,
-  JSON.stringify(
-    {
-      timestamp: new Date().toISOString(),
-      errors: errors.length,
-      warnings: consoleLogs.filter((l) => l.type === "warning").length,
-      totalLogs: consoleLogs.length,
-      buttonsClicked,
-      consoleLogs,
-    },
-    null,
-    2
-  )
-);
+writeFileSync(reportPath, JSON.stringify({
+  timestamp: new Date().toISOString(),
+  errors: errors.length,
+  warnings: consoleLogs.filter((l) => l.type === "warning").length,
+  totalLogs: consoleLogs.length,
+  buttonsClicked,
+  consoleLogs,
+}, null, 2));
 
 await browser.close();
 server.close();
@@ -144,7 +116,5 @@ if (errors.length > 0) {
   for (const e of errors) console.error(`  [${e.type}] ${e.text}`);
   process.exit(1);
 } else {
-  console.log(
-    `PASS: No errors (${consoleLogs.filter((l) => l.type === "warning").length} warnings, ${buttonsClicked} buttons clicked)`
-  );
+  console.log(`PASS: ${consoleLogs.filter((l) => l.type === "warning").length} warnings, ${buttonsClicked} buttons clicked`);
 }
