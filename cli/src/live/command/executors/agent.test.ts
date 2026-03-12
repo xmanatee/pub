@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveAgentCommandMode,
   resolveDetachedAgentCommand,
   resolveDetachedAgentModel,
   resolveMainAgentCommandProvider,
@@ -19,41 +18,6 @@ const baseBridgeSettings = {
 };
 
 describe("agent command executor helpers", () => {
-  it("uses legacy main mode for openclaw auto commands", () => {
-    expect(
-      resolveAgentCommandMode({
-        bridgeSettings: {
-          ...baseBridgeSettings,
-          mode: "openclaw",
-          openclawPath: "/usr/local/bin/openclaw",
-          sessionId: "session-1",
-        },
-        spec: {
-          kind: "agent",
-          prompt: "Explain",
-          provider: "auto",
-        },
-      }),
-    ).toBe("main");
-  });
-
-  it("uses detached mode explicitly when requested", () => {
-    expect(
-      resolveAgentCommandMode({
-        bridgeSettings: {
-          ...baseBridgeSettings,
-          mode: "claude-code",
-          claudeCodePath: "/usr/local/bin/claude",
-        },
-        spec: {
-          kind: "agent",
-          prompt: "Summarize",
-          mode: "detached",
-        },
-      }),
-    ).toBe("detached");
-  });
-
   it("resolves active bridge provider for main mode auto", () => {
     expect(
       resolveMainAgentCommandProvider({

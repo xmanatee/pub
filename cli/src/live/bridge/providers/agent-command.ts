@@ -14,7 +14,6 @@ import { loadClaudeSdk } from "./claude-sdk/runtime.js";
 
 export type AgentCommandProvider = Exclude<CommandAgentProvider, "auto">;
 export type DetachedAgentProvider = AgentCommandProvider;
-export type ResolvedAgentCommandMode = CommandAgentMode;
 
 function readClaudeAssistantOutput(line: string): string | null {
   if (!line.trim().startsWith("{")) return "";
@@ -150,16 +149,6 @@ function hasClaudeSdkCommandRuntime(bridgeSettings: BridgeSettings): boolean {
 
 function hasOpenClawCommandRuntime(bridgeSettings: BridgeSettings): boolean {
   return Boolean(bridgeSettings.openclawPath?.trim() && bridgeSettings.sessionId?.trim());
-}
-
-export function resolveAgentCommandMode(params: {
-  bridgeSettings: BridgeSettings;
-  spec: CommandAgentSpec;
-}): ResolvedAgentCommandMode {
-  if (params.spec.mode) return params.spec.mode;
-  if (params.spec.provider === "openclaw") return "main";
-  if (params.bridgeSettings.mode === "openclaw") return "main";
-  return "detached";
 }
 
 export function resolveMainAgentCommandProvider(params: {
@@ -516,12 +505,7 @@ export async function executeAgentCommand(params: {
   spec: CommandAgentSpec;
   getBridgeRunner?: () => BridgeRunner | null;
 }): Promise<unknown> {
-  const mode = resolveAgentCommandMode({
-    bridgeSettings: params.bridgeSettings,
-    spec: params.spec,
-  });
-
-  if (mode === "main") {
+  if (params.spec.mode === "main") {
     validateMainModeAgentSpec(params.spec);
     const provider = resolveMainAgentCommandProvider({
       bridgeSettings: params.bridgeSettings,

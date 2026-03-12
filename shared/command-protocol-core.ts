@@ -39,7 +39,7 @@ export interface CommandAgentSpec {
   kind: "agent";
   prompt: string;
   provider?: CommandAgentProvider;
-  mode?: CommandAgentMode;
+  mode: CommandAgentMode;
   profile?: CommandAgentProfile;
   model?: string;
   timeoutMs?: number;
@@ -161,6 +161,7 @@ function parseExecutor(input: unknown): CommandExecutorSpec | undefined {
     if (!prompt) return undefined;
     const provider = readAgentProvider(readString(record.provider));
     const mode = readAgentMode(readString(record.mode));
+    if (!mode) return undefined;
     const profile = readAgentProfile(readString(record.profile));
     const outputRaw = readString(record.output);
     const output = outputRaw === "json" || outputRaw === "text" ? outputRaw : undefined;

@@ -73,6 +73,22 @@ describe("command-protocol-core", () => {
     });
   });
 
+  it("rejects agent executors without explicit mode", () => {
+    const [fn] = parseCommandFunctionList([
+      {
+        name: "summarize",
+        returns: "text",
+        executor: {
+          kind: "agent",
+          prompt: "Summarize",
+          output: "text",
+        },
+      },
+    ]);
+
+    expect(fn?.executor).toBeUndefined();
+  });
+
   it("caps parsed function list to manifest max", () => {
     const manyFunctions = Array.from(
       { length: COMMAND_MANIFEST_MAX_FUNCTIONS + 10 },
