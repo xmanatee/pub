@@ -103,6 +103,7 @@ export function createSignalingController(params: SignalingControllerParams): Si
     setLastBrowserCandidateCount(decision.nextBrowserCandidateCount);
 
     if (decision.type === "recover") {
+      debugLog(`[profile] signaling: new browserOffer for "${decision.slug}"`);
       await onRecover(decision.slug, decision.browserOffer);
       return;
     }

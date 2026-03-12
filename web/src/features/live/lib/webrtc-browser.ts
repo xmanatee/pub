@@ -84,6 +84,7 @@ export class BrowserBridge {
   private remoteDescriptionSet = false;
   private offerSent = false;
   private liveReady = false;
+  private onProfileMark: ((label: string) => void) | null = null;
 
   markOfferSent(): void {
     this.offerSent = true;
@@ -111,6 +112,10 @@ export class BrowserBridge {
 
   setOnDeliveryReceipt(handler: DeliveryReceiptHandler): void {
     this.onDeliveryReceipt = handler;
+  }
+
+  setOnProfileMark(handler: (label: string) => void): void {
+    this.onProfileMark = handler;
   }
 
   getIceCandidates(): string[] {
@@ -174,6 +179,7 @@ export class BrowserBridge {
       if (!this.pc) return;
       const iceState = this.pc.iceConnectionState;
       if (iceState === "connected" || iceState === "completed") {
+        this.onProfileMark?.(`ice-${iceState}`);
         this.setState("connected");
       } else if (iceState === "disconnected") {
         this.setState("disconnected");
@@ -277,6 +283,7 @@ export class BrowserBridge {
     this.channels.set(dc.label, dc);
 
     dc.onopen = () => {
+      this.onProfileMark?.(`dc-open:${dc.label}`);
       if (dc.label === CONTROL_CHANNEL) {
         const caps = makeEventMessage("capabilities", {
           caps: ["text", "html", "audio", "video", "binary", "stream", "command"],
@@ -425,6 +432,7 @@ export class BrowserBridge {
   private setLiveReady(ready: boolean): void {
     if (this.liveReady === ready) return;
     this.liveReady = ready;
+    if (ready) this.onProfileMark?.("live-ready");
     this.onLiveReadyChange?.(ready);
   }
 
