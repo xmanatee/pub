@@ -176,7 +176,7 @@ export async function createClaudeSdkBridgeRunner(
       }
 
       const newSession = createSession();
-      await sendAndStream(newSession, sessionBriefing);
+      await sendAndStream(newSession, sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
       return await sendAndStream(newSession, prompt);
     }
   }
