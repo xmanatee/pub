@@ -26,3 +26,6 @@ TODO.md
 .claude/settings.local.json
 .claude/do-tasks/
 .env*.local
+
+# Batch generator output
+tools/batch-gen/output/
