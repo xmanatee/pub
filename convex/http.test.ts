@@ -146,6 +146,10 @@ describe("mapLiveError", () => {
       message: "Live assigned to another agent",
       status: 409,
     });
+    expect(mapLiveError(new Error("Agent went offline"))).toEqual({
+      message: "Agent went offline",
+      status: 409,
+    });
   });
 
   it("returns null for unknown failures", () => {

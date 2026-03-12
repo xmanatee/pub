@@ -45,14 +45,7 @@ export function liveConflictsWithRequest<TPresenceId extends string>(
   live: { slug: string; targetPresenceId?: TPresenceId },
   request: { slug: string; targetPresenceId: TPresenceId },
 ) {
-  // TODO(2026-03-13): Remove the untargeted-live cleanup after Friday, March 13, 2026.
-  // Rows without a targetPresenceId are ambiguous, so replace them
-  // when creating a new targeted live rather than letting them linger.
-  return (
-    live.slug === request.slug ||
-    live.targetPresenceId === request.targetPresenceId ||
-    live.targetPresenceId === undefined
-  );
+  return live.slug === request.slug || live.targetPresenceId === request.targetPresenceId;
 }
 
 async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slug: string) {
@@ -666,10 +659,9 @@ export const storeAgentAnswer = internalMutation({
     if (!live.targetPresenceId) throw new Error("Live assigned to another agent");
 
     const targetPresence = await ctx.db.get(live.targetPresenceId);
+    if (!targetPresence) throw new Error("Agent went offline");
     const isAssignedAgent =
-      !!targetPresence &&
-      targetPresence.apiKeyId === apiKeyId &&
-      targetPresence.daemonSessionId === daemonSessionId;
+      targetPresence.apiKeyId === apiKeyId && targetPresence.daemonSessionId === daemonSessionId;
     if (!isAssignedAgent) throw new Error("Live assigned to another agent");
 
     const patch: Record<string, unknown> = {};
