@@ -4,6 +4,7 @@ set -euo pipefail
 unset CLAUDECODE
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCKFILE="$SCRIPT_DIR/.run.lock"
 OUTPUT_DIR="$SCRIPT_DIR/output"
 PROMPTS_DIR="$SCRIPT_DIR/prompts"
 STATE_FILE="$OUTPUT_DIR/state.json"
@@ -19,11 +20,15 @@ OK='✓' FAIL='✗' WARN='⚠' DOT='·' ARROW='→'
 # --- Argument parsing ---
 
 PHASE="all"
+COUNT=50
+MODEL="sonnet"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase) PHASE="$2"; shift 2 ;;
+    --count) COUNT="$2"; shift 2 ;;
+    --model) MODEL="$2"; shift 2 ;;
     --status) PHASE="status"; shift ;;
-    *) echo "Usage: $0 [--phase 1|2|3|4|5|all] [--status]"; exit 1 ;;
+    *) echo "Usage: $0 [--phase 1|2|3|all] [--count N] [--model MODEL] [--status]"; exit 1 ;;
   esac
 done
 
@@ -127,11 +132,36 @@ build_prompt() {
 }
 
 ensure_playwright() {
-  if ! node -e "require('playwright')" 2>/dev/null; then
+  if ! (cd "$SCRIPT_DIR" && node -e "require('playwright')" 2>/dev/null); then
     log "Installing playwright..."
-    (cd "$SCRIPT_DIR" && npm install --no-save playwright 2>&1)
-    npx playwright install chromium 2>&1
+    (cd "$SCRIPT_DIR" && npm install 2>&1)
+    (cd "$SCRIPT_DIR" && npx playwright install chromium 2>&1)
   fi
+}
+
+# Publish a single idea. Tries create first, falls back to update if slug exists.
+publish_one() {
+  local id="$1"
+  local meta_file="$PUBS_DIR/$id/meta.json"
+  local html_file="$PUBS_DIR/$id/index.html"
+
+  if [[ ! -f "$meta_file" || ! -f "$html_file" ]]; then log_warn "missing files, skip publish"; return 1; fi
+
+  local slug title
+  slug=$(jq -r .slug "$meta_file")
+  title=$(jq -r .title "$meta_file")
+  if [[ -z "$slug" || "$slug" == "null" ]]; then log_warn "no slug, skip publish"; return 1; fi
+
+  if pub create --slug "$slug" --title "$title" "$html_file" 2>/dev/null; then
+    log_ok "published ${slug}"
+  elif pub update "$slug" --file "$html_file" 2>/dev/null; then
+    log_ok "updated ${slug} (already existed)"
+  else
+    log_fail "publish failed (${slug})"
+    return 1
+  fi
+  sleep 6  # rate limit
+  return 0
 }
 
 # --- Status ---
@@ -149,32 +179,26 @@ show_status() {
     return
   fi
 
-  local p2_done p3_done p4_done p5_done
-  p2_done=$(count_past_phase "implemented|testing|tested|reviewing|reviewed|publishing|published")
-  p3_done=$(count_past_phase "tested|reviewing|reviewed|publishing|published")
-  p4_done=$(count_past_phase "reviewed|publishing|published")
-  p5_done=$(count_past_phase "published")
+  local p2_done p3_done
+  p2_done=$(count_past_phase "published|testing|tested|reviewing|reviewed")
+  p3_done=$(count_past_phase "reviewed")
 
   printf "  ${BOLD}%-22s${RST}" "Phase 1 — Ideation"
   printf "  ${G}${OK} %s ideas${RST}\n" "$total"
-  printf "  ${BOLD}%-22s${RST}  " "Phase 2 — Build"
+  printf "  ${BOLD}%-22s${RST}  " "Phase 2 — Build+Pub"
   progress_bar "$p2_done" "$total"; echo
-  printf "  ${BOLD}%-22s${RST}  " "Phase 3 — Test"
+  printf "  ${BOLD}%-22s${RST}  " "Phase 3 — Test+Review"
   progress_bar "$p3_done" "$total"; echo
-  printf "  ${BOLD}%-22s${RST}  " "Phase 4 — Review"
-  progress_bar "$p4_done" "$total"; echo
-  printf "  ${BOLD}%-22s${RST}  " "Phase 5 — Publish"
-  progress_bar "$p5_done" "$total"; echo
 
   printf "\n  ${DIM}─── breakdown ───${RST}\n"
-  for p in pending designing designed implementing implemented testing tested reviewing reviewed publishing published; do
+  for p in pending designing designed implementing implemented publishing published testing tested reviewing reviewed; do
     local c
     c=$(count_in_phase "$p")
     if [[ "$c" -gt 0 ]]; then
       local color="$DIM"
       case "$p" in
         designing|implementing|testing|reviewing|publishing) color="$Y" ;;
-        published) color="$G" ;;
+        reviewed) color="$G" ;;
       esac
       printf "  ${color}%-14s %3s${RST}\n" "$p" "$c"
     fi
@@ -189,10 +213,16 @@ run_phase1() {
   phase_header 1 "Ideation"
   ensure_dirs
 
-  log "Launching Claude to generate ideas..."
+  log "Launching Claude to generate ${BOLD}${COUNT}${RST} ideas..."
 
-  (cd "$OUTPUT_DIR" && claude -p "$(cat "$PROMPTS_DIR/ideation.md")" \
-    --dangerously-skip-permissions \
+  local count_file; count_file=$(mktemp)
+  printf '%s' "$COUNT" > "$count_file"
+  local prompt
+  prompt=$(build_prompt "$PROMPTS_DIR/ideation.md" "{{IDEA_COUNT}}" "$count_file")
+  rm -f "$count_file"
+
+  (cd "$OUTPUT_DIR" && claude -p "$prompt" \
+    --model "$MODEL" --dangerously-skip-permissions \
     > "$LOGS_DIR/phase1-ideation.log" 2>&1) || true
 
   local ideas='[]'
@@ -209,14 +239,14 @@ run_phase1() {
   phase_done 1 "Ideation" "$t_start"
 }
 
-# --- Phase 2: Design + Implement ---
+# --- Phase 2: Design + Implement + Publish (per idea) ---
 
 run_phase2() {
   local t_start; t_start=$(date +%s)
-  phase_header 2 "Design + Implement"
+  phase_header 2 "Build + Publish"
   ensure_dirs
 
-  local ids; ids=$(ids_in_phases "pending|designing|designed|implementing")
+  local ids; ids=$(ids_in_phases "pending|designing|designed|implementing|implemented|publishing")
   local total done_count=0
   total=$(echo "$ids" | grep -c . || true)
 
@@ -227,6 +257,7 @@ run_phase2() {
     done_count=$((done_count + 1))
     local phase; phase=$(get_phase "$id")
 
+    # --- Design ---
     if [[ "$phase" == "pending" || "$phase" == "designing" ]]; then
       local t_item; t_item=$(date +%s)
       item_progress "$done_count" "$total" "designing" "$id"
@@ -237,7 +268,7 @@ run_phase2() {
       set_phase "$id" "designing"
       (cd "$PUBS_DIR/$id" && claude -p \
         "$(build_prompt "$PROMPTS_DIR/design.md" "{{IDEA_CONTENT}}" "$idea_file")" \
-        --dangerously-skip-permissions \
+        --model "$MODEL" --dangerously-skip-permissions \
         > "$LOGS_DIR/phase2-design-$id.log" 2>&1) || true
 
       if [[ -f "$PUBS_DIR/$id/design.md" ]]; then
@@ -248,6 +279,7 @@ run_phase2() {
       fi
     fi
 
+    # --- Implement ---
     if [[ "$phase" == "designed" || "$phase" == "implementing" ]]; then
       local t_item; t_item=$(date +%s)
       item_progress "$done_count" "$total" "implementing" "$id"
@@ -258,174 +290,164 @@ run_phase2() {
       set_phase "$id" "implementing"
       (cd "$PUBS_DIR/$id" && claude -p \
         "$(build_prompt "$PROMPTS_DIR/implement.md" "{{DESIGN_CONTENT}}" "$design_file")" \
-        --dangerously-skip-permissions \
+        --model "$MODEL" --dangerously-skip-permissions \
         > "$LOGS_DIR/phase2-impl-$id.log" 2>&1) || true
 
       if [[ -f "$PUBS_DIR/$id/index.html" && -f "$PUBS_DIR/$id/meta.json" ]]; then
-        set_phase "$id" "implemented"
+        set_phase "$id" "implemented"; phase="implemented"
         log_ok "implement ${DIM}$(elapsed "$t_item")${RST}"
       else
-        log_fail "index.html or meta.json not created"
+        log_fail "index.html or meta.json not created"; continue
+      fi
+    fi
+
+    # --- Publish ---
+    if [[ "$phase" == "implemented" || "$phase" == "publishing" ]]; then
+      item_progress "$done_count" "$total" "publishing" "$id"
+      set_phase "$id" "publishing"
+
+      if publish_one "$id"; then
+        set_phase "$id" "published"
+      else
+        set_phase "$id" "implemented"  # revert so it can be retried
       fi
     fi
   done
 
-  phase_done 2 "Design + Implement" "$t_start"
+  phase_done 2 "Build + Publish" "$t_start"
 }
 
-# --- Phase 3: Test ---
+# --- Phase 3: Test + Review + Update (per idea) ---
 
 run_phase3() {
   local t_start; t_start=$(date +%s)
-  phase_header 3 "Test"
+  phase_header 3 "Test + Review"
   ensure_dirs
   ensure_playwright
 
-  local ids; ids=$(ids_in_phases "implemented|testing")
+  local ids; ids=$(ids_in_phases "published|testing|tested|reviewing")
   local total done_count=0
   total=$(echo "$ids" | grep -c . || true)
 
-  if [[ "$total" -eq 0 ]]; then log "Nothing to test"; return; fi
-  log "Testing ${BOLD}${total}${RST} ideas"
+  if [[ "$total" -eq 0 ]]; then log "Nothing to do"; return; fi
+  log "Processing ${BOLD}${total}${RST} ideas"
 
   local mock_prompt; mock_prompt=$(cat "$PROMPTS_DIR/mock-gen.md")
-
-  for id in $ids; do
-    done_count=$((done_count + 1))
-    local t_item; t_item=$(date +%s)
-    item_progress "$done_count" "$total" "testing" "$id"
-
-    if [[ ! -f "$PUBS_DIR/$id/index.html" ]]; then log_warn "index.html missing, skip"; continue; fi
-
-    set_phase "$id" "testing"
-
-    log "  ${DIM}generating mocks...${RST}"
-    (cd "$PUBS_DIR/$id" && claude -p "$mock_prompt" \
-      --dangerously-skip-permissions \
-      > "$LOGS_DIR/phase3-mock-$id.log" 2>&1) || true
-
-    log "  ${DIM}browser test...${RST}"
-    local test_exit=0
-    node "$SCRIPT_DIR/test-runner.mjs" "$PUBS_DIR/$id" \
-      > "$LOGS_DIR/phase3-test-$id.log" 2>&1 || test_exit=$?
-
-    set_phase "$id" "tested"
-
-    if [[ "$test_exit" -eq 0 ]]; then
-      log_ok "pass ${DIM}$(elapsed "$t_item")${RST}"
-    else
-      local errors=0
-      if [[ -f "$PUBS_DIR/$id/test-report.json" ]]; then
-        errors=$(jq '.errors' "$PUBS_DIR/$id/test-report.json" 2>/dev/null || echo 0)
-      fi
-      log_warn "done with ${R}${errors} error(s)${RST} ${DIM}$(elapsed "$t_item")${RST}"
-    fi
-  done
-
-  phase_done 3 "Test" "$t_start"
-}
-
-# --- Phase 4: Review ---
-
-run_phase4() {
-  local t_start; t_start=$(date +%s)
-  phase_header 4 "Review"
-  ensure_dirs
-
-  local ids; ids=$(ids_in_phases "tested|reviewing")
-  local total done_count=0
-  total=$(echo "$ids" | grep -c . || true)
-
-  if [[ "$total" -eq 0 ]]; then log "Nothing to review"; return; fi
-  log "Reviewing ${BOLD}${total}${RST} ideas"
-
   local review_prompt; review_prompt=$(cat "$PROMPTS_DIR/review.md")
 
   for id in $ids; do
     done_count=$((done_count + 1))
-    local t_item; t_item=$(date +%s)
-    item_progress "$done_count" "$total" "reviewing" "$id"
+    local phase; phase=$(get_phase "$id")
 
-    if [[ ! -f "$PUBS_DIR/$id/index.html" || ! -f "$PUBS_DIR/$id/design.md" ]]; then
-      log_warn "missing files, skip"; continue
+    # --- Test ---
+    if [[ "$phase" == "published" || "$phase" == "testing" ]]; then
+      local t_item; t_item=$(date +%s)
+      item_progress "$done_count" "$total" "testing" "$id"
+
+      if [[ ! -f "$PUBS_DIR/$id/index.html" ]]; then log_warn "index.html missing, skip"; continue; fi
+
+      set_phase "$id" "testing"
+
+      log "  ${DIM}generating mocks...${RST}"
+      (cd "$PUBS_DIR/$id" && claude -p "$mock_prompt" \
+        --model "$MODEL" --dangerously-skip-permissions \
+        > "$LOGS_DIR/phase3-mock-$id.log" 2>&1) || true
+
+      log "  ${DIM}browser test...${RST}"
+      local test_exit=0
+      node "$SCRIPT_DIR/test-runner.mjs" "$PUBS_DIR/$id" \
+        > "$LOGS_DIR/phase3-test-$id.log" 2>&1 || test_exit=$?
+
+      set_phase "$id" "tested"; phase="tested"
+
+      if [[ "$test_exit" -eq 0 ]]; then
+        log_ok "test pass ${DIM}$(elapsed "$t_item")${RST}"
+      else
+        local errors=0
+        if [[ -f "$PUBS_DIR/$id/test-report.json" ]]; then
+          errors=$(jq '.errors' "$PUBS_DIR/$id/test-report.json" 2>/dev/null || echo 0)
+        fi
+        log_warn "test done with ${R}${errors} error(s)${RST} ${DIM}$(elapsed "$t_item")${RST}"
+      fi
     fi
 
-    set_phase "$id" "reviewing"
+    # --- Review ---
+    if [[ "$phase" == "tested" || "$phase" == "reviewing" ]]; then
+      local t_item; t_item=$(date +%s)
+      item_progress "$done_count" "$total" "reviewing" "$id"
 
-    (cd "$PUBS_DIR/$id" && claude -p "$review_prompt" \
-      --dangerously-skip-permissions \
-      > "$LOGS_DIR/phase4-$id.log" 2>&1) || true
+      if [[ ! -f "$PUBS_DIR/$id/index.html" || ! -f "$PUBS_DIR/$id/design.md" ]]; then
+        log_warn "missing files, skip review"; set_phase "$id" "reviewed"; continue
+      fi
 
-    set_phase "$id" "reviewed"
-    log_ok "reviewed ${DIM}$(elapsed "$t_item")${RST}"
-  done
+      set_phase "$id" "reviewing"
 
-  phase_done 4 "Review" "$t_start"
-}
+      local hash_before
+      hash_before=$(md5 -q "$PUBS_DIR/$id/index.html" 2>/dev/null || md5sum "$PUBS_DIR/$id/index.html" | cut -d' ' -f1)
 
-# --- Phase 5: Publish ---
+      (cd "$PUBS_DIR/$id" && claude -p "$review_prompt" \
+        --model "$MODEL" --dangerously-skip-permissions \
+        > "$LOGS_DIR/phase3-review-$id.log" 2>&1) || true
 
-run_phase5() {
-  local t_start; t_start=$(date +%s)
-  phase_header 5 "Publish"
+      local hash_after
+      hash_after=$(md5 -q "$PUBS_DIR/$id/index.html" 2>/dev/null || md5sum "$PUBS_DIR/$id/index.html" | cut -d' ' -f1)
 
-  local ids; ids=$(ids_in_phases "reviewed|publishing")
-  local total done_count=0
-  total=$(echo "$ids" | grep -c . || true)
+      if [[ "$hash_before" != "$hash_after" ]]; then
+        local slug
+        slug=$(jq -r .slug "$PUBS_DIR/$id/meta.json" 2>/dev/null)
+        if [[ -n "$slug" && "$slug" != "null" ]]; then
+          if pub update "$slug" --file "$PUBS_DIR/$id/index.html" 2>/dev/null; then
+            log_ok "reviewed + updated ${DIM}$(elapsed "$t_item")${RST}"
+          else
+            log_warn "reviewed but update failed ${DIM}$(elapsed "$t_item")${RST}"
+          fi
+          sleep 6  # rate limit
+        else
+          log_ok "reviewed (changed, no slug) ${DIM}$(elapsed "$t_item")${RST}"
+        fi
+      else
+        log_ok "reviewed (no changes) ${DIM}$(elapsed "$t_item")${RST}"
+      fi
 
-  if [[ "$total" -eq 0 ]]; then log "Nothing to publish"; return; fi
-  log "Publishing ${BOLD}${total}${RST} ideas"
-
-  for id in $ids; do
-    done_count=$((done_count + 1))
-    item_progress "$done_count" "$total" "publishing" "$id"
-
-    local meta_file="$PUBS_DIR/$id/meta.json"
-    local html_file="$PUBS_DIR/$id/index.html"
-
-    if [[ ! -f "$meta_file" || ! -f "$html_file" ]]; then log_warn "missing files, skip"; continue; fi
-
-    local slug title
-    slug=$(jq -r .slug "$meta_file")
-    title=$(jq -r .title "$meta_file")
-    if [[ -z "$slug" || "$slug" == "null" ]]; then log_warn "no slug, skip"; continue; fi
-
-    set_phase "$id" "publishing"
-
-    if pub create --slug "$slug" --title "$title" "$html_file" 2>/dev/null; then
-      pub update "$slug" --public 2>/dev/null || true
-      set_phase "$id" "published"
-      log_ok "${slug}"
-    else
-      log_fail "publish failed (${slug})"
+      set_phase "$id" "reviewed"
     fi
   done
 
-  phase_done 5 "Publish" "$t_start"
+  phase_done 3 "Test + Review" "$t_start"
 }
 
 # --- Main ---
 
 ensure_dirs
 
+# Status bypasses lock
+if [[ "$PHASE" == "status" ]]; then show_status; exit 0; fi
+
+# Lockfile — prevent concurrent runs
+if [[ -f "$LOCKFILE" ]]; then
+  local_pid=$(cat "$LOCKFILE" 2>/dev/null)
+  if kill -0 "$local_pid" 2>/dev/null; then
+    printf "${R}${FAIL}${RST} Already running (pid %s). Use --status to check progress.\n" "$local_pid"
+    exit 1
+  fi
+  rm -f "$LOCKFILE"
+fi
+echo $$ > "$LOCKFILE"
+trap 'rm -f "$LOCKFILE"' EXIT
+
 PIPELINE_START=$(date +%s)
 
 case "$PHASE" in
-  status) show_status; exit 0 ;;
   1) run_phase1 ;;
   2) run_phase2 ;;
   3) run_phase3 ;;
-  4) run_phase4 ;;
-  5) run_phase5 ;;
   all)
     run_phase1
     run_phase2
     run_phase3
-    run_phase4
-    run_phase5
     ;;
   *)
-    echo "Invalid phase: $PHASE (use 1, 2, 3, 4, 5, all, or --status)"
+    echo "Invalid phase: $PHASE (use 1, 2, 3, all, or --status)"
     exit 1
     ;;
 esac

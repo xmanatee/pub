@@ -55,7 +55,9 @@ Here is a (non-exhaustive) list of CLI tools available. Use any of these, combin
 </context>
 
 <task>
-Generate 100 ideas. For each one, create the file `output/pubs/NNN-short-name/idea.md` where `NNN` is zero-padded (001–100) and `short-name` is descriptive kebab-case.
+Generate {{IDEA_COUNT}} ideas. For each one, create the file `output/pubs/NNN-short-name/idea.md` where `NNN` is zero-padded and `short-name` is descriptive kebab-case.
+
+**Order ideas from most creative and exciting to most conventional.** Put the wildest, most visually striking, most "I need to try this" ideas first. Frontload the ideas that would make someone stop scrolling.
 
 Each `idea.md` should be 2–3 paragraphs covering:
 - What the user sees and experiences the moment they open the page
