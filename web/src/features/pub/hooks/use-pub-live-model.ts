@@ -202,8 +202,11 @@ export function usePubLiveModel({
   useEffect(() => {
     const previous = lastCanvasScopeRef.current;
     if (previous.slug === slug && previous.html === canvasHtml) return;
+    const hadPriorCanvas = previous.html !== null;
     lastCanvasScopeRef.current = { slug, html: canvasHtml };
-    setCanvasScopeVersion((current) => current + 1);
+    if (hadPriorCanvas) {
+      setCanvasScopeVersion((current) => current + 1);
+    }
   }, [canvasHtml, slug]);
 
   const effectiveContentState = canvasHtml ? "ready" : contentState;
