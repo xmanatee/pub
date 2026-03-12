@@ -36,6 +36,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.4.3
         version: 2.4.3
+      '@playwright/test':
+        specifier: ^1.58.2
+        version: 1.58.2
       knip:
         specifier: ^5.85.0
         version: 5.85.0(@types/node@22.19.11)(typescript@5.9.3)

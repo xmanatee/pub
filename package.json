@@ -12,9 +12,11 @@
     "test": "vitest run && pnpm --filter pub-web test",
     "test:watch": "pnpm --filter pub-web test:watch",
     "test:e2e": "pnpm --filter pub-web test:e2e",
-    "lint": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills web && pnpm --filter pub-web lint",
-    "lint:fix": "biome check --fix AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills web",
-    "format": "biome format --write AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills web",
+    "test:e2e:fullstack": "docker compose -f tests/e2e/docker-compose.yml up --build --abort-on-container-exit --exit-code-from test-runner",
+    "test:e2e:local": "bash scripts/e2e-local.sh",
+    "lint": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills tests scripts web && pnpm --filter pub-web lint",
+    "lint:fix": "biome check --fix AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills tests scripts web",
+    "format": "biome format --write AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills tests scripts web",
     "knip": "knip",
     "check": "pnpm build && pnpm lint && pnpm test && pnpm knip"
   },
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
+    "@playwright/test": "^1.58.2",
     "knip": "^5.85.0",
     "typescript": "^5.7.2",
     "vitest": "^3.0.0"
