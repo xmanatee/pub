@@ -33,6 +33,7 @@ export {
 export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
 
 const MAX_SESSION_RECREATIONS = 2;
+const SESSION_BRIEFING_MAX_TURNS = 3;
 
 function readClaudeSdkAssistantOutput(message: unknown): string {
   if (!message || typeof message !== "object") return "";
@@ -113,10 +114,22 @@ export async function createClaudeSdkBridgeRunner(
     return session;
   }
 
-  async function consumeStream(session: SdkSession): Promise<string> {
+  async function consumeStream(
+    session: SdkSession,
+    opts?: { maxTurns?: number },
+  ): Promise<string> {
     let collected = "";
+    let turnCount = 0;
+    const maxTurns = opts?.maxTurns;
     for await (const msg of session.stream()) {
       if (stopped) break;
+      if (maxTurns !== undefined && msg.type === "assistant") {
+        turnCount += 1;
+        if (turnCount > maxTurns) {
+          debugLog(`max turns reached (${maxTurns}), stopping stream`);
+          break;
+        }
+      }
       const text = readClaudeSdkAssistantOutput(msg);
       if (text.length > 0) {
         collected += text;
@@ -134,9 +147,13 @@ export async function createClaudeSdkBridgeRunner(
     return collected.trim();
   }
 
-  async function sendAndStream(session: SdkSession, prompt: string): Promise<string> {
+  async function sendAndStream(
+    session: SdkSession,
+    prompt: string,
+    opts?: { maxTurns?: number },
+  ): Promise<string> {
     await session.send(prompt);
-    return await consumeStream(session);
+    return await consumeStream(session, opts);
   }
 
   async function deliverWithRecovery(prompt: string): Promise<string> {
@@ -177,7 +194,7 @@ export async function createClaudeSdkBridgeRunner(
     return await queueSessionTask(async () => await deliverWithRecovery(prompt));
   }
 
-  await sendAndStream(createSession(), sessionBriefing);
+  await sendAndStream(createSession(), sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {

@@ -126,7 +126,9 @@ export function buildSessionBriefing(
   if (ctx.isPublic !== undefined)
     lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
   if (ctx.canvasContentFilePath) {
-    lines.push(`- The canvas contents are in <${ctx.canvasContentFilePath}> file.`);
+    lines.push(
+      `- The canvas contents are in <${ctx.canvasContentFilePath}>. This file can be large — prefer reading specific sections over the full file.`,
+    );
   } else {
     lines.push("- Canvas is currently empty.");
   }

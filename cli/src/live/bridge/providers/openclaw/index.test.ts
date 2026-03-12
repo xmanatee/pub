@@ -319,7 +319,7 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("Title: My Landing Page");
     expect(briefing).toContain("Visibility: public");
     expect(briefing).toContain(
-      "The canvas contents are in </tmp/my-demo.session-content.html> file.",
+      "The canvas contents are in </tmp/my-demo.session-content.html>. This file can be large",
     );
     expect(briefing).toContain("## How to respond");
     expect(briefing).toContain(openclawInstructions.replyHint);
