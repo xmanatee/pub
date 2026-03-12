@@ -10,6 +10,7 @@ import {
   MAX_CONTENT_SIZE,
   MAX_KEY_NAME_LENGTH,
   MAX_PUBS,
+  MAX_PUBS_SUBSCRIBED,
   MAX_TITLE_LENGTH,
   SLUG_PATTERN,
   truncate,
@@ -159,6 +160,7 @@ describe("constants", () => {
     expect(MAX_TITLE_LENGTH).toBe(256);
     expect(MAX_KEY_NAME_LENGTH).toBe(128);
     expect(MAX_PUBS).toBe(10);
+    expect(MAX_PUBS_SUBSCRIBED).toBe(200);
   });
 
   it("SLUG_PATTERN matches valid patterns", () => {

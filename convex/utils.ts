@@ -2,6 +2,7 @@ export const MAX_CONTENT_SIZE = 300 * 1024; // 300KB
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
+export const MAX_PUBS_SUBSCRIBED = 200;
 
 export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
