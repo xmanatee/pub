@@ -34,25 +34,3 @@ export async function injectAuth(page: Page, user: TestUser): Promise<void> {
     { jwtKey: JWT_KEY, refreshKey: REFRESH_TOKEN_KEY, token: user.refreshToken },
   );
 }
-
-/**
- * Clear auth tokens from localStorage.
- */
-export async function clearAuth(page: Page): Promise<void> {
-  await page.evaluate(
-    ({ refreshKey, jwtKey }) => {
-      localStorage.removeItem(refreshKey);
-      localStorage.removeItem(jwtKey);
-    },
-    { refreshKey: REFRESH_TOKEN_KEY, jwtKey: JWT_KEY },
-  );
-}
-
-/**
- * Check if the page is authenticated (has the auth refresh token).
- */
-export async function isAuthenticated(page: Page): Promise<boolean> {
-  return page.evaluate((key) => {
-    return localStorage.getItem(key) !== null;
-  }, REFRESH_TOKEN_KEY);
-}

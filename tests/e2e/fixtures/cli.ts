@@ -134,23 +134,19 @@ export class CliFixture {
     }
   }
 
-  /** Wait for daemon status to show a specific connection state. */
-  async waitForStatus(
-    expectedField: "connected" | "signalingConnected",
-    timeoutMs = 15_000,
-  ): Promise<void> {
+  /** Wait for daemon status to contain a specific keyword. */
+  async waitForStatus(keyword: string, timeoutMs = 15_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
         const status = this.getStatus();
-        if (expectedField === "connected" || status.includes(expectedField)) {
-          return;
-        }
+        if (status.includes(keyword)) return;
       } catch {
-        // Not ready yet
+        // Daemon not ready yet — retry
       }
       await new Promise((r) => setTimeout(r, 1_000));
     }
+    throw new Error(`Timed out waiting for status to contain "${keyword}" after ${timeoutMs}ms`);
   }
 
   /** Get daemon status as raw string. */
@@ -195,9 +191,9 @@ export class CliFixture {
     // 3. Clean up socket file
     if (this.socketPath) {
       try {
-        if (existsSync(this.socketPath)) rmSync(this.socketPath);
+        rmSync(this.socketPath, { force: true });
       } catch {
-        // Best effort
+        // Socket may have been removed by daemon shutdown
       }
     }
 
@@ -205,7 +201,7 @@ export class CliFixture {
     try {
       rmSync(this.configDir, { recursive: true, force: true });
     } catch {
-      // Best effort
+      // Dir may have been partially removed
     }
   }
 }

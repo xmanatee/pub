@@ -29,7 +29,7 @@ export function killProcess(pid: number, timeoutMs = 5_000): boolean {
   try {
     process.kill(pid, "SIGKILL");
   } catch {
-    // Already dead
+    // Already dead between check and kill
   }
 
   return !isProcessAlive(pid);
@@ -48,38 +48,30 @@ export function isProcessAlive(pid: number): boolean {
 /** Remove stale pub-agent socket files from /tmp. */
 export function cleanupSocketFiles(): void {
   const tmp = tmpdir();
-  try {
-    const files = readdirSync(tmp);
-    for (const f of files) {
-      if (f.startsWith("pub-agent") && f.endsWith(".sock")) {
-        try {
-          unlinkSync(join(tmp, f));
-        } catch {
-          // Best effort
-        }
+  const files = readdirSync(tmp);
+  for (const f of files) {
+    if (f.startsWith("pub-agent") && f.endsWith(".sock")) {
+      try {
+        unlinkSync(join(tmp, f));
+      } catch {
+        // File may have been removed between readdir and unlink
       }
     }
-  } catch {
-    // /tmp not readable — unlikely but safe
   }
 }
 
 /** Remove stale pub-e2e-config temp dirs from /tmp. */
 export function cleanupTempConfigDirs(): void {
   const tmp = tmpdir();
-  try {
-    const entries = readdirSync(tmp);
-    for (const entry of entries) {
-      if (entry.startsWith("pub-e2e-config-")) {
-        try {
-          rmSync(join(tmp, entry), { recursive: true, force: true });
-        } catch {
-          // Best effort
-        }
+  const entries = readdirSync(tmp);
+  for (const entry of entries) {
+    if (entry.startsWith("pub-e2e-config-")) {
+      try {
+        rmSync(join(tmp, entry), { recursive: true, force: true });
+      } catch {
+        // Dir may have been removed between readdir and rmSync
       }
     }
-  } catch {
-    // Best effort
   }
 }
 
@@ -98,6 +90,6 @@ export function killStaleDaemons(): void {
       }
     }
   } catch {
-    // No matching processes — expected when clean
+    // pgrep exits non-zero when no processes match
   }
 }

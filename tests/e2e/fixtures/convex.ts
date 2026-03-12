@@ -40,14 +40,6 @@ export function writeState(state: E2EState): void {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-export function getDefaultUser(): TestUser {
-  const state = getState();
-  if (state.users.length === 0) {
-    throw new Error("No test users seeded");
-  }
-  return state.users[0];
-}
-
 export function runConvexCommand(args: string): string {
   const { adminKey, convexUrl } = getState();
   return execSync(`npx convex ${args} --admin-key "${adminKey}" --url "${convexUrl}"`, {
