@@ -27,5 +27,6 @@ TODO.md
 .claude/do-tasks/
 .env*.local
 
-# Batch generator output
+# Batch generator
 tools/batch-gen/output/
+tools/batch-gen/.run.lock
