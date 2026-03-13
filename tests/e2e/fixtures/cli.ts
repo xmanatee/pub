@@ -38,6 +38,10 @@ interface DaemonInfo {
   logPath: string;
 }
 
+export interface CliFixtureOptions {
+  briefingDelay?: number;
+}
+
 export class CliFixture {
   private configDir: string;
   private cliBin: string;
@@ -45,10 +49,12 @@ export class CliFixture {
   private convexSiteUrl: string;
   private daemonPid: number | null = null;
   private socketPath: string | null = null;
+  private options: CliFixtureOptions;
 
-  constructor(user: TestUser, convexSiteUrl: string) {
+  constructor(user: TestUser, convexSiteUrl: string, options: CliFixtureOptions = {}) {
     this.user = user;
     this.convexSiteUrl = convexSiteUrl;
+    this.options = options;
     this.configDir = mkdtempSync(join(tmpdir(), "pub-e2e-config-"));
     this.cliBin = getCliBinaryPath();
     this.writeConfig();
@@ -70,7 +76,7 @@ export class CliFixture {
   }
 
   private env(): NodeJS.ProcessEnv {
-    return {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       PUB_CONFIG_DIR: this.configDir,
       PUB_API_KEY: this.user.apiKey,
@@ -78,6 +84,10 @@ export class CliFixture {
       PUB_SKIP_UPDATE_CHECK: "1",
       PUB_CLI_BIN: this.cliBin,
     };
+    if (this.options.briefingDelay != null) {
+      env.MOCK_BRIDGE_BRIEFING_DELAY = String(this.options.briefingDelay);
+    }
+    return env;
   }
 
   /** Run a CLI command synchronously. Returns stdout. */
