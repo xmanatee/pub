@@ -30,3 +30,4 @@ TODO.md
 # Batch generator
 tools/batch-gen/output/
 tools/batch-gen/.run.lock
+output/
