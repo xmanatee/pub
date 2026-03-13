@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
+import { makeCanvasFileResultMessage } from "@shared/canvas-file-protocol-core";
 import { COMMAND_PROTOCOL_VERSION } from "@shared/command-protocol-core";
 import { act, createElement, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
 import type { BridgeState, BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { buildInterruptedCommandState, useCanvasCommands } from "./use-canvas-commands";
 
@@ -49,6 +51,30 @@ function makeInvokeMessage(name: string, callId: string, args: Record<string, un
       callId,
       name,
       args,
+    },
+  };
+}
+
+function makeFileUploadMessage(requestId: string, bytes: ArrayBuffer, mime = "audio/webm") {
+  return {
+    source: "pub-canvas" as const,
+    type: "file.upload" as const,
+    payload: {
+      requestId,
+      bytes,
+      mime,
+    },
+  };
+}
+
+function makeFileDownloadMessage(requestId: string, path: string, filename?: string) {
+  return {
+    source: "pub-canvas" as const,
+    type: "file.download" as const,
+    payload: {
+      requestId,
+      path,
+      filename,
     },
   };
 }
@@ -220,6 +246,185 @@ describe("useCanvasCommands", () => {
 
     // Bridge sendWithAck should have been called for the command channel
     expect(mockBridge.sendWithAck).toHaveBeenCalled();
+  });
+
+  it("streams canvas uploads on the dedicated canvas-file channel", async () => {
+    const r = setup();
+    const mockBridge = createMockBridge();
+    const bridgeRef = { current: mockBridge } as RefObject<BrowserBridge | null>;
+    const bytes = new Uint8Array([1, 2, 3]).buffer;
+
+    await renderHarness(r, {
+      bridgeRef,
+      bridgeState: "connected",
+      liveReady: true,
+      liveMode: true,
+    });
+
+    await act(async () => {
+      latestHook?.onCanvasBridgeMessage(makeFileUploadMessage("upload-1", bytes));
+    });
+
+    expect(mockBridge.send).toHaveBeenCalledWith(
+      CHANNELS.CANVAS_FILE,
+      expect.objectContaining({
+        id: "upload-1",
+        type: "stream-start",
+      }),
+    );
+    expect(mockBridge.sendBinary).toHaveBeenCalledTimes(1);
+    expect(mockBridge.sendWithAck).toHaveBeenCalledWith(
+      CHANNELS.CANVAS_FILE,
+      expect.objectContaining({
+        type: "stream-end",
+        meta: { streamId: "upload-1" },
+      }),
+      10_000,
+    );
+
+    act(() => {
+      latestHook?.handleBridgeCanvasFileMessage({
+        channel: CHANNELS.CANVAS_FILE,
+        message: makeCanvasFileResultMessage({
+          requestId: "upload-1",
+          op: "upload",
+          ok: true,
+          file: {
+            path: "/tmp/upload-1.webm",
+            filename: "upload-1.webm",
+            mime: "audio/webm",
+            size: 3,
+          },
+        }),
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(latestHook?.outboundCanvasBridgeMessage).toMatchObject({
+      source: "pub-parent",
+      type: "file.result",
+      payload: {
+        requestId: "upload-1",
+        op: "upload",
+        ok: true,
+        file: {
+          path: "/tmp/upload-1.webm",
+        },
+      },
+    });
+  });
+
+  it("buffers daemon downloads and triggers a browser download on success", async () => {
+    const r = setup();
+    const mockBridge = createMockBridge();
+    const bridgeRef = { current: mockBridge } as RefObject<BrowserBridge | null>;
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    if (typeof URL.createObjectURL !== "function") {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: () => "blob:download-url",
+      });
+    }
+    if (typeof URL.revokeObjectURL !== "function") {
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: () => undefined,
+      });
+    }
+    const downloadClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    const createObjectUrl = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:download-url");
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+
+    await renderHarness(r, {
+      bridgeRef,
+      bridgeState: "connected",
+      liveReady: true,
+      liveMode: true,
+    });
+
+    await act(async () => {
+      latestHook?.onCanvasBridgeMessage(
+        makeFileDownloadMessage("download-1", "/tmp/download-1.txt", "notes.txt"),
+      );
+    });
+
+    expect(mockBridge.sendWithAck).toHaveBeenCalledWith(
+      CHANNELS.CANVAS_FILE,
+      expect.objectContaining({
+        type: "event",
+        data: "canvas.file.download.request",
+      }),
+      10_000,
+    );
+
+    act(() => {
+      latestHook?.handleBridgeCanvasFileMessage({
+        channel: CHANNELS.CANVAS_FILE,
+        message: makeStreamStart(
+          {
+            filename: "notes.txt",
+            mime: "text/plain",
+            size: 3,
+          },
+          "download-1",
+        ),
+        timestamp: Date.now(),
+      });
+      latestHook?.handleBridgeCanvasFileMessage({
+        channel: CHANNELS.CANVAS_FILE,
+        message: {
+          id: "bin-1",
+          type: "binary",
+          meta: { streamId: "download-1" },
+        },
+        binaryData: new TextEncoder().encode("hey").buffer,
+        timestamp: Date.now(),
+      });
+      latestHook?.handleBridgeCanvasFileMessage({
+        channel: CHANNELS.CANVAS_FILE,
+        message: makeStreamEnd("download-1"),
+        timestamp: Date.now(),
+      });
+      latestHook?.handleBridgeCanvasFileMessage({
+        channel: CHANNELS.CANVAS_FILE,
+        message: makeCanvasFileResultMessage({
+          requestId: "download-1",
+          op: "download",
+          ok: true,
+          file: {
+            path: "/tmp/download-1.txt",
+            filename: "notes.txt",
+            mime: "text/plain",
+            size: 3,
+          },
+        }),
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(downloadClick).toHaveBeenCalledTimes(1);
+    expect(createObjectUrl).toHaveBeenCalledTimes(1);
+    expect(latestHook?.outboundCanvasBridgeMessage).toMatchObject({
+      type: "file.result",
+      payload: {
+        requestId: "download-1",
+        op: "download",
+        ok: true,
+      },
+    });
+
+    downloadClick.mockRestore();
+    createObjectUrl.mockRestore();
+    revokeObjectUrl.mockRestore();
+    if (originalCreateObjectUrl === undefined) {
+      Reflect.deleteProperty(URL, "createObjectURL");
+    }
+    if (originalRevokeObjectUrl === undefined) {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
   });
 
   // --------------------------------------------------------------------------

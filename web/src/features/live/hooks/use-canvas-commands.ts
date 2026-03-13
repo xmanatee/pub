@@ -1,5 +1,12 @@
+import {
+  type CanvasFileOperation,
+  type CanvasFileResultPayload,
+  MAX_CANVAS_FILE_BYTES,
+  makeCanvasFileDownloadRequestMessage,
+  parseCanvasFileResultMessage,
+} from "@shared/canvas-file-protocol-core";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CHANNELS } from "~/features/live/lib/bridge-protocol";
+import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
 import {
   COMMAND_PROTOCOL_VERSION,
   type CommandCancelPayload,
@@ -22,6 +29,9 @@ import type {
 } from "~/features/live/types/live-types";
 
 const COMMAND_ACK_TIMEOUT_MS = 4_000;
+const CANVAS_FILE_ACK_TIMEOUT_MS = 10_000;
+const CANVAS_FILE_STREAM_CHUNK_SIZE = 48 * 1024;
+const DOWNLOAD_URL_REVOKE_DELAY_MS = 1_000;
 
 interface UseCanvasCommandsOptions {
   bridgeRef: RefObject<BrowserBridge | null>;
@@ -49,6 +59,18 @@ interface CommandLifecycleState {
     phase: "failed" | "succeeded";
   } | null;
 }
+
+interface ActiveCanvasDownload {
+  chunks: ArrayBuffer[];
+  completed: boolean;
+  filename: string;
+  mime: string;
+}
+
+type CanvasCommandOnlyMessage = Extract<
+  CanvasBridgeCommandMessage,
+  { type: "command.invoke" | "command.cancel" }
+>;
 
 const EMPTY_COMMAND_STATE: CommandLifecycleState = {
   activeById: {},
@@ -140,6 +162,16 @@ function summarizeCommands(state: CommandLifecycleState): LiveCommandSummary {
   };
 }
 
+function clickDownloadLink(url: string, filename: string): void {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
 export function useCanvasCommands({
   bridgeRef,
   bridgeState,
@@ -154,6 +186,8 @@ export function useCanvasCommands({
   const [commandState, setCommandState] = useState<CommandLifecycleState>(EMPTY_COMMAND_STATE);
   const activeCommandsRef = useRef<CommandLifecycleState["activeById"]>({});
   const pendingCommandQueueRef = useRef<CanvasBridgeCommandMessage[]>([]);
+  const pendingCanvasFileRequestsRef = useRef<Map<string, CanvasFileOperation>>(new Map());
+  const activeCanvasDownloadsRef = useRef<Map<string, ActiveCanvasDownload>>(new Map());
   const lastCanvasScopeKeyRef = useRef<string | null>(null);
   const lastSessionKeyRef = useRef<string | null>(null);
 
@@ -162,6 +196,8 @@ export function useCanvasCommands({
   const reset = useCallback(() => {
     activeCommandsRef.current = {};
     pendingCommandQueueRef.current = [];
+    pendingCanvasFileRequestsRef.current.clear();
+    activeCanvasDownloadsRef.current.clear();
     setCommandState(EMPTY_COMMAND_STATE);
     setOutboundQueue([]);
     setOutboundCanvasBridgeMessage(null);
@@ -286,6 +322,40 @@ export function useCanvasCommands({
     [enqueueOutboundCanvasMessage, trackCommandResult],
   );
 
+  const emitFileResultToCanvas = useCallback(
+    (payload: CanvasFileResultPayload) => {
+      enqueueOutboundCanvasMessage({
+        source: PARENT_TO_CANVAS_SOURCE,
+        type: "file.result",
+        payload,
+      });
+    },
+    [enqueueOutboundCanvasMessage],
+  );
+
+  const emitFileFailureToCanvas = useCallback(
+    (params: {
+      requestId: string | undefined;
+      op: CanvasFileOperation;
+      code: string;
+      message: string;
+    }) => {
+      if (!params.requestId) return;
+      pendingCanvasFileRequestsRef.current.delete(params.requestId);
+      activeCanvasDownloadsRef.current.delete(params.requestId);
+      emitFileResultToCanvas({
+        requestId: params.requestId,
+        op: params.op,
+        ok: false,
+        error: {
+          code: params.code,
+          message: params.message,
+        },
+      });
+    },
+    [emitFileResultToCanvas],
+  );
+
   const interruptActiveCommands = useCallback(
     (params: { code: string; message: string }) => {
       const interrupted = buildInterruptedCommandState(activeCommandsRef.current, params);
@@ -300,6 +370,195 @@ export function useCanvasCommands({
       });
     },
     [enqueueOutboundCanvasMessage],
+  );
+
+  const interruptPendingCanvasFiles = useCallback(
+    (params: { code: string; message: string }) => {
+      for (const [requestId, op] of pendingCanvasFileRequestsRef.current) {
+        emitFileResultToCanvas({
+          requestId,
+          op,
+          ok: false,
+          error: {
+            code: params.code,
+            message: params.message,
+          },
+        });
+      }
+      pendingCanvasFileRequestsRef.current.clear();
+      activeCanvasDownloadsRef.current.clear();
+    },
+    [emitFileResultToCanvas],
+  );
+
+  const dispatchCanvasFileUpload = useCallback(
+    (message: Extract<CanvasBridgeCommandMessage, { type: "file.upload" }>) => {
+      const bridge = bridgeRef.current;
+      const { bytes, mime, requestId } = message.payload;
+      if (bytes.byteLength === 0) {
+        emitFileFailureToCanvas({
+          requestId,
+          op: "upload",
+          code: "UPLOAD_EMPTY",
+          message: "File upload requires non-empty bytes.",
+        });
+        return;
+      }
+      if (bytes.byteLength > MAX_CANVAS_FILE_BYTES) {
+        emitFileFailureToCanvas({
+          requestId,
+          op: "upload",
+          code: "UPLOAD_TOO_LARGE",
+          message: `File upload exceeds the ${MAX_CANVAS_FILE_BYTES} byte limit.`,
+        });
+        return;
+      }
+      if (!bridge) {
+        emitFileFailureToCanvas({
+          requestId,
+          op: "upload",
+          code: "BRIDGE_UNAVAILABLE",
+          message: "File upload failed because the live bridge is unavailable.",
+        });
+        return;
+      }
+
+      pendingCanvasFileRequestsRef.current.set(requestId, "upload");
+
+      void ensureChannelReady(bridge, CHANNELS.CANVAS_FILE)
+        .then(async (ready) => {
+          if (!ready) {
+            emitFileFailureToCanvas({
+              requestId,
+              op: "upload",
+              code: "FILE_CHANNEL_NOT_READY",
+              message: "Canvas file channel is not ready.",
+            });
+            return;
+          }
+
+          const startMessage = makeStreamStart(
+            {
+              mime,
+              size: bytes.byteLength,
+            },
+            requestId,
+          );
+
+          if (!bridge.send(CHANNELS.CANVAS_FILE, startMessage)) {
+            emitFileFailureToCanvas({
+              requestId,
+              op: "upload",
+              code: "UPLOAD_START_FAILED",
+              message: "Failed to start uploading bytes to the daemon.",
+            });
+            return;
+          }
+
+          const chunkBytes = new Uint8Array(bytes);
+          for (
+            let offset = 0;
+            offset < chunkBytes.length;
+            offset += CANVAS_FILE_STREAM_CHUNK_SIZE
+          ) {
+            const nextChunk = chunkBytes.slice(offset, offset + CANVAS_FILE_STREAM_CHUNK_SIZE);
+            if (!bridge.sendBinary(CHANNELS.CANVAS_FILE, nextChunk.buffer)) {
+              emitFileFailureToCanvas({
+                requestId,
+                op: "upload",
+                code: "UPLOAD_CHUNK_FAILED",
+                message: "File upload was interrupted while streaming bytes.",
+              });
+              return;
+            }
+          }
+
+          const ended = await bridge.sendWithAck(
+            CHANNELS.CANVAS_FILE,
+            makeStreamEnd(requestId),
+            CANVAS_FILE_ACK_TIMEOUT_MS,
+          );
+          if (!ended) {
+            emitFileFailureToCanvas({
+              requestId,
+              op: "upload",
+              code: "UPLOAD_TIMEOUT",
+              message: "File upload did not complete in time.",
+            });
+          }
+        })
+        .catch((error) => {
+          const detail =
+            error instanceof Error && error.message.trim().length > 0
+              ? ` ${error.message.trim()}`
+              : "";
+          emitFileFailureToCanvas({
+            requestId,
+            op: "upload",
+            code: "UPLOAD_ROUTE_FAILED",
+            message: `File upload failed to reach the daemon.${detail}`,
+          });
+        });
+    },
+    [bridgeRef, emitFileFailureToCanvas],
+  );
+
+  const dispatchCanvasFileDownload = useCallback(
+    (message: Extract<CanvasBridgeCommandMessage, { type: "file.download" }>) => {
+      const bridge = bridgeRef.current;
+      const requestId = message.payload.requestId;
+      if (!bridge) {
+        emitFileFailureToCanvas({
+          requestId,
+          op: "download",
+          code: "BRIDGE_UNAVAILABLE",
+          message: "File download failed because the live bridge is unavailable.",
+        });
+        return;
+      }
+
+      pendingCanvasFileRequestsRef.current.set(requestId, "download");
+
+      void ensureChannelReady(bridge, CHANNELS.CANVAS_FILE)
+        .then(async (ready) => {
+          if (!ready) {
+            emitFileFailureToCanvas({
+              requestId,
+              op: "download",
+              code: "FILE_CHANNEL_NOT_READY",
+              message: "Canvas file channel is not ready.",
+            });
+            return;
+          }
+
+          const delivered = await bridge.sendWithAck(
+            CHANNELS.CANVAS_FILE,
+            makeCanvasFileDownloadRequestMessage(message.payload),
+            CANVAS_FILE_ACK_TIMEOUT_MS,
+          );
+          if (!delivered) {
+            emitFileFailureToCanvas({
+              requestId,
+              op: "download",
+              code: "DOWNLOAD_REQUEST_FAILED",
+              message: "File download request could not be delivered.",
+            });
+          }
+        })
+        .catch((error) => {
+          const detail =
+            error instanceof Error && error.message.trim().length > 0
+              ? ` ${error.message.trim()}`
+              : "";
+          emitFileFailureToCanvas({
+            requestId,
+            op: "download",
+            code: "DOWNLOAD_ROUTE_FAILED",
+            message: `File download failed to reach the daemon.${detail}`,
+          });
+        });
+    },
+    [bridgeRef, emitFileFailureToCanvas],
   );
 
   useEffect(() => {
@@ -323,13 +582,21 @@ export function useCanvasCommands({
       code: "COMMAND_INTERRUPTED",
       message: "Command interrupted because the live session changed.",
     });
-  }, [interruptActiveCommands, sessionKey]);
+    interruptPendingCanvasFiles({
+      code: "FILE_TRANSFER_INTERRUPTED",
+      message: "File transfer interrupted because the live session changed.",
+    });
+  }, [interruptActiveCommands, interruptPendingCanvasFiles, sessionKey]);
 
   useEffect(() => {
     if (!liveMode) {
       interruptActiveCommands({
         code: "COMMAND_INTERRUPTED",
         message: "Command interrupted because live mode was disabled.",
+      });
+      interruptPendingCanvasFiles({
+        code: "FILE_TRANSFER_INTERRUPTED",
+        message: "File transfer interrupted because live mode was disabled.",
       });
       return;
     }
@@ -340,10 +607,14 @@ export function useCanvasCommands({
       code: "COMMAND_INTERRUPTED",
       message: "Command interrupted because the live connection was lost.",
     });
-  }, [bridgeState, interruptActiveCommands, liveMode]);
+    interruptPendingCanvasFiles({
+      code: "FILE_TRANSFER_INTERRUPTED",
+      message: "File transfer interrupted because the live connection was lost.",
+    });
+  }, [bridgeState, interruptActiveCommands, interruptPendingCanvasFiles, liveMode]);
 
   const dispatchCommand = useCallback(
-    (message: CanvasBridgeCommandMessage) => {
+    (message: CanvasCommandOnlyMessage) => {
       const bridge = bridgeRef.current;
       if (!bridge) {
         emitCommandFailureToCanvas({
@@ -427,25 +698,61 @@ export function useCanvasCommands({
     ],
   );
 
-  const onCanvasBridgeMessage = useCallback(
+  const emitCanvasUnavailableFailure = useCallback(
     (message: CanvasBridgeCommandMessage) => {
-      const callId = message.payload.callId;
-
-      if (!liveMode) {
-        emitCommandFailureToCanvas({
-          callId,
+      if (message.type === "file.upload") {
+        emitFileFailureToCanvas({
+          requestId: message.payload.requestId,
+          op: "upload",
           code: "AGENT_NOT_CONNECTED",
-          message: "Agent is not connected. Commands are unavailable.",
+          message: "Agent is not connected. File uploads are unavailable.",
         });
         return;
       }
 
-      if (bridgeState === "failed") {
-        emitCommandFailureToCanvas({
-          callId,
+      if (message.type === "file.download") {
+        emitFileFailureToCanvas({
+          requestId: message.payload.requestId,
+          op: "download",
           code: "AGENT_NOT_CONNECTED",
-          message: "Agent is not connected. Commands are unavailable.",
+          message: "Agent is not connected. File downloads are unavailable.",
         });
+        return;
+      }
+
+      emitCommandFailureToCanvas({
+        callId: message.payload.callId,
+        code: "AGENT_NOT_CONNECTED",
+        message: "Agent is not connected. Commands are unavailable.",
+      });
+    },
+    [emitCommandFailureToCanvas, emitFileFailureToCanvas],
+  );
+
+  const dispatchCanvasBridgeMessage = useCallback(
+    (message: CanvasBridgeCommandMessage) => {
+      if (message.type === "file.upload") {
+        dispatchCanvasFileUpload(message);
+        return;
+      }
+      if (message.type === "file.download") {
+        dispatchCanvasFileDownload(message);
+        return;
+      }
+      dispatchCommand(message);
+    },
+    [dispatchCanvasFileDownload, dispatchCanvasFileUpload, dispatchCommand],
+  );
+
+  const onCanvasBridgeMessage = useCallback(
+    (message: CanvasBridgeCommandMessage) => {
+      if (!liveMode) {
+        emitCanvasUnavailableFailure(message);
+        return;
+      }
+
+      if (bridgeState === "failed") {
+        emitCanvasUnavailableFailure(message);
         return;
       }
 
@@ -454,30 +761,26 @@ export function useCanvasCommands({
         return;
       }
 
-      dispatchCommand(message);
+      dispatchCanvasBridgeMessage(message);
     },
-    [bridgeState, dispatchCommand, emitCommandFailureToCanvas, liveMode, liveReady],
+    [bridgeState, dispatchCanvasBridgeMessage, emitCanvasUnavailableFailure, liveMode, liveReady],
   );
 
   useEffect(() => {
     if (!liveReady) return;
     const queued = pendingCommandQueueRef.current.splice(0);
     for (const message of queued) {
-      dispatchCommand(message);
+      dispatchCanvasBridgeMessage(message);
     }
-  }, [dispatchCommand, liveReady]);
+  }, [dispatchCanvasBridgeMessage, liveReady]);
 
   useEffect(() => {
     if (liveMode && bridgeState !== "failed") return;
     const queued = pendingCommandQueueRef.current.splice(0);
     for (const message of queued) {
-      emitCommandFailureToCanvas({
-        callId: message.payload.callId,
-        code: "AGENT_NOT_CONNECTED",
-        message: "Agent is not connected. Commands are unavailable.",
-      });
+      emitCanvasUnavailableFailure(message);
     }
-  }, [bridgeState, emitCommandFailureToCanvas, liveMode]);
+  }, [bridgeState, emitCanvasUnavailableFailure, liveMode]);
 
   const handleBridgeCommandMessage = useCallback(
     (cm: ChannelMessage) => {
@@ -501,9 +804,97 @@ export function useCanvasCommands({
     [enqueueOutboundCanvasMessage, trackCommandResult],
   );
 
+  const handleBridgeCanvasFileMessage = useCallback(
+    (cm: ChannelMessage) => {
+      if (cm.channel !== CHANNELS.CANVAS_FILE) return;
+
+      if (cm.message.type === "stream-start") {
+        activeCanvasDownloadsRef.current.set(cm.message.id, {
+          chunks: [],
+          completed: false,
+          filename:
+            typeof cm.message.meta?.filename === "string" && cm.message.meta.filename.length > 0
+              ? cm.message.meta.filename
+              : "download.bin",
+          mime:
+            typeof cm.message.meta?.mime === "string" && cm.message.meta.mime.length > 0
+              ? cm.message.meta.mime
+              : "application/octet-stream",
+        });
+        return;
+      }
+
+      if (cm.message.type === "binary" && cm.binaryData) {
+        const requestId =
+          typeof cm.message.meta?.streamId === "string" && cm.message.meta.streamId.length > 0
+            ? cm.message.meta.streamId
+            : "";
+        if (!requestId) return;
+        const active = activeCanvasDownloadsRef.current.get(requestId);
+        if (!active) return;
+        active.chunks.push(cm.binaryData);
+        return;
+      }
+
+      if (cm.message.type === "stream-end") {
+        const requestId =
+          typeof cm.message.meta?.streamId === "string" && cm.message.meta.streamId.length > 0
+            ? cm.message.meta.streamId
+            : "";
+        if (!requestId) return;
+        const active = activeCanvasDownloadsRef.current.get(requestId);
+        if (!active) return;
+        active.completed = true;
+        return;
+      }
+
+      const result = parseCanvasFileResultMessage(cm.message);
+      if (!result) return;
+      if (!pendingCanvasFileRequestsRef.current.has(result.requestId)) {
+        activeCanvasDownloadsRef.current.delete(result.requestId);
+        return;
+      }
+
+      pendingCanvasFileRequestsRef.current.delete(result.requestId);
+
+      if (!result.ok) {
+        activeCanvasDownloadsRef.current.delete(result.requestId);
+        emitFileResultToCanvas(result);
+        return;
+      }
+
+      if (result.op === "download") {
+        const active = activeCanvasDownloadsRef.current.get(result.requestId);
+        if (!active || !active.completed) {
+          emitFileFailureToCanvas({
+            requestId: result.requestId,
+            op: "download",
+            code: "DOWNLOAD_INCOMPLETE",
+            message: "Download stream did not complete cleanly.",
+          });
+          return;
+        }
+
+        activeCanvasDownloadsRef.current.delete(result.requestId);
+        const blob = new Blob(active.chunks, { type: active.mime });
+        const downloadUrl = URL.createObjectURL(blob);
+        clickDownloadLink(downloadUrl, active.filename);
+        const revokeObjectUrl =
+          typeof URL.revokeObjectURL === "function" ? URL.revokeObjectURL.bind(URL) : null;
+        if (revokeObjectUrl) {
+          window.setTimeout(() => revokeObjectUrl(downloadUrl), DOWNLOAD_URL_REVOKE_DELAY_MS);
+        }
+      }
+
+      emitFileResultToCanvas(result);
+    },
+    [emitFileFailureToCanvas, emitFileResultToCanvas],
+  );
+
   return {
     command,
     handleBridgeCommandMessage,
+    handleBridgeCanvasFileMessage,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
     reset,

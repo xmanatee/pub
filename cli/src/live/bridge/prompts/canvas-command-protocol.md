@@ -51,3 +51,12 @@ Use this when canvas UI interactions need local refetches, side effects, or reru
    - `provider: "auto"` prefers the current bridge runtime when it supports agent execution, otherwise Claude Code, otherwise OpenClaw.
    - `provider: "claude-code"` requires `claude-code.path` or `CLAUDE_CODE_PATH`.
    - `provider: "openclaw"` requires `openclaw.path` and `openclaw.sessionId`, or the matching environment variables.
+
+### Managed Canvas Files
+
+- Use `await pub.files.upload(blobOrBytes, { mime? })` to stage bytes on the daemon.
+- Uploads return `{ path, filename, mime, size }`.
+- The canvas cannot choose the daemon path or filename. Pub stages uploads inside managed per-session storage.
+- Use the returned `path` when invoking local commands that need a real file path.
+- Use `await pub.files.download({ path, filename? })` to stream a managed daemon file back to the browser and trigger a download.
+- Downloads are restricted to Pub-managed canvas file storage. Do not assume arbitrary daemon paths are readable from canvas JS.

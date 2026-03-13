@@ -8,6 +8,7 @@ import { createDaemonIpcServer } from "./ipc-server.js";
 import { createPeerManager } from "./peer-manager.js";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createBridgeManager } from "./bridge-manager.js";
+import { createCanvasFileTransferHandler } from "./canvas-file-transfer.js";
 import { createDaemonLifecycle } from "./lifecycle.js";
 import { createSignalingController } from "./signaling.js";
 import type { ChannelBuffer, DaemonConfig } from "./shared.js";
@@ -31,6 +32,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   let channelManager!: ReturnType<typeof createDaemonChannelManager>;
   let bridgeManager!: ReturnType<typeof createBridgeManager>;
+  let canvasFileTransfer!: ReturnType<typeof createCanvasFileTransferHandler>;
   let peerManager!: ReturnType<typeof createPeerManager>;
   let shuttingDown = false;
   let presenceGeneration = 0;
@@ -66,6 +68,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     stopBridge: async () => await bridgeManager.stopBridge(),
     resetNegotiationState: () => peerManager.resetNegotiationState(),
     commandHandlerStop: () => commandHandler.stop(),
+    canvasFileTransferReset: () => canvasFileTransfer.reset(),
     shutdown: async () => await shutdown(),
   });
 
@@ -74,6 +77,23 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     debugLog: lifecycle.debugLog,
     markError: lifecycle.markError,
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
+    onCanvasFileMessage: async (msg) => await canvasFileTransfer.onMessage(msg),
+  });
+
+  canvasFileTransfer = createCanvasFileTransferHandler({
+    state,
+    bridgeSettings: config.bridgeSettings,
+    debugLog: lifecycle.debugLog,
+    markError: lifecycle.markError,
+    sendMessage: async (channel, msg) =>
+      await channelManager.sendOutboundMessageWithAck(channel, msg, {
+        context: `canvas-file outbound on "${channel}"`,
+        maxAttempts: 1,
+      }),
+    openDataChannel: channelManager.openDataChannel,
+    waitForChannelOpen: channelManager.waitForChannelOpen,
+    waitForDeliveryAck: channelManager.waitForDeliveryAck,
+    settlePendingAck: channelManager.settlePendingAck,
   });
 
   bridgeManager = createBridgeManager({
@@ -106,6 +126,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     stopPingPong: lifecycle.stopPingPong,
     stopBridge: async () => await bridgeManager.stopBridge(),
     commandHandlerStop: () => commandHandler.stop(),
+    canvasFileTransferReset: () => canvasFileTransfer.reset(),
   });
 
   const signaling = createSignalingController({

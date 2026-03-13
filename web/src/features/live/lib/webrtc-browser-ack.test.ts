@@ -39,4 +39,37 @@ describe("BrowserBridge ack routing", () => {
     expect(send).toHaveBeenNthCalledWith(1, "chat", expect.any(Object));
     expect(send).toHaveBeenNthCalledWith(2, "_control", expect.any(Object));
   });
+
+  it("tags streamed binary chunks with the active stream id", () => {
+    const bridge = new BrowserBridge() as unknown as {
+      activeBinaryStreams: Map<string, string>;
+      pendingBinaryMeta: Map<string, unknown>;
+      emitBinaryMessage: (channel: string, payload: ArrayBuffer) => void;
+      isDuplicateInboundMessage: (channel: string, messageId: string) => boolean;
+      onMessage: (message: unknown) => void;
+      sendAck: (messageId: string, channel: string) => void;
+    };
+    const onMessage = vi.fn();
+
+    bridge.activeBinaryStreams = new Map([["canvas-file", "stream-1"]]);
+    bridge.pendingBinaryMeta = new Map();
+    bridge.isDuplicateInboundMessage = vi.fn(() => false);
+    bridge.onMessage = onMessage;
+    bridge.sendAck = vi.fn();
+
+    bridge.emitBinaryMessage("canvas-file", new Uint8Array([1, 2, 3]).buffer);
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "canvas-file",
+        message: expect.objectContaining({
+          type: "binary",
+          meta: expect.objectContaining({
+            size: 3,
+            streamId: "stream-1",
+          }),
+        }),
+      }),
+    );
+  });
 });

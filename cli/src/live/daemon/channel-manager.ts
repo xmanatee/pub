@@ -23,15 +23,16 @@ export function createDaemonChannelManager(params: {
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   onCommandMessage: (msg: BridgeMessage) => Promise<void>;
+  onCanvasFileMessage: (msg: BridgeMessage) => Promise<void>;
 }) {
-  const { state, debugLog, markError, onCommandMessage } = params;
+  const { state, debugLog, markError, onCommandMessage, onCanvasFileMessage } = params;
 
   function appendBufferedMessage(entry: {
     channel: string;
     msg: BridgeMessage;
     timestamp: number;
   }): void {
-    if (entry.channel === CHANNELS.COMMAND) return;
+    if (entry.channel === CHANNELS.COMMAND || entry.channel === CHANNELS.CANVAS_FILE) return;
     state.buffer.messages.push(entry);
     if (state.buffer.messages.length > MAX_BUFFERED_MESSAGES) {
       state.buffer.messages.splice(0, state.buffer.messages.length - MAX_BUFFERED_MESSAGES);
@@ -229,6 +230,10 @@ export function createDaemonChannelManager(params: {
             void onCommandMessage(msg);
             return;
           }
+          if (name === CHANNELS.CANVAS_FILE) {
+            void onCanvasFileMessage(msg);
+            return;
+          }
           appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });
           state.bridgeRunner?.enqueue([{ channel: name, msg }]);
           if (
@@ -273,6 +278,10 @@ export function createDaemonChannelManager(params: {
         }
         if (shouldAcknowledgeMessage(name, binMsg)) {
           queueAck(binMsg.id, name);
+        }
+        if (name === CHANNELS.CANVAS_FILE) {
+          void onCanvasFileMessage(binMsg);
+          return;
         }
         appendBufferedMessage({ channel: name, msg: binMsg, timestamp: Date.now() });
         state.bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);

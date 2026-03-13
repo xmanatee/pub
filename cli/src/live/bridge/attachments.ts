@@ -48,7 +48,7 @@ function inferExtensionFromMime(mime: string): string {
   return ".bin";
 }
 
-function sanitizeFilename(raw: string): string {
+export function sanitizeFilename(raw: string): string {
   const trimmed = raw.trim();
   const base = basename(trimmed)
     .replace(/[^A-Za-z0-9._-]/g, "_")

@@ -20,6 +20,7 @@ export function createPeerManager(params: {
   stopPingPong: () => void;
   stopBridge: () => Promise<void>;
   commandHandlerStop: () => void;
+  canvasFileTransferReset: () => void;
 }) {
   const {
     state,
@@ -36,6 +37,7 @@ export function createPeerManager(params: {
     stopPingPong,
     stopBridge,
     commandHandlerStop,
+    canvasFileTransferReset,
   } = params;
 
   function attachPeerHandlers(currentPeer: NonNullable<DaemonState["peer"]>): void {
@@ -127,6 +129,7 @@ export function createPeerManager(params: {
     state.activeSlug = null;
     await stopBridge();
     commandHandlerStop();
+    canvasFileTransferReset();
     await closeCurrentPeer();
     resetNegotiationState();
   }

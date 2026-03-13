@@ -7,6 +7,7 @@
  * The mock bridge (`openclaw-like` mode) receives messages as $1 and echoes
  * them back via `pub write`.
  */
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
 import { injectAuth } from "../fixtures/browser-auth";
@@ -298,4 +299,172 @@ test("canvas command executes via daemon", async ({ page }) => {
   await expect(canvasFrame.locator("#result")).toContainText("hello from command", {
     timeout: 15_000,
   });
+});
+
+/**
+ * Test 7: Canvas stages a managed daemon file, uses its path in a command, then downloads
+ * a derived managed file back to the browser.
+ */
+test("canvas uploads and downloads managed files through the daemon", async ({ page }) => {
+  const user = seedUser("Canvas File User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><title>Canvas File Transfer Test</title></head>
+<body>
+  <h1>Canvas File Transfer Test</h1>
+  <input id="picker" type="file" />
+  <button id="process" type="button" disabled>Process uploaded file</button>
+  <button id="download" type="button" disabled>Download processed file</button>
+  <div id="upload-status">idle</div>
+  <div id="upload-path"></div>
+  <pre id="upload-preview"></pre>
+  <div id="process-status">idle</div>
+  <pre id="process-preview"></pre>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "canvas-file-transfer-test",
+    "functions": [
+      {
+        "name": "readFile",
+        "description": "Reads a managed file",
+        "returns": "text",
+        "executor": {
+          "kind": "exec",
+          "command": "cat",
+          "args": ["{{path}}"]
+        }
+      },
+      {
+        "name": "uppercaseFile",
+        "description": "Creates an uppercase sibling file and returns its path",
+        "returns": "text",
+        "executor": {
+          "kind": "shell",
+          "script": "INPUT=\\"{{path}}\\"\\nOUTPUT=\\"$(dirname \\"$INPUT\\")/upper-$(basename \\"$INPUT\\")\\"\\ntr '[:lower:]' '[:upper:]' < \\"$INPUT\\" > \\"$OUTPUT\\"\\nprintf '%s' \\"$OUTPUT\\""
+        }
+      }
+    ]
+  }
+  </script>
+  <script>
+    const picker = document.getElementById('picker');
+    const processButton = document.getElementById('process');
+    const downloadButton = document.getElementById('download');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadPath = document.getElementById('upload-path');
+    const uploadPreview = document.getElementById('upload-preview');
+    const processStatus = document.getElementById('process-status');
+    const processPreview = document.getElementById('process-preview');
+
+    let uploadedPath = '';
+    let processedPath = '';
+
+    picker.addEventListener('change', async () => {
+      const file = picker.files && picker.files[0];
+      if (!file) {
+        uploadStatus.textContent = 'missing-file';
+        return;
+      }
+
+      uploadStatus.textContent = 'uploading';
+      processStatus.textContent = 'idle';
+      uploadPath.textContent = '';
+      uploadPreview.textContent = '';
+      processPreview.textContent = '';
+      uploadedPath = '';
+      processedPath = '';
+      processButton.disabled = true;
+      downloadButton.disabled = true;
+
+      try {
+        const uploaded = await window.pub.files.upload(file);
+        uploadedPath = uploaded.path || '';
+        uploadPath.textContent = uploadedPath;
+        uploadPreview.textContent = await window.pub.command('readFile', { path: uploadedPath });
+        uploadStatus.textContent = 'uploaded';
+        processButton.disabled = uploadedPath.length === 0;
+      } catch (error) {
+        uploadStatus.textContent = 'upload-error:' + (error instanceof Error ? error.message : String(error));
+      }
+    });
+
+    processButton.addEventListener('click', async () => {
+      if (!uploadedPath) return;
+      processStatus.textContent = 'processing';
+      processPreview.textContent = '';
+      downloadButton.disabled = true;
+
+      try {
+        processedPath = await window.pub.command('uppercaseFile', { path: uploadedPath });
+        processPreview.textContent = await window.pub.command('readFile', { path: processedPath });
+        processStatus.textContent = 'processed';
+        downloadButton.disabled = processedPath.length === 0;
+      } catch (error) {
+        processStatus.textContent = 'process-error:' + (error instanceof Error ? error.message : String(error));
+      }
+    });
+
+    downloadButton.addEventListener('click', async () => {
+      if (!processedPath) return;
+      processStatus.textContent = 'downloading';
+
+      try {
+        await window.pub.files.download({ path: processedPath, filename: 'processed.txt' });
+        processStatus.textContent = 'downloaded';
+      } catch (error) {
+        processStatus.textContent = 'download-error:' + (error instanceof Error ? error.message : String(error));
+      }
+    });
+  </script>
+</body>
+</html>`;
+
+  await api.createPub({ slug: "canvas-files-e2e", title: "Canvas Files E2E", content: html });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("canvas-files-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/canvas-files-e2e");
+
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+
+  await page.getByLabel("Message").click();
+  await page.getByRole("textbox", { name: "Message" }).fill("_");
+  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
+  await page.keyboard.press("Escape");
+
+  const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#picker")).toBeVisible({ timeout: 10_000 });
+
+  await canvasFrame.locator("#picker").setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("hello canvas file\n"),
+  });
+
+  await expect(canvasFrame.locator("#upload-status")).toHaveText("uploaded", { timeout: 15_000 });
+  await expect(canvasFrame.locator("#upload-path")).toContainText("/_canvas/");
+  await expect(canvasFrame.locator("#upload-preview")).toContainText("hello canvas file");
+
+  await canvasFrame.locator("#process").click();
+
+  await expect(canvasFrame.locator("#process-status")).toHaveText("processed", { timeout: 15_000 });
+  await expect(canvasFrame.locator("#process-preview")).toContainText("HELLO CANVAS FILE");
+
+  const downloadPromise = page.waitForEvent("download");
+  await canvasFrame.locator("#download").click();
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toBe("processed.txt");
+  await expect(canvasFrame.locator("#process-status")).toHaveText("downloaded", {
+    timeout: 15_000,
+  });
+
+  const downloadPath = await download.path();
+  expect(downloadPath).not.toBeNull();
+  expect(readFileSync(downloadPath ?? "", "utf-8")).toContain("HELLO CANVAS FILE");
 });

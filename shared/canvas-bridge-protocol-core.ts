@@ -1,4 +1,12 @@
 import type {
+  CanvasFileDownloadRequestPayload,
+  CanvasFileResultPayload,
+} from "./canvas-file-protocol-core";
+import {
+  parseCanvasFileDownloadRequestPayload,
+  parseCanvasFileResultPayload,
+} from "./canvas-file-protocol-core";
+import type {
   CommandCancelPayload,
   CommandInvokePayload,
   CommandResultPayload,
@@ -49,13 +57,35 @@ export interface CanvasBridgeCancelMessage {
   payload: CommandCancelPayload;
 }
 
-export type CanvasBridgeCommandMessage = CanvasBridgeInvokeMessage | CanvasBridgeCancelMessage;
+export interface CanvasBridgeFileUploadMessage {
+  source: typeof CANVAS_TO_PARENT_SOURCE;
+  type: "file.upload";
+  payload: {
+    bytes: ArrayBuffer;
+    mime?: string;
+    requestId: string;
+  };
+}
+
+export interface CanvasBridgeFileDownloadMessage {
+  source: typeof CANVAS_TO_PARENT_SOURCE;
+  type: "file.download";
+  payload: CanvasFileDownloadRequestPayload;
+}
+
+export type CanvasBridgeCommandMessage =
+  | CanvasBridgeInvokeMessage
+  | CanvasBridgeCancelMessage
+  | CanvasBridgeFileUploadMessage
+  | CanvasBridgeFileDownloadMessage;
 
 export type CanvasBridgeInboundMessage =
   | CanvasBridgeReadyMessage
   | CanvasBridgeErrorMessage
   | CanvasBridgeInvokeMessage
-  | CanvasBridgeCancelMessage;
+  | CanvasBridgeCancelMessage
+  | CanvasBridgeFileUploadMessage
+  | CanvasBridgeFileDownloadMessage;
 
 export interface CanvasBridgeResultMessage {
   source: typeof PARENT_TO_CANVAS_SOURCE;
@@ -63,7 +93,32 @@ export interface CanvasBridgeResultMessage {
   payload: CommandResultPayload;
 }
 
-export type CanvasBridgeOutboundMessage = CanvasBridgeResultMessage;
+export interface CanvasBridgeFileResultMessage {
+  source: typeof PARENT_TO_CANVAS_SOURCE;
+  type: "file.result";
+  payload: CanvasFileResultPayload;
+}
+
+export type CanvasBridgeOutboundMessage = CanvasBridgeResultMessage | CanvasBridgeFileResultMessage;
+
+function readArrayBuffer(input: unknown): ArrayBuffer | null {
+  return input instanceof ArrayBuffer ? input : null;
+}
+
+function parseCanvasFileUploadPayload(
+  input: unknown,
+): CanvasBridgeFileUploadMessage["payload"] | null {
+  const record = readRecord(input);
+  if (!record) return null;
+  const requestId = readNonEmptyString(record.requestId);
+  const bytes = readArrayBuffer(record.bytes);
+  if (!requestId || !bytes) return null;
+  return {
+    requestId,
+    bytes,
+    mime: readNonEmptyString(record.mime),
+  };
+}
 
 function parseCanvasRenderErrorPayload(input: unknown): CanvasRenderErrorPayload | null {
   const record = readRecord(input);
@@ -111,6 +166,18 @@ export function parseCanvasBridgeInboundMessage(input: unknown): CanvasBridgeInb
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
   }
 
+  if (type === "file.upload") {
+    const payload = parseCanvasFileUploadPayload(record.payload);
+    if (!payload) return null;
+    return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
+  }
+
+  if (type === "file.download") {
+    const payload = parseCanvasFileDownloadRequestPayload(record.payload);
+    if (!payload) return null;
+    return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
+  }
+
   return null;
 }
 
@@ -119,14 +186,26 @@ export function parseCanvasBridgeOutboundMessage(
 ): CanvasBridgeOutboundMessage | null {
   const record = readRecord(input);
   if (!record || record.source !== PARENT_TO_CANVAS_SOURCE) return null;
-  if (record.type !== "command.result") return null;
+  if (record.type === "command.result") {
+    const payload = parseCommandResultPayload(record.payload);
+    if (!payload) return null;
 
-  const payload = parseCommandResultPayload(record.payload);
-  if (!payload) return null;
+    return {
+      source: PARENT_TO_CANVAS_SOURCE,
+      type: "command.result",
+      payload,
+    };
+  }
 
-  return {
-    source: PARENT_TO_CANVAS_SOURCE,
-    type: "command.result",
-    payload,
-  };
+  if (record.type === "file.result") {
+    const payload = parseCanvasFileResultPayload(record.payload);
+    if (!payload) return null;
+    return {
+      source: PARENT_TO_CANVAS_SOURCE,
+      type: "file.result",
+      payload,
+    };
+  }
+
+  return null;
 }

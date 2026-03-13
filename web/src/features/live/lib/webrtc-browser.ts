@@ -20,6 +20,7 @@ import {
   decodeMessage,
   type ErrorPayload,
   encodeMessage,
+  generateMessageId,
   makeAckMessage,
   makeEventMessage,
   parseAckMessage,
@@ -76,6 +77,7 @@ export class BrowserBridge {
   private iceCandidates: string[] = [];
   private pendingRemoteCandidates: string[] = [];
   private pendingBinaryMeta = new Map<string, BridgeMessage>();
+  private activeBinaryStreams = new Map<string, string>();
   private pendingDeliveryAcks = new Map<
     string,
     { resolve: (received: boolean) => void; timer: ReturnType<typeof setTimeout> }
@@ -328,6 +330,16 @@ export class BrowserBridge {
             return;
           }
 
+          if (msg.type === "stream-start") {
+            this.activeBinaryStreams.set(dc.label, msg.id);
+          } else if (
+            msg.type === "stream-end" &&
+            typeof msg.meta?.streamId === "string" &&
+            this.activeBinaryStreams.get(dc.label) === msg.meta.streamId
+          ) {
+            this.activeBinaryStreams.delete(dc.label);
+          }
+
           if (this.isDuplicateInboundMessage(dc.label, msg.id)) {
             if (msg.type === "binary" && !msg.data) {
               this.pendingBinaryMeta.set(dc.label, msg);
@@ -381,6 +393,7 @@ export class BrowserBridge {
 
     dc.onclose = () => {
       this.channels.delete(dc.label);
+      this.activeBinaryStreams.delete(dc.label);
       this.pendingBinaryMeta.delete(dc.label);
       if (dc.label === CONTROL_CHANNEL || dc.label === CHANNELS.COMMAND) {
         this.setLiveReady(false);
@@ -391,17 +404,24 @@ export class BrowserBridge {
   private emitBinaryMessage(channel: string, payload: ArrayBuffer): void {
     const pendingMeta = this.pendingBinaryMeta.get(channel);
     if (pendingMeta) this.pendingBinaryMeta.delete(channel);
+    const activeStreamId = this.activeBinaryStreams.get(channel);
     const binaryMsg: BridgeMessage = pendingMeta
       ? {
           id: pendingMeta.id,
           type: "binary",
           meta: { ...pendingMeta.meta, size: payload.byteLength },
         }
-      : {
-          id: `bin-${Date.now()}`,
-          type: "binary",
-          meta: { size: payload.byteLength },
-        };
+      : activeStreamId
+        ? {
+            id: generateMessageId(),
+            type: "binary",
+            meta: { streamId: activeStreamId, size: payload.byteLength },
+          }
+        : {
+            id: generateMessageId(),
+            type: "binary",
+            meta: { size: payload.byteLength },
+          };
     if (this.isDuplicateInboundMessage(channel, binaryMsg.id)) {
       if (shouldAcknowledgeMessage(channel, binaryMsg)) {
         this.sendAck(binaryMsg.id, channel);

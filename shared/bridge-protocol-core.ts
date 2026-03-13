@@ -62,7 +62,9 @@ export type ControlEvent =
   | "ack"
   | "command.invoke"
   | "command.result"
-  | "command.cancel";
+  | "command.cancel"
+  | "canvas.file.download.request"
+  | "canvas.file.result";
 
 export type BridgeCapability =
   | "text"
@@ -117,6 +119,7 @@ export const CHANNELS = {
   AUDIO: "audio",
   MEDIA: "media",
   FILE: "file",
+  CANVAS_FILE: "canvas-file",
   COMMAND: "command",
 } as const;
 

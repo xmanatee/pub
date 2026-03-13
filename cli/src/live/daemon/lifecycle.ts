@@ -15,6 +15,7 @@ export function createDaemonLifecycle(params: {
   stopBridge: () => Promise<void>;
   resetNegotiationState: () => void;
   commandHandlerStop: () => void;
+  canvasFileTransferReset: () => void;
   shutdown: () => Promise<void>;
 }) {
   const {
@@ -26,6 +27,7 @@ export function createDaemonLifecycle(params: {
     stopBridge,
     resetNegotiationState,
     commandHandlerStop,
+    canvasFileTransferReset,
     shutdown,
   } = params;
 
@@ -95,6 +97,7 @@ export function createDaemonLifecycle(params: {
     if (!hadSession) return;
     state.activeSlug = null;
     commandHandlerStop();
+    canvasFileTransferReset();
     resetNegotiationState();
     void (async () => {
       await closeCurrentPeer();

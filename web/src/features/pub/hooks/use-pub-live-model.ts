@@ -115,6 +115,7 @@ export function usePubLiveModel({
   const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
+  const canvasFileMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const enabled =
     liveMode &&
@@ -161,6 +162,7 @@ export function usePubLiveModel({
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
     onCommandMessageRef: commandMessageHandlerRef,
+    onCanvasFileMessageRef: canvasFileMessageHandlerRef,
   });
 
   // --- Connection profiling ---
@@ -195,6 +197,7 @@ export function usePubLiveModel({
 
   const {
     command,
+    handleBridgeCanvasFileMessage,
     handleBridgeCommandMessage,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
@@ -208,6 +211,7 @@ export function usePubLiveModel({
     sessionKey: transportKey,
   });
   commandMessageHandlerRef.current = handleBridgeCommandMessage;
+  canvasFileMessageHandlerRef.current = handleBridgeCanvasFileMessage;
 
   const audio = useControlBarAudio({
     disabled: !liveReady,
