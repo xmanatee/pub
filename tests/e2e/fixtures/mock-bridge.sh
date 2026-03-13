@@ -19,10 +19,17 @@ fi
 
 # Respond to chat messages
 if echo "$MSG" | grep -q "User message:"; then
-  # Extract user text: next non-empty line after "User message:"
   USER_TEXT=$(echo "$MSG" | sed -n '/User message:/{n;p;}' | head -1)
   if [ -n "$USER_TEXT" ]; then
-    "$PUB" write "echo: $USER_TEXT"
+    case "$USER_TEXT" in
+      "update canvas")
+        "$PUB" write -c canvas '<html><body><h1 id="status">canvas-updated</h1></body></html>'
+        "$PUB" write "canvas updated"
+        ;;
+      *)
+        "$PUB" write "echo: $USER_TEXT"
+        ;;
+    esac
   fi
   exit 0
 fi

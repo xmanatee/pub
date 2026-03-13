@@ -165,7 +165,56 @@ test("cli write delivers message to browser", async ({ page }) => {
 });
 
 /**
- * Test 5: Canvas content with command manifest loads and command executes.
+ * Test 5: Chat + canvas update in a single session.
+ * Verifies the full agent interaction loop:
+ *   1. Send "hi" → bridge echoes "echo: hi" in chat
+ *   2. Send "update canvas" → bridge writes new HTML via `pub write -c canvas` → canvas iframe updates
+ *   3. Bridge also replies "canvas updated" in chat to confirm
+ */
+test("chat and canvas update in one session", async ({ page }) => {
+  const user = seedUser("Combo User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+
+  const initialHtml = `<!DOCTYPE html>
+<html><body><h1 id="status">initial</h1></body></html>`;
+
+  await api.createPub({ slug: "combo-e2e", title: "Combo E2E", content: initialHtml });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("combo-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/combo-e2e");
+
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+
+  // Verify initial canvas content loads in iframe
+  const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#status")).toHaveText("initial", { timeout: 10_000 });
+
+  // Wait for WebRTC connection
+  await page.getByLabel("Message").click();
+  await page.getByLabel("Message").fill("_");
+  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
+
+  // Step 1: Send "hi" → expect chat echo
+  await page.getByLabel("Message").fill("hi");
+  await page.getByLabel("Send message").click();
+  await expect(page.getByText("echo: hi")).toBeVisible({ timeout: 30_000 });
+
+  // Step 2: Send "update canvas" → expect canvas iframe to update AND chat confirmation
+  await page.getByLabel("Message").click();
+  await page.getByLabel("Message").fill("update canvas");
+  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 10_000 });
+  await page.getByLabel("Send message").click();
+
+  await expect(page.getByText("canvas updated")).toBeVisible({ timeout: 30_000 });
+  await expect(canvasFrame.locator("#status")).toHaveText("canvas-updated", { timeout: 15_000 });
+});
+
+/**
+ * Test 6: Canvas content with command manifest loads and command executes.
  * Verifies: HTML with command manifest → canvas renders → command triggers → result returns.
  */
 test("canvas command executes via daemon", async ({ page }) => {
