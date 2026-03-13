@@ -5,6 +5,7 @@ import type {
   CommandResultPayload,
 } from "../../../../shared/command-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
+import type { BridgeRunner } from "../bridge/shared.js";
 
 export const DEFAULT_RECENT_RESULT_TTL_MS = 120_000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
@@ -16,6 +17,7 @@ export interface CommandHandlerParams {
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
+  getBridgeRunner?: () => BridgeRunner | null;
 }
 
 export interface RunningCommand {

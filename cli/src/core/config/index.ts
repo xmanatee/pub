@@ -35,9 +35,11 @@ export type {
   ApiClientSettings,
   BridgeSettings,
   ClaudeBridgeSettings,
+  CommandAgentProfile,
   ConfigDirCandidate,
   ConfigDirSource,
   ConfigLocation,
+  DetachedAgentProvider,
   OpenClawBridgeSettings,
   OpenClawLikeBridgeSettings,
   PubBridgeConfig,
@@ -50,6 +52,7 @@ export type {
 } from "./types.js";
 export {
   DEFAULT_BASE_URL,
+  DEFAULT_COMMAND_AGENT_PROFILE,
   DEFAULT_CANVAS_REMINDER_EVERY,
   DEFAULT_COMMAND_MAX_CONCURRENT,
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,

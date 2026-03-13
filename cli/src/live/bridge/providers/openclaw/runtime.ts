@@ -32,21 +32,37 @@ interface OpenClawDeliverySettings {
   bridgeCwd: string;
 }
 
+export async function invokeOpenClawPrompt(params: {
+  openclawPath: string;
+  sessionId: string;
+  text: string;
+  bridgeCwd: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<string> {
+  const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
+  const invocation = getOpenClawInvocation(params.openclawPath, args);
+  try {
+    const result = await execFileAsync(invocation.cmd, invocation.args, {
+      cwd: params.bridgeCwd,
+      timeout: OPENCLAW_DELIVER_TIMEOUT_MS,
+      env: params.env ?? process.env,
+    });
+    return result.stdout.trim();
+  } catch (error) {
+    throw formatExecFailure("OpenClaw delivery failed", error);
+  }
+}
+
 export async function deliverMessageToOpenClaw(
   params: { openclawPath: string; sessionId: string; text: string },
   env: NodeJS.ProcessEnv = process.env,
   deliverySettings: OpenClawDeliverySettings,
 ): Promise<void> {
-  const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
-
-  const invocation = getOpenClawInvocation(params.openclawPath, args);
-  try {
-    await execFileAsync(invocation.cmd, invocation.args, {
-      cwd: deliverySettings.bridgeCwd,
-      timeout: OPENCLAW_DELIVER_TIMEOUT_MS,
-      env,
-    });
-  } catch (error) {
-    throw formatExecFailure("OpenClaw delivery failed", error);
-  }
+  await invokeOpenClawPrompt({
+    openclawPath: params.openclawPath,
+    sessionId: params.sessionId,
+    text: params.text,
+    bridgeCwd: deliverySettings.bridgeCwd,
+    env,
+  });
 }

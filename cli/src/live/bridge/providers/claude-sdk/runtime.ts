@@ -21,9 +21,10 @@ function buildSdkEnv(baseEnv: NodeJS.ProcessEnv): Record<string, string | undefi
 export function buildSdkSessionOptionsFromSettings(
   bridgeSettings: ClaudeBridgeSettings,
   baseEnv: NodeJS.ProcessEnv = process.env,
+  opts?: { model?: string },
 ) {
   return {
-    model: DEFAULT_MODEL,
+    model: opts?.model?.trim() || DEFAULT_MODEL,
     claudePath: bridgeSettings.claudeCodePath,
     sdkEnv: buildSdkEnv(baseEnv),
   };

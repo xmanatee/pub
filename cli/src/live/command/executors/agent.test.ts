@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolveAgentCommandProvider } from "../../bridge/providers/agent-command.js";
+import {
+  resolveDetachedAgentCommand,
+  resolveDetachedAgentModel,
+  resolveMainAgentCommandProvider,
+  validateMainModeAgentSpec,
+} from "../../bridge/providers/agent-command.js";
 
 const baseBridgeSettings = {
   verbose: false,
@@ -9,62 +14,82 @@ const baseBridgeSettings = {
   commandDefaultTimeoutMs: 15_000,
   commandMaxOutputBytes: 256 * 1024,
   commandMaxConcurrent: 6,
+  commandAgentDefaultProfile: "default" as const,
 };
 
-describe("resolveAgentCommandProvider", () => {
-  it("prefers OpenClaw for auto provider in openclaw bridge mode", () => {
+describe("agent command executor helpers", () => {
+  it("resolves active bridge provider for main mode auto", () => {
     expect(
-      resolveAgentCommandProvider({
+      resolveMainAgentCommandProvider({
         bridgeSettings: {
           ...baseBridgeSettings,
-          mode: "openclaw",
-          openclawPath: "/usr/local/bin/openclaw",
-          sessionId: "session-1",
-        },
-        provider: "auto",
-      }),
-    ).toBe("openclaw");
-  });
-
-  it("falls back to Claude Code in openclaw-like mode when configured", () => {
-    expect(
-      resolveAgentCommandProvider({
-        bridgeSettings: {
-          ...baseBridgeSettings,
-          mode: "openclaw-like",
+          mode: "claude-sdk",
           claudeCodePath: "/usr/local/bin/claude",
-          openclawLikeCommand: "/tmp/openclaw-like-command",
         },
         provider: "auto",
       }),
-    ).toBe("claude-code");
+    ).toBe("claude-sdk");
   });
 
-  it("accepts explicit OpenClaw provider outside openclaw bridge mode when runtime is configured", () => {
-    expect(
-      resolveAgentCommandProvider({
+  it("rejects main mode provider mismatches", () => {
+    expect(() =>
+      resolveMainAgentCommandProvider({
         bridgeSettings: {
           ...baseBridgeSettings,
           mode: "claude-code",
           claudeCodePath: "/usr/local/bin/claude",
-          openclawPath: "/usr/local/bin/openclaw",
-          sessionId: "session-2",
         },
         provider: "openclaw",
       }),
-    ).toBe("openclaw");
+    ).toThrow(/AGENT_MAIN_PROVIDER_MISMATCH/);
   });
 
-  it("raises a configuration error when the requested provider is unavailable", () => {
-    expect(() =>
-      resolveAgentCommandProvider({
+  it("resolves detached provider and configured fast model", () => {
+    expect(
+      resolveDetachedAgentCommand({
         bridgeSettings: {
           ...baseBridgeSettings,
-          mode: "openclaw-like",
-          openclawLikeCommand: "/tmp/openclaw-like-command",
+          mode: "claude-code",
+          claudeCodePath: "/usr/local/bin/claude",
+          commandAgentDetachedProvider: "claude-code",
+          claudeCodeCommandModelFast: "claude-fast",
         },
-        provider: "claude-code",
+        spec: {
+          kind: "agent",
+          prompt: "Summarize",
+          mode: "detached",
+          profile: "fast",
+        },
       }),
-    ).toThrow(/Claude runtime is not configured/);
+    ).toEqual({
+      provider: "claude-code",
+      profile: "fast",
+      model: "claude-fast",
+    });
+  });
+
+  it("resolves detached SDK model defaults from bridge settings", () => {
+    expect(
+      resolveDetachedAgentModel({
+        bridgeSettings: {
+          ...baseBridgeSettings,
+          mode: "claude-sdk",
+          claudeCodePath: "/usr/local/bin/claude",
+          claudeSdkCommandModelDefault: "sdk-default",
+        },
+        provider: "claude-sdk",
+      }),
+    ).toBe("sdk-default");
+  });
+
+  it("rejects main mode profile overrides", () => {
+    expect(() =>
+      validateMainModeAgentSpec({
+        kind: "agent",
+        prompt: "Explain",
+        mode: "main",
+        profile: "fast",
+      }),
+    ).toThrow(/AGENT_MODEL_OVERRIDE_INVALID/);
   });
 });

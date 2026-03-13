@@ -64,6 +64,34 @@ describe("resolveTransportStatus", () => {
 });
 
 describe("derivePubViewState", () => {
+  it("derives agent-selection control state when multiple agents and none selected", () => {
+    expect(
+      derivePubViewState({
+        agentOnline: true,
+        audioMode: "idle",
+        bridgeState: "connecting",
+        liveReady: false,
+        canvasError: null,
+        command: {
+          activeCallId: null,
+          activeCommandName: null,
+          activeCount: 0,
+          errorMessage: null,
+          finishedAt: null,
+          phase: "idle",
+        },
+        contentState: "ready",
+        lastAgentOutput: null,
+        lastUserDeliveredAt: null,
+        liveMode: true,
+        needsAgentSelection: true,
+        now: NOW,
+        sessionError: null,
+        sessionState: "active",
+      }).controlBarState,
+    ).toBe("agent-selection");
+  });
+
   it("derives disconnected control state for terminal bridge failure", () => {
     expect(
       derivePubViewState({

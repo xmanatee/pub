@@ -173,11 +173,14 @@ export function createBridgeManager(params: {
     const slug = state.activeSlug;
     const primePromise = (async () => {
       try {
+        const t0 = Date.now();
         await startBridge(slug);
+        debugLog(`[profile] bridge started in ${Date.now() - t0}ms`);
         if (state.stopped || !state.browserConnected || state.activeSlug !== slug) return;
         state.bridgePrimed = true;
+        const tReady = Date.now();
         await notifyBrowserReady(slug);
-        debugLog(`bridge primed for "${slug}"`);
+        debugLog(`[profile] ready sent in ${Date.now() - tReady}ms (total prime ${Date.now() - t0}ms)`);
       } catch (error) {
         state.bridgePrimed = false;
         await notifyBrowserPrimeFailed(slug, error);

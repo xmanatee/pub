@@ -6,7 +6,11 @@ import type { LiveInfo } from "../shared/live-api-core";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { listFreshOnlinePresences, PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
-import { generateSlug, hashApiKey, MAX_PUBS } from "./utils";
+import { generateSlug, hashApiKey, MAX_PUBS, MAX_PUBS_SUBSCRIBED } from "./utils";
+
+function getPubLimit(user: { isSubscribed?: boolean }): number {
+  return user.isSubscribed ? MAX_PUBS_SUBSCRIBED : MAX_PUBS;
+}
 
 /** Max ICE candidates stored per side to bound document size */
 const MAX_CANDIDATES = 50;
@@ -242,9 +246,11 @@ export const createDraftForLive = mutation({
       throw new Error("Agent offline");
     }
 
+    const user = await ctx.db.get(userId);
+    const limit = getPubLimit(user ?? {});
     const count = await countUserPubs(ctx.db, userId);
-    if (count >= MAX_PUBS) {
-      throw new Error(`Pub limit reached (${MAX_PUBS})`);
+    if (count >= limit) {
+      throw new Error(`Pub limit reached (${limit})`);
     }
 
     let slug: string | null = null;
@@ -543,9 +549,11 @@ export const createPub = internalMutation({
     title: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    const limit = getPubLimit(user ?? {});
     const count = await countUserPubs(ctx.db, args.userId);
-    if (count >= MAX_PUBS) {
-      throw new Error(`Pub limit reached (${MAX_PUBS})`);
+    if (count >= limit) {
+      throw new Error(`Pub limit reached (${limit})`);
     }
 
     const id = await ctx.db.insert("pubs", {

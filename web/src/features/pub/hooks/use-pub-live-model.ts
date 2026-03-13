@@ -6,6 +6,7 @@ import { useCanvasCommands } from "~/features/live/hooks/use-canvas-commands";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
+import { profileMark, profilePrint, profileStart } from "~/features/live/lib/connection-profiler";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import type { LiveContentState } from "~/features/live/types/live-types";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
@@ -162,6 +163,36 @@ export function usePubLiveModel({
     onCommandMessageRef: commandMessageHandlerRef,
   });
 
+  // --- Connection profiling ---
+  const profileStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (liveMode && agentOnline === true && !profileStartedRef.current) {
+      profileStartedRef.current = true;
+      profileStart();
+      profileMark("queries-resolved");
+    }
+    if (!liveMode || agentOnline !== true) {
+      profileStartedRef.current = false;
+    }
+  }, [liveMode, agentOnline]);
+
+  useEffect(() => {
+    if (enabled) profileMark("enabled");
+  }, [enabled]);
+
+  useEffect(() => {
+    if (sessionState === "active") profileMark("session-active");
+  }, [sessionState]);
+
+  useEffect(() => {
+    if (liveReady && profileStartedRef.current) {
+      profilePrint();
+      profileStartedRef.current = false;
+    }
+  }, [liveReady]);
+  // --- End profiling ---
+
   const {
     command,
     handleBridgeCommandMessage,
@@ -202,8 +233,11 @@ export function usePubLiveModel({
   useEffect(() => {
     const previous = lastCanvasScopeRef.current;
     if (previous.slug === slug && previous.html === canvasHtml) return;
+    const hadPriorCanvas = previous.html !== null;
     lastCanvasScopeRef.current = { slug, html: canvasHtml };
-    setCanvasScopeVersion((current) => current + 1);
+    if (hadPriorCanvas) {
+      setCanvasScopeVersion((current) => current + 1);
+    }
   }, [canvasHtml, slug]);
 
   const effectiveContentState = canvasHtml ? "ready" : contentState;

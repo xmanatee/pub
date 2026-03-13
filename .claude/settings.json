@@ -76,6 +76,8 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "google-sheets"
+    "chrome-devtools",
+    "google-sheets",
+    "puppeteer"
   ]
 }

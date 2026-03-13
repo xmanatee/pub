@@ -145,10 +145,12 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(18);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(26);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.verbose");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("command.agent.defaultProfile");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("claude-sdk.commandModelFast");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
   });
 });

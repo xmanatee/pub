@@ -121,13 +121,14 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     const prompt = interpolateTemplate(agentSpec.prompt, args);
     const output = agentSpec.output === "json" ? "json" : "text";
     return executeAgentCommand({
+      spec: agentSpec,
       prompt,
       timeoutMs,
       output,
       maxOutputBytes: runtime.maxOutputBytes,
       signal: abortSignal,
       bridgeSettings: params.bridgeSettings,
-      provider: agentSpec.provider,
+      getBridgeRunner: params.getBridgeRunner,
     });
   }
 

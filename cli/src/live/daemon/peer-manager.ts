@@ -47,6 +47,7 @@ export function createPeerManager(params: {
     currentPeer.onStateChange((peerState: string) => {
       if (state.stopped || currentPeer !== state.peer) return;
       if (peerState === "connected") {
+        debugLog("[profile] peer state: connected");
         state.browserConnected = true;
         flushQueuedAcks();
         void params.ensureBridgePrimed();
@@ -151,15 +152,22 @@ export function createPeerManager(params: {
     state.recovering = true;
 
     try {
+      const t0 = Date.now();
+      debugLog(`[profile] incoming live for "${slug}"`);
       await clearActiveLiveSession("incoming-live-recovery");
+      debugLog(`[profile] cleared old session in ${Date.now() - t0}ms`);
       createPeer();
       if (!state.peer) throw new Error("PeerConnection not initialized");
 
+      const tAnswer = Date.now();
       const answer = await createAnswer(state.peer, browserOffer, OFFER_TIMEOUT_MS);
+      debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
       state.lastAppliedBrowserOffer = browserOffer;
       state.activeSlug = slug;
 
+      const tSignal = Date.now();
       await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });
+      debugLog(`[profile] answer posted in ${Date.now() - tSignal}ms (total ${Date.now() - t0}ms)`);
       startLocalCandidateFlush(slug);
     } catch (error) {
       markError("failed to handle incoming live request", error);

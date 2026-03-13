@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type DeliveryReceiptPayload } from "~/features/live/lib/bridge-protocol";
+import { profileMark } from "~/features/live/lib/connection-profiler";
 import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { trackError } from "~/lib/analytics";
@@ -85,11 +86,14 @@ export function useLiveBridge({
     bridge.setOnMessage((message) => onMessageRef.current(message));
     bridge.setOnTrack(() => onTrackActivityRef.current("track"));
     bridge.setOnDeliveryReceipt((receipt) => onDeliveryReceiptRef.current(receipt));
+    bridge.setOnProfileMark(profileMark);
 
     void (async () => {
       try {
         const offer = await bridge.createOffer();
+        profileMark("offer-created");
         await storeBrowserOfferRef.current({ slug, offer });
+        profileMark("offer-stored");
         bridge.markOfferSent();
 
         // Start ICE candidate flush
@@ -176,16 +180,23 @@ export function useLiveBridge({
       const answerKey = `${slug}:${agentAnswer}`;
       if (lastHandledAnswerRef.current !== answerKey) {
         lastHandledAnswerRef.current = answerKey;
-        void bridge.applyAnswer(agentAnswer).catch((error) => {
-          trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
-            context: "live-bridge",
+        profileMark("answer-received");
+        void bridge
+          .applyAnswer(agentAnswer)
+          .then(() => {
+            profileMark("answer-applied");
+          })
+          .catch((error) => {
+            trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
+              context: "live-bridge",
+            });
+            onSystemMessageRef.current?.({
+              content:
+                "Live connection could not apply the remote answer. Reconnect and try again.",
+              dedupeKey: "bridge-answer-failed",
+              severity: "error",
+            });
           });
-          onSystemMessageRef.current?.({
-            content: "Live connection could not apply the remote answer. Reconnect and try again.",
-            dedupeKey: "bridge-answer-failed",
-            severity: "error",
-          });
-        });
       }
     }
 

@@ -48,6 +48,7 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.attachmentDir).toContain("/attachments");
     expect(bridgeSettings.canvasReminderEvery).toBe(10);
     expect(bridgeSettings.commandDefaultTimeoutMs).toBe(15_000);
+    expect(bridgeSettings.commandAgentDefaultProfile).toBe("default");
     expect(bridgeSettings.verbose).toBe(false);
   });
 
@@ -92,6 +93,29 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.claudeCodePath).toBe("/usr/local/bin/claude");
     expect(bridgeSettings.openclawPath).toBe("/usr/local/bin/openclaw");
     expect(bridgeSettings.sessionId).toBe("session-2");
+  });
+
+  it("reads detached agent command profile and model overrides from env", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
+
+    const bridgeSettings = buildBridgeSettings(
+      "claude-code",
+      {
+        claudeCodePath: "/usr/local/bin/claude",
+      },
+      {
+        ...process.env,
+        PUB_CONFIG_DIR: tempDir,
+        PUB_PROJECT_ROOT: "/tmp/pub-project",
+        PUB_COMMAND_AGENT_DEFAULT_PROFILE: "fast",
+        PUB_COMMAND_AGENT_DETACHED_PROVIDER: "claude-sdk",
+        CLAUDE_CODE_COMMAND_MODEL_FAST: "claude-fast",
+      },
+    );
+
+    expect(bridgeSettings.commandAgentDefaultProfile).toBe("fast");
+    expect(bridgeSettings.commandAgentDetachedProvider).toBe("claude-sdk");
+    expect(bridgeSettings.claudeCodeCommandModelFast).toBe("claude-fast");
   });
 
   it("requires explicit OpenClaw workspace in runtime settings", () => {

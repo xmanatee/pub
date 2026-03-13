@@ -14,6 +14,9 @@ export const COMMAND_MANIFEST_MIME = "application/pub-command-manifest+json";
 
 export type CommandReturnType = "void" | "text" | "json";
 export type CommandExecutorKind = "exec" | "shell" | "agent";
+export type CommandAgentProvider = "auto" | "claude-code" | "claude-sdk" | "openclaw";
+export type CommandAgentMode = "main" | "detached";
+export type CommandAgentProfile = "fast" | "default" | "deep";
 
 export interface CommandExecSpec {
   kind: "exec";
@@ -35,7 +38,10 @@ export interface CommandShellSpec {
 export interface CommandAgentSpec {
   kind: "agent";
   prompt: string;
-  provider?: "auto" | "claude-code" | "openclaw";
+  provider?: CommandAgentProvider;
+  mode: CommandAgentMode;
+  profile?: CommandAgentProfile;
+  model?: string;
   timeoutMs?: number;
   output?: "text" | "json";
 }
@@ -97,6 +103,28 @@ function readReturnType(input: unknown): CommandReturnType | undefined {
   return undefined;
 }
 
+function readAgentProvider(input: unknown): CommandAgentProvider | undefined {
+  if (
+    input === "auto" ||
+    input === "claude-code" ||
+    input === "claude-sdk" ||
+    input === "openclaw"
+  ) {
+    return input;
+  }
+  return undefined;
+}
+
+function readAgentMode(input: unknown): CommandAgentMode | undefined {
+  if (input === "main" || input === "detached") return input;
+  return undefined;
+}
+
+function readAgentProfile(input: unknown): CommandAgentProfile | undefined {
+  if (input === "fast" || input === "default" || input === "deep") return input;
+  return undefined;
+}
+
 function parseExecutor(input: unknown): CommandExecutorSpec | undefined {
   const record = readRecord(input);
   if (!record) return undefined;
@@ -131,17 +159,19 @@ function parseExecutor(input: unknown): CommandExecutorSpec | undefined {
   if (kind === "agent") {
     const prompt = readString(record.prompt);
     if (!prompt) return undefined;
-    const providerRaw = readString(record.provider);
-    const provider =
-      providerRaw === "claude-code" || providerRaw === "openclaw" || providerRaw === "auto"
-        ? providerRaw
-        : undefined;
+    const provider = readAgentProvider(readString(record.provider));
+    const mode = readAgentMode(readString(record.mode));
+    if (!mode) return undefined;
+    const profile = readAgentProfile(readString(record.profile));
     const outputRaw = readString(record.output);
     const output = outputRaw === "json" || outputRaw === "text" ? outputRaw : undefined;
     return {
       kind: "agent",
       prompt,
       provider,
+      mode,
+      profile,
+      model: readString(record.model),
       timeoutMs: readFiniteNumber(record.timeoutMs),
       output,
     };

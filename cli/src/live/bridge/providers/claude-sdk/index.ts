@@ -33,6 +33,30 @@ export {
 export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
 
 const MAX_SESSION_RECREATIONS = 2;
+const SESSION_BRIEFING_MAX_TURNS = 2;
+
+function readClaudeSdkAssistantOutput(message: unknown): string {
+  if (!message || typeof message !== "object") return "";
+  const event = message as {
+    text?: unknown;
+    message?: unknown;
+    delta?: { text?: unknown } | null;
+    content?: unknown;
+  };
+  if (typeof event.text === "string") return event.text;
+  if (event.delta && typeof event.delta.text === "string") return event.delta.text;
+  if (typeof event.message === "string") return event.message;
+  if (Array.isArray(event.content)) {
+    return event.content
+      .map((entry) =>
+        entry && typeof entry === "object" && "text" in entry && typeof entry.text === "string"
+          ? entry.text
+          : "",
+      )
+      .join("");
+  }
+  return "";
+}
 
 export async function createClaudeSdkBridgeRunner(
   config: BridgeRunnerConfig,
@@ -60,6 +84,7 @@ export async function createClaudeSdkBridgeRunner(
   let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
   let sessionRecreations = 0;
+  let sessionTaskChain = Promise.resolve();
 
   type SdkSession = ReturnType<typeof loadedSdk.unstable_v2_createSession>;
   let activeSession: SdkSession | null = null;
@@ -89,9 +114,26 @@ export async function createClaudeSdkBridgeRunner(
     return session;
   }
 
-  async function consumeStream(session: SdkSession): Promise<void> {
+  async function consumeStream(
+    session: SdkSession,
+    opts?: { maxTurns?: number },
+  ): Promise<string> {
+    let collected = "";
+    let turnCount = 0;
+    const maxTurns = opts?.maxTurns;
     for await (const msg of session.stream()) {
       if (stopped) break;
+      if (maxTurns !== undefined && msg.type === "assistant") {
+        turnCount += 1;
+        if (turnCount > maxTurns) {
+          debugLog(`max turns reached (${maxTurns}), stopping stream`);
+          break;
+        }
+      }
+      const text = readClaudeSdkAssistantOutput(msg);
+      if (text.length > 0) {
+        collected += text;
+      }
       if (msg.type === "result") {
         if ("session_id" in msg && typeof msg.session_id === "string") {
           sessionId = msg.session_id;
@@ -102,19 +144,24 @@ export async function createClaudeSdkBridgeRunner(
         }
       }
     }
+    return collected.trim();
   }
 
-  async function sendAndStream(session: SdkSession, prompt: string): Promise<void> {
+  async function sendAndStream(
+    session: SdkSession,
+    prompt: string,
+    opts?: { maxTurns?: number },
+  ): Promise<string> {
     await session.send(prompt);
-    await consumeStream(session);
+    return await consumeStream(session, opts);
   }
 
-  async function deliverWithRecovery(prompt: string): Promise<void> {
-    if (stopped) return;
+  async function deliverWithRecovery(prompt: string): Promise<string> {
+    if (stopped) return "";
 
     try {
       if (!activeSession) throw new Error("session not initialized");
-      await sendAndStream(activeSession, prompt);
+      return await sendAndStream(activeSession, prompt);
     } catch (error) {
       debugLog(`session error: ${errorMessage(error)}`, error);
       if (stopped || sessionRecreations >= MAX_SESSION_RECREATIONS) {
@@ -129,12 +176,25 @@ export async function createClaudeSdkBridgeRunner(
       }
 
       const newSession = createSession();
-      await sendAndStream(newSession, sessionBriefing);
-      await sendAndStream(newSession, prompt);
+      await sendAndStream(newSession, sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
+      return await sendAndStream(newSession, prompt);
     }
   }
 
-  await sendAndStream(createSession(), sessionBriefing);
+  function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
+    const next = sessionTaskChain.then(task);
+    sessionTaskChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  async function deliverQueued(prompt: string): Promise<string> {
+    return await queueSessionTask(async () => await deliverWithRecovery(prompt));
+  }
+
+  await sendAndStream(createSession(), sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
@@ -144,7 +204,7 @@ export async function createClaudeSdkBridgeRunner(
       );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        await deliverWithRecovery(buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions));
+        await deliverQueued(buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions));
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
         return;
@@ -152,7 +212,7 @@ export async function createClaudeSdkBridgeRunner(
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        await deliverWithRecovery(buildRenderErrorPrompt(slug, renderError, config.instructions));
+        await deliverQueued(buildRenderErrorPrompt(slug, renderError, config.instructions));
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
         return;
@@ -163,7 +223,7 @@ export async function createClaudeSdkBridgeRunner(
         activeStreams,
         attachmentRoot,
         deliverPrompt: async (prompt) => {
-          await deliverWithRecovery(prompt);
+          await deliverQueued(prompt);
         },
         entry,
         includeCanvasReminder,
@@ -205,6 +265,15 @@ export async function createClaudeSdkBridgeRunner(
 
   return {
     enqueue: (entries) => queue.enqueue(entries),
+    invokeAgentCommand: async ({ prompt, output }) =>
+      await queueSessionTask(async () => {
+        const text = await deliverWithRecovery(prompt);
+        if (output === "json") {
+          const trimmed = text.trim();
+          return trimmed.length === 0 ? {} : (JSON.parse(trimmed) as unknown);
+        }
+        return text;
+      }),
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;

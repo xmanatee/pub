@@ -19,6 +19,7 @@ const { MockBrowserBridge, bridgeInstances } = vi.hoisted(() => {
     readonly setOnMessage = vi.fn();
     readonly setOnTrack = vi.fn();
     readonly setOnDeliveryReceipt = vi.fn();
+    readonly setOnProfileMark = vi.fn();
 
     constructor() {
       bridgeInstances.push(this);
