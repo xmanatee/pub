@@ -1,3 +1,4 @@
+import type { LiveModelProfile } from "../../../../shared/live-model-profile.js";
 import type { BridgeMode } from "../../live/bridge/providers/types.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
@@ -77,6 +78,7 @@ interface BridgeSettingsBase {
   claudeSdkCommandModelFast?: string;
   claudeSdkCommandModelDeep?: string;
   openclawLikeCommand?: string;
+  liveModelProfile?: LiveModelProfile;
 }
 
 export interface OpenClawBridgeSettings extends BridgeSettingsBase {

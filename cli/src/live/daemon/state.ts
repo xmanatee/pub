@@ -1,4 +1,5 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
+import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
 import type { ChannelBuffer } from "./shared.js";
@@ -22,6 +23,7 @@ export interface DaemonState {
   bridgeAbort: AbortController | null;
   recovering: boolean;
   activeSlug: string | null;
+  activeLiveModelProfile: LiveModelProfile | null;
   lastAppliedBrowserOffer: string | null;
   lastBrowserCandidateCount: number;
   lastSentCandidateCount: number;
@@ -53,6 +55,7 @@ export function createDaemonState(buffer: ChannelBuffer): DaemonState {
     bridgeAbort: null,
     recovering: false,
     activeSlug: null,
+    activeLiveModelProfile: null,
     lastAppliedBrowserOffer: null,
     lastBrowserCandidateCount: 0,
     lastSentCandidateCount: 0,

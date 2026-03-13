@@ -51,9 +51,7 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await expect(client.create({ content: "test" })).rejects.toThrow(
-        "Invalid API key",
-      );
+      await expect(client.create({ content: "test" })).rejects.toThrow("Invalid API key");
     });
   });
 
@@ -275,6 +273,7 @@ describe("PubApiClient", () => {
         agentCandidates: [],
         browserCandidates: [],
         createdAt: 1000,
+        modelProfile: "balanced",
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

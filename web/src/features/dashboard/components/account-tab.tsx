@@ -6,6 +6,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Switch } from "~/components/ui/switch";
+import { LiveModelSettingsCard } from "~/features/dashboard/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
@@ -68,6 +69,8 @@ export function AccountTab() {
           )}
         </CardContent>
       </Card>
+
+      <LiveModelSettingsCard />
 
       {IN_TELEGRAM && (!hasGithub || !hasGoogle) && (
         <Card className="border-border/50">

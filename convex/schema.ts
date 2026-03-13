@@ -17,6 +17,9 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     isDeveloper: v.optional(v.boolean()),
     isSubscribed: v.optional(v.boolean()),
+    liveModelProfile: v.optional(
+      v.union(v.literal("fast"), v.literal("balanced"), v.literal("thorough")),
+    ),
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),

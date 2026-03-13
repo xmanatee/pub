@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildSdkSessionOptions, isClaudeSdkAvailableInEnv } from "./index.js";
+import {
+  buildSdkSessionOptions,
+  buildSdkSessionOptionsFromSettings,
+  isClaudeSdkAvailableInEnv,
+} from "./index.js";
 
-const envKeys = [
-  "CLAUDE_CODE_PATH",
-  "CLAUDECODE",
-] as const;
+const envKeys = ["CLAUDE_CODE_PATH", "CLAUDECODE"] as const;
 
 const originalEnv: Record<string, string | undefined> = {};
 
@@ -38,6 +39,24 @@ describe("buildSdkSessionOptions", () => {
   it("uses hardcoded default model", () => {
     const opts = buildSdkSessionOptions(process.env);
     expect(opts.model).toBe("claude-sonnet-4-6");
+  });
+
+  it("maps live model profiles to Claude model aliases", () => {
+    const opts = buildSdkSessionOptionsFromSettings({
+      mode: "claude-sdk",
+      verbose: false,
+      bridgeCwd: "/tmp/project",
+      canvasReminderEvery: 10,
+      attachmentDir: "/tmp/attachments",
+      commandDefaultTimeoutMs: 15_000,
+      commandMaxOutputBytes: 256 * 1024,
+      commandMaxConcurrent: 6,
+      commandAgentDefaultProfile: "default",
+      claudeCodePath: "/usr/local/bin/claude",
+      liveModelProfile: "fast",
+    });
+
+    expect(opts.model).toBe("haiku");
   });
 
   it("strips CLAUDECODE from sdkEnv", () => {
