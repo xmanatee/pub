@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
-import { spawnSync } from "child_process";
-import { log, ok, warn, fail as logFail, itemProgress, elapsed, phaseHeader, phaseDone, progressBar, DIM, BOLD, RST, G } from "./log.mjs";
+import { spawn, spawnSync } from "child_process";
+import { log, ok, warn, fail as logFail, itemProgress, elapsed, phaseHeader, phaseDone, progressBar, DIM, BOLD, RST, G, Y } from "./log.mjs";
 import { buildPrompt, buildPromptFromString } from "./template.mjs";
 import { loadState, saveState, setPhase, getPhase, idsInPhases, countInPhase, countPastPhase, PHASES } from "./state.mjs";
 import { runClaude } from "./claude.mjs";
@@ -28,6 +28,31 @@ function ensurePlaywright(scriptDir) {
   }
 }
 
+function runTestRunner(scriptDir, pubDir) {
+  return new Promise((resolve) => {
+    const child = spawn("node", [join(scriptDir, "test-runner.mjs"), pubDir], {
+      stdio: "pipe",
+    });
+    child.on("close", (code) => resolve({ ok: code === 0, exitCode: code ?? 1 }));
+    child.on("error", () => resolve({ ok: false, exitCode: 1 }));
+  });
+}
+
+export function scanForIdeas(pubsDir, state) {
+  if (!existsSync(pubsDir)) return false;
+  let added = false;
+  for (const entry of readdirSync(pubsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const ideaFile = join(pubsDir, entry.name, "idea.md");
+    if (!existsSync(ideaFile)) continue;
+    if (state.ideas.some((i) => i.id === entry.name)) continue;
+    state.ideas.push({ id: entry.name, phase: "pending" });
+    added = true;
+  }
+  if (added) state.ideas.sort((a, b) => a.id.localeCompare(b.id));
+  return added;
+}
+
 export async function runIdeation(ctx, state) {
   const startMs = Date.now();
   phaseHeader(1, "Ideation");
@@ -45,15 +70,7 @@ export async function runIdeation(ctx, state) {
     logFile: join(ctx.dirs.logs, "phase1-ideation.log"),
   });
 
-  for (const entry of readdirSync(ctx.dirs.pubs, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const ideaFile = join(ctx.dirs.pubs, entry.name, "idea.md");
-    if (!existsSync(ideaFile)) continue;
-    if (state.ideas.some((i) => i.id === entry.name)) continue;
-    state.ideas.push({ id: entry.name, phase: "pending" });
-  }
-
-  state.ideas.sort((a, b) => a.id.localeCompare(b.id));
+  scanForIdeas(ctx.dirs.pubs, state);
   saveState(ctx.stateFile, state);
 
   ok(`${BOLD}${state.ideas.length}${RST} ideas generated`);
@@ -134,7 +151,7 @@ export async function processIdea(ctx, state, id, index, total) {
 
     const metaFile = join(pubDir, "meta.json");
     const htmlFile = join(pubDir, "index.html");
-    const result = publishPub(metaFile, htmlFile);
+    const result = await publishPub(metaFile, htmlFile);
 
     if (result.ok) {
       setPhase(state, id, "published");
@@ -171,20 +188,13 @@ export async function processIdea(ctx, state, id, index, total) {
     });
 
     log(`  ${DIM}browser test...${RST}`);
-    const testResult = spawnSync(
-      "node",
-      [join(ctx.dirs.root, "test-runner.mjs"), pubDir],
-      {
-        stdio: "pipe",
-        encoding: "utf-8",
-      },
-    );
+    const testResult = await runTestRunner(ctx.dirs.root, pubDir);
 
     setPhase(state, id, "tested");
     saveState(ctx.stateFile, state);
     phase = "tested";
 
-    if (testResult.status === 0) {
+    if (testResult.ok) {
       ok(`test pass ${DIM}${elapsed(startMs)}${RST}`);
     } else {
       let errors = 0;
@@ -225,7 +235,7 @@ export async function processIdea(ctx, state, id, index, total) {
 
     if (hashBefore !== hashAfter) {
       const meta = JSON.parse(readFileSync(join(pubDir, "meta.json"), "utf-8"));
-      const result = updatePub(meta.slug, join(pubDir, "index.html"));
+      const result = await updatePub(meta.slug, join(pubDir, "index.html"));
       if (result.ok) {
         ok(`reviewed + updated ${DIM}${elapsed(startMs)}${RST}`);
       } else {
@@ -265,9 +275,9 @@ export function showStatus(ctx) {
     if (c === 0) continue;
     let color = DIM;
     if (["designing", "implementing", "testing", "reviewing", "publishing"].includes(p)) {
-      color = "\x1b[0;33m";
+      color = Y;
     } else if (p === "reviewed") {
-      color = "\x1b[0;32m";
+      color = G;
     }
     process.stdout.write(`  ${color}${p.padEnd(14)} ${String(c).padStart(3)}${RST}\n`);
   }

@@ -3,8 +3,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { loadState, idsInPhases } from "./lib/state.mjs";
-import { runIdeation, processIdea, showStatus } from "./lib/pipeline.mjs";
+import { loadState, saveState, idsInPhases } from "./lib/state.mjs";
+import { scanForIdeas, runIdeation, processIdea, showStatus } from "./lib/pipeline.mjs";
 import { killActiveChild } from "./lib/claude.mjs";
 import { elapsed, warn } from "./lib/log.mjs";
 
@@ -82,8 +82,9 @@ process.on("exit", releaseLock);
 function handleInterrupt() {
   warn("\nInterrupted — killing active subprocess");
   killActiveChild();
-  showStatus(ctx);
-  releaseLock();
+  try {
+    showStatus(ctx);
+  } catch {}
   process.exit(130);
 }
 
@@ -92,6 +93,11 @@ process.on("SIGTERM", handleInterrupt);
 
 const pipelineStart = Date.now();
 const state = loadState(ctx.stateFile);
+
+// Recover orphan pub dirs from interrupted ideation
+if (scanForIdeas(ctx.dirs.pubs, state)) {
+  saveState(ctx.stateFile, state);
+}
 
 if (state.ideas.length === 0) {
   await runIdeation(ctx, state);

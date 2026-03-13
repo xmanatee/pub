@@ -8,10 +8,10 @@ function run(args) {
 }
 
 function sleep(ms) {
-  spawnSync("sleep", [String(ms / 1000)]);
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-export function publishPub(metaFile, htmlFile) {
+export async function publishPub(metaFile, htmlFile) {
   const meta = JSON.parse(readFileSync(metaFile, "utf-8"));
   const { slug, title } = meta;
   if (!slug) {
@@ -21,13 +21,13 @@ export function publishPub(metaFile, htmlFile) {
 
   if (run(["create", "--slug", slug, "--title", title, htmlFile])) {
     ok(`published ${slug}`);
-    sleep(6000);
+    await sleep(6000);
     return { ok: true, slug };
   }
 
   if (run(["update", slug, "--file", htmlFile])) {
     ok(`updated ${slug} (already existed)`);
-    sleep(6000);
+    await sleep(6000);
     return { ok: true, slug };
   }
 
@@ -35,9 +35,9 @@ export function publishPub(metaFile, htmlFile) {
   return { ok: false, slug };
 }
 
-export function updatePub(slug, htmlFile) {
+export async function updatePub(slug, htmlFile) {
   if (run(["update", slug, "--file", htmlFile])) {
-    sleep(6000);
+    await sleep(6000);
     return { ok: true };
   }
   return { ok: false };

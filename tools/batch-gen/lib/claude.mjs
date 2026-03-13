@@ -23,17 +23,17 @@ export function runClaude(ctx, { prompt, cwd, logFile }) {
       },
     );
     activeChild = child;
+    let done = false;
+    function finish(ok, exitCode) {
+      if (done) return;
+      done = true;
+      logStream.end();
+      activeChild = null;
+      resolve({ ok, exitCode });
+    }
     child.stdout.pipe(logStream);
     child.stderr.pipe(logStream);
-    child.on("close", (code) => {
-      logStream.end();
-      activeChild = null;
-      resolve({ ok: code === 0, exitCode: code ?? 1 });
-    });
-    child.on("error", (err) => {
-      logStream.end();
-      activeChild = null;
-      resolve({ ok: false, exitCode: 1 });
-    });
+    child.on("close", (code) => finish(code === 0, code ?? 1));
+    child.on("error", () => finish(false, 1));
   });
 }
