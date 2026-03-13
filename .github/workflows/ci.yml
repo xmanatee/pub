@@ -48,8 +48,19 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build E2E images
+        run: docker compose -f tests/e2e/docker-compose.yml build
+      - name: Start Convex backend and generate admin key
+        run: |
+          docker compose -f tests/e2e/docker-compose.yml up -d convex-backend
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3210/version > /dev/null && break
+            sleep 2
+          done
+          CONTAINER_ID=$(docker ps -qf 'ancestor=ghcr.io/get-convex/convex-backend:latest')
+          echo "ADMIN_KEY=$(docker exec "$CONTAINER_ID" ./generate_admin_key.sh)" >> "$GITHUB_ENV"
       - name: Run full-stack E2E tests
-        run: docker compose -f tests/e2e/docker-compose.yml up --build --abort-on-container-exit --exit-code-from test-runner
+        run: docker compose -f tests/e2e/docker-compose.yml up --abort-on-container-exit --exit-code-from test-runner
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4

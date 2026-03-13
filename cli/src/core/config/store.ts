@@ -47,7 +47,12 @@ function normalizePubConfig(input: unknown): PubConfig {
 }
 
 export function readPubConfig(env: NodeJS.ProcessEnv = process.env): PubConfig | null {
-  const configPath = getConfigPath(env);
+  let configPath: string;
+  try {
+    configPath = getConfigPath(env);
+  } catch {
+    return null;
+  }
   if (!fs.existsSync(configPath)) return null;
   const raw = fs.readFileSync(configPath, "utf-8");
   return normalizePubConfig(JSON.parse(raw));
