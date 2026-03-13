@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Switch } from "~/components/ui/switch";
 import { LiveModelSettingsCard } from "~/features/dashboard/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
+import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
 
@@ -24,6 +25,7 @@ export function AccountTab() {
   const [linkError, setLinkError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
+  const { telemetryEnabled, setTelemetryEnabled } = useTelemetryPreference();
 
   async function handleCreateLink() {
     setLoading(true);
@@ -127,6 +129,24 @@ export function AccountTab() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Telemetry</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm">Send performance and error data</p>
+              <p className="text-xs text-muted-foreground">
+                Helps improve reliability and performance. No personal data is sent. Reload the page
+                after changing this setting.
+              </p>
+            </div>
+            <Switch checked={telemetryEnabled} onCheckedChange={setTelemetryEnabled} />
+          </div>
+        </CardContent>
+      </Card>
 
       {!IN_TELEGRAM && !hasTelegram && (
         <Card className="border-border/50">

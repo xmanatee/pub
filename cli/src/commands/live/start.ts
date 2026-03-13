@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import type { Command } from "commander";
+import { resolvePubSettings } from "../../core/config/index.js";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { CLI_VERSION } from "../../core/version/version.js";
 import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
@@ -42,6 +43,10 @@ export function registerStartCommand(program: Command): void {
 
       const { spawn } = await import("node:child_process");
       const daemonLogFd = fs.openSync(logPath, "a");
+      const resolved = resolvePubSettings();
+      const sentryDsn = resolved.valuesByKey.sentryDsn;
+      const telemetry = resolved.valuesByKey.telemetry;
+
       const child = spawn(process.execPath, [], {
         detached: true,
         stdio: buildDaemonSpawnStdio(daemonLogFd),
@@ -56,6 +61,8 @@ export function registerStartCommand(program: Command): void {
           PUB_CLI_VERSION: CLI_VERSION,
           PUB_DAEMON_BRIDGE_SETTINGS: JSON.stringify(bridgeSettings),
           PUB_DAEMON_LOG: logPath,
+          ...(sentryDsn?.value ? { PUB_SENTRY_DSN: String(sentryDsn.value) } : {}),
+          ...(telemetry && telemetry.value === false ? { PUB_TELEMETRY: "false" } : {}),
         },
       });
       fs.closeSync(daemonLogFd);

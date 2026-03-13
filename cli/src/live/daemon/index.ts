@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { flushSentry } from "../../core/telemetry/sentry.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
@@ -277,6 +278,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     } catch (error) {
       lifecycle.debugLog("failed to remove daemon info file during cleanup", error);
     }
+
+    await flushSentry(2000);
   }
 
   process.on("SIGTERM", () => {

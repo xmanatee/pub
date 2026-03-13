@@ -14,6 +14,8 @@ export type DetachedAgentProvider = "claude-code" | "claude-sdk" | "openclaw";
 export interface PubCoreConfig {
   apiKey?: string;
   baseUrl?: string;
+  telemetry?: boolean;
+  sentryDsn?: string;
 }
 
 export interface PubBridgeConfig {
