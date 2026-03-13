@@ -46,6 +46,7 @@ services:
       - CONVEX_SITE_URL=http://convex-backend:3211
       - BASE_URL=http://frontend:3000
       - IS_TEST=true
+      - ADMIN_KEY=${ADMIN_KEY}
     depends_on:
       frontend:
         condition: service_healthy

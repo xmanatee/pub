@@ -12,7 +12,7 @@ COPY . .
 # Generate Convex types (offline codegen)
 RUN pnpm convex codegen --admin-key "test-admin-key" --url "http://convex-backend:3210" 2>/dev/null || true
 EXPOSE 3000
-CMD ["pnpm", "dev:web", "--", "--host", "0.0.0.0"]
+CMD ["sh", "-c", "cd web && npx vite dev --host 0.0.0.0 --port 3000"]
 
 # Stage 3: Test runner
 FROM mcr.microsoft.com/playwright:v1.58.2-noble AS test-runner
