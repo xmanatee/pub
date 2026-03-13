@@ -38,4 +38,8 @@ if echo "$MSG" | grep -q "User message:"; then
 fi
 
 # Session briefing or unrecognized — acknowledge silently
+# Optional delay to simulate slow agent startup (e.g. MOCK_BRIDGE_BRIEFING_DELAY=10)
+if [ -n "${MOCK_BRIDGE_BRIEFING_DELAY:-}" ]; then
+  sleep "$MOCK_BRIDGE_BRIEFING_DELAY"
+fi
 exit 0
