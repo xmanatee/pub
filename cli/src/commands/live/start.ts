@@ -79,7 +79,7 @@ export function registerStartCommand(program: Command): void {
         infoPath,
         socketPath,
         timeoutMs: 8_000,
-        childExitFailure: false,
+        failOnChildExit: false,
       });
       if (!ready.ok) {
         const lines = [

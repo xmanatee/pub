@@ -23,9 +23,7 @@ function makeStatusResponse(): string {
   })}\n`;
 }
 
-class FakeChild extends EventEmitter {
-  // ChildProcess behavior is not needed for this test beyond EventEmitter semantics.
-}
+class FakeChild extends EventEmitter {}
 
 describe("waitForDaemonReady", () => {
   const tempDirs: string[] = [];
@@ -46,7 +44,7 @@ describe("waitForDaemonReady", () => {
     }
   });
 
-  it("ignores launcher exit when childExitFailure is false", async () => {
+  it("ignores launcher exit when failOnChildExit is false", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-daemon-ready-"));
     tempDirs.push(dir);
     const socketPath = path.join(dir, "daemon.sock");
@@ -76,7 +74,7 @@ describe("waitForDaemonReady", () => {
         infoPath,
         socketPath,
         timeoutMs: 1_000,
-        childExitFailure: false,
+        failOnChildExit: false,
       }),
     ).resolves.toEqual({ ok: true });
   });

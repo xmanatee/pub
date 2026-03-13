@@ -31,8 +31,8 @@ export function createDaemonLifecycle(params: {
     shutdown,
   } = params;
 
-  function debugLog(message: string, error?: unknown): void {
-    if (!debugEnabled) return;
+  function writeLog(message: string, error?: unknown, alwaysLog = false): void {
+    if (!debugEnabled && !alwaysLog) return;
     const detail =
       error === undefined
         ? ""
@@ -46,9 +46,17 @@ export function createDaemonLifecycle(params: {
     console.error(`[pub-agent] ${message}${detail}`);
   }
 
-  function markError(message: string, error?: unknown): void {
+  function debugLog(message: string, error?: unknown): void {
+    writeLog(message, error);
+  }
+
+  function logAlways(message: string, error?: unknown): void {
+    writeLog(message, error, true);
+  }
+
+  function markError(message: string, error?: unknown, options?: { alwaysLog?: boolean }): void {
     state.lastError = error === undefined ? message : `${message}: ${errorMessage(error)}`;
-    debugLog(message, error);
+    writeLog(message, error, options?.alwaysLog === true);
   }
 
   function isLiveConnected(): boolean {
@@ -156,6 +164,7 @@ export function createDaemonLifecycle(params: {
     debugLog,
     handleConnectionClosed,
     isLiveConnected,
+    logAlways,
     markError,
     startHealthCheckTimer,
     startPingPong,
