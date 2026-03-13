@@ -56,12 +56,12 @@ describe("liveConflictsWithRequest", () => {
     ).toBe(false);
   });
 
-  it("treats untargeted live as conflicting so it gets replaced", () => {
+  it("allows untargeted live when slug and target agent differ", () => {
     expect(
       liveConflictsWithRequest(
         { slug: "untargeted" },
         { slug: "fresh", targetPresenceId: "agent-a" },
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
