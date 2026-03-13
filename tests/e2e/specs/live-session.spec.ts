@@ -119,9 +119,9 @@ test("chat roundtrip: browser to mock bridge and back", async ({ page }) => {
 
   // Click the message input to activate it (transitions from button to textarea)
   await page.getByLabel("Message").click();
+  const messageInput = page.getByRole("textbox", { name: "Message" });
 
-  // Fill the message
-  await page.getByLabel("Message").fill("hello from browser");
+  await messageInput.fill("hello from browser");
 
   // Wait for the send button to be enabled (WebRTC connection must be established first)
   await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
@@ -153,7 +153,7 @@ test("cli write delivers message to browser", async ({ page }) => {
 
   // Wait for WebRTC connection by checking send button is enabled
   await page.getByLabel("Message").click();
-  await page.getByLabel("Message").fill("_");
+  await page.getByRole("textbox", { name: "Message" }).fill("_");
   await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
   await page.keyboard.press("Escape");
 
@@ -187,28 +187,42 @@ test("chat and canvas update in one session", async ({ page }) => {
   await injectAuth(page, user);
   await page.goto("/p/combo-e2e");
 
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Message", { exact: true })).toBeVisible({ timeout: 30_000 });
 
   // Verify initial canvas content loads in iframe
   const canvasFrame = page.frameLocator("iframe").first();
   await expect(canvasFrame.locator("#status")).toHaveText("initial", { timeout: 10_000 });
 
+  const messageButton = page.getByLabel("Message", { exact: true });
+  const messageTextbox = page.getByRole("textbox", { name: "Message" });
+  const sendButton = page.getByLabel("Send message");
+
+  // Helper: click input (button or textarea), fill, send
+  async function sendMessage(text: string) {
+    // If textarea is visible, use it directly; otherwise click the button to activate
+    const isTextbox = await messageTextbox.isVisible().catch(() => false);
+    if (isTextbox) {
+      await messageTextbox.click();
+    } else {
+      await messageButton.click();
+    }
+    await messageTextbox.fill(text);
+    await expect(sendButton).toBeEnabled({ timeout: 60_000 });
+    await sendButton.click();
+  }
+
   // Wait for WebRTC connection
-  await page.getByLabel("Message").click();
-  await page.getByLabel("Message").fill("_");
-  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
+  await messageButton.click();
+  await messageTextbox.fill("_");
+  await expect(sendButton).toBeEnabled({ timeout: 60_000 });
+  await page.keyboard.press("Escape");
 
   // Step 1: Send "hi" → expect chat echo
-  await page.getByLabel("Message").fill("hi");
-  await page.getByLabel("Send message").click();
+  await sendMessage("hi");
   await expect(page.getByText("echo: hi")).toBeVisible({ timeout: 30_000 });
 
-  // Step 2: Send "update canvas" → expect canvas iframe to update AND chat confirmation
-  await page.getByLabel("Message").click();
-  await page.getByLabel("Message").fill("update canvas");
-  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 10_000 });
-  await page.getByLabel("Send message").click();
-
+  // Step 2: Send "update canvas" → expect canvas update + chat confirmation
+  await sendMessage("update canvas");
   await expect(page.getByText("canvas updated")).toBeVisible({ timeout: 30_000 });
   await expect(canvasFrame.locator("#status")).toHaveText("canvas-updated", { timeout: 15_000 });
 });
@@ -271,7 +285,7 @@ test("canvas command executes via daemon", async ({ page }) => {
 
   // Wait for WebRTC connection before invoking canvas commands
   await page.getByLabel("Message").click();
-  await page.getByLabel("Message").fill("_");
+  await page.getByRole("textbox", { name: "Message" }).fill("_");
   await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
   await page.keyboard.press("Escape");
 

@@ -23,7 +23,10 @@ if echo "$MSG" | grep -q "User message:"; then
   if [ -n "$USER_TEXT" ]; then
     case "$USER_TEXT" in
       "update canvas")
-        "$PUB" write -c canvas '<html><body><h1 id="status">canvas-updated</h1></body></html>'
+        TMPHTML=$(mktemp /tmp/pub-canvas-XXXXXX.html)
+        echo '<html><body><h1 id="status">canvas-updated</h1></body></html>' > "$TMPHTML"
+        "$PUB" write -c canvas -f "$TMPHTML"
+        rm -f "$TMPHTML"
         "$PUB" write "canvas updated"
         ;;
       *)
