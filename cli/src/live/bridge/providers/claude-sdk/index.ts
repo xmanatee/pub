@@ -33,7 +33,7 @@ export {
 export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
 
 const MAX_SESSION_RECREATIONS = 2;
-const SESSION_BRIEFING_MAX_TURNS = 3;
+const SESSION_BRIEFING_MAX_TURNS = 2;
 
 function readClaudeSdkAssistantOutput(message: unknown): string {
   if (!message || typeof message !== "object") return "";

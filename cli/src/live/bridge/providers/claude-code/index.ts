@@ -35,7 +35,7 @@ export {
 } from "./runtime.js";
 export { runClaudeCodeBridgeStartupProbe } from "./probe.js";
 
-const SESSION_BRIEFING_MAX_TURNS = 3;
+const SESSION_BRIEFING_MAX_TURNS = 2;
 
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
