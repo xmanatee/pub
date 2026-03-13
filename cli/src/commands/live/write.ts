@@ -1,10 +1,54 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { type BridgeMessage, generateMessageId } from "../../../../shared/bridge-protocol-core";
 import { failCli } from "../../core/errors/cli-error.js";
 import { getMimeType, TEXT_FILE_EXTENSIONS } from "../../live/runtime/file-payload.js";
-import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
+import { createCliCommandContext, type CliCommandContext } from "../shared/index.js";
+
+interface WriteCommandOptions {
+  channel: string;
+  file?: string;
+}
+
+function buildFileMessage(
+  context: CliCommandContext,
+  filePath: string,
+): { binaryBase64?: string; msg: BridgeMessage } {
+  const { bytes, resolvedPath } = context.readFileBytes(filePath);
+  const ext = path.extname(resolvedPath).toLowerCase();
+  const filename = path.basename(resolvedPath);
+
+  if (ext === ".html" || ext === ".htm") {
+    return {
+      msg: {
+        id: generateMessageId(),
+        type: "html",
+        data: bytes.toString("utf-8"),
+        meta: { title: filename, filename, mime: getMimeType(resolvedPath), size: bytes.length },
+      },
+    };
+  }
+
+  if (TEXT_FILE_EXTENSIONS.has(ext)) {
+    return {
+      msg: {
+        id: generateMessageId(),
+        type: "text",
+        data: bytes.toString("utf-8"),
+        meta: { filename, mime: getMimeType(resolvedPath), size: bytes.length },
+      },
+    };
+  }
+
+  return {
+    msg: {
+      id: generateMessageId(),
+      type: "binary",
+      meta: { filename, mime: getMimeType(resolvedPath), size: bytes.length },
+    },
+    binaryBase64: bytes.toString("base64"),
+  };
+}
 
 export function registerWriteCommand(program: Command): void {
   program
@@ -13,61 +57,41 @@ export function registerWriteCommand(program: Command): void {
     .argument("[message]", "Text message (or use --file)")
     .option("-c, --channel <channel>", "Channel name", "chat")
     .option("-f, --file <file>", "Read content from file")
-    .action(async (messageArg: string | undefined, opts: { channel: string; file?: string }) => {
-      let msg: BridgeMessage;
-      let binaryBase64: string | undefined;
+    .action(async (messageArg: string | undefined, opts: WriteCommandOptions) => {
+      const context = createCliCommandContext();
 
-      if (opts.file) {
-        const filePath = path.resolve(opts.file);
-        const ext = path.extname(filePath).toLowerCase();
-        const bytes = fs.readFileSync(filePath);
-        const filename = path.basename(filePath);
-
-        if (ext === ".html" || ext === ".htm") {
-          msg = {
-            id: generateMessageId(),
-            type: "html",
-            data: bytes.toString("utf-8"),
-            meta: { title: filename, filename, mime: getMimeType(filePath), size: bytes.length },
-          };
-        } else if (TEXT_FILE_EXTENSIONS.has(ext)) {
-          msg = {
-            id: generateMessageId(),
-            type: "text",
-            data: bytes.toString("utf-8"),
-            meta: { filename, mime: getMimeType(filePath), size: bytes.length },
-          };
-        } else {
-          msg = {
-            id: generateMessageId(),
-            type: "binary",
-            meta: { filename, mime: getMimeType(filePath), size: bytes.length },
-          };
-          binaryBase64 = bytes.toString("base64");
-        }
-      } else if (messageArg) {
-        msg = {
-          id: generateMessageId(),
-          type: "text",
-          data: messageArg,
-        };
-      } else {
-        const chunks: Buffer[] = [];
-        for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
-        msg = {
-          id: generateMessageId(),
-          type: "text",
-          data: Buffer.concat(chunks).toString("utf-8").trim(),
-        };
+      if (opts.file && messageArg !== undefined) {
+        failCli("Use either a message argument or --file, not both.");
       }
 
-      const socketPath = getAgentSocketPath();
-      const response = await ipcCall(socketPath, {
-        method: "write",
-        params: { channel: opts.channel, msg, binaryBase64 },
-      });
-      if (!response.ok) {
-        failCli(`Failed: ${response.error}`);
-      }
+      const { msg, binaryBase64 } = opts.file
+        ? buildFileMessage(context, opts.file)
+        : messageArg !== undefined
+          ? {
+              msg: {
+                id: generateMessageId(),
+                type: "text" as const,
+                data: messageArg,
+              },
+            }
+          : {
+              msg: {
+                id: generateMessageId(),
+                type: "text" as const,
+                data: await context.readStdinText({
+                  trim: true,
+                  missingMessage:
+                    "No message provided. Pass text, use --file, or pipe stdin to `pub write`.",
+                }),
+              },
+            };
+
+      await context.requireDaemonResponse(
+        {
+          method: "write",
+          params: { channel: opts.channel, msg, binaryBase64 },
+        },
+        "Failed to write live message",
+      );
     });
 }

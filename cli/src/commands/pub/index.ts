@@ -1,12 +1,27 @@
 import type { Command } from "commander";
 import { getTelegramMiniAppUrl } from "../../core/config/index.js";
 import {
-  createClient,
+  createCliCommandContext,
   formatVisibility,
-  readFile,
-  readFromStdin,
   resolveVisibilityFlags,
 } from "../shared/index.js";
+
+interface CreatePubOptions {
+  slug?: string;
+  title?: string;
+}
+
+interface GetPubOptions {
+  content?: boolean;
+}
+
+interface UpdatePubOptions {
+  file?: string;
+  title?: string;
+  public?: boolean;
+  private?: boolean;
+  slug?: string;
+}
 
 export function registerPubCommands(program: Command): void {
   program
@@ -15,44 +30,34 @@ export function registerPubCommands(program: Command): void {
     .argument("[file]", "Path to the file (reads stdin if omitted)")
     .option("--slug <slug>", "Custom slug for the URL")
     .option("--title <title>", "Title for the pub")
-    .action(
-      async (
-        fileArg: string | undefined,
-        opts: {
-          slug?: string;
-          title?: string;
-        },
-      ) => {
-        const client = createClient();
+    .action(async (fileArg: string | undefined, opts: CreatePubOptions) => {
+      const context = createCliCommandContext();
 
-        let content: string | undefined;
+      const content = fileArg
+        ? context.readUtf8File(fileArg)
+        : await context.readStdinText({
+            missingMessage: "No pub content provided. Pass a file or pipe content on stdin.",
+          });
 
-        if (fileArg) {
-          content = readFile(fileArg);
-        } else {
-          content = await readFromStdin();
-        }
+      const result = await context.getApiClient().create({
+        content,
+        title: opts.title,
+        slug: opts.slug,
+      });
 
-        const result = await client.create({
-          content,
-          title: opts.title,
-          slug: opts.slug,
-        });
-
-        console.log(`Created: ${result.url}`);
-        const tmaUrl = getTelegramMiniAppUrl(result.slug);
-        if (tmaUrl) console.log(`Telegram: ${tmaUrl}`);
-      },
-    );
+      console.log(`Created: ${result.url}`);
+      const tmaUrl = getTelegramMiniAppUrl(result.slug, context.env);
+      if (tmaUrl) console.log(`Telegram: ${tmaUrl}`);
+    });
 
   program
     .command("get")
     .description("Get details of a pub")
     .argument("<slug>", "Slug of the pub")
     .option("--content", "Output raw content to stdout (no metadata, pipeable)")
-    .action(async (slug: string, opts: { content?: boolean }) => {
-      const client = createClient();
-      const pub = await client.get(slug);
+    .action(async (slug: string, opts: GetPubOptions) => {
+      const context = createCliCommandContext();
+      const pub = await context.getApiClient().get(slug);
 
       if (opts.content) {
         process.stdout.write(pub.content ?? "");
@@ -79,50 +84,46 @@ export function registerPubCommands(program: Command): void {
     .option("--public", "Make the pub public")
     .option("--private", "Make the pub private")
     .option("--slug <newSlug>", "Rename the slug")
-    .action(
-      async (
-        slug: string,
-        opts: {
-          file?: string;
-          title?: string;
-          public?: boolean;
-          private?: boolean;
-          slug?: string;
-        },
-      ) => {
-        const client = createClient();
+    .action(async (slug: string, opts: UpdatePubOptions) => {
+      const context = createCliCommandContext();
+      const content = opts.file ? context.readUtf8File(opts.file) : undefined;
 
-        let content: string | undefined;
-        if (opts.file) {
-          content = readFile(opts.file);
-        }
+      const isPublic = resolveVisibilityFlags({
+        public: opts.public,
+        private: opts.private,
+        commandName: "update",
+      });
 
-        const isPublic = resolveVisibilityFlags({
-          public: opts.public,
-          private: opts.private,
-          commandName: "update",
-        });
+      if (
+        content === undefined &&
+        opts.title === undefined &&
+        isPublic === undefined &&
+        opts.slug === undefined
+      ) {
+        throw new Error(
+          "Nothing to update. Provide at least one of --file, --title, --public, --private, or --slug.",
+        );
+      }
 
-        const result = await client.update({
-          slug,
-          content,
-          title: opts.title,
-          isPublic,
-          newSlug: opts.slug,
-        });
+      const result = await context.getApiClient().update({
+        slug,
+        content,
+        title: opts.title,
+        isPublic,
+        newSlug: opts.slug,
+      });
 
-        console.log(`Updated: ${result.slug}`);
-        if (result.title) console.log(`  Title:  ${result.title}`);
-        console.log(`  Status: ${formatVisibility(result.isPublic)}`);
-      },
-    );
+      console.log(`Updated: ${result.slug}`);
+      if (result.title) console.log(`  Title:  ${result.title}`);
+      console.log(`  Status: ${formatVisibility(result.isPublic)}`);
+    });
 
   program
     .command("list")
     .description("List your pubs")
     .action(async () => {
-      const client = createClient();
-      const pubs = await client.list();
+      const context = createCliCommandContext();
+      const pubs = await context.getApiClient().list();
       if (pubs.length === 0) {
         console.log("No pubs.");
         return;
@@ -142,8 +143,8 @@ export function registerPubCommands(program: Command): void {
     .description("Delete a pub")
     .argument("<slug>", "Slug of the pub to delete")
     .action(async (slug: string) => {
-      const client = createClient();
-      await client.deletePub(slug);
+      const context = createCliCommandContext();
+      await context.getApiClient().deletePub(slug);
       console.log(`Deleted: ${slug}`);
     });
 }

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatVisibility, readFile, resolveVisibilityFlags } from "./index.js";
+import { formatVisibility, readUtf8File, resolveVisibilityFlags } from "./index.js";
 
 describe("resolveVisibilityFlags", () => {
   it("returns true for --public", () => {
@@ -34,19 +34,19 @@ describe("formatVisibility", () => {
   });
 });
 
-describe("readFile", () => {
+describe("readUtf8File", () => {
   it("reads existing file content", () => {
     const dir = mkdtempSync(join(tmpdir(), "pub-read-file-"));
     const filePath = join(dir, "sample.txt");
     writeFileSync(filePath, "hello");
 
-    expect(readFile(filePath)).toBe("hello");
+    expect(readUtf8File(filePath)).toBe("hello");
 
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("throws clear error for missing files", () => {
     const missing = join(tmpdir(), "pub-missing-file.txt");
-    expect(() => readFile(missing)).toThrow(`File not found: ${missing}`);
+    expect(() => readUtf8File(missing)).toThrow(`File not found: ${missing}`);
   });
 });

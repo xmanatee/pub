@@ -1,16 +1,14 @@
 import type { Command } from "commander";
 import type {
-  ApiClientSettings,
   PubBridgeConfig,
   PubConfig,
   PubTelegramConfig,
-  ResolvedPubSettings,
 } from "../../core/config/index.js";
 import {
   compactPubConfig,
+  getApiClientSettingsFromConfig,
   parseConfigAssignment,
   resolvePubSettings,
-  resolvePubSettingsFromConfig,
   setPubConfigValue,
   unsetPubConfigValue,
   writePubConfig,
@@ -41,23 +39,6 @@ function clonePubConfig(config: PubConfig | null): PubConfig {
 
 function cloneTelegramConfig(config: PubConfig): PubTelegramConfig {
   return config.telegram ? { ...config.telegram } : {};
-}
-
-function getTelegramApiClientSettingsForMutation(
-  nextConfig: PubConfig,
-  currentResolved: ResolvedPubSettings,
-): ApiClientSettings {
-  const nextResolved = resolvePubSettingsFromConfig(nextConfig);
-  const apiKey = nextResolved.core.apiKey?.value ?? currentResolved.core.apiKey?.value;
-
-  if (!apiKey) {
-    throw new Error("Pub API key is required for Telegram bot token changes.");
-  }
-
-  return {
-    apiKey,
-    baseUrl: nextResolved.core.baseUrl.value,
-  };
 }
 
 export function registerConfigCommand(program: Command): void {
@@ -148,7 +129,7 @@ export function registerConfigCommand(program: Command): void {
         await reconcileTelegramConfigChange({
           previous: saved.telegram,
           next: nextTelegram,
-          apiClientSettings: getTelegramApiClientSettingsForMutation(nextConfig, resolved),
+          apiClientSettings: getApiClientSettingsFromConfig(nextConfig),
         });
       }
 

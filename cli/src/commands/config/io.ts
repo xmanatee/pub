@@ -1,4 +1,4 @@
-import { readFromStdin } from "../shared/index.js";
+import { readStdinText } from "../shared/index.js";
 
 export function resolveConfigureApiKey(opts: {
   apiKey?: string;
@@ -11,7 +11,10 @@ export function resolveConfigureApiKey(opts: {
     return Promise.resolve(opts.apiKey.trim());
   }
   if (opts.apiKeyStdin) {
-    return readFromStdin();
+    return readStdinText({
+      trim: true,
+      missingMessage: "No API key provided on stdin. Pipe it to `pub config --api-key-stdin`.",
+    });
   }
   throw new Error("No API key provided. Use --api-key <KEY> or --api-key-stdin.");
 }

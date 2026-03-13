@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
-import { type StatusResponse } from "../../live/transport/ipc-protocol.js";
-import { getAgentSocketPath, ipcCall } from "../../live/transport/ipc.js";
+import { DaemonUnavailableError } from "../../live/transport/ipc.js";
+import { createCliCommandContext } from "../shared/index.js";
 import {
   getConfiguredLiveVerboseState,
   printDaemonStatus,
@@ -13,27 +13,27 @@ export function registerStatusCommand(program: Command): void {
     .command("status")
     .description("Check agent daemon and live connection status")
     .action(async () => {
-      const socketPath = getAgentSocketPath();
+      const context = createCliCommandContext();
       let liveVerbose: { enabled: boolean } | null = null;
       let liveVerboseError: string | null = null;
       try {
-        liveVerbose = getConfiguredLiveVerboseState();
+        liveVerbose = getConfiguredLiveVerboseState(context.env);
       } catch (error) {
         liveVerboseError = errorMessage(error);
       }
-      let response: StatusResponse;
-      try {
-        response = await ipcCall(socketPath, { method: "status", params: {} });
-      } catch (error) {
-        if (errorMessage(error) !== "Daemon not running.") {
+      const response = await context.callDaemon({ method: "status", params: {} }).catch(
+        (error: unknown) => {
+          if (error instanceof DaemonUnavailableError) {
+            console.log("Agent daemon is not running.");
+            printLocalRuntimeSummary(context.env);
+            return null;
+          }
           failCli(`Failed to fetch daemon status: ${errorMessage(error)}`);
         }
-        console.log("Agent daemon is not running.");
-        printLocalRuntimeSummary();
-        return;
-      }
+      );
+      if (!response) return;
       if (!response.ok) {
-        failCli(`Failed to fetch daemon status: ${response.error || "unknown error"}`);
+        failCli(`Failed to fetch daemon status: ${response.error}`);
       }
 
       printDaemonStatus(response, { verboseEnabled: liveVerbose?.enabled ?? null });
