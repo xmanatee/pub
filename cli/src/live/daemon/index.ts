@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { errorMessage } from "../../core/errors/cli-error.js";
 import { flushSentry } from "../../core/telemetry/sentry.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
@@ -37,6 +38,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let peerManager!: ReturnType<typeof createPeerManager>;
   let shuttingDown = false;
   let presenceGeneration = 0;
+
+  function logLifecycleEvent(message: string, error?: unknown): void {
+    const detail = error === undefined ? "" : `: ${errorMessage(error)}`;
+    console.error(`[pub-agent] ${message}${detail}`);
+  }
 
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
@@ -172,6 +178,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function handlePresenceOwnershipConflict(error: unknown): Promise<void> {
+    logLifecycleEvent("presence ownership lost", error);
     lifecycle.markError("presence ownership lost", error);
     await shutdown(1);
   }
@@ -304,16 +311,24 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   process.on("SIGTERM", () => {
+    logLifecycleEvent("received SIGTERM");
     void shutdown(0);
   });
   process.on("SIGINT", () => {
+    logLifecycleEvent("received SIGINT");
+    void shutdown(0);
+  });
+  process.on("SIGHUP", () => {
+    logLifecycleEvent("received SIGHUP");
     void shutdown(0);
   });
   process.on("uncaughtException", (error) => {
+    logLifecycleEvent("uncaught exception in daemon", error);
     lifecycle.markError("uncaught exception in daemon", error);
     void shutdown(1);
   });
   process.on("unhandledRejection", (reason) => {
+    logLifecycleEvent("unhandled rejection in daemon", reason);
     lifecycle.markError("unhandled rejection in daemon", reason);
     void shutdown(1);
   });

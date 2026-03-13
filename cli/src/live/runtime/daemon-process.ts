@@ -149,6 +149,7 @@ interface WaitForDaemonReadyParams {
   infoPath: string;
   socketPath: string;
   timeoutMs: number;
+  childExitFailure?: boolean;
 }
 
 interface WaitForDaemonReadyResult {
@@ -161,6 +162,7 @@ export function waitForDaemonReady({
   infoPath,
   socketPath,
   timeoutMs,
+  childExitFailure,
 }: WaitForDaemonReadyParams): Promise<WaitForDaemonReadyResult> {
   return new Promise((resolve) => {
     let settled = false;
@@ -172,7 +174,9 @@ export function waitForDaemonReady({
       settled = true;
       clearInterval(poll);
       clearTimeout(timeout);
-      child.off("exit", onExit);
+      if (childExitFailure !== false) {
+        child.off("exit", onExit);
+      }
       resolve(result);
     };
 
@@ -181,7 +185,9 @@ export function waitForDaemonReady({
       done({ ok: false, reason: `daemon exited with code ${code ?? 0}${suffix}` });
     };
 
-    child.on("exit", onExit);
+    if (childExitFailure !== false) {
+      child.on("exit", onExit);
+    }
 
     const poll = setInterval(() => {
       if (pollInFlight || !fs.existsSync(infoPath)) return;

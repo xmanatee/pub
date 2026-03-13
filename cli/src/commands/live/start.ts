@@ -57,7 +57,7 @@ export function registerStartCommand(program: Command): void {
         stdio: buildDaemonSpawnStdio(daemonLogFd),
         env: {
           ...bridgeProcessEnv,
-          PUB_DAEMON_MODE: "1",
+          PUB_DAEMON_LAUNCHER_MODE: "1",
           PUB_DAEMON_API_BASE_URL: apiClientSettings.baseUrl,
           PUB_DAEMON_API_KEY: apiClientSettings.apiKey,
           PUB_DAEMON_SOCKET: socketPath,
@@ -79,6 +79,7 @@ export function registerStartCommand(program: Command): void {
         infoPath,
         socketPath,
         timeoutMs: 8_000,
+        childExitFailure: false,
       });
       if (!ready.ok) {
         const lines = [
