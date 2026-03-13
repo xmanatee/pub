@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { loadState, saveState, idsInPhases } from "./lib/state.mjs";
 import { scanForIdeas, runIdeation, processIdea, showStatus } from "./lib/pipeline.mjs";
 import { killActiveChild } from "./lib/claude.mjs";
-import { elapsed, warn } from "./lib/log.mjs";
+import { elapsed, warn, log } from "./lib/log.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOCKFILE = join(__dirname, ".run.lock");
@@ -122,4 +122,4 @@ for (let i = 0; i < incomplete.length; i++) {
 }
 
 showStatus(ctx);
-console.log(`  total time: ${elapsed(pipelineStart)}\n`);
+log(`total time: ${elapsed(pipelineStart)}`);

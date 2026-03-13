@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
 import { log, ok, warn, fail as logFail, itemProgress, elapsed, phaseHeader, phaseDone, progressBar, DIM, BOLD, RST, G, Y } from "./log.mjs";
 import { buildPrompt, buildPromptFromString } from "./template.mjs";
-import { loadState, saveState, setPhase, getPhase, idsInPhases, countInPhase, countPastPhase, PHASES } from "./state.mjs";
+import { loadState, saveState, setPhase, getPhase, countInPhase, countPastPhase, PHASES } from "./state.mjs";
 import { runClaude } from "./claude.mjs";
 import { publishPub, updatePub } from "./pub-cli.mjs";
 

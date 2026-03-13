@@ -61,4 +61,4 @@ export function phaseDone(num, startMs) {
   process.stdout.write(`\n  ${G}${OK}${RST} Phase ${num} complete ${DIM}(${elapsed(startMs)})${RST}\n`);
 }
 
-export { DIM, BOLD, RST, R, G, Y };
+export { DIM, BOLD, RST, G, Y };
