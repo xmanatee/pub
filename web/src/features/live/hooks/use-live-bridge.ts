@@ -74,6 +74,7 @@ export function useLiveBridge({
     bridgeRef.current = bridge;
     lastAgentCandidateCountRef.current = 0;
     lastHandledAnswerRef.current = null;
+    let disposed = false;
     bridge.setOnStateChange(setBridgeState);
     bridge.setOnLiveReadyChange(setLiveReady);
     bridge.setOnControlError((error) => {
@@ -136,12 +137,17 @@ export function useLiveBridge({
           localIceStopTimeoutRef.current = null;
         }, 30_000);
       } catch (error) {
+        if (disposed) return;
         trackError(
           error instanceof Error ? error : new Error("Failed to create live WebRTC offer"),
           { context: "live-bridge" },
         );
+        const content =
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "Live connection setup failed before streaming could start.";
         onSystemMessageRef.current?.({
-          content: "Live connection setup failed before streaming could start.",
+          content,
           dedupeKey: "bridge-offer-failed",
           severity: "error",
         });
@@ -155,6 +161,7 @@ export function useLiveBridge({
     })();
 
     return () => {
+      disposed = true;
       if (localIceFlushIntervalRef.current) {
         clearInterval(localIceFlushIntervalRef.current);
         localIceFlushIntervalRef.current = null;

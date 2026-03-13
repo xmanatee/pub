@@ -3,12 +3,13 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { MockBrowserBridge, bridgeInstances } = vi.hoisted(() => {
+const { MockBrowserBridge, bridgeInstances, createOfferMock } = vi.hoisted(() => {
   const bridgeInstances: Array<{ close: ReturnType<typeof vi.fn> }> = [];
+  const createOfferMock = vi.fn(async () => "offer-sdp");
 
   class MockBrowserBridge {
     readonly close = vi.fn();
-    readonly createOffer = vi.fn(async () => "offer-sdp");
+    readonly createOffer = createOfferMock;
     readonly getIceCandidates = vi.fn((): string[] => []);
     readonly markOfferSent = vi.fn();
     readonly applyAnswer = vi.fn(async () => {});
@@ -26,7 +27,11 @@ const { MockBrowserBridge, bridgeInstances } = vi.hoisted(() => {
     }
   }
 
-  return { MockBrowserBridge, bridgeInstances };
+  return {
+    MockBrowserBridge,
+    bridgeInstances,
+    createOfferMock,
+  };
 });
 
 vi.mock("~/features/live/lib/webrtc-browser", () => ({
@@ -45,10 +50,16 @@ function HookHarness({
   enabled,
   transportKey,
   onChange,
+  onSystemMessage,
 }: {
   enabled: boolean;
   transportKey: string;
   onChange: (value: ReturnType<typeof useLiveBridge>) => void;
+  onSystemMessage?: (params: {
+    content: string;
+    dedupeKey?: string;
+    severity: "warning" | "error";
+  }) => void;
 }) {
   const value = useLiveBridge({
     slug: "demo",
@@ -60,6 +71,7 @@ function HookHarness({
     storeBrowserCandidates: async () => ({ ok: true }),
     onDeliveryReceipt: () => {},
     onMessage: () => {},
+    onSystemMessage,
     onTrackActivity: () => {},
   });
 
@@ -75,6 +87,8 @@ let container: HTMLDivElement | null = null;
 
 beforeEach(() => {
   bridgeInstances.length = 0;
+  createOfferMock.mockReset();
+  createOfferMock.mockResolvedValue("offer-sdp");
 });
 
 afterEach(async () => {
@@ -128,5 +142,46 @@ describe("useLiveBridge", () => {
     expect(firstBridge.close).toHaveBeenCalledTimes(1);
     expect(bridgeInstances).toHaveLength(2);
     expect(states.at(-1)?.bridgeState).toBe("connecting");
+  });
+
+  it("surfaces offer setup failures through the existing hook error channel", async () => {
+    const states: Array<ReturnType<typeof useLiveBridge>> = [];
+    const systemMessages: Array<{
+      content: string;
+      dedupeKey?: string;
+      severity: "warning" | "error";
+    }> = [];
+
+    createOfferMock.mockRejectedValue(
+      new Error(
+        "On iPhone, live connection needs microphone access before it can connect. Allow mic access and try again.",
+      ),
+    );
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          enabled={true}
+          transportKey="demo:presence-a:0"
+          onChange={(value) => states.push(value)}
+          onSystemMessage={(message) => systemMessages.push(message)}
+        />,
+      );
+    });
+
+    expect(bridgeInstances).toHaveLength(1);
+    expect(systemMessages).toContainEqual({
+      content:
+        "On iPhone, live connection needs microphone access before it can connect. Allow mic access and try again.",
+      dedupeKey: "bridge-offer-failed",
+      severity: "error",
+    });
+    expect(states.at(-1)?.bridgeState).toBe("failed");
   });
 });
