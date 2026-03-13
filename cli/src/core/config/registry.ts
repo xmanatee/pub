@@ -76,6 +76,23 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     env: ["PUB_BASE_URL"],
     defaultValue: DEFAULT_BASE_URL,
   }),
+  declareConfigVar({
+    key: "telemetry",
+    section: "core",
+    field: "telemetry",
+    type: "boolean",
+    description: "Enable performance telemetry (Sentry tracing).",
+    env: ["PUB_TELEMETRY"],
+    defaultValue: true,
+  }),
+  declareConfigVar({
+    key: "sentryDsn",
+    section: "core",
+    field: "sentryDsn",
+    type: "string",
+    description: "Sentry DSN for CLI telemetry.",
+    env: ["PUB_SENTRY_DSN"],
+  }),
   bridgeVar("bridge.mode", "mode", "bridge-mode", {
     description: "Selected live bridge runtime.",
   }),

@@ -1,15 +1,16 @@
-/**
- * IPC client — connects to the agent daemon's Unix socket.
- *
- * Sends JSON requests, receives JSON responses.
- */
-
 import * as net from "node:net";
 import * as os from "node:os";
 import { type IpcRequest, type IpcResponseFor, parseIpcResponse } from "./ipc-protocol.js";
 
-export function getAgentSocketPath(): string {
-  const override = process.env.PUB_AGENT_SOCKET?.trim();
+export class DaemonUnavailableError extends Error {
+  constructor() {
+    super("Daemon not running.");
+    this.name = "DaemonUnavailableError";
+  }
+}
+
+export function getAgentSocketPath(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.PUB_AGENT_SOCKET?.trim();
   if (override && override.length > 0) return override;
 
   const userInfo = os.userInfo();
@@ -60,7 +61,7 @@ export async function ipcCall<T extends IpcRequest["method"]>(
         (err as NodeJS.ErrnoException).code === "ECONNREFUSED" ||
         (err as NodeJS.ErrnoException).code === "ENOENT"
       ) {
-        finish(() => reject(new Error("Daemon not running.")));
+        finish(() => reject(new DaemonUnavailableError()));
       } else {
         finish(() => reject(err));
       }

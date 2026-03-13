@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import { errorMessage } from "../../core/errors/cli-error.js";
-import { getAgentSocketPath, ipcCall } from "../transport/ipc.js";
+import { ipcCall } from "../transport/ipc.js";
 import { liveInfoDir, liveInfoPath } from "./daemon-files.js";
 
 interface DaemonProcessInfo {
@@ -38,8 +38,8 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-function readDaemonProcessInfo(slug: string): DaemonProcessInfo | null {
-  const infoPath = liveInfoPath(slug);
+function readDaemonProcessInfo(daemonId: string): DaemonProcessInfo | null {
+  const infoPath = liveInfoPath(daemonId);
   let raw: string;
   try {
     raw = fs.readFileSync(infoPath, "utf-8");
@@ -81,7 +81,7 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   return !isProcessAlive(pid);
 }
 
-async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null> {
+async function stopRecordedDaemon(info: DaemonProcessInfo): Promise<string | null> {
   const pid = info.pid;
   if (!isProcessAlive(pid)) return null;
 
@@ -109,21 +109,22 @@ async function stopDaemonForLive(info: DaemonProcessInfo): Promise<string | null
   return null;
 }
 
-export function isDaemonRunning(slug: string): boolean {
-  return readDaemonProcessInfo(slug) !== null;
-}
-
-export async function stopOtherDaemons(): Promise<void> {
+export async function stopRecordedDaemons(): Promise<number> {
   const dir = liveInfoDir();
   const entries = fs.readdirSync(dir).filter((name) => name.endsWith(".json"));
   const failures: string[] = [];
+  let stoppedCount = 0;
 
   for (const entry of entries) {
-    const slug = entry.replace(/\.json$/, "");
-    const info = readDaemonProcessInfo(slug);
+    const daemonId = entry.replace(/\.json$/, "");
+    const info = readDaemonProcessInfo(daemonId);
     if (!info) continue;
-    const daemonError = await stopDaemonForLive(info);
-    if (daemonError) failures.push(`[${slug}] ${daemonError}`);
+    const daemonError = await stopRecordedDaemon(info);
+    if (daemonError) {
+      failures.push(`[${daemonId}] ${daemonError}`);
+      continue;
+    }
+    stoppedCount += 1;
   }
 
   if (failures.length > 0) {
@@ -135,6 +136,8 @@ export async function stopOtherDaemons(): Promise<void> {
       ].join("\n"),
     );
   }
+
+  return stoppedCount;
 }
 
 export function buildDaemonSpawnStdio(logFd: number): ["ignore", number, number] {
@@ -202,13 +205,4 @@ export function waitForDaemonReady({
       done({ ok: false, reason });
     }, timeoutMs);
   });
-}
-
-export async function resolveActiveSlug(): Promise<string> {
-  const socketPath = getAgentSocketPath();
-  const response = await ipcCall(socketPath, { method: "active-slug", params: {} });
-  if (response.ok && typeof response.slug === "string" && response.slug.length > 0) {
-    return response.slug;
-  }
-  throw new Error("Daemon is running but no live is active. Wait for browser to initiate live.");
 }

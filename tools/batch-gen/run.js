@@ -3,35 +3,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { loadState, saveState, idsInPhases } from "./lib/state.mjs";
-import { scanForIdeas, runIdeation, processIdea, showStatus } from "./lib/pipeline.mjs";
-import { killActiveChild } from "./lib/claude.mjs";
-import { elapsed, warn, log } from "./lib/log.mjs";
+import { Command } from "commander";
+import { loadState, saveState, idsInPhases } from "./lib/state.js";
+import { scanForIdeas, runIdeation, processIdea, showStatus } from "./lib/pipeline.js";
+import { killActiveChild } from "./lib/claude.js";
+import { elapsed, warn, log } from "./lib/log.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOCKFILE = join(__dirname, ".run.lock");
-
-function parseArgs(argv) {
-  const args = { count: 50, model: "sonnet", status: false };
-  const rest = argv.slice(2);
-  for (let i = 0; i < rest.length; i++) {
-    switch (rest[i]) {
-      case "--count":
-        args.count = Number(rest[++i]);
-        break;
-      case "--model":
-        args.model = rest[++i];
-        break;
-      case "--status":
-        args.status = true;
-        break;
-      default:
-        console.error(`Usage: node run.mjs [--count N] [--model MODEL] [--status]`);
-        process.exit(1);
-    }
-  }
-  return args;
-}
 
 function acquireLock() {
   if (existsSync(LOCKFILE)) {
@@ -53,25 +32,37 @@ function releaseLock() {
   } catch {}
 }
 
-const args = parseArgs(process.argv);
-const outputDir = join(__dirname, "output");
-const ctx = {
-  dirs: {
-    root: __dirname,
-    output: outputDir,
-    prompts: join(__dirname, "prompts"),
-    logs: join(outputDir, "logs"),
-    pubs: join(outputDir, "pubs"),
-  },
-  stateFile: join(outputDir, "state.json"),
-  model: args.model,
-  count: args.count,
-};
+function buildCtx(opts) {
+  const outputDir = join(__dirname, "output");
+  return {
+    dirs: {
+      root: __dirname,
+      output: outputDir,
+      prompts: join(__dirname, "prompts"),
+      logs: join(outputDir, "logs"),
+      pubs: join(outputDir, "pubs"),
+    },
+    stateFile: join(outputDir, "state.json"),
+    model: opts.model,
+    count: opts.count,
+  };
+}
+
+const program = new Command()
+  .name("batch-gen")
+  .description("Batch-generate pub ideas, designs, and implementations via Claude")
+  .option("--count <n>", "number of ideas to generate", (v) => Number.parseInt(v, 10), 50)
+  .option("--model <model>", "Claude model to use", "sonnet")
+  .option("--status", "show current pipeline status and exit");
+
+program.parse();
+const opts = program.opts();
+const ctx = buildCtx(opts);
 
 mkdirSync(ctx.dirs.logs, { recursive: true });
 mkdirSync(ctx.dirs.pubs, { recursive: true });
 
-if (args.status) {
+if (opts.status) {
   showStatus(ctx);
   process.exit(0);
 }

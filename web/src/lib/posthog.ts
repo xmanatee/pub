@@ -1,11 +1,13 @@
 import posthog from "posthog-js";
 import "posthog-js/dist/recorder";
+import { isTelemetryEnabled } from "./telemetry";
 
 let initialized = false;
 
 export function initPostHog() {
   const apiKey = import.meta.env.VITE_POSTHOG_KEY;
   if (!apiKey || initialized) return;
+  if (!isTelemetryEnabled()) return;
 
   posthog.init(apiKey, {
     api_host: "/ph",

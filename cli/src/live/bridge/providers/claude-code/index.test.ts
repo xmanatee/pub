@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildClaudeArgs, resolveClaudeCodePath } from "./index.js";
+import { buildClaudeArgs, buildClaudeArgsFromSettings, resolveClaudeCodePath } from "./index.js";
 
-const envKeys = [
-  "CLAUDE_CODE_PATH",
-  "CLAUDE_CODE_MAX_TURNS",
-] as const;
+const envKeys = ["CLAUDE_CODE_PATH", "CLAUDE_CODE_MAX_TURNS"] as const;
 
 const originalEnv: Record<string, string | undefined> = {};
 
@@ -71,6 +68,22 @@ describe("buildClaudeArgs", () => {
     const args = buildClaudeArgs("test", null, null);
     expect(args).not.toContain("--model");
     expect(args).not.toContain("--allowedTools");
+  });
+
+  it("maps live model profiles to Claude model aliases", () => {
+    const args = buildClaudeArgsFromSettings(
+      "test",
+      null,
+      null,
+      {
+        claudeCodeMaxTurns: 4,
+        liveModelProfile: "thorough",
+      },
+      undefined,
+    );
+
+    expect(args).toContain("--model");
+    expect(args).toContain("opus");
   });
 });
 

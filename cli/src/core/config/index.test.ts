@@ -163,4 +163,8 @@ describe("config", () => {
   it("throws when no config directory exists", () => {
     expect(() => resolveConfigLocation()).toThrow("No Pub config directory found.");
   });
+
+  it("readPubConfig returns null when no config directory exists", () => {
+    expect(readPubConfig()).toBeNull();
+  });
 });

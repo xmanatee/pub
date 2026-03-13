@@ -4,7 +4,7 @@ import {
   readPubConfig,
   resolvePubSettings,
 } from "../../core/config/index.js";
-import type { StatusResponse } from "../../live/transport/ipc-protocol.js";
+import type { SuccessfulIpcResponseFor } from "../../live/transport/ipc-protocol.js";
 
 export function getLiveVerboseEnableCommand(): string {
   return "pub config --set bridge.verbose=true";
@@ -21,7 +21,7 @@ export function getConfiguredLiveVerboseState(
 }
 
 export function printDaemonStatus(
-  response: StatusResponse,
+  response: SuccessfulIpcResponseFor<"status">,
   options?: { verboseEnabled?: boolean | null },
 ): void {
   const verboseEnabled = options?.verboseEnabled ?? null;
@@ -71,9 +71,11 @@ export function printDaemonStatus(
   }
 }
 
-export function printLocalRuntimeSummary(): void {
-  const saved = readPubConfig();
-  const resolved = resolvePubSettings();
+export function printLocalRuntimeSummary(
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const saved = readPubConfig(env);
+  const resolved = resolvePubSettings(env);
   const apiSource = resolved.core.apiKey
     ? resolved.core.apiKey.source === "env"
       ? resolved.core.apiKey.envKey || "env"

@@ -1,49 +1,38 @@
-const isTTY = process.stdout.isTTY;
-
-const R = isTTY ? "\x1b[0;31m" : "";
-const G = isTTY ? "\x1b[0;32m" : "";
-const Y = isTTY ? "\x1b[0;33m" : "";
-const B = isTTY ? "\x1b[0;34m" : "";
-const C = isTTY ? "\x1b[0;36m" : "";
-const DIM = isTTY ? "\x1b[2m" : "";
-const BOLD = isTTY ? "\x1b[1m" : "";
-const RST = isTTY ? "\x1b[0m" : "";
-
-const OK = "\u2713";
-const FAIL = "\u2717";
-const WARN = "\u26a0";
+import pc from "picocolors";
 
 function ts() {
   return new Date().toTimeString().slice(0, 8);
 }
 
+function line(prefix, msg) {
+  process.stdout.write(`  ${pc.dim(ts())}  ${prefix}${msg}\n`);
+}
+
 export function log(msg) {
-  process.stdout.write(`  ${DIM}${ts()}${RST}  ${msg}\n`);
+  line("", msg);
 }
 
 export function ok(msg) {
-  process.stdout.write(`  ${DIM}${ts()}${RST}  ${G}${OK}${RST} ${msg}\n`);
+  line(`${pc.green("\u2713")} `, msg);
 }
 
 export function warn(msg) {
-  process.stdout.write(`  ${DIM}${ts()}${RST}  ${Y}${WARN}${RST} ${msg}\n`);
+  line(`${pc.yellow("\u26a0")} `, msg);
 }
 
 export function fail(msg) {
-  process.stdout.write(`  ${DIM}${ts()}${RST}  ${R}${FAIL}${RST} ${msg}\n`);
+  line(`${pc.red("\u2717")} `, msg);
 }
 
 export function progressBar(done, total) {
   const w = 20;
   const filled = total > 0 ? Math.floor((done * w) / total) : 0;
   const empty = w - filled;
-  return `${G}${"█".repeat(filled)}${DIM}${"░".repeat(empty)}${RST} ${done}/${total}`;
+  return `${pc.green("\u2588".repeat(filled))}${pc.dim("\u2591".repeat(empty))} ${done}/${total}`;
 }
 
 export function itemProgress(done, total, phase, id) {
-  process.stdout.write(
-    `  ${DIM}${ts()}${RST}  ${progressBar(done, total)}  ${B}${phase.padEnd(12)}${RST} ${id}\n`,
-  );
+  line("", `${progressBar(done, total)}  ${pc.blue(phase.padEnd(12))} ${id}`);
 }
 
 export function elapsed(startMs) {
@@ -54,11 +43,9 @@ export function elapsed(startMs) {
 }
 
 export function phaseHeader(num, title) {
-  process.stdout.write(`\n${BOLD}${C}\u2501\u2501\u2501 Phase ${num} ${RST}${BOLD}${title} \u2501\u2501\u2501${RST}\n\n`);
+  process.stdout.write(`\n${pc.bold(pc.cyan(`\u2501\u2501\u2501 Phase ${num} `))}${pc.bold(`${title} \u2501\u2501\u2501`)}\n\n`);
 }
 
 export function phaseDone(num, startMs) {
-  process.stdout.write(`\n  ${G}${OK}${RST} Phase ${num} complete ${DIM}(${elapsed(startMs)})${RST}\n`);
+  process.stdout.write(`\n  ${pc.green("\u2713")} Phase ${num} complete ${pc.dim(`(${elapsed(startMs)})`)}\n`);
 }
-
-export { DIM, BOLD, RST, G, Y };

@@ -1,3 +1,4 @@
+import { type LiveModelProfile, readLiveModelProfile } from "./live-model-profile";
 import {
   readFiniteNumber,
   readNonEmptyString,
@@ -15,6 +16,7 @@ export interface LiveInfo {
   agentCandidates: string[];
   browserCandidates: string[];
   createdAt: number;
+  modelProfile?: LiveModelProfile;
 }
 
 export interface AgentPresenceBody {
@@ -61,6 +63,7 @@ export function parseLiveInfo(input: unknown): LiveInfo | null {
     browserCandidates,
     agentCandidates,
     createdAt,
+    modelProfile: readLiveModelProfile(record.modelProfile),
   };
 }
 

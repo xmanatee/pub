@@ -14,8 +14,16 @@ export interface BufferedBridgeMessage {
   timestamp?: number;
 }
 
-export interface StatusResponse {
-  ok: boolean;
+interface IpcErrorResponse {
+  ok: false;
+  error: string;
+}
+
+type IpcSuccessResponse<T extends object = Record<string, never>> = {
+  ok: true;
+} & T;
+
+export type StatusResponse = IpcSuccessResponse<{
   connected: boolean;
   signalingConnected: boolean | null;
   activeSlug: string | null;
@@ -26,8 +34,7 @@ export interface StatusResponse {
   bridgeMode: string | null;
   bridge: BridgeStatus | null;
   logPath: string | null;
-  error?: string;
-}
+}> | IpcErrorResponse;
 
 export interface WriteRequest {
   method: "write";
@@ -38,11 +45,9 @@ export interface WriteRequest {
   };
 }
 
-export interface WriteResponse {
-  ok: boolean;
+export type WriteResponse = IpcSuccessResponse<{
   delivered?: boolean;
-  error?: string;
-}
+}> | IpcErrorResponse;
 
 export interface ReadRequest {
   method: "read";
@@ -51,22 +56,18 @@ export interface ReadRequest {
   };
 }
 
-export interface ReadResponse {
-  ok: boolean;
+export type ReadResponse = IpcSuccessResponse<{
   messages?: BufferedBridgeMessage[];
-  error?: string;
-}
+}> | IpcErrorResponse;
 
 export interface ChannelsRequest {
   method: "channels";
   params: Record<string, never>;
 }
 
-export interface ChannelsResponse {
-  ok: boolean;
+export type ChannelsResponse = IpcSuccessResponse<{
   channels?: Array<{ name: string; direction: string }>;
-  error?: string;
-}
+}> | IpcErrorResponse;
 
 export interface StatusRequest {
   method: "status";
@@ -78,21 +79,16 @@ export interface ActiveSlugRequest {
   params: Record<string, never>;
 }
 
-export interface ActiveSlugResponse {
-  ok: boolean;
+export type ActiveSlugResponse = IpcSuccessResponse<{
   slug?: string | null;
-  error?: string;
-}
+}> | IpcErrorResponse;
 
 export interface CloseRequest {
   method: "close";
   params: Record<string, never>;
 }
 
-export interface CloseResponse {
-  ok: boolean;
-  error?: string;
-}
+export type CloseResponse = IpcSuccessResponse | IpcErrorResponse;
 
 export type IpcRequest =
   | WriteRequest
@@ -112,6 +108,10 @@ export interface IpcResponseMap {
 }
 
 export type IpcResponseFor<T extends keyof IpcResponseMap> = IpcResponseMap[T];
+export type SuccessfulIpcResponseFor<T extends keyof IpcResponseMap> = Extract<
+  IpcResponseMap[T],
+  { ok: true }
+>;
 
 function parseBufferedBridgeMessage(input: unknown): BufferedBridgeMessage | null {
   const record = readRecord(input);
@@ -210,26 +210,28 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
   if (ok === undefined) return null;
   const error = record.error === undefined ? undefined : readString(record.error);
   if (record.error !== undefined && error === undefined) return null;
-  if (!ok) return { ok, error } as IpcResponseFor<T>;
+  if (!ok) {
+    return { ok: false, error: error ?? "Unknown daemon error." } as IpcResponseFor<T>;
+  }
 
   if (method === "write") {
     const delivered = record.delivered === undefined ? undefined : readBoolean(record.delivered);
     if (record.delivered !== undefined && delivered === undefined) return null;
-    return { ok, delivered, error } as IpcResponseFor<T>;
+    return { ok: true, delivered } as IpcResponseFor<T>;
   }
 
   if (method === "read") {
-    if (record.messages === undefined) return { ok, error } as IpcResponseFor<T>;
+    if (record.messages === undefined) return { ok: true } as IpcResponseFor<T>;
     if (!Array.isArray(record.messages)) return null;
     const messages = record.messages
       .map((entry) => parseBufferedBridgeMessage(entry))
       .filter((entry): entry is BufferedBridgeMessage => entry !== null);
     if (messages.length !== record.messages.length) return null;
-    return { ok, messages, error } as IpcResponseFor<T>;
+    return { ok: true, messages } as IpcResponseFor<T>;
   }
 
   if (method === "channels") {
-    if (record.channels === undefined) return { ok, error } as IpcResponseFor<T>;
+    if (record.channels === undefined) return { ok: true } as IpcResponseFor<T>;
     if (!Array.isArray(record.channels)) return null;
     const channels = record.channels
       .map((entry) => {
@@ -242,7 +244,7 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
       })
       .filter((entry): entry is { name: string; direction: string } => entry !== null);
     if (channels.length !== record.channels.length) return null;
-    return { ok, channels, error } as IpcResponseFor<T>;
+    return { ok: true, channels } as IpcResponseFor<T>;
   }
 
   if (method === "status") {
@@ -294,7 +296,7 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
         ? null
         : readString(record.logPath) ?? null;
     return {
-      ok,
+      ok: true,
       connected,
       signalingConnected,
       activeSlug,
@@ -305,7 +307,6 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
       bridgeMode,
       bridge,
       logPath,
-      error,
     } as IpcResponseFor<T>;
   }
 
@@ -313,8 +314,8 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const slug =
       record.slug === null ? null : record.slug === undefined ? undefined : readString(record.slug);
     if (record.slug !== undefined && slug === undefined) return null;
-    return { ok, slug, error } as IpcResponseFor<T>;
+    return { ok: true, slug } as IpcResponseFor<T>;
   }
 
-  return { ok, error } as IpcResponseFor<T>;
+  return { ok: true } as IpcResponseFor<T>;
 }

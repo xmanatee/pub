@@ -1,17 +1,29 @@
-import { createPeerConnection } from "../transport/webrtc-adapter.js";
+import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
+import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
 import type { DaemonState } from "./state.js";
 
 export function createPeerManager(params: {
   state: DaemonState;
-  apiClient: { signalAnswer: (args: { slug: string; daemonSessionId: string; answer?: string; candidates?: string[]; agentName?: string }) => Promise<void>; };
+  apiClient: {
+    signalAnswer: (args: {
+      slug: string;
+      daemonSessionId: string;
+      answer?: string;
+      candidates?: string[];
+      agentName?: string;
+    }) => Promise<void>;
+  };
   daemonSessionId: string;
   agentName?: string;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
-  setupChannel: (name: string, dc: ReturnType<NonNullable<DaemonState["peer"]>["createDataChannel"]>) => void;
+  setupChannel: (
+    name: string,
+    dc: ReturnType<NonNullable<DaemonState["peer"]>["createDataChannel"]>,
+  ) => void;
   flushQueuedAcks: () => void;
   failPendingAcks: () => void;
   ensureBridgePrimed: () => Promise<void>;
@@ -70,7 +82,10 @@ export function createPeerManager(params: {
 
     currentPeer.onDataChannel((dc) => {
       if (state.stopped || currentPeer !== state.peer) return;
-      setupChannel(dc.getLabel(), dc as ReturnType<NonNullable<DaemonState["peer"]>["createDataChannel"]>);
+      setupChannel(
+        dc.getLabel(),
+        dc as ReturnType<NonNullable<DaemonState["peer"]>["createDataChannel"]>,
+      );
     });
   }
 
@@ -112,6 +127,7 @@ export function createPeerManager(params: {
     state.bridgePrimed = false;
     state.bridgePriming = null;
     state.buffer.messages = [];
+    state.activeLiveModelProfile = null;
     failPendingAcks();
     stopPingPong();
     state.lastAppliedBrowserOffer = null;
@@ -140,9 +156,11 @@ export function createPeerManager(params: {
       if (state.localCandidates.length <= state.lastSentCandidateCount) return;
       const nextCandidates = state.localCandidates.slice(state.lastSentCandidateCount);
       state.lastSentCandidateCount = state.localCandidates.length;
-      await apiClient.signalAnswer({ slug, daemonSessionId, candidates: nextCandidates }).catch((error) => {
-        debugLog("failed to publish local ICE candidates", error);
-      });
+      await apiClient
+        .signalAnswer({ slug, daemonSessionId, candidates: nextCandidates })
+        .catch((error) => {
+          debugLog("failed to publish local ICE candidates", error);
+        });
     }, LOCAL_CANDIDATE_FLUSH_MS);
 
     state.localCandidateStopTimer = setTimeout(() => {
@@ -150,7 +168,11 @@ export function createPeerManager(params: {
     }, 30_000);
   }
 
-  async function handleIncomingLive(slug: string, browserOffer: string): Promise<void> {
+  async function handleIncomingLive(
+    slug: string,
+    browserOffer: string,
+    modelProfile?: LiveModelProfile,
+  ): Promise<void> {
     if (state.recovering) return;
     state.recovering = true;
 
@@ -167,6 +189,7 @@ export function createPeerManager(params: {
       debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
       state.lastAppliedBrowserOffer = browserOffer;
       state.activeSlug = slug;
+      state.activeLiveModelProfile = modelProfile ?? null;
 
       const tSignal = Date.now();
       await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });

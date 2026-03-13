@@ -15,10 +15,8 @@ import { useTelegramTheme } from "~/hooks/use-telegram-theme";
 import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
-import { initSentry } from "~/lib/sentry";
 import { IN_TELEGRAM, isFullscreen } from "~/lib/telegram";
 
-initSentry();
 initPostHog();
 
 const SentryErrorBoundary = Sentry.ErrorBoundary as unknown as React.ComponentType<

@@ -17,13 +17,12 @@ import {
   runBridgeStartupPreflight,
 } from "./bridge-runtime.js";
 import { formatApiError } from "./command-utils.js";
-import { stopOtherDaemons } from "./daemon-process.js";
+import { stopRecordedDaemons } from "./daemon-process.js";
 
 export interface StartPreflightResult {
   apiClientSettings: ApiClientSettings;
   bridgeSettings: BridgeSettings;
   bridgeProcessEnv: NodeJS.ProcessEnv;
-  bridgeMode: BridgeMode;
   passedChecks: string[];
 }
 
@@ -71,13 +70,12 @@ export async function runStartPreflight(): Promise<StartPreflightResult> {
   let apiClientSettings: ApiClientSettings | null = null;
   let bridgeSettings: BridgeSettings | null = null;
   let bridgeMode: BridgeMode | null = null;
-  let bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
+  const bridgeProcessEnv: NodeJS.ProcessEnv = buildBridgeProcessEnv();
 
   passed.push({ label: "webrtc", detail: "werift (pure TypeScript)" });
 
   try {
     resolvedSettings = resolvePubSettings();
-    bridgeProcessEnv = buildBridgeProcessEnv();
     const savedBridgeKeys = listConfiguredKeys(resolvedSettings.rawConfig, "bridge");
     passed.push({
       label: "bridge.config",
@@ -85,7 +83,6 @@ export async function runStartPreflight(): Promise<StartPreflightResult> {
     });
   } catch (error) {
     failures.push({ label: "config", detail: errorMessage(error) });
-    bridgeProcessEnv = buildBridgeProcessEnv();
   }
 
   try {
@@ -148,10 +145,13 @@ export async function runStartPreflight(): Promise<StartPreflightResult> {
   }
 
   try {
-    await stopOtherDaemons();
+    const stoppedCount = await stopRecordedDaemons();
     passed.push({
       label: "daemon.cleanup",
-      detail: "no stale daemon conflicts detected",
+      detail:
+        stoppedCount === 0
+          ? "no recorded daemon conflicts detected"
+          : `stopped ${stoppedCount} recorded daemon${stoppedCount === 1 ? "" : "s"}`,
     });
   } catch (error) {
     failures.push({ label: "daemon.cleanup", detail: errorMessage(error) });
@@ -169,7 +169,6 @@ export async function runStartPreflight(): Promise<StartPreflightResult> {
     apiClientSettings,
     bridgeSettings,
     bridgeProcessEnv,
-    bridgeMode,
     passedChecks: passed.map((entry) => `[${entry.label}] ${entry.detail}`),
   };
 }

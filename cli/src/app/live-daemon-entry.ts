@@ -1,5 +1,6 @@
 import { PubApiClient } from "../core/api/client.js";
 import type { BridgeSettings } from "../core/config/index.js";
+import { initSentryCli } from "../core/telemetry/sentry.js";
 import { startDaemon } from "../live/daemon/index.js";
 
 export async function runDaemonFromEnv(): Promise<void> {
@@ -30,6 +31,12 @@ export async function runDaemonFromEnv(): Promise<void> {
   if (!baseUrl || !apiKey || !socketPath || !infoPath) {
     console.error("Missing required env vars for daemon.");
     process.exit(1);
+  }
+
+  const sentryDsn = process.env.PUB_SENTRY_DSN;
+  const telemetryDisabled = process.env.PUB_TELEMETRY === "false" || process.env.PUB_TELEMETRY === "0";
+  if (sentryDsn && !telemetryDisabled) {
+    initSentryCli({ dsn: sentryDsn, version: cliVersion });
   }
 
   const apiClient = new PubApiClient(baseUrl, apiKey);

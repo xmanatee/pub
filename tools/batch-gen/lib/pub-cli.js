@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { spawnSync } from "child_process";
-import { ok, fail as logFail } from "./log.mjs";
+import { ok, fail as logFail } from "./log.js";
 
 function run(args) {
   const result = spawnSync("pub", args, { encoding: "utf-8", stdio: "pipe" });

@@ -12,6 +12,7 @@ describe("live-api-core", () => {
         agentCandidates: [],
         browserCandidates: ["c1"],
         createdAt: 1,
+        modelProfile: "thorough",
       }),
     ).toEqual({
       slug: "demo",
@@ -21,6 +22,7 @@ describe("live-api-core", () => {
       agentCandidates: [],
       browserCandidates: ["c1"],
       createdAt: 1,
+      modelProfile: "thorough",
     });
   });
 

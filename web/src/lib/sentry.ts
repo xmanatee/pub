@@ -1,35 +1,36 @@
 import * as Sentry from "@sentry/react";
+import { isTelemetryEnabled } from "./telemetry";
 
-export function initSentry() {
+export function initSentry(router?: { history: unknown }) {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   if (!dsn) return;
+  if (!isTelemetryEnabled()) return;
+
+  const tracingIntegration = router
+    ? Sentry.tanstackRouterBrowserTracingIntegration(router)
+    : Sentry.browserTracingIntegration();
 
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
 
-    integrations: [Sentry.browserTracingIntegration(), Sentry.replayIntegration()],
+    integrations: [tracingIntegration, Sentry.replayIntegration()],
 
-    // Performance: sample 100% in dev, 20% in production
     tracesSampleRate: import.meta.env.PROD ? 0.2 : 1.0,
 
-    // Session Replay: 10% of sessions, 100% of sessions with errors
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
 
-    // Only trace requests to our own backend
     tracePropagationTargets: [
       "localhost",
       /^https:\/\/.*\.convex\.cloud/,
       /^https:\/\/.*\.convex\.site/,
     ],
 
-    // Don't send PII by default
     sendDefaultPii: false,
 
     beforeSend(event) {
-      // Scrub any API keys from breadcrumbs
       if (event.breadcrumbs) {
         for (const breadcrumb of event.breadcrumbs) {
           if (breadcrumb.data?.url) {

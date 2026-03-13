@@ -3,6 +3,7 @@ import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { LiveInfo } from "../shared/live-api-core";
+import { type LiveModelProfile, resolveLiveModelProfile } from "../shared/live-model-profile";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { listFreshOnlinePresences, PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
@@ -43,6 +44,14 @@ async function getLatestLiveBySlug(db: GenericDatabaseReader<DataModel>, slug: s
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .order("desc")
     .first();
+}
+
+async function getLiveModelProfileForUser(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+): Promise<LiveModelProfile> {
+  const user = await db.get(userId);
+  return resolveLiveModelProfile(user?.liveModelProfile);
 }
 
 export function liveConflictsWithRequest<TPresenceId extends string>(
@@ -102,15 +111,18 @@ function mapPub(
   return dto;
 }
 
-function mapAgentLiveInfo(live: {
-  slug: string;
-  status?: string;
-  browserOffer?: string;
-  agentAnswer?: string;
-  agentCandidates: string[];
-  browserCandidates: string[];
-  createdAt: number;
-}): LiveInfo {
+function mapAgentLiveInfo(
+  live: {
+    slug: string;
+    status?: string;
+    browserOffer?: string;
+    agentAnswer?: string;
+    agentCandidates: string[];
+    browserCandidates: string[];
+    createdAt: number;
+  },
+  modelProfile: LiveModelProfile,
+): LiveInfo {
   return {
     slug: live.slug,
     status: live.status,
@@ -119,6 +131,7 @@ function mapAgentLiveInfo(live: {
     browserCandidates: live.browserCandidates,
     agentCandidates: live.agentCandidates,
     createdAt: live.createdAt,
+    modelProfile,
   };
 }
 
@@ -360,7 +373,10 @@ export const getLive = internalQuery({
     );
     const active = pending ?? lives.find((s) => s.targetPresenceId === resolvedPresenceId);
 
-    return active ? mapAgentLiveInfo(active) : null;
+    if (!active) return null;
+
+    const modelProfile = await getLiveModelProfileForUser(ctx.db, resolvedUserId);
+    return mapAgentLiveInfo(active, modelProfile);
   },
 });
 
@@ -399,7 +415,10 @@ export const getLiveForAgent = query({
     );
     const active = pending ?? lives.find((s) => s.targetPresenceId === presence._id);
 
-    return active ? mapAgentLiveInfo(active) : null;
+    if (!active) return null;
+
+    const modelProfile = await getLiveModelProfileForUser(ctx.db, key.userId);
+    return mapAgentLiveInfo(active, modelProfile);
   },
 });
 

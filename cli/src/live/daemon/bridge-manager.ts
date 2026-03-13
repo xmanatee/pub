@@ -1,8 +1,8 @@
 import {
+  type BridgeMessage,
   CONTROL_CHANNEL,
   makeErrorMessage,
   makeStatusMessage,
-  type BridgeMessage,
 } from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
@@ -124,10 +124,13 @@ export function createBridgeManager(params: {
     state.bridgeAbort = abort;
     const instructions = buildBridgeInstructions();
     const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
+    const runnerBridgeSettings = state.activeLiveModelProfile
+      ? { ...bridgeSettings, liveModelProfile: state.activeLiveModelProfile }
+      : bridgeSettings;
     const runnerConfig = {
       slug,
       sessionBriefing,
-      bridgeSettings,
+      bridgeSettings: runnerBridgeSettings,
       sendMessage: sendOnChannel,
       onDeliveryUpdate: ({
         channel,
@@ -147,7 +150,7 @@ export function createBridgeManager(params: {
     };
 
     const runner = await createBridgeRunnerForSettings({
-      bridgeSettings,
+      bridgeSettings: runnerBridgeSettings,
       config: runnerConfig,
       abortSignal: abort.signal,
     });
@@ -180,7 +183,9 @@ export function createBridgeManager(params: {
         state.bridgePrimed = true;
         const tReady = Date.now();
         await notifyBrowserReady(slug);
-        debugLog(`[profile] ready sent in ${Date.now() - tReady}ms (total prime ${Date.now() - t0}ms)`);
+        debugLog(
+          `[profile] ready sent in ${Date.now() - tReady}ms (total prime ${Date.now() - t0}ms)`,
+        );
       } catch (error) {
         state.bridgePrimed = false;
         await notifyBrowserPrimeFailed(slug, error);
