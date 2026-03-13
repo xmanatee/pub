@@ -1,4 +1,4 @@
-You are a creative director brainstorming one-of-a-kind interactive web experiences.
+You are a product designer and tool architect brainstorming one-of-a-kind interactive web experiences — some visually creative, some functionally powerful, some both.
 
 <context>
 Each idea will become a self-contained HTML page (inline CSS + JS, under 10 KB) running in a sandboxed iframe. The UI is the frontend; the backend is **commands**.
@@ -57,77 +57,77 @@ Here is a (non-exhaustive) list of CLI tools available. Use any of these, combin
 <task>
 Generate {{IDEA_COUNT}} ideas. For each one, create the file `output/pubs/NNN-short-name/idea.md` where `NNN` is zero-padded and `short-name` is descriptive kebab-case.
 
-**Order ideas from most creative and exciting to most conventional.** Put the wildest, most visually striking, most "I need to try this" ideas first. Frontload the ideas that would make someone stop scrolling.
+**Order ideas from most compelling to most conventional.** "Compelling" can mean visually stunning, functionally powerful, surprisingly useful, or a clever integration nobody has thought of. Frontload ideas that make someone think "I actually want to use this."
 
 Each `idea.md` should be 2–3 paragraphs covering:
-- What the user sees and experiences the moment they open the page
-- The core interaction — what makes it engaging
-- Which CLI tools it uses and how (specific commands), or for browser-only ideas, the key visual/interactive technique
-- The emotional hook — what makes someone stay or come back
+- What the user sees when they open the page and what they can do with it
+- The core interaction or workflow — what makes it useful, engaging, or both
+- Which CLI tools it uses and how (specific commands), or for browser-only ideas, the key technique
+- Why someone would come back — the utility, the delight, or both
 </task>
 
 <idea_strategies>
-Don't just think "what app can I build for tool X." Think about what experiences become possible when you combine a beautiful UI with the power of local tools. Here are strategies to spark ideas:
+Don't just think "what app can I build for tool X." Think about what becomes possible when you wire a simple UI to powerful local tools. Ideas can be visually creative, functionally creative, or both. Here are strategies across the full spectrum:
 
-- **Reimagine a familiar interface** — take the concept of an email inbox, a calendar, a file manager, a music player, and present the data in a radically different visual metaphor (radar, landscape, galaxy, timeline, graph, game)
-- **Cross-tool mashups** — the most interesting ideas combine data or actions from 2–3 tools into one unified view. What if your calendar events (gog) showed related GitHub issues (gh)? What if your notes linked to emails mentioning the same topics?
-- **Aggregate a data type across tools** — collect all "tasks" from GitHub issues + Taskwarrior + Google Tasks + email flagged items into one unified view. Collect all "documents" from Drive + local filesystem + Obsidian vault.
-- **Give a CLI tool a face** — tools like ffmpeg, imagemagick, duckdb, pandoc are incredibly powerful but intimidating. Build the UI that makes their power accessible.
-- **AI-augmented workflows** — use the agent executor to add intelligence: auto-categorize, summarize, draft replies, suggest actions, find patterns, translate.
-- **Browser-native delights** — not everything needs tools. Canvas animations, WebGL experiments, Web Audio synths, generative art, games, simulations — these are compelling on their own.
-- **Data as art** — take structured data (git history, email patterns, disk usage, code stats) and visualize it as something beautiful: constellations, topographic maps, musical scores, woven patterns.
-- **Playful utilities** — timers that are beautiful, calculators that are fun, converters that surprise you, generators that delight.
+**Functional creativity — workflows & integrations**
+- **Glue between tools that don't talk to each other** — a UI that connects Gmail + GitHub + Calendar into a unified triage view. A pipeline builder that chains pandoc → typst → rclone. The value is the integration, not the visuals.
+- **Eliminate multi-step workflows** — things that currently take 5 terminal commands and context-switching become one page with a few clicks. Video conversion, document format pipelines, multi-service deployments.
+- **Aggregate scattered data** — collect all "tasks" from GitHub issues + Taskwarrior + Google Tasks + flagged emails into one place. Show all notifications across Slack + Gmail + GitHub in a single feed. The value is the unified view.
+- **Make expert tools accessible** — ffmpeg, duckdb, imagemagick, pandoc, terraform are powerful but intimidating. Build the UI that makes their power usable by someone who doesn't memorize flags.
+- **AI as the connective tissue** — use agent executors to bridge gaps: auto-categorize incoming items, suggest which meeting to decline, draft replies, summarize a thread, extract action items from a doc.
+
+**Visual creativity — experiences & delight**
+- **Reimagine a familiar interface** — present email as a radar, calendar as a landscape, git history as geology, disk usage as a city skyline. The data is mundane; the presentation makes you see it differently.
+- **Data as art** — structured data (git history, email patterns, code stats) visualized as constellations, topographic maps, musical scores, woven patterns.
+- **Browser-native experiences** — Canvas animations, Web Audio synths, generative art, physics simulations, games. No tools needed — the browser is enough.
+
+**Both — useful AND beautiful**
+- **Playful utilities** — a timer that's gorgeous, a unit converter with personality, a color picker that teaches you color theory.
+- **Original tool combinations** — what happens when you combine `whisper` + `pandoc` + `gog`? Speech → text → formatted doc → emailed. What about `yt-dlp` + `ffmpeg` + `whisper`? YouTube → audio → transcript. The combination is the idea.
+- **Opinionated micro-tools** — not a full app, just one thing done exceptionally well. A tool that turns a GitHub issue thread into a decision doc. A page that monitors your Docker containers and restarts the ones that crash. A form that creates a properly formatted git commit from structured fields.
 </idea_strategies>
 
 <diversity_rules>
-You tend to converge on safe, predictable ideas. Fight this actively:
+You tend to converge on visually flashy ideas with the same playbook: take data → map it to a creative metaphor → add animations. Fight this actively:
 
 - No two ideas may share the same primary mechanic or the same tool combination.
-- Vary aesthetics wildly: some dark and moody, some bright and playful, some brutalist, some minimal, some maximalist, some retro, some futuristic.
-- Mix complexity: some should be dead simple (one interaction, instant delight), others rich and layered.
-- Mix tool usage: some ideas use one tool deeply, some combine 2–3 tools, some are pure browser experiences.
-- Draw from unexpected domains: music theory, fluid dynamics, typography, linguistics, cartography, astronomy, cooking, textiles, architecture, dance.
-- For tool-powered apps: don't just make "a dashboard for X." Think about what unique UI would make that tool's data come alive.
+- **Vary the value proposition**: some ideas are valuable because they're beautiful, some because they save 10 minutes a day, some because they connect two things that were disconnected, some because they make a hard thing easy. Not everything needs to look spectacular.
+- **Vary complexity**: some should be dead simple (one input, one output, done), others rich and layered.
+- **Vary tool usage**: some ideas use one tool deeply, some combine 2–3 tools, some are pure browser experiences.
+- For tool-powered apps: don't just make "a dashboard for X" or "X but as a galaxy/radar/landscape." Think about what workflow this tool is part of and what's painful about that workflow.
+- Aim for roughly equal distribution: ~1/3 primarily functional (integrations, workflows, automation), ~1/3 primarily visual (experiences, art, delight), ~1/3 both (useful tools with great UX).
 - Include at least 5 ideas that feel genuinely weird or experimental.
 </diversity_rules>
 
 <examples>
-These show the tone, level of detail, and range expected:
+These show the tone, level of detail, and the full range expected — from visual spectacles to pure utility to creative combinations:
 
 <example>
-### 008-inbox-radar
+### 012-notification-triage
 
-A radial email client powered by **gog**. Instead of a list, your inbox is a radar screen — a dark circular display with a sweeping green scanline. Emails appear as blips: size = thread length, brightness = recency, distance from center = priority (AI-scored via agent command). Hover a blip to preview the subject and sender in a tooltip. Click to expand the full email in a slide-out panel.
+A unified notification center combining **gog**, **gh**, and **slack**. All your incoming items — emails, GitHub notifications, Slack mentions — pulled into one list, auto-categorized by an agent executor into: needs response, FYI, can ignore. Each item shows its source icon, a one-line AI summary, and action buttons appropriate to its type (reply, close issue, archive, snooze).
 
-Commands: `gog gmail list` populates the radar, `gog gmail read` opens a thread, `gog gmail archive` sweeps a blip off the screen with a satisfying fade. An agent command auto-generates a one-line summary for each unread email, shown on hover. The radar continuously rotates — new emails materialize as the scanline passes. The whole thing feels like mission control for your day.
+Commands: `gog gmail list --query "is:unread"`, `gh api notifications`, agent command to classify urgency. The killer feature is batch actions — select 10 FYI notifications and archive them all across their respective services in one click. The interface is deliberately plain: a clean list, fast filters, keyboard shortcuts. The value isn't how it looks, it's that you process 50 notifications in 2 minutes instead of 15.
 </example>
 
 <example>
-### 023-meeting-sculptor
+### 027-pandoc-pipeline
 
-A 3D calendar visualization using **gog** for Google Calendar. Your week is rendered as a landscape — each day is a column, meetings are physical blocks stacked vertically. Color = calendar, height = duration, texture = meeting type (1:1 = smooth, group = rough, focus time = glass). You can orbit the view with mouse drag, and the landscape gives you an instant visceral feel for how packed your week is — a cliff face of meetings vs. a gentle rolling hill.
+A visual pipeline builder for **pandoc** + **typst** + **rclone**. Drag-and-drop blocks representing conversion steps: input format → transform → output format → destination. Connect Markdown → PDF via pandoc, or Markdown → typst → PDF for better typography. Add a final block to upload the result to Google Drive via `rclone copy`.
 
-Click a block to see details in a floating card. An agent command can suggest which meetings to decline based on your stated priorities ("protect my mornings for deep work"). The empty spaces between blocks glow softly — they're your free time, and the UI celebrates them.
+Each block shows its underlying command. Click a block to configure options (page size, font, template). Hit "run" and watch the pipeline execute step by step, each block lighting up as it completes. Save pipeline configs for reuse. The UI is a simple node graph — functional, not flashy. The value: pandoc has 50+ format combinations and hundreds of flags. This makes it point-and-click.
 </example>
 
 <example>
-### 037-drive-galaxy
-
-A Google Drive file manager reimagined as a star map, powered by **gog**. Files are stars, folders are constellations. Size = file size, color = file type (docs blue, sheets green, images warm orange), brightness = last modified recency. Zoom in on a constellation to see its files spread out. Zoom out to see your whole Drive as a galaxy.
-
-Commands: `gog drive list` scans folders, `gog drive download` grabs a file, `gog drive upload` adds a new star with a birth animation. A search bar becomes a telescope — type and matching stars pulse. Combine with **exiftool**: select an image star and a sidebar shows its EXIF data, extracted metadata glowing alongside.
-</example>
-
-<example>
-### 051-clip-forge
+### 038-clip-forge
 
 A video tool powered by **yt-dlp** + **ffmpeg**. Paste a YouTube URL and the tool downloads it via `yt-dlp`, then displays it as a filmstrip — a horizontal ribbon of keyframes extracted via `ffmpeg -vf thumbnail`. Drag to select a range, set start/end with frame-accurate precision. Buttons for: trim, extract audio, convert to GIF, resize, compress. Each operation shows the ffmpeg command it's about to run and a size/quality estimate.
 
-The UI is dark with amber accents — an editing bay aesthetic. A waveform view (extracted via `ffmpeg -filter_complex showwavespic`) shows below the filmstrip so you can cut on audio beats. Progress bars during encoding are real, fed by ffmpeg's stderr output. The result: ffmpeg's power, none of its intimidation.
+A waveform view (extracted via `ffmpeg -filter_complex showwavespic`) shows below the filmstrip so you can cut on audio beats. Progress bars during encoding are real, fed by ffmpeg's stderr output. The result: ffmpeg's power, none of its intimidation.
 </example>
 
 <example>
-### 064-context-weave
+### 045-context-weave
 
 A cross-tool knowledge dashboard combining **gog**, **gh**, and an **agent executor**. The center is a text editor where you write notes. As you type, three side panels light up with relevant context pulled from different tools:
 
@@ -139,15 +139,23 @@ The magic is the cross-referencing. Mention a person's name and see their recent
 </example>
 
 <example>
-### 078-git-topography
+### 058-git-topography
 
-A topographic map of your git repository — purely browser-based via **git log** output piped in. Each file is a point on the map. Files that change together frequently are close together (clustered by co-commit frequency). Height = number of total changes (hotspots are mountains). Color = last author. Rivers form along dependency chains.
+A topographic map of your git repository powered by **git** and **tokei**. Each file is a point on the map. Files that change together frequently are close together (clustered by co-commit frequency). Height = number of total changes (hotspots are mountains). Color = last author. Rivers form along dependency chains.
 
 The map slowly rotates to show depth. Click a peak to see its commit history as a stratigraphic cross-section — layers of changes over time, color-coded by author. Zoom out far enough and you see the whole project as a mountain range, immediately revealing which areas are active and which are dormant plains.
 </example>
 
 <example>
-### 089-thread-weaver
+### 071-deploy-button
+
+The simplest possible deploy tool, combining **gh**, **vercel**, and **pingme**. One page, one giant button. It shows your current branch, the last commit message, and a diff summary (`gh api` for PR details). Press the button: it triggers a Vercel deploy, monitors it, and sends a Slack/Discord notification via `pingme` when it's live. A traffic-light indicator shows deploy status: building → deploying → live.
+
+No dashboards, no settings sprawl, no context switching. You open the page, confirm the diff looks right, and press. The entire interface is the button and the status light. Everything else is handled by the commands behind it.
+</example>
+
+<example>
+### 083-thread-weaver
 
 An interactive loom — purely browser-based, no CLI tools. Vertical warp threads are pre-strung across the screen. You pick a color and "weave" by dragging horizontally — the thread interlaces over and under the warp following a pattern you choose (plain weave, twill, satin, herringbone). As you weave rows, the fabric builds up with realistic-looking texture — light catches the threads differently based on their angle.
 
