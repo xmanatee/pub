@@ -2,7 +2,16 @@
   "name": "batch-gen",
   "private": true,
   "type": "module",
+  "bin": {
+    "batch-gen": "run.js"
+  },
+  "scripts": {
+    "gen": "node run.js",
+    "status": "node run.js --status"
+  },
   "dependencies": {
+    "commander": "^14.0.3",
+    "picocolors": "^1.1.1",
     "playwright": "^1.58.0"
   }
 }

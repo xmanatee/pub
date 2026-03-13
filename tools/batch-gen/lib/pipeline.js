@@ -2,11 +2,12 @@ import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
-import { log, ok, warn, fail as logFail, itemProgress, elapsed, phaseHeader, phaseDone, progressBar, DIM, BOLD, RST, G, Y } from "./log.mjs";
-import { buildPrompt, buildPromptFromString } from "./template.mjs";
-import { loadState, saveState, setPhase, getPhase, countInPhase, countPastPhase, PHASES } from "./state.mjs";
-import { runClaude } from "./claude.mjs";
-import { publishPub, updatePub } from "./pub-cli.mjs";
+import pc from "picocolors";
+import { log, ok, warn, fail as logFail, itemProgress, elapsed, phaseHeader, phaseDone, progressBar } from "./log.js";
+import { buildPrompt, buildPromptFromString } from "./template.js";
+import { loadState, saveState, setPhase, getPhase, countInPhase, countPastPhase, PHASES } from "./state.js";
+import { runClaude } from "./claude.js";
+import { publishPub, updatePub } from "./pub-cli.js";
 
 function sha256(filePath) {
   const content = readFileSync(filePath);
@@ -30,7 +31,7 @@ function ensurePlaywright(scriptDir) {
 
 function runTestRunner(scriptDir, pubDir) {
   return new Promise((resolve) => {
-    const child = spawn("node", [join(scriptDir, "test-runner.mjs"), pubDir], {
+    const child = spawn("node", [join(scriptDir, "test-runner.js"), pubDir], {
       stdio: "pipe",
     });
     child.on("close", (code) => resolve({ ok: code === 0, exitCode: code ?? 1 }));
@@ -56,7 +57,7 @@ export function scanForIdeas(pubsDir, state) {
 export async function runIdeation(ctx, state) {
   const startMs = Date.now();
   phaseHeader(1, "Ideation");
-  log(`Launching Claude to generate ${BOLD}${ctx.count}${RST} ideas...`);
+  log(`Launching Claude to generate ${pc.bold(ctx.count)} ideas...`);
 
   const prompt = buildPromptFromString(
     join(ctx.dirs.prompts, "ideation.md"),
@@ -73,7 +74,7 @@ export async function runIdeation(ctx, state) {
   scanForIdeas(ctx.dirs.pubs, state);
   saveState(ctx.stateFile, state);
 
-  ok(`${BOLD}${state.ideas.length}${RST} ideas generated`);
+  ok(`${pc.bold(state.ideas.length)} ideas generated`);
   phaseDone(1, startMs);
 }
 
@@ -109,7 +110,7 @@ export async function processIdea(ctx, state, id, index, total) {
     setPhase(state, id, "designed");
     saveState(ctx.stateFile, state);
     phase = "designed";
-    ok(`design ${DIM}${elapsed(startMs)}${RST}`);
+    ok(`design ${pc.dim(elapsed(startMs))}`);
   }
 
   // Implement
@@ -140,7 +141,7 @@ export async function processIdea(ctx, state, id, index, total) {
     setPhase(state, id, "implemented");
     saveState(ctx.stateFile, state);
     phase = "implemented";
-    ok(`implement ${DIM}${elapsed(startMs)}${RST}`);
+    ok(`implement ${pc.dim(elapsed(startMs))}`);
   }
 
   // Publish
@@ -179,7 +180,7 @@ export async function processIdea(ctx, state, id, index, total) {
 
     ensurePlaywright(ctx.dirs.root);
 
-    log(`  ${DIM}generating mocks...${RST}`);
+    log(`  ${pc.dim("generating mocks...")}`);
     const mockPrompt = readFileSync(join(ctx.dirs.prompts, "mock-gen.md"), "utf-8");
     await runClaude(ctx, {
       prompt: mockPrompt,
@@ -187,7 +188,7 @@ export async function processIdea(ctx, state, id, index, total) {
       logFile: join(ctx.dirs.logs, `mock-${id}.log`),
     });
 
-    log(`  ${DIM}browser test...${RST}`);
+    log(`  ${pc.dim("browser test...")}`);
     const testResult = await runTestRunner(ctx.dirs.root, pubDir);
 
     setPhase(state, id, "tested");
@@ -195,7 +196,7 @@ export async function processIdea(ctx, state, id, index, total) {
     phase = "tested";
 
     if (testResult.ok) {
-      ok(`test pass ${DIM}${elapsed(startMs)}${RST}`);
+      ok(`test pass ${pc.dim(elapsed(startMs))}`);
     } else {
       let errors = 0;
       const reportPath = join(pubDir, "test-report.json");
@@ -203,7 +204,7 @@ export async function processIdea(ctx, state, id, index, total) {
         const report = JSON.parse(readFileSync(reportPath, "utf-8"));
         errors = report.errors;
       }
-      warn(`test: ${errors} error(s) ${DIM}${elapsed(startMs)}${RST}`);
+      warn(`test: ${errors} error(s) ${pc.dim(elapsed(startMs))}`);
     }
   }
 
@@ -237,12 +238,12 @@ export async function processIdea(ctx, state, id, index, total) {
       const meta = JSON.parse(readFileSync(join(pubDir, "meta.json"), "utf-8"));
       const result = await updatePub(meta.slug, join(pubDir, "index.html"));
       if (result.ok) {
-        ok(`reviewed + updated ${DIM}${elapsed(startMs)}${RST}`);
+        ok(`reviewed + updated ${pc.dim(elapsed(startMs))}`);
       } else {
-        warn(`reviewed but update failed ${DIM}${elapsed(startMs)}${RST}`);
+        warn(`reviewed but update failed ${pc.dim(elapsed(startMs))}`);
       }
     } else {
-      ok(`reviewed (no changes) ${DIM}${elapsed(startMs)}${RST}`);
+      ok(`reviewed (no changes) ${pc.dim(elapsed(startMs))}`);
     }
 
     setPhase(state, id, "reviewed");
@@ -254,32 +255,29 @@ export function showStatus(ctx) {
   const state = loadState(ctx.stateFile);
   const total = state.ideas.length;
 
-  process.stdout.write(`\n${BOLD}  Pub Batch Generator${RST}\n`);
-  process.stdout.write(`  ${DIM}state: ${ctx.stateFile}${RST}\n\n`);
+  const IN_PROGRESS_PHASES = ["designing", "implementing", "testing", "reviewing", "publishing"];
+
+  process.stdout.write(`\n${pc.bold("  Pub Batch Generator")}\n`);
+  process.stdout.write(`  ${pc.dim(`state: ${ctx.stateFile}`)}\n\n`);
 
   if (total === 0) {
-    process.stdout.write(`  ${DIM}No ideas generated yet.${RST}\n\n`);
+    process.stdout.write(`  ${pc.dim("No ideas generated yet.")}\n\n`);
     return;
   }
 
   const publishedPlus = countPastPhase(state, "published");
   const reviewedCount = countInPhase(state, "reviewed");
 
-  process.stdout.write(`  ${BOLD}${"Ideation".padEnd(22)}${RST}  ${G}\u2713 ${total} ideas${RST}\n`);
-  process.stdout.write(`  ${BOLD}${"Build+Publish".padEnd(22)}${RST}  ${progressBar(publishedPlus, total)}\n`);
-  process.stdout.write(`  ${BOLD}${"Test+Review".padEnd(22)}${RST}  ${progressBar(reviewedCount, total)}\n`);
+  process.stdout.write(`  ${pc.bold("Ideation".padEnd(22))}  ${pc.green(`\u2713 ${total} ideas`)}\n`);
+  process.stdout.write(`  ${pc.bold("Build+Publish".padEnd(22))}  ${progressBar(publishedPlus, total)}\n`);
+  process.stdout.write(`  ${pc.bold("Test+Review".padEnd(22))}  ${progressBar(reviewedCount, total)}\n`);
 
-  process.stdout.write(`\n  ${DIM}\u2500\u2500\u2500 breakdown \u2500\u2500\u2500${RST}\n`);
+  process.stdout.write(`\n  ${pc.dim("\u2500\u2500\u2500 breakdown \u2500\u2500\u2500")}\n`);
   for (const p of PHASES) {
     const c = countInPhase(state, p);
     if (c === 0) continue;
-    let color = DIM;
-    if (["designing", "implementing", "testing", "reviewing", "publishing"].includes(p)) {
-      color = Y;
-    } else if (p === "reviewed") {
-      color = G;
-    }
-    process.stdout.write(`  ${color}${p.padEnd(14)} ${String(c).padStart(3)}${RST}\n`);
+    const fmt = IN_PROGRESS_PHASES.includes(p) ? pc.yellow : p === "reviewed" ? pc.green : pc.dim;
+    process.stdout.write(`  ${fmt(`${p.padEnd(14)} ${String(c).padStart(3)}`)}\n`);
   }
   process.stdout.write("\n");
 }

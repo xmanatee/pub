@@ -55,7 +55,7 @@ Here is a (non-exhaustive) list of CLI tools available. Use any of these, combin
 </context>
 
 <task>
-Generate {{IDEA_COUNT}} ideas. For each one, create the file `output/pubs/NNN-short-name/idea.md` where `NNN` is zero-padded and `short-name` is descriptive kebab-case.
+Generate {{IDEA_COUNT}} ideas. For each one, create the file `pubs/NNN-short-name/idea.md` where `NNN` is zero-padded and `short-name` is descriptive kebab-case.
 
 **Order ideas from most compelling to most conventional.** "Compelling" can mean visually stunning, functionally powerful, surprisingly useful, or a clever integration nobody has thought of. Frontload ideas that make someone think "I actually want to use this."
 
