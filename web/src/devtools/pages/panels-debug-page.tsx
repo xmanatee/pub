@@ -1,4 +1,3 @@
-import { createRef } from "react";
 import { BatchSection } from "~/devtools/components/batch-section";
 import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
@@ -38,8 +37,6 @@ const SAMPLE_FILES: ReceivedFile[] = [
   },
 ];
 
-const messagesEndRef = createRef<HTMLDivElement>();
-
 function TmaWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -60,7 +57,6 @@ export function PanelsDebugPage() {
   const mockValue = createMockLiveSession({
     messages: SAMPLE_MESSAGES,
     files: SAMPLE_FILES,
-    messagesEndRef,
     autoOpenCanvas: true,
     canUseDeveloperMode: true,
     hasCanvasContent: true,

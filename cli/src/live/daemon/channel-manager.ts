@@ -165,6 +165,7 @@ export function createDaemonChannelManager(params: {
   function setupChannel(name: string, dc: AdapterDataChannel): void {
     state.channels.set(name, dc);
     dc.onOpen(() => {
+      debugLog(`datachannel "${name}" open`);
       if (name === CONTROL_CHANNEL) flushQueuedAcks();
     });
 

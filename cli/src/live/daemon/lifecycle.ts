@@ -100,9 +100,9 @@ export function createDaemonLifecycle(params: {
   }
 
   function handleConnectionClosed(reason: string): void {
-    debugLog(`connection closed: ${reason}`);
     const hadSession = state.browserConnected || state.bridgePrimed || state.activeSlug !== null;
     if (!hadSession) return;
+    logAlways(`connection closed: ${reason}`);
     state.activeSlug = null;
     commandHandlerStop();
     canvasFileTransferReset();
