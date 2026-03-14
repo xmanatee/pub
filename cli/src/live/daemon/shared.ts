@@ -1,4 +1,3 @@
-import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { PubApiError, type PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
@@ -20,10 +19,6 @@ export function buildBridgeInstructions(): BridgeInstructions {
     systemPrompt: BRIDGE_SYSTEM_PROMPT.trimEnd(),
     commandProtocolGuide: CANVAS_COMMAND_PROTOCOL_GUIDE.trimEnd(),
   };
-}
-
-export interface ChannelBuffer {
-  messages: Array<{ channel: string; msg: BridgeMessage; timestamp: number }>;
 }
 
 export interface DaemonConfig {

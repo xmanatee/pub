@@ -15,7 +15,6 @@ function makeStatusResponse(): string {
     activeSlug: null,
     uptime: 0,
     channels: [],
-    bufferedMessages: 0,
     lastError: null,
     bridgeMode: null,
     bridge: null,

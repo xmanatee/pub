@@ -2,7 +2,6 @@ import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
-import type { ChannelBuffer } from "./shared.js";
 
 export interface PendingOutboundAck {
   channel: string;
@@ -15,7 +14,6 @@ export interface PendingDeliveryAck {
 }
 
 export interface DaemonState {
-  buffer: ChannelBuffer;
   stopped: boolean;
   browserConnected: boolean;
   bridgePrimed: boolean;
@@ -47,9 +45,8 @@ export interface DaemonState {
   bridgeRunner: BridgeRunner | null;
 }
 
-export function createDaemonState(buffer: ChannelBuffer): DaemonState {
+export function createDaemonState(): DaemonState {
   return {
-    buffer,
     stopped: false,
     browserConnected: false,
     bridgePrimed: false,

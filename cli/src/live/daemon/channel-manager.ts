@@ -15,7 +15,6 @@ import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 import type { DaemonState } from "./state.js";
 
 const MAX_SEEN_INBOUND_MESSAGES = 10_000;
-const MAX_BUFFERED_MESSAGES = 200;
 const OUTBOUND_SEND_MAX_ATTEMPTS = 2;
 
 export function createDaemonChannelManager(params: {
@@ -26,18 +25,6 @@ export function createDaemonChannelManager(params: {
   onCanvasFileMessage: (msg: BridgeMessage) => Promise<void>;
 }) {
   const { state, debugLog, markError, onCommandMessage, onCanvasFileMessage } = params;
-
-  function appendBufferedMessage(entry: {
-    channel: string;
-    msg: BridgeMessage;
-    timestamp: number;
-  }): void {
-    if (entry.channel === CHANNELS.COMMAND || entry.channel === CHANNELS.CANVAS_FILE) return;
-    state.buffer.messages.push(entry);
-    if (state.buffer.messages.length > MAX_BUFFERED_MESSAGES) {
-      state.buffer.messages.splice(0, state.buffer.messages.length - MAX_BUFFERED_MESSAGES);
-    }
-  }
 
   function emitDeliveryStatus(params: {
     channel: string;
@@ -235,7 +222,6 @@ export function createDaemonChannelManager(params: {
             void onCanvasFileMessage(msg);
             return;
           }
-          appendBufferedMessage({ channel: name, msg, timestamp: Date.now() });
           state.bridgeRunner?.enqueue([{ channel: name, msg }]);
           if (
             name !== CONTROL_CHANNEL &&
@@ -284,7 +270,6 @@ export function createDaemonChannelManager(params: {
           void onCanvasFileMessage(binMsg);
           return;
         }
-        appendBufferedMessage({ channel: name, msg: binMsg, timestamp: Date.now() });
         state.bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
         if (!activeStream) {
           emitDeliveryStatus({ channel: name, messageId: binMsg.id, stage: "received" });
@@ -374,7 +359,6 @@ export function createDaemonChannelManager(params: {
   }
 
   return {
-    appendBufferedMessage,
     emitDeliveryStatus,
     failPendingAcks,
     flushQueuedAcks,

@@ -126,7 +126,6 @@ export function createPeerManager(params: {
     state.browserConnected = false;
     state.bridgePrimed = false;
     state.bridgePriming = null;
-    state.buffer.messages = [];
     state.activeLiveModelProfile = null;
     failPendingAcks();
     stopPingPong();

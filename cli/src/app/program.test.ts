@@ -15,14 +15,12 @@ describe("CLI command surface", () => {
     const program = buildProgram();
     const names = program.commands.map((command) => command.name()).sort();
     expect(names).toEqual([
-      "channels",
       "config",
       "create",
       "delete",
       "doctor",
       "get",
       "list",
-      "read",
       "start",
       "status",
       "stop",

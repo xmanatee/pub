@@ -1,7 +1,5 @@
 import type { Command } from "commander";
-import { registerChannelsCommand } from "./channels.js";
 import { registerDoctorCommand } from "./doctor.js";
-import { registerReadCommand } from "./read.js";
 import { registerStartCommand } from "./start.js";
 import { registerStatusCommand } from "./status.js";
 import { registerStopCommand } from "./stop.js";
@@ -12,7 +10,5 @@ export function registerLiveCommands(program: Command): void {
   registerStopCommand(program);
   registerStatusCommand(program);
   registerWriteCommand(program);
-  registerReadCommand(program);
-  registerChannelsCommand(program);
   registerDoctorCommand(program);
 }

@@ -34,7 +34,7 @@ export function printDaemonStatus(
   }
   console.log(`  Uptime: ${response.uptime}s`);
   console.log(`  Channels: ${response.channels.join(", ") || "(none)"}`);
-  console.log(`  Buffered: ${response.bufferedMessages ?? 0} messages`);
+
   if (verboseEnabled !== null) {
     console.log(`  Verbose logging: ${verboseEnabled ? "enabled" : "disabled"}`);
   }

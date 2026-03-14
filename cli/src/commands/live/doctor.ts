@@ -6,13 +6,10 @@ import {
   generateMessageId,
 } from "../../../../shared/bridge-protocol-core";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
-import { parsePositiveInteger } from "../../core/utils/number.js";
-import { formatApiError, messageContainsPong } from "../../live/runtime/command-utils.js";
+import { formatApiError } from "../../live/runtime/command-utils.js";
 import { createCliCommandContext } from "../shared/index.js";
 
 interface DoctorCommandOptions {
-  timeout: string;
-  waitPong?: boolean;
   skipChat?: boolean;
   skipCanvas?: boolean;
 }
@@ -21,14 +18,10 @@ export function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
     .description("Run end-to-end live checks (daemon, channels, chat/canvas ping)")
-    .option("--timeout <seconds>", "Timeout for pong wait and repeated reads", "30")
-    .option("--wait-pong", "Wait for user to reply with exact text 'pong' on chat channel")
     .option("--skip-chat", "Skip chat ping check")
     .option("--skip-canvas", "Skip canvas ping check")
     .action(async (opts: DoctorCommandOptions) => {
       const context = createCliCommandContext();
-      const timeoutSeconds = parsePositiveInteger(opts.timeout, "--timeout");
-      const timeoutMs = timeoutSeconds * 1_000;
       const slug = await context.resolveActiveSlug().catch((error: unknown) =>
         failCli(`No active daemon. Run \`pub start\` first. (${errorMessage(error)})`),
       );
@@ -88,28 +81,6 @@ export function registerDoctorCommand(program: Command): void {
           "chat ping failed",
         );
         console.log("Chat ping write ACK: OK");
-
-        if (opts.waitPong) {
-          const startedAt = Date.now();
-          let receivedPong = false;
-          while (Date.now() - startedAt < timeoutMs) {
-            const readResponse = await context.requireDaemonResponse(
-              { method: "read", params: { channel: CHANNELS.CHAT } },
-              "chat read failed while waiting for pong",
-            );
-            const messages = readResponse.messages ?? [];
-            if (messages.some((entry) => messageContainsPong(entry))) {
-              receivedPong = true;
-              break;
-            }
-            await new Promise((resolve) => setTimeout(resolve, 1_000));
-          }
-
-          if (!receivedPong) {
-            fail(`timed out after ${timeoutSeconds}s waiting for exact 'pong' reply on chat channel.`);
-          }
-          console.log("Chat pong roundtrip: OK");
-        }
       }
 
       if (!opts.skipCanvas) {

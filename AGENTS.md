@@ -64,7 +64,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 ### CLI (`cli/`)
 - **`pub`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
 - **Pub commands**: `config`, `create`, `get`, `list`, `update`, `delete`
-- **Live commands**: `start`, `stop`, `status`, `write`, `read`, `channels`, `doctor`
+- **Live commands**: `start`, `stop`, `status`, `write`, `doctor`
 - `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
 - `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
@@ -73,7 +73,6 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - `stop` — deregisters agent presence, closes active live, stops daemon
 - `status` — shows daemon/runtime state including signaling, bridge session, last error, and log path
 - `write [message]` — write to live channel (`-c <channel>`, `-f <file>`); slug resolved via daemon IPC
-- `read` — read buffered messages (`--follow` for streaming); slug resolved via daemon IPC; **debug only** — not intended for normal agent workflows
 - `doctor` — end-to-end live health checks; slug resolved via daemon IPC
 - `config --set telegram.botToken=<token>` — enables Telegram Mini App deep links
 - `config --set bridge.verbose=true` — enables verbose live daemon logging

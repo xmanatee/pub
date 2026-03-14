@@ -12,7 +12,7 @@ import { createBridgeManager } from "./bridge-manager.js";
 import { createCanvasFileTransferHandler } from "./canvas-file-transfer.js";
 import { createDaemonLifecycle } from "./lifecycle.js";
 import { createSignalingController } from "./signaling.js";
-import type { ChannelBuffer, DaemonConfig } from "./shared.js";
+import type { DaemonConfig } from "./shared.js";
 import {
   getLiveWriteReadinessError,
   isPresenceExpiredError,
@@ -24,8 +24,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 
 export async function startDaemon(config: DaemonConfig): Promise<void> {
   const { apiClient, socketPath, infoPath, logPath, cliVersion, agentName } = config;
-  const buffer: ChannelBuffer = { messages: [] };
-  const state = createDaemonState(buffer);
+  const state = createDaemonState();
   const startTime = Date.now();
   const daemonSessionId = randomUUID();
   const verboseEnabled = config.bridgeSettings.verbose === true;
@@ -246,10 +245,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     getActiveSlug: () => state.activeSlug,
     getUptimeSeconds: () => Math.floor((Date.now() - startTime) / 1000),
     getChannels: () => [...state.channels.keys()],
-    getBufferedMessages: () => state.buffer.messages,
-    setBufferedMessages: (messages) => {
-      state.buffer.messages = messages;
-    },
     getLastError: () => state.lastError,
     getBridgeMode: () => config.bridgeSettings.mode,
     getBridgeStatus: () => state.bridgeRunner?.status() ?? null,

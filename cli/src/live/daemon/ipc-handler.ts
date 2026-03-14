@@ -1,11 +1,9 @@
 import {
   type BridgeMessage,
-  CHANNELS,
   encodeMessage,
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
 import type { PubApiClient } from "../../core/api/client.js";
-import type { ChannelBuffer } from "./shared.js";
 import type { IpcRequest } from "../transport/ipc-protocol.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 
@@ -17,8 +15,6 @@ interface DaemonIpcHandlerParams {
   getActiveSlug: () => string | null;
   getUptimeSeconds: () => number;
   getChannels: () => string[];
-  getBufferedMessages: () => ChannelBuffer["messages"];
-  setBufferedMessages: (messages: ChannelBuffer["messages"]) => void;
   getLastError: () => string | null;
   getBridgeMode: () => string | null;
   getBridgeStatus: () => unknown;
@@ -139,25 +135,6 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
         };
       }
 
-      case "read": {
-        const channel = req.params.channel;
-        const buffered = params.getBufferedMessages();
-        let msgs: ChannelBuffer["messages"];
-        if (channel) {
-          msgs = buffered.filter((m) => m.channel === channel);
-          params.setBufferedMessages(buffered.filter((m) => m.channel !== channel));
-        } else {
-          msgs = [...buffered];
-          params.setBufferedMessages([]);
-        }
-        return { ok: true, messages: msgs };
-      }
-
-      case "channels": {
-        const chList = params.getChannels().map((name) => ({ name, direction: "bidi" }));
-        return { ok: true, channels: chList };
-      }
-
       case "status": {
         return {
           ok: true,
@@ -166,7 +143,6 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
           activeSlug: params.getActiveSlug(),
           uptime: params.getUptimeSeconds(),
           channels: params.getChannels(),
-          bufferedMessages: params.getBufferedMessages().length,
           lastError: params.getLastError(),
           bridgeMode: params.getBridgeMode(),
           bridge: params.getBridgeStatus(),

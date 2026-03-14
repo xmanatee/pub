@@ -15,7 +15,7 @@
 - Verbose daemon logging can be enabled with saved config `bridge.verbose=true`
 - `claude-sdk` is only available when `@anthropic-ai/claude-agent-sdk` is locally importable; standalone binary installs otherwise fall back to `claude-code`
 - Socket path: `/tmp/pub-agent.sock` (fixed, not slug-dependent)
-- Commands that need the active slug (`write`, `read`, `doctor`) resolve it via IPC to the daemon; `channels` queries daemon state directly
+- Commands that need the active slug (`write`, `doctor`) resolve it via IPC to the daemon
 - Daemon spawned via `spawn(process.execPath, [])` with `PUB_DAEMON_MODE=1` env var (binary re-executes itself)
 - Product intent: let AI agents generate adaptive interfaces and real-time experiences for users with minimal operator setup.
 

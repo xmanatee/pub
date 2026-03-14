@@ -118,27 +118,19 @@ pub write "Hello"
 pub write -c canvas -f /tmp/view.html
 ```
 
-4. Read incoming (manual/debug):
-```bash
-pub read --follow -c chat
-pub read --all
-```
-
-5. Stop daemon:
+4. Stop daemon:
 ```bash
 pub stop
 ```
 
-6. Validate end-to-end:
+5. Validate end-to-end:
 ```bash
 pub doctor
-pub doctor --wait-pong --timeout 30
 pub doctor --skip-chat --skip-canvas
 ```
 
 Important:
 - `write` waits for delivery confirmation.
-- `read` is consumptive; avoid multiple `read --follow` consumers on the same channel.
 
 ## Advanced Details (On Demand)
 

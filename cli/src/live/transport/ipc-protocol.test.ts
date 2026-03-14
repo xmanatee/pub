@@ -34,7 +34,6 @@ describe("live-ipc-protocol", () => {
         activeSlug: "demo",
         uptime: 12,
         channels: ["chat"],
-        bufferedMessages: 0,
         lastError: null,
         bridgeMode: "openclaw",
         bridge: { running: true, forwardedMessages: 3 },
@@ -47,7 +46,6 @@ describe("live-ipc-protocol", () => {
       activeSlug: "demo",
       uptime: 12,
       channels: ["chat"],
-      bufferedMessages: 0,
       lastError: null,
       bridgeMode: "openclaw",
       bridge: { running: true, forwardedMessages: 3 },
@@ -55,7 +53,7 @@ describe("live-ipc-protocol", () => {
     });
   });
 
-  it("rejects malformed responses", () => {
-    expect(parseIpcResponse("read", { ok: true, messages: [{ channel: "chat" }] })).toBeNull();
+  it("rejects malformed write responses", () => {
+    expect(parseIpcResponse("write", { ok: true, delivered: "yes" })).toBeNull();
   });
 });
