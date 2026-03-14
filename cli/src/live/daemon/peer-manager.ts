@@ -30,7 +30,6 @@ export function createPeerManager(params: {
   handleConnectionClosed: (reason: string) => void;
   clearLocalCandidateTimers: () => void;
   stopPingPong: () => void;
-  stopBridge: () => Promise<void>;
   commandHandlerStop: () => void;
   canvasFileTransferReset: () => void;
 }) {
@@ -47,7 +46,6 @@ export function createPeerManager(params: {
     handleConnectionClosed,
     clearLocalCandidateTimers,
     stopPingPong,
-    stopBridge,
     commandHandlerStop,
     canvasFileTransferReset,
   } = params;
@@ -145,7 +143,6 @@ export function createPeerManager(params: {
     const slug = state.activeSlug;
     debugLog(`clearing active live session: ${reason}${slug ? ` (${slug})` : ""}`);
     state.activeSlug = null;
-    await stopBridge();
     commandHandlerStop();
     canvasFileTransferReset();
     await closeCurrentPeer();

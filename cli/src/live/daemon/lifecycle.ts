@@ -12,7 +12,6 @@ export function createDaemonLifecycle(params: {
   versionFilePath: string;
   debugEnabled: boolean;
   closeCurrentPeer: () => Promise<void>;
-  stopBridge: () => Promise<void>;
   resetNegotiationState: () => void;
   commandHandlerStop: () => void;
   canvasFileTransferReset: () => void;
@@ -24,7 +23,6 @@ export function createDaemonLifecycle(params: {
     versionFilePath,
     debugEnabled,
     closeCurrentPeer,
-    stopBridge,
     resetNegotiationState,
     commandHandlerStop,
     canvasFileTransferReset,
@@ -107,10 +105,7 @@ export function createDaemonLifecycle(params: {
     commandHandlerStop();
     canvasFileTransferReset();
     resetNegotiationState();
-    void (async () => {
-      await closeCurrentPeer();
-      await stopBridge();
-    })().catch((error) => {
+    void closeCurrentPeer().catch((error) => {
       markError("failed to clean up after connection closed", error);
     });
   }

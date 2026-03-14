@@ -89,6 +89,7 @@ export interface StatusPayload {
   channels?: string[];
   ready?: boolean;
   slug?: string;
+  continued?: boolean;
 }
 
 export interface ErrorPayload {
@@ -288,12 +289,14 @@ export function parseStatusMessage(msg: BridgeMessage): StatusPayload | null {
     : undefined;
   const ready = msg.meta.ready === true ? true : msg.meta.ready === false ? false : undefined;
   const slug = typeof msg.meta.slug === "string" ? msg.meta.slug : undefined;
+  const continued = msg.meta.continued === true ? true : undefined;
 
   return {
     connected,
     channels,
     ready,
     slug,
+    continued,
   };
 }
 

@@ -50,14 +50,20 @@ export function createBridgeManager(params: {
   } = params;
 
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
-    if (state.stopped || !(state.browserConnected && state.bridgePrimed)) return false;
+    if (state.stopped) return false;
+    if (!(state.browserConnected && state.bridgePrimed)) {
+      if (state.bridgeRunner && state.bridgeSlug && state.bridgeOutboundBuffer.length < 200) {
+        state.bridgeOutboundBuffer.push({ channel, msg });
+      }
+      return false;
+    }
     return sendOutboundMessageWithAck(channel, msg, {
       context: `bridge outbound on "${channel}"`,
       maxAttempts: 2,
     });
   }
 
-  async function notifyBrowserReady(slug: string): Promise<void> {
+  async function notifyBrowserReady(slug: string, continued = false): Promise<void> {
     const delivered = await sendOutboundMessageWithAck(
       CONTROL_CHANNEL,
       makeStatusMessage({
@@ -65,6 +71,7 @@ export function createBridgeManager(params: {
         ready: true,
         slug,
         channels: [...state.channels.keys()],
+        ...(continued ? { continued: true } : {}),
       }),
       {
         context: 'bridge ready status on "_control"',
@@ -169,6 +176,17 @@ export function createBridgeManager(params: {
       return;
     }
     state.bridgeRunner = runner;
+    state.bridgeSlug = slug;
+  }
+
+  async function flushOutboundBuffer(): Promise<void> {
+    const entries = state.bridgeOutboundBuffer.splice(0);
+    for (const { channel, msg } of entries) {
+      await sendOutboundMessageWithAck(channel, msg, {
+        context: `bridge flush on "${channel}"`,
+        maxAttempts: 2,
+      });
+    }
   }
 
   async function ensureBridgePrimed(): Promise<void> {
@@ -183,6 +201,24 @@ export function createBridgeManager(params: {
     }
 
     const slug = state.activeSlug;
+
+    if (state.bridgeRunner && state.bridgeSlug === slug) {
+      if (state.bridgeRunner.status().running) {
+        debugLog(`reattaching existing bridge for "${slug}"`);
+        try {
+          state.bridgePrimed = true;
+          await notifyBrowserReady(slug, true);
+          await flushOutboundBuffer();
+        } catch (error) {
+          state.bridgePrimed = false;
+          markError(`failed to reattach bridge for "${slug}"`, error);
+        }
+        return;
+      }
+      debugLog(`bridge for "${slug}" died during disconnect, restarting`);
+      await stopBridge();
+    }
+
     const slowPrimingTimer = setTimeout(() => {
       if (
         state.bridgePriming &&
@@ -229,6 +265,8 @@ export function createBridgeManager(params: {
   async function stopBridge(): Promise<void> {
     state.bridgePrimed = false;
     state.bridgePriming = null;
+    state.bridgeSlug = null;
+    state.bridgeOutboundBuffer.length = 0;
     if (state.bridgeAbort) {
       state.bridgeAbort.abort();
       state.bridgeAbort = null;

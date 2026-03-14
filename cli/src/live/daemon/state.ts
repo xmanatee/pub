@@ -21,6 +21,8 @@ export interface DaemonState {
   bridgePrimed: boolean;
   bridgePriming: Promise<void> | null;
   bridgeAbort: AbortController | null;
+  bridgeSlug: string | null;
+  bridgeOutboundBuffer: Array<{ channel: string; msg: BridgeMessage }>;
   recovering: boolean;
   activeSlug: string | null;
   activeLiveModelProfile: LiveModelProfile | null;
@@ -53,6 +55,8 @@ export function createDaemonState(buffer: ChannelBuffer): DaemonState {
     bridgePrimed: false,
     bridgePriming: null,
     bridgeAbort: null,
+    bridgeSlug: null,
+    bridgeOutboundBuffer: [],
     recovering: false,
     activeSlug: null,
     activeLiveModelProfile: null,

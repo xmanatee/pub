@@ -70,7 +70,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     versionFilePath,
     debugEnabled: verboseEnabled,
     closeCurrentPeer: async () => await peerManager.closeCurrentPeer(),
-    stopBridge: async () => await bridgeManager.stopBridge(),
     resetNegotiationState: () => peerManager.resetNegotiationState(),
     commandHandlerStop: () => commandHandler.stop(),
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
@@ -139,7 +138,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     handleConnectionClosed: lifecycle.handleConnectionClosed,
     clearLocalCandidateTimers: lifecycle.clearLocalCandidateTimers,
     stopPingPong: lifecycle.stopPingPong,
-    stopBridge: async () => await bridgeManager.stopBridge(),
     commandHandlerStop: () => commandHandler.stop(),
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
   });
