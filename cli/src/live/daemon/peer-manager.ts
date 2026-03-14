@@ -1,9 +1,11 @@
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
+import type { LiveConnectionState } from "../../../../shared/live-runtime-state-core";
+import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
-import type { DaemonState } from "./state.js";
+import { setDaemonConnectionState, type DaemonState } from "./state.js";
 
 export function createPeerManager(params: {
   state: DaemonState;
@@ -26,7 +28,9 @@ export function createPeerManager(params: {
   ) => void;
   flushQueuedAcks: () => void;
   failPendingAcks: () => void;
-  ensureBridgePrimed: () => Promise<void>;
+  clearAgentPreparation: () => void;
+  ensureAgentReady: () => Promise<void>;
+  publishRuntimeState: () => Promise<boolean>;
   handleConnectionClosed: (reason: string) => void;
   clearLocalCandidateTimers: () => void;
   stopPingPong: () => void;
@@ -43,12 +47,23 @@ export function createPeerManager(params: {
     setupChannel,
     flushQueuedAcks,
     failPendingAcks,
+    clearAgentPreparation,
     handleConnectionClosed,
     clearLocalCandidateTimers,
     stopPingPong,
     commandHandlerStop,
     canvasFileTransferReset,
   } = params;
+
+  function setConnectionState(nextState: LiveConnectionState): void {
+    if (state.runtimeState.connectionState === nextState) return;
+    setDaemonConnectionState(state, nextState);
+    if (nextState === "connected") {
+      void params.publishRuntimeState().catch((error) => {
+        debugLog("failed to publish connected runtime state", error);
+      });
+    }
+  }
 
   function attachPeerHandlers(currentPeer: NonNullable<DaemonState["peer"]>): void {
     currentPeer.onLocalCandidate((candidate: string, mid: string) => {
@@ -62,12 +77,13 @@ export function createPeerManager(params: {
         `peer state: ${peerState}${state.activeSlug ? ` slug=${state.activeSlug}` : ""}`,
       );
       if (peerState === "connected") {
-        state.browserConnected = true;
+        setConnectionState("connected");
         flushQueuedAcks();
-        void params.ensureBridgePrimed();
+        void params.ensureAgentReady();
         return;
       }
       if (peerState === "disconnected" || peerState === "failed" || peerState === "closed") {
+        setConnectionState(peerState === "failed" ? "failed" : "disconnected");
         handleConnectionClosed(`peer-state:${peerState}`);
       }
     });
@@ -75,7 +91,11 @@ export function createPeerManager(params: {
     currentPeer.onIceStateChange((iceState: string) => {
       if (state.stopped || currentPeer !== state.peer) return;
       debugLog(`ICE state: ${iceState}`);
-      if ((iceState === "disconnected" || iceState === "failed") && state.browserConnected) {
+      if (
+        (iceState === "disconnected" || iceState === "failed") &&
+        isLiveConnectionReady(state.runtimeState)
+      ) {
+        setConnectionState(iceState === "failed" ? "failed" : "disconnected");
         handleConnectionClosed(`ice-state:${iceState}`);
       }
     });
@@ -92,6 +112,7 @@ export function createPeerManager(params: {
   function createPeer(): void {
     const nextPeer = createPeerConnection({ iceServers: [...WEBRTC_STUN_URLS] });
     state.peer = nextPeer;
+    setConnectionState("connecting");
     state.channels = new Map();
     state.pendingInboundBinaryMeta = new Map();
     state.inboundStreams = new Map();
@@ -122,10 +143,9 @@ export function createPeerManager(params: {
     }
   }
 
-  function resetNegotiationState(): void {
-    state.browserConnected = false;
-    state.bridgePrimed = false;
-    state.bridgePriming = null;
+  function resetNegotiationState(options?: { connectionState?: LiveConnectionState }): void {
+    setConnectionState(options?.connectionState ?? "idle");
+    clearAgentPreparation();
     state.activeLiveModelProfile = null;
     failPendingAcks();
     stopPingPong();
@@ -145,7 +165,7 @@ export function createPeerManager(params: {
     commandHandlerStop();
     canvasFileTransferReset();
     await closeCurrentPeer();
-    resetNegotiationState();
+    resetNegotiationState({ connectionState: "idle" });
   }
 
   function startLocalCandidateFlush(slug: string): void {

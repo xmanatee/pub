@@ -10,13 +10,13 @@ import {
 
 describe("getLiveWriteReadinessError", () => {
   it("blocks writes before live session establishment", () => {
-    expect(getLiveWriteReadinessError(false)).toBe(
-      "Live session is not established yet. Wait for browser connect and initial context sync, then retry.",
+    expect(getLiveWriteReadinessError("connecting")).toBe(
+      "Live session connection is not ready yet. Wait for the browser to connect, then retry.",
     );
   });
 
   it("allows writes after live session establishment", () => {
-    expect(getLiveWriteReadinessError(true)).toBeNull();
+    expect(getLiveWriteReadinessError("connected")).toBeNull();
   });
 });
 

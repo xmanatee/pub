@@ -35,7 +35,7 @@ export function registerDoctorCommand(program: Command): void {
         { method: "status", params: {} },
         "daemon is unreachable",
       );
-      if (!statusResponse.connected) {
+      if (statusResponse.connectionState !== "connected") {
         fail("daemon is running but browser is not connected.");
       }
 

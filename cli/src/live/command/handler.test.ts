@@ -11,6 +11,7 @@ function sleep(ms: number): Promise<void> {
 
 function buildHandler(overrides?: {
   getBridgeRunner?: () => BridgeRunner | null;
+  onExecutorStateChange?: (state: "idle" | "loading" | "ready") => void;
 }) {
   const sentMessages: BridgeMessage[] = [];
   const handler = createLiveCommandHandler({
@@ -30,6 +31,7 @@ function buildHandler(overrides?: {
     debugLog: () => {},
     markError: () => {},
     getBridgeRunner: overrides?.getBridgeRunner,
+    onExecutorStateChange: overrides?.onExecutorStateChange,
     sendCommandMessage: async (msg) => {
       sentMessages.push(msg);
       return true;
@@ -89,6 +91,31 @@ describe("createLiveCommandHandler", () => {
       ok: true,
       value: "hello",
     });
+  });
+
+  it("tracks executor lifecycle while loading and binding a manifest", async () => {
+    const executorStates: Array<"idle" | "loading" | "ready"> = [];
+    const { handler } = buildHandler({
+      onExecutorStateChange: (state) => executorStates.push(state),
+    });
+
+    handler.beginManifestLoad();
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "echoValue",
+          returns: "text",
+          executor: {
+            kind: "exec",
+            command: process.execPath,
+            args: ["-e", "process.stdout.write('ok')"],
+          },
+        },
+      ]),
+    );
+    handler.bindFromHtml("");
+
+    expect(executorStates).toEqual(["loading", "ready", "idle"]);
   });
 
   it("skips functions missing executor during bind", async () => {

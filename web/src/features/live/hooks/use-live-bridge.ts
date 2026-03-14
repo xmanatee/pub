@@ -1,3 +1,4 @@
+import { IDLE_LIVE_RUNTIME_STATE } from "@shared/live-runtime-state-core";
 import { useEffect, useRef, useState } from "react";
 import { type DeliveryReceiptPayload } from "~/features/live/lib/bridge-protocol";
 import { profileMark } from "~/features/live/lib/connection-profiler";
@@ -38,7 +39,7 @@ export function useLiveBridge({
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("closed");
-  const [liveReady, setLiveReady] = useState(false);
+  const [runtimeState, setRuntimeState] = useState({ ...IDLE_LIVE_RUNTIME_STATE });
 
   const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
@@ -63,11 +64,11 @@ export function useLiveBridge({
   // biome-ignore lint/correctness/useExhaustiveDependencies: transportKey is used to force a fresh negotiation cycle
   useEffect(() => {
     if (!enabled) {
-      setLiveReady(false);
+      setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE });
       setBridgeState("closed");
       return;
     }
-    setLiveReady(false);
+    setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "connecting" });
     setBridgeState("connecting");
 
     const bridge = new BrowserBridge();
@@ -76,7 +77,7 @@ export function useLiveBridge({
     lastHandledAnswerRef.current = null;
     let disposed = false;
     bridge.setOnStateChange(setBridgeState);
-    bridge.setOnLiveReadyChange(setLiveReady);
+    bridge.setOnRuntimeStateChange(setRuntimeState);
     bridge.setOnControlError((error) => {
       onSystemMessageRef.current?.({
         content: error.message,
@@ -155,7 +156,7 @@ export function useLiveBridge({
         if (bridgeRef.current === bridge) {
           bridgeRef.current = null;
         }
-        setLiveReady(false);
+        setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "failed" });
         setBridgeState("failed");
       }
     })();
@@ -174,7 +175,7 @@ export function useLiveBridge({
       if (bridgeRef.current === bridge) {
         bridgeRef.current = null;
       }
-      setLiveReady(false);
+      setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE });
     };
   }, [enabled, slug, transportKey]);
 
@@ -226,6 +227,6 @@ export function useLiveBridge({
   return {
     bridgeRef,
     bridgeState,
-    liveReady,
+    runtimeState,
   };
 }

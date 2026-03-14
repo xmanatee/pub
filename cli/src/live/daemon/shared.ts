@@ -1,3 +1,7 @@
+import {
+  isLiveConnectionReady,
+  type LiveConnectionState,
+} from "../../../../shared/live-runtime-state-core";
 import { PubApiError, type PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
@@ -36,10 +40,10 @@ export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;
 export const PING_INTERVAL_MS = 10_000;
 export const PONG_TIMEOUT_MS = 15_000;
 
-export function getLiveWriteReadinessError(isReady: boolean): string | null {
-  return isReady
+export function getLiveWriteReadinessError(connectionState: LiveConnectionState): string | null {
+  return isLiveConnectionReady(connectionState)
     ? null
-    : "Live session is not established yet. Wait for browser connect and initial context sync, then retry.";
+    : "Live session connection is not ready yet. Wait for the browser to connect, then retry.";
 }
 
 export function shouldRecoverForBrowserOfferChange(params: {

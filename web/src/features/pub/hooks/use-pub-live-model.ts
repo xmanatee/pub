@@ -1,4 +1,5 @@
 import { api } from "@backend/_generated/api";
+import { canSendAgentTraffic } from "@shared/live-runtime-state-core";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -128,7 +129,7 @@ export function usePubLiveModel({
   const {
     bridgeRef,
     bridgeState,
-    liveReady,
+    runtimeState,
     lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,
@@ -165,7 +166,6 @@ export function usePubLiveModel({
     onCanvasFileMessageRef: canvasFileMessageHandlerRef,
   });
 
-  // --- Connection profiling ---
   const profileStartedRef = useRef(false);
 
   useEffect(() => {
@@ -188,12 +188,11 @@ export function usePubLiveModel({
   }, [sessionState]);
 
   useEffect(() => {
-    if (liveReady && profileStartedRef.current) {
+    if (canSendAgentTraffic(runtimeState) && profileStartedRef.current) {
       profilePrint();
       profileStartedRef.current = false;
     }
-  }, [liveReady]);
-  // --- End profiling ---
+  }, [runtimeState]);
 
   const {
     command,
@@ -204,9 +203,8 @@ export function usePubLiveModel({
     reset: resetCanvasCommands,
   } = useCanvasCommands({
     bridgeRef,
-    bridgeState,
     canvasScopeKey,
-    liveReady,
+    runtimeState,
     liveMode,
     sessionKey: transportKey,
   });
@@ -214,7 +212,7 @@ export function usePubLiveModel({
   canvasFileMessageHandlerRef.current = handleBridgeCanvasFileMessage;
 
   const audio = useControlBarAudio({
-    disabled: !liveReady,
+    disabled: runtimeState.connectionState !== "connected" || runtimeState.agentState !== "ready",
     bridge: bridgeRef.current,
     micGranted,
     onMicGranted: setMicGranted,
@@ -250,10 +248,9 @@ export function usePubLiveModel({
   const viewState = derivePubViewState({
     agentOnline,
     audioMode: audio.machineMode,
-    bridgeState,
-    liveReady,
     canvasError,
     command,
+    connectionState: runtimeState.connectionState,
     contentState: effectiveContentState,
     lastAgentOutput,
     lastUserDeliveredAt,
@@ -332,8 +329,8 @@ export function usePubLiveModel({
   ]);
 
   useEffect(() => {
-    if (liveReady) markBridgeConnected();
-  }, [liveReady, markBridgeConnected]);
+    if (runtimeState.connectionState === "connected") markBridgeConnected();
+  }, [markBridgeConnected, runtimeState.connectionState]);
 
   useEffect(() => {
     const previousCanvasHtml = lastCanvasHtmlRef.current;
@@ -435,9 +432,9 @@ export function usePubLiveModel({
     availableAgents,
     addSystemMessage,
     autoOpenCanvas,
+    agentState: runtimeState.agentState,
     bridgeRef,
     bridgeState,
-    liveReady,
     canvasError,
     canvasHtml,
     canUseDeveloperMode,
@@ -455,6 +452,8 @@ export function usePubLiveModel({
     error: viewState.error,
     files,
     hasCanvasContent,
+    connectionState: runtimeState.connectionState,
+    executorState: runtimeState.executorState,
     lastTakeoverAt: live?.lastTakeoverAt,
     live,
     messages,

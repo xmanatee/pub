@@ -3,6 +3,7 @@ import {
   encodeMessage,
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
+import type { LiveRuntimeStateSnapshot } from "../../../../shared/live-runtime-state-core";
 import type { PubApiClient } from "../../core/api/client.js";
 import type { IpcRequest } from "../transport/ipc-protocol.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
@@ -10,7 +11,7 @@ import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 interface DaemonIpcHandlerParams {
   apiClient: PubApiClient;
   bindCanvasCommands: (html: string) => void;
-  getConnected: () => boolean;
+  getRuntimeState: () => LiveRuntimeStateSnapshot;
   getSignalingConnected: () => boolean | null;
   getActiveSlug: () => string | null;
   getUptimeSeconds: () => number;
@@ -136,9 +137,10 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
       }
 
       case "status": {
+        const runtimeState = params.getRuntimeState();
         return {
           ok: true,
-          connected: params.getConnected(),
+          ...runtimeState,
           signalingConnected: params.getSignalingConnected(),
           activeSlug: params.getActiveSlug(),
           uptime: params.getUptimeSeconds(),

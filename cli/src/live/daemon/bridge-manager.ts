@@ -2,16 +2,16 @@ import {
   type BridgeMessage,
   CONTROL_CHANNEL,
   makeErrorMessage,
-  makeStatusMessage,
 } from "../../../../shared/bridge-protocol-core";
+import { canSendAgentTraffic, isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { buildBridgeInstructions } from "./shared.js";
-import type { DaemonState } from "./state.js";
+import { setDaemonAgentState, type DaemonState } from "./state.js";
 
-const SLOW_BRIDGE_PRIMING_LOG_MS = 10_000;
+const SLOW_AGENT_PREPARATION_LOG_MS = 10_000;
 
 export function createBridgeManager(params: {
   state: DaemonState;
@@ -31,6 +31,10 @@ export function createBridgeManager(params: {
     msg: BridgeMessage,
     options?: { binaryPayload?: Buffer; context?: string; maxAttempts?: number },
   ) => Promise<boolean>;
+  publishRuntimeState: (options?: {
+    continued?: boolean;
+    requireDelivery?: boolean;
+  }) => Promise<boolean>;
   emitDeliveryStatus: (params: {
     channel: string;
     messageId: string;
@@ -46,12 +50,13 @@ export function createBridgeManager(params: {
     debugLog,
     markError,
     sendOutboundMessageWithAck,
+    publishRuntimeState,
     emitDeliveryStatus,
   } = params;
 
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
     if (state.stopped) return false;
-    if (!(state.browserConnected && state.bridgePrimed)) {
+    if (!canSendAgentTraffic(state.runtimeState)) {
       if (state.bridgeRunner && state.bridgeSlug && state.bridgeOutboundBuffer.length < 200) {
         state.bridgeOutboundBuffer.push({ channel, msg });
       }
@@ -63,77 +68,111 @@ export function createBridgeManager(params: {
     });
   }
 
-  async function notifyBrowserReady(slug: string, continued = false): Promise<void> {
-    const delivered = await sendOutboundMessageWithAck(
-      CONTROL_CHANNEL,
-      makeStatusMessage({
-        connected: true,
-        ready: true,
-        slug,
-        channels: [...state.channels.keys()],
-        ...(continued ? { continued: true } : {}),
-      }),
-      {
-        context: 'bridge ready status on "_control"',
-        maxAttempts: 2,
-      },
-    );
-
-    if (!delivered) {
-      throw new Error(`Failed to deliver ready status for "${slug}"`);
-    }
-  }
-
-  async function notifyBrowserPrimeFailed(slug: string, error: unknown): Promise<void> {
+  async function notifyBrowserPreparationFailed(slug: string, error: unknown): Promise<void> {
     await sendOutboundMessageWithAck(
       CONTROL_CHANNEL,
       makeErrorMessage({
-        code: "BRIDGE_PRIME_FAILED",
+        code: "AGENT_PREPARATION_FAILED",
         message:
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : `Failed to prime bridge session for "${slug}"`,
+            : `Failed to prepare agent session for "${slug}"`,
       }),
       {
         context: 'bridge error status on "_control"',
         maxAttempts: 1,
       },
     ).catch((notifyError) => {
-      debugLog(`failed to notify browser about priming error for "${slug}"`, notifyError);
+      debugLog(`failed to notify browser about preparation error for "${slug}"`, notifyError);
     });
+  }
+
+  async function loadSessionContent(slug: string): Promise<{
+    content: string;
+    isPublic?: boolean;
+    title?: string;
+  }> {
+    debugLog(`bridge session content load start slug=${slug}`);
+    commandHandler.beginManifestLoad();
+    try {
+      const pub = await apiClient.get(slug);
+      const content = typeof pub.content === "string" ? pub.content : "";
+      if (content.length > 0) commandHandler.bindFromHtml(content);
+      else commandHandler.clearBindings();
+      debugLog(`bridge session content load complete slug=${slug} contentBytes=${content.length}`);
+      return {
+        title: pub.title,
+        isPublic: pub.isPublic,
+        content,
+      };
+    } catch (error) {
+      commandHandler.clearBindings();
+      throw error;
+    }
   }
 
   async function buildInitialSessionBriefing(params: {
     slug: string;
     instructions: ReturnType<typeof buildBridgeInstructions>;
   }): Promise<string> {
-    debugLog(`bridge briefing load start slug=${params.slug}`);
-    commandHandler.beginManifestLoad();
-    const pub = await apiClient.get(params.slug);
-    const content = typeof pub.content === "string" ? pub.content : "";
-    if (content.length > 0) commandHandler.bindFromHtml(content);
-    else commandHandler.clearBindings();
+    const sessionContent = await loadSessionContent(params.slug);
     const canvasContentFilePath =
-      content.length > 0 ? writeLiveSessionContentFile({ slug: params.slug, content }) : undefined;
+      sessionContent.content.length > 0
+        ? writeLiveSessionContentFile({ slug: params.slug, content: sessionContent.content })
+        : undefined;
 
     debugLog(
-      `bridge briefing load complete slug=${params.slug} contentBytes=${content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
+      `bridge briefing load complete slug=${params.slug} contentBytes=${sessionContent.content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
     );
 
     return buildSessionBriefing(
       params.slug,
       {
-        title: pub.title,
-        isPublic: pub.isPublic,
+        title: sessionContent.title,
+        isPublic: sessionContent.isPublic,
         canvasContentFilePath,
       },
       params.instructions,
     );
   }
 
+  async function disposeBridge(options?: {
+    clearPreparing?: boolean;
+    publishRuntimeState?: boolean;
+    resetAgentState?: boolean;
+  }): Promise<void> {
+    const shouldPublish =
+      options?.publishRuntimeState !== false && isLiveConnectionReady(state.runtimeState);
+    if (options?.resetAgentState !== false) {
+      setDaemonAgentState(state, "idle");
+    }
+    if (options?.clearPreparing !== false) {
+      state.agentPreparing = null;
+    }
+    state.bridgeSlug = null;
+    state.bridgeOutboundBuffer.length = 0;
+    if (state.bridgeAbort) {
+      state.bridgeAbort.abort();
+      state.bridgeAbort = null;
+    }
+    if (state.bridgeRunner) {
+      await state.bridgeRunner.stop();
+      state.bridgeRunner = null;
+    }
+    if (shouldPublish) {
+      await publishRuntimeState().catch((error) => {
+        debugLog("failed to publish idle agent state while stopping bridge", error);
+      });
+    }
+  }
+
   async function startBridge(slug: string): Promise<void> {
     if (state.stopped || state.activeSlug !== slug) return;
-    await stopBridge();
+    await disposeBridge({
+      clearPreparing: false,
+      publishRuntimeState: false,
+      resetAgentState: false,
+    });
     const abort = new AbortController();
     state.bridgeAbort = abort;
     debugLog(`bridge runner start slug=${slug}`);
@@ -189,12 +228,16 @@ export function createBridgeManager(params: {
     }
   }
 
-  async function ensureBridgePrimed(): Promise<void> {
+  async function ensureAgentReady(): Promise<void> {
+    const hasReusableRunner =
+      state.bridgeRunner !== null &&
+      state.activeSlug !== null &&
+      state.bridgeSlug === state.activeSlug &&
+      state.bridgeRunner.status().running;
     if (
       state.stopped ||
-      !state.browserConnected ||
-      state.bridgePrimed ||
-      state.bridgePriming ||
+      !isLiveConnectionReady(state.runtimeState) ||
+      state.agentPreparing ||
       !state.activeSlug
     ) {
       return;
@@ -206,11 +249,15 @@ export function createBridgeManager(params: {
       if (state.bridgeRunner.status().running) {
         debugLog(`reattaching existing bridge for "${slug}"`);
         try {
-          state.bridgePrimed = true;
-          await notifyBrowserReady(slug, true);
+          setDaemonAgentState(state, "ready");
+          await loadSessionContent(slug);
+          await publishRuntimeState({ continued: true, requireDelivery: true });
           await flushOutboundBuffer();
         } catch (error) {
-          state.bridgePrimed = false;
+          setDaemonAgentState(state, "idle");
+          await publishRuntimeState().catch((publishError) => {
+            debugLog(`failed to publish idle state after reattach error for "${slug}"`, publishError);
+          });
           markError(`failed to reattach bridge for "${slug}"`, error);
         }
         return;
@@ -219,66 +266,73 @@ export function createBridgeManager(params: {
       await stopBridge();
     }
 
-    const slowPrimingTimer = setTimeout(() => {
+    const slowPreparationTimer = setTimeout(() => {
       if (
-        state.bridgePriming &&
+        state.agentPreparing &&
         state.activeSlug === slug &&
-        state.browserConnected &&
-        !state.bridgePrimed
+        isLiveConnectionReady(state.runtimeState) &&
+        state.runtimeState.agentState !== "ready"
       ) {
         debugLog(
-          `bridge priming still in progress slug=${slug} after ${SLOW_BRIDGE_PRIMING_LOG_MS}ms`,
+          `agent preparation still in progress slug=${slug} after ${SLOW_AGENT_PREPARATION_LOG_MS}ms`,
         );
       }
-    }, SLOW_BRIDGE_PRIMING_LOG_MS);
-    const primePromise = (async () => {
+    }, SLOW_AGENT_PREPARATION_LOG_MS);
+
+    const preparePromise = (async () => {
       try {
         const t0 = Date.now();
-        debugLog(`bridge priming start slug=${slug}`);
+        setDaemonAgentState(state, "preparing");
+        await publishRuntimeState().catch((error) => {
+          debugLog(`failed to publish preparing state for "${slug}"`, error);
+        });
+        debugLog(`agent preparation start slug=${slug}`);
         await startBridge(slug);
         debugLog(`[profile] bridge started in ${Date.now() - t0}ms`);
-        if (state.stopped || !state.browserConnected || state.activeSlug !== slug) return;
-        state.bridgePrimed = true;
+        if (state.stopped || !isLiveConnectionReady(state.runtimeState) || state.activeSlug !== slug)
+          return;
+        setDaemonAgentState(state, "ready");
         const tReady = Date.now();
-        await notifyBrowserReady(slug);
-        debugLog(`bridge priming complete slug=${slug} total=${Date.now() - t0}ms`);
+        await publishRuntimeState({ requireDelivery: true });
+        debugLog(`agent preparation complete slug=${slug} total=${Date.now() - t0}ms`);
         debugLog(
-          `[profile] ready sent in ${Date.now() - tReady}ms (total prime ${Date.now() - t0}ms)`,
+          `[profile] ready state sent in ${Date.now() - tReady}ms (total ${Date.now() - t0}ms)`,
         );
       } catch (error) {
-        state.bridgePrimed = false;
-        await notifyBrowserPrimeFailed(slug, error);
-        await stopBridge().catch((stopError) => {
-          debugLog(`failed to stop bridge after priming error for "${slug}"`, stopError);
+        setDaemonAgentState(state, "idle");
+        await publishRuntimeState().catch((publishError) => {
+          debugLog(`failed to publish idle state for "${slug}"`, publishError);
         });
-        markError(`failed to prime bridge session for "${slug}"`, error);
+        await notifyBrowserPreparationFailed(slug, error);
+        await disposeBridge({
+          clearPreparing: false,
+          publishRuntimeState: false,
+          resetAgentState: false,
+        }).catch((stopError) => {
+          debugLog(`failed to stop bridge after preparation error for "${slug}"`, stopError);
+        });
+        markError(`failed to prepare agent session for "${slug}"`, error);
       } finally {
-        clearTimeout(slowPrimingTimer);
-        state.bridgePriming = null;
+        clearTimeout(slowPreparationTimer);
+        state.agentPreparing = null;
       }
     })();
 
-    state.bridgePriming = primePromise;
-    await primePromise;
+    state.agentPreparing = preparePromise;
+    await preparePromise;
   }
 
   async function stopBridge(): Promise<void> {
-    state.bridgePrimed = false;
-    state.bridgePriming = null;
-    state.bridgeSlug = null;
-    state.bridgeOutboundBuffer.length = 0;
-    if (state.bridgeAbort) {
-      state.bridgeAbort.abort();
-      state.bridgeAbort = null;
-    }
-    if (state.bridgeRunner) {
-      await state.bridgeRunner.stop();
-      state.bridgeRunner = null;
-    }
+    await disposeBridge();
+  }
+
+  function clearAgentPreparation(): void {
+    state.agentPreparing = null;
   }
 
   return {
-    ensureBridgePrimed,
+    clearAgentPreparation,
+    ensureAgentReady,
     stopBridge,
   };
 }

@@ -1,4 +1,4 @@
-import type { BridgeState } from "~/features/live/lib/webrtc-browser";
+import type { LiveConnectionState } from "@shared/live-runtime-state-core";
 import { resolveLiveVisualState } from "~/features/live/model/live-visual-state";
 import type {
   AgentOutputActivity,
@@ -15,10 +15,9 @@ import type { AudioMachineMode } from "~/features/live-control-bar/model/control
 export interface PubViewSourceState {
   agentOnline: boolean | undefined;
   audioMode: AudioMachineMode;
-  bridgeState: BridgeState;
-  liveReady: boolean;
   canvasError: string | null;
   command: LiveCommandSummary;
+  connectionState: LiveConnectionState;
   contentState: LiveContentState;
   lastAgentOutput: AgentOutputActivity | null;
   lastUserDeliveredAt: number | null;
@@ -38,22 +37,19 @@ export interface PubViewState {
 
 export function resolveTransportStatus({
   agentOnline,
-  bridgeState,
-  liveReady,
+  connectionState,
   liveMode,
   sessionState,
 }: Pick<
   PubViewSourceState,
-  "agentOnline" | "bridgeState" | "liveMode" | "sessionState" | "liveReady"
+  "agentOnline" | "connectionState" | "liveMode" | "sessionState"
 >): LiveTransportStatus {
   if (!liveMode) return "disabled";
   if (agentOnline === undefined) return "connecting";
   if (agentOnline !== true) return "disabled";
   if (sessionState === "needs-takeover" || sessionState === "taken-over") return "disabled";
-  if (liveReady) return "connected";
-  if (bridgeState === "failed") return "disconnected";
-  if (bridgeState === "disconnected") return "disconnected";
-  if (bridgeState === "closed") return "disconnected";
+  if (connectionState === "connected") return "connected";
+  if (connectionState === "failed" || connectionState === "disconnected") return "disconnected";
   return "connecting";
 }
 

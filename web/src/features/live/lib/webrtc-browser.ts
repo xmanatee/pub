@@ -6,6 +6,10 @@
  */
 
 import {
+  IDLE_LIVE_RUNTIME_STATE,
+  type LiveRuntimeStateSnapshot,
+} from "@shared/live-runtime-state-core";
+import {
   createBrowserOffer,
   parseSessionDescription,
   type SessionDescriptionPayload,
@@ -42,7 +46,7 @@ export interface ChannelMessage {
 }
 
 type StateChangeHandler = (state: BridgeState) => void;
-type LiveReadyChangeHandler = (ready: boolean) => void;
+type RuntimeStateChangeHandler = (state: LiveRuntimeStateSnapshot) => void;
 type ControlErrorHandler = (error: ErrorPayload) => void;
 type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
@@ -70,7 +74,7 @@ export class BrowserBridge {
   private channels = new Map<string, RTCDataChannel>();
   private state: BridgeState = "connecting";
   private onStateChange: StateChangeHandler | null = null;
-  private onLiveReadyChange: LiveReadyChangeHandler | null = null;
+  private onRuntimeStateChange: RuntimeStateChangeHandler | null = null;
   private onControlError: ControlErrorHandler | null = null;
   private onMessage: MessageHandler | null = null;
   private onTrack: TrackHandler | null = null;
@@ -86,7 +90,7 @@ export class BrowserBridge {
   private seenInboundMessageKeys = new Set<string>();
   private remoteDescriptionSet = false;
   private offerSent = false;
-  private liveReady = false;
+  private runtimeState: LiveRuntimeStateSnapshot = { ...IDLE_LIVE_RUNTIME_STATE };
   private onProfileMark: ((label: string) => void) | null = null;
 
   markOfferSent(): void {
@@ -97,8 +101,8 @@ export class BrowserBridge {
     this.onStateChange = handler;
   }
 
-  setOnLiveReadyChange(handler: LiveReadyChangeHandler): void {
-    this.onLiveReadyChange = handler;
+  setOnRuntimeStateChange(handler: RuntimeStateChangeHandler): void {
+    this.onRuntimeStateChange = handler;
   }
 
   setOnControlError(handler: ControlErrorHandler): void {
@@ -133,7 +137,7 @@ export class BrowserBridge {
 
     const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
     this.pc = pc;
-    this.setLiveReady(false);
+    this.setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "connecting" });
     this.setupPeerCallbacks();
 
     this.openChannel(CONTROL_CHANNEL);
@@ -276,8 +280,6 @@ export class BrowserBridge {
   }
 
   close(): void {
-    this.failPendingAcks();
-    this.setLiveReady(false);
     this.setState("closed");
     for (const dc of this.channels.values()) {
       dc.close();
@@ -318,7 +320,7 @@ export class BrowserBridge {
 
           const status = parseStatusMessage(msg);
           if (status) {
-            this.setLiveReady(status.connected === true && status.ready === true);
+            this.setRuntimeState(status);
             return;
           }
 
@@ -326,8 +328,11 @@ export class BrowserBridge {
           if (errorPayload) {
             console.warn("Received live bridge control error", errorPayload);
             this.onControlError?.(errorPayload);
-            this.setLiveReady(false);
-            this.setState("failed");
+            this.setRuntimeState({
+              ...this.runtimeState,
+              agentState: "idle",
+              executorState: "idle",
+            });
             return;
           }
 
@@ -401,9 +406,6 @@ export class BrowserBridge {
       this.channels.delete(dc.label);
       this.activeBinaryStreams.delete(dc.label);
       this.pendingBinaryMeta.delete(dc.label);
-      if (dc.label === CONTROL_CHANNEL || dc.label === CHANNELS.COMMAND) {
-        this.setLiveReady(false);
-      }
     };
   }
 
@@ -447,19 +449,51 @@ export class BrowserBridge {
 
   private setState(newState: BridgeState): void {
     if (this.state === newState || this.state === "closed") return;
-    if (newState === "disconnected" || newState === "failed" || newState === "closed") {
+    if (newState === "connecting") {
+      this.setRuntimeState({
+        ...this.runtimeState,
+        connectionState: "connecting",
+      });
+    } else if (newState === "connected") {
+      this.setRuntimeState({
+        ...this.runtimeState,
+        connectionState: "connected",
+      });
+    } else if (newState === "disconnected" || newState === "failed") {
       this.failPendingAcks();
-      this.setLiveReady(false);
+      this.setRuntimeState({
+        connectionState: newState,
+        agentState: "idle",
+        executorState: "idle",
+      });
+    } else if (newState === "closed") {
+      this.failPendingAcks();
+      this.setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE });
     }
     this.state = newState;
     this.onStateChange?.(newState);
   }
 
-  private setLiveReady(ready: boolean): void {
-    if (this.liveReady === ready) return;
-    this.liveReady = ready;
-    if (ready) this.onProfileMark?.("live-ready");
-    this.onLiveReadyChange?.(ready);
+  private setRuntimeState(nextState: LiveRuntimeStateSnapshot): void {
+    if (
+      this.runtimeState.connectionState === nextState.connectionState &&
+      this.runtimeState.agentState === nextState.agentState &&
+      this.runtimeState.executorState === nextState.executorState
+    ) {
+      return;
+    }
+    const previous = this.runtimeState;
+    this.runtimeState = nextState;
+    if (previous.connectionState !== "connected" && nextState.connectionState === "connected") {
+      this.onProfileMark?.("connection-ready");
+    }
+    if (previous.agentState !== "ready" && nextState.agentState === "ready") {
+      this.onProfileMark?.("agent-ready");
+    }
+    if (previous.executorState !== "ready" && nextState.executorState === "ready") {
+      this.onProfileMark?.("executor-ready");
+    }
+    this.onRuntimeStateChange?.(nextState);
   }
 
   private sendAck(messageId: string, channel: string): void {

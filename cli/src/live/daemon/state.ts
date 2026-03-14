@@ -1,4 +1,10 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
+import { IDLE_LIVE_RUNTIME_STATE } from "../../../../shared/live-runtime-state-core";
+import type {
+  LiveAgentState,
+  LiveConnectionState,
+  LiveRuntimeStateSnapshot,
+} from "../../../../shared/live-runtime-state-core";
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
@@ -15,9 +21,8 @@ export interface PendingDeliveryAck {
 
 export interface DaemonState {
   stopped: boolean;
-  browserConnected: boolean;
-  bridgePrimed: boolean;
-  bridgePriming: Promise<void> | null;
+  runtimeState: LiveRuntimeStateSnapshot;
+  agentPreparing: Promise<void> | null;
   bridgeAbort: AbortController | null;
   bridgeSlug: string | null;
   bridgeOutboundBuffer: Array<{ channel: string; msg: BridgeMessage }>;
@@ -48,9 +53,8 @@ export interface DaemonState {
 export function createDaemonState(): DaemonState {
   return {
     stopped: false,
-    browserConnected: false,
-    bridgePrimed: false,
-    bridgePriming: null,
+    runtimeState: { ...IDLE_LIVE_RUNTIME_STATE },
+    agentPreparing: null,
     bridgeAbort: null,
     bridgeSlug: null,
     bridgeOutboundBuffer: [],
@@ -77,4 +81,15 @@ export function createDaemonState(): DaemonState {
     lastError: null,
     bridgeRunner: null,
   };
+}
+
+export function setDaemonConnectionState(
+  state: DaemonState,
+  connectionState: LiveConnectionState,
+): void {
+  state.runtimeState = { ...state.runtimeState, connectionState };
+}
+
+export function setDaemonAgentState(state: DaemonState, agentState: LiveAgentState): void {
+  state.runtimeState = { ...state.runtimeState, agentState };
 }

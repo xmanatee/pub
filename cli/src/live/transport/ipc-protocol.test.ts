@@ -29,7 +29,9 @@ describe("live-ipc-protocol", () => {
     expect(
       parseIpcResponse("status", {
         ok: true,
-        connected: true,
+        connectionState: "connected",
+        agentState: "ready",
+        executorState: "ready",
         signalingConnected: null,
         activeSlug: "demo",
         uptime: 12,
@@ -41,7 +43,9 @@ describe("live-ipc-protocol", () => {
       }),
     ).toEqual({
       ok: true,
-      connected: true,
+      connectionState: "connected",
+      agentState: "ready",
+      executorState: "ready",
       signalingConnected: null,
       activeSlug: "demo",
       uptime: 12,

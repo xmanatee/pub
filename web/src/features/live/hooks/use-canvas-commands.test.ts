@@ -2,6 +2,7 @@
 
 import { makeCanvasFileResultMessage } from "@shared/canvas-file-protocol-core";
 import { COMMAND_PROTOCOL_VERSION } from "@shared/command-protocol-core";
+import type { LiveRuntimeStateSnapshot } from "@shared/live-runtime-state-core";
 import { act, createElement, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +28,7 @@ function createMockBridge() {
     applyAnswer: vi.fn(async () => {}),
     addRemoteCandidates: vi.fn(async () => {}),
     setOnStateChange: vi.fn(),
-    setOnLiveReadyChange: vi.fn(),
+    setOnRuntimeStateChange: vi.fn(),
     setOnControlError: vi.fn(),
     setOnMessage: vi.fn(),
     setOnTrack: vi.fn(),
@@ -87,7 +88,7 @@ interface HookHarnessProps {
   bridgeRef: RefObject<BrowserBridge | null>;
   bridgeState: BridgeState;
   canvasScopeKey?: string;
-  liveReady?: boolean;
+  runtimeState?: LiveRuntimeStateSnapshot;
   liveMode: boolean;
   sessionKey?: string;
 }
@@ -101,17 +102,20 @@ let latestHook: ReturnType<typeof useCanvasCommands> | null = null;
 
 function HookHarness({
   bridgeRef,
-  bridgeState,
+  bridgeState: _bridgeState,
   canvasScopeKey = "canvas-1",
-  liveReady = false,
+  runtimeState = {
+    connectionState: "idle",
+    agentState: "idle",
+    executorState: "idle",
+  },
   liveMode,
   sessionKey = "session-1",
 }: HookHarnessProps) {
   latestHook = useCanvasCommands({
     bridgeRef,
-    bridgeState,
     canvasScopeKey,
-    liveReady,
+    runtimeState,
     liveMode,
     sessionKey,
   });
@@ -122,6 +126,17 @@ function renderHarness(root: Root, props: HookHarnessProps) {
   return act(async () => {
     root.render(createElement(HookHarness, props));
   });
+}
+
+function createRuntimeState(
+  overrides: Partial<LiveRuntimeStateSnapshot>,
+): LiveRuntimeStateSnapshot {
+  return {
+    connectionState: "idle",
+    agentState: "idle",
+    executorState: "idle",
+    ...overrides,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -196,7 +211,12 @@ describe("useCanvasCommands", () => {
     const r = setup();
     const bridgeRef = { current: null } as RefObject<BrowserBridge | null>;
 
-    await renderHarness(r, { bridgeRef, bridgeState: "failed", liveMode: true });
+    await renderHarness(r, {
+      bridgeRef,
+      bridgeState: "failed",
+      runtimeState: createRuntimeState({ connectionState: "failed" }),
+      liveMode: true,
+    });
 
     act(() => {
       latestHook?.onCanvasBridgeMessage(makeInvokeMessage("render", "call-1"));
@@ -204,7 +224,7 @@ describe("useCanvasCommands", () => {
 
     expect(latestHook?.command).toMatchObject({
       phase: "failed",
-      errorMessage: "Agent is not connected. Commands are unavailable.",
+      errorMessage: "Commands require a live connection.",
     });
 
     act(() => {
@@ -221,7 +241,7 @@ describe("useCanvasCommands", () => {
   // Command dispatch – happy path
   // --------------------------------------------------------------------------
 
-  it("dispatches commands immediately when liveReady is true", async () => {
+  it("dispatches commands immediately when executor is ready", async () => {
     const r = setup();
     const mockBridge = createMockBridge();
     const bridgeRef = { current: mockBridge } as RefObject<BrowserBridge | null>;
@@ -229,7 +249,10 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
       liveMode: true,
     });
 
@@ -257,7 +280,9 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+      }),
       liveMode: true,
     });
 
@@ -341,7 +366,9 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+      }),
       liveMode: true,
     });
 
@@ -438,7 +465,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: false,
     });
 
@@ -448,18 +475,18 @@ describe("useCanvasCommands", () => {
 
     expect(latestHook?.command).toMatchObject({
       phase: "failed",
-      errorMessage: "Agent is not connected. Commands are unavailable.",
+      errorMessage: "Live mode is disabled. Commands are unavailable.",
     });
   });
 
-  it("fails commands immediately when bridgeState is failed", async () => {
+  it("fails commands immediately when connection state is failed", async () => {
     const r = setup();
     const bridgeRef = { current: null } as RefObject<BrowserBridge | null>;
 
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "failed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "failed" }),
       liveMode: true,
     });
 
@@ -469,7 +496,7 @@ describe("useCanvasCommands", () => {
 
     expect(latestHook?.command).toMatchObject({
       phase: "failed",
-      errorMessage: "Agent is not connected. Commands are unavailable.",
+      errorMessage: "Commands require a live connection.",
     });
   });
 
@@ -477,16 +504,16 @@ describe("useCanvasCommands", () => {
   // Queue-then-drain: the core startup flow
   // --------------------------------------------------------------------------
 
-  it("queues commands when liveReady is false and drains when liveReady becomes true", async () => {
+  it("queues commands until the executor becomes ready", async () => {
     const r = setup();
     const mockBridge = createMockBridge();
     const bridgeRef = { current: null as BrowserBridge | null };
 
-    // Phase 1: bridge is closed, liveReady false (agent not connected yet)
+    // Phase 1: bridge is closed and command executor is not ready yet.
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
     });
 
@@ -499,24 +526,30 @@ describe("useCanvasCommands", () => {
     expect(latestHook?.command).toMatchObject({ phase: "idle" });
     expect(mockBridge.sendWithAck).not.toHaveBeenCalled();
 
-    // Phase 2: agent connects, bridge becomes available
+    // Phase 2: bridge becomes available, but executor is still loading.
     bridgeRef.current = mockBridge;
 
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connecting",
-      liveReady: false,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "loading",
+      }),
       liveMode: true,
     });
 
-    // Still queued (liveReady not yet true)
+    // Still queued because executor is not ready yet.
     expect(mockBridge.sendWithAck).not.toHaveBeenCalled();
 
-    // Phase 3: bridge fully connected, daemon signals ready
+    // Phase 3: executor finishes loading.
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
       liveMode: true,
     });
 
@@ -529,7 +562,7 @@ describe("useCanvasCommands", () => {
     expect(mockBridge.sendWithAck).toHaveBeenCalled();
   });
 
-  it("queues multiple commands and drains all of them on liveReady", async () => {
+  it("queues multiple commands and drains all of them when the executor is ready", async () => {
     const r = setup();
     const mockBridge = createMockBridge();
     const bridgeRef = { current: null as BrowserBridge | null };
@@ -537,7 +570,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
     });
 
@@ -556,7 +589,10 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
       liveMode: true,
     });
 
@@ -566,10 +602,10 @@ describe("useCanvasCommands", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Realistic startup sequence: bridgeState closed → connecting → connected
+  // Realistic startup sequence: closed → connecting → connected
   // --------------------------------------------------------------------------
 
-  it("handles realistic startup: closed → connecting → liveReady with queued commands", async () => {
+  it("handles realistic startup: closed → connecting → executor ready with queued commands", async () => {
     const r = setup();
     const mockBridge = createMockBridge();
     const bridgeRef = { current: null as BrowserBridge | null };
@@ -578,7 +614,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
     });
 
@@ -595,7 +631,10 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connecting",
-      liveReady: false,
+      runtimeState: createRuntimeState({
+        connectionState: "connecting",
+        executorState: "idle",
+      }),
       liveMode: true,
     });
 
@@ -603,22 +642,28 @@ describe("useCanvasCommands", () => {
     expect(mockBridge.sendWithAck).not.toHaveBeenCalled();
     expect(latestHook?.command.phase).toBe("idle");
 
-    // Step 4: WebRTC connected but daemon hasn't signaled ready yet
+    // Step 4: WebRTC connected but the executor is still loading.
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connected",
-      liveReady: false,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "loading",
+      }),
       liveMode: true,
     });
 
-    // Still queued — liveReady is the gate, not bridgeState
+    // Still queued — executor readiness is the gate, not transport state.
     expect(mockBridge.sendWithAck).not.toHaveBeenCalled();
 
-    // Step 5: Daemon sends status {connected: true, ready: true}
+    // Step 5: executor becomes ready.
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
       liveMode: true,
     });
 
@@ -635,7 +680,7 @@ describe("useCanvasCommands", () => {
   // Failure drain: bridge fails after commands were queued
   // --------------------------------------------------------------------------
 
-  it("fails queued commands when bridgeState transitions to failed", async () => {
+  it("fails queued commands when connection state transitions to failed", async () => {
     const r = setup();
     const bridgeRef = { current: null } as RefObject<BrowserBridge | null>;
 
@@ -643,7 +688,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
     });
 
@@ -657,7 +702,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef,
       bridgeState: "failed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "failed" }),
       liveMode: true,
     });
 
@@ -680,7 +725,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
       canvasScopeKey: "slug:1",
     });
@@ -694,7 +739,7 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "closed",
-      liveReady: false,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
       canvasScopeKey: "slug:2",
     });
@@ -704,7 +749,10 @@ describe("useCanvasCommands", () => {
     await renderHarness(r, {
       bridgeRef: bridgeRef as RefObject<BrowserBridge | null>,
       bridgeState: "connected",
-      liveReady: true,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
       liveMode: true,
       canvasScopeKey: "slug:2",
     });

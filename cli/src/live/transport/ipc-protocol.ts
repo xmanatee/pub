@@ -1,4 +1,14 @@
 import { type BridgeMessage, parseBridgeMessage } from "../../../../shared/bridge-protocol-core";
+import type {
+  LiveAgentState,
+  LiveConnectionState,
+  LiveExecutorState,
+} from "../../../../shared/live-runtime-state-core";
+import {
+  isLiveAgentState,
+  isLiveConnectionState,
+  isLiveExecutorState,
+} from "../../../../shared/live-runtime-state-core";
 import {
   readBoolean,
   readFiniteNumber,
@@ -18,7 +28,9 @@ type IpcSuccessResponse<T extends object = Record<string, never>> = {
 } & T;
 
 export type StatusResponse = IpcSuccessResponse<{
-  connected: boolean;
+  connectionState: LiveConnectionState;
+  agentState: LiveAgentState;
+  executorState: LiveExecutorState;
   signalingConnected: boolean | null;
   activeSlug: string | null;
   uptime: number;
@@ -165,7 +177,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
   }
 
   if (method === "status") {
-    const connected = readBoolean(record.connected);
+    const connectionState = readString(record.connectionState);
+    const agentState = readString(record.agentState);
+    const executorState = readString(record.executorState);
     const signalingConnected =
       record.signalingConnected === null
         ? null
@@ -192,7 +206,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
           ? undefined
           : readString(record.bridgeMode);
     if (
-      connected === undefined ||
+      !isLiveConnectionState(connectionState) ||
+      !isLiveAgentState(agentState) ||
+      !isLiveExecutorState(executorState) ||
       signalingConnected === undefined ||
       activeSlug === undefined ||
       uptime === undefined ||
@@ -212,7 +228,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
         : readString(record.logPath) ?? null;
     return {
       ok: true,
-      connected,
+      connectionState,
+      agentState,
+      executorState,
       signalingConnected,
       activeSlug,
       uptime,

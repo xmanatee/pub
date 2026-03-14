@@ -28,7 +28,9 @@ export function printDaemonStatus(
 
   console.log(`  Daemon: running`);
   console.log(`  Active slug: ${response.activeSlug || "(none)"}`);
-  console.log(`  Status: ${response.connected ? "connected" : "waiting"}`);
+  console.log(`  Connection: ${response.connectionState}`);
+  console.log(`  Agent: ${response.agentState}`);
+  console.log(`  Executor: ${response.executorState}`);
   if (typeof response.signalingConnected === "boolean") {
     console.log(`  Signaling: ${response.signalingConnected ? "connected" : "reconnecting"}`);
   }

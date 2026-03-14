@@ -1,3 +1,11 @@
+import type {
+  LiveRuntimeStateSnapshot,
+} from "./live-runtime-state-core";
+import {
+  isLiveAgentState,
+  isLiveConnectionState,
+  isLiveExecutorState,
+} from "./live-runtime-state-core";
 import {
   readFiniteNumber,
   readNonEmptyString,
@@ -84,10 +92,8 @@ export interface ChannelEventPayload {
   format?: string;
 }
 
-export interface StatusPayload {
-  connected: boolean;
+export interface StatusPayload extends LiveRuntimeStateSnapshot {
   channels?: string[];
-  ready?: boolean;
   slug?: string;
   continued?: boolean;
 }
@@ -281,20 +287,25 @@ export function parseDeliveryReceiptMessage(msg: BridgeMessage): DeliveryReceipt
 export function parseStatusMessage(msg: BridgeMessage): StatusPayload | null {
   if (msg.type !== "event" || msg.data !== "status" || !msg.meta) return null;
 
-  const connected = msg.meta.connected === true;
-  if (msg.meta.connected !== true && msg.meta.connected !== false) return null;
+  const connectionState =
+    typeof msg.meta.connectionState === "string" ? msg.meta.connectionState : null;
+  const agentState = typeof msg.meta.agentState === "string" ? msg.meta.agentState : null;
+  const executorState = typeof msg.meta.executorState === "string" ? msg.meta.executorState : null;
+  if (!isLiveConnectionState(connectionState)) return null;
+  if (!isLiveAgentState(agentState)) return null;
+  if (!isLiveExecutorState(executorState)) return null;
 
   const channels = Array.isArray(msg.meta.channels)
     ? msg.meta.channels.filter((entry): entry is string => typeof entry === "string")
     : undefined;
-  const ready = msg.meta.ready === true ? true : msg.meta.ready === false ? false : undefined;
   const slug = typeof msg.meta.slug === "string" ? msg.meta.slug : undefined;
   const continued = msg.meta.continued === true ? true : undefined;
 
   return {
-    connected,
+    connectionState,
+    agentState,
+    executorState,
     channels,
-    ready,
     slug,
     continued,
   };

@@ -8,8 +8,7 @@ describe("resolveTransportStatus", () => {
     expect(
       resolveTransportStatus({
         agentOnline: true,
-        bridgeState: "connected",
-        liveReady: true,
+        connectionState: "connected",
         liveMode: false,
         sessionState: "active",
       }),
@@ -20,8 +19,7 @@ describe("resolveTransportStatus", () => {
     expect(
       resolveTransportStatus({
         agentOnline: true,
-        bridgeState: "connected",
-        liveReady: false,
+        connectionState: "connected",
         liveMode: true,
         sessionState: "needs-takeover",
       }),
@@ -32,8 +30,7 @@ describe("resolveTransportStatus", () => {
     expect(
       resolveTransportStatus({
         agentOnline: true,
-        bridgeState: "connecting",
-        liveReady: false,
+        connectionState: "connecting",
         liveMode: true,
         sessionState: "active",
       }),
@@ -42,20 +39,18 @@ describe("resolveTransportStatus", () => {
     expect(
       resolveTransportStatus({
         agentOnline: true,
-        bridgeState: "failed",
-        liveReady: false,
+        connectionState: "failed",
         liveMode: true,
         sessionState: "active",
       }),
     ).toBe("disconnected");
   });
 
-  it("treats ICE disconnect without app-ready handshake as disconnected", () => {
+  it("treats disconnected connection state as disconnected", () => {
     expect(
       resolveTransportStatus({
         agentOnline: true,
-        bridgeState: "disconnected",
-        liveReady: false,
+        connectionState: "disconnected",
         liveMode: true,
         sessionState: "active",
       }),
@@ -69,8 +64,7 @@ describe("derivePubViewState", () => {
       derivePubViewState({
         agentOnline: true,
         audioMode: "idle",
-        bridgeState: "connecting",
-        liveReady: false,
+        connectionState: "connecting",
         canvasError: null,
         command: {
           activeCallId: null,
@@ -97,8 +91,7 @@ describe("derivePubViewState", () => {
       derivePubViewState({
         agentOnline: true,
         audioMode: "idle",
-        bridgeState: "failed",
-        liveReady: false,
+        connectionState: "failed",
         canvasError: null,
         command: {
           activeCallId: null,
@@ -120,13 +113,12 @@ describe("derivePubViewState", () => {
     ).toBe("disconnected");
   });
 
-  it("derives disconnected control state until app-ready handshake completes", () => {
+  it("derives disconnected control state when connection is disconnected", () => {
     expect(
       derivePubViewState({
         agentOnline: true,
         audioMode: "idle",
-        bridgeState: "disconnected",
-        liveReady: false,
+        connectionState: "disconnected",
         canvasError: null,
         command: {
           activeCallId: null,
@@ -152,8 +144,7 @@ describe("derivePubViewState", () => {
     const state = derivePubViewState({
       agentOnline: true,
       audioMode: "idle",
-      bridgeState: "connected",
-      liveReady: true,
+      connectionState: "connected",
       canvasError: null,
       command: {
         activeCallId: "cmd-1",
@@ -181,8 +172,7 @@ describe("derivePubViewState", () => {
     const state = derivePubViewState({
       agentOnline: true,
       audioMode: "idle",
-      bridgeState: "connected",
-      liveReady: true,
+      connectionState: "connected",
       canvasError: "ReferenceError",
       command: {
         activeCallId: null,

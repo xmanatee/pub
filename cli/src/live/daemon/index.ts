@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  CONTROL_CHANNEL,
+  makeStatusMessage,
+} from "../../../../shared/bridge-protocol-core";
+import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { flushSentry } from "../../core/telemetry/sentry.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
@@ -41,13 +46,24 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     return value ?? "none";
   }
 
+  let publishRuntimeState = async (_options?: {
+    continued?: boolean;
+    requireDelivery?: boolean;
+  }): Promise<boolean> => false;
+
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
     markError: (message, error) => lifecycle.markError(message, error),
     getBridgeRunner: () => state.bridgeRunner,
+    onExecutorStateChange: (executorState) => {
+      state.runtimeState = { ...state.runtimeState, executorState };
+      void publishRuntimeState().catch((error) => {
+        lifecycle.debugLog("failed to publish executor state", error);
+      });
+    },
     sendCommandMessage: async (msg) => {
-      if (!state.browserConnected) return false;
+      if (!isLiveConnectionReady(state.runtimeState)) return false;
       return await channelManager.sendOutboundMessageWithAck("command", msg, {
         context: 'command outbound on "command"',
         maxAttempts: 2,
@@ -69,7 +85,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     versionFilePath,
     debugEnabled: verboseEnabled,
     closeCurrentPeer: async () => await peerManager.closeCurrentPeer(),
-    resetNegotiationState: () => peerManager.resetNegotiationState(),
+    resetNegotiationState: () =>
+      peerManager.resetNegotiationState({ connectionState: state.runtimeState.connectionState }),
     commandHandlerStop: () => commandHandler.stop(),
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
     shutdown: async () => await shutdown(),
@@ -92,6 +109,34 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
     onCanvasFileMessage: async (msg) => await canvasFileTransfer.onMessage(msg),
   });
+
+  publishRuntimeState = async (options) => {
+    if (state.stopped || !isLiveConnectionReady(state.runtimeState)) {
+      return false;
+    }
+
+    const delivered = await channelManager.sendOutboundMessageWithAck(
+      CONTROL_CHANNEL,
+      makeStatusMessage({
+        ...state.runtimeState,
+        slug: state.activeSlug ?? undefined,
+        channels: [...state.channels.keys()],
+        ...(options?.continued ? { continued: true } : {}),
+      }),
+      {
+        context: 'runtime status on "_control"',
+        maxAttempts: 2,
+      },
+    );
+
+    if (!delivered && options?.requireDelivery) {
+      throw new Error(
+        `Failed to deliver runtime state for "${state.activeSlug ?? "unknown"}"`,
+      );
+    }
+
+    return delivered;
+  };
 
   canvasFileTransfer = createCanvasFileTransferHandler({
     state,
@@ -117,6 +162,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     debugLog: lifecycle.debugLog,
     markError: lifecycle.markError,
     sendOutboundMessageWithAck: channelManager.sendOutboundMessageWithAck,
+    publishRuntimeState,
     emitDeliveryStatus: channelManager.emitDeliveryStatus,
   });
 
@@ -130,10 +176,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     setupChannel: channelManager.setupChannel,
     flushQueuedAcks: channelManager.flushQueuedAcks,
     failPendingAcks: channelManager.failPendingAcks,
-    ensureBridgePrimed: async () => {
+    clearAgentPreparation: bridgeManager.clearAgentPreparation,
+    ensureAgentReady: async () => {
       lifecycle.startPingPong();
-      await bridgeManager.ensureBridgePrimed();
+      await bridgeManager.ensureAgentReady();
     },
+    publishRuntimeState: async () => await publishRuntimeState(),
     handleConnectionClosed: lifecycle.handleConnectionClosed,
     clearLocalCandidateTimers: lifecycle.clearLocalCandidateTimers,
     stopPingPong: lifecycle.stopPingPong,
@@ -237,7 +285,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const handleIpcRequest = createDaemonIpcHandler({
     apiClient,
     bindCanvasCommands: (html) => commandHandler.bindFromHtml(html),
-    getConnected: () => lifecycle.isLiveConnected(),
+    getRuntimeState: () => state.runtimeState,
     getSignalingConnected: () => {
       const signalState = signaling.status();
       return signalState.known ? signalState.open : null;
@@ -249,7 +297,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     getBridgeMode: () => config.bridgeSettings.mode,
     getBridgeStatus: () => state.bridgeRunner?.status() ?? null,
     getLogPath: () => logPath ?? null,
-    getWriteReadinessError: () => getLiveWriteReadinessError(lifecycle.isLiveConnected()),
+    getWriteReadinessError: () => getLiveWriteReadinessError(state.runtimeState.connectionState),
     openDataChannel: channelManager.openDataChannel,
     waitForChannelOpen: channelManager.waitForChannelOpen,
     waitForDeliveryAck: channelManager.waitForDeliveryAck,
@@ -279,7 +327,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (state.stopped) return;
     state.stopped = true;
     lifecycle.debugLog(
-      `daemon cleanup start activeSlug=${state.activeSlug ?? "none"} browserConnected=${String(state.browserConnected)} bridgePrimed=${String(state.bridgePrimed)}`,
+      `daemon cleanup start activeSlug=${state.activeSlug ?? "none"} connectionState=${state.runtimeState.connectionState} agentState=${state.runtimeState.agentState} executorState=${state.runtimeState.executorState}`,
     );
 
     lifecycle.clearLocalCandidateTimers();

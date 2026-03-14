@@ -4,6 +4,7 @@ import type {
   CommandFunctionSpec,
   CommandResultPayload,
 } from "../../../../shared/command-protocol-core";
+import type { LiveExecutorState } from "../../../../shared/live-runtime-state-core";
 import {
   DEFAULT_COMMAND_MAX_CONCURRENT,
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
@@ -20,6 +21,7 @@ export interface CommandHandlerParams {
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
   getBridgeRunner?: () => BridgeRunner | null;
+  onExecutorStateChange?: (state: LiveExecutorState) => void;
 }
 
 export interface RunningCommand {

@@ -83,6 +83,7 @@ export function createMockLiveSession(
   return {
     agentName: "Agent",
     agentOnline: true,
+    agentState: "ready",
     audio: {
       barMode: "idle",
       machineMode: "idle",
@@ -101,7 +102,6 @@ export function createMockLiveSession(
     autoOpenCanvas: false,
     bridgeRef: { current: null },
     bridgeState: "connected",
-    liveReady: true,
     canvasError: null,
     canvasHtml: null,
     clearFiles: noop,
@@ -125,6 +125,8 @@ export function createMockLiveSession(
     error: { message: null, source: "none" },
     files: [],
     clearSessionError: noop,
+    connectionState: "connected",
+    executorState: "ready",
     lastTakeoverAt: undefined,
     live: undefined,
     messages: [],

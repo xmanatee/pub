@@ -1,4 +1,5 @@
 import { CONTROL_CHANNEL, encodeMessage, makeEventMessage } from "../../../../shared/bridge-protocol-core";
+import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { errorMessage } from "../../core/errors/cli-error.js";
 import { readLatestCliVersion } from "../runtime/daemon-files.js";
 import { PING_INTERVAL_MS, PONG_TIMEOUT_MS } from "./shared.js";
@@ -57,10 +58,6 @@ export function createDaemonLifecycle(params: {
     writeLog(message, error, options?.alwaysLog === true);
   }
 
-  function isLiveConnected(): boolean {
-    return state.browserConnected && state.bridgePrimed;
-  }
-
   function clearLocalCandidateTimers(): void {
     if (state.localCandidateInterval) {
       clearInterval(state.localCandidateInterval);
@@ -98,7 +95,10 @@ export function createDaemonLifecycle(params: {
   }
 
   function handleConnectionClosed(reason: string): void {
-    const hadSession = state.browserConnected || state.bridgePrimed || state.activeSlug !== null;
+    const hadSession =
+      state.runtimeState.connectionState !== "idle" ||
+      state.runtimeState.agentState !== "idle" ||
+      state.activeSlug !== null;
     if (!hadSession) return;
     logAlways(`connection closed: ${reason}`);
     state.activeSlug = null;
@@ -113,7 +113,7 @@ export function createDaemonLifecycle(params: {
   function startPingPong(): void {
     stopPingPong();
     state.pingTimer = setInterval(() => {
-      if (!state.browserConnected || state.stopped) {
+      if (!isLiveConnectionReady(state.runtimeState) || state.stopped) {
         stopPingPong();
         return;
       }
@@ -123,7 +123,7 @@ export function createDaemonLifecycle(params: {
         controlDc.sendMessage(encodeMessage(makeEventMessage("ping")));
         if (state.pongTimeout) clearTimeout(state.pongTimeout);
         state.pongTimeout = setTimeout(() => {
-          if (!state.browserConnected || state.stopped) return;
+          if (!isLiveConnectionReady(state.runtimeState) || state.stopped) return;
           debugLog("pong timeout — treating as disconnected");
           handleConnectionClosed("pong-timeout");
         }, PONG_TIMEOUT_MS);
@@ -158,7 +158,6 @@ export function createDaemonLifecycle(params: {
     clearLocalCandidateTimers,
     debugLog,
     handleConnectionClosed,
-    isLiveConnected,
     logAlways,
     markError,
     startHealthCheckTimer,

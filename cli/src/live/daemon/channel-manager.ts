@@ -10,6 +10,7 @@ import {
   parseAckMessage,
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
+import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { ORDERED_DATA_CHANNEL_OPTIONS } from "../../../../shared/webrtc-transport-core";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 import type { DaemonState } from "./state.js";
@@ -316,7 +317,7 @@ export function createDaemonChannelManager(params: {
     const context = options?.context ?? `channel "${channel}"`;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      if (state.stopped || !state.browserConnected) return false;
+      if (state.stopped || !isLiveConnectionReady(state.runtimeState)) return false;
 
       let targetDc: AdapterDataChannel;
       try {
@@ -328,7 +329,7 @@ export function createDaemonChannelManager(params: {
       }
 
       const waitForAck = shouldAcknowledgeMessage(channel, msg)
-        ? waitForDeliveryAck(msg.id, channel, options?.binaryPayload ? 5_000 : 5_000)
+        ? waitForDeliveryAck(msg.id, channel, 5_000)
         : null;
 
       try {

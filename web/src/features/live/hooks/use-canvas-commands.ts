@@ -5,6 +5,11 @@ import {
   makeCanvasFileDownloadRequestMessage,
   parseCanvasFileResultMessage,
 } from "@shared/canvas-file-protocol-core";
+import {
+  canSendCanvasFileTraffic,
+  canSendCommandTraffic,
+  type LiveRuntimeStateSnapshot,
+} from "@shared/live-runtime-state-core";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
 import {
@@ -16,7 +21,6 @@ import {
   parseCommandResultMessage,
 } from "~/features/live/lib/command-protocol";
 import type {
-  BridgeState,
   BrowserBridge,
   ChannelMessage,
 } from "~/features/live/lib/webrtc-browser";
@@ -35,9 +39,8 @@ const DOWNLOAD_URL_REVOKE_DELAY_MS = 1_000;
 
 interface UseCanvasCommandsOptions {
   bridgeRef: RefObject<BrowserBridge | null>;
-  bridgeState: BridgeState;
   canvasScopeKey: string;
-  liveReady: boolean;
+  runtimeState: LiveRuntimeStateSnapshot;
   liveMode: boolean;
   sessionKey: string;
 }
@@ -174,9 +177,8 @@ function clickDownloadLink(url: string, filename: string): void {
 
 export function useCanvasCommands({
   bridgeRef,
-  bridgeState,
   canvasScopeKey,
-  liveReady,
+  runtimeState,
   liveMode,
   sessionKey,
 }: UseCanvasCommandsOptions) {
@@ -185,7 +187,7 @@ export function useCanvasCommands({
   const [outboundQueue, setOutboundQueue] = useState<CanvasBridgeOutboundMessage[]>([]);
   const [commandState, setCommandState] = useState<CommandLifecycleState>(EMPTY_COMMAND_STATE);
   const activeCommandsRef = useRef<CommandLifecycleState["activeById"]>({});
-  const pendingCommandQueueRef = useRef<CanvasBridgeCommandMessage[]>([]);
+  const pendingBridgeQueueRef = useRef<CanvasBridgeCommandMessage[]>([]);
   const pendingCanvasFileRequestsRef = useRef<Map<string, CanvasFileOperation>>(new Map());
   const activeCanvasDownloadsRef = useRef<Map<string, ActiveCanvasDownload>>(new Map());
   const lastCanvasScopeKeyRef = useRef<string | null>(null);
@@ -195,7 +197,7 @@ export function useCanvasCommands({
 
   const reset = useCallback(() => {
     activeCommandsRef.current = {};
-    pendingCommandQueueRef.current = [];
+    pendingBridgeQueueRef.current = [];
     pendingCanvasFileRequestsRef.current.clear();
     activeCanvasDownloadsRef.current.clear();
     setCommandState(EMPTY_COMMAND_STATE);
@@ -601,7 +603,7 @@ export function useCanvasCommands({
       return;
     }
 
-    if (bridgeState !== "failed") return;
+    if (runtimeState.connectionState !== "failed") return;
 
     interruptActiveCommands({
       code: "COMMAND_INTERRUPTED",
@@ -611,7 +613,7 @@ export function useCanvasCommands({
       code: "FILE_TRANSFER_INTERRUPTED",
       message: "File transfer interrupted because the live connection was lost.",
     });
-  }, [bridgeState, interruptActiveCommands, interruptPendingCanvasFiles, liveMode]);
+  }, [interruptActiveCommands, interruptPendingCanvasFiles, liveMode, runtimeState.connectionState]);
 
   const dispatchCommand = useCallback(
     (message: CanvasCommandOnlyMessage) => {
@@ -642,7 +644,8 @@ export function useCanvasCommands({
             );
             if (!delivered) trackCommandRunning(payload.callId);
           })
-          .catch(() => {
+          .catch((error) => {
+            console.warn("Command cancellation failed to reach daemon", error);
             trackCommandRunning(payload.callId);
           });
         return;
@@ -698,14 +701,43 @@ export function useCanvasCommands({
     ],
   );
 
-  const emitCanvasUnavailableFailure = useCallback(
+  const emitUnavailableFailure = useCallback(
     (message: CanvasBridgeCommandMessage) => {
+      if (!liveMode) {
+        if (message.type === "file.upload") {
+          emitFileFailureToCanvas({
+            requestId: message.payload.requestId,
+            op: "upload",
+            code: "LIVE_MODE_DISABLED",
+            message: "Live mode is disabled. File uploads are unavailable.",
+          });
+          return;
+        }
+
+        if (message.type === "file.download") {
+          emitFileFailureToCanvas({
+            requestId: message.payload.requestId,
+            op: "download",
+            code: "LIVE_MODE_DISABLED",
+            message: "Live mode is disabled. File downloads are unavailable.",
+          });
+          return;
+        }
+
+        emitCommandFailureToCanvas({
+          callId: message.payload.callId,
+          code: "LIVE_MODE_DISABLED",
+          message: "Live mode is disabled. Commands are unavailable.",
+        });
+        return;
+      }
+
       if (message.type === "file.upload") {
         emitFileFailureToCanvas({
           requestId: message.payload.requestId,
           op: "upload",
-          code: "AGENT_NOT_CONNECTED",
-          message: "Agent is not connected. File uploads are unavailable.",
+          code: "CONNECTION_UNAVAILABLE",
+          message: "File uploads require a live connection.",
         });
         return;
       }
@@ -714,19 +746,25 @@ export function useCanvasCommands({
         emitFileFailureToCanvas({
           requestId: message.payload.requestId,
           op: "download",
-          code: "AGENT_NOT_CONNECTED",
-          message: "Agent is not connected. File downloads are unavailable.",
+          code: "CONNECTION_UNAVAILABLE",
+          message: "File downloads require a live connection.",
         });
         return;
       }
 
       emitCommandFailureToCanvas({
         callId: message.payload.callId,
-        code: "AGENT_NOT_CONNECTED",
-        message: "Agent is not connected. Commands are unavailable.",
+        code:
+          runtimeState.connectionState === "connected"
+            ? "EXECUTOR_UNAVAILABLE"
+            : "CONNECTION_UNAVAILABLE",
+        message:
+          runtimeState.connectionState === "connected"
+            ? "Commands are unavailable until the executor is ready."
+            : "Commands require a live connection.",
       });
     },
-    [emitCommandFailureToCanvas, emitFileFailureToCanvas],
+    [emitCommandFailureToCanvas, emitFileFailureToCanvas, liveMode, runtimeState.connectionState],
   );
 
   const dispatchCanvasBridgeMessage = useCallback(
@@ -744,43 +782,65 @@ export function useCanvasCommands({
     [dispatchCanvasFileDownload, dispatchCanvasFileUpload, dispatchCommand],
   );
 
+  const canDispatchCanvasBridgeMessage = useCallback(
+    (message: CanvasBridgeCommandMessage) => {
+      if (message.type === "file.upload" || message.type === "file.download") {
+        return canSendCanvasFileTraffic(runtimeState);
+      }
+      return canSendCommandTraffic(runtimeState);
+    },
+    [runtimeState],
+  );
+
   const onCanvasBridgeMessage = useCallback(
     (message: CanvasBridgeCommandMessage) => {
       if (!liveMode) {
-        emitCanvasUnavailableFailure(message);
+        emitUnavailableFailure(message);
         return;
       }
 
-      if (bridgeState === "failed") {
-        emitCanvasUnavailableFailure(message);
+      if (runtimeState.connectionState === "failed") {
+        emitUnavailableFailure(message);
         return;
       }
 
-      if (!liveReady) {
-        pendingCommandQueueRef.current.push(message);
+      if (!canDispatchCanvasBridgeMessage(message)) {
+        pendingBridgeQueueRef.current.push(message);
         return;
       }
 
       dispatchCanvasBridgeMessage(message);
     },
-    [bridgeState, dispatchCanvasBridgeMessage, emitCanvasUnavailableFailure, liveMode, liveReady],
+    [
+      canDispatchCanvasBridgeMessage,
+      dispatchCanvasBridgeMessage,
+      emitUnavailableFailure,
+      liveMode,
+      runtimeState.connectionState,
+    ],
   );
 
   useEffect(() => {
-    if (!liveReady) return;
-    const queued = pendingCommandQueueRef.current.splice(0);
+    if (pendingBridgeQueueRef.current.length === 0) return;
+    const queued = pendingBridgeQueueRef.current.splice(0);
+    const stillPending: CanvasBridgeCommandMessage[] = [];
     for (const message of queued) {
+      if (!canDispatchCanvasBridgeMessage(message)) {
+        stillPending.push(message);
+        continue;
+      }
       dispatchCanvasBridgeMessage(message);
     }
-  }, [dispatchCanvasBridgeMessage, liveReady]);
+    pendingBridgeQueueRef.current = stillPending;
+  }, [canDispatchCanvasBridgeMessage, dispatchCanvasBridgeMessage]);
 
   useEffect(() => {
-    if (liveMode && bridgeState !== "failed") return;
-    const queued = pendingCommandQueueRef.current.splice(0);
+    if (liveMode && runtimeState.connectionState !== "failed") return;
+    const queued = pendingBridgeQueueRef.current.splice(0);
     for (const message of queued) {
-      emitCanvasUnavailableFailure(message);
+      emitUnavailableFailure(message);
     }
-  }, [bridgeState, emitCanvasUnavailableFailure, liveMode]);
+  }, [emitUnavailableFailure, liveMode, runtimeState.connectionState]);
 
   const handleBridgeCommandMessage = useCallback(
     (cm: ChannelMessage) => {

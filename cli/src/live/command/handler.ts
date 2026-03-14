@@ -8,6 +8,7 @@ import {
   parseCommandCancelMessage,
   parseCommandInvokeMessage,
 } from "../../../../shared/command-protocol-core";
+import type { LiveExecutorState } from "../../../../shared/live-runtime-state-core";
 import { executeAgentCommand } from "../bridge/providers/agent-command.js";
 import { executeProcessCommand, executeShellCommand } from "./executors/process.js";
 import {
@@ -27,19 +28,25 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   const boundFunctions = new Map<string, CommandFunctionSpec>();
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
-  let manifestLoaded = true;
+  let executorState: LiveExecutorState = "idle";
   let pendingUntilManifest: BridgeMessage[] = [];
+
+  function setExecutorState(nextState: LiveExecutorState): void {
+    if (executorState === nextState) return;
+    executorState = nextState;
+    params.onExecutorStateChange?.(nextState);
+  }
 
   function clearBindings(): void {
     boundFunctions.clear();
-    manifestLoaded = true;
+    setExecutorState("idle");
     pendingUntilManifest = [];
     params.debugLog("commands cleared bindings");
   }
 
   function beginManifestLoad(): void {
     boundFunctions.clear();
-    manifestLoaded = false;
+    setExecutorState("loading");
     pendingUntilManifest = [];
     params.debugLog("commands awaiting manifest load");
   }
@@ -144,7 +151,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     }
     params.debugLog(`commands bound=[${[...boundFunctions.keys()].join(", ")}]`);
     const queued = pendingUntilManifest.splice(0);
-    manifestLoaded = true;
+    setExecutorState("ready");
     if (queued.length > 0) {
       params.debugLog(`commands replaying ${queued.length} queued message(s)`);
       for (const message of queued) {
@@ -159,7 +166,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       boundFunctions.clear();
       params.debugLog("commands no manifest found in HTML");
       const queued = pendingUntilManifest.splice(0);
-      manifestLoaded = true;
+      setExecutorState("idle");
       for (const message of queued) {
         void handleBridgeMessage(message);
       }
@@ -282,7 +289,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       `commands message type=${message.type} data=${typeof message.data === "string" ? message.data.slice(0, 120) : "?"}`,
     );
 
-    if (!manifestLoaded) {
+    if (executorState === "loading") {
       params.debugLog("commands queuing message (manifest not loaded yet)");
       pendingUntilManifest.push(message);
       return;

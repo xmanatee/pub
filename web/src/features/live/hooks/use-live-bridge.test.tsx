@@ -15,7 +15,7 @@ const { MockBrowserBridge, bridgeInstances, createOfferMock } = vi.hoisted(() =>
     readonly applyAnswer = vi.fn(async () => {});
     readonly addRemoteCandidates = vi.fn(async () => {});
     readonly setOnControlError = vi.fn();
-    readonly setOnLiveReadyChange = vi.fn();
+    readonly setOnRuntimeStateChange = vi.fn();
     readonly setOnStateChange = vi.fn();
     readonly setOnMessage = vi.fn();
     readonly setOnTrack = vi.fn();
