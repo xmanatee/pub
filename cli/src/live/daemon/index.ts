@@ -38,6 +38,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let shuttingDown = false;
   let presenceGeneration = 0;
 
+  function formatOptionalValue(value: string | undefined): string {
+    return value ?? "none";
+  }
+
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
@@ -72,6 +76,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
     shutdown: async () => await shutdown(),
   });
+
+  lifecycle.debugLog(
+    [
+      `daemon starting bridge=${config.bridgeSettings.mode}`,
+      `socket=${socketPath}`,
+      `info=${infoPath}`,
+      `log=${formatOptionalValue(logPath)}`,
+      `agent=${formatOptionalValue(agentName)}`,
+    ].join(" "),
+  );
 
   channelManager = createDaemonChannelManager({
     state,
@@ -271,6 +285,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   async function cleanup(): Promise<void> {
     if (state.stopped) return;
     state.stopped = true;
+    lifecycle.debugLog(
+      `daemon cleanup start activeSlug=${state.activeSlug ?? "none"} browserConnected=${String(state.browserConnected)} bridgePrimed=${String(state.bridgePrimed)}`,
+    );
 
     lifecycle.clearLocalCandidateTimers();
     lifecycle.clearHealthCheckTimer();
@@ -300,6 +317,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.debugLog("failed to remove daemon info file during cleanup", error);
     }
 
+    lifecycle.debugLog("daemon cleanup complete");
     await flushSentry(2000);
   }
 

@@ -11,6 +11,8 @@ import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { buildBridgeInstructions } from "./shared.js";
 import type { DaemonState } from "./state.js";
 
+const SLOW_BRIDGE_PRIMING_LOG_MS = 10_000;
+
 export function createBridgeManager(params: {
   state: DaemonState;
   bridgeSettings: BridgeSettings;
@@ -98,6 +100,7 @@ export function createBridgeManager(params: {
     slug: string;
     instructions: ReturnType<typeof buildBridgeInstructions>;
   }): Promise<string> {
+    debugLog(`bridge briefing load start slug=${params.slug}`);
     commandHandler.beginManifestLoad();
     const pub = await apiClient.get(params.slug);
     const content = typeof pub.content === "string" ? pub.content : "";
@@ -105,6 +108,10 @@ export function createBridgeManager(params: {
     else commandHandler.clearBindings();
     const canvasContentFilePath =
       content.length > 0 ? writeLiveSessionContentFile({ slug: params.slug, content }) : undefined;
+
+    debugLog(
+      `bridge briefing load complete slug=${params.slug} contentBytes=${content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
+    );
 
     return buildSessionBriefing(
       params.slug,
@@ -122,6 +129,7 @@ export function createBridgeManager(params: {
     await stopBridge();
     const abort = new AbortController();
     state.bridgeAbort = abort;
+    debugLog(`bridge runner start slug=${slug}`);
     const instructions = buildBridgeInstructions();
     const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
     const runnerBridgeSettings = state.activeLiveModelProfile
@@ -154,6 +162,7 @@ export function createBridgeManager(params: {
       config: runnerConfig,
       abortSignal: abort.signal,
     });
+    debugLog(`bridge runner created slug=${slug}`);
 
     if (state.stopped || state.activeSlug !== slug || abort.signal.aborted) {
       await runner.stop();
@@ -174,15 +183,29 @@ export function createBridgeManager(params: {
     }
 
     const slug = state.activeSlug;
+    const slowPrimingTimer = setTimeout(() => {
+      if (
+        state.bridgePriming &&
+        state.activeSlug === slug &&
+        state.browserConnected &&
+        !state.bridgePrimed
+      ) {
+        debugLog(
+          `bridge priming still in progress slug=${slug} after ${SLOW_BRIDGE_PRIMING_LOG_MS}ms`,
+        );
+      }
+    }, SLOW_BRIDGE_PRIMING_LOG_MS);
     const primePromise = (async () => {
       try {
         const t0 = Date.now();
+        debugLog(`bridge priming start slug=${slug}`);
         await startBridge(slug);
         debugLog(`[profile] bridge started in ${Date.now() - t0}ms`);
         if (state.stopped || !state.browserConnected || state.activeSlug !== slug) return;
         state.bridgePrimed = true;
         const tReady = Date.now();
         await notifyBrowserReady(slug);
+        debugLog(`bridge priming complete slug=${slug} total=${Date.now() - t0}ms`);
         debugLog(
           `[profile] ready sent in ${Date.now() - tReady}ms (total prime ${Date.now() - t0}ms)`,
         );
@@ -194,6 +217,7 @@ export function createBridgeManager(params: {
         });
         markError(`failed to prime bridge session for "${slug}"`, error);
       } finally {
+        clearTimeout(slowPrimingTimer);
         state.bridgePriming = null;
       }
     })();
