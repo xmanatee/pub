@@ -3,9 +3,11 @@ import {
   PARENT_TO_CANVAS_SOURCE,
 } from "@shared/canvas-bridge-protocol-core";
 import { MAX_CANVAS_FILE_BYTES } from "@shared/canvas-file-protocol-core";
-import { COMMAND_PROTOCOL_VERSION } from "@shared/command-protocol-core";
+import {
+  COMMAND_PROTOCOL_VERSION,
+  DEFAULT_COMMAND_TIMEOUT_MS,
+} from "@shared/command-protocol-core";
 
-const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 const DEFAULT_FILE_TIMEOUT_MS = 30_000;
 const COMMAND_RESULT_GRACE_MS = 5_000;
 const COMMAND_RESULT_GUARD_MS = 5 * 60_000;
