@@ -64,6 +64,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio, 2);
       const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
       w = rect.width;
       h = rect.height;
       canvas.width = w * dpr;
@@ -77,7 +78,8 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
     };
 
     resize();
-    window.addEventListener("resize", resize);
+    const observer = new ResizeObserver(() => resize());
+    observer.observe(canvas);
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -219,7 +221,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       }
       drawRef.current = null;
       lastTimeRef.current = 0;
-      window.removeEventListener("resize", resize);
+      observer.disconnect();
     };
   }, []);
 

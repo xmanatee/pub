@@ -39,7 +39,7 @@ function PubRouteContent({
   const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
+    <div className="pub-overlay fixed inset-0 z-50 flex flex-col bg-background text-foreground">
       {liveMode && session.controlBarCollapsed ? null : (
         <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
       )}
