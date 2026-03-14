@@ -55,14 +55,18 @@ echo "[e2e] Generating admin key..."
 CONTAINER_ID=$(docker ps -qf 'ancestor=ghcr.io/get-convex/convex-backend:latest')
 ADMIN_KEY=$(docker exec "$CONTAINER_ID" ./generate_admin_key.sh)
 
-# 4. Start test proxy (combines HTTP actions + WebSocket on one port)
+# 4. Generate Convex client/server types for this checkout
+echo "[e2e] Generating Convex code..."
+npx convex codegen --admin-key "$ADMIN_KEY" --url "$CONVEX_URL"
+
+# 5. Start test proxy (combines HTTP actions + WebSocket on one port)
 echo "[e2e] Starting test proxy..."
 npx tsx "$SCRIPT_DIR/tests/e2e/helpers/test-proxy.ts" &
 PROXY_PID=$!
 sleep 1
 echo "[e2e] Test proxy ready (pid=$PROXY_PID)."
 
-# 5. Start Vite dev server
+# 6. Start Vite dev server
 echo "[e2e] Starting Vite dev server..."
 cd "$SCRIPT_DIR"
 VITE_CONVEX_URL="$CONVEX_URL" pnpm dev:web &
@@ -80,7 +84,7 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-# 6. Run Playwright (global-setup.ts handles deploy, env vars, CLI build, seeding)
+# 7. Run Playwright (global-setup.ts handles deploy, env vars, CLI build, seeding)
 echo "[e2e] Running Playwright tests..."
 CONVEX_URL="$CONVEX_URL" \
 CONVEX_SITE_URL="$CONVEX_SITE_URL" \

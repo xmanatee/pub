@@ -122,12 +122,9 @@ const SYSTEM_ERROR: SystemChatEntry = {
   timestamp: 1008,
 };
 
-const messagesEndRef = { current: null };
-
 function StaticChat({ messages }: { messages: ChatEntry[] }) {
   const mockValue = createMockLiveSession({
     messages,
-    messagesEndRef,
   });
 
   return (

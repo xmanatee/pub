@@ -67,6 +67,15 @@ export function useLiveSession() {
   return context;
 }
 
+function createInertMessagesEndRef(): LiveSessionContextType["messagesEndRef"] {
+  return {
+    get current() {
+      return null;
+    },
+    set current(_value: HTMLDivElement | null) {},
+  } as LiveSessionContextType["messagesEndRef"];
+}
+
 export function createMockLiveSession(
   overrides: Partial<LiveSessionContextType> = {},
 ): LiveSessionContextType {
@@ -119,7 +128,7 @@ export function createMockLiveSession(
     lastTakeoverAt: undefined,
     live: undefined,
     messages: [],
-    messagesEndRef: { current: null },
+    messagesEndRef: createInertMessagesEndRef(),
     hasCanvasContent: false,
     micGranted: true,
     onCanvasBridgeMessage: noop,

@@ -8,8 +8,10 @@ export default defineConfig({
   reporter: "html",
   use: {
     baseURL: "http://127.0.0.1:3000",
+    locale: "en-US",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    timezoneId: "UTC",
   },
 
   projects: [
