@@ -42,13 +42,9 @@ export function isLiveAgentState(value: string | null | undefined): value is Liv
   return value !== undefined && value !== null && LIVE_AGENT_STATES.has(value as LiveAgentState);
 }
 
-export function isLiveExecutorState(
-  value: string | null | undefined,
-): value is LiveExecutorState {
+export function isLiveExecutorState(value: string | null | undefined): value is LiveExecutorState {
   return (
-    value !== undefined &&
-    value !== null &&
-    LIVE_EXECUTOR_STATES.has(value as LiveExecutorState)
+    value !== undefined && value !== null && LIVE_EXECUTOR_STATES.has(value as LiveExecutorState)
   );
 }
 

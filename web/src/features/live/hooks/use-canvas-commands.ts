@@ -20,10 +20,7 @@ import {
   makeCommandInvokeMessage,
   parseCommandResultMessage,
 } from "~/features/live/lib/command-protocol";
-import type {
-  BrowserBridge,
-  ChannelMessage,
-} from "~/features/live/lib/webrtc-browser";
+import type { BrowserBridge, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 import { PARENT_TO_CANVAS_SOURCE } from "~/features/live/types/live-command-types";
 import type {
@@ -613,7 +610,12 @@ export function useCanvasCommands({
       code: "FILE_TRANSFER_INTERRUPTED",
       message: "File transfer interrupted because the live connection was lost.",
     });
-  }, [interruptActiveCommands, interruptPendingCanvasFiles, liveMode, runtimeState.connectionState]);
+  }, [
+    interruptActiveCommands,
+    interruptPendingCanvasFiles,
+    liveMode,
+    runtimeState.connectionState,
+  ]);
 
   const dispatchCommand = useCallback(
     (message: CanvasCommandOnlyMessage) => {

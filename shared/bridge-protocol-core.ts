@@ -1,6 +1,4 @@
-import type {
-  LiveRuntimeStateSnapshot,
-} from "./live-runtime-state-core";
+import type { LiveRuntimeStateSnapshot } from "./live-runtime-state-core";
 import {
   isLiveAgentState,
   isLiveConnectionState,
