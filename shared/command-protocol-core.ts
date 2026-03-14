@@ -11,6 +11,7 @@ import {
 export const COMMAND_PROTOCOL_VERSION = 1;
 export const COMMAND_MANIFEST_MAX_FUNCTIONS = 64;
 export const COMMAND_MANIFEST_MIME = "application/pub-command-manifest+json";
+export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 
 export type CommandReturnType = "void" | "text" | "json";
 export type CommandExecutorKind = "exec" | "shell" | "agent";
