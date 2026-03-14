@@ -63,6 +63,7 @@ export async function runClaudeSdkBridgeStartupProbe(
 
   await runAgentWritePongProbe({
     label: "Claude SDK",
+    timeoutMs: 60_000,
     baseEnv: env,
     execute: async (probeEnv, signal) => {
       const probeEnvClean: Record<string, string | undefined> = { ...probeEnv };

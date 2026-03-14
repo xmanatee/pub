@@ -60,8 +60,10 @@ export function createPeerManager(params: {
 
     currentPeer.onStateChange((peerState: string) => {
       if (state.stopped || currentPeer !== state.peer) return;
+      debugLog(
+        `peer state: ${peerState}${state.activeSlug ? ` slug=${state.activeSlug}` : ""}`,
+      );
       if (peerState === "connected") {
-        debugLog("[profile] peer state: connected");
         state.browserConnected = true;
         flushQueuedAcks();
         void params.ensureBridgePrimed();
@@ -178,7 +180,9 @@ export function createPeerManager(params: {
 
     try {
       const t0 = Date.now();
-      debugLog(`[profile] incoming live for "${slug}"`);
+      debugLog(
+        `incoming live slug=${slug}${modelProfile ? ` modelProfile=${modelProfile}` : ""}`,
+      );
       await clearActiveLiveSession("incoming-live-recovery");
       debugLog(`[profile] cleared old session in ${Date.now() - t0}ms`);
       createPeer();

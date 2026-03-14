@@ -11,4 +11,12 @@ describe("daemon code path imports", () => {
     },
     15_000,
   );
+
+  it(
+    "loads daemon launcher entry",
+    async () => {
+      await expect(import("./live-daemon-launcher-entry.js")).resolves.toBeDefined();
+    },
+    15_000,
+  );
 });

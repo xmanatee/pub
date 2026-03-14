@@ -38,6 +38,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let shuttingDown = false;
   let presenceGeneration = 0;
 
+  function formatOptionalValue(value: string | undefined): string {
+    return value ?? "none";
+  }
+
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
@@ -72,6 +76,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
     shutdown: async () => await shutdown(),
   });
+
+  lifecycle.debugLog(
+    [
+      `daemon starting bridge=${config.bridgeSettings.mode}`,
+      `socket=${socketPath}`,
+      `info=${infoPath}`,
+      `log=${formatOptionalValue(logPath)}`,
+      `agent=${formatOptionalValue(agentName)}`,
+    ].join(" "),
+  );
 
   channelManager = createDaemonChannelManager({
     state,
@@ -172,7 +186,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function handlePresenceOwnershipConflict(error: unknown): Promise<void> {
-    lifecycle.markError("presence ownership lost", error);
+    lifecycle.markError("presence ownership lost", error, { alwaysLog: true });
     await shutdown(1);
   }
 
@@ -271,6 +285,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   async function cleanup(): Promise<void> {
     if (state.stopped) return;
     state.stopped = true;
+    lifecycle.debugLog(
+      `daemon cleanup start activeSlug=${state.activeSlug ?? "none"} browserConnected=${String(state.browserConnected)} bridgePrimed=${String(state.bridgePrimed)}`,
+    );
 
     lifecycle.clearLocalCandidateTimers();
     lifecycle.clearHealthCheckTimer();
@@ -300,21 +317,28 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.debugLog("failed to remove daemon info file during cleanup", error);
     }
 
+    lifecycle.debugLog("daemon cleanup complete");
     await flushSentry(2000);
   }
 
   process.on("SIGTERM", () => {
+    lifecycle.logAlways("received SIGTERM");
     void shutdown(0);
   });
   process.on("SIGINT", () => {
+    lifecycle.logAlways("received SIGINT");
+    void shutdown(0);
+  });
+  process.on("SIGHUP", () => {
+    lifecycle.logAlways("received SIGHUP");
     void shutdown(0);
   });
   process.on("uncaughtException", (error) => {
-    lifecycle.markError("uncaught exception in daemon", error);
+    lifecycle.markError("uncaught exception in daemon", error, { alwaysLog: true });
     void shutdown(1);
   });
   process.on("unhandledRejection", (reason) => {
-    lifecycle.markError("unhandled rejection in daemon", reason);
+    lifecycle.markError("unhandled rejection in daemon", reason, { alwaysLog: true });
     void shutdown(1);
   });
 }

@@ -4,6 +4,9 @@ import "reflect-metadata";
 if (process.env.PUB_DAEMON_MODE === "1") {
   const { runDaemonFromEnv } = await import("./app/live-daemon-entry.js");
   await runDaemonFromEnv();
+} else if (process.env.PUB_DAEMON_LAUNCHER_MODE === "1") {
+  const { runDaemonLauncherFromEnv } = await import("./app/live-daemon-launcher-entry.js");
+  await runDaemonLauncherFromEnv();
 } else {
   const { toCliFailure } = await import("./core/errors/cli-error.js");
   const { buildProgram } = await import("./app/program.js");

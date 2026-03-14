@@ -46,7 +46,9 @@ export async function createOpenClawBridgeRunner(
   const sessionId = bridgeSettings.sessionId;
   const attachmentRoot = bridgeSettings.attachmentDir;
   ensureDirectoryWritable(attachmentRoot);
+  debugLog(`openclaw preflight start sessionId=${sessionId}`);
   await runOpenClawPreflight(openclawPath, process.env);
+  debugLog(`openclaw preflight ok sessionId=${sessionId}`);
 
   const activeStreams = new Map<string, ActiveStream>();
   let forwardedMessageCount = 0;
@@ -73,12 +75,17 @@ export async function createOpenClawBridgeRunner(
     });
   }
 
+  debugLog(
+    `openclaw deliver session briefing start slug=${slug} sessionId=${sessionId}`,
+  );
   await deliverMessageToOpenClaw(
     { openclawPath, sessionId, text: withSystemPrompt(sessionBriefing) },
     process.env,
     bridgeSettings,
   );
-  debugLog("session briefing delivered");
+  debugLog(
+    `openclaw deliver session briefing complete slug=${slug} sessionId=${sessionId}`,
+  );
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
