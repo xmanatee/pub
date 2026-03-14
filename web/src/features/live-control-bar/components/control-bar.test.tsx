@@ -36,7 +36,6 @@ const mockSession = {
   controlBarState: "idle",
   canvasHtml: null as string | null,
   dismissPreview: vi.fn(),
-  error: { message: null, source: "none" },
   lastTakeoverAt: undefined as number | undefined,
   micGranted: false,
   preview: null,

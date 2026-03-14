@@ -39,4 +39,11 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain("file.result");
     expect(output).toContain("getGuardTimeoutMs");
   });
+
+  it("intercepts console.error", () => {
+    const input = "<html><head></head><body>ok</body></html>";
+    const output = buildCanvasSrcDoc(input);
+    expect(output).toContain("origConsoleError");
+    expect(output).toContain('emit("console-error"');
+  });
 });

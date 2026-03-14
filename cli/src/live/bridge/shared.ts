@@ -93,6 +93,10 @@ export function buildRenderErrorPrompt(
   errorText: string,
   instructions: BridgeInstructions,
 ): string {
+  const isConsoleError = errorText.startsWith("[console.error]");
+  const consoleNote = isConsoleError
+    ? "\n- This was captured from console.error, not a runtime exception. Assess severity before acting."
+    : "";
   return [
     `[Live: ${slug}] Canvas render error report:`,
     "",
@@ -101,7 +105,7 @@ export function buildRenderErrorPrompt(
     "---",
     "Treat this as silent maintenance:",
     "- Fix by sending an updated canvas payload.",
-    "- Do not send user-facing chat about this unless blocked or clarifying requirements.",
+    `- Do not send user-facing chat about this unless blocked or clarifying requirements.${consoleNote}`,
     "",
     "Respond using:",
     `- ${instructions.canvasHint}`,

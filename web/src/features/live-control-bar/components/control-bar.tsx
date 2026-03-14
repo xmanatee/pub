@@ -45,7 +45,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     controlBarCollapsed,
     controlBarState,
     dismissPreview,
-    error,
     hasCanvasContent,
     lastTakeoverAt,
     preview,
@@ -251,10 +250,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
           <span className="text-foreground">{preview.text}</span>
         </div>
       </button>
-    );
-  } else if (error.message) {
-    topAddon = (
-      <div className="px-4 py-2.5 text-sm leading-tight text-destructive">{error.message}</div>
     );
   }
 

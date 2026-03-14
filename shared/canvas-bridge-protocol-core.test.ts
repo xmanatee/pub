@@ -47,6 +47,30 @@ describe("canvas-bridge-protocol-core", () => {
     });
   });
 
+  it("parses console-error envelopes", () => {
+    expect(
+      parseCanvasBridgeInboundMessage({
+        source: CANVAS_TO_PARENT_SOURCE,
+        type: "console-error",
+        payload: { message: "Warning: something went wrong" },
+      }),
+    ).toEqual({
+      source: CANVAS_TO_PARENT_SOURCE,
+      type: "console-error",
+      payload: { message: "Warning: something went wrong" },
+    });
+  });
+
+  it("rejects console-error with empty message", () => {
+    expect(
+      parseCanvasBridgeInboundMessage({
+        source: CANVAS_TO_PARENT_SOURCE,
+        type: "console-error",
+        payload: { message: "" },
+      }),
+    ).toBeNull();
+  });
+
   it("parses render error envelopes", () => {
     expect(
       parseCanvasBridgeInboundMessage({

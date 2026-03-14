@@ -22,6 +22,19 @@ interface CanvasPanelProps {
 type VisualPhase = "visible" | "fading" | "hidden";
 const RENDER_ERROR_REPORT_DEDUPE_MS = 2_500;
 
+function reportDedupedRenderError(
+  key: string,
+  payload: LiveRenderErrorPayload,
+  ref: React.RefObject<{ key: string; timestamp: number } | null>,
+  cb?: (error: LiveRenderErrorPayload) => void,
+) {
+  const now = Date.now();
+  const last = ref.current;
+  if (last && last.key === key && now - last.timestamp < RENDER_ERROR_REPORT_DEDUPE_MS) return;
+  ref.current = { key, timestamp: now };
+  cb?.(payload);
+}
+
 export function CanvasPanel({
   html,
   onCanvasBridgeMessage,
@@ -62,6 +75,12 @@ export function CanvasPanel({
   }, [canvasError, onCanvasErrorChange]);
 
   useEffect(() => {
+    if (!canvasError) return;
+    const timer = setTimeout(() => setCanvasError(null), 6_000);
+    return () => clearTimeout(timer);
+  }, [canvasError]);
+
+  useEffect(() => {
     if (!hasVisibleCanvasContent) {
       setVisualPhase("visible");
       return;
@@ -82,6 +101,17 @@ export function CanvasPanel({
         return;
       }
 
+      if (message.type === "console-error") {
+        const consoleMsg = `[console.error] ${message.payload.message}`;
+        reportDedupedRenderError(
+          consoleMsg,
+          { message: consoleMsg },
+          lastReportedErrorRef,
+          onRenderError,
+        );
+        return;
+      }
+
       if (message.type !== "error") {
         onCanvasBridgeMessage?.(message);
         return;
@@ -95,24 +125,23 @@ export function CanvasPanel({
           : "";
       setCanvasError(`${errorMessage}${lineInfo}`);
 
-      if (!onRenderError) return;
       const keyParts = [
         errorMessage,
         payload.filename ?? "",
         typeof payload.lineno === "number" ? String(payload.lineno) : "",
         typeof payload.colno === "number" ? String(payload.colno) : "",
       ];
-      const key = keyParts.join("|");
-      const now = Date.now();
-      const last = lastReportedErrorRef.current;
-      if (last && last.key === key && now - last.timestamp < RENDER_ERROR_REPORT_DEDUPE_MS) return;
-      lastReportedErrorRef.current = { key, timestamp: now };
-      onRenderError({
-        message: errorMessage,
-        filename: payload.filename,
-        lineno: payload.lineno,
-        colno: payload.colno,
-      });
+      reportDedupedRenderError(
+        keyParts.join("|"),
+        {
+          message: errorMessage,
+          filename: payload.filename,
+          lineno: payload.lineno,
+          colno: payload.colno,
+        },
+        lastReportedErrorRef,
+        onRenderError,
+      );
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);

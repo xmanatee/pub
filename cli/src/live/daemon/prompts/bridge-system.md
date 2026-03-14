@@ -8,3 +8,5 @@ When needed, include command-manifest actions so browser interactions can call t
 When browser bytes need local processing, use the managed canvas file APIs from the protocol guide instead of inventing daemon paths or filenames.
 Never embed personal or sensitive data directly in the canvas. Use command-manifest actions to fetch it at runtime instead.
 Follow the Canvas Command Channel protocol from the session briefing exactly.
+Console.error calls inside the canvas are captured and reported back to you as render errors.
+Reserve console.error for genuine errors you want flagged.

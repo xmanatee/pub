@@ -73,6 +73,12 @@ export interface CanvasBridgeFileDownloadMessage {
   payload: CanvasFileDownloadRequestPayload;
 }
 
+export interface CanvasBridgeConsoleErrorMessage {
+  source: typeof CANVAS_TO_PARENT_SOURCE;
+  type: "console-error";
+  payload: { message: string };
+}
+
 export type CanvasBridgeCommandMessage =
   | CanvasBridgeInvokeMessage
   | CanvasBridgeCancelMessage
@@ -82,6 +88,7 @@ export type CanvasBridgeCommandMessage =
 export type CanvasBridgeInboundMessage =
   | CanvasBridgeReadyMessage
   | CanvasBridgeErrorMessage
+  | CanvasBridgeConsoleErrorMessage
   | CanvasBridgeInvokeMessage
   | CanvasBridgeCancelMessage
   | CanvasBridgeFileUploadMessage
@@ -152,6 +159,14 @@ export function parseCanvasBridgeInboundMessage(input: unknown): CanvasBridgeInb
     const payload = parseCanvasRenderErrorPayload(record.payload);
     if (!payload) return null;
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
+  }
+
+  if (type === "console-error") {
+    const payload = readRecord(record.payload);
+    if (!payload) return null;
+    const message = readNonEmptyString(payload.message);
+    if (!message) return null;
+    return { source: CANVAS_TO_PARENT_SOURCE, type, payload: { message } };
   }
 
   if (type === "command.invoke") {
