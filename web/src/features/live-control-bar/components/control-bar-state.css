@@ -25,6 +25,21 @@
   transition: opacity 400ms ease;
 }
 
+/* Collapse left slot and fade status blob when any input in the bar is focused */
+.cb-bar-wrapper:has(:focus-within) .cb-left-slot {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  margin-right: 0;
+}
+
+.cb-bar-wrapper:has(:focus-within) .cb-status-slot {
+  opacity: 0;
+  scale: 50%;
+  translate: 0 1rem;
+  pointer-events: none;
+}
+
 @keyframes cb-pulse {
   0%,
   100% {

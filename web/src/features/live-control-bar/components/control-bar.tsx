@@ -63,7 +63,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
   } = useLiveSession();
 
   const [expanded, setExpanded] = useState(initialExpanded);
-  const [isEditing, setIsEditing] = useState(false);
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
@@ -184,7 +183,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
         onInputKeyDown={handleKeyDown}
         onSend={handleSend}
         onStartVoiceMode={audio.startVoiceMode}
-        onEditingChange={setIsEditing}
         pointerHandlers={pointerHandlers}
         sendDisabled={!connected}
         visualState={visualState}
@@ -291,7 +289,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
             ? CB.recordingTone
             : ""
         }
-        isInteracting={isEditing}
         shellStyle={shellStyle as React.CSSProperties}
       />
     </>

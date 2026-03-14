@@ -1,12 +1,5 @@
 import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
-import {
-  type ChangeEvent,
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ChangeEvent, type KeyboardEvent, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import type { LiveVisualState } from "~/features/live/types/live-types";
@@ -17,6 +10,14 @@ const MAX_TEXTAREA_ROWS = 5;
 const TEXTAREA_LINE_HEIGHT = 20;
 const TEXTAREA_PADDING_Y = 10;
 
+const PLACEHOLDER: Partial<Record<LiveVisualState, string>> = {
+  connecting: "Connecting...",
+  disconnected: "Disconnected",
+  offline: "Disconnected",
+  "content-loading": "Loading content...",
+  "command-running": "Running command...",
+};
+
 interface ControlBarInputRowProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasText: boolean;
@@ -26,18 +27,12 @@ interface ControlBarInputRowProps {
   onInputKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
   onStartVoiceMode: () => void;
-  onEditingChange: (editing: boolean) => void;
   pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   sendDisabled: boolean;
   visualState: LiveVisualState;
   voiceModeEnabled: boolean;
 }
 
-/**
- * Just the interactive row part of the idle mode.
- * Used as center content in the new architecture.
- * Visual container is provided by ControlBarPrimitive.
- */
 export function ControlBarInputRow({
   fileInputRef,
   hasText,
@@ -47,18 +42,12 @@ export function ControlBarInputRow({
   onInputKeyDown,
   onSend,
   onStartVoiceMode,
-  onEditingChange,
   pointerHandlers,
   sendDisabled,
   visualState,
   voiceModeEnabled,
 }: ControlBarInputRowProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    onEditingChange(editing);
-  }, [editing, onEditingChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: textareaRef is a stable ref
   useEffect(() => {
@@ -67,37 +56,7 @@ export function ControlBarInputRow({
     el.style.height = "auto";
     const maxHeight = TEXTAREA_LINE_HEIGHT * MAX_TEXTAREA_ROWS + TEXTAREA_PADDING_Y;
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
-  }, [input, editing]);
-
-  useEffect(() => {
-    if (editing) textareaRef.current?.focus();
-  }, [editing]);
-
-  const handleSend = useCallback(() => {
-    onSend();
-    setEditing(false);
-  }, [onSend]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      onInputKeyDown(event);
-      if (event.key === "Enter" && !event.shiftKey) {
-        setEditing(false);
-      }
-    },
-    [onInputKeyDown],
-  );
-
-  const placeholder =
-    visualState === "connecting"
-      ? "Connecting..."
-      : visualState === "disconnected" || visualState === "offline"
-        ? "Disconnected"
-        : visualState === "content-loading"
-          ? "Loading content..."
-          : visualState === "command-running"
-            ? "Running command..."
-            : "Message...";
+  }, [input]);
 
   return (
     <div className={cn("w-full", CB.controlHeight)} style={{ WebkitTouchCallout: "none" }}>
@@ -119,34 +78,18 @@ export function ControlBarInputRow({
         </Tooltip>
         <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
 
-        {editing ? (
-          <textarea
-            ref={textareaRef}
-            placeholder={placeholder}
-            value={input}
-            onChange={(event) => onInputChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={() => setEditing(false)}
-            aria-label="Message"
-            inputMode="text"
-            enterKeyHint="send"
-            rows={1}
-            className="flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base leading-5 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
-          />
-        ) : (
-          <button
-            type="button"
-            aria-label="Message"
-            onClick={() => setEditing(true)}
-            className="flex-1 cursor-text truncate px-2 py-2.5 text-left text-base leading-5"
-          >
-            {input ? (
-              <span>{input}</span>
-            ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
-            )}
-          </button>
-        )}
+        <textarea
+          ref={textareaRef}
+          placeholder={PLACEHOLDER[visualState] ?? "Message..."}
+          value={input}
+          onChange={(event) => onInputChange(event.target.value)}
+          onKeyDown={onInputKeyDown}
+          aria-label="Message"
+          inputMode="text"
+          enterKeyHint="send"
+          rows={1}
+          className="flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base leading-5 shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+        />
 
         {hasText ? (
           <Tooltip>
@@ -155,7 +98,7 @@ export function ControlBarInputRow({
                 variant="default"
                 size="control"
                 className={CB.actionButton}
-                onClick={handleSend}
+                onClick={onSend}
                 disabled={sendDisabled}
                 aria-label="Send message"
               >

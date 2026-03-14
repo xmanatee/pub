@@ -12,7 +12,6 @@ export interface ControlBarSurfaceConfig {
   isExpanded: boolean;
   onStatusClick?: () => void;
   className?: string;
-  isInteracting?: boolean;
   shellStyle?: React.CSSProperties;
 }
 

@@ -19,10 +19,9 @@ export function ControlBarPrimitive({
   isExpanded,
   onStatusClick,
   className,
-  isInteracting = false,
   shellStyle,
 }: ControlBarFullConfig) {
-  const hasLeft = Boolean(leftAction && !isInteracting);
+  const hasLeft = Boolean(leftAction);
   const hasRight = Boolean(rightAction);
 
   return (
@@ -34,7 +33,7 @@ export function ControlBarPrimitive({
         {/* Translate wrapper — status button and bar move together */}
         <div
           className={cn(
-            "transition-transform duration-500 ease-in-out",
+            "cb-bar-wrapper transition-transform duration-500 ease-in-out",
             isExpanded ? "translate-y-0" : "translate-y-full",
           )}
         >
@@ -43,11 +42,8 @@ export function ControlBarPrimitive({
             <button
               type="button"
               className={cn(
-                "pointer-events-auto absolute -top-12 right-0 size-9 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl",
+                "cb-status-slot pointer-events-auto absolute -top-12 right-0 size-9 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl",
                 "transition-all duration-500 ease-in-out",
-                isInteracting
-                  ? "opacity-0 scale-50 translate-y-4 pointer-events-none"
-                  : "opacity-100 scale-100 translate-y-0",
               )}
               onClick={onStatusClick}
               aria-label="Toggle control bar"
@@ -67,7 +63,7 @@ export function ControlBarPrimitive({
               {/* Left Action Slot - Detached */}
               <div
                 className={cn(
-                  "shrink-0 transition-all duration-500 ease-in-out",
+                  "cb-left-slot shrink-0 transition-all duration-500 ease-in-out",
                   hasLeft ? "w-12 opacity-100 mr-2" : "w-0 opacity-0 pointer-events-none mr-0",
                 )}
               >
