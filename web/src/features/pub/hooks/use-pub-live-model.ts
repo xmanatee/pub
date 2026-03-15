@@ -101,7 +101,7 @@ export function usePubLiveModel({
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
-  const [controlBarCollapsed, setControlBarCollapsed] = useState(false);
+  const [controlBarCollapsed, setControlBarCollapsed] = useState(Boolean(baseContentHtml));
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);

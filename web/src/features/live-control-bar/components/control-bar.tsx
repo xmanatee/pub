@@ -253,9 +253,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     );
   }
 
-  const statusAction = hasCanvasContent ? (
-    <BlobVisual tone={VISUAL_THEME[visualState]} hasCanvasContent={hasCanvasContent} />
-  ) : null;
+  const statusAction = hasCanvasContent ? <BlobVisual tone={VISUAL_THEME[visualState]} /> : null;
 
   const shellStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
 

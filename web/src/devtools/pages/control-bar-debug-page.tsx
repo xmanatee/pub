@@ -250,7 +250,7 @@ export function ControlBarDebugPage() {
               ))}
             </div>
           </div>
-          <div className="relative mt-4 h-80">
+          <div className="relative mt-4 h-80" style={{ transform: "translateZ(0)" }}>
             <LiveSessionProvider value={interactiveValue}>
               <ControlBar />
             </LiveSessionProvider>

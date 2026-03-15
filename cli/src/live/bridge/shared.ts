@@ -2,7 +2,6 @@ import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import type { BridgeInstructions } from "../daemon/shared.js";
-import type { BridgeSessionSource } from "./types.js";
 import CANVAS_POLICY_REMINDER from "./prompts/canvas-policy-reminder.md";
 export const MAX_SEEN_IDS = 10_000;
 
@@ -24,8 +23,6 @@ export interface BridgeRunnerConfig {
 export interface BridgeStatus {
   running: boolean;
   sessionId?: string;
-  sessionKey?: string;
-  sessionSource?: BridgeSessionSource;
   lastError?: string;
   forwardedMessages: number;
 }

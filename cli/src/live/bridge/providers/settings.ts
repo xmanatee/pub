@@ -143,7 +143,6 @@ export function buildBridgeSettings(
     openclawPath: stringValueOrEnv(bridgeConfig.openclawPath, "OPENCLAW_PATH", env),
     openclawStateDir: stringValueOrEnv(bridgeConfig.openclawStateDir, "OPENCLAW_STATE_DIR", env),
     sessionId: stringValueOrEnv(bridgeConfig.sessionId, "OPENCLAW_SESSION_ID", env),
-    threadId: stringValueOrEnv(bridgeConfig.threadId, "OPENCLAW_THREAD_ID", env),
     claudeCodePath: stringValueOrEnv(bridgeConfig.claudeCodePath, "CLAUDE_CODE_PATH", env),
     claudeCodeMaxTurns: positiveIntOrUndefined(
       integerValueOrEnv(bridgeConfig.claudeCodeMaxTurns, "CLAUDE_CODE_MAX_TURNS", env),

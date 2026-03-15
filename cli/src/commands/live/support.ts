@@ -58,12 +58,6 @@ export function printDaemonStatus(
     if (bridge.sessionId) {
       console.log(`  Bridge session: ${bridge.sessionId}`);
     }
-    if (bridge.sessionSource) {
-      console.log(`  Bridge session source: ${bridge.sessionSource}`);
-    }
-    if (bridge.sessionKey) {
-      console.log(`  Bridge session key: ${bridge.sessionKey}`);
-    }
     if (bridge.forwardedMessages !== undefined) {
       console.log(`  Bridge forwarded: ${bridge.forwardedMessages} messages`);
     }

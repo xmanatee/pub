@@ -97,7 +97,7 @@ describe("config", () => {
     makeHomeConfigDir();
     writePubConfig({
       core: { apiKey: "pub_saved" },
-      bridge: { mode: "claude-code", threadId: "thread-a" },
+      bridge: { mode: "claude-code" },
     });
     process.env.PUB_API_KEY = "pub_env";
 

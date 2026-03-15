@@ -19,7 +19,6 @@ import {
   resolveOpenClawHome,
   resolveOpenClawSessionsPath,
   resolveOpenClawStateDir,
-  resolveSessionFromSessionsData,
 } from "./session.js";
 
 const openclawInstructions = buildBridgeInstructions();
@@ -197,97 +196,6 @@ describe("render error helpers", () => {
         },
       }),
     ).toBeNull();
-  });
-});
-
-describe("resolveSessionFromSessionsData", () => {
-  it("prefers canonical thread key over legacy and main fallback", () => {
-    const resolved = resolveSessionFromSessionsData(
-      {
-        sessions: {
-          "agent:main:main:thread:pub": { sessionId: "session-canonical" },
-          "agent:main:pub": { sessionId: "session-legacy" },
-          "agent:main:main": { sessionId: "session-main" },
-        },
-      },
-      "pub",
-    );
-
-    expect(resolved.sessionId).toBe("session-canonical");
-    expect(resolved.sessionSource).toBe("thread-canonical");
-    expect(resolved.sessionKey).toBe("agent:main:main:thread:pub");
-    expect(resolved.attemptedKeys).toEqual(["agent:main:main:thread:pub"]);
-  });
-
-  it("falls back to legacy thread key when canonical key is missing", () => {
-    const resolved = resolveSessionFromSessionsData(
-      {
-        sessions: {
-          "agent:main:pub": { sessionId: "session-legacy" },
-          "agent:main:main": { sessionId: "session-main" },
-        },
-      },
-      "pub",
-    );
-
-    expect(resolved.sessionId).toBe("session-legacy");
-    expect(resolved.sessionSource).toBe("thread-legacy");
-    expect(resolved.sessionKey).toBe("agent:main:pub");
-    expect(resolved.attemptedKeys).toEqual(["agent:main:main:thread:pub", "agent:main:pub"]);
-  });
-
-  it("falls back to main session key when thread keys are absent", () => {
-    const resolved = resolveSessionFromSessionsData(
-      {
-        sessions: {
-          "agent:main:main": { sessionId: "session-main" },
-        },
-      },
-      "pub",
-    );
-
-    expect(resolved.sessionId).toBe("session-main");
-    expect(resolved.sessionSource).toBe("main-fallback");
-    expect(resolved.sessionKey).toBe("agent:main:main");
-    expect(resolved.attemptedKeys).toEqual([
-      "agent:main:main:thread:pub",
-      "agent:main:pub",
-      "agent:main:main",
-    ]);
-  });
-
-  it("supports flat sessions.json maps and thread id trimming", () => {
-    const resolved = resolveSessionFromSessionsData(
-      {
-        "agent:main:main:thread:pub": { sessionId: "session-canonical" },
-      },
-      "  pub  ",
-    );
-
-    expect(resolved.sessionId).toBe("session-canonical");
-    expect(resolved.sessionSource).toBe("thread-canonical");
-    expect(resolved.sessionKey).toBe("agent:main:main:thread:pub");
-    expect(resolved.attemptedKeys).toEqual(["agent:main:main:thread:pub"]);
-  });
-
-  it("returns null session with attempted keys when resolution fails", () => {
-    const resolved = resolveSessionFromSessionsData(
-      {
-        sessions: {
-          "agent:main:main:thread:pub": { sessionId: "   " },
-        },
-      },
-      "pub",
-    );
-
-    expect(resolved.sessionId).toBeNull();
-    expect(resolved.sessionSource).toBeUndefined();
-    expect(resolved.sessionKey).toBeUndefined();
-    expect(resolved.attemptedKeys).toEqual([
-      "agent:main:main:thread:pub",
-      "agent:main:pub",
-      "agent:main:main",
-    ]);
   });
 });
 

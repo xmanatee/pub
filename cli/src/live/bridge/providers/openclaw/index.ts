@@ -22,16 +22,10 @@ import {
 import {
   deliverMessageToOpenClaw,
   invokeOpenClawPrompt,
-  runOpenClawPreflight,
 } from "./runtime.js";
 
-export {
-  isOpenClawAvailable,
-  resolveOpenClawPath,
-  resolveOpenClawRuntime,
-} from "./discovery.js";
+export { isOpenClawAvailable } from "./discovery.js";
 export { runOpenClawBridgeStartupProbe } from "./probe.js";
-export { deliverMessageToOpenClaw } from "./runtime.js";
 
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
@@ -46,9 +40,6 @@ export async function createOpenClawBridgeRunner(
   const sessionId = bridgeSettings.sessionId;
   const attachmentRoot = bridgeSettings.attachmentDir;
   ensureDirectoryWritable(attachmentRoot);
-  debugLog(`openclaw preflight start sessionId=${sessionId}`);
-  await runOpenClawPreflight(openclawPath, process.env);
-  debugLog(`openclaw preflight ok sessionId=${sessionId}`);
 
   const activeStreams = new Map<string, ActiveStream>();
   let forwardedMessageCount = 0;

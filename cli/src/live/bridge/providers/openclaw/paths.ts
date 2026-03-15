@@ -46,9 +46,3 @@ export function resolveOpenClawStateDir(env: NodeJS.ProcessEnv = process.env): s
   if (configured) return resolvePathFromInput(configured, env);
   return join(resolveOpenClawHome(env), ".openclaw");
 }
-
-export function resolveOpenClawConfigPath(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = trimToUndefined(env.OPENCLAW_CONFIG_PATH);
-  if (configured) return resolvePathFromInput(configured, env);
-  return join(resolveOpenClawStateDir(env), "openclaw.json");
-}

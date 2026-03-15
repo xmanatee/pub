@@ -10,44 +10,17 @@ import {
   runOpenClawPreflight,
 } from "./runtime.js";
 
-function getStrictOpenClawCommandCwd(bridgeConfig: OpenClawBridgeSettings): string {
-  return bridgeConfig.bridgeCwd;
-}
-
-function formatOpenClawProbeFailure(params: {
+function formatProbeFailure(params: {
   openclawPath: string;
   sessionId: string;
   bridgeCwd: string;
   error: unknown;
 }): Error {
   const detail = params.error instanceof Error ? params.error.message : String(params.error);
-  const isTimeout = detail.includes('did not perform `pub write "pong"`');
-  if (isTimeout) {
-    return new Error(
-      [
-        "OpenClaw bridge probe failed: the target session never wrote back `pub write \"pong\"`.",
-        "",
-        "Resolved runtime:",
-        `- executable: ${params.openclawPath}`,
-        `- sessionId: ${params.sessionId}`,
-        `- bridge cwd: ${params.bridgeCwd}`,
-        "",
-        "Possible causes:",
-        "- `openclaw.sessionId` points at the wrong or inactive session.",
-        "- The selected OpenClaw session cannot execute `pub write`.",
-        "- The selected session ignored the instruction or was busy.",
-        "- A wrapper script intercepted or altered the OpenClaw invocation.",
-        "",
-        "Troubleshooting tips:",
-        "- In that exact OpenClaw session, verify that `pub write \"pong\"` works.",
-        "- Enable verbose daemon logging with `pub config --set bridge.verbose=true` before retrying.",
-      ].join("\n"),
-    );
-  }
 
   return new Error(
     [
-      "OpenClaw bridge probe failed before the `pong` roundtrip completed.",
+      "OpenClaw bridge probe failed.",
       detail,
       "",
       "Resolved runtime:",
@@ -55,10 +28,10 @@ function formatOpenClawProbeFailure(params: {
       `- sessionId: ${params.sessionId}`,
       `- bridge cwd: ${params.bridgeCwd}`,
       "",
-      "Troubleshooting tips:",
-      "- Run `pub config` to verify the saved OpenClaw runtime settings.",
-      "- Verify that the selected OpenClaw executable and session id are correct.",
-      "- Enable verbose daemon logging with `pub config --set bridge.verbose=true` before retrying.",
+      "Troubleshooting:",
+      "- Run `pub config` to verify saved OpenClaw runtime settings.",
+      "- Run `pub config --auto` to re-detect.",
+      "- Enable verbose logging with `pub config --set bridge.verbose=true`.",
     ].join("\n"),
   );
 }
@@ -73,47 +46,54 @@ export async function runOpenClawBridgeStartupProbe(
     ? {
         openclawPath: (bridgeConfig as OpenClawBridgeSettings).openclawPath,
         sessionId: (bridgeConfig as OpenClawBridgeSettings).sessionId,
-        sessionKey: "openclaw.sessionId",
-        sessionSource: "config" as const,
       }
     : resolveOpenClawRuntime(env, bridgeConfig);
+
   if (!runtime.openclawPath || !runtime.sessionId) {
     throw new Error("OpenClaw runtime is not prepared. Run `pub config --auto` again.");
   }
-  const probeDeliverySettings = {
-    bridgeCwd: strictConfig
-      ? getStrictOpenClawCommandCwd(bridgeConfig as OpenClawBridgeSettings)
-      : resolveAutoDetectOpenClawCommandCwd(env),
-  };
-  try {
-    await runOpenClawPreflight(runtime.openclawPath, env);
-    await runAgentWritePongProbe({
-      label: "OpenClaw",
-      baseEnv: env,
-      execute: async (probeEnv, _signal) => {
-        await deliverMessageToOpenClaw(
-          {
-            openclawPath: runtime.openclawPath,
-            sessionId: runtime.sessionId,
-            text: [
-              "[pub preflight] Connectivity probe.",
-              "Run this exact command now:",
-              'pub write "pong"',
-              "Do not explain. Just execute it.",
-            ].join("\n"),
-          },
-          probeEnv,
-          probeDeliverySettings,
-        );
-      },
-    });
-  } catch (error) {
-    throw formatOpenClawProbeFailure({
-      openclawPath: runtime.openclawPath,
-      sessionId: runtime.sessionId,
-      bridgeCwd: probeDeliverySettings.bridgeCwd,
-      error,
-    });
+
+  const bridgeCwd = strictConfig
+    ? (bridgeConfig as OpenClawBridgeSettings).bridgeCwd
+    : resolveAutoDetectOpenClawCommandCwd(env);
+
+  await runOpenClawPreflight(runtime.openclawPath, env);
+
+  // Full pong probe only during auto-detect (pub config --auto).
+  // During pub start (strictConfig), the session may be locked by the calling
+  // conversation — the binary check above is sufficient.
+  if (!strictConfig) {
+    try {
+      await runAgentWritePongProbe({
+        label: "OpenClaw",
+        baseEnv: env,
+        execute: async (probeEnv, _signal) => {
+          await deliverMessageToOpenClaw(
+            {
+              openclawPath: runtime.openclawPath,
+              sessionId: runtime.sessionId,
+              text: [
+                "[pub preflight] Connectivity probe.",
+                "Run this exact command now:",
+                'pub write "pong"',
+                "Do not explain. Just execute it.",
+              ].join("\n"),
+              local: true,
+            },
+            probeEnv,
+            { bridgeCwd },
+          );
+        },
+      });
+    } catch (error) {
+      throw formatProbeFailure({
+        openclawPath: runtime.openclawPath,
+        sessionId: runtime.sessionId,
+        bridgeCwd,
+        error,
+      });
+    }
   }
+
   return runtime;
 }

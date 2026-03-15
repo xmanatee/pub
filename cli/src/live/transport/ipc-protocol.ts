@@ -16,7 +16,6 @@ import {
   readString,
 } from "../../../../shared/protocol-runtime-core";
 import type { BridgeStatus } from "../bridge/shared.js";
-import type { BridgeSessionSource } from "../bridge/types.js";
 
 interface IpcErrorResponse {
   ok: false;
@@ -101,23 +100,10 @@ function parseBridgeStatus(input: unknown): BridgeStatus | null {
   const running = readBoolean(record.running);
   const forwardedMessages = readFiniteNumber(record.forwardedMessages);
   if (running === undefined || forwardedMessages === undefined) return null;
-  const sessionSourceRaw =
-    record.sessionSource === undefined ? undefined : readString(record.sessionSource);
-  const sessionSource =
-    sessionSourceRaw === undefined ||
-    sessionSourceRaw === "env" ||
-    sessionSourceRaw === "thread-canonical" ||
-    sessionSourceRaw === "thread-legacy" ||
-    sessionSourceRaw === "main-fallback"
-      ? (sessionSourceRaw as BridgeSessionSource | undefined)
-      : null;
-  if (sessionSource === null) return null;
 
   return {
     running,
     sessionId: readString(record.sessionId),
-    sessionKey: readString(record.sessionKey),
-    sessionSource,
     lastError: readString(record.lastError),
     forwardedMessages,
   };
