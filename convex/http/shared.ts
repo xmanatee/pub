@@ -138,7 +138,7 @@ export async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {
 }
 
 export function shouldTouchApiKey(
-  lastUsedAt: number | null | undefined,
+  lastUsedAt: number | null,
   now: number,
   intervalMs = API_KEY_TOUCH_INTERVAL_MS,
 ): boolean {

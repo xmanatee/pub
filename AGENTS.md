@@ -126,6 +126,13 @@ Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list.
 - `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY` — observability
 - Auth secrets (`AUTH_GITHUB_*`, `AUTH_GOOGLE_*`) are set in the Convex dashboard, not in `.env`
 
+## Nullability Convention
+
+- **`undefined` (via `?`)** for TypeScript-internal optionality — optional params, optional object properties, function returns meaning "not provided"
+- **`null`** for data-layer and explicit absence — Convex values, JSON-serialized fields, React refs, protocol parse failures
+- **Never `| null | undefined`** in the same type signature unless there is a documented reason (e.g., input validators that must accept any value)
+- Prefer `??` over `||` for default values (nullish coalescing handles both `null` and `undefined` without swallowing `0`, `""`, `false`)
+
 ## Working Preferences (Corrected)
 
 - Prefer explicit, debuggable failures; avoid silent fallbacks in CLI/daemon/bridge paths.

@@ -22,7 +22,7 @@ export function createBridgeManager(params: {
     clearBindings: () => void;
   };
   apiClient: {
-    get: (slug: string) => Promise<{ title?: string; isPublic?: boolean; content?: string | null }>;
+    get: (slug: string) => Promise<{ title?: string; isPublic?: boolean; content?: string }>;
   };
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;

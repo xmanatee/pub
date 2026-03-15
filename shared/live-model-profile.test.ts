@@ -19,7 +19,6 @@ describe("live-model-profile", () => {
 
   it("falls back to the default profile", () => {
     expect(resolveLiveModelProfile(undefined)).toBe("balanced");
-    expect(resolveLiveModelProfile(null)).toBe("balanced");
     expect(resolveLiveModelProfile("fast")).toBe("fast");
   });
 });

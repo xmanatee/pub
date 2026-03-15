@@ -46,8 +46,8 @@ function isDomExceptionWithName(error: unknown, name: string): boolean {
 }
 
 export async function prepareMobileLiveConnection(params?: {
-  platform?: BrowserPlatformSnapshot | null;
-  getUserMedia?: GetUserMedia | null;
+  platform?: BrowserPlatformSnapshot;
+  getUserMedia?: GetUserMedia;
 }): Promise<boolean> {
   const platform = params?.platform ?? readBrowserPlatform();
   if (!isIosWebKitIPhone(platform)) return false;

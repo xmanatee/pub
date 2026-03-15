@@ -65,7 +65,7 @@ export interface ActiveSlugRequest {
 }
 
 export type ActiveSlugResponse = IpcSuccessResponse<{
-  slug?: string | null;
+  slug: string | null;
 }> | IpcErrorResponse;
 
 export interface CloseRequest {
@@ -181,30 +181,14 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const agentState = readString(record.agentState);
     const executorState = readString(record.executorState);
     const signalingConnected =
-      record.signalingConnected === null
-        ? null
-        : record.signalingConnected === undefined
-          ? undefined
-          : readBoolean(record.signalingConnected);
+      record.signalingConnected === null ? null : readBoolean(record.signalingConnected);
     const activeSlug =
-      record.activeSlug === null
-        ? null
-        : record.activeSlug === undefined
-          ? undefined
-          : readString(record.activeSlug);
+      record.activeSlug === null ? null : readString(record.activeSlug);
     const uptime = readFiniteNumber(record.uptime);
     const lastError =
-      record.lastError === null
-        ? null
-        : record.lastError === undefined
-          ? undefined
-          : readString(record.lastError);
+      record.lastError === null ? null : readString(record.lastError);
     const bridgeMode =
-      record.bridgeMode === null
-        ? null
-        : record.bridgeMode === undefined
-          ? undefined
-          : readString(record.bridgeMode);
+      record.bridgeMode === null ? null : readString(record.bridgeMode);
     if (
       !isLiveConnectionState(connectionState) ||
       !isLiveAgentState(agentState) ||
@@ -220,12 +204,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     }
     const channels = record.channels.filter((entry): entry is string => typeof entry === "string");
     if (channels.length !== record.channels.length) return null;
-    const bridge = record.bridge === undefined ? null : parseBridgeStatus(record.bridge);
-    if (record.bridge !== undefined && bridge === null && record.bridge !== null) return null;
-    const logPath =
-      record.logPath === null || record.logPath === undefined
-        ? null
-        : readString(record.logPath) ?? null;
+    const bridge = record.bridge == null ? null : parseBridgeStatus(record.bridge);
+    if (bridge === null && record.bridge != null) return null;
+    const logPath = readString(record.logPath) ?? null;
     return {
       ok: true,
       connectionState,
@@ -243,9 +224,8 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
   }
 
   if (method === "active-slug") {
-    const slug =
-      record.slug === null ? null : record.slug === undefined ? undefined : readString(record.slug);
-    if (record.slug !== undefined && slug === undefined) return null;
+    const slug = record.slug === null ? null : readString(record.slug);
+    if (slug === undefined) return null;
     return { ok: true, slug } as IpcResponseFor<T>;
   }
 

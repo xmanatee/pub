@@ -11,8 +11,6 @@ export function readLiveModelProfile(input: unknown): LiveModelProfile | undefin
   return undefined;
 }
 
-export function resolveLiveModelProfile(
-  profile: LiveModelProfile | null | undefined,
-): LiveModelProfile {
+export function resolveLiveModelProfile(profile: LiveModelProfile | undefined): LiveModelProfile {
   return profile ?? DEFAULT_LIVE_MODEL_PROFILE;
 }

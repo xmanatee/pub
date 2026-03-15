@@ -55,17 +55,17 @@ function StaticControlBar({
   agentName = "Agent",
   visualState = "idle",
   controlBarState,
-  chatPreview = null,
+  chatPreview,
   collapsed = false,
   sessionState = "active",
   lastTakeoverAt,
   initialInput,
   initialExpanded = false,
 }: {
-  agentName?: string | null;
+  agentName?: string;
   visualState?: LiveVisualState;
   controlBarState?: LiveControlBarState;
-  chatPreview?: string | null;
+  chatPreview?: string;
   collapsed?: boolean;
   sessionState?: SessionState;
   lastTakeoverAt?: number;

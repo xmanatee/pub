@@ -1,6 +1,4 @@
-import type {
-  LiveRuntimeStateSnapshot,
-} from "./live-runtime-state-core";
+import type { LiveRuntimeStateSnapshot } from "./live-runtime-state-core";
 import {
   isLiveAgentState,
   isLiveConnectionState,
@@ -143,8 +141,7 @@ export function encodeMessage(msg: BridgeMessage): string {
   return JSON.stringify(msg);
 }
 
-function parseBridgeMessageMeta(input: unknown): BridgeMessageMeta | undefined | null {
-  if (input === undefined) return undefined;
+function parseBridgeMessageMeta(input: unknown): BridgeMessageMeta | null {
   const record = readRecord(input);
   if (!record) return null;
 
@@ -183,7 +180,7 @@ export function parseBridgeMessage(input: unknown): BridgeMessage | null {
     return null;
   }
 
-  const meta = parseBridgeMessageMeta(record.meta);
+  const meta = record.meta === undefined ? undefined : parseBridgeMessageMeta(record.meta);
   if (meta === null) return null;
 
   return {

@@ -159,7 +159,6 @@ describe("mapLiveError", () => {
 
 describe("shouldTouchApiKey", () => {
   it("touches when key has never been used", () => {
-    expect(shouldTouchApiKey(undefined, 10_000)).toBe(true);
     expect(shouldTouchApiKey(null, 10_000)).toBe(true);
   });
 
