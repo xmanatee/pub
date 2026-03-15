@@ -59,40 +59,35 @@ export async function runOpenClawBridgeStartupProbe(
 
   await runOpenClawPreflight(runtime.openclawPath, env);
 
-  // Full pong probe only during auto-detect (pub config --auto).
-  // During pub start (strictConfig), the session may be locked by the calling
-  // conversation — the binary check above is sufficient.
-  if (!strictConfig) {
-    try {
-      await runAgentWritePongProbe({
-        label: "OpenClaw",
-        baseEnv: env,
-        execute: async (probeEnv, _signal) => {
-          await deliverMessageToOpenClaw(
-            {
-              openclawPath: runtime.openclawPath,
-              sessionId: runtime.sessionId,
-              text: [
-                "[pub preflight] Connectivity probe.",
-                "Run this exact command now:",
-                'pub write "pong"',
-                "Do not explain. Just execute it.",
-              ].join("\n"),
-              local: true,
-            },
-            probeEnv,
-            { bridgeCwd },
-          );
-        },
-      });
-    } catch (error) {
-      throw formatProbeFailure({
-        openclawPath: runtime.openclawPath,
-        sessionId: runtime.sessionId,
-        bridgeCwd,
-        error,
-      });
-    }
+  try {
+    await runAgentWritePongProbe({
+      label: "OpenClaw",
+      baseEnv: env,
+      execute: async (probeEnv, _signal) => {
+        await deliverMessageToOpenClaw(
+          {
+            openclawPath: runtime.openclawPath,
+            sessionId: runtime.sessionId,
+            text: [
+              "[pub preflight] Connectivity probe.",
+              "Run this exact command now:",
+              'pub write "pong"',
+              "Do not explain. Just execute it.",
+            ].join("\n"),
+            local: true,
+          },
+          probeEnv,
+          { bridgeCwd },
+        );
+      },
+    });
+  } catch (error) {
+    throw formatProbeFailure({
+      openclawPath: runtime.openclawPath,
+      sessionId: runtime.sessionId,
+      bridgeCwd,
+      error,
+    });
   }
 
   return runtime;

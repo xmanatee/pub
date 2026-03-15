@@ -98,7 +98,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
         detailLines: [
           `OpenClaw executable: ${runtime.openclawPath}`,
           `OpenClaw session: ${runtime.sessionId}`,
-          ...(options.strictConfig ? [] : ["OpenClaw ping/pong: OK"]),
+          "OpenClaw ping/pong: OK",
         ],
         configPatch: {
           mode: "openclaw" as const,
