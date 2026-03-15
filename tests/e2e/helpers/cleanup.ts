@@ -2,7 +2,6 @@
  * Process and resource cleanup utilities for E2E tests.
  * Ensures no zombie daemons, stale sockets, or temp dirs survive test runs.
  */
-import { execSync } from "node:child_process";
 import { readdirSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,7 +22,10 @@ export function killProcess(pid: number, timeoutMs = 5_000): boolean {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (!isProcessAlive(pid)) return true;
-    execSync("sleep 0.2");
+    const waitUntil = Date.now() + 200;
+    while (Date.now() < waitUntil) {
+      /* busy-wait 200ms */
+    }
   }
 
   try {
@@ -72,24 +74,5 @@ export function cleanupTempConfigDirs(): void {
         // Dir may have been removed between readdir and rmSync
       }
     }
-  }
-}
-
-/** Kill any stale pub daemon processes (safety net for crashed tests). */
-export function killStaleDaemons(): void {
-  try {
-    const pids = execSync("pgrep -f 'pub-daemon\\|pub.*start.*--agent-name'", {
-      encoding: "utf-8",
-      timeout: 5_000,
-    }).trim();
-
-    for (const line of pids.split("\n")) {
-      const pid = parseInt(line.trim(), 10);
-      if (pid > 0) {
-        killProcess(pid, 3_000);
-      }
-    }
-  } catch {
-    // pgrep exits non-zero when no processes match
   }
 }

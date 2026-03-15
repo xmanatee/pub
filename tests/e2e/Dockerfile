@@ -1,26 +1,55 @@
-# Stage 1: Base with dependencies
-FROM node:22-slim AS base
+# Stage 1: Build CLI binary and generate Convex types
+FROM node:22-slim AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g bun
+
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
+COPY cli/package.json ./cli/
 RUN pnpm install --frozen-lockfile
 
-# Stage 2: Frontend dev server
-FROM base AS frontend
 COPY . .
-# Generate Convex types (offline codegen)
-RUN pnpm convex codegen --admin-key "test-admin-key" --url "http://convex-backend:3210" 2>/dev/null || true
-EXPOSE 3000
-CMD ["sh", "-c", "cd web && npx vite dev --host 0.0.0.0 --port 3000"]
 
-# Stage 3: Test runner
+# Generate Convex types (offline, placeholder URL — may partially fail, that's OK)
+RUN npx convex codegen --admin-key "build-placeholder" --url "http://placeholder:3210" 2>/dev/null || true
+
+# Build CLI binaries (all platforms)
+RUN cd cli && bun run build-binary.ts
+
+# Copy the correct binary for the target architecture
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      cp cli/dist-bin/pub-linux-arm64 cli/dist-bin/pub-target; \
+    else \
+      cp cli/dist-bin/pub-linux-x64 cli/dist-bin/pub-target; \
+    fi
+
+# Stage 2: Test runner (Vite + proxy + CLI + Playwright — all in one)
 FROM mcr.microsoft.com/playwright:v1.58.2-noble AS test-runner
 RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
+COPY cli/package.json ./cli/
 RUN pnpm install --frozen-lockfile
+
 COPY . .
-RUN pnpm playwright install chromium
-CMD ["pnpm", "playwright", "test", "--config", "tests/e2e/playwright.config.ts"]
+
+# Copy generated Convex types from builder
+COPY --from=builder /app/convex/_generated ./convex/_generated
+
+# Copy prebuilt CLI binary
+COPY --from=builder /app/cli/dist-bin/pub-target /usr/local/bin/pub
+RUN chmod +x /usr/local/bin/pub
+
+# Install Playwright browser
+RUN npx playwright install chromium
+
+# Entrypoint starts Vite, proxy, reads admin key, then runs Playwright
+COPY tests/e2e/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]

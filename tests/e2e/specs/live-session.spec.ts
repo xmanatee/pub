@@ -22,7 +22,7 @@ async function retryWrite(fixture: CliFixture, message: string, maxAttempts = 10
       fixture.write(message);
       return;
     } catch (e) {
-      if (i === maxAttempts - 1 || !String(e).includes("Live session is not established")) throw e;
+      if (i === maxAttempts - 1 || !String(e).includes("not ready yet")) throw e;
       await new Promise((r) => setTimeout(r, 3_000));
     }
   }

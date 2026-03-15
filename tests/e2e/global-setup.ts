@@ -1,32 +1,43 @@
 /**
  * Global setup for full-stack E2E tests.
  *
- * Expects env vars from the calling script (e2e-local.sh or Docker):
- *   CONVEX_URL, CONVEX_SITE_URL, ADMIN_KEY
+ * Expects env vars from Docker entrypoint or calling script:
+ *   CONVEX_URL, CONVEX_SITE_URL, ADMIN_KEY (or /shared/admin-key file)
  *
  * Steps:
  *  1. Wait for Convex backend
  *  2. Set auth env vars (dummy OAuth creds + SITE_URL)
  *  3. Deploy Convex functions
- *  4. Build CLI binary
+ *  4. Build CLI binary (skipped in Docker — prebuilt)
  *  5. Seed default test user
  *  6. Write state file for test fixtures
  */
 import { execSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { buildCli } from "./fixtures/cli";
 import { type E2EState, seedUser, writeState } from "./fixtures/convex";
 import { generateAuthKeys } from "./helpers/generate-auth-keys";
 import { waitForUrl } from "./helpers/wait-for";
 
+function resolveAdminKey(): string {
+  if (process.env.ADMIN_KEY) return process.env.ADMIN_KEY;
+
+  const keyFile = "/shared/admin-key";
+  if (existsSync(keyFile)) {
+    const key = readFileSync(keyFile, "utf-8").trim();
+    if (key.length > 0) return key;
+  }
+
+  throw new Error(
+    "ADMIN_KEY not found. Set ADMIN_KEY env var or provide /shared/admin-key file (Docker mode).",
+  );
+}
+
 export default async function globalSetup() {
   const convexUrl = process.env.CONVEX_URL ?? "http://localhost:3210";
   const convexSiteUrl = process.env.CONVEX_SITE_URL ?? "http://localhost:3211";
   const convexProxyUrl = process.env.CONVEX_PROXY_URL ?? convexSiteUrl;
-  const adminKey = process.env.ADMIN_KEY;
-
-  if (!adminKey) {
-    throw new Error("ADMIN_KEY env var is required. Run via scripts/e2e-local.sh.");
-  }
+  const adminKey = resolveAdminKey();
 
   console.log("[e2e] Waiting for Convex backend...");
   await waitForUrl(`${convexUrl}/version`, { timeout: 60_000, interval: 2_000 });
@@ -81,7 +92,7 @@ export default async function globalSetup() {
     env: { ...process.env, IS_TEST: "true" },
   });
 
-  // Build CLI binary
+  // Build CLI binary (no-op in Docker — prebuilt at /usr/local/bin/pub)
   console.log("[e2e] Building CLI...");
   buildCli();
 

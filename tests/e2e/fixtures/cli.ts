@@ -9,6 +9,7 @@
  *  4. Remove temp config dir
  */
 import { execFileSync, execSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -49,6 +50,7 @@ export class CliFixture {
   private convexSiteUrl: string;
   private daemonPid: number | null = null;
   private socketPath: string | null = null;
+  private isolatedSocketPath: string;
   private options: CliFixtureOptions;
 
   constructor(user: TestUser, convexSiteUrl: string, options: CliFixtureOptions = {}) {
@@ -56,6 +58,7 @@ export class CliFixture {
     this.convexSiteUrl = convexSiteUrl;
     this.options = options;
     this.configDir = mkdtempSync(join(tmpdir(), "pub-e2e-config-"));
+    this.isolatedSocketPath = join(tmpdir(), `pub-agent-e2e-${randomUUID().slice(0, 8)}.sock`);
     this.cliBin = getCliBinaryPath();
     this.writeConfig();
   }
@@ -83,6 +86,7 @@ export class CliFixture {
       PUB_BASE_URL: this.convexSiteUrl,
       PUB_SKIP_UPDATE_CHECK: "1",
       PUB_CLI_BIN: this.cliBin,
+      PUB_AGENT_SOCKET: this.isolatedSocketPath,
     };
     if (this.options.briefingDelay != null) {
       env.MOCK_BRIDGE_BRIEFING_DELAY = String(this.options.briefingDelay);
@@ -198,12 +202,14 @@ export class CliFixture {
     // 2. Force-kill if still alive
     this.forceKill();
 
-    // 3. Clean up socket file
-    if (this.socketPath) {
-      try {
-        rmSync(this.socketPath, { force: true });
-      } catch {
-        // Socket may have been removed by daemon shutdown
+    // 3. Clean up socket files
+    for (const sock of [this.socketPath, this.isolatedSocketPath]) {
+      if (sock) {
+        try {
+          rmSync(sock, { force: true });
+        } catch {
+          // Socket may have been removed by daemon shutdown
+        }
       }
     }
 
@@ -216,8 +222,12 @@ export class CliFixture {
   }
 }
 
-/** Resolve the CLI binary path. */
+const DOCKER_CLI_BIN = "/usr/local/bin/pub";
+
+/** Resolve the CLI binary path. Docker mode uses prebuilt binary; local falls back to dist-bin. */
 function getCliBinaryPath(): string {
+  if (existsSync(DOCKER_CLI_BIN)) return DOCKER_CLI_BIN;
+
   const platform = process.platform === "darwin" ? "darwin" : "linux";
   const arch = process.arch === "arm64" ? "arm64" : "x64";
   const binName = `pub-${platform}-${arch}`;
@@ -230,8 +240,10 @@ function getCliBinaryPath(): string {
   return binPath;
 }
 
-/** Build the CLI binary. Call during global setup. */
+/** Build the CLI binary. No-op in Docker mode (prebuilt binary). */
 export function buildCli(): void {
+  if (existsSync(DOCKER_CLI_BIN)) return;
+
   if (!existsSync(CLI_BUILD_DIR)) {
     throw new Error(`CLI directory not found at ${CLI_BUILD_DIR}`);
   }
