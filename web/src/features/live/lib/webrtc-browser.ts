@@ -90,11 +90,23 @@ export class BrowserBridge {
   private seenInboundMessageKeys = new Set<string>();
   private remoteDescriptionSet = false;
   private offerSent = false;
+  private pendingAnswer: string | null = null;
+  private pendingCandidates: string[] = [];
   private runtimeState: LiveRuntimeStateSnapshot = { ...IDLE_LIVE_RUNTIME_STATE };
   private onProfileMark: ((label: string) => void) | null = null;
 
   markOfferSent(): void {
     this.offerSent = true;
+    if (this.pendingAnswer) {
+      const answer = this.pendingAnswer;
+      this.pendingAnswer = null;
+      void this.applyAnswer(answer);
+    }
+    if (this.pendingCandidates.length > 0) {
+      const candidates = this.pendingCandidates;
+      this.pendingCandidates = [];
+      void this.addRemoteCandidates(candidates);
+    }
   }
 
   setOnStateChange(handler: StateChangeHandler): void {
@@ -163,7 +175,10 @@ export class BrowserBridge {
 
   async applyAnswer(agentAnswer: string): Promise<void> {
     if (!this.pc) throw new Error("No peer connection");
-    if (!this.offerSent) return;
+    if (!this.offerSent) {
+      this.pendingAnswer = agentAnswer;
+      return;
+    }
     const answer = parseSessionDescription(agentAnswer, "Agent answer");
     await this.pc.setRemoteDescription(answer as RTCSessionDescriptionInit);
     this.remoteDescriptionSet = true;
@@ -219,7 +234,10 @@ export class BrowserBridge {
   }
 
   async addRemoteCandidates(candidates: string[]): Promise<void> {
-    if (!this.offerSent) return;
+    if (!this.offerSent) {
+      this.pendingCandidates.push(...candidates);
+      return;
+    }
     for (const candidate of candidates) {
       if (!this.remoteDescriptionSet) {
         this.pendingRemoteCandidates.push(candidate);

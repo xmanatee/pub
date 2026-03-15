@@ -266,6 +266,8 @@ export function createBridgeManager(params: {
       await stopBridge();
     }
 
+    const isStale = () => state.stopped || state.activeSlug !== slug;
+
     const slowPreparationTimer = setTimeout(() => {
       if (
         state.agentPreparing &&
@@ -286,19 +288,21 @@ export function createBridgeManager(params: {
         await publishRuntimeState().catch((error) => {
           debugLog(`failed to publish preparing state for "${slug}"`, error);
         });
+        if (isStale()) return;
         debugLog(`agent preparation start slug=${slug}`);
         await startBridge(slug);
         debugLog(`[profile] bridge started in ${Date.now() - t0}ms`);
-        if (state.stopped || !isLiveConnectionReady(state.runtimeState) || state.activeSlug !== slug)
-          return;
+        if (isStale() || !isLiveConnectionReady(state.runtimeState)) return;
         setDaemonAgentState(state, "ready");
         const tReady = Date.now();
         await publishRuntimeState({ requireDelivery: true });
+        if (isStale()) return;
         debugLog(`agent preparation complete slug=${slug} total=${Date.now() - t0}ms`);
         debugLog(
           `[profile] ready state sent in ${Date.now() - tReady}ms (total ${Date.now() - t0}ms)`,
         );
       } catch (error) {
+        if (isStale()) return;
         setDaemonAgentState(state, "idle");
         await publishRuntimeState().catch((publishError) => {
           debugLog(`failed to publish idle state for "${slug}"`, publishError);
@@ -314,7 +318,9 @@ export function createBridgeManager(params: {
         markError(`failed to prepare agent session for "${slug}"`, error);
       } finally {
         clearTimeout(slowPreparationTimer);
-        state.agentPreparing = null;
+        if (!isStale()) {
+          state.agentPreparing = null;
+        }
       }
     })();
 
