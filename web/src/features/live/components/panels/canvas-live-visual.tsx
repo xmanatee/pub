@@ -19,10 +19,15 @@ export function CanvasLiveVisual({
   const tone = VISUAL_THEME[state];
 
   return (
-    <div className={cn("absolute inset-0 pointer-events-none", className)}>
+    <div
+      className={cn(
+        "absolute inset-0 flex items-center justify-center pointer-events-none",
+        className,
+      )}
+    >
       <BlobVisual
-        className={cn(fadeOut && "opacity-0")}
-        hasCanvasContent={hasCanvasContent}
+        className={cn("h-1/2 aspect-square", fadeOut && "opacity-0")}
+        dimmed={hasCanvasContent}
         tone={tone}
       />
     </div>

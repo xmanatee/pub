@@ -5,6 +5,8 @@ import { smoothLerp, smoothLerpHue, type VisualProps } from "./shared";
 const TAU = Math.PI * 2;
 const POINTS = 7;
 const INNER_POINTS = 4;
+const RADIUS_FRACTION = 0.42;
+const WOBBLE_MAX = 0.3;
 
 function buildBlobPath(ctx: CanvasRenderingContext2D, pts: [number, number][], count: number) {
   ctx.beginPath();
@@ -23,13 +25,12 @@ function buildBlobPath(ctx: CanvasRenderingContext2D, pts: [number, number][], c
   ctx.closePath();
 }
 
-export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
+export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const toneRef = useRef(tone);
   const currentToneRef = useRef({ ...tone });
-  const hasContentRef = useRef(hasCanvasContent);
+  const dimmedRef = useRef(dimmed);
   const rafRef = useRef<number | null>(null);
-  const drawRef = useRef<((timestamp: number) => void) | null>(null);
   const lastTimeRef = useRef(0);
 
   useEffect(() => {
@@ -37,8 +38,8 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
   }, [tone]);
 
   useEffect(() => {
-    hasContentRef.current = hasCanvasContent;
-  }, [hasCanvasContent]);
+    dimmedRef.current = dimmed;
+  }, [dimmed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -120,12 +121,14 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
 
       const cx = w * 0.5;
       const cy = h * 0.48;
-      const baseRadius = Math.min(w, h) * 0.22 * cur.coreScale;
-      const innerRadius = baseRadius * 0.5;
-      const amp1 = baseRadius * 0.2 * cur.energy;
-      const amp2 = baseRadius * 0.12 * cur.energy;
-      const amp3 = baseRadius * 0.07 * cur.energy;
-      const amp4 = baseRadius * 0.03 * cur.energy * cur.energy;
+      const maxRadius = Math.min(w, h) * RADIUS_FRACTION * cur.coreScale;
+      const innerMaxRadius = maxRadius * 0.4;
+      const wobbleBudget = maxRadius * WOBBLE_MAX * cur.energy;
+      const centerRadius = maxRadius - wobbleBudget;
+      const amp1 = wobbleBudget * 0.48;
+      const amp2 = wobbleBudget * 0.28;
+      const amp3 = wobbleBudget * 0.17;
+      const amp4 = wobbleBudget * 0.07;
 
       const pts: [number, number][] = [];
       for (let i = 0; i < POINTS; i++) {
@@ -133,7 +136,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
         const wobble = Math.sin(t * 0.7 + ph * 1.9) * 0.04 * cur.energy;
         const angle = (i / POINTS) * TAU + wobble;
         const r =
-          baseRadius +
+          centerRadius +
           Math.sin(t + ph) * amp1 +
           Math.sin(t * 1.7 + ph * 2.3) * amp2 +
           Math.sin(t * 2.3 + ph * 3.1) * amp3 +
@@ -141,7 +144,7 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
         pts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
       }
 
-      const opacity = hasContentRef.current ? 0.24 : 1;
+      const opacity = dimmedRef.current ? 0.24 : 1;
       const sat = cur.saturation * 80;
 
       if (
@@ -154,11 +157,11 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
         Math.abs(opacity - cachedOpacity) > 0.001 ||
         Math.abs(cur.coreScale - cachedCoreScale) > 0.005
       ) {
-        cachedGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius * 1.5);
+        cachedGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius * 1.2);
         cachedGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 62% / ${0.7 * opacity})`);
         cachedGrad.addColorStop(0.5, `hsl(${cur.hueB} ${sat}% 56% / ${0.5 * opacity})`);
         cachedGrad.addColorStop(1, `hsl(${cur.hueC} ${sat}% 50% / ${0.15 * opacity})`);
-        cachedInnerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerRadius * 1.4);
+        cachedInnerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerMaxRadius * 1.4);
         cachedInnerGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 76% / ${0.6 * opacity})`);
         cachedInnerGrad.addColorStop(0.6, `hsl(${cur.hueB} ${sat}% 68% / ${0.3 * opacity})`);
         cachedInnerGrad.addColorStop(1, "transparent");
@@ -189,15 +192,17 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      const innerAmp1 = innerRadius * 0.22 * cur.energy;
-      const innerAmp2 = innerRadius * 0.12 * cur.energy;
+      const innerWobble = innerMaxRadius * WOBBLE_MAX * cur.energy;
+      const innerCenter = innerMaxRadius - innerWobble;
+      const innerAmp1 = innerWobble * 0.65;
+      const innerAmp2 = innerWobble * 0.35;
       const innerPts: [number, number][] = [];
       for (let i = 0; i < INNER_POINTS; i++) {
         const ph = innerPhases[i];
         const wobble = Math.sin(t * 0.9 + ph * 2.1) * 0.06 * cur.energy;
         const angle = (i / INNER_POINTS) * TAU + wobble;
         const r =
-          innerRadius +
+          innerCenter +
           Math.sin(t * 1.3 + ph) * innerAmp1 +
           Math.sin(t * 2.1 + ph * 1.7) * innerAmp2;
         innerPts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
@@ -211,7 +216,6 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
       rafRef.current = requestAnimationFrame(draw);
     };
 
-    drawRef.current = draw;
     rafRef.current = requestAnimationFrame(draw);
 
     return () => {
@@ -219,17 +223,10 @@ export function BlobVisual({ tone, hasCanvasContent, className }: VisualProps) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
-      drawRef.current = null;
       lastTimeRef.current = 0;
       observer.disconnect();
     };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className={cn("absolute inset-0 h-full w-full", className)}
-      aria-hidden
-    />
-  );
+  return <canvas ref={canvasRef} className={cn("block h-full w-full", className)} aria-hidden />;
 }

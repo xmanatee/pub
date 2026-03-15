@@ -136,7 +136,7 @@ export const VISUAL_THEME: Record<LiveVisualState, Tone> = {
 
 export interface VisualProps {
   tone: Tone;
-  hasCanvasContent: boolean;
+  dimmed?: boolean;
   className?: string;
 }
 
