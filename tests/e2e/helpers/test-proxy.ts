@@ -62,7 +62,5 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(PROXY_PORT, () => {
-  console.log(
-    `[proxy] site(${HTTP_PORT}) api(${WS_PORT}) on :${PROXY_PORT} → ${CONVEX_HOST}`,
-  );
+  console.log(`[proxy] site(${HTTP_PORT}) api(${WS_PORT}) on :${PROXY_PORT} → ${CONVEX_HOST}`);
 });
