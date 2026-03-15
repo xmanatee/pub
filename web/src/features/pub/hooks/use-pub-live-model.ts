@@ -127,15 +127,17 @@ export function usePubLiveModel({
   const canvasScopeKey = `${slug}:${canvasScopeVersion}`;
 
   const {
-    bridgeRef,
-    bridgeState,
+    ensureChannel,
     runtimeState,
     lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,
+    sendBinaryOnChannel,
     sendChat,
     sendFile,
+    sendOnChannel,
     sendRenderError,
+    sendWithAckOnChannel,
     setViewMode,
     viewMode,
   } = useLiveTransport({
@@ -202,7 +204,10 @@ export function usePubLiveModel({
     outboundCanvasBridgeMessage,
     reset: resetCanvasCommands,
   } = useCanvasCommands({
-    bridgeRef,
+    sendOnChannel,
+    sendBinaryOnChannel,
+    sendWithAckOnChannel,
+    ensureChannel,
     canvasScopeKey,
     runtimeState,
     liveMode,
@@ -213,7 +218,9 @@ export function usePubLiveModel({
 
   const audio = useControlBarAudio({
     disabled: runtimeState.connectionState !== "connected" || runtimeState.agentState !== "ready",
-    bridge: bridgeRef.current,
+    sendOnChannel,
+    sendBinaryOnChannel,
+    ensureChannel,
     micGranted,
     onMicGranted: setMicGranted,
     onSendAudio: sendAudio,
@@ -433,8 +440,6 @@ export function usePubLiveModel({
     addSystemMessage,
     autoOpenCanvas,
     agentState: runtimeState.agentState,
-    bridgeRef,
-    bridgeState,
     canvasError,
     canvasHtml,
     canUseDeveloperMode,

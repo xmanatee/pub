@@ -2,6 +2,7 @@ import { canSendAgentTraffic } from "@shared/live-runtime-state-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveBridge } from "~/features/live/hooks/use-live-bridge";
 import {
+  type BridgeMessage,
   CHANNELS,
   generateMessageId,
   makeStreamEnd,
@@ -257,7 +258,7 @@ export function useLiveTransport({
     [markMessageConfirmed, markMessageFailed, markMessageReceived],
   );
 
-  const { bridgeRef, bridgeState, runtimeState } = useLiveBridge({
+  const { bridgeRef, runtimeState } = useLiveBridge({
     slug,
     enabled,
     transportKey,
@@ -270,6 +271,35 @@ export function useLiveTransport({
     onSystemMessage: emitSystemMessage,
     onTrackActivity: markAgentOutput,
   });
+
+  const sendOnChannel = useCallback(
+    (channel: string, message: BridgeMessage): boolean => {
+      return bridgeRef.current?.send(channel, message) ?? false;
+    },
+    [bridgeRef],
+  );
+
+  const sendBinaryOnChannel = useCallback(
+    (channel: string, data: ArrayBuffer): boolean => {
+      return bridgeRef.current?.sendBinary(channel, data) ?? false;
+    },
+    [bridgeRef],
+  );
+
+  const sendWithAckOnChannel = useCallback(
+    async (channel: string, message: BridgeMessage, timeoutMs?: number): Promise<boolean> => {
+      return bridgeRef.current?.sendWithAck(channel, message, timeoutMs) ?? false;
+    },
+    [bridgeRef],
+  );
+
+  const ensureChannel = useCallback(
+    async (channel: string, timeoutMs?: number): Promise<boolean> => {
+      const bridge = bridgeRef.current;
+      return bridge ? ensureChannelReady(bridge, channel, timeoutMs) : false;
+    },
+    [bridgeRef],
+  );
 
   const dispatchChatMessage = useCallback(
     (msg: ReturnType<typeof makeTextMessage>) => {
@@ -595,7 +625,7 @@ export function useLiveTransport({
   }, [dispatchAudio, dispatchChatMessage, dispatchFile, runtimeState]);
 
   useEffect(() => {
-    if (bridgeState === "failed") {
+    if (runtimeState.connectionState === "failed") {
       failSentMessages();
       emitSystemMessage({
         content: "Live connection dropped. Pending messages may have failed.",
@@ -603,18 +633,20 @@ export function useLiveTransport({
         severity: "warning",
       });
     }
-  }, [bridgeState, emitSystemMessage, failSentMessages]);
+  }, [runtimeState.connectionState, emitSystemMessage, failSentMessages]);
 
   return {
-    bridgeRef,
-    bridgeState,
+    ensureChannel,
     runtimeState,
     lastAgentOutput,
     lastUserDeliveredAt,
     sendAudio,
+    sendBinaryOnChannel,
     sendChat,
     sendFile,
+    sendOnChannel,
     sendRenderError,
+    sendWithAckOnChannel,
     setViewMode,
     viewMode,
   };

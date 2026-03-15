@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
-import type { BrowserBridge } from "~/features/live/lib/webrtc-browser";
-import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
+import {
+  type BridgeMessage,
+  CHANNELS,
+  makeStreamEnd,
+  makeStreamStart,
+} from "~/features/live/lib/bridge-protocol";
 import type { SystemMessageSeverity } from "~/features/live-chat/types/live-chat-types";
 import {
   canStartRecording,
@@ -16,7 +19,9 @@ export type { BarMode } from "~/features/live-control-bar/model/control-bar-audi
 
 interface UseControlBarAudioOptions {
   disabled: boolean;
-  bridge: BrowserBridge | null;
+  sendOnChannel: (channel: string, message: BridgeMessage) => boolean;
+  sendBinaryOnChannel: (channel: string, data: ArrayBuffer) => boolean;
+  ensureChannel: (channel: string, timeoutMs?: number) => Promise<boolean>;
   micGranted: boolean;
   onMicGranted: (granted: boolean) => void;
   onSystemMessage?: (params: {
@@ -37,7 +42,9 @@ function getSupportedMimeType(): string {
 
 export function useControlBarAudio({
   disabled,
-  bridge,
+  sendOnChannel,
+  sendBinaryOnChannel,
+  ensureChannel,
   micGranted,
   onMicGranted,
   onSystemMessage,
@@ -303,7 +310,7 @@ export function useControlBarAudio({
   }, [state.mode, startTimer]);
 
   const startVoiceMode = useCallback(async () => {
-    if (disabled || !bridge || !canStartVoice(state.mode)) return;
+    if (disabled || !canStartVoice(state.mode)) return;
     dispatch({ type: "START_VOICE_REQUEST" });
 
     try {
@@ -311,7 +318,7 @@ export function useControlBarAudio({
       onMicGranted(true);
       const mime = getSupportedMimeType();
 
-      const ready = await ensureChannelReady(bridge, CHANNELS.AUDIO);
+      const ready = await ensureChannel(CHANNELS.AUDIO);
       if (!ready) {
         emitSystemMessage({
           content: "Voice mode is unavailable right now. Audio channel is not ready.",
@@ -324,7 +331,7 @@ export function useControlBarAudio({
       }
 
       const startMsg = makeStreamStart({ mime });
-      if (!bridge.send(CHANNELS.AUDIO, startMsg)) {
+      if (!sendOnChannel(CHANNELS.AUDIO, startMsg)) {
         emitSystemMessage({
           content: "Voice mode could not start. Failed to open the audio stream.",
           dedupeKey: "voice-start-send-failed",
@@ -343,7 +350,7 @@ export function useControlBarAudio({
       recorder.ondataavailable = async (ev) => {
         if (ev.data.size > 0 && streamIdRef.current) {
           const buf = await ev.data.arrayBuffer();
-          if (!bridge.sendBinary(CHANNELS.AUDIO, buf)) {
+          if (!sendBinaryOnChannel(CHANNELS.AUDIO, buf)) {
             if (voiceSendFailedRef.current) return;
             voiceSendFailedRef.current = true;
             emitSystemMessage({
@@ -383,7 +390,9 @@ export function useControlBarAudio({
     }
   }, [
     disabled,
-    bridge,
+    ensureChannel,
+    sendOnChannel,
+    sendBinaryOnChannel,
     state.mode,
     setupAudio,
     onMicGranted,
@@ -407,8 +416,8 @@ export function useControlBarAudio({
     if (state.mode !== "stopping-voice") return;
     voiceSendFailedRef.current = false;
 
-    if (bridge && streamIdRef.current) {
-      if (!bridge.send(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current))) {
+    if (streamIdRef.current) {
+      if (!sendOnChannel(CHANNELS.AUDIO, makeStreamEnd(streamIdRef.current))) {
         emitSystemMessage({
           content: "Voice stream stopped, but the close event did not send cleanly.",
           dedupeKey: "voice-end-send-failed",
@@ -419,7 +428,7 @@ export function useControlBarAudio({
     }
     teardownMediaState(true);
     dispatch({ type: "VOICE_STOP_FINISHED" });
-  }, [state.mode, bridge, emitSystemMessage, teardownMediaState]);
+  }, [state.mode, sendOnChannel, emitSystemMessage, teardownMediaState]);
 
   useEffect(() => {
     return () => {

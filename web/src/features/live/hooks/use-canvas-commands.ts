@@ -10,8 +10,13 @@ import {
   canSendCommandTraffic,
   type LiveRuntimeStateSnapshot,
 } from "@shared/live-runtime-state-core";
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CHANNELS, makeStreamEnd, makeStreamStart } from "~/features/live/lib/bridge-protocol";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type BridgeMessage,
+  CHANNELS,
+  makeStreamEnd,
+  makeStreamStart,
+} from "~/features/live/lib/bridge-protocol";
 import {
   COMMAND_PROTOCOL_VERSION,
   type CommandCancelPayload,
@@ -20,8 +25,7 @@ import {
   makeCommandInvokeMessage,
   parseCommandResultMessage,
 } from "~/features/live/lib/command-protocol";
-import type { BrowserBridge, ChannelMessage } from "~/features/live/lib/webrtc-browser";
-import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
+import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { PARENT_TO_CANVAS_SOURCE } from "~/features/live/types/live-command-types";
 import type {
   CanvasBridgeCommandMessage,
@@ -35,7 +39,14 @@ const CANVAS_FILE_STREAM_CHUNK_SIZE = 48 * 1024;
 const DOWNLOAD_URL_REVOKE_DELAY_MS = 1_000;
 
 interface UseCanvasCommandsOptions {
-  bridgeRef: RefObject<BrowserBridge | null>;
+  sendOnChannel: (channel: string, message: BridgeMessage) => boolean;
+  sendBinaryOnChannel: (channel: string, data: ArrayBuffer) => boolean;
+  sendWithAckOnChannel: (
+    channel: string,
+    message: BridgeMessage,
+    timeoutMs?: number,
+  ) => Promise<boolean>;
+  ensureChannel: (channel: string, timeoutMs?: number) => Promise<boolean>;
   canvasScopeKey: string;
   runtimeState: LiveRuntimeStateSnapshot;
   liveMode: boolean;
@@ -173,7 +184,10 @@ function clickDownloadLink(url: string, filename: string): void {
 }
 
 export function useCanvasCommands({
-  bridgeRef,
+  sendOnChannel,
+  sendBinaryOnChannel,
+  sendWithAckOnChannel,
+  ensureChannel,
   canvasScopeKey,
   runtimeState,
   liveMode,
@@ -392,7 +406,6 @@ export function useCanvasCommands({
 
   const dispatchCanvasFileUpload = useCallback(
     (message: Extract<CanvasBridgeCommandMessage, { type: "file.upload" }>) => {
-      const bridge = bridgeRef.current;
       const { bytes, mime, requestId } = message.payload;
       if (bytes.byteLength === 0) {
         emitFileFailureToCanvas({
@@ -412,19 +425,10 @@ export function useCanvasCommands({
         });
         return;
       }
-      if (!bridge) {
-        emitFileFailureToCanvas({
-          requestId,
-          op: "upload",
-          code: "BRIDGE_UNAVAILABLE",
-          message: "File upload failed because the live bridge is unavailable.",
-        });
-        return;
-      }
 
       pendingCanvasFileRequestsRef.current.set(requestId, "upload");
 
-      void ensureChannelReady(bridge, CHANNELS.CANVAS_FILE)
+      void ensureChannel(CHANNELS.CANVAS_FILE)
         .then(async (ready) => {
           if (!ready) {
             emitFileFailureToCanvas({
@@ -444,7 +448,7 @@ export function useCanvasCommands({
             requestId,
           );
 
-          if (!bridge.send(CHANNELS.CANVAS_FILE, startMessage)) {
+          if (!sendOnChannel(CHANNELS.CANVAS_FILE, startMessage)) {
             emitFileFailureToCanvas({
               requestId,
               op: "upload",
@@ -461,7 +465,7 @@ export function useCanvasCommands({
             offset += CANVAS_FILE_STREAM_CHUNK_SIZE
           ) {
             const nextChunk = chunkBytes.slice(offset, offset + CANVAS_FILE_STREAM_CHUNK_SIZE);
-            if (!bridge.sendBinary(CHANNELS.CANVAS_FILE, nextChunk.buffer)) {
+            if (!sendBinaryOnChannel(CHANNELS.CANVAS_FILE, nextChunk.buffer)) {
               emitFileFailureToCanvas({
                 requestId,
                 op: "upload",
@@ -472,7 +476,7 @@ export function useCanvasCommands({
             }
           }
 
-          const ended = await bridge.sendWithAck(
+          const ended = await sendWithAckOnChannel(
             CHANNELS.CANVAS_FILE,
             makeStreamEnd(requestId),
             CANVAS_FILE_ACK_TIMEOUT_MS,
@@ -499,26 +503,22 @@ export function useCanvasCommands({
           });
         });
     },
-    [bridgeRef, emitFileFailureToCanvas],
+    [
+      emitFileFailureToCanvas,
+      ensureChannel,
+      sendBinaryOnChannel,
+      sendOnChannel,
+      sendWithAckOnChannel,
+    ],
   );
 
   const dispatchCanvasFileDownload = useCallback(
     (message: Extract<CanvasBridgeCommandMessage, { type: "file.download" }>) => {
-      const bridge = bridgeRef.current;
       const requestId = message.payload.requestId;
-      if (!bridge) {
-        emitFileFailureToCanvas({
-          requestId,
-          op: "download",
-          code: "BRIDGE_UNAVAILABLE",
-          message: "File download failed because the live bridge is unavailable.",
-        });
-        return;
-      }
 
       pendingCanvasFileRequestsRef.current.set(requestId, "download");
 
-      void ensureChannelReady(bridge, CHANNELS.CANVAS_FILE)
+      void ensureChannel(CHANNELS.CANVAS_FILE)
         .then(async (ready) => {
           if (!ready) {
             emitFileFailureToCanvas({
@@ -530,7 +530,7 @@ export function useCanvasCommands({
             return;
           }
 
-          const delivered = await bridge.sendWithAck(
+          const delivered = await sendWithAckOnChannel(
             CHANNELS.CANVAS_FILE,
             makeCanvasFileDownloadRequestMessage(message.payload),
             CANVAS_FILE_ACK_TIMEOUT_MS,
@@ -557,7 +557,7 @@ export function useCanvasCommands({
           });
         });
     },
-    [bridgeRef, emitFileFailureToCanvas],
+    [emitFileFailureToCanvas, ensureChannel, sendWithAckOnChannel],
   );
 
   useEffect(() => {
@@ -619,27 +619,17 @@ export function useCanvasCommands({
 
   const dispatchCommand = useCallback(
     (message: CanvasCommandOnlyMessage) => {
-      const bridge = bridgeRef.current;
-      if (!bridge) {
-        emitCommandFailureToCanvas({
-          callId: message.payload.callId,
-          code: "BRIDGE_UNAVAILABLE",
-          message: "Command failed because live bridge is unavailable.",
-        });
-        return;
-      }
-
       if (message.type === "command.cancel") {
         const payload: CommandCancelPayload = message.payload;
         trackCommandCancel(payload.callId);
-        void ensureChannelReady(bridge, CHANNELS.COMMAND)
+        void ensureChannel(CHANNELS.COMMAND)
           .then(async (ready) => {
             if (!ready) {
               trackCommandRunning(payload.callId);
               return;
             }
 
-            const delivered = await bridge.sendWithAck(
+            const delivered = await sendWithAckOnChannel(
               CHANNELS.COMMAND,
               makeCommandCancelMessage(payload),
               COMMAND_ACK_TIMEOUT_MS,
@@ -656,7 +646,7 @@ export function useCanvasCommands({
       const invokePayload: CommandInvokePayload = message.payload;
       trackCommandStart(invokePayload.callId, invokePayload.name);
 
-      void ensureChannelReady(bridge, CHANNELS.COMMAND)
+      void ensureChannel(CHANNELS.COMMAND)
         .then(async (ready) => {
           if (!ready) {
             emitCommandFailureToCanvas({
@@ -667,7 +657,7 @@ export function useCanvasCommands({
             });
             return;
           }
-          const delivered = await bridge.sendWithAck(
+          const delivered = await sendWithAckOnChannel(
             CHANNELS.COMMAND,
             makeCommandInvokeMessage(invokePayload),
             COMMAND_ACK_TIMEOUT_MS,
@@ -695,8 +685,9 @@ export function useCanvasCommands({
         });
     },
     [
-      bridgeRef,
       emitCommandFailureToCanvas,
+      ensureChannel,
+      sendWithAckOnChannel,
       trackCommandCancel,
       trackCommandRunning,
       trackCommandStart,

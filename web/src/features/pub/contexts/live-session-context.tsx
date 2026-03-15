@@ -100,8 +100,6 @@ export function createMockLiveSession(
     availableAgents: [],
     addSystemMessage: noop,
     autoOpenCanvas: false,
-    bridgeRef: { current: null },
-    bridgeState: "connected",
     canvasError: null,
     canvasHtml: null,
     clearFiles: noop,

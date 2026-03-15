@@ -21,7 +21,6 @@ const mockSession = {
     startVoiceMode: vi.fn(),
     stopVoiceMode: vi.fn(),
   },
-  bridgeRef: { current: null },
   command: {
     activeCallId: null,
     activeCommandName: null,
