@@ -48,6 +48,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Convex codegen
+        run: pnpm convex codegen
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       - name: Build E2E images
         run: docker compose -f tests/e2e/docker-compose.yml build
       - name: Start Convex backend and generate admin key

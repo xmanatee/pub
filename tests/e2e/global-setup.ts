@@ -75,7 +75,7 @@ export default async function globalSetup() {
   // Deploy Convex functions
   console.log("[e2e] Deploying Convex functions...");
   execSync(
-    `npx convex deploy --admin-key "${adminKey}" --url "${convexUrl}" -y --codegen disable`,
+    `npx convex deploy --admin-key "${adminKey}" --url "${convexUrl}" -y`,
     {
       encoding: "utf-8",
       stdio: "inherit",
