@@ -7,6 +7,9 @@ async function openControlBarDebug(page: Page) {
   });
   await page.locator("details summary").click();
   await page.waitForTimeout(200);
+  // Scroll so the interactive ControlBar container is fully visible
+  await interactiveSection(page).locator(".h-80").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(100);
 }
 
 function interactiveSection(page: Page) {
@@ -68,8 +71,11 @@ test.describe("Control bar layout", () => {
     await openControlBarDebug(page);
     const baseline = (await readControlMetrics(page)).shellHeight;
 
-    // Open menu via the "Open menu" button scoped to the interactive section
-    await interactiveSection(page).getByRole("button", { name: "Open menu" }).click();
+    // Open menu — use dispatchEvent because the button is inside a fixed-positioned
+    // ControlBar within a transform container, making it unreachable by visual click
+    await interactiveSection(page)
+      .getByRole("button", { name: "Open menu" })
+      .dispatchEvent("click");
 
     // Wait for menu expand transition
     await page.waitForTimeout(600);
@@ -77,7 +83,9 @@ test.describe("Control bar layout", () => {
     expect(expanded).toBeGreaterThan(baseline + 30);
 
     // Close via the "Close menu" button in the interactive section
-    await interactiveSection(page).getByRole("button", { name: "Close menu" }).click();
+    await interactiveSection(page)
+      .getByRole("button", { name: "Close menu" })
+      .dispatchEvent("click");
     await page.waitForTimeout(600);
     const collapsed = (await readControlMetrics(page)).shellHeight;
     expect(collapsed).toBeCloseTo(baseline, 0);
