@@ -35,7 +35,7 @@ export interface RecentCommandResult {
   payload: CommandResultPayload;
 }
 
-export interface CommandRuntimeConfig {
+interface CommandRuntimeConfig {
   defaultTimeoutMs: number;
   maxConcurrent: number;
   maxOutputBytes: number;

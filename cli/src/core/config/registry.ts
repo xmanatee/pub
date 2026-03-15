@@ -35,7 +35,7 @@ export interface ConfigVarDefinition {
   cascadeUnset?: readonly string[];
 }
 
-export function declareConfigVar(definition: ConfigVarDefinition): ConfigVarDefinition {
+function declareConfigVar(definition: ConfigVarDefinition): ConfigVarDefinition {
   return definition;
 }
 
@@ -194,7 +194,7 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   }),
 ];
 
-export const CONFIG_VAR_REGISTRY: Record<string, ConfigVarDefinition> = Object.fromEntries(
+const CONFIG_VAR_REGISTRY: Record<string, ConfigVarDefinition> = Object.fromEntries(
   CONFIG_VARS.map((definition) => [definition.key, definition]),
 );
 

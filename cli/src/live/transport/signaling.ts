@@ -1,7 +1,7 @@
 import type { LiveInfo } from "../../../../shared/live-api-core";
 import { shouldRecoverForBrowserOfferChange } from "../daemon/shared.js";
 
-export type SignalingDecision =
+type SignalingDecision =
   | {
       type: "noop";
       nextBrowserCandidateCount: number;

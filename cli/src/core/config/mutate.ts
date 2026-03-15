@@ -23,7 +23,7 @@ export function parseConfigAssignment(raw: string): { key: string; value: string
   };
 }
 
-export function hasConfigValues(obj: object | undefined): boolean {
+function hasConfigValues(obj: object | undefined): boolean {
   if (!obj) return false;
   return Object.values(obj).some((value) => value !== undefined);
 }

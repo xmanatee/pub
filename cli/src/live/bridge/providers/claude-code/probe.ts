@@ -80,7 +80,7 @@ async function runClaudeCodeWritePongProbe(
   });
 }
 
-export interface ClaudeCodeRuntimeResolution {
+interface ClaudeCodeRuntimeResolution {
   claudePath: string;
   cwd?: string;
 }

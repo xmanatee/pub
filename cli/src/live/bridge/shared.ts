@@ -44,7 +44,7 @@ export interface BufferedEntry {
   msg: BridgeMessage;
 }
 
-export interface SessionBriefingContext {
+interface SessionBriefingContext {
   title?: string;
   isPublic?: boolean;
   canvasContentFilePath?: string;

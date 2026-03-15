@@ -26,7 +26,7 @@ type IpcSuccessResponse<T extends object = Record<string, never>> = {
   ok: true;
 } & T;
 
-export type StatusResponse = IpcSuccessResponse<{
+type StatusResponse = IpcSuccessResponse<{
   connectionState: LiveConnectionState;
   agentState: LiveAgentState;
   executorState: LiveExecutorState;
@@ -49,7 +49,7 @@ export interface WriteRequest {
   };
 }
 
-export type WriteResponse = IpcSuccessResponse<{
+type WriteResponse = IpcSuccessResponse<{
   delivered?: boolean;
 }> | IpcErrorResponse;
 
@@ -63,7 +63,7 @@ export interface ActiveSlugRequest {
   params: Record<string, never>;
 }
 
-export type ActiveSlugResponse = IpcSuccessResponse<{
+type ActiveSlugResponse = IpcSuccessResponse<{
   slug: string | null;
 }> | IpcErrorResponse;
 
@@ -72,7 +72,7 @@ export interface CloseRequest {
   params: Record<string, never>;
 }
 
-export type CloseResponse = IpcSuccessResponse | IpcErrorResponse;
+type CloseResponse = IpcSuccessResponse | IpcErrorResponse;
 
 export type IpcRequest =
   | WriteRequest

@@ -15,7 +15,7 @@ function toResolvedValue(value: unknown, source: "config" | "default"): Resolved
   return { value, source };
 }
 
-export function resolvePubSettingsFromConfig(
+function resolvePubSettingsFromConfig(
   rawConfig: PubConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): ResolvedPubSettings {

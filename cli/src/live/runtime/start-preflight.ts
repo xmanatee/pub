@@ -19,7 +19,7 @@ import {
 import { formatApiError } from "./command-utils.js";
 import { stopRecordedDaemons } from "./daemon-process.js";
 
-export interface StartPreflightResult {
+interface StartPreflightResult {
   apiClientSettings: ApiClientSettings;
   bridgeSettings: BridgeSettings;
   bridgeProcessEnv: NodeJS.ProcessEnv;

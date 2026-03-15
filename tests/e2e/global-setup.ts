@@ -74,15 +74,12 @@ export default async function globalSetup() {
 
   // Deploy Convex functions
   console.log("[e2e] Deploying Convex functions...");
-  execSync(
-    `npx convex deploy --admin-key "${adminKey}" --url "${convexUrl}" -y`,
-    {
-      encoding: "utf-8",
-      stdio: "inherit",
-      timeout: 120_000,
-      env: { ...process.env, IS_TEST: "true" },
-    },
-  );
+  execSync(`npx convex deploy --admin-key "${adminKey}" --url "${convexUrl}" -y`, {
+    encoding: "utf-8",
+    stdio: "inherit",
+    timeout: 120_000,
+    env: { ...process.env, IS_TEST: "true" },
+  });
 
   // Build CLI binary
   console.log("[e2e] Building CLI...");

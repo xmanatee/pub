@@ -11,7 +11,7 @@ const LIVE_SIGNAL_QUERY = makeFunctionReference<
   LiveInfo | null
 >("pubs:getLiveForAgent");
 
-export function parseLiveSnapshot(result: unknown): LiveInfo | null {
+function parseLiveSnapshot(result: unknown): LiveInfo | null {
   const live = parseLiveInfo(result);
   if (result !== null && result !== undefined && live === null) {
     throw new Error("Invalid signaling snapshot: expected object or null");
@@ -34,7 +34,7 @@ interface SignalingControllerParams {
   onClearLive: () => Promise<void>;
 }
 
-export interface SignalingController {
+interface SignalingController {
   start(): void;
   stop(): Promise<void>;
   status(): { known: boolean; open: boolean };

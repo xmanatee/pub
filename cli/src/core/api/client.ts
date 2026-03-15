@@ -1,18 +1,18 @@
 import { type LiveInfo, parseLiveInfo } from "../../../../shared/live-api-core";
 
-export interface CreateResult {
+interface CreateResult {
   slug: string;
   url: string;
 }
 
-export interface UpdateResult {
+interface UpdateResult {
   slug: string;
   title?: string;
   isPublic: boolean;
   updatedAt: number;
 }
 
-export interface Pub {
+interface Pub {
   slug: string;
   title?: string;
   isPublic: boolean;
@@ -23,7 +23,7 @@ export interface Pub {
   } | null;
 }
 
-export interface ListResult {
+interface ListResult {
   pubs: Pub[];
   cursor?: string;
   hasMore: boolean;

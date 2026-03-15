@@ -1,6 +1,6 @@
 import { CommanderError } from "commander";
 
-export class CliError extends Error {
+class CliError extends Error {
   readonly exitCode: number;
 
   constructor(message: string, exitCode = 1) {

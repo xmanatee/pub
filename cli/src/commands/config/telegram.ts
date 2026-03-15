@@ -1,4 +1,4 @@
-export interface TelegramBotInfo {
+interface TelegramBotInfo {
   username: string;
   hasMainWebApp: boolean;
 }

@@ -28,7 +28,7 @@ function readSessionsIndex(sessionsData: unknown): Record<string, unknown> {
   return sessionsData as Record<string, unknown>;
 }
 
-export interface SessionResolution {
+interface SessionResolution {
   readError?: string;
   sessionId: string | null;
 }

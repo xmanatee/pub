@@ -54,7 +54,7 @@ export function isOpenClawAvailable(
   );
 }
 
-export function resolveOpenClawPath(
+function resolveOpenClawPath(
   env: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig,
 ): string {

@@ -13,7 +13,7 @@ interface VersionCache {
   checkedAt: number;
 }
 
-export interface UpdateCheckResult {
+interface UpdateCheckResult {
   latest: string;
   updateAvailable: boolean;
   requiresUpgrade: boolean;

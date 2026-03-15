@@ -1,8 +1,3 @@
-export type {
-  BridgeAutoDetectAttempt,
-  BridgeAutoDetectResult,
-  BridgeStartupProbeResult,
-} from "../bridge/providers/registry.js";
 export {
   autoDetectBridgeConfig,
   runBridgeStartupPreflight,

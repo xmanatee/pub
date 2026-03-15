@@ -6,7 +6,7 @@ interface BridgeEntryQueueParams {
   onError: (error: unknown, entry: BufferedEntry) => void;
 }
 
-export interface BridgeEntryQueue {
+interface BridgeEntryQueue {
   enqueue(entries: BufferedEntry[]): void;
   stop(): Promise<void>;
 }

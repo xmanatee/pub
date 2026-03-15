@@ -33,12 +33,12 @@ interface BridgeProvider {
   prepareAutoDetectConfig?(bridgeConfig?: PubBridgeConfig): PubBridgeConfig | undefined;
 }
 
-export interface BridgeStartupProbeResult {
+interface BridgeStartupProbeResult {
   detailLines: string[];
   configPatch?: Partial<PubBridgeConfig>;
 }
 
-export interface BridgeAutoDetectAttempt {
+interface BridgeAutoDetectAttempt {
   mode: BridgeMode;
   available: boolean;
   detail: string;
@@ -47,7 +47,7 @@ export interface BridgeAutoDetectAttempt {
   error?: string;
 }
 
-export interface BridgeAutoDetectResult {
+interface BridgeAutoDetectResult {
   attempts: BridgeAutoDetectAttempt[];
   selected: {
     mode: BridgeMode;
@@ -218,7 +218,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
   },
 ].sort((a, b) => b.priority - a.priority);
 
-export function getBridgeProvider(mode: BridgeMode): BridgeProvider {
+function getBridgeProvider(mode: BridgeMode): BridgeProvider {
   const provider = BRIDGE_PROVIDERS.find((entry) => entry.mode === mode);
   if (!provider) {
     throw new Error(`Unsupported bridge provider: ${mode}`);

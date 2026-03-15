@@ -5,7 +5,6 @@ export type {
   CliCommandContext,
 } from "./context.js";
 export {
-  readFileBytes,
   readStdinText,
   readUtf8File,
 } from "./io.js";

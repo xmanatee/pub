@@ -10,8 +10,8 @@ import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
 import { buildSdkSessionOptionsFromSettings } from "./claude-sdk/index.js";
 import { loadClaudeSdk } from "./claude-sdk/runtime.js";
 
-export type AgentCommandProvider = Exclude<CommandAgentProvider, "auto">;
-export type DetachedAgentProvider = AgentCommandProvider;
+type AgentCommandProvider = Exclude<CommandAgentProvider, "auto">;
+type DetachedAgentProvider = AgentCommandProvider;
 
 function readClaudeAssistantOutput(line: string): string | null {
   if (!line.trim().startsWith("{")) return "";

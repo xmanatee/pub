@@ -60,7 +60,7 @@ function getExplicitConfigDirCandidate(
   };
 }
 
-export function listConfigDirCandidates(
+function listConfigDirCandidates(
   env: NodeJS.ProcessEnv = process.env,
 ): ConfigDirCandidate[] {
   const candidates: ConfigDirCandidate[] = [];

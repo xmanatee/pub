@@ -1,25 +1,16 @@
 export {
   getConfigDir,
-  getConfigPath,
-  listConfigDirCandidates,
   resolveConfigLocation,
-  trimToUndefined,
 } from "./location.js";
 export {
   compactPubConfig,
-  hasConfigValues,
   listConfiguredKeys,
   parseConfigAssignment,
   setPubConfigValue,
   unsetPubConfigValue,
 } from "./mutate.js";
 export {
-  CONFIG_VAR_REGISTRY,
-  getConfigVar,
-  getConfigVars,
   getConfigVarsBySection,
-  isMutableConfigVar,
-  readPubConfigValue,
   SUPPORTED_CONFIG_KEYS,
 } from "./registry.js";
 export {
@@ -28,7 +19,6 @@ export {
   getResolvedSettingValue,
   getTelegramMiniAppUrl,
   resolvePubSettings,
-  resolvePubSettingsFromConfig,
 } from "./resolve.js";
 export { readPubConfig, writePubConfig } from "./store.js";
 export type {
@@ -36,19 +26,13 @@ export type {
   BridgeSettings,
   ClaudeBridgeSettings,
   CommandAgentProfile,
-  ConfigDirCandidate,
-  ConfigDirSource,
-  ConfigLocation,
   DetachedAgentProvider,
   OpenClawBridgeSettings,
   OpenClawLikeBridgeSettings,
   PubBridgeConfig,
   PubConfig,
-  PubCoreConfig,
   PubTelegramConfig,
   ResolvedPubSettings,
-  ResolvedValue,
-  SettingSource,
 } from "./types.js";
 export {
   DEFAULT_BASE_URL,

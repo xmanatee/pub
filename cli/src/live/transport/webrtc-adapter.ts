@@ -10,13 +10,13 @@ import {
   type RTCIceServer,
 } from "werift";
 
-export interface DataChannelOptions {
+interface DataChannelOptions {
   ordered?: boolean;
   maxRetransmits?: number;
   protocol?: string;
 }
 
-export interface PeerConnectionOptions {
+interface PeerConnectionOptions {
   iceServers?: readonly string[];
   iceAdditionalHostAddresses?: readonly string[];
   iceUseIpv4?: boolean;

@@ -8,7 +8,7 @@ const REPO = "xmanatee/pub";
 const RELEASES_PER_PAGE = 100;
 const MAX_RELEASE_PAGES = 10;
 
-export interface LatestRelease {
+interface LatestRelease {
   tag: string;
   version: string;
 }
