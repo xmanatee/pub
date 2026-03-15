@@ -25,15 +25,15 @@
   transition: opacity 400ms ease;
 }
 
-/* Collapse left slot and fade status blob when any input in the bar is focused */
-.cb-bar-wrapper:has(:focus-within) .cb-left-slot {
+/* Collapse left slot and fade status blob when textarea is focused */
+.cb-bar-wrapper:has(textarea:focus) .cb-left-slot {
   width: 0;
   opacity: 0;
   pointer-events: none;
   margin-right: 0;
 }
 
-.cb-bar-wrapper:has(:focus-within) .cb-status-slot {
+.cb-bar-wrapper:has(textarea:focus) .cb-status-slot {
   opacity: 0;
   scale: 50%;
   translate: 0 1rem;
