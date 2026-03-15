@@ -1,10 +1,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PubBridgeConfig } from "../../../../core/config/index.js";
-import type { BridgeSessionSource } from "../../types.js";
 import { resolveCommandFromPath } from "../command-path.js";
 import { resolveOpenClawHome } from "./paths.js";
-import { resolveSessionFromOpenClaw } from "./session.js";
+import { resolveMainSessionFromOpenClaw } from "./session.js";
 
 function getOpenClawDiscoveryPaths(env: NodeJS.ProcessEnv = process.env): string[] {
   const home = resolveOpenClawHome(env);
@@ -26,13 +25,6 @@ function getConfiguredOpenClawPath(
   return env.OPENCLAW_PATH?.trim() || bridgeConfig?.openclawPath?.trim();
 }
 
-function getConfiguredOpenClawStateDir(
-  env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
-): string | undefined {
-  return env.OPENCLAW_STATE_DIR?.trim() || bridgeConfig?.openclawStateDir?.trim();
-}
-
 function getConfiguredOpenClawSessionId(
   env: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig,
@@ -40,23 +32,13 @@ function getConfiguredOpenClawSessionId(
   return env.OPENCLAW_SESSION_ID?.trim() || bridgeConfig?.sessionId?.trim();
 }
 
-function getConfiguredOpenClawThreadId(
-  env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
-): string | undefined {
-  return env.OPENCLAW_THREAD_ID?.trim() || bridgeConfig?.threadId?.trim();
-}
-
 function buildOpenClawLookupEnv(
   env: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig,
 ): NodeJS.ProcessEnv {
-  const stateDir = getConfiguredOpenClawStateDir(env, bridgeConfig);
+  const stateDir = env.OPENCLAW_STATE_DIR?.trim() || bridgeConfig?.openclawStateDir?.trim();
   if (!stateDir) return env;
-  return {
-    ...env,
-    OPENCLAW_STATE_DIR: stateDir,
-  };
+  return { ...env, OPENCLAW_STATE_DIR: stateDir };
 }
 
 export function isOpenClawAvailable(
@@ -105,8 +87,6 @@ export function resolveOpenClawPath(
 export interface OpenClawRuntimeResolution {
   openclawPath: string;
   sessionId: string;
-  sessionKey?: string;
-  sessionSource?: BridgeSessionSource;
 }
 
 export function resolveOpenClawRuntime(
@@ -115,42 +95,27 @@ export function resolveOpenClawRuntime(
 ): OpenClawRuntimeResolution {
   const openclawPath = resolveOpenClawPath(env, bridgeConfig);
   const configuredSessionId = getConfiguredOpenClawSessionId(env, bridgeConfig);
-  const resolvedSession = configuredSessionId
-    ? {
-        attemptedKeys: [],
-        sessionId: configuredSessionId,
-        sessionKey: bridgeConfig ? "openclaw.sessionId" : "OPENCLAW_SESSION_ID",
-        sessionSource: bridgeConfig ? ("config" as const) : ("env" as const),
-      }
-    : resolveSessionFromOpenClaw(
-        getConfiguredOpenClawThreadId(env, bridgeConfig),
-        buildOpenClawLookupEnv(env, bridgeConfig),
-      );
 
-  if (!resolvedSession.sessionId) {
-    throw new Error(
-      [
-        "OpenClaw session could not be resolved.",
-        resolvedSession.attemptedKeys.length > 0
-          ? `Attempted keys: ${resolvedSession.attemptedKeys.join(", ")}`
-          : "",
-        resolvedSession.readError ? `Session lookup error: ${resolvedSession.readError}` : "",
-        "Configure one of:",
-        "  pub config --set openclaw.sessionId=<session-id>",
-        "  pub config --set openclaw.threadId=<thread-id>",
-        "Or set OPENCLAW_SESSION_ID / OPENCLAW_THREAD_ID in environment.",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    );
+  if (configuredSessionId) {
+    return { openclawPath, sessionId: configuredSessionId };
   }
 
-  return {
-    openclawPath,
-    sessionId: resolvedSession.sessionId,
-    sessionKey: resolvedSession.sessionKey,
-    sessionSource: resolvedSession.sessionSource,
-  };
+  const resolved = resolveMainSessionFromOpenClaw(buildOpenClawLookupEnv(env, bridgeConfig));
+  if (resolved.sessionId) {
+    return { openclawPath, sessionId: resolved.sessionId };
+  }
+
+  throw new Error(
+    [
+      "OpenClaw session could not be resolved.",
+      resolved.readError ? `Session lookup error: ${resolved.readError}` : "",
+      "Configure with: pub config --set openclaw.sessionId=<session-id>",
+      "Or set OPENCLAW_SESSION_ID in environment.",
+      "Or run `pub config --auto` to auto-detect.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
 }
 
 export function resolveAutoDetectOpenClawCommandCwd(

@@ -63,7 +63,6 @@ describe("setPubConfigValue", () => {
       { key: "openclaw.path", field: "openclawPath" },
       { key: "openclaw.stateDir", field: "openclawStateDir" },
       { key: "openclaw.sessionId", field: "sessionId" },
-      { key: "openclaw.threadId", field: "threadId" },
     ];
 
     for (const { key, field } of stringKeys) {
@@ -106,7 +105,6 @@ describe("unsetPubConfigValue", () => {
       bridge: {
         openclawPath: "/path",
         sessionId: "s1",
-        threadId: "t1",
       },
     };
 
@@ -145,7 +143,7 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(28);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(27);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");

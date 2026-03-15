@@ -24,7 +24,6 @@ export interface PubBridgeConfig {
   openclawPath?: string;
   openclawStateDir?: string;
   sessionId?: string;
-  threadId?: string;
   verbose?: boolean;
   bridgeCwd?: string;
   canvasReminderEvery?: number;
@@ -71,7 +70,6 @@ interface BridgeSettingsBase {
   openclawPath?: string;
   openclawStateDir?: string;
   sessionId?: string;
-  threadId?: string;
   claudeCodePath?: string;
   claudeCodeMaxTurns?: number;
   claudeCodeCommandModelDefault?: string;

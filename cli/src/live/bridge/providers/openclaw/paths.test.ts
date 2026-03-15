@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveOpenClawConfigPath,
-  resolveOpenClawHome,
-  resolveOpenClawStateDir,
-} from "./paths.js";
+import { resolveOpenClawHome, resolveOpenClawStateDir } from "./paths.js";
 
 describe("openclaw/paths", () => {
   describe("resolveOpenClawHome", () => {
@@ -26,18 +22,6 @@ describe("openclaw/paths", () => {
     it("defaults to <openclaw-home>/.openclaw", () => {
       const result = resolveOpenClawStateDir({ OPENCLAW_HOME: "/tmp/home-root" });
       expect(result).toBe("/tmp/home-root/.openclaw");
-    });
-  });
-
-  describe("resolveOpenClawConfigPath", () => {
-    it("uses OPENCLAW_CONFIG_PATH when set", () => {
-      const result = resolveOpenClawConfigPath({ OPENCLAW_CONFIG_PATH: "/tmp/openclaw.json" });
-      expect(result).toBe("/tmp/openclaw.json");
-    });
-
-    it("defaults to <stateDir>/openclaw.json", () => {
-      const result = resolveOpenClawConfigPath({ OPENCLAW_STATE_DIR: "/tmp/openclaw-state" });
-      expect(result).toBe("/tmp/openclaw-state/openclaw.json");
     });
   });
 });

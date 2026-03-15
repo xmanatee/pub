@@ -97,15 +97,14 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       return {
         detailLines: [
           `OpenClaw executable: ${runtime.openclawPath}`,
-          `OpenClaw session: ${runtime.sessionId} (${runtime.sessionSource ?? "unknown"})`,
-          'OpenClaw communication via `pub write "pong"`: OK',
+          `OpenClaw session: ${runtime.sessionId}`,
+          ...(options.strictConfig ? [] : ["OpenClaw ping/pong: OK"]),
         ],
         configPatch: {
           mode: "openclaw" as const,
           openclawPath: runtime.openclawPath,
           openclawStateDir: env.OPENCLAW_STATE_DIR?.trim() || bridgeConfig?.openclawStateDir,
           sessionId: runtime.sessionId,
-          threadId: env.OPENCLAW_THREAD_ID?.trim() || bridgeConfig?.threadId,
           bridgeCwd: env.OPENCLAW_WORKSPACE?.trim(),
         },
       };

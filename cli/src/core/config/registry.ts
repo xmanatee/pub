@@ -120,10 +120,6 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "OpenClaw session id used for live replies.",
     env: ["OPENCLAW_SESSION_ID"],
   }),
-  bridgeVar("openclaw.threadId", "threadId", "string", {
-    description: "OpenClaw thread id used for session lookup.",
-    env: ["OPENCLAW_THREAD_ID"],
-  }),
   bridgeVar("claude-code.path", "claudeCodePath", "string", {
     description: "Claude executable path.",
     env: ["CLAUDE_CODE_PATH"],

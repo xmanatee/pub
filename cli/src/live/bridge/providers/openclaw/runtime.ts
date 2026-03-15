@@ -38,8 +38,16 @@ export async function invokeOpenClawPrompt(params: {
   text: string;
   bridgeCwd: string;
   env?: NodeJS.ProcessEnv;
+  local?: boolean;
 }): Promise<string> {
-  const args = ["agent", "--local", "--session-id", params.sessionId, "-m", params.text];
+  const args = [
+    "agent",
+    ...(params.local ? ["--local"] : []),
+    "--session-id",
+    params.sessionId,
+    "-m",
+    params.text,
+  ];
   const invocation = getOpenClawInvocation(params.openclawPath, args);
   try {
     const result = await execFileAsync(invocation.cmd, invocation.args, {
@@ -54,7 +62,7 @@ export async function invokeOpenClawPrompt(params: {
 }
 
 export async function deliverMessageToOpenClaw(
-  params: { openclawPath: string; sessionId: string; text: string },
+  params: { openclawPath: string; sessionId: string; text: string; local?: boolean },
   env: NodeJS.ProcessEnv = process.env,
   deliverySettings: OpenClawDeliverySettings,
 ): Promise<void> {
@@ -64,5 +72,6 @@ export async function deliverMessageToOpenClaw(
     text: params.text,
     bridgeCwd: deliverySettings.bridgeCwd,
     env,
+    local: params.local,
   });
 }
