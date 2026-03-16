@@ -86,6 +86,10 @@ interface HookHarnessProps {
 }
 
 let latestHook: ReturnType<typeof useCanvasCommands> | null = null;
+/** Captures every non-null outboundCanvasBridgeMessage seen during render (before auto-clear). */
+let observedOutboundMessages: NonNullable<
+  ReturnType<typeof useCanvasCommands>["outboundCanvasBridgeMessage"]
+>[] = [];
 (
   globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -116,6 +120,9 @@ function HookHarness({
     liveMode,
     sessionKey,
   });
+  if (latestHook.outboundCanvasBridgeMessage) {
+    observedOutboundMessages.push(latestHook.outboundCanvasBridgeMessage);
+  }
   return null;
 }
 
@@ -185,6 +192,7 @@ describe("useCanvasCommands", () => {
 
   beforeEach(() => {
     latestHook = null;
+    observedOutboundMessages = [];
   });
 
   afterEach(() => {
@@ -660,7 +668,9 @@ describe("useCanvasCommands", () => {
       liveMode: true,
     });
 
-    const msg = latestHook?.outboundCanvasBridgeMessage ?? latestHook?.outboundQueue[0];
+    // outboundCanvasBridgeMessage is transient (auto-cleared via setTimeout(0)),
+    // so act(async) may flush it before we can observe. Use the render-time capture instead.
+    const msg = latestHook?.outboundCanvasBridgeMessage ?? observedOutboundMessages.at(-1);
     expect(msg).toBeDefined();
     expect(msg?.payload.ok).toBe(false);
     expect(msg?.payload.callId).toBe("call-1");
