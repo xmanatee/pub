@@ -188,7 +188,7 @@ export function CanvasPanel({
           )}
           title="Canvas"
           onLoad={() => {
-            console.debug("[canvas] onLoad (no bridgeReady reset)");
+            console.debug("[canvas] onLoad");
             setLoadedHtml(html);
             setCanvasError(null);
           }}

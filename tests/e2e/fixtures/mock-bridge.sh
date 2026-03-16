@@ -2,6 +2,10 @@
 # Mock bridge for E2E testing.
 # Receives messages as $1 (openclaw-like protocol).
 # Responds via `pub write` using the daemon's IPC socket.
+#
+# Canvas responses can be configured by placing HTML files in
+# $PUB_CONFIG_DIR/bridge-canvas-response.html — when present,
+# "update canvas" uses that file instead of the default HTML.
 set -euo pipefail
 
 # The daemon sets PUB_DAEMON_MODE=1 in its env, which child processes inherit.
@@ -23,10 +27,15 @@ if echo "$MSG" | grep -q "User message:"; then
   if [ -n "$USER_TEXT" ]; then
     case "$USER_TEXT" in
       "update canvas")
-        TMPHTML=$(mktemp /tmp/pub-canvas-XXXXXX.html)
-        echo '<html><body><h1 id="status">canvas-updated</h1></body></html>' > "$TMPHTML"
-        "$PUB" write -c canvas -f "$TMPHTML"
-        rm -f "$TMPHTML"
+        CANVAS_FILE="${PUB_CONFIG_DIR:-}/bridge-canvas-response.html"
+        if [ -f "$CANVAS_FILE" ]; then
+          "$PUB" write -c canvas -f "$CANVAS_FILE"
+        else
+          TMPHTML=$(mktemp /tmp/pub-canvas-XXXXXX.html)
+          echo '<html><body><h1 id="status">canvas-updated</h1></body></html>' > "$TMPHTML"
+          "$PUB" write -c canvas -f "$TMPHTML"
+          rm -f "$TMPHTML"
+        fi
         "$PUB" write "canvas updated"
         ;;
       *)

@@ -175,19 +175,9 @@ export class CliFixture {
     return this.run(args);
   }
 
-  /** Write canvas HTML via a temp file (uses `pub write -c canvas -f <file>`). */
-  writeCanvasHtml(html: string): string {
-    const tmpFile = join(this.configDir, `canvas-${Date.now()}.html`);
-    writeFileSync(tmpFile, html);
-    try {
-      return this.run(["write", "-c", "canvas", "-f", tmpFile]);
-    } finally {
-      try {
-        rmSync(tmpFile, { force: true });
-      } catch {
-        // Temp file cleanup is best-effort
-      }
-    }
+  /** Configure the mock bridge's "update canvas" response HTML. */
+  setCanvasResponse(html: string): void {
+    writeFileSync(join(this.configDir, "bridge-canvas-response.html"), html);
   }
 
   /** Stop the daemon gracefully via CLI. */

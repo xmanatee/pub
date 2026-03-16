@@ -470,9 +470,13 @@ test("canvas uploads and downloads managed files through the daemon", async ({ p
 });
 
 /**
- * Test 8: Commands survive canvas HTML updates.
- * Verifies: initial canvas with commands loads → commands work → canvas updated with new
- * commands via `pub write -c canvas` → auto-invoke and button-triggered commands still work.
+ * Test 8: Commands survive canvas HTML updates via full-stack agent flow.
+ * Verifies: initial canvas with commands loads → commands work → user sends
+ * "update canvas" → mock bridge writes new canvas HTML via `pub write -c canvas` →
+ * auto-invoke and button-triggered commands still work with the new manifest.
+ *
+ * The mock bridge's canvas response is configured via `cli.setCanvasResponse(html)`,
+ * so only the agent bridge is mocked — the rest is the real stack.
  *
  * This catches regressions where:
  * - canvasBridgeReady is lost after iframe reload
@@ -528,24 +532,9 @@ test("commands work after canvas HTML update", async ({ page }) => {
   });
 
   cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("rebind-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/cmd-rebind");
-
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-
-  const canvasFrame = page.frameLocator("iframe").first();
-
-  // Phase 1: Initial canvas — auto-invoke command works
-  await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v1", { timeout: 30_000 });
-
-  // Phase 1: Button-triggered command works
-  await canvasFrame.locator("#run-cmd").click();
-  await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v1", { timeout: 15_000 });
-
-  // Phase 2: Update canvas with new HTML that has a DIFFERENT command
-  const updatedHtml = `<!DOCTYPE html>
+  // Configure mock bridge: when user sends "update canvas", write this HTML
+  cli.setCanvasResponse(`<!DOCTYPE html>
 <html>
 <head><title>Canvas Commands V2</title></head>
 <body>
@@ -579,11 +568,37 @@ test("commands work after canvas HTML update", async ({ page }) => {
     }
   </script>
 </body>
-</html>`;
+</html>`);
 
-  // Write new canvas HTML via daemon IPC (simulates agent updating the canvas)
-  await new Promise((r) => setTimeout(r, 1_000));
-  cli.writeCanvasHtml(updatedHtml);
+  await cli.startDaemon("rebind-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/cmd-rebind");
+
+  const messageButton = page.getByLabel("Message", { exact: true });
+  const messageTextbox = page.getByRole("textbox", { name: "Message" });
+  const sendButton = page.getByLabel("Send message");
+
+  await expect(messageButton).toBeVisible({ timeout: 30_000 });
+
+  const canvasFrame = page.frameLocator("iframe").first();
+
+  // Phase 1: Initial canvas — auto-invoke command works
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v1", { timeout: 30_000 });
+
+  // Phase 1: Button-triggered command works
+  await canvasFrame.locator("#run-cmd").click();
+  await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v1", { timeout: 15_000 });
+
+  // Phase 2: Send "update canvas" through the browser chat → full stack flow:
+  // browser → WebRTC → daemon → mock bridge → pub write -c canvas → Convex → browser
+  await messageButton.click();
+  await messageTextbox.fill("update canvas");
+  await expect(sendButton).toBeEnabled({ timeout: 60_000 });
+  await sendButton.click();
+
+  // Mock bridge confirms the canvas update in chat
+  await expect(page.getByText("canvas updated")).toBeVisible({ timeout: 30_000 });
 
   // Phase 2: Auto-invoke command in NEW canvas works with updated result
   await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v2", { timeout: 30_000 });
