@@ -38,19 +38,17 @@ export function ControlBarPrimitive({
           )}
         >
           {/* Status Slot — always visible, moves with bar */}
-          {statusAction && (
-            <button
-              type="button"
-              className={cn(
-                "cb-status-slot pointer-events-auto absolute -top-12 right-0 size-9 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl",
-                "transition-all duration-500 ease-in-out",
-              )}
-              onClick={onStatusClick}
-              aria-label="Toggle control bar"
-            >
-              {statusAction}
-            </button>
-          )}
+          <button
+            type="button"
+            className={cn(
+              "cb-status-slot pointer-events-auto absolute -top-12 right-0 size-9 cursor-pointer overflow-hidden rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl",
+              "transition-all duration-500 ease-in-out",
+            )}
+            onClick={onStatusClick}
+            aria-label="Toggle control bar"
+          >
+            {statusAction}
+          </button>
 
           {/* Bar content — fades when collapsed */}
           <div

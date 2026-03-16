@@ -5,12 +5,12 @@ export interface ControlBarLayoutConfig {
   centerContent: ReactNode;
   rightAction?: ReactNode;
   topAddon?: ReactNode;
-  statusAction?: ReactNode;
+  statusAction: ReactNode;
 }
 
 export interface ControlBarSurfaceConfig {
   isExpanded: boolean;
-  onStatusClick?: () => void;
+  onStatusClick: () => void;
   className?: string;
   shellStyle?: React.CSSProperties;
 }
