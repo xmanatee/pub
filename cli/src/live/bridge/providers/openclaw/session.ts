@@ -46,10 +46,14 @@ export function resolveMainSessionFromOpenClaw(
     }
     const sessionsData = JSON.parse(readFileSync(sessionsPath, "utf-8")) as unknown;
     const sessions = readSessionsIndex(sessionsData);
-    const mainSessionId = readSessionIdFromEntry(sessions[OPENCLAW_MAIN_SESSION_KEY]);
-    if (mainSessionId) {
-      return { sessionId: mainSessionId };
+
+    const targetKey = env.OPENCLAW_SESSION_KEY?.trim() || OPENCLAW_MAIN_SESSION_KEY;
+    const sessionId = readSessionIdFromEntry(sessions[targetKey]);
+
+    if (sessionId) {
+      return { sessionId };
     }
+
     return { sessionId: null };
   } catch (error) {
     return {

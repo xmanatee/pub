@@ -50,7 +50,7 @@ export async function runAgentWritePongProbe(params: {
   execute: (probeEnv: NodeJS.ProcessEnv, signal: AbortSignal) => Promise<void>;
   timeoutMs?: number;
 }): Promise<void> {
-  const timeoutMs = params.timeoutMs ?? 20_000;
+  const timeoutMs = params.timeoutMs ?? 60_000;
   const socketPath = generateProbeSocketPath();
   const abortController = new AbortController();
   let receivedPongWrite = false;

@@ -101,13 +101,14 @@ export async function runOpenClawLikeBridgeStartupProbe(
       label: "openclaw-like",
       baseEnv: env,
       execute: async (probeEnv, _signal) => {
+        const socketPath = probeEnv.PUB_AGENT_SOCKET ?? "";
         await deliverMessageToCommand(
           {
             command,
             text: [
               "[pub preflight] Connectivity probe.",
               "Run this exact command now:",
-              'pub write "pong"',
+              `PUB_AGENT_SOCKET=${socketPath} pub write \"pong\"`,
               "Do not explain. Just execute it.",
             ].join("\n"),
           },

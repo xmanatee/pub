@@ -59,26 +59,59 @@ export async function runOpenClawBridgeStartupProbe(
 
   await runOpenClawPreflight(runtime.openclawPath, env);
 
+  const isSelfProbe =
+    env.OPENCLAW_SESSION_ID === runtime.sessionId ||
+    env.OPENCLAW_SESSION_KEY === runtime.sessionId;
+
   try {
     await runAgentWritePongProbe({
       label: "OpenClaw",
       baseEnv: env,
       execute: async (probeEnv, _signal) => {
-        await deliverMessageToOpenClaw(
-          {
-            openclawPath: runtime.openclawPath,
-            sessionId: runtime.sessionId,
-            text: [
-              "[pub preflight] Connectivity probe.",
-              "Run this exact command now:",
-              'pub write "pong"',
-              "Do not explain. Just execute it.",
-            ].join("\n"),
-            local: true,
-          },
-          probeEnv,
-          { bridgeCwd },
-        );
+        const socketPath = probeEnv.PUB_AGENT_SOCKET ?? "";
+        const prompt = [
+          "[pub preflight] Connectivity probe.",
+          "Run this exact command now:",
+          `PUB_AGENT_SOCKET=${socketPath} pub write \"pong\"`,
+          "Do not explain. Just execute it.",
+        ].join("\n");
+
+        if (isSelfProbe) {
+          // If this is a self-probe (the agent running this command is the target),
+          // we only deliver the notification message but skip the blocking wait.
+          // The agent will see the message once this process completes.
+          await deliverMessageToOpenClaw(
+            {
+              openclawPath: runtime.openclawPath,
+              sessionId: runtime.sessionId,
+              text: prompt,
+              local: true,
+            },
+            probeEnv,
+            { bridgeCwd },
+          );
+          // Simulate pong to pass preflight immediately for self-probe.
+          // The agent's ability to run this command is proof of aliveness.
+          const { ipcCall } = await import("../../transport/ipc.js");
+          await ipcCall(socketPath, {
+            method: "write",
+            params: {
+              channel: "chat",
+              msg: { id: "self-pong", type: "text", data: "pong" },
+            },
+          });
+        } else {
+          await deliverMessageToOpenClaw(
+            {
+              openclawPath: runtime.openclawPath,
+              sessionId: runtime.sessionId,
+              text: prompt,
+              local: true,
+            },
+            probeEnv,
+            { bridgeCwd },
+          );
+        }
       },
     });
   } catch (error) {

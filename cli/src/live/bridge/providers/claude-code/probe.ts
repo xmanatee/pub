@@ -32,7 +32,8 @@ async function runClaudeCodeWritePongProbe(
     execute: async (probeEnv, signal) => {
       const env = { ...probeEnv };
       delete env.CLAUDECODE;
-      const prompt = PROBE_PROMPT.trimEnd();
+      const socketPath = probeEnv.PUB_AGENT_SOCKET ?? "";
+      const prompt = PROBE_PROMPT.replace("${socketPath}", socketPath).trimEnd();
       const args =
         options?.strictConfig && bridgeConfig
           ? buildClaudeArgsFromSettings(
