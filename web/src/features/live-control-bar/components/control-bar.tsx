@@ -252,8 +252,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     );
   }
 
-  const statusAction =
-    visualState !== "idle" ? <BlobVisual tone={VISUAL_THEME[visualState]} /> : null;
+  const statusAction = <BlobVisual tone={VISUAL_THEME[visualState]} />;
 
   const shellStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
 
