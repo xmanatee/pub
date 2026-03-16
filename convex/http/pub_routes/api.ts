@@ -6,6 +6,7 @@ import {
   INVALID_SLUG_MESSAGE,
   isValidSlug,
   MAX_CONTENT_SIZE,
+  MAX_DESCRIPTION_LENGTH,
   MAX_TITLE_LENGTH,
 } from "../../utils";
 import {
@@ -39,6 +40,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       let body: {
         content?: string;
         title?: string;
+        description?: string;
         slug?: string;
       };
       try {
@@ -55,6 +57,12 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
       if (body.title && body.title.length > MAX_TITLE_LENGTH) {
         return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
+      }
+      if (body.description && body.description.length > MAX_DESCRIPTION_LENGTH) {
+        return errorResponse(
+          `Description exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters`,
+          400,
+        );
       }
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "createPub");
@@ -73,6 +81,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               slug: finalSlug,
               content: body.content,
               title: body.title,
+              description: body.description,
             });
           } catch (error) {
             rethrowPubLimitError(error);
@@ -123,6 +132,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               return {
                 slug: p.slug,
                 title: p.title,
+                description: p.description,
                 isPublic: p.isPublic,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
@@ -171,6 +181,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             slug: pub.slug,
             content: pub.content,
             title: pub.title,
+            description: pub.description,
             isPublic: pub.isPublic,
             createdAt: pub.createdAt,
             updatedAt: pub.updatedAt,
@@ -203,6 +214,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       let body: {
         content?: string;
         title?: string;
+        description?: string;
         isPublic?: boolean;
         slug?: string;
       };
@@ -217,6 +229,12 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
       if (body.title && body.title.length > MAX_TITLE_LENGTH) {
         return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
+      }
+      if (body.description && body.description.length > MAX_DESCRIPTION_LENGTH) {
+        return errorResponse(
+          `Description exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters`,
+          400,
+        );
       }
       if (body.slug !== undefined) {
         if (!isValidSlug(body.slug)) return errorResponse(INVALID_SLUG_MESSAGE, 400);
@@ -241,6 +259,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             id: pub._id,
             content: body.content,
             title: body.title,
+            description: body.description,
             isPublic: body.isPublic,
             slug: body.slug,
           });
@@ -248,6 +267,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           return {
             slug: body.slug ?? pub.slug,
             title: body.title ?? pub.title,
+            description: body.description ?? pub.description,
             isPublic: body.isPublic ?? pub.isPublic,
             updatedAt: Date.now(),
           };

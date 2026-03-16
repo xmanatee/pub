@@ -65,14 +65,14 @@ For OpenClaw bridge mode, set an explicit workspace before `pub config --auto`, 
 
 ```bash
 pub create page.html
-pub create --slug demo --title "Demo" page.html
+pub create --slug demo --title "Demo" --description "A short demo" page.html
 cat page.html | pub create
 
 pub get <slug>
 pub get <slug> --content
 
 pub update <slug> --file next.html
-pub update <slug> --title "New title" --public
+pub update <slug> --title "New title" --description "Updated description" --public
 
 pub list
 pub delete <slug>
@@ -82,8 +82,8 @@ Notes:
 - Pub is built for adaptive interfaces — agents generate real-time UIs tailored to the user's task.
 - Pubs are **private by default**.
 - **Reuse existing pubs** for regular or repeated tasks. Use `pub list` to check if a relevant pub already exists, then `pub update <slug>` instead of creating a new one. Each user is limited to 10 pubs.
-- `create` supports `--title`, `--slug`.
-- `update` supports `--file`, `--title`, `--public/--private`, `--slug`.
+- `create` supports `--title`, `--description`, `--slug`.
+- `update` supports `--file`, `--title`, `--description`, `--public/--private`, `--slug`.
 - Content is optional: a pub can be live-only.
 
 ## Going Live

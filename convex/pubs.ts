@@ -19,12 +19,14 @@ const MAX_CANDIDATES = 50;
 export function buildPubPatch(fields: {
   content?: string;
   title?: string;
+  description?: string;
   isPublic?: boolean;
   slug?: string;
 }) {
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
   if (fields.content !== undefined) patch.content = fields.content;
   if (fields.title !== undefined) patch.title = fields.title;
+  if (fields.description !== undefined) patch.description = fields.description;
   if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
   if (fields.slug !== undefined) patch.slug = fields.slug;
   return patch;
@@ -85,6 +87,7 @@ function mapPub(
     slug: string;
     content?: string;
     title?: string;
+    description?: string;
     isPublic: boolean;
     createdAt: number;
     updatedAt: number;
@@ -95,6 +98,7 @@ function mapPub(
     _id: Id<"pubs">;
     slug: string;
     title?: string;
+    description?: string;
     isPublic: boolean;
     createdAt: number;
     updatedAt: number;
@@ -103,6 +107,7 @@ function mapPub(
     _id: pub._id,
     slug: pub.slug,
     title: pub.title,
+    description: pub.description,
     isPublic: pub.isPublic,
     createdAt: pub.createdAt,
     updatedAt: pub.updatedAt,
@@ -189,6 +194,7 @@ export const listPublic = query({
       page: result.page.map((p) => ({
         slug: p.slug,
         title: p.title,
+        description: p.description,
         createdAt: p.createdAt,
       })),
     };
@@ -559,6 +565,7 @@ export const createPub = internalMutation({
     slug: v.string(),
     content: v.optional(v.string()),
     title: v.optional(v.string()),
+    description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
@@ -573,6 +580,7 @@ export const createPub = internalMutation({
       slug: args.slug,
       content: args.content,
       title: args.title,
+      description: args.description,
       isPublic: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -587,10 +595,11 @@ export const updatePub = internalMutation({
     id: v.id("pubs"),
     content: v.optional(v.string()),
     title: v.optional(v.string()),
+    description: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
     slug: v.optional(v.string()),
   },
-  handler: async (ctx, { id, content, title, isPublic, slug }) => {
+  handler: async (ctx, { id, content, title, description, isPublic, slug }) => {
     const pub = await ctx.db.get(id);
     if (!pub) throw new Error("Pub not found");
 
@@ -606,7 +615,7 @@ export const updatePub = internalMutation({
       }
     }
 
-    const patch = buildPubPatch({ content, title, isPublic, slug });
+    const patch = buildPubPatch({ content, title, description, isPublic, slug });
     await ctx.db.patch(id, patch);
   },
 });

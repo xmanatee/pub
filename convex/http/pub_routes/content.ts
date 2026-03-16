@@ -119,7 +119,7 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
           id: `${publicUrl}/p/${pub.slug}`,
           link: `${publicUrl}/p/${pub.slug}`,
           date: new Date(pub.createdAt),
-          description: "pub",
+          description: pub.description || pub.title || pub.slug,
         });
       }
 

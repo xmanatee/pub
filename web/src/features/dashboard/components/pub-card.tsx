@@ -15,6 +15,7 @@ interface PubCardProps {
     _id: Id<"pubs">;
     slug: string;
     title?: string;
+    description?: string;
     isPublic: boolean;
     createdAt: number;
     content?: string;
@@ -29,13 +30,18 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
-        <div className="aspect-[1200/630] overflow-hidden bg-white">
+        <div className="aspect-[1200/630] overflow-hidden bg-white relative">
           {!pub.content ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
             <PubPreviewIframe content={pub.content} title={pub.title || pub.slug} />
+          )}
+          {pub.description && (
+            <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+              <p className="px-3 py-2 text-xs text-white leading-snug">{pub.description}</p>
+            </div>
           )}
         </div>
       </Link>
@@ -60,7 +66,7 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
           )}
         </div>
         <div className="text-xs text-muted-foreground">
-          /{pub.slug} &middot; {new Date(pub.createdAt).toLocaleDateString()}
+          {new Date(pub.createdAt).toLocaleDateString()}
           {pub.content && (
             <span className="tabular-nums">
               {" "}

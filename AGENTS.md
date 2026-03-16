@@ -44,7 +44,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Package**: `web/package.json` (`pub-web`) — web-specific deps and scripts
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `pubs` (content optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
+- **Schema** (`schema.ts`): `pubs` (content/description optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
 - **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user; 1 live per agent; 1 live per slug
 - **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
@@ -65,8 +65,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`pub`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
 - **Pub commands**: `config`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `doctor`
-- `create [file]` — supports `--slug`, `--title`; always creates private pubs (use `update --public` to change visibility)
-- `update <slug>` — supports `--file`, `--title`, `--public`/`--private`, `--slug <newSlug>` for rename
+- `create [file]` — supports `--slug`, `--title`, `--description`; always creates private pubs (use `update --public` to change visibility)
+- `update <slug>` — supports `--file`, `--title`, `--description`, `--public`/`--private`, `--slug <newSlug>` for rename
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
 - `start --agent-name <name>` — registers agent presence and starts the per-user daemon using saved bridge config; `--agent-name` is required and shown in browser UI; prints log path and current runtime status on success

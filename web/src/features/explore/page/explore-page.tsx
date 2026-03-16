@@ -46,11 +46,16 @@ export function ExplorePage() {
           {pubs.map((pub) => (
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
-                <div className="aspect-[1200/630] overflow-hidden bg-white">
+                <div className="aspect-[1200/630] overflow-hidden bg-white relative">
                   <PubPreviewIframe
                     htmlSrc={`${siteUrl}/serve/${pub.slug}?preview=1`}
                     title={pub.title || pub.slug}
                   />
+                  {pub.description && (
+                    <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="px-3 py-2 text-xs text-white leading-snug">{pub.description}</p>
+                    </div>
+                  )}
                 </div>
                 <CardContent className="px-4 py-3">
                   <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">

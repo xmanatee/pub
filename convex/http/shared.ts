@@ -172,16 +172,20 @@ export function getPublicUrl() {
   return process.env.PUB_PUBLIC_URL ?? "";
 }
 
-export function buildOgTags(pub: { title?: string; slug: string }): string {
+export function buildOgTags(pub: { title?: string; description?: string; slug: string }): string {
   const publicUrl = getPublicUrl();
   const siteUrl = process.env.CONVEX_SITE_URL ?? "";
   const title = escapeHtmlAttr(pub.title || pub.slug);
-  return [
+  const tags = [
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:type" content="article" />`,
     `<meta property="og:url" content="${escapeHtmlAttr(`${publicUrl}/p/${pub.slug}`)}" />`,
     `<meta property="og:image" content="${escapeHtmlAttr(`${siteUrl}/og/${pub.slug}`)}" />`,
-  ].join("\n  ");
+  ];
+  if (pub.description) {
+    tags.push(`<meta property="og:description" content="${escapeHtmlAttr(pub.description)}" />`);
+  }
+  return tags.join("\n  ");
 }
 
 export function getOgCardData(

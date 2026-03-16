@@ -8,6 +8,7 @@ interface CreateResult {
 interface UpdateResult {
   slug: string;
   title?: string;
+  description?: string;
   isPublic: boolean;
   updatedAt: number;
 }
@@ -15,6 +16,7 @@ interface UpdateResult {
 interface Pub {
   slug: string;
   title?: string;
+  description?: string;
   isPublic: boolean;
   createdAt: number;
   updatedAt: number;
@@ -124,6 +126,7 @@ export class PubApiClient {
   async create(opts: {
     content?: string;
     title?: string;
+    description?: string;
     slug?: string;
   }): Promise<CreateResult> {
     return this.request<CreateResult>("/api/v1/pubs", {
@@ -162,6 +165,7 @@ export class PubApiClient {
     slug: string;
     content?: string;
     title?: string;
+    description?: string;
     isPublic?: boolean;
     newSlug?: string;
   }): Promise<UpdateResult> {

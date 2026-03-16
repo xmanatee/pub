@@ -41,6 +41,7 @@ export default defineSchema({
     contentType: v.optional(v.string()),
     content: v.optional(v.string()),
     title: v.optional(v.string()),
+    description: v.optional(v.string()),
     isPublic: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
