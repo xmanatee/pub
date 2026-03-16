@@ -76,8 +76,14 @@ export function useLiveBridge({
     lastAgentCandidateCountRef.current = 0;
     lastHandledAnswerRef.current = null;
     let disposed = false;
-    bridge.setOnStateChange(setBridgeState);
-    bridge.setOnRuntimeStateChange(setRuntimeState);
+    bridge.setOnStateChange((s) => {
+      console.debug("[bridge] state →", s);
+      setBridgeState(s);
+    });
+    bridge.setOnRuntimeStateChange((rs) => {
+      console.debug("[bridge] runtime →", rs);
+      setRuntimeState(rs);
+    });
     bridge.setOnControlError((error) => {
       onSystemMessageRef.current?.({
         content: error.message,

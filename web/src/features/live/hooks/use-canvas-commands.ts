@@ -317,6 +317,7 @@ export function useCanvasCommands({
       name?: string | null;
     }) => {
       if (!params.callId) return;
+      console.debug("[cmd] failure→canvas code=%s name=%s", params.code, params.name);
       trackCommandResult({
         callId: params.callId,
         errorMessage: params.message,
@@ -569,6 +570,11 @@ export function useCanvasCommands({
       return;
     }
     if (lastCanvasScopeKeyRef.current === canvasScopeKey) return;
+    console.debug(
+      "[cmd] canvasScopeKey changed %s → %s",
+      lastCanvasScopeKeyRef.current,
+      canvasScopeKey,
+    );
     lastCanvasScopeKeyRef.current = canvasScopeKey;
     reset();
   }, [canvasScopeKey, reset]);
@@ -579,6 +585,7 @@ export function useCanvasCommands({
       return;
     }
     if (lastSessionKeyRef.current === sessionKey) return;
+    console.debug("[cmd] sessionKey changed %s → %s", lastSessionKeyRef.current, sessionKey);
     lastSessionKeyRef.current = sessionKey;
     interruptActiveCommands({
       code: "COMMAND_INTERRUPTED",
@@ -592,6 +599,7 @@ export function useCanvasCommands({
 
   useEffect(() => {
     if (!liveMode) {
+      console.debug("[cmd] interrupt: liveMode=false");
       interruptActiveCommands({
         code: "COMMAND_INTERRUPTED",
         message: "Command interrupted because live mode was disabled.",
@@ -605,6 +613,7 @@ export function useCanvasCommands({
 
     if (runtimeState.connectionState !== "failed") return;
 
+    console.debug("[cmd] interrupt: connectionState=failed");
     interruptActiveCommands({
       code: "COMMAND_INTERRUPTED",
       message: "Command interrupted because the live connection was lost.",
@@ -791,20 +800,24 @@ export function useCanvasCommands({
   const onCanvasBridgeMessage = useCallback(
     (message: CanvasBridgeCommandMessage) => {
       if (!liveMode) {
+        console.debug("[cmd] unavailable: liveMode=false", message.type);
         emitUnavailableFailure(message);
         return;
       }
 
       if (runtimeState.connectionState === "failed") {
+        console.debug("[cmd] unavailable: connection=failed", message.type);
         emitUnavailableFailure(message);
         return;
       }
 
       if (!canDispatchCanvasBridgeMessage(message)) {
+        console.debug("[cmd] queued (not dispatchable)", message.type);
         pendingBridgeQueueRef.current.push(message);
         return;
       }
 
+      console.debug("[cmd] dispatching", message.type);
       dispatchCanvasBridgeMessage(message);
     },
     [
@@ -819,6 +832,7 @@ export function useCanvasCommands({
   useEffect(() => {
     if (pendingBridgeQueueRef.current.length === 0) return;
     const queued = pendingBridgeQueueRef.current.splice(0);
+    console.debug("[cmd] draining %d queued command(s)", queued.length);
     const stillPending: CanvasBridgeCommandMessage[] = [];
     for (const message of queued) {
       if (!canDispatchCanvasBridgeMessage(message)) {
@@ -826,6 +840,9 @@ export function useCanvasCommands({
         continue;
       }
       dispatchCanvasBridgeMessage(message);
+    }
+    if (stillPending.length > 0) {
+      console.debug("[cmd] %d command(s) still not dispatchable", stillPending.length);
     }
     pendingBridgeQueueRef.current = stillPending;
   }, [canDispatchCanvasBridgeMessage, dispatchCanvasBridgeMessage]);

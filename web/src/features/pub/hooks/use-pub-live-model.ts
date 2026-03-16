@@ -236,6 +236,7 @@ export function usePubLiveModel({
   }, []);
 
   useEffect(() => {
+    console.debug("[model] baseContentHtml changed len=%d", baseContentHtml?.length ?? -1);
     setCanvasHtml(baseContentHtml ?? null);
   }, [baseContentHtml]);
 
@@ -245,7 +246,10 @@ export function usePubLiveModel({
     const hadPriorCanvas = previous.html !== null;
     lastCanvasScopeRef.current = { slug, html: canvasHtml };
     if (hadPriorCanvas) {
+      console.debug("[model] canvasScopeVersion++ (hadPriorCanvas, html changed)");
       setCanvasScopeVersion((current) => current + 1);
+    } else {
+      console.debug("[model] canvasHtml changed but no prior canvas — skip version bump");
     }
   }, [canvasHtml, slug]);
 
@@ -359,6 +363,7 @@ export function usePubLiveModel({
   }, [addSystemMessage, sessionError]);
 
   const resetLiveSurface = useCallback(() => {
+    console.debug("[model] resetLiveSurface");
     dismissPreview();
     clearFiles();
     clearMessages();
@@ -398,6 +403,7 @@ export function usePubLiveModel({
       return;
     }
 
+    console.debug("[model] liveSessionId changed → resetLiveSurface");
     resetLiveSurface();
   }, [live?._id, liveMode, resetLiveSurface]);
 
@@ -414,6 +420,7 @@ export function usePubLiveModel({
       return;
     }
 
+    console.debug("[model] selectedPresenceId changed → resetLiveSurface");
     resetLiveSurface();
   }, [liveMode, resetLiveSurface, selectedPresenceId]);
 
