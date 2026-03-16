@@ -73,7 +73,7 @@ describe("command-protocol-core", () => {
     });
   });
 
-  it("rejects agent executors without explicit mode", () => {
+  it("defaults agent executor mode to detached when omitted", () => {
     const [fn] = parseCommandFunctionList([
       {
         name: "summarize",
@@ -86,7 +86,11 @@ describe("command-protocol-core", () => {
       },
     ]);
 
-    expect(fn?.executor).toBeUndefined();
+    expect(fn?.executor).toMatchObject({
+      kind: "agent",
+      mode: "detached",
+      prompt: "Summarize",
+    });
   });
 
   it("caps parsed function list to manifest max", () => {

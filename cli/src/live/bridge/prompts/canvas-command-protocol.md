@@ -34,6 +34,7 @@ Use this when canvas UI interactions need local refetches, side effects, or reru
       "returns": "text",
       "executor": {
         "kind": "agent",
+        "mode": "detached",
         "prompt": "Summarize text: {{emailText}}"
       }
     }
@@ -46,11 +47,12 @@ Use this when canvas UI interactions need local refetches, side effects, or reru
 3. Return semantics:
    - `returns: "void"` for side effects (resolves `null`).
    - `returns: "text" | "json"` for payload responses (promise resolves with value; errors reject).
-4. Agent executors:
-   - `executor.kind = "agent"` uses a local agent runtime, not the browser.
-   - `provider: "auto"` prefers the current bridge runtime when it supports agent execution, otherwise Claude Code, otherwise OpenClaw.
-   - `provider: "claude-code"` requires `claude-code.path` or `CLAUDE_CODE_PATH`.
-   - `provider: "openclaw"` requires `openclaw.path` and `openclaw.sessionId`, or the matching environment variables.
+4. Agent executors (`executor.kind = "agent"`) use a local agent runtime, not the browser:
+   - `prompt`: the prompt to send. Use `{{paramName}}` for interpolation from the JS call's args object.
+   - `mode`: `"detached"` (default — spawns an independent agent, isolated and parallel-safe) or `"main"` (runs within the live session's main agent with full context and tools). Use `"detached"` for most command-style tasks (summarize, generate, analyze). Use `"main"` only when the command needs the agent's ongoing session context.
+   - `provider` (optional): `"auto"` (default — picks best available), `"claude-code"`, `"claude-sdk"`, or `"openclaw"`.
+   - `profile` (optional): `"fast"`, `"default"`, or `"deep"` — controls agent effort level.
+   - `output` (optional): `"text"` or `"json"` — hint for how to parse agent output.
 
 ### Managed Canvas Files
 
