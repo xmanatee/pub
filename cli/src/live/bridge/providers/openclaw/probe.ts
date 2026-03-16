@@ -92,7 +92,7 @@ export async function runOpenClawBridgeStartupProbe(
           );
           // Simulate pong to pass preflight immediately for self-probe.
           // The agent's ability to run this command is proof of aliveness.
-          const { ipcCall } = await import("../../transport/ipc.js");
+          const { ipcCall } = await import("../../../transport/ipc.js");
           await ipcCall(socketPath, {
             method: "write",
             params: {
