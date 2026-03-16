@@ -72,3 +72,20 @@ export const seedUser = internalMutation({
     return { userId, apiKey: rawKey, apiKeyId, refreshToken };
   },
 });
+
+export const seedExtraApiKey = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    assertTestEnv();
+    const rawKey = generateApiKey();
+    const keyHash = await hashApiKey(rawKey);
+    const apiKeyId = await ctx.db.insert("apiKeys", {
+      userId,
+      keyHash,
+      keyPreview: keyPreviewFromKey(rawKey),
+      name: "test-key-extra",
+      createdAt: Date.now(),
+    });
+    return { apiKey: rawKey, apiKeyId };
+  },
+});

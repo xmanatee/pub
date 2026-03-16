@@ -62,3 +62,10 @@ export function seedUser(name = "E2E User"): TestUser {
   const parsed = JSON.parse(result);
   return { ...parsed, name };
 }
+
+/** Create an extra API key for an existing user. Returns a TestUser with the new key. */
+export function seedExtraApiKey(base: TestUser): TestUser {
+  const result = runMutation("testing:seedExtraApiKey", { userId: base.userId });
+  const parsed = JSON.parse(result);
+  return { ...base, apiKey: parsed.apiKey, apiKeyId: parsed.apiKeyId };
+}
