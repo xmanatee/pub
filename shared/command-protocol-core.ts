@@ -161,8 +161,7 @@ function parseExecutor(input: unknown): CommandExecutorSpec | undefined {
     const prompt = readString(record.prompt);
     if (!prompt) return undefined;
     const provider = readAgentProvider(readString(record.provider));
-    const mode = readAgentMode(readString(record.mode));
-    if (!mode) return undefined;
+    const mode = readAgentMode(readString(record.mode)) ?? "detached";
     const profile = readAgentProfile(readString(record.profile));
     const outputRaw = readString(record.output);
     const output = outputRaw === "json" || outputRaw === "text" ? outputRaw : undefined;
