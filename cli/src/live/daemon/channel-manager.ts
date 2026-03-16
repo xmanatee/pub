@@ -158,7 +158,9 @@ export function createDaemonChannelManager(params: {
     });
 
     dc.onClosed(() => {
-      state.channels.delete(name);
+      if (state.channels.get(name) === dc) {
+        state.channels.delete(name);
+      }
       state.pendingInboundBinaryMeta.delete(name);
       state.inboundStreams.delete(name);
       debugLog(`datachannel "${name}" closed`);
