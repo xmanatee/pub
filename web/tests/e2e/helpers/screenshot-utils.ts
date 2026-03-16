@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
@@ -9,17 +9,62 @@ export const SCREENSHOT_DIR = "tests/e2e/snapshots";
 const DEFAULT_MAX_DIFF_RATIO = 0.0015;
 export const ANIMATED_TOLERANCE = 0.005;
 
+const UPDATE_SNAPSHOTS = !!process.env.UPDATE_SNAPSHOTS;
+
 interface StableScreenshotOptions {
   maxDiffRatio?: number;
   fullPage?: boolean;
 }
 
+function diffBaseline(
+  candidatePath: string,
+  baselinePath: string,
+  maxDiffRatio: number,
+): string | null {
+  if (!existsSync(baselinePath)) {
+    return `Missing screenshot baseline: ${baselinePath}. Candidate image: ${candidatePath}`;
+  }
+
+  const oldBuf = readFileSync(baselinePath);
+  const newBuf = readFileSync(candidatePath);
+
+  if (oldBuf.equals(newBuf)) return null;
+
+  const oldPng = PNG.sync.read(oldBuf);
+  const newPng = PNG.sync.read(newBuf);
+
+  if (oldPng.width !== newPng.width || oldPng.height !== newPng.height) {
+    return [
+      `Screenshot dimensions changed for ${baselinePath}.`,
+      `Expected: ${oldPng.width}x${oldPng.height}`,
+      `Received: ${newPng.width}x${newPng.height}`,
+      `Candidate image: ${candidatePath}`,
+    ].join(" ");
+  }
+
+  const totalPixels = oldPng.width * oldPng.height;
+  const diff = new PNG({ width: oldPng.width, height: oldPng.height });
+  const diffPixels = pixelmatch(oldPng.data, newPng.data, diff.data, oldPng.width, oldPng.height, {
+    threshold: 0.1,
+  });
+
+  const ratio = diffPixels / totalPixels;
+  if (ratio <= maxDiffRatio) return null;
+
+  const diffPath = join(tmpdir(), `pw-diff-${Date.now()}-${basename(baselinePath)}`);
+  writeFileSync(diffPath, PNG.sync.write(diff));
+  return [
+    `Screenshot diff exceeded tolerance for ${baselinePath}.`,
+    `Diff ratio: ${ratio.toFixed(6)}`,
+    `Allowed ratio: ${maxDiffRatio.toFixed(6)}`,
+    `Candidate image: ${candidatePath}`,
+    `Diff image: ${diffPath}`,
+  ].join(" ");
+}
+
 /**
  * Take a screenshot and compare it against the committed baseline.
- *
- * This absorbs tiny GPU-compositing jitter (backdrop-filter, mask-composite,
- * translateZ layers) that is visually imperceptible but produces different bytes
- * on every render.
+ * Set `UPDATE_SNAPSHOTS=1` to auto-replace baselines instead of failing.
  */
 export async function stableScreenshot(
   target: Locator | Page,
@@ -31,51 +76,24 @@ export async function stableScreenshot(
 
   await target.screenshot({ path: tmpPath, fullPage: options?.fullPage });
 
-  if (!existsSync(filePath)) {
-    throw new Error(`Missing screenshot baseline: ${filePath}. Candidate image: ${tmpPath}`);
+  const failure = diffBaseline(tmpPath, filePath, maxDiffRatio);
+
+  if (!failure) {
+    unlinkSync(tmpPath);
+    return;
   }
 
-  const oldBuf = readFileSync(filePath);
-  const newBuf = readFileSync(tmpPath);
-
-  if (oldBuf.equals(newBuf)) return;
-
-  const oldPng = PNG.sync.read(oldBuf);
-  const newPng = PNG.sync.read(newBuf);
-
-  if (oldPng.width !== newPng.width || oldPng.height !== newPng.height) {
-    throw new Error(
-      [
-        `Screenshot dimensions changed for ${filePath}.`,
-        `Expected: ${oldPng.width}x${oldPng.height}`,
-        `Received: ${newPng.width}x${newPng.height}`,
-        `Candidate image: ${tmpPath}`,
-      ].join(" "),
-    );
+  if (UPDATE_SNAPSHOTS) {
+    copyFileSync(tmpPath, filePath);
+    unlinkSync(tmpPath);
+    return;
   }
 
-  const totalPixels = oldPng.width * oldPng.height;
-  const diffPixels = pixelmatch(oldPng.data, newPng.data, null, oldPng.width, oldPng.height, {
-    threshold: 0.1,
-  });
-
-  if (diffPixels / totalPixels > maxDiffRatio) {
-    throw new Error(
-      [
-        `Screenshot diff exceeded tolerance for ${filePath}.`,
-        `Diff ratio: ${(diffPixels / totalPixels).toFixed(6)}`,
-        `Allowed ratio: ${maxDiffRatio.toFixed(6)}`,
-        `Candidate image: ${tmpPath}`,
-      ].join(" "),
-    );
-  }
+  throw new Error(failure);
 }
 
 /**
  * Freeze CSS animations at a deterministic frame and disable transitions.
- *
- * Injected via `addStyleTag` so the rules live outside Tailwind v4's
- * `@layer base` and reliably override component CSS.
  */
 export async function freezeAnimations(page: Page) {
   await page.addStyleTag({
