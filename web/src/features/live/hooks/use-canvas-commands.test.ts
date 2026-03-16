@@ -559,7 +559,7 @@ describe("useCanvasCommands", () => {
     act(() => {
       latestHook?.onCanvasBridgeMessage(makeInvokeMessage("listEmails", "call-1"));
       latestHook?.onCanvasBridgeMessage(
-        makeInvokeMessage("getEmail", "call-2", { threadId: "t1" }),
+        makeInvokeMessage("getEmail", "call-2", { filter: "unread" }),
       );
     });
 

@@ -11,15 +11,15 @@ export const MONITORED_ATTACHMENT_CHANNELS = new Set<string>([
   CHANNELS.MEDIA,
 ]);
 
-export interface ActiveStream {
+export type ActiveStream = {
   bytes: number;
   chunks: Buffer[];
   filename?: string;
   mime?: string;
   streamId: string;
-}
+};
 
-export interface StagedAttachment {
+export type StagedAttachment = {
   channel: string;
   filename: string;
   messageId: string;
@@ -29,7 +29,7 @@ export interface StagedAttachment {
   size: number;
   streamId?: string;
   streamStatus: "single" | "complete" | "interrupted";
-}
+};
 
 function inferExtensionFromMime(mime: string): string {
   const normalized = mime.split(";")[0]?.trim().toLowerCase();

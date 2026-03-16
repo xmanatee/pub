@@ -10,7 +10,7 @@ export class ApiClient {
 
   constructor(opts?: { baseUrl?: string; apiKey?: string; user?: TestUser }) {
     const state = getState();
-    this.baseUrl = opts?.baseUrl ?? state.convexSiteUrl;
+    this.baseUrl = opts?.baseUrl ?? state.convexProxyUrl;
     this.apiKey = opts?.apiKey ?? opts?.user?.apiKey ?? state.users[0]?.apiKey ?? "";
   }
 

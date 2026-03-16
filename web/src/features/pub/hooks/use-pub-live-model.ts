@@ -241,6 +241,10 @@ export function usePubLiveModel({
   }, [baseContentHtml]);
 
   useEffect(() => {
+    if (canvasHtml && !controlBarCollapsed) setControlBarCollapsed(true);
+  }, [canvasHtml, controlBarCollapsed]);
+
+  useEffect(() => {
     const previous = lastCanvasScopeRef.current;
     if (previous.slug === slug && previous.html === canvasHtml) return;
     const hadPriorCanvas = previous.html !== null;

@@ -7,12 +7,12 @@ import type { BridgeSettings } from "../../core/config/index.js";
 import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
 import CANVAS_COMMAND_PROTOCOL_GUIDE from "../bridge/prompts/canvas-command-protocol.md";
 
-export interface BridgeInstructions {
+export type BridgeInstructions = {
   replyHint: string;
   canvasHint: string;
   systemPrompt: string | null;
   commandProtocolGuide: string;
-}
+};
 
 const PUB_WRITE_REPLY_HINT = 'Reply command: pub write "<your reply>"';
 const PUB_WRITE_CANVAS_HINT = "Canvas command: pub write -c canvas -f /path/to/file.html";
@@ -25,7 +25,7 @@ export function buildBridgeInstructions(): BridgeInstructions {
   };
 }
 
-export interface DaemonConfig {
+export type DaemonConfig = {
   cliVersion?: string;
   apiClient: PubApiClient;
   socketPath: string;
@@ -33,7 +33,7 @@ export interface DaemonConfig {
   logPath?: string;
   bridgeSettings: BridgeSettings;
   agentName?: string;
-}
+};
 
 export const OFFER_TIMEOUT_MS = 10_000;
 export const LOCAL_CANDIDATE_FLUSH_MS = 2_000;

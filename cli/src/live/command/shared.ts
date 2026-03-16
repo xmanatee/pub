@@ -15,25 +15,25 @@ import type { BridgeRunner } from "../bridge/shared.js";
 
 export const DEFAULT_RECENT_RESULT_TTL_MS = 120_000;
 
-export interface CommandHandlerParams {
+export type CommandHandlerParams = {
   bridgeSettings: BridgeSettings;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;
   getBridgeRunner?: () => BridgeRunner | null;
   onExecutorStateChange?: (state: LiveExecutorState) => void;
-}
+};
 
-export interface RunningCommand {
+export type RunningCommand = {
   abort: AbortController;
   cancelled: boolean;
   startedAt: number;
-}
+};
 
-export interface RecentCommandResult {
+export type RecentCommandResult = {
   expiresAt: number;
   payload: CommandResultPayload;
-}
+};
 
 interface CommandRuntimeConfig {
   defaultTimeoutMs: number;

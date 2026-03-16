@@ -12,14 +12,14 @@ export const DEFAULT_COMMAND_AGENT_PROFILE = "default";
 export type CommandAgentProfile = "fast" | "default" | "deep";
 export type DetachedAgentProvider = "claude-code" | "claude-sdk" | "openclaw";
 
-export interface PubCoreConfig {
+export type PubCoreConfig = {
   apiKey?: string;
   baseUrl?: string;
   telemetry?: boolean;
   sentryDsn?: string;
-}
+};
 
-export interface PubBridgeConfig {
+export type PubBridgeConfig = {
   mode?: BridgeMode;
   openclawPath?: string;
   openclawStateDir?: string;
@@ -42,19 +42,19 @@ export interface PubBridgeConfig {
   claudeSdkCommandModelFast?: string;
   claudeSdkCommandModelDeep?: string;
   openclawLikeCommand?: string;
-}
+};
 
-export interface PubTelegramConfig {
+export type PubTelegramConfig = {
   botToken?: string;
   botUsername?: string;
   hasMainWebApp?: boolean;
-}
+};
 
-export interface PubConfig {
+export type PubConfig = {
   core?: PubCoreConfig;
   bridge?: PubBridgeConfig;
   telegram?: PubTelegramConfig;
-}
+};
 
 interface BridgeSettingsBase {
   mode: BridgeMode;
@@ -82,61 +82,61 @@ interface BridgeSettingsBase {
   liveModelProfile?: LiveModelProfile;
 }
 
-export interface OpenClawBridgeSettings extends BridgeSettingsBase {
+export type OpenClawBridgeSettings = BridgeSettingsBase & {
   mode: "openclaw";
   openclawPath: string;
   sessionId: string;
-}
+};
 
-export interface ClaudeBridgeSettings extends BridgeSettingsBase {
+export type ClaudeBridgeSettings = BridgeSettingsBase & {
   mode: "claude-code" | "claude-sdk";
   claudeCodePath: string;
-}
+};
 
-export interface OpenClawLikeBridgeSettings extends BridgeSettingsBase {
+export type OpenClawLikeBridgeSettings = BridgeSettingsBase & {
   mode: "openclaw-like";
   openclawLikeCommand: string;
-}
+};
 
 export type BridgeSettings =
   | OpenClawBridgeSettings
   | ClaudeBridgeSettings
   | OpenClawLikeBridgeSettings;
 
-export interface ApiClientSettings {
+export type ApiClientSettings = {
   apiKey: string;
   baseUrl: string;
-}
+};
 
 export type SettingSource = "env" | "config" | "default";
 
-export interface ResolvedValue<T> {
+export type ResolvedValue<T> = {
   value: T;
   source: SettingSource;
   envKey?: string;
-}
+};
 
-export interface ResolvedPubSettings {
+export type ResolvedPubSettings = {
   rawConfig: PubConfig;
   core: {
     apiKey: ResolvedValue<string> | null;
     baseUrl: ResolvedValue<string>;
   };
   valuesByKey: Record<string, ResolvedValue<unknown> | null>;
-}
+};
 
 export type ConfigDirSource = "PUB_CONFIG_DIR" | "OPENCLAW_HOME" | "HOME_CONFIG";
 
-export interface ConfigDirCandidate {
+export type ConfigDirCandidate = {
   dir: string;
   exists: boolean;
   source: ConfigDirSource;
   description: string;
-}
+};
 
-export interface ConfigLocation {
+export type ConfigLocation = {
   dir: string;
   path: string;
   source: ConfigDirSource;
   description: string;
-}
+};

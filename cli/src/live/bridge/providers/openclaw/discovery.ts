@@ -84,10 +84,10 @@ function resolveOpenClawPath(
   );
 }
 
-export interface OpenClawRuntimeResolution {
+export type OpenClawRuntimeResolution = {
   openclawPath: string;
   sessionId: string;
-}
+};
 
 export function resolveOpenClawRuntime(
   env: NodeJS.ProcessEnv = process.env,

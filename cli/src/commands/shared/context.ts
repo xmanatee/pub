@@ -10,7 +10,7 @@ import type {
 } from "../../live/transport/ipc-protocol.js";
 import { readFileBytes, readStdinText, readUtf8File, type ReadFileBytesResult } from "./io.js";
 
-export interface CliCommandContext {
+export type CliCommandContext = {
   readonly env: NodeJS.ProcessEnv;
   readonly socketPath: string;
   getApiClient(settingsOverride?: ApiClientSettings): PubApiClient;
@@ -25,7 +25,7 @@ export interface CliCommandContext {
   readStdinText(options?: Parameters<typeof readStdinText>[0]): Promise<string>;
   readUtf8File(filePath: string): string;
   readFileBytes(filePath: string): ReadFileBytesResult;
-}
+};
 
 export function createCliCommandContext(
   env: NodeJS.ProcessEnv = process.env,

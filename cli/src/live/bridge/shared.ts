@@ -5,7 +5,7 @@ import type { BridgeInstructions } from "../daemon/shared.js";
 import CANVAS_POLICY_REMINDER from "./prompts/canvas-policy-reminder.md";
 export const MAX_SEEN_IDS = 10_000;
 
-export interface BridgeRunnerConfig {
+export type BridgeRunnerConfig = {
   slug: string;
   sessionBriefing: string;
   bridgeSettings: BridgeSettings;
@@ -18,16 +18,16 @@ export interface BridgeRunnerConfig {
   }) => void;
   debugLog: (message: string, error?: unknown) => void;
   instructions: BridgeInstructions;
-}
+};
 
-export interface BridgeStatus {
+export type BridgeStatus = {
   running: boolean;
   sessionId?: string;
   lastError?: string;
   forwardedMessages: number;
-}
+};
 
-export interface BridgeRunner {
+export type BridgeRunner = {
   enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void;
   stop(): Promise<void>;
   status(): BridgeStatus;
@@ -37,12 +37,12 @@ export interface BridgeRunner {
     timeoutMs: number;
     signal: AbortSignal;
   }): Promise<unknown>;
-}
+};
 
-export interface BufferedEntry {
+export type BufferedEntry = {
   channel: string;
   msg: BridgeMessage;
-}
+};
 
 interface SessionBriefingContext {
   title?: string;

@@ -21,7 +21,7 @@ export type ConfigValueType =
   | "detached-agent-provider";
 export type ConfigDisplayMode = "value" | "set-only";
 
-export interface ConfigVarDefinition {
+export type ConfigVarDefinition = {
   key: string;
   section: ConfigSection;
   field: string;
@@ -33,7 +33,7 @@ export interface ConfigVarDefinition {
   mutable?: boolean;
   displayAs?: ConfigDisplayMode;
   cascadeUnset?: readonly string[];
-}
+};
 
 function declareConfigVar(definition: ConfigVarDefinition): ConfigVarDefinition {
   return definition;

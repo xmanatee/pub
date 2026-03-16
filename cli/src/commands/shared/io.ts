@@ -7,10 +7,10 @@ interface ReadStdinTextOptions {
   trim?: boolean;
 }
 
-export interface ReadFileBytesResult {
+export type ReadFileBytesResult = {
   bytes: Buffer;
   resolvedPath: string;
-}
+};
 
 function hasErrnoCode(error: unknown, code: string): boolean {
   return (

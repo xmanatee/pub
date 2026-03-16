@@ -28,17 +28,15 @@ export const IDLE_LIVE_RUNTIME_STATE: LiveRuntimeStateSnapshot = {
   executorState: "idle",
 };
 
-export function isLiveConnectionState(
-  value: string | null | undefined,
-): value is LiveConnectionState {
+export function isLiveConnectionState(value: string | null): value is LiveConnectionState {
   return value != null && LIVE_CONNECTION_STATES.has(value as LiveConnectionState);
 }
 
-export function isLiveAgentState(value: string | null | undefined): value is LiveAgentState {
+export function isLiveAgentState(value: string | null): value is LiveAgentState {
   return value != null && LIVE_AGENT_STATES.has(value as LiveAgentState);
 }
 
-export function isLiveExecutorState(value: string | null | undefined): value is LiveExecutorState {
+export function isLiveExecutorState(value: string | null): value is LiveExecutorState {
   return value != null && LIVE_EXECUTOR_STATES.has(value as LiveExecutorState);
 }
 

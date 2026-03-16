@@ -10,17 +10,17 @@ import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
 
-export interface PendingOutboundAck {
+export type PendingOutboundAck = {
   channel: string;
   messageId: string;
-}
+};
 
-export interface PendingDeliveryAck {
+export type PendingDeliveryAck = {
   resolve: (received: boolean) => void;
   timeout: ReturnType<typeof setTimeout>;
-}
+};
 
-export interface DaemonState {
+export type DaemonState = {
   stopped: boolean;
   runtimeState: LiveRuntimeStateSnapshot;
   agentPreparing: Promise<void> | null;
@@ -49,7 +49,7 @@ export interface DaemonState {
   pongTimeout: ReturnType<typeof setTimeout> | null;
   lastError: string | null;
   bridgeRunner: BridgeRunner | null;
-}
+};
 
 export function createDaemonState(): DaemonState {
   return {

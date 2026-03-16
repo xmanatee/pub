@@ -40,37 +40,37 @@ type StatusResponse = IpcSuccessResponse<{
   logPath: string | null;
 }> | IpcErrorResponse;
 
-export interface WriteRequest {
+export type WriteRequest = {
   method: "write";
   params: {
     channel?: string;
     msg: BridgeMessage;
     binaryBase64?: string;
   };
-}
+};
 
 type WriteResponse = IpcSuccessResponse<{
   delivered?: boolean;
 }> | IpcErrorResponse;
 
-export interface StatusRequest {
+export type StatusRequest = {
   method: "status";
   params: Record<string, never>;
-}
+};
 
-export interface ActiveSlugRequest {
+export type ActiveSlugRequest = {
   method: "active-slug";
   params: Record<string, never>;
-}
+};
 
 type ActiveSlugResponse = IpcSuccessResponse<{
   slug: string | null;
 }> | IpcErrorResponse;
 
-export interface CloseRequest {
+export type CloseRequest = {
   method: "close";
   params: Record<string, never>;
-}
+};
 
 type CloseResponse = IpcSuccessResponse | IpcErrorResponse;
 
@@ -80,12 +80,12 @@ export type IpcRequest =
   | ActiveSlugRequest
   | CloseRequest;
 
-export interface IpcResponseMap {
+export type IpcResponseMap = {
   "active-slug": ActiveSlugResponse;
   close: CloseResponse;
   status: StatusResponse;
   write: WriteResponse;
-}
+};
 
 export type IpcResponseFor<T extends keyof IpcResponseMap> = IpcResponseMap[T];
 export type SuccessfulIpcResponseFor<T extends keyof IpcResponseMap> = Extract<
@@ -163,9 +163,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
   }
 
   if (method === "status") {
-    const connectionState = readString(record.connectionState);
-    const agentState = readString(record.agentState);
-    const executorState = readString(record.executorState);
+    const connectionState = readString(record.connectionState) ?? null;
+    const agentState = readString(record.agentState) ?? null;
+    const executorState = readString(record.executorState) ?? null;
     const signalingConnected =
       record.signalingConnected === null ? null : readBoolean(record.signalingConnected);
     const activeSlug =
