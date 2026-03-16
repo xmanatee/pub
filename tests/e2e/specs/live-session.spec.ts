@@ -468,3 +468,127 @@ test("canvas uploads and downloads managed files through the daemon", async ({ p
   expect(downloadPath).not.toBeNull();
   expect(readFileSync(downloadPath ?? "", "utf-8")).toContain("HELLO CANVAS FILE");
 });
+
+/**
+ * Test 8: Commands survive canvas HTML updates.
+ * Verifies: initial canvas with commands loads → commands work → canvas updated with new
+ * commands via `pub write -c canvas` → auto-invoke and button-triggered commands still work.
+ *
+ * This catches regressions where:
+ * - canvasBridgeReady is lost after iframe reload
+ * - pending command queue is wiped during session/scope transitions
+ * - daemon executor stays idle after rebinding commands
+ * - runtime state publish fails due to stale data channels
+ */
+test("commands work after canvas HTML update", async ({ page }) => {
+  const user = seedUser("Canvas Rebind User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+
+  const initialHtml = `<!DOCTYPE html>
+<html>
+<head><title>Canvas Commands V1</title></head>
+<body>
+  <div id="auto-result">pending</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "v1",
+    "functions": [
+      {
+        "name": "getVersion",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "echo 'v1'" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.commands.getVersion().then(function(r) {
+      document.getElementById('auto-result').textContent = 'auto: ' + r;
+    }).catch(function(e) {
+      document.getElementById('auto-result').textContent = 'error: ' + e.message;
+    });
+    function runCommand() {
+      pub.commands.getVersion().then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
+
+  await api.createPub({
+    slug: "cmd-rebind",
+    title: "Command Rebind",
+    content: initialHtml,
+  });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("rebind-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/cmd-rebind");
+
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+
+  const canvasFrame = page.frameLocator("iframe").first();
+
+  // Phase 1: Initial canvas — auto-invoke command works
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v1", { timeout: 30_000 });
+
+  // Phase 1: Button-triggered command works
+  await canvasFrame.locator("#run-cmd").click();
+  await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v1", { timeout: 15_000 });
+
+  // Phase 2: Update canvas with new HTML that has a DIFFERENT command
+  const updatedHtml = `<!DOCTYPE html>
+<html>
+<head><title>Canvas Commands V2</title></head>
+<body>
+  <div id="auto-result">pending</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "v2",
+    "functions": [
+      {
+        "name": "getVersion",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "echo 'v2'" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.commands.getVersion().then(function(r) {
+      document.getElementById('auto-result').textContent = 'auto: ' + r;
+    }).catch(function(e) {
+      document.getElementById('auto-result').textContent = 'error: ' + e.message;
+    });
+    function runCommand() {
+      pub.commands.getVersion().then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
+
+  // Write new canvas HTML via daemon IPC (simulates agent updating the canvas)
+  await new Promise((r) => setTimeout(r, 1_000));
+  cli.writeCanvasHtml(updatedHtml);
+
+  // Phase 2: Auto-invoke command in NEW canvas works with updated result
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v2", { timeout: 30_000 });
+
+  // Phase 2: Button-triggered command in NEW canvas works
+  await canvasFrame.locator("#run-cmd").click();
+  await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v2", { timeout: 15_000 });
+});

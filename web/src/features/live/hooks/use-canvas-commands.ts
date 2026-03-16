@@ -587,6 +587,7 @@ export function useCanvasCommands({
     if (lastSessionKeyRef.current === sessionKey) return;
     console.debug("[cmd] sessionKey changed %s → %s", lastSessionKeyRef.current, sessionKey);
     lastSessionKeyRef.current = sessionKey;
+    pendingBridgeQueueRef.current = [];
     interruptActiveCommands({
       code: "COMMAND_INTERRUPTED",
       message: "Command interrupted because the live session changed.",

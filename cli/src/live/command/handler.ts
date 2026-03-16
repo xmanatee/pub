@@ -172,6 +172,11 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       }
       return;
     }
+    // Force a state transition so the browser is always notified when
+    // commands are rebound — even if executorState was already "ready".
+    if (executorState === "ready") {
+      setExecutorState("loading");
+    }
     params.debugLog(`commands manifestId=${manifest.manifestId}`);
     bindFunctions(manifest.functions);
   }
