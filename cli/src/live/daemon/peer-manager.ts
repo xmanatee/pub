@@ -5,7 +5,7 @@ import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
-import { setDaemonConnectionState, type DaemonState } from "./state.js";
+import { setDaemonAgentState, setDaemonConnectionState, type DaemonState } from "./state.js";
 
 export function createPeerManager(params: {
   state: DaemonState;
@@ -139,6 +139,7 @@ export function createPeerManager(params: {
 
   function resetNegotiationState(): void {
     setConnectionState("idle");
+    setDaemonAgentState(state, "idle");
     clearAgentPreparation();
     state.activeLiveModelProfile = null;
     failPendingAcks();
