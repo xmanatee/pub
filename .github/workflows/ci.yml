@@ -61,10 +61,9 @@ jobs:
             curl -sf http://localhost:3210/version > /dev/null && break
             sleep 2
           done
-          CONTAINER_ID=$(docker ps -qf 'ancestor=ghcr.io/get-convex/convex-backend:latest')
-          echo "ADMIN_KEY=$(docker exec "$CONTAINER_ID" ./generate_admin_key.sh)" >> "$GITHUB_ENV"
+          docker compose -f tests/e2e/docker-compose.yml up admin-key-gen
       - name: Run full-stack E2E tests
-        run: docker compose -f tests/e2e/docker-compose.yml up --abort-on-container-exit --exit-code-from test-runner
+        run: docker compose -f tests/e2e/docker-compose.yml up --no-deps --abort-on-container-exit --exit-code-from test-runner test-runner
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
