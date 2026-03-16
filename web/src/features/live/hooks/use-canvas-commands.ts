@@ -207,6 +207,7 @@ export function useCanvasCommands({
   const command = useMemo(() => summarizeCommands(commandState), [commandState]);
 
   const reset = useCallback(() => {
+    console.debug("[cmd] RESET active=%o", Object.keys(activeCommandsRef.current));
     activeCommandsRef.current = {};
     pendingBridgeQueueRef.current = [];
     pendingCanvasFileRequestsRef.current.clear();
@@ -216,6 +217,7 @@ export function useCanvasCommands({
     setOutboundCanvasBridgeMessage(null);
   }, []);
   const enqueueOutboundCanvasMessage = useCallback((message: CanvasBridgeOutboundMessage) => {
+    console.debug("[cmd] enqueue outbound", message.type);
     setOutboundQueue((current) => [...current, message]);
   }, []);
 
@@ -223,6 +225,7 @@ export function useCanvasCommands({
     if (outboundCanvasBridgeMessage !== null) return;
     const [nextMessage, ...rest] = outboundQueue;
     if (!nextMessage) return;
+    console.debug("[cmd] dequeue → outboundCanvasBridgeMessage", nextMessage.type);
     setOutboundCanvasBridgeMessage(nextMessage);
     setOutboundQueue(rest);
   }, [outboundCanvasBridgeMessage, outboundQueue]);
@@ -841,7 +844,15 @@ export function useCanvasCommands({
       const result = parseCommandResultMessage(cm.message);
       if (!result) return;
       const activeCommand = activeCommandsRef.current[result.callId];
-      if (!activeCommand) return;
+      if (!activeCommand) {
+        console.debug(
+          "[cmd] DROPPED result callId=%s active=%o",
+          result.callId,
+          Object.keys(activeCommandsRef.current),
+        );
+        return;
+      }
+      console.debug("[cmd] result ok=%s for %s", result.ok, activeCommand.name);
       trackCommandResult({
         callId: result.callId,
         errorMessage: result.error?.message ?? null,
