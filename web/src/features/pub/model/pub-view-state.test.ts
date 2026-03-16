@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { derivePubViewState, resolveTransportStatus } from "./pub-view-state";
+import type { LiveControlBarState } from "~/features/live/types/live-types";
+import {
+  derivePubViewState,
+  isControlBarCollapsible,
+  resolveTransportStatus,
+} from "./pub-view-state";
 
 const NOW = 1_700_000_000_000;
 
@@ -197,5 +202,42 @@ describe("derivePubViewState", () => {
       source: "canvas",
     });
     expect(state.visualState).toBe("error");
+  });
+});
+
+describe("isControlBarCollapsible", () => {
+  const COLLAPSIBLE: LiveControlBarState[] = ["idle", "connecting"];
+
+  const NON_COLLAPSIBLE: LiveControlBarState[] = [
+    "agent-selection",
+    "offline",
+    "needs-takeover",
+    "taken-over",
+    "disconnected",
+    "starting-recording",
+    "recording",
+    "recording-paused",
+    "stopping-recording",
+    "starting-voice",
+    "voice-mode",
+    "stopping-voice",
+  ];
+
+  for (const state of COLLAPSIBLE) {
+    it(`allows collapse for "${state}"`, () => {
+      expect(isControlBarCollapsible(state)).toBe(true);
+    });
+  }
+
+  for (const state of NON_COLLAPSIBLE) {
+    it(`prevents collapse for "${state}"`, () => {
+      expect(isControlBarCollapsible(state)).toBe(false);
+    });
+  }
+
+  it("covers every LiveControlBarState value", () => {
+    const allStates = [...COLLAPSIBLE, ...NON_COLLAPSIBLE];
+    const uniqueStates = new Set(allStates);
+    expect(uniqueStates.size).toBe(allStates.length);
   });
 });

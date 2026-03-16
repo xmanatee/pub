@@ -48,7 +48,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     lastTakeoverAt,
     preview,
     retryConnection,
-    setControlBarCollapsed,
+    toggleControlBar,
     setSelectedPresenceId,
     setViewMode,
     sendChat,
@@ -275,7 +275,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
         topAddon={topAddon}
         statusAction={statusAction}
         isExpanded={viewMode === "canvas" ? !controlBarCollapsed : true}
-        onStatusClick={() => setControlBarCollapsed((prev: boolean) => !prev)}
+        onStatusClick={toggleControlBar}
         className={
           controlBarState === "recording" || controlBarState === "recording-paused"
             ? CB.recordingTone

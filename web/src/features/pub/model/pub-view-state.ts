@@ -107,6 +107,32 @@ export function resolveLiveErrorSummary({
   };
 }
 
+/**
+ * Exhaustive check: only "idle" and "connecting" allow collapse.
+ * New LiveControlBarState values will cause a compile error here,
+ * forcing a deliberate decision on collapsibility.
+ */
+export function isControlBarCollapsible(state: LiveControlBarState): boolean {
+  switch (state) {
+    case "idle":
+    case "connecting":
+      return true;
+    case "agent-selection":
+    case "offline":
+    case "needs-takeover":
+    case "taken-over":
+    case "disconnected":
+    case "starting-recording":
+    case "recording":
+    case "recording-paused":
+    case "stopping-recording":
+    case "starting-voice":
+    case "voice-mode":
+    case "stopping-voice":
+      return false;
+  }
+}
+
 export function derivePubViewState(source: PubViewSourceState): PubViewState {
   const transportStatus = resolveTransportStatus(source);
   const controlBarState = resolveControlBarState({

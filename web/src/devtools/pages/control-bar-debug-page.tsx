@@ -116,7 +116,7 @@ export function ControlBarDebugPage() {
     voiceModeEnabled: true,
     setViewMode,
     dismissPreview: () => setChatPreview(null),
-    setControlBarCollapsed: setCollapsed,
+    toggleControlBar: () => setCollapsed((prev) => !prev),
   });
 
   return (

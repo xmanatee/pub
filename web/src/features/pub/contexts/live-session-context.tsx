@@ -144,7 +144,7 @@ export function createMockLiveSession(
     setSelectedPresenceId: noop,
     setAutoOpenCanvas: noop,
     setCanvasError: noop,
-    setControlBarCollapsed: noop,
+    toggleControlBar: noop,
     setDeveloperModeEnabled: noop,
     setMicGranted: noop,
     setViewMode: noop,

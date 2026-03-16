@@ -14,7 +14,7 @@ import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
-import { derivePubViewState } from "~/features/pub/model/pub-view-state";
+import { derivePubViewState, isControlBarCollapsible } from "~/features/pub/model/pub-view-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackPubViewed } from "~/lib/analytics";
 
@@ -101,7 +101,7 @@ export function usePubLiveModel({
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
-  const [controlBarCollapsed, setControlBarCollapsed] = useState(Boolean(baseContentHtml));
+  const [collapsePreference, setCollapsePreference] = useState(Boolean(baseContentHtml));
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
   const trackedViewCount = useRef(false);
@@ -241,7 +241,7 @@ export function usePubLiveModel({
   }, [baseContentHtml]);
 
   useEffect(() => {
-    if (canvasHtml) setControlBarCollapsed(true);
+    if (canvasHtml) setCollapsePreference(true);
   }, [canvasHtml]);
 
   useEffect(() => {
@@ -275,6 +275,13 @@ export function usePubLiveModel({
     sessionError,
     sessionState,
   });
+
+  const controlBarCollapsed =
+    collapsePreference && isControlBarCollapsible(viewState.controlBarState);
+
+  const toggleControlBar = useCallback(() => {
+    setCollapsePreference((prev) => !prev);
+  }, []);
 
   useEffect(() => {
     if (pub === undefined) return;
@@ -325,7 +332,7 @@ export function usePubLiveModel({
     lastSelectedPresenceIdRef.current = null;
     setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
-    setControlBarCollapsed(Boolean(baseContentHtml));
+    setCollapsePreference(Boolean(baseContentHtml));
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
     dismissPreview();
@@ -429,7 +436,7 @@ export function usePubLiveModel({
   }, [liveMode, resetLiveSurface, selectedPresenceId]);
 
   const handleClose = useCallback(() => {
-    setControlBarCollapsed(false);
+    setCollapsePreference(false);
     resetLiveSurface();
     if (liveMode) closeLive();
     void navigate({ to: "/dashboard" });
@@ -487,7 +494,7 @@ export function usePubLiveModel({
     selectedPresenceId,
     setAutoOpenCanvas,
     setCanvasError,
-    setControlBarCollapsed,
+    toggleControlBar,
     setDeveloperModeEnabled,
     setMicGranted,
     setSelectedPresenceId: handleSelectedPresenceId,
