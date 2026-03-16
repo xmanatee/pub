@@ -207,12 +207,6 @@ export function useCanvasCommands({
   const command = useMemo(() => summarizeCommands(commandState), [commandState]);
 
   const reset = useCallback(() => {
-    console.debug(
-      "[canvas-cmd] RESET — clearing active commands:",
-      Object.keys(activeCommandsRef.current),
-      "pending:",
-      pendingBridgeQueueRef.current.length,
-    );
     activeCommandsRef.current = {};
     pendingBridgeQueueRef.current = [];
     pendingCanvasFileRequestsRef.current.clear();
@@ -650,7 +644,6 @@ export function useCanvasCommands({
       }
 
       const invokePayload: CommandInvokePayload = message.payload;
-      console.debug("[canvas-cmd] trackCommandStart", invokePayload.name, invokePayload.callId);
       trackCommandStart(invokePayload.callId, invokePayload.name);
 
       void ensureChannel(CHANNELS.COMMAND)
@@ -805,18 +798,10 @@ export function useCanvasCommands({
       }
 
       if (!canDispatchCanvasBridgeMessage(message)) {
-        console.debug(
-          "[canvas-cmd] command queued (runtime not ready)",
-          (message as { payload?: { name?: string } }).payload?.name,
-        );
         pendingBridgeQueueRef.current.push(message);
         return;
       }
 
-      console.debug(
-        "[canvas-cmd] command dispatching immediately",
-        (message as { payload?: { name?: string } }).payload?.name,
-      );
       dispatchCanvasBridgeMessage(message);
     },
     [
@@ -854,32 +839,9 @@ export function useCanvasCommands({
     (cm: ChannelMessage) => {
       if (cm.channel !== CHANNELS.COMMAND) return;
       const result = parseCommandResultMessage(cm.message);
-      if (!result) {
-        console.debug(
-          "[canvas-cmd] command channel message not a result",
-          cm.message.type,
-          cm.message.data,
-        );
-        return;
-      }
+      if (!result) return;
       const activeCommand = activeCommandsRef.current[result.callId];
-      if (!activeCommand) {
-        console.debug(
-          "[canvas-cmd] DROPPED result — no active command for callId",
-          result.callId,
-          "active:",
-          Object.keys(activeCommandsRef.current),
-        );
-        return;
-      }
-      console.debug(
-        "[canvas-cmd] result received for",
-        activeCommand.name,
-        "callId:",
-        result.callId,
-        "ok:",
-        result.ok,
-      );
+      if (!activeCommand) return;
       trackCommandResult({
         callId: result.callId,
         errorMessage: result.error?.message ?? null,
