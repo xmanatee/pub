@@ -28,7 +28,7 @@ trap cleanup EXIT
 
 # --- Start test proxy (combines HTTP + WS ports) ---
 echo "[e2e] Starting test proxy..."
-npx tsx tests/e2e/helpers/test-proxy.ts &
+node tests/e2e/helpers/test-proxy.mjs &
 PROXY_PID=$!
 
 # --- Start Vite dev server (browser connects to Convex via the local proxy) ---

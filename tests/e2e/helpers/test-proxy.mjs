@@ -17,7 +17,7 @@ const WS_PORT = Number(process.env.CONVEX_API_PORT ?? 3210);
 const PROXY_PORT = Number(process.env.PROXY_PORT ?? 3212);
 
 /** Routes that are Convex HTTP actions (site port). Everything else goes to the API port. */
-function isSiteRoute(url: string | undefined): boolean {
+function isSiteRoute(url) {
   if (!url) return false;
   return (
     url.startsWith("/api/v1/") ||
