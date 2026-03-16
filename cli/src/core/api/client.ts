@@ -18,7 +18,7 @@ interface Pub {
   isPublic: boolean;
   createdAt: number;
   updatedAt: number;
-  live?: {
+  live: {
     status: string;
   } | null;
 }

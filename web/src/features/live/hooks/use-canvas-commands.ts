@@ -979,6 +979,7 @@ export function useCanvasCommands({
     handleBridgeCanvasFileMessage,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
+    outboundQueue,
     reset,
   };
 }

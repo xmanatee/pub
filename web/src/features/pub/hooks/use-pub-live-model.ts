@@ -368,10 +368,19 @@ export function usePubLiveModel({
     clearFiles();
     clearMessages();
     clearSessionError();
+    resetCanvasCommands();
     setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
-  }, [baseContentHtml, clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
+  }, [
+    baseContentHtml,
+    clearFiles,
+    clearMessages,
+    clearSessionError,
+    dismissPreview,
+    resetCanvasCommands,
+    setViewMode,
+  ]);
 
   useEffect(() => {
     if (!liveMode) {

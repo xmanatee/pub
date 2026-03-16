@@ -660,9 +660,10 @@ describe("useCanvasCommands", () => {
       liveMode: true,
     });
 
-    expect(latestHook?.outboundCanvasBridgeMessage).not.toBeNull();
-    expect(latestHook?.outboundCanvasBridgeMessage?.payload.ok).toBe(false);
-    expect(latestHook?.outboundCanvasBridgeMessage?.payload.callId).toBe("call-1");
+    const msg = latestHook?.outboundCanvasBridgeMessage ?? latestHook?.outboundQueue[0];
+    expect(msg).toBeDefined();
+    expect(msg?.payload.ok).toBe(false);
+    expect(msg?.payload.callId).toBe("call-1");
   });
 
   // --------------------------------------------------------------------------

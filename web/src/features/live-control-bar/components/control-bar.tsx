@@ -45,7 +45,6 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     controlBarCollapsed,
     controlBarState,
     dismissPreview,
-    hasCanvasContent,
     lastTakeoverAt,
     preview,
     retryConnection,
@@ -253,7 +252,8 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     );
   }
 
-  const statusAction = hasCanvasContent ? <BlobVisual tone={VISUAL_THEME[visualState]} /> : null;
+  const statusAction =
+    visualState !== "idle" ? <BlobVisual tone={VISUAL_THEME[visualState]} /> : null;
 
   const shellStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
 
