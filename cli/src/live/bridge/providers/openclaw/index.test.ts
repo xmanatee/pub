@@ -241,15 +241,19 @@ describe("buildSessionBriefing", () => {
   });
 
   it("always includes how-to-respond section even with minimal context", () => {
-    const briefing = buildSessionBriefing("bare-pub", {}, openclawInstructions);
+    const briefing = buildSessionBriefing(
+      "bare-pub",
+      { isPublic: false },
+      openclawInstructions,
+    );
 
     expect(briefing).toContain("[Live: bare-pub] Session started.");
     expect(briefing).toContain("## Pub Context");
     expect(briefing).toContain("## How to respond");
     expect(briefing).toContain("## Canvas Command Channel");
-    expect(briefing).not.toContain("Title:");
-    expect(briefing).not.toContain("Content type:");
-    expect(briefing).not.toContain("Visibility:");
+    expect(briefing).toContain("Title: (not set)");
+    expect(briefing).toContain("Description: (not set)");
+    expect(briefing).toContain("Visibility: private");
     expect(briefing).toContain("Canvas is currently empty.");
   });
 
@@ -259,7 +263,11 @@ describe("buildSessionBriefing", () => {
   });
 
   it("uses claude-code instructions when given claude-code mode", () => {
-    const briefing = buildSessionBriefing("cc-pub", {}, claudeCodeInstructions);
+    const briefing = buildSessionBriefing(
+      "cc-pub",
+      { isPublic: false },
+      claudeCodeInstructions,
+    );
     expect(briefing).toContain(claudeCodeInstructions.replyHint);
     expect(briefing).toContain(claudeCodeInstructions.canvasHint);
   });

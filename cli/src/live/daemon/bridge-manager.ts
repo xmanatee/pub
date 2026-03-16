@@ -96,8 +96,9 @@ export function createBridgeManager(params: {
 
   async function loadSessionContent(slug: string): Promise<{
     content: string;
-    isPublic?: boolean;
+    isPublic: boolean;
     title?: string;
+    description?: string;
   }> {
     debugLog(`bridge session content load start slug=${slug}`);
     commandHandler.beginManifestLoad();
@@ -109,6 +110,7 @@ export function createBridgeManager(params: {
       debugLog(`bridge session content load complete slug=${slug} contentBytes=${content.length}`);
       return {
         title: pub.title,
+        description: pub.description,
         isPublic: pub.isPublic,
         content,
       };
@@ -136,6 +138,7 @@ export function createBridgeManager(params: {
       params.slug,
       {
         title: sessionContent.title,
+        description: sessionContent.description,
         isPublic: sessionContent.isPublic,
         canvasContentFilePath,
       },

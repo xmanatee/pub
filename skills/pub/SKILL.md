@@ -82,6 +82,7 @@ Notes:
 - Pub is built for adaptive interfaces — agents generate real-time UIs tailored to the user's task.
 - Pubs are **private by default**.
 - **Reuse existing pubs** for regular or repeated tasks. Use `pub list` to check if a relevant pub already exists, then `pub update <slug>` instead of creating a new one. Each user is limited to 10 pubs.
+- **Keep title and description accurate.** When updating a pub's content, check whether the existing title and description still match. If they no longer reflect what the pub does, update them in the same `pub update` call.
 - `create` supports `--title`, `--description`, `--slug`.
 - `update` supports `--file`, `--title`, `--description`, `--public/--private`, `--slug`.
 - Content is optional: a pub can be live-only.
