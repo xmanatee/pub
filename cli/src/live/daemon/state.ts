@@ -3,6 +3,7 @@ import { IDLE_LIVE_RUNTIME_STATE } from "../../../../shared/live-runtime-state-c
 import type {
   LiveAgentState,
   LiveConnectionState,
+  LiveExecutorState,
   LiveRuntimeStateSnapshot,
 } from "../../../../shared/live-runtime-state-core";
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
@@ -92,4 +93,8 @@ export function setDaemonConnectionState(
 
 export function setDaemonAgentState(state: DaemonState, agentState: LiveAgentState): void {
   state.runtimeState = { ...state.runtimeState, agentState };
+}
+
+export function setDaemonExecutorState(state: DaemonState, executorState: LiveExecutorState): void {
+  state.runtimeState = { ...state.runtimeState, executorState };
 }

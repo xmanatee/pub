@@ -23,7 +23,7 @@ import {
   isPresenceExpiredError,
   isPresenceOwnershipConflictError,
 } from "./shared.js";
-import { createDaemonState } from "./state.js";
+import { createDaemonState, setDaemonExecutorState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -57,7 +57,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     markError: (message, error) => lifecycle.markError(message, error),
     getBridgeRunner: () => state.bridgeRunner,
     onExecutorStateChange: (executorState) => {
-      state.runtimeState = { ...state.runtimeState, executorState };
+      setDaemonExecutorState(state, executorState);
       void publishRuntimeState().catch((error) => {
         lifecycle.debugLog("failed to publish executor state", error);
       });

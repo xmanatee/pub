@@ -321,7 +321,7 @@ export function usePubLiveModel({
     lastSelectedPresenceIdRef.current = null;
     setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
-    setControlBarCollapsed(false);
+    setControlBarCollapsed(Boolean(baseContentHtml));
     trackedAnalytics.current = false;
     trackedViewCount.current = false;
     dismissPreview();

@@ -6,7 +6,7 @@ if (process.env.PUB_DAEMON_MODE === "1") {
   await runDaemonFromEnv();
 } else if (process.env.PUB_DAEMON_LAUNCHER_MODE === "1") {
   const { runDaemonLauncherFromEnv } = await import("./app/live-daemon-launcher-entry.js");
-  await runDaemonLauncherFromEnv();
+  runDaemonLauncherFromEnv();
 } else {
   const { toCliFailure } = await import("./core/errors/cli-error.js");
   const { buildProgram } = await import("./app/program.js");

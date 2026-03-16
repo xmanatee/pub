@@ -48,20 +48,12 @@ export function isLiveConnectionReady(
   return (typeof input === "string" ? input : input.connectionState) === "connected";
 }
 
-export function isLiveAgentReady(input: LiveAgentState | LiveRuntimeStateSnapshot): boolean {
-  return (typeof input === "string" ? input : input.agentState) === "ready";
-}
-
-export function isLiveExecutorReady(input: LiveExecutorState | LiveRuntimeStateSnapshot): boolean {
-  return (typeof input === "string" ? input : input.executorState) === "ready";
-}
-
 export function canSendAgentTraffic(snapshot: LiveRuntimeStateSnapshot): boolean {
-  return isLiveConnectionReady(snapshot) && isLiveAgentReady(snapshot);
+  return isLiveConnectionReady(snapshot) && snapshot.agentState === "ready";
 }
 
 export function canSendCommandTraffic(snapshot: LiveRuntimeStateSnapshot): boolean {
-  return isLiveConnectionReady(snapshot) && isLiveExecutorReady(snapshot);
+  return isLiveConnectionReady(snapshot) && snapshot.executorState === "ready";
 }
 
 export function canSendCanvasFileTraffic(snapshot: LiveRuntimeStateSnapshot): boolean {
