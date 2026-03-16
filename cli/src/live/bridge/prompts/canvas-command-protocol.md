@@ -51,7 +51,8 @@ Use this when canvas UI interactions need local refetches, side effects, or reru
    - `prompt`: the prompt to send. Use `{{paramName}}` for interpolation from the JS call's args object.
    - `mode`: `"detached"` (default — spawns an independent agent, isolated and parallel-safe) or `"main"` (runs within the live session's main agent with full context and tools). Use `"detached"` for most command-style tasks (summarize, generate, analyze). Use `"main"` only when the command needs the agent's ongoing session context.
    - `provider` (optional): `"auto"` (default — picks best available), `"claude-code"`, `"claude-sdk"`, or `"openclaw"`.
-   - `profile` (optional): `"fast"`, `"default"`, or `"deep"` — controls agent effort level.
+   - `profile` (optional, detached only): `"fast"`, `"default"`, or `"deep"` — controls agent effort level. Rejected in `"main"` mode.
+   - `model` (optional, detached only): explicit model override. Rejected in `"main"` mode.
    - `output` (optional): `"text"` or `"json"` — hint for how to parse agent output.
 
 ### Managed Canvas Files

@@ -114,11 +114,11 @@ const data = await pub.commands.listEmails({}, { timeoutMs: 30000 });
   "prompt": "Summarize this email: {{emailText}}"
 }
 ```
-- `mode` (**required**): `"main"` (runs within the live session's main agent — has full context, can use tools) or `"detached"` (spawns an independent agent process — isolated, parallel-safe). Use `"detached"` for most command-style tasks (summarize, generate, analyze). Use `"main"` only when the command needs the agent's ongoing session context.
+- `mode`: `"detached"` (default — spawns an independent agent process — isolated, parallel-safe) or `"main"` (runs within the live session's main agent — has full context, can use tools). Use `"detached"` for most command-style tasks (summarize, generate, analyze). Use `"main"` only when the command needs the agent's ongoing session context.
 - `prompt`: the prompt to send. Use `{{paramName}}` for interpolation.
 - `provider` (optional): `"auto"` (default — picks best available), `"claude-code"`, `"claude-sdk"`, or `"openclaw"`
-- `profile` (optional): `"fast"`, `"default"`, or `"deep"` — controls agent effort level
-- `model` (optional): override the model used by the agent
+- `profile` (optional, detached only): `"fast"`, `"default"`, or `"deep"` — controls agent effort level. Rejected in `"main"` mode.
+- `model` (optional, detached only): override the model used by the agent. Rejected in `"main"` mode.
 - `output` (optional): `"text"` or `"json"` — hint for how to parse agent output
 
 **`shell`** — run a shell script:
