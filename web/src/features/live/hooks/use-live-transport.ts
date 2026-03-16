@@ -210,6 +210,7 @@ export function useLiveTransport({
       }
 
       if (channel === CHANNELS.COMMAND) {
+        console.debug("[transport] command channel message received", message.type, message.data);
         onCommandMessageRef?.current?.(cm);
         return;
       }

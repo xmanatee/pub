@@ -60,6 +60,7 @@ export function CanvasPanel({
   latestOutboundCanvasBridgeMessageRef.current = outboundCanvasBridgeMessage ?? null;
 
   useEffect(() => {
+    console.debug("[canvas-panel] html changed → reset canvasBridgeReady=false");
     setCanvasBridgeReady(false);
     setCanvasError(null);
     setPendingOutboundCanvasBridgeMessages([]);
@@ -97,6 +98,7 @@ export function CanvasPanel({
       if (!message) return;
 
       if (message.type === "ready") {
+        console.debug("[canvas-panel] bridge 'ready' received → canvasBridgeReady=true");
         setCanvasBridgeReady(true);
         return;
       }
@@ -151,13 +153,27 @@ export function CanvasPanel({
     if (!outboundCanvasBridgeMessage) return;
     if (lastAcceptedOutboundMessageRef.current === outboundCanvasBridgeMessage) return;
     lastAcceptedOutboundMessageRef.current = outboundCanvasBridgeMessage;
+    console.debug("[canvas-panel] queuing outbound message", outboundCanvasBridgeMessage.type);
     setPendingOutboundCanvasBridgeMessages((current) => [...current, outboundCanvasBridgeMessage]);
   }, [outboundCanvasBridgeMessage]);
 
   useEffect(() => {
-    if (!canvasBridgeReady || pendingOutboundCanvasBridgeMessages.length === 0) return;
+    if (!canvasBridgeReady || pendingOutboundCanvasBridgeMessages.length === 0) {
+      if (pendingOutboundCanvasBridgeMessages.length > 0) {
+        console.debug(
+          "[canvas-panel] BLOCKED: %d pending outbound message(s) but canvasBridgeReady=%s",
+          pendingOutboundCanvasBridgeMessages.length,
+          canvasBridgeReady,
+        );
+      }
+      return;
+    }
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
+    console.debug(
+      "[canvas-panel] posting outbound message to iframe",
+      pendingOutboundCanvasBridgeMessages[0].type,
+    );
     frame.postMessage(pendingOutboundCanvasBridgeMessages[0], "*");
     setPendingOutboundCanvasBridgeMessages((current) => current.slice(1));
   }, [canvasBridgeReady, pendingOutboundCanvasBridgeMessages]);
@@ -176,6 +192,7 @@ export function CanvasPanel({
           )}
           title="Canvas"
           onLoad={() => {
+            console.debug("[canvas-panel] iframe onLoad → canvasBridgeReady=false");
             setLoadedHtml(html);
             setCanvasError(null);
             setCanvasBridgeReady(false);
