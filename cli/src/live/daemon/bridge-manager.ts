@@ -143,19 +143,7 @@ export function createBridgeManager(params: {
     );
   }
 
-  async function disposeBridge(options?: {
-    clearPreparing?: boolean;
-    publishRuntimeState?: boolean;
-    resetAgentState?: boolean;
-  }): Promise<void> {
-    const shouldPublish =
-      options?.publishRuntimeState !== false && isLiveConnectionReady(state.runtimeState);
-    if (options?.resetAgentState !== false) {
-      setDaemonAgentState(state, "idle");
-    }
-    if (options?.clearPreparing !== false) {
-      state.agentPreparing = null;
-    }
+  async function teardownBridgeRunner(): Promise<void> {
     state.bridgeSlug = null;
     state.bridgeOutboundBuffer.length = 0;
     if (state.bridgeAbort) {
@@ -166,20 +154,11 @@ export function createBridgeManager(params: {
       await state.bridgeRunner.stop();
       state.bridgeRunner = null;
     }
-    if (shouldPublish) {
-      await publishRuntimeState().catch((error) => {
-        debugLog("failed to publish idle agent state while stopping bridge", error);
-      });
-    }
   }
 
   async function startBridge(slug: string): Promise<void> {
     if (state.stopped || state.activeSlug !== slug) return;
-    await disposeBridge({
-      clearPreparing: false,
-      publishRuntimeState: false,
-      resetAgentState: false,
-    });
+    await teardownBridgeRunner();
     const abort = new AbortController();
     state.bridgeAbort = abort;
     debugLog(`bridge runner start slug=${slug}`);
@@ -236,11 +215,6 @@ export function createBridgeManager(params: {
   }
 
   async function ensureAgentReady(): Promise<void> {
-    const hasReusableRunner =
-      state.bridgeRunner !== null &&
-      state.activeSlug !== null &&
-      state.bridgeSlug === state.activeSlug &&
-      state.bridgeRunner.status().running;
     if (
       state.stopped ||
       !isLiveConnectionReady(state.runtimeState) ||
@@ -315,11 +289,7 @@ export function createBridgeManager(params: {
           debugLog(`failed to publish idle state for "${slug}"`, publishError);
         });
         await notifyBrowserPreparationFailed(slug, error);
-        await disposeBridge({
-          clearPreparing: false,
-          publishRuntimeState: false,
-          resetAgentState: false,
-        }).catch((stopError) => {
+        await teardownBridgeRunner().catch((stopError) => {
           debugLog(`failed to stop bridge after preparation error for "${slug}"`, stopError);
         });
         markError(`failed to prepare agent session for "${slug}"`, error);
@@ -336,7 +306,9 @@ export function createBridgeManager(params: {
   }
 
   async function stopBridge(): Promise<void> {
-    await disposeBridge();
+    setDaemonAgentState(state, "idle");
+    state.agentPreparing = null;
+    await teardownBridgeRunner();
   }
 
   function clearAgentPreparation(): void {

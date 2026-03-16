@@ -30,7 +30,6 @@ export function createPeerManager(params: {
   failPendingAcks: () => void;
   clearAgentPreparation: () => void;
   ensureAgentReady: () => Promise<void>;
-  publishRuntimeState: () => Promise<boolean>;
   handleConnectionClosed: (reason: string) => void;
   clearLocalCandidateTimers: () => void;
   stopPingPong: () => void;
@@ -58,11 +57,6 @@ export function createPeerManager(params: {
   function setConnectionState(nextState: LiveConnectionState): void {
     if (state.runtimeState.connectionState === nextState) return;
     setDaemonConnectionState(state, nextState);
-    if (nextState === "connected") {
-      void params.publishRuntimeState().catch((error) => {
-        debugLog("failed to publish connected runtime state", error);
-      });
-    }
   }
 
   function attachPeerHandlers(currentPeer: NonNullable<DaemonState["peer"]>): void {
@@ -143,8 +137,8 @@ export function createPeerManager(params: {
     }
   }
 
-  function resetNegotiationState(options?: { connectionState?: LiveConnectionState }): void {
-    setConnectionState(options?.connectionState ?? "idle");
+  function resetNegotiationState(): void {
+    setConnectionState("idle");
     clearAgentPreparation();
     state.activeLiveModelProfile = null;
     failPendingAcks();
@@ -162,10 +156,11 @@ export function createPeerManager(params: {
     const slug = state.activeSlug;
     debugLog(`clearing active live session: ${reason}${slug ? ` (${slug})` : ""}`);
     state.activeSlug = null;
+    setConnectionState("idle");
     commandHandlerStop();
     canvasFileTransferReset();
     await closeCurrentPeer();
-    resetNegotiationState({ connectionState: "idle" });
+    resetNegotiationState();
   }
 
   function startLocalCandidateFlush(slug: string): void {

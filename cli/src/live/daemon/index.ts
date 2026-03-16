@@ -57,7 +57,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     markError: (message, error) => lifecycle.markError(message, error),
     getBridgeRunner: () => state.bridgeRunner,
     onExecutorStateChange: (executorState) => {
+      const prev = state.runtimeState.executorState;
       setDaemonExecutorState(state, executorState);
+      if (state.runtimeState.executorState === prev) return;
       void publishRuntimeState().catch((error) => {
         lifecycle.debugLog("failed to publish executor state", error);
       });
@@ -85,8 +87,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     versionFilePath,
     debugEnabled: verboseEnabled,
     closeCurrentPeer: async () => await peerManager.closeCurrentPeer(),
-    resetNegotiationState: () =>
-      peerManager.resetNegotiationState({ connectionState: state.runtimeState.connectionState }),
+    resetNegotiationState: () => peerManager.resetNegotiationState(),
     commandHandlerStop: () => commandHandler.stop(),
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
     shutdown: async () => await shutdown(),
@@ -181,7 +182,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.startPingPong();
       await bridgeManager.ensureAgentReady();
     },
-    publishRuntimeState: async () => await publishRuntimeState(),
     handleConnectionClosed: lifecycle.handleConnectionClosed,
     clearLocalCandidateTimers: lifecycle.clearLocalCandidateTimers,
     stopPingPong: lifecycle.stopPingPong,

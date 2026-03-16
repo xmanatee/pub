@@ -96,15 +96,13 @@ export function createDaemonLifecycle(params: {
 
   function handleConnectionClosed(reason: string): void {
     const hadSession =
-      state.runtimeState.connectionState !== "idle" ||
-      state.runtimeState.agentState !== "idle" ||
-      state.activeSlug !== null;
+      state.runtimeState.connectionState !== "idle" || state.activeSlug !== null;
     if (!hadSession) return;
     logAlways(`connection closed: ${reason}`);
     state.activeSlug = null;
+    resetNegotiationState();
     commandHandlerStop();
     canvasFileTransferReset();
-    resetNegotiationState();
     void closeCurrentPeer().catch((error) => {
       markError("failed to clean up after connection closed", error);
     });

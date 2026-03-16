@@ -88,13 +88,23 @@ export function setDaemonConnectionState(
   state: DaemonState,
   connectionState: LiveConnectionState,
 ): void {
-  state.runtimeState = { ...state.runtimeState, connectionState };
+  if (connectionState === "connected") {
+    state.runtimeState = { ...state.runtimeState, connectionState };
+  } else {
+    state.runtimeState = { connectionState, agentState: "idle", executorState: "idle" };
+  }
 }
 
 export function setDaemonAgentState(state: DaemonState, agentState: LiveAgentState): void {
-  state.runtimeState = { ...state.runtimeState, agentState };
+  if (agentState !== "idle" && state.runtimeState.connectionState !== "connected") return;
+  if (agentState === "ready") {
+    state.runtimeState = { ...state.runtimeState, agentState };
+  } else {
+    state.runtimeState = { ...state.runtimeState, agentState, executorState: "idle" };
+  }
 }
 
 export function setDaemonExecutorState(state: DaemonState, executorState: LiveExecutorState): void {
+  if (executorState !== "idle" && state.runtimeState.agentState !== "ready") return;
   state.runtimeState = { ...state.runtimeState, executorState };
 }
