@@ -26,7 +26,10 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
       cp cli/dist-bin/pub-linux-x64 cli/dist-bin/pub-target; \
     fi
 
-# Stage 2: Test runner (Vite + proxy + CLI + Playwright — all in one)
+# Stage 1b: Pull OpenClaw from its official Docker image
+FROM ghcr.io/openclaw/openclaw:latest AS openclaw-source
+
+# Stage 2: Test runner (Vite + proxy + CLI + OpenClaw + mock LLM + Playwright — all in one)
 FROM mcr.microsoft.com/playwright:v1.58.2-noble AS test-runner
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -45,10 +48,21 @@ COPY --from=builder /app/convex/_generated ./convex/_generated
 COPY --from=builder /app/cli/dist-bin/pub-target /usr/local/bin/pub
 RUN chmod +x /usr/local/bin/pub
 
+# Copy OpenClaw from its official image
+COPY --from=openclaw-source /app /opt/openclaw
+# Create a wrapper script so `openclaw` is on PATH
+RUN printf '#!/bin/sh\nexec node /opt/openclaw/dist/index.js "$@"\n' > /usr/local/bin/openclaw && \
+    chmod +x /usr/local/bin/openclaw
+
+# Set up OpenClaw config (mock LLM provider, headless tool execution)
+COPY tests/e2e/openclaw-config/openclaw.json /home/node/.openclaw/openclaw.json
+COPY tests/e2e/openclaw-config/workspace/ /home/node/.openclaw/workspace/
+COPY tests/e2e/openclaw-config/agents/ /home/node/.openclaw/agents/
+
 # Install Playwright browser
 RUN npx playwright install chromium
 
-# Entrypoint starts Vite, proxy, reads admin key, then runs Playwright
+# Entrypoint starts mock LLM, Vite, proxy, reads admin key, then runs Playwright
 COPY tests/e2e/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 

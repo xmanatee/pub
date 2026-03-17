@@ -19,13 +19,18 @@ import {
   readTextChatMessage,
   shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
-import {
-  deliverMessageToOpenClaw,
-  invokeOpenClawPrompt,
-} from "./runtime.js";
+import { deliverMessageToOpenClaw, invokeOpenClawPrompt } from "./runtime.js";
 
 export { isOpenClawAvailable } from "./discovery.js";
 export { runOpenClawBridgeStartupProbe } from "./probe.js";
+
+function buildBridgeEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  // OpenClaw spawns `pub write` as a child process. If PUB_DAEMON_MODE leaks
+  // through, the pub binary starts as a daemon instead of running the CLI command.
+  delete env.PUB_DAEMON_MODE;
+  return env;
+}
 
 export async function createOpenClawBridgeRunner(
   config: BridgeRunnerConfig,
@@ -35,6 +40,7 @@ export async function createOpenClawBridgeRunner(
   }
   const { slug, debugLog, sessionBriefing } = config;
   const bridgeSettings = config.bridgeSettings;
+  const bridgeEnv = buildBridgeEnv();
 
   const openclawPath = bridgeSettings.openclawPath;
   const sessionId = bridgeSettings.sessionId;
@@ -56,27 +62,27 @@ export async function createOpenClawBridgeRunner(
     );
     return next;
   }
+  // When OPENCLAW_LOCAL=1, use --local (embedded) mode so tools inherit the daemon's env.
+  // Needed when the gateway lacks per-session env vars (e.g. PUB_AGENT_SOCKET in E2E tests).
+  const useLocal = bridgeEnv.OPENCLAW_LOCAL === "1";
+
   async function deliverQueued(prompt: string): Promise<void> {
     await queueSessionTask(async () => {
       await deliverMessageToOpenClaw(
-        { openclawPath, sessionId, text: withSystemPrompt(prompt) },
-        process.env,
+        { openclawPath, sessionId, text: withSystemPrompt(prompt), local: useLocal },
+        bridgeEnv,
         bridgeSettings,
       );
     });
   }
 
-  debugLog(
-    `openclaw deliver session briefing start slug=${slug} sessionId=${sessionId}`,
-  );
+  debugLog(`openclaw deliver session briefing start slug=${slug} sessionId=${sessionId}`);
   await deliverMessageToOpenClaw(
-    { openclawPath, sessionId, text: withSystemPrompt(sessionBriefing) },
-    process.env,
+    { openclawPath, sessionId, text: withSystemPrompt(sessionBriefing), local: useLocal },
+    bridgeEnv,
     bridgeSettings,
   );
-  debugLog(
-    `openclaw deliver session briefing complete slug=${slug} sessionId=${sessionId}`,
-  );
+  debugLog(`openclaw deliver session briefing complete slug=${slug} sessionId=${sessionId}`);
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
@@ -86,7 +92,9 @@ export async function createOpenClawBridgeRunner(
       );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        await deliverQueued(buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions));
+        await deliverQueued(
+          buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
+        );
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -166,7 +174,8 @@ export async function createOpenClawBridgeRunner(
           sessionId,
           text: withSystemPrompt(prompt),
           bridgeCwd: bridgeSettings.bridgeCwd,
-          env: process.env,
+          env: bridgeEnv,
+          local: useLocal,
         });
         if (output === "json") {
           return text.length === 0 ? {} : (JSON.parse(text) as unknown);

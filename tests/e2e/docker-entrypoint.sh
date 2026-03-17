@@ -20,11 +20,37 @@ echo "[e2e] Admin key loaded."
 # --- Background process cleanup ---
 VITE_PID=""
 PROXY_PID=""
+MOCK_LLM_PID=""
 cleanup() {
   [ -n "$VITE_PID" ] && kill "$VITE_PID" 2>/dev/null || true
   [ -n "$PROXY_PID" ] && kill "$PROXY_PID" 2>/dev/null || true
+  [ -n "$MOCK_LLM_PID" ] && kill "$MOCK_LLM_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# --- Start mock LLM server (Anthropic Messages API stub) ---
+echo "[e2e] Starting mock LLM server..."
+node tests/e2e/mock-llm/server.mjs &
+MOCK_LLM_PID=$!
+
+# Wait for mock LLM to be ready
+for i in $(seq 1 30); do
+  if curl -sf http://localhost:4100/admin/health > /dev/null 2>&1; then
+    echo "[e2e] Mock LLM server ready."
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "[e2e] ERROR: Mock LLM server did not start within 30s."
+    exit 1
+  fi
+  sleep 1
+done
+
+# --- Set OpenClaw env vars for all child processes ---
+export OPENCLAW_STATE_DIR="/home/node/.openclaw"
+export OPENCLAW_WORKSPACE="/home/node/.openclaw/workspace"
+export OPENCLAW_LOCAL="1"
+export HOME="/home/node"
 
 # --- Start test proxy (combines HTTP + WS ports) ---
 echo "[e2e] Starting test proxy..."

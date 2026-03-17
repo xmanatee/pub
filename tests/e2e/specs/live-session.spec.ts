@@ -1,11 +1,12 @@
 /**
  * Full-stack live session E2E tests.
  *
- * Exercises the complete flow: CLI daemon (mock bridge) → Convex → Browser.
- * Each test is self-contained: seeds user, creates pub, starts daemon, connects browser.
+ * Exercises the complete flow: CLI daemon → real OpenClaw → mock LLM → Convex → Browser.
+ * Each test is self-contained: seeds user, creates pub, configures mock LLM rules,
+ * starts daemon, connects browser.
  *
- * The mock bridge (`openclaw-like` mode) receives messages as $1 and echoes
- * them back via `pub write`.
+ * The mock LLM server implements the Anthropic Messages API and responds with
+ * tool_use blocks that make OpenClaw execute `pub write` commands.
  */
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
@@ -13,6 +14,7 @@ import { ApiClient } from "../fixtures/api";
 import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedExtraApiKey, seedUser } from "../fixtures/convex";
+import { addCanvasRule, addEchoRule, clearRules, setupDefaultRules } from "../fixtures/mock-llm";
 
 let cli: CliFixture;
 const extraClis: CliFixture[] = [];
@@ -57,14 +59,16 @@ async function sendChat(page: Page, text: string) {
   await sendButton.dispatchEvent("click");
 }
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   clearAll();
+  await setupDefaultRules();
 });
 
-test.afterEach(() => {
+test.afterEach(async () => {
   cli?.cleanup();
   for (const c of extraClis) c.cleanup();
   extraClis.length = 0;
+  await clearRules();
 });
 
 /**
@@ -124,21 +128,24 @@ test("browser detects agent and shows live control bar", async ({ page }) => {
   await page.goto("/p/connect-test");
 
   // With 1 agent online, the control bar auto-selects and shows the message input.
-  // The message input (aria-label="Message") confirms: auth worked, presence detected, agent selected.
-  // Note: the input starts as a <button> with aria-label="Message", not a <textarea> with placeholder.
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
 });
 
 /**
  * Test 3: Chat message roundtrip through the full stack.
- * Verifies: browser sends chat → WebRTC → daemon → mock bridge → pub write → WebRTC → browser.
+ * Verifies: browser sends chat → WebRTC → daemon → OpenClaw → mock LLM → exec tool →
+ *           pub write → WebRTC → browser.
  */
-test("chat roundtrip: browser to mock bridge and back", async ({ page }) => {
+test("chat roundtrip: browser to OpenClaw and back", async ({ page }) => {
   const user = seedUser("Chat User");
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
   await api.createPub({ slug: "chat-e2e", title: "Chat E2E" });
+
+  // Configure mock LLM: when user message contains "hello from browser",
+  // respond with exec tool calling pub write
+  await addEchoRule("hello from browser", "echo: hello from browser");
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("chat-bot");
@@ -146,14 +153,13 @@ test("chat roundtrip: browser to mock bridge and back", async ({ page }) => {
   await injectAuth(page, user);
   await page.goto("/p/chat-e2e");
 
-  // Wait for message input (agent auto-selected)
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
 
-  // Wait for WebRTC connection, then send a message
   await waitForConnection(page);
   await sendChat(page, "hello from browser");
 
-  // The mock bridge should echo back: "echo: hello from browser"
+  // OpenClaw calls mock LLM → mock LLM returns exec tool_use → OpenClaw executes
+  // pub write "echo: hello from browser" → daemon → WebRTC → browser
   await expect(page.getByText("echo: hello from browser")).toBeVisible({ timeout: 30_000 });
 });
 
@@ -174,25 +180,20 @@ test("cli write delivers message to browser", async ({ page }) => {
   await injectAuth(page, user);
   await page.goto("/p/write-e2e");
 
-  // Wait for message input (agent auto-selected)
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-
-  // Wait for WebRTC connection
   await waitForConnection(page);
 
-  // Send a message from the CLI (retry if live session not yet established on daemon side)
   await retryWrite(cli, "hello from CLI");
 
-  // Verify it appears in the browser chat
   await expect(page.getByText("hello from CLI")).toBeVisible({ timeout: 15_000 });
 });
 
 /**
  * Test 5: Chat + canvas update in a single session.
  * Verifies the full agent interaction loop:
- *   1. Send "hi" → bridge echoes "echo: hi" in chat
- *   2. Send "update canvas" → bridge writes new HTML via `pub write -c canvas` → canvas iframe updates
- *   3. Bridge also replies "canvas updated" in chat to confirm
+ *   1. Send "hi" → OpenClaw/mock LLM echoes "echo: hi" in chat
+ *   2. Send "update canvas" → OpenClaw writes new HTML via `pub write -c canvas`
+ *   3. OpenClaw also replies "canvas updated" in chat to confirm
  */
 test("chat and canvas update in one session", async ({ page }) => {
   const user = seedUser("Combo User");
@@ -204,6 +205,15 @@ test("chat and canvas update in one session", async ({ page }) => {
 
   await api.createPub({ slug: "combo-e2e", title: "Combo E2E", content: initialHtml });
 
+  // Canvas rule must be added BEFORE the echo rule — rules are first-match-wins,
+  // and generic matches like "say hello" could match text in OpenClaw's prompt context.
+  await addCanvasRule(
+    "update canvas",
+    '<html><body><h1 id="status">canvas-updated</h1></body></html>',
+    "canvas updated",
+  );
+  await addEchoRule("say hello", "echo: say hello");
+
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("combo-bot");
 
@@ -212,18 +222,14 @@ test("chat and canvas update in one session", async ({ page }) => {
 
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible({ timeout: 30_000 });
 
-  // Verify initial canvas content loads in iframe
   const canvasFrame = page.frameLocator("iframe").first();
   await expect(canvasFrame.locator("#status")).toHaveText("initial", { timeout: 10_000 });
 
-  // Wait for WebRTC connection
   await waitForConnection(page);
 
-  // Step 1: Send "hi" → expect chat echo
-  await sendChat(page, "hi");
-  await expect(page.getByText("echo: hi")).toBeVisible({ timeout: 30_000 });
+  await sendChat(page, "say hello");
+  await expect(page.getByText("echo: say hello")).toBeVisible({ timeout: 30_000 });
 
-  // Step 2: Send "update canvas" → expect canvas update + chat confirmation
   await sendChat(page, "update canvas");
   await expect(page.getByText("canvas updated")).toBeVisible({ timeout: 30_000 });
   await expect(canvasFrame.locator("#status")).toHaveText("canvas-updated", { timeout: 15_000 });
@@ -282,18 +288,13 @@ test("canvas command executes via daemon", async ({ page }) => {
   await injectAuth(page, user);
   await page.goto("/p/cmd-e2e");
 
-  // Wait for message input (agent auto-selected)
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-
-  // Wait for WebRTC connection before invoking canvas commands
   await waitForConnection(page);
 
-  // The canvas content should be rendered in an iframe
   const canvasFrame = page.frameLocator("iframe").first();
   await expect(canvasFrame.locator("#run-cmd")).toBeVisible({ timeout: 10_000 });
   await canvasFrame.locator("#run-cmd").click();
 
-  // Wait for the command result
   await expect(canvasFrame.locator("#result")).toContainText("hello from command", {
     timeout: 15_000,
   });
@@ -429,8 +430,6 @@ test("canvas uploads and downloads managed files through the daemon", async ({ p
   await page.goto("/p/canvas-files-e2e");
 
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-
-  // Wait for WebRTC connection
   await waitForConnection(page);
 
   const canvasFrame = page.frameLocator("iframe").first();
@@ -468,11 +467,8 @@ test("canvas uploads and downloads managed files through the daemon", async ({ p
 /**
  * Test 8: Commands survive canvas HTML updates via full-stack agent flow.
  * Verifies: initial canvas with commands loads → commands work → user sends
- * "update canvas" → mock bridge writes new canvas HTML via `pub write -c canvas` →
+ * "update canvas" → OpenClaw writes new canvas HTML via `pub write -c canvas` →
  * auto-invoke and button-triggered commands still work with the new manifest.
- *
- * The mock bridge's canvas response is configured via `cli.setCanvasResponse(html)`,
- * so only the agent bridge is mocked — the rest is the real stack.
  *
  * This catches regressions where:
  * - canvasBridgeReady is lost after iframe reload
@@ -527,10 +523,8 @@ test("commands work after canvas HTML update", async ({ page }) => {
     content: initialHtml,
   });
 
-  cli = new CliFixture(user, convexProxyUrl);
-
-  // Configure mock bridge: when user sends "update canvas", write this HTML
-  cli.setCanvasResponse(`<!DOCTYPE html>
+  // Configure mock LLM: when user sends "update canvas", write new HTML + confirm
+  const v2Html = `<!DOCTYPE html>
 <html>
 <head><title>Canvas Commands V2</title></head>
 <body>
@@ -564,8 +558,10 @@ test("commands work after canvas HTML update", async ({ page }) => {
     }
   </script>
 </body>
-</html>`);
+</html>`;
+  await addCanvasRule("update canvas", v2Html, "canvas updated");
 
+  cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("rebind-bot");
 
   await injectAuth(page, user);
@@ -582,11 +578,10 @@ test("commands work after canvas HTML update", async ({ page }) => {
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v1", { timeout: 15_000 });
 
-  // Phase 2: Send "update canvas" through the browser chat → full stack flow:
-  // browser → WebRTC → daemon → mock bridge → pub write -c canvas → Convex → browser
+  // Phase 2: Send "update canvas" → full stack flow:
+  // browser → WebRTC → daemon → OpenClaw → mock LLM → exec tool → pub write -c canvas → browser
   await sendChat(page, "update canvas");
 
-  // Mock bridge confirms the canvas update in chat
   await expect(page.getByText("canvas updated")).toBeVisible({ timeout: 30_000 });
 
   // Phase 2: Auto-invoke command in NEW canvas works with updated result
@@ -639,12 +634,6 @@ const AUTO_INVOKE_HTML = `<!DOCTYPE html>
 
 /**
  * Test 9: Page reload — commands work after a full page reload.
- * Verifies: canvas loads → auto-invoke resolves → page.reload() → takeover if needed →
- * button-triggered command works.
- *
- * After reload the browser has a new session ID. The server still holds the old
- * live session, so the UI enters "needs-takeover". Once the user takes over,
- * WebRTC reconnects and commands work again.
  */
 test("page reload: commands work after reload", async ({ page }) => {
   const user = seedUser("Reload User");
@@ -664,15 +653,11 @@ test("page reload: commands work after reload", async ({ page }) => {
   const canvasFrame = page.frameLocator("iframe").first();
   await expect(canvasFrame.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
-  // Button-triggered command also works
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 15_000 });
 
-  // Reload the page
   await page.reload();
 
-  // After reload, the old live session is still active on the server.
-  // The browser may enter "needs-takeover" — handle it if the "Switch here" button appears.
   const switchBtn = page.getByLabel("Switch here");
   const messageInput = page.getByLabel("Message");
   await expect(switchBtn.or(messageInput)).toBeVisible({ timeout: 30_000 });
@@ -681,18 +666,12 @@ test("page reload: commands work after reload", async ({ page }) => {
   }
   await expect(messageInput).toBeVisible({ timeout: 30_000 });
 
-  // Button-triggered command works after reload + takeover
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 30_000 });
 });
 
 /**
  * Test 10: Takeover — second browser session takes over an active live session.
- * Verifies: page1 goes live → page2 opens same pub → "Switch here" shown →
- * page2 takes over → button-triggered commands work on page2.
- *
- * Auto-invoke commands fired before takeover are lost (scope key change clears
- * the pending queue), so we verify with button-triggered commands after takeover.
  */
 test("takeover: second browser takes over and commands work", async ({ page, browser }) => {
   const user = seedUser("Takeover User");
@@ -704,7 +683,6 @@ test("takeover: second browser takes over and commands work", async ({ page, bro
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("takeover-bot");
 
-  // Page 1: establish live session
   await injectAuth(page, user);
   await page.goto("/p/takeover-e2e");
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
@@ -712,18 +690,14 @@ test("takeover: second browser takes over and commands work", async ({ page, bro
   const frame1 = page.frameLocator("iframe").first();
   await expect(frame1.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
-  // Page 2: open same pub in a new context
   const context2 = await browser.newContext();
   const page2 = await context2.newPage();
   await injectAuth(page2, user);
   await page2.goto("/p/takeover-e2e");
 
-  // Page 2 should show takeover UI ("Switch here" button)
   await expect(page2.getByLabel("Switch here")).toBeVisible({ timeout: 30_000 });
   await page2.getByLabel("Switch here").dispatchEvent("click");
 
-  // After takeover, page 2 should go live. Button-triggered commands verify the
-  // WebRTC connection is established and the command pipeline works.
   await expect(page2.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
   const frame2 = page2.frameLocator("iframe").first();
   await frame2.locator("#run-cmd").click();
@@ -734,7 +708,6 @@ test("takeover: second browser takes over and commands work", async ({ page, bro
 
 /**
  * Test 11: Navigate between pubs — auto-invoke commands work on the second pub.
- * Verifies: navigate to pub A → commands work → navigate to pub B → commands work.
  */
 test("navigate between pubs: commands work on both", async ({ page }) => {
   const user = seedUser("Navigate User");
@@ -749,32 +722,24 @@ test("navigate between pubs: commands work on both", async ({ page }) => {
 
   await injectAuth(page, user);
 
-  // Visit pub A — commands work
   await page.goto("/p/nav-a");
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
 
   const frameA = page.frameLocator("iframe").first();
   await expect(frameA.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
-  // Navigate to pub B — commands work on the new pub
   await page.goto("/p/nav-b");
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
 
   const frameB = page.frameLocator("iframe").first();
   await expect(frameB.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
-  // Button-triggered command works on pub B
   await frameB.locator("#run-cmd").click();
   await expect(frameB.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 15_000 });
 });
 
 /**
  * Test 12: Agent picker — two daemons online, user selects one, commands work.
- * Verifies: 2 agents online → agent picker shown → select agent → button-triggered
- * command works.
- *
- * Auto-invoke commands fired before agent selection are lost (scope key change
- * clears the pending queue), so we verify with button-triggered commands.
  */
 test("agent picker: two agents, select one, commands work", async ({ page }) => {
   const user = seedUser("Picker User");
@@ -784,7 +749,6 @@ test("agent picker: two agents, select one, commands work", async ({ page }) => 
 
   await api.createPub({ slug: "picker-e2e", title: "Picker E2E", content: AUTO_INVOKE_HTML });
 
-  // Start two daemons with different API keys (same user, different agent names)
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("alpha-bot");
 
@@ -795,14 +759,11 @@ test("agent picker: two agents, select one, commands work", async ({ page }) => 
   await injectAuth(page, user);
   await page.goto("/p/picker-e2e");
 
-  // With 2 agents online, the TwoAgentLayout shows agent names as buttons
   await expect(page.getByRole("button", { name: "alpha-bot" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "beta-bot" })).toBeVisible();
 
-  // Select the first agent
   await page.getByRole("button", { name: "alpha-bot" }).dispatchEvent("click");
 
-  // After selection, button-triggered command verifies the connection is live
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
   const canvasFrame = page.frameLocator("iframe").first();
   await canvasFrame.locator("#run-cmd").click();

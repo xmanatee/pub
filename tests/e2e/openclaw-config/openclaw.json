@@ -1,0 +1,39 @@
+{
+  "gateway": {
+    "mode": "local"
+  },
+  "models": {
+    "providers": {
+      "mock": {
+        "baseUrl": "http://localhost:4100/v1",
+        "apiKey": "test-key-not-real",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "mock-claude",
+            "name": "Mock Claude",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "mock/mock-claude"
+      },
+      "workspace": "/home/node/.openclaw/workspace"
+    }
+  },
+  "tools": {
+    "exec": {
+      "host": "gateway",
+      "ask": "off",
+      "security": "full"
+    }
+  }
+}

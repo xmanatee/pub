@@ -10,15 +10,18 @@ import { ApiClient } from "../fixtures/api";
 import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
+import { clearRules, setupDefaultRules } from "../fixtures/mock-llm";
 
 let cli: CliFixture;
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   clearAll();
+  await setupDefaultRules();
 });
 
-test.afterEach(() => {
+test.afterEach(async () => {
   cli?.cleanup();
+  await clearRules();
 });
 
 /**

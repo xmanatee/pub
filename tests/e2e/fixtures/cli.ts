@@ -2,6 +2,8 @@
  * CLI fixture for E2E tests.
  * Manages the `pub` CLI daemon lifecycle, config, and commands.
  *
+ * Uses real OpenClaw in `openclaw` bridge mode, pointed at a mock LLM server.
+ *
  * Cleanup strategy:
  *  1. Try `pub stop` (graceful IPC shutdown)
  *  2. If daemon PID is tracked, SIGTERM → wait → SIGKILL
@@ -22,13 +24,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CLI_BUILD_DIR = resolve(__dirname, "../../../cli");
-const MOCK_BRIDGE_PATH = resolve(__dirname, "mock-bridge.sh");
 
 interface CliConfig {
   core: { apiKey: string; baseUrl: string };
   bridge: {
     mode: string;
-    openclawLikeCommand: string;
     verbose: boolean;
   };
 }
@@ -39,10 +39,6 @@ interface DaemonInfo {
   logPath: string;
 }
 
-export interface CliFixtureOptions {
-  briefingDelay?: number;
-}
-
 export class CliFixture {
   private configDir: string;
   private cliBin: string;
@@ -51,14 +47,14 @@ export class CliFixture {
   private daemonPid: number | null = null;
   private socketPath: string | null = null;
   private isolatedSocketPath: string;
-  private options: CliFixtureOptions;
+  private openclawSessionId: string;
 
-  constructor(user: TestUser, convexSiteUrl: string, options: CliFixtureOptions = {}) {
+  constructor(user: TestUser, convexSiteUrl: string) {
     this.user = user;
     this.convexSiteUrl = convexSiteUrl;
-    this.options = options;
     this.configDir = mkdtempSync(join(tmpdir(), "pub-e2e-config-"));
     this.isolatedSocketPath = join(tmpdir(), `pub-agent-e2e-${randomUUID().slice(0, 8)}.sock`);
+    this.openclawSessionId = `e2e-${randomUUID()}`;
     this.cliBin = getCliBinaryPath();
     this.writeConfig();
   }
@@ -70,8 +66,7 @@ export class CliFixture {
         baseUrl: this.convexSiteUrl,
       },
       bridge: {
-        mode: "openclaw-like",
-        openclawLikeCommand: MOCK_BRIDGE_PATH,
+        mode: "openclaw",
         verbose: true,
       },
     };
@@ -79,7 +74,7 @@ export class CliFixture {
   }
 
   private env(): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = {
+    return {
       ...process.env,
       PUB_CONFIG_DIR: this.configDir,
       PUB_API_KEY: this.user.apiKey,
@@ -87,11 +82,13 @@ export class CliFixture {
       PUB_SKIP_UPDATE_CHECK: "1",
       PUB_CLI_BIN: this.cliBin,
       PUB_AGENT_SOCKET: this.isolatedSocketPath,
+      // OpenClaw env vars — point at pre-configured state dir with mock LLM provider.
+      // Each fixture gets a unique session ID to avoid conversation history leaking between tests.
+      OPENCLAW_PATH: process.env.OPENCLAW_PATH ?? "/usr/local/bin/openclaw",
+      OPENCLAW_STATE_DIR: process.env.OPENCLAW_STATE_DIR ?? "/home/node/.openclaw",
+      OPENCLAW_WORKSPACE: process.env.OPENCLAW_WORKSPACE ?? "/home/node/.openclaw/workspace",
+      OPENCLAW_SESSION_ID: this.openclawSessionId,
     };
-    if (this.options.briefingDelay != null) {
-      env.MOCK_BRIDGE_BRIEFING_DELAY = String(this.options.briefingDelay);
-    }
-    return env;
   }
 
   /** Run a CLI command synchronously. Returns stdout. */
@@ -132,7 +129,7 @@ export class CliFixture {
     this.readDaemonInfo();
 
     // Verify daemon is actually running
-    await this.waitForStatus("connected", 30_000);
+    await this.waitForStatus("connected", 60_000);
   }
 
   /** Read daemon info from the info file written by the daemon process. */
@@ -173,11 +170,6 @@ export class CliFixture {
     const args = ["write", message];
     if (channel) args.push("-c", channel);
     return this.run(args);
-  }
-
-  /** Configure the mock bridge's "update canvas" response HTML. */
-  setCanvasResponse(html: string): void {
-    writeFileSync(join(this.configDir, "bridge-canvas-response.html"), html);
   }
 
   /** Stop the daemon gracefully via CLI. */
