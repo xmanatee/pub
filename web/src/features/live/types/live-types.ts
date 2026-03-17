@@ -38,7 +38,7 @@ export interface AgentOutputActivity {
 
 export interface LiveErrorSummary {
   message: string | null;
-  source: "none" | "canvas" | "command" | "session";
+  source: "none" | "command" | "session";
 }
 
 export type LiveControlBarState =

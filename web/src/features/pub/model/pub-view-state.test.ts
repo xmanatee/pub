@@ -70,7 +70,6 @@ describe("derivePubViewState", () => {
         agentOnline: true,
         audioMode: "idle",
         connectionState: "connecting",
-        canvasError: null,
         command: {
           activeCallId: null,
           activeCommandName: null,
@@ -97,7 +96,6 @@ describe("derivePubViewState", () => {
         agentOnline: true,
         audioMode: "idle",
         connectionState: "failed",
-        canvasError: null,
         command: {
           activeCallId: null,
           activeCommandName: null,
@@ -124,7 +122,6 @@ describe("derivePubViewState", () => {
         agentOnline: true,
         audioMode: "idle",
         connectionState: "disconnected",
-        canvasError: null,
         command: {
           activeCallId: null,
           activeCommandName: null,
@@ -150,7 +147,6 @@ describe("derivePubViewState", () => {
       agentOnline: true,
       audioMode: "idle",
       connectionState: "connected",
-      canvasError: null,
       command: {
         activeCallId: "cmd-1",
         activeCommandName: "render",
@@ -173,12 +169,41 @@ describe("derivePubViewState", () => {
     expect(state.visualState).toBe("command-running");
   });
 
-  it("surfaces canvas errors through the shared error domain", () => {
+  it("surfaces command errors through the error summary", () => {
     const state = derivePubViewState({
       agentOnline: true,
       audioMode: "idle",
       connectionState: "connected",
-      canvasError: "ReferenceError",
+      command: {
+        activeCallId: null,
+        activeCommandName: "render",
+        activeCount: 0,
+        errorMessage: "Command execution timed out",
+        finishedAt: NOW,
+        phase: "failed",
+      },
+      contentState: "ready",
+      lastAgentOutput: null,
+      lastUserDeliveredAt: null,
+      liveMode: true,
+      needsAgentSelection: false,
+      now: NOW,
+      sessionError: null,
+      sessionState: "active",
+    });
+
+    expect(state.error).toEqual({
+      message: "Command execution timed out",
+      source: "command",
+    });
+    expect(state.visualState).toBe("error");
+  });
+
+  it("surfaces session errors through the error summary", () => {
+    const state = derivePubViewState({
+      agentOnline: true,
+      audioMode: "idle",
+      connectionState: "connected",
       command: {
         activeCallId: null,
         activeCommandName: null,
@@ -193,13 +218,13 @@ describe("derivePubViewState", () => {
       liveMode: true,
       needsAgentSelection: false,
       now: NOW,
-      sessionError: null,
+      sessionError: "Agent went offline",
       sessionState: "active",
     });
 
     expect(state.error).toEqual({
-      message: "ReferenceError",
-      source: "canvas",
+      message: "Agent went offline",
+      source: "session",
     });
     expect(state.visualState).toBe("error");
   });

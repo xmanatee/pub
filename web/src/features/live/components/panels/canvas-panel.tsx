@@ -13,7 +13,6 @@ import { CanvasLiveVisual } from "./canvas-live-visual";
 interface CanvasPanelProps {
   html: string | null;
   onCanvasBridgeMessage?: (message: CanvasBridgeCommandMessage) => void;
-  onCanvasErrorChange?: (message: string | null) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
   visualState: LiveVisualState;
@@ -38,14 +37,12 @@ function reportDedupedRenderError(
 export function CanvasPanel({
   html,
   onCanvasBridgeMessage,
-  onCanvasErrorChange,
   onRenderError,
   outboundCanvasBridgeMessage,
   visualState,
 }: CanvasPanelProps) {
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [visualPhase, setVisualPhase] = useState<VisualPhase>("visible");
-  const [canvasError, setCanvasError] = useState<string | null>(null);
   const [canvasBridgeReady, setCanvasBridgeReady] = useState(false);
   const [pendingOutboundCanvasBridgeMessages, setPendingOutboundCanvasBridgeMessages] = useState<
     CanvasBridgeOutboundMessage[]
@@ -62,7 +59,6 @@ export function CanvasPanel({
   useEffect(() => {
     console.debug("[canvas] html-effect reset bridgeReady=false");
     setCanvasBridgeReady(false);
-    setCanvasError(null);
     setPendingOutboundCanvasBridgeMessages([]);
     lastAcceptedOutboundMessageRef.current = latestOutboundCanvasBridgeMessageRef.current;
     lastReportedErrorRef.current = null;
@@ -70,16 +66,6 @@ export function CanvasPanel({
       setLoadedHtml(null);
     }
   }, [html]);
-
-  useEffect(() => {
-    onCanvasErrorChange?.(canvasError);
-  }, [canvasError, onCanvasErrorChange]);
-
-  useEffect(() => {
-    if (!canvasError) return;
-    const timer = setTimeout(() => setCanvasError(null), 6_000);
-    return () => clearTimeout(timer);
-  }, [canvasError]);
 
   useEffect(() => {
     if (!hasVisibleCanvasContent) {
@@ -104,46 +90,33 @@ export function CanvasPanel({
       }
 
       if (message.type === "console-error") {
-        const consoleMsg = `[console.error] ${message.payload.message}`;
         reportDedupedRenderError(
-          consoleMsg,
-          { message: consoleMsg },
+          message.payload.message,
+          { message: `[console.error] ${message.payload.message}` },
           lastReportedErrorRef,
           onRenderError,
         );
         return;
       }
 
-      if (message.type !== "error") {
-        onCanvasBridgeMessage?.(message);
+      if (message.type === "error") {
+        const { message: errorMessage, filename, lineno, colno } = message.payload;
+        const keyParts = [
+          errorMessage,
+          filename ?? "",
+          typeof lineno === "number" ? String(lineno) : "",
+          typeof colno === "number" ? String(colno) : "",
+        ];
+        reportDedupedRenderError(
+          keyParts.join("|"),
+          { message: errorMessage, filename, lineno, colno },
+          lastReportedErrorRef,
+          onRenderError,
+        );
         return;
       }
 
-      const payload = message.payload;
-      const errorMessage = payload.message;
-      const lineInfo =
-        typeof payload.lineno === "number" && payload.lineno > 0
-          ? ` (line ${payload.lineno}${typeof payload.colno === "number" && payload.colno > 0 ? `:${payload.colno}` : ""})`
-          : "";
-      setCanvasError(`${errorMessage}${lineInfo}`);
-
-      const keyParts = [
-        errorMessage,
-        payload.filename ?? "",
-        typeof payload.lineno === "number" ? String(payload.lineno) : "",
-        typeof payload.colno === "number" ? String(payload.colno) : "",
-      ];
-      reportDedupedRenderError(
-        keyParts.join("|"),
-        {
-          message: errorMessage,
-          filename: payload.filename,
-          lineno: payload.lineno,
-          colno: payload.colno,
-        },
-        lastReportedErrorRef,
-        onRenderError,
-      );
+      onCanvasBridgeMessage?.(message);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -190,16 +163,8 @@ export function CanvasPanel({
           onLoad={() => {
             console.debug("[canvas] onLoad");
             setLoadedHtml(html);
-            setCanvasError(null);
           }}
         />
-      ) : null}
-      {canvasError ? (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2">
-          <p className="rounded-full border border-destructive/40 bg-background/90 px-3 py-1 text-xs text-destructive shadow-sm backdrop-blur">
-            {canvasError}
-          </p>
-        </div>
       ) : null}
       {visualPhase === "hidden" ? null : (
         <CanvasLiveVisual

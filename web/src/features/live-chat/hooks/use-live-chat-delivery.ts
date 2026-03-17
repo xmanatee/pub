@@ -320,6 +320,7 @@ export function useLiveChatDelivery() {
       severity: SystemMessageSeverity;
       dedupeKey?: string;
       cooldownMs?: number;
+      details?: string;
     }) => {
       const content = params.content.trim();
       if (content.length === 0) return;
@@ -334,6 +335,7 @@ export function useLiveChatDelivery() {
       }
 
       systemMessageCounterRef.current += 1;
+      const details = params.details?.trim();
       const entry: ChatEntry = {
         type: "system",
         id: `sys-${now}-${systemMessageCounterRef.current}`,
@@ -341,6 +343,7 @@ export function useLiveChatDelivery() {
         content,
         severity: params.severity,
         timestamp: now,
+        ...(details ? { details } : {}),
       };
       dispatch({ type: "UPSERT_MESSAGE", entry });
     },

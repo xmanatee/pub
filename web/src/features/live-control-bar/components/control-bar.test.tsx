@@ -41,7 +41,6 @@ const mockSession = {
   retryConnection: vi.fn(),
   toggleControlBar: vi.fn(),
   setSelectedPresenceId: vi.fn(),
-  setCanvasError: vi.fn(),
   setMicGranted: vi.fn(),
   setViewMode: vi.fn(),
   sendAudio: vi.fn(),

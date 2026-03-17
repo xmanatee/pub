@@ -15,7 +15,6 @@ import type { AudioMachineMode } from "~/features/live-control-bar/model/control
 export interface PubViewSourceState {
   agentOnline: boolean | undefined;
   audioMode: AudioMachineMode;
-  canvasError: string | null;
   command: LiveCommandSummary;
   connectionState: LiveConnectionState;
   contentState: LiveContentState;
@@ -79,16 +78,9 @@ export function resolveControlBarState(
 }
 
 export function resolveLiveErrorSummary({
-  canvasError,
   command,
   sessionError,
-}: Pick<PubViewSourceState, "canvasError" | "command" | "sessionError">): LiveErrorSummary {
-  if (canvasError) {
-    return {
-      message: canvasError,
-      source: "canvas",
-    };
-  }
+}: Pick<PubViewSourceState, "command" | "sessionError">): LiveErrorSummary {
   if (command.phase === "failed" && command.errorMessage) {
     return {
       message: command.errorMessage,

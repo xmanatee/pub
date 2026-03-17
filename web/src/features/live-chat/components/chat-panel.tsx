@@ -105,20 +105,29 @@ function AttachmentBubble({ entry }: { entry: AttachmentChatEntry }) {
 }
 
 function SystemBubble({ entry }: { entry: SystemChatEntry }) {
+  const { developerModeEnabled } = useLiveSession();
   const isError = entry.severity === "error";
+  const showDetails = developerModeEnabled && entry.details;
   return (
     <div className="flex justify-center">
       <div
         className={
           isError
-            ? "flex max-w-full items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-            : "flex max-w-full items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground"
+            ? "flex max-w-full flex-col gap-1 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            : "flex max-w-full flex-col gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground"
         }
       >
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-        <span>
-          <span className="font-medium">{isError ? "Error" : "Warning"}:</span> {entry.content}
-        </span>
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <span className="font-medium">{isError ? "Error" : "Warning"}:</span> {entry.content}
+          </span>
+        </div>
+        {showDetails ? (
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all rounded border border-current/20 bg-current/5 px-2 py-1 font-mono text-xs">
+            {entry.details}
+          </pre>
+        ) : null}
       </div>
     </div>
   );

@@ -62,6 +62,7 @@ export interface SystemChatEntry extends SystemChatEntryBase {
   type: "system";
   content: string;
   severity: SystemMessageSeverity;
+  details?: string;
 }
 
 export type ChatEntry =

@@ -55,8 +55,7 @@ function PubRouteContent({
           <CanvasPanel
             html={effectiveCanvasHtml}
             onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
-            onCanvasErrorChange={isOwner ? session.setCanvasError : undefined}
-            onRenderError={isOwner ? session.sendRenderError : undefined}
+            onRenderError={isOwner ? session.handleRenderError : undefined}
             outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
             visualState={session.visualState}
           />

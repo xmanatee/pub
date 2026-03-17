@@ -122,9 +122,26 @@ const SYSTEM_ERROR: SystemChatEntry = {
   timestamp: 1008,
 };
 
-function StaticChat({ messages }: { messages: ChatEntry[] }) {
+const SYSTEM_ERROR_WITH_DETAILS: SystemChatEntry = {
+  id: "s-error-details",
+  type: "system",
+  from: "system",
+  content: "Uncaught ReferenceError: foo is not defined",
+  severity: "error",
+  timestamp: 1009,
+  details: "File: /canvas/app.js\nLocation: line 42:15",
+};
+
+function StaticChat({
+  messages,
+  developerModeEnabled,
+}: {
+  messages: ChatEntry[];
+  developerModeEnabled?: boolean;
+}) {
   const mockValue = createMockLiveSession({
     messages,
+    ...(developerModeEnabled != null ? { developerModeEnabled } : {}),
   });
 
   return (
@@ -196,6 +213,16 @@ export function ChatBubblesDebugPage() {
           items={[
             { label: "warning", content: <StaticChat messages={[SYSTEM_WARNING]} /> },
             { label: "error", content: <StaticChat messages={[SYSTEM_ERROR]} /> },
+            {
+              label: "error with details (dev off)",
+              content: <StaticChat messages={[SYSTEM_ERROR_WITH_DETAILS]} />,
+            },
+            {
+              label: "error with details (dev on)",
+              content: (
+                <StaticChat messages={[SYSTEM_ERROR_WITH_DETAILS]} developerModeEnabled={true} />
+              ),
+            },
           ]}
         />
 

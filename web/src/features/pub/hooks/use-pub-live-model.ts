@@ -9,7 +9,7 @@ import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-mode
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
 import { profileMark, profilePrint, profileStart } from "~/features/live/lib/connection-profiler";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
-import type { LiveContentState } from "~/features/live/types/live-types";
+import type { LiveContentState, LiveRenderErrorPayload } from "~/features/live/types/live-types";
 import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
@@ -32,6 +32,19 @@ export interface UsePubLiveModelOptions {
   pub?: PubSnapshot;
   baseContentHtml?: string | null;
   contentState: LiveContentState;
+}
+
+function formatRenderErrorDetails(payload: LiveRenderErrorPayload): string | undefined {
+  const parts: string[] = [];
+  if (payload.filename) parts.push(`File: ${payload.filename}`);
+  if (typeof payload.lineno === "number" && payload.lineno > 0) {
+    const loc =
+      typeof payload.colno === "number" && payload.colno > 0
+        ? `${payload.lineno}:${payload.colno}`
+        : String(payload.lineno);
+    parts.push(`Location: line ${loc}`);
+  }
+  return parts.length > 0 ? parts.join("\n") : undefined;
 }
 
 export function usePubLiveModel({
@@ -98,7 +111,6 @@ export function usePubLiveModel({
 
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
-  const [canvasError, setCanvasError] = useState<string | null>(null);
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
   const [collapsePreference, setCollapsePreference] = useState(Boolean(baseContentHtml));
@@ -115,6 +127,7 @@ export function usePubLiveModel({
   const lastLiveSessionIdRef = useRef<string | null>(null);
   const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
+  const lastReportedCommandErrorRef = useRef<number | null>(null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
   const canvasFileMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
@@ -167,6 +180,19 @@ export function usePubLiveModel({
     onCommandMessageRef: commandMessageHandlerRef,
     onCanvasFileMessageRef: canvasFileMessageHandlerRef,
   });
+
+  const handleRenderError = useCallback(
+    (payload: LiveRenderErrorPayload) => {
+      sendRenderError(payload);
+      addSystemMessage({
+        content: payload.message,
+        severity: "error",
+        dedupeKey: `canvas-error:${payload.message}`,
+        details: formatRenderErrorDetails(payload),
+      });
+    },
+    [addSystemMessage, sendRenderError],
+  );
 
   const profileStartedRef = useRef(false);
 
@@ -263,7 +289,6 @@ export function usePubLiveModel({
   const viewState = derivePubViewState({
     agentOnline,
     audioMode: audio.machineMode,
-    canvasError,
     command,
     connectionState: runtimeState.connectionState,
     contentState: effectiveContentState,
@@ -327,10 +352,10 @@ export function usePubLiveModel({
     if (lastSlugRef.current === slug) return;
     lastSlugRef.current = slug;
     lastSessionErrorRef.current = null;
+    lastReportedCommandErrorRef.current = null;
     notifiedStatusRef.current = null;
     lastLiveSessionIdRef.current = null;
     lastSelectedPresenceIdRef.current = null;
-    setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
     setCollapsePreference(Boolean(baseContentHtml));
     trackedAnalytics.current = false;
@@ -373,6 +398,25 @@ export function usePubLiveModel({
     });
   }, [addSystemMessage, sessionError]);
 
+  useEffect(() => {
+    if (command.phase !== "failed" || !command.errorMessage || !command.finishedAt) return;
+    if (lastReportedCommandErrorRef.current === command.finishedAt) return;
+    lastReportedCommandErrorRef.current = command.finishedAt;
+    const name = command.activeCommandName;
+    addSystemMessage({
+      content: name
+        ? `Command "${name}" failed: ${command.errorMessage}`
+        : `Command failed: ${command.errorMessage}`,
+      severity: "error",
+    });
+  }, [
+    addSystemMessage,
+    command.activeCommandName,
+    command.errorMessage,
+    command.finishedAt,
+    command.phase,
+  ]);
+
   const resetLiveSurface = useCallback(() => {
     console.debug("[model] resetLiveSurface");
     dismissPreview();
@@ -380,7 +424,6 @@ export function usePubLiveModel({
     clearMessages();
     clearSessionError();
     resetCanvasCommands();
-    setCanvasError(null);
     setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
   }, [
@@ -458,7 +501,6 @@ export function usePubLiveModel({
     addSystemMessage,
     autoOpenCanvas,
     agentState: runtimeState.agentState,
-    canvasError,
     canvasHtml,
     canUseDeveloperMode,
     clearFiles,
@@ -489,11 +531,10 @@ export function usePubLiveModel({
     sendAudio,
     sendChat,
     sendFile,
-    sendRenderError,
+    handleRenderError,
     sessionState,
     selectedPresenceId,
     setAutoOpenCanvas,
-    setCanvasError,
     toggleControlBar,
     setDeveloperModeEnabled,
     setMicGranted,
