@@ -76,7 +76,11 @@ export function createPeerManager(params: {
         void params.ensureAgentReady();
         return;
       }
-      if (peerState === "disconnected" || peerState === "failed" || peerState === "closed") {
+      if (peerState === "disconnected") {
+        setConnectionState("disconnected");
+        return;
+      }
+      if (peerState === "failed" || peerState === "closed") {
         setConnectionState(peerState === "failed" ? "failed" : "disconnected");
         handleConnectionClosed(`peer-state:${peerState}`);
       }
@@ -85,11 +89,8 @@ export function createPeerManager(params: {
     currentPeer.onIceStateChange((iceState: string) => {
       if (state.stopped || currentPeer !== state.peer) return;
       debugLog(`ICE state: ${iceState}`);
-      if (
-        (iceState === "disconnected" || iceState === "failed") &&
-        isLiveConnectionReady(state.runtimeState)
-      ) {
-        setConnectionState(iceState === "failed" ? "failed" : "disconnected");
+      if (iceState === "failed" && isLiveConnectionReady(state.runtimeState)) {
+        setConnectionState("failed");
         handleConnectionClosed(`ice-state:${iceState}`);
       }
     });

@@ -18,11 +18,7 @@ import { createCanvasFileTransferHandler } from "./canvas-file-transfer.js";
 import { createDaemonLifecycle } from "./lifecycle.js";
 import { createSignalingController } from "./signaling.js";
 import type { DaemonConfig } from "./shared.js";
-import {
-  getLiveWriteReadinessError,
-  isPresenceExpiredError,
-  isPresenceOwnershipConflictError,
-} from "./shared.js";
+import { getLiveWriteReadinessError, isPresenceOwnershipConflictError } from "./shared.js";
 import { createDaemonState, setDaemonExecutorState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -206,6 +202,19 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     onClearLive: async () => {
       await peerManager.clearActiveLiveSession("signaling-cleared");
     },
+    onReconnect: async () => {
+      if (shuttingDown || state.stopped) return;
+      const generation = presenceGeneration;
+      try {
+        await apiClient.heartbeat({ daemonSessionId });
+      } catch (error) {
+        if (isPresenceOwnershipConflictError(error)) {
+          await handlePresenceOwnershipConflict(error);
+          return;
+        }
+        await reRegisterPresence(generation);
+      }
+    },
   });
 
   if (fs.existsSync(socketPath)) {
@@ -237,7 +246,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function reRegisterPresence(generation: number): Promise<void> {
     if (shuttingDown || state.stopped || generation !== presenceGeneration) return;
-    lifecycle.debugLog("presence expired, re-registering");
+    lifecycle.debugLog("re-registering presence");
 
     try {
       await apiClient.goOnline({ daemonSessionId, agentName });
@@ -270,15 +279,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     try {
       await apiClient.heartbeat({ daemonSessionId });
     } catch (error) {
-      if (isPresenceExpiredError(error)) {
-        await reRegisterPresence(generation);
-        return;
-      }
       if (isPresenceOwnershipConflictError(error)) {
         await handlePresenceOwnershipConflict(error);
         return;
       }
-      lifecycle.markError("heartbeat failed", error);
+      await reRegisterPresence(generation);
     }
   }, HEARTBEAT_INTERVAL_MS);
 

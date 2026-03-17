@@ -32,6 +32,7 @@ interface SignalingControllerParams {
   onRecover: (slug: string, browserOffer: string, modelProfile?: LiveModelProfile) => Promise<void>;
   onApplyBrowserCandidates: (candidatePayloads: string[]) => Promise<void>;
   onClearLive: () => Promise<void>;
+  onReconnect: () => Promise<void>;
 }
 
 interface SignalingController {
@@ -54,6 +55,7 @@ export function createSignalingController(params: SignalingControllerParams): Si
     onRecover,
     onApplyBrowserCandidates,
     onClearLive,
+    onReconnect,
   } = params;
 
   let signalingClient: ConvexClient | null = null;
@@ -85,6 +87,9 @@ export function createSignalingController(params: SignalingControllerParams): Si
       signalingConnectionOpen = state.isWebSocketConnected;
       if (state.isWebSocketConnected) {
         debugLog("signaling websocket reconnected");
+        void onReconnect().catch((error) => {
+          markError("onReconnect callback failed", error);
+        });
       } else {
         markError(
           `signaling websocket disconnected (retries=${state.connectionRetries}, connections=${state.connectionCount})`,

@@ -56,10 +56,6 @@ export function shouldRecoverForBrowserOfferChange(params: {
   return incomingBrowserOffer !== lastAppliedBrowserOffer;
 }
 
-export function isPresenceExpiredError(error: unknown): boolean {
-  return error instanceof PubApiError && error.code === "presence_not_online";
-}
-
 export function isPresenceOwnershipConflictError(error: unknown): boolean {
   return error instanceof PubApiError && error.code === "presence_api_key_in_use";
 }
