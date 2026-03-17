@@ -632,6 +632,57 @@ const AUTO_INVOKE_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// ---------------------------------------------------------------------------
+// Canvas HTML with TWO auto-invoke commands fired simultaneously on load.
+// Tests that the pending queue drains ALL commands, not just the first one.
+// ---------------------------------------------------------------------------
+const MULTI_AUTO_INVOKE_HTML = `<!DOCTYPE html>
+<html>
+<head><title>Multi Auto Command</title></head>
+<body>
+  <div id="result-a">pending-a</div>
+  <div id="result-b">pending-b</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "multi-cmd",
+    "functions": [
+      {
+        "name": "cwd",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "pwd" }
+      },
+      {
+        "name": "whoami",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "whoami" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.command('cwd', {}).then(function(r) {
+      document.getElementById('result-a').textContent = 'cwd: ' + r;
+    }).catch(function(e) {
+      document.getElementById('result-a').textContent = 'error-a: ' + e.message;
+    });
+    pub.command('whoami', {}).then(function(r) {
+      document.getElementById('result-b').textContent = 'user: ' + r;
+    }).catch(function(e) {
+      document.getElementById('result-b').textContent = 'error-b: ' + e.message;
+    });
+    function runCommand() {
+      pub.command('cwd', {}).then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
+
 /**
  * Test 9: Page reload — commands work after a full page reload.
  */
@@ -772,4 +823,215 @@ test("agent picker: two agents, select one, commands work", async ({ page }) => 
 
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 30_000 });
+});
+
+/**
+ * Test 13: Multiple auto-invoke commands all resolve after connection.
+ * Verifies: canvas fires 2 commands (cwd + whoami) on load → both queue →
+ * connection established → both drain and return results.
+ */
+test("multiple auto-invoke commands all resolve after connection", async ({ page }) => {
+  const user = seedUser("Multi Cmd User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+
+  await api.createPub({
+    slug: "multi-cmd-e2e",
+    title: "Multi Cmd E2E",
+    content: MULTI_AUTO_INVOKE_HTML,
+  });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("multi-cmd-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/multi-cmd-e2e");
+
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+
+  const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#result-a")).toHaveText(/^cwd: \//, { timeout: 30_000 });
+  await expect(canvasFrame.locator("#result-b")).toHaveText(/^user: \w/, { timeout: 30_000 });
+
+  // Button command should also work after both auto-invokes completed
+  await canvasFrame.locator("#run-cmd").click();
+  await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 15_000 });
+});
+
+/**
+ * Test 14: Agent offline — auto-recovery to remaining agent, commands work.
+ * Verifies: 2 agents → pick alpha → commands work → alpha goes offline →
+ * beta auto-selected (only 1 remaining) → new WebRTC connection → button command works.
+ *
+ * Uses toPass retry because the recovery timing (WebRTC disconnect + presence update
+ * + new connection) is non-deterministic; each attempt resets the button, clicks,
+ * and checks the result.
+ */
+test("agent offline: recovery to remaining agent, commands work", async ({ page }) => {
+  const user = seedUser("Offline User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+  const user2 = seedExtraApiKey(user);
+
+  await api.createPub({ slug: "offline-e2e", title: "Offline E2E", content: AUTO_INVOKE_HTML });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("alpha-bot");
+
+  const cli2 = new CliFixture(user2, convexProxyUrl);
+  extraClis.push(cli2);
+  await cli2.startDaemon("beta-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/offline-e2e");
+
+  // 2 agents → picker shown
+  await expect(page.getByRole("button", { name: "alpha-bot" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "alpha-bot" }).dispatchEvent("click");
+
+  // Verify auto-invoke works with alpha-bot
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+  const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
+
+  // Stop alpha-bot → goOffline API call + daemon exit.
+  // Beta-bot is the only agent remaining → browser auto-selects it.
+  // Recovery: old WebRTC disconnects → new connection to beta → executor ready.
+  cli.stop();
+
+  // Retry clicking the button until the command succeeds via beta-bot.
+  // Each attempt resets #btn-result to distinguish stale results from fresh ones.
+  await expect(async () => {
+    await canvasFrame.locator("#btn-result").evaluate((el) => {
+      el.textContent = "waiting";
+    });
+    await canvasFrame.locator("#run-cmd").click();
+    await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 8_000 });
+  }).toPass({ timeout: 90_000 });
+});
+
+/**
+ * Test 15: Agent picker + canvas update — commands work in the updated canvas.
+ * Verifies the combined flow: 2 agents → pick one → initial auto-invoke works →
+ * user sends "update canvas" → agent writes new HTML → new auto-invoke + button work.
+ *
+ * This catches regressions where the multi-agent sessionKey transition interferes
+ * with subsequent canvas scope changes.
+ */
+test("agent picker + canvas update: commands work in new canvas", async ({ page }) => {
+  const user = seedUser("Picker Canvas User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+  const user2 = seedExtraApiKey(user);
+
+  const initialHtml = `<!DOCTYPE html>
+<html>
+<head><title>Canvas Commands V1</title></head>
+<body>
+  <div id="auto-result">pending</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "v1",
+    "functions": [
+      {
+        "name": "getVersion",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "echo 'v1'" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.commands.getVersion().then(function(r) {
+      document.getElementById('auto-result').textContent = 'auto: ' + r;
+    }).catch(function(e) {
+      document.getElementById('auto-result').textContent = 'error: ' + e.message;
+    });
+    function runCommand() {
+      pub.commands.getVersion().then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
+
+  await api.createPub({
+    slug: "picker-canvas",
+    title: "Picker Canvas",
+    content: initialHtml,
+  });
+
+  const v2Html = `<!DOCTYPE html>
+<html>
+<head><title>Canvas Commands V2</title></head>
+<body>
+  <div id="auto-result">pending</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "v2",
+    "functions": [
+      {
+        "name": "getVersion",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "echo 'v2'" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.commands.getVersion().then(function(r) {
+      document.getElementById('auto-result').textContent = 'auto: ' + r;
+    }).catch(function(e) {
+      document.getElementById('auto-result').textContent = 'error: ' + e.message;
+    });
+    function runCommand() {
+      pub.commands.getVersion().then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
+  await addCanvasRule("update canvas", v2Html, "canvas updated");
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("alpha-bot");
+
+  const cli2 = new CliFixture(user2, convexProxyUrl);
+  extraClis.push(cli2);
+  await cli2.startDaemon("beta-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/picker-canvas");
+
+  // Pick alpha-bot from the agent picker
+  await expect(page.getByRole("button", { name: "alpha-bot" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "alpha-bot" }).dispatchEvent("click");
+
+  await expect(page.getByLabel("Message", { exact: true })).toBeVisible({ timeout: 30_000 });
+
+  const canvasFrame = page.frameLocator("iframe").first();
+
+  // Phase 1: Initial canvas v1 — auto-invoke works after agent selection
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v1", { timeout: 30_000 });
+
+  // Phase 2: Send "update canvas" → agent writes new HTML + confirms in chat
+  await sendChat(page, "update canvas");
+  await expect(page.getByText("canvas updated")).toBeVisible({ timeout: 30_000 });
+
+  // Phase 2: Auto-invoke in new canvas v2 works
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v2", { timeout: 30_000 });
+
+  // Phase 2: Button command in new canvas v2 works
+  await canvasFrame.locator("#run-cmd").click();
+  await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v2", { timeout: 15_000 });
 });
