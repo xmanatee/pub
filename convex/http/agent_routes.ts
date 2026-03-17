@@ -53,7 +53,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       if (body instanceof Response) return body;
 
       const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "presenceHeartbeat", { key: apiKey });
+      const rl = await rateLimiter.limit(ctx, "presenceOnline", { key: apiKey });
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       return executeAction(
@@ -173,35 +173,36 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
+      let body: ReturnType<typeof parseAgentSignalBody>;
       try {
-        const body = parseAgentSignalBody(await request.json());
-        if (!body.ok) return errorResponse(body.error, 400);
-
-        const user = await authenticateApiKey(ctx, apiKey);
-        const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
-        if (!rl.ok) return rateLimitResponse(rl.retryAfter);
-
-        return executeAction(
-          async () => {
-            try {
-              await ctx.runMutation(internal.pubs.storeAgentAnswer, {
-                slug: body.value.slug,
-                userId: user.userId,
-                apiKeyId: user.apiKeyId,
-                daemonSessionId: body.value.daemonSessionId,
-                answer: body.value.answer,
-                candidates: body.value.candidates,
-                agentName: body.value.agentName,
-              });
-            } catch (error) {
-              rethrowLiveApiError(error);
-            }
-          },
-          () => jsonResponse({ ok: true }),
-        );
+        body = parseAgentSignalBody(await request.json());
       } catch {
         return errorResponse("Invalid JSON body", 400);
       }
+      if (!body.ok) return errorResponse(body.error, 400);
+
+      const user = await authenticateApiKey(ctx, apiKey);
+      const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
+      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+
+      return executeAction(
+        async () => {
+          try {
+            await ctx.runMutation(internal.pubs.storeAgentAnswer, {
+              slug: body.value.slug,
+              userId: user.userId,
+              apiKeyId: user.apiKeyId,
+              daemonSessionId: body.value.daemonSessionId,
+              answer: body.value.answer,
+              candidates: body.value.candidates,
+              agentName: body.value.agentName,
+            });
+          } catch (error) {
+            rethrowLiveApiError(error);
+          }
+        },
+        () => jsonResponse({ ok: true }),
+      );
     }),
   });
 
