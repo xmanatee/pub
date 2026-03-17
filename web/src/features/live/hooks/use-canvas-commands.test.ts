@@ -715,4 +715,134 @@ describe("useCanvasCommands", () => {
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
     expect(latestHook?.command.phase).toBe("idle");
   });
+
+  // --------------------------------------------------------------------------
+  // Session key change preserves pending queue
+  // --------------------------------------------------------------------------
+
+  it("pending commands survive sessionKey change and drain when executor ready", async () => {
+    const r = setup();
+    const ops = createMockChannelOps();
+
+    // Session A — queue a command while executor is not ready
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
+      liveMode: true,
+      sessionKey: "slug:unselected:0",
+    });
+
+    act(() => {
+      latestHook?.onCanvasBridgeMessage(makeInvokeMessage("cwd", "call-auto"));
+    });
+
+    expect(latestHook?.command.phase).toBe("idle");
+    expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
+
+    // Session B — sessionKey changes (agent selected)
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({ connectionState: "idle" }),
+      liveMode: true,
+      sessionKey: "slug:agent-1:0",
+    });
+
+    // Command should still be pending, not dispatched yet
+    expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
+
+    // Executor becomes ready — queued command should drain
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
+      liveMode: true,
+      sessionKey: "slug:agent-1:0",
+    });
+
+    expect(ops.sendWithAckOnChannel).toHaveBeenCalled();
+    expect(latestHook?.command).toMatchObject({
+      phase: "running",
+      activeCommandName: "cwd",
+      activeCallId: "call-auto",
+    });
+  });
+
+  it("active commands interrupted on sessionKey change while pending commands preserved", async () => {
+    const r = setup();
+    const ops = createMockChannelOps();
+
+    // Start with executor ready, dispatch one command (becomes active)
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
+      liveMode: true,
+      sessionKey: "slug:agent-1:0",
+    });
+
+    await act(async () => {
+      latestHook?.onCanvasBridgeMessage(makeInvokeMessage("active-cmd", "call-active"));
+    });
+
+    expect(latestHook?.command).toMatchObject({
+      phase: "running",
+      activeCallId: "call-active",
+    });
+
+    // Transition to not-ready state: queue a second command (stays pending)
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "loading",
+      }),
+      liveMode: true,
+      sessionKey: "slug:agent-1:0",
+    });
+
+    act(() => {
+      latestHook?.onCanvasBridgeMessage(makeInvokeMessage("pending-cmd", "call-pending"));
+    });
+
+    // Change sessionKey — active command should be interrupted
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "loading",
+      }),
+      liveMode: true,
+      sessionKey: "slug:agent-2:0",
+    });
+
+    // Active command was interrupted (failed)
+    const interruptMsg = observedOutboundMessages.find(
+      (m) => m.type === "command.result" && m.payload.callId === "call-active",
+    );
+    expect(interruptMsg).toBeDefined();
+    expect(interruptMsg?.payload.ok).toBe(false);
+
+    // Executor becomes ready on new session — pending command drains
+    ops.sendWithAckOnChannel.mockClear();
+    await renderHarness(r, {
+      ...ops,
+      runtimeState: createRuntimeState({
+        connectionState: "connected",
+        executorState: "ready",
+      }),
+      liveMode: true,
+      sessionKey: "slug:agent-2:0",
+    });
+
+    expect(ops.sendWithAckOnChannel).toHaveBeenCalled();
+    expect(latestHook?.command).toMatchObject({
+      phase: "running",
+      activeCommandName: "pending-cmd",
+      activeCallId: "call-pending",
+    });
+  });
 });

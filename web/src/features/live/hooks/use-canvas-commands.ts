@@ -587,7 +587,9 @@ export function useCanvasCommands({
     if (lastSessionKeyRef.current === sessionKey) return;
     console.debug("[cmd] sessionKey changed %s → %s", lastSessionKeyRef.current, sessionKey);
     lastSessionKeyRef.current = sessionKey;
-    pendingBridgeQueueRef.current = [];
+    // Preserve pendingBridgeQueueRef — queued commands have NOT been dispatched to any
+    // agent yet and should carry forward into whatever session starts next. The queue is
+    // already cleared on canvasScopeKey change (reset()) and drained on connection failure.
     interruptActiveCommands({
       code: "COMMAND_INTERRUPTED",
       message: "Command interrupted because the live session changed.",

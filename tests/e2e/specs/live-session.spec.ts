@@ -766,6 +766,10 @@ test("agent picker: two agents, select one, commands work", async ({ page }) => 
 
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
   const canvasFrame = page.frameLocator("iframe").first();
+
+  // Auto-invoke commands queued before agent selection must survive the sessionKey transition
+  await expect(canvasFrame.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
+
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 30_000 });
 });
