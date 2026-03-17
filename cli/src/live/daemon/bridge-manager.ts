@@ -4,6 +4,7 @@ import {
   makeErrorMessage,
 } from "../../../../shared/bridge-protocol-core";
 import { canSendAgentTraffic, isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
+import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
@@ -21,16 +22,7 @@ export function createBridgeManager(params: {
     bindFromHtml: (html: string) => void;
     clearBindings: () => void;
   };
-  apiClient: {
-    get: (
-      slug: string,
-    ) => Promise<{
-      title?: string;
-      isPublic: boolean;
-      content?: string;
-      live: { status: string } | null;
-    }>;
-  };
+  apiClient: Pick<PubApiClient, "get">;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendOutboundMessageWithAck: (

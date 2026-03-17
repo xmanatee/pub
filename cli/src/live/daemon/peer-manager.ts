@@ -1,6 +1,7 @@
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { LiveConnectionState } from "../../../../shared/live-runtime-state-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
+import type { PubApiClient } from "../../core/api/client.js";
 import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
@@ -9,15 +10,7 @@ import { setDaemonAgentState, setDaemonConnectionState, type DaemonState } from 
 
 export function createPeerManager(params: {
   state: DaemonState;
-  apiClient: {
-    signalAnswer: (args: {
-      slug: string;
-      daemonSessionId: string;
-      answer?: string;
-      candidates?: string[];
-      agentName?: string;
-    }) => Promise<void>;
-  };
+  apiClient: Pick<PubApiClient, "signalAnswer">;
   daemonSessionId: string;
   agentName?: string;
   debugLog: (message: string, error?: unknown) => void;
