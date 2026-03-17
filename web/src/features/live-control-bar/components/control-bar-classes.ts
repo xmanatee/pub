@@ -7,5 +7,5 @@ export const CB = {
   recordingTone: "border-destructive/40 bg-background/88",
   backButton: "border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl",
   shellContent:
-    "border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-4xl",
+    "border border-border/70 bg-background/86 shadow-lg backdrop-blur-xl transition-all duration-300 rounded-3xl",
 } as const;
