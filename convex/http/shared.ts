@@ -127,7 +127,7 @@ export function parseSlugFromRequest(request: Request, prefix: string): string |
   return slug;
 }
 
-export async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {
+async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {
   const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, { key: apiKey });
   if (!user) throw new ApiError("Invalid API key", 401);
   const now = Date.now();
@@ -157,15 +157,50 @@ export function rateLimitResponse(retryAfter: number) {
   });
 }
 
+type PubRateLimit = "createPub" | "readPub" | "listPubs" | "updatePub" | "deletePub";
+
+type AgentRateLimit =
+  | "presenceOnline"
+  | "presenceOffline"
+  | "presenceHeartbeat"
+  | "agentPollLive"
+  | "signalLive"
+  | "closeLive"
+  | "telegramBotUpdate";
+
+async function safeAuthenticate(ctx: ActionCtx, apiKey: string) {
+  try {
+    return await authenticateApiKey(ctx, apiKey);
+  } catch (e) {
+    if (e instanceof ApiError) return errorResponse(e.message, e.status, e.code);
+    throw e;
+  }
+}
+
 export async function authenticateAndRateLimit(
   ctx: ActionCtx,
   apiKey: string,
-  limitName: "createPub" | "readPub" | "listPubs" | "updatePub" | "deletePub",
+  limitName: PubRateLimit,
 ): Promise<{ userId: Id<"users"> } | Response> {
-  const user = await authenticateApiKey(ctx, apiKey);
+  const user = await safeAuthenticate(ctx, apiKey);
+  if (user instanceof Response) return user;
   const rl = await rateLimiter.limit(ctx, limitName, { key: apiKey });
   if (!rl.ok) return rateLimitResponse(rl.retryAfter);
   return { userId: user.userId };
+}
+
+export async function authenticateAgentAndRateLimit(
+  ctx: ActionCtx,
+  request: Request,
+  limitName: AgentRateLimit,
+): Promise<{ userId: Id<"users">; apiKeyId: Id<"apiKeys"> } | Response> {
+  const apiKey = getApiKey(request);
+  if (!apiKey) return errorResponse("Missing API key", 401);
+  const user = await safeAuthenticate(ctx, apiKey);
+  if (user instanceof Response) return user;
+  const rl = await rateLimiter.limit(ctx, limitName, { key: apiKey });
+  if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+  return { userId: user.userId, apiKeyId: user.apiKeyId };
 }
 
 export function getPublicUrl() {

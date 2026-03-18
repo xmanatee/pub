@@ -3,16 +3,13 @@ import { parseAgentPresenceBody, parseAgentSignalBody } from "../../shared/live-
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { httpAction } from "../_generated/server";
-import { rateLimiter } from "../rateLimits";
 import {
   ApiError,
-  authenticateApiKey,
+  authenticateAgentAndRateLimit,
   corsPreflightHandler,
   errorResponse,
   executeAction,
-  getApiKey,
   jsonResponse,
-  rateLimitResponse,
   rethrowLiveApiError,
 } from "./shared";
 
@@ -47,21 +44,18 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/online",
     method: "POST",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "presenceOnline");
+      if (auth instanceof Response) return auth;
+
       const body = await readPresenceBody(request);
       if (body instanceof Response) return body;
-
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "presenceOnline", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       return executeAction(
         async () => {
           try {
             await ctx.runMutation(internal.presence.goOnline, {
-              userId: user.userId,
-              apiKeyId: user.apiKeyId,
+              userId: auth.userId,
+              apiKeyId: auth.apiKeyId,
               daemonSessionId: body.daemonSessionId,
               agentName: body.agentName,
             });
@@ -79,20 +73,17 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/heartbeat",
     method: "POST",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "presenceHeartbeat");
+      if (auth instanceof Response) return auth;
+
       const body = await readPresenceBody(request);
       if (body instanceof Response) return body;
-
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "presenceHeartbeat", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       return executeAction(
         async () => {
           try {
             await ctx.runMutation(internal.presence.heartbeat, {
-              apiKeyId: user.apiKeyId,
+              apiKeyId: auth.apiKeyId,
               daemonSessionId: body.daemonSessionId,
             });
           } catch (error) {
@@ -109,17 +100,16 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/offline",
     method: "POST",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "presenceOffline");
+      if (auth instanceof Response) return auth;
+
       const body = await readPresenceBody(request);
       if (body instanceof Response) return body;
-
-      const user = await authenticateApiKey(ctx, apiKey);
 
       return executeAction(
         async () => {
           await ctx.runMutation(internal.presence.goOffline, {
-            apiKeyId: user.apiKeyId,
+            apiKeyId: auth.apiKeyId,
             daemonSessionId: body.daemonSessionId,
           });
         },
@@ -133,12 +123,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/live",
     method: "GET",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
-
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "agentPollLive", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "agentPollLive");
+      if (auth instanceof Response) return auth;
 
       return executeAction(
         async () => {
@@ -147,7 +133,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
           let targetPresenceId: Id<"agentPresence"> | undefined;
           if (daemonSessionId) {
             const presence = await ctx.runQuery(internal.presence.getPresenceByApiKeySession, {
-              apiKeyId: user.apiKeyId,
+              apiKeyId: auth.apiKeyId,
               daemonSessionId,
             });
             if (!presence) return { live: null };
@@ -155,7 +141,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
           }
 
           const result = await ctx.runQuery(internal.pubs.getLive, {
-            userId: user.userId,
+            userId: auth.userId,
             targetPresenceId,
           });
           return { live: result };
@@ -170,8 +156,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/live/signal",
     method: "PATCH",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "signalLive");
+      if (auth instanceof Response) return auth;
 
       let body: ReturnType<typeof parseAgentSignalBody>;
       try {
@@ -181,17 +167,13 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       }
       if (!body.ok) return errorResponse(body.error, 400);
 
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "signalLive", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
-
       return executeAction(
         async () => {
           try {
             await ctx.runMutation(internal.pubs.storeAgentAnswer, {
               slug: body.value.slug,
-              userId: user.userId,
-              apiKeyId: user.apiKeyId,
+              userId: auth.userId,
+              apiKeyId: auth.apiKeyId,
               daemonSessionId: body.value.daemonSessionId,
               answer: body.value.answer,
               candidates: body.value.candidates,
@@ -211,8 +193,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/telegram-bot",
     method: "PUT",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "telegramBotUpdate");
+      if (auth instanceof Response) return auth;
 
       let body: { botToken?: unknown; botUsername?: unknown };
       try {
@@ -226,14 +208,10 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       if (!botToken) return errorResponse("Missing botToken", 400);
       if (!botUsername) return errorResponse("Missing botUsername", 400);
 
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "telegramBotUpdate", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
-
       return executeAction(
         async () => {
           await ctx.runMutation(internal.telegramBots.upsertBotToken, {
-            userId: user.userId,
+            userId: auth.userId,
             botToken,
             botUsername,
           });
@@ -248,17 +226,13 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/telegram-bot",
     method: "DELETE",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
-
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "telegramBotUpdate", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "telegramBotUpdate");
+      if (auth instanceof Response) return auth;
 
       return executeAction(
         async () => {
           await ctx.runMutation(internal.telegramBots.deleteBotToken, {
-            userId: user.userId,
+            userId: auth.userId,
           });
         },
         () => jsonResponse({ deleted: true }),
@@ -271,12 +245,8 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     path: "/api/v1/agent/live",
     method: "DELETE",
     handler: httpAction(async (ctx, request) => {
-      const apiKey = getApiKey(request);
-      if (!apiKey) return errorResponse("Missing API key", 401);
-
-      const user = await authenticateApiKey(ctx, apiKey);
-      const rl = await rateLimiter.limit(ctx, "closeLive", { key: apiKey });
-      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "closeLive");
+      if (auth instanceof Response) return auth;
 
       return executeAction(
         async () => {
@@ -285,7 +255,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
           let targetPresenceId: Id<"agentPresence"> | undefined;
           if (daemonSessionId) {
             const presence = await ctx.runQuery(internal.presence.getPresenceByApiKeySession, {
-              apiKeyId: user.apiKeyId,
+              apiKeyId: auth.apiKeyId,
               daemonSessionId,
             });
             if (!presence) return;
@@ -293,14 +263,14 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
           }
 
           const active = await ctx.runQuery(internal.pubs.getLive, {
-            userId: user.userId,
+            userId: auth.userId,
             targetPresenceId,
           });
           if (!active) return;
           try {
             await ctx.runMutation(internal.pubs.closeLive, {
               slug: active.slug,
-              userId: user.userId,
+              userId: auth.userId,
             });
           } catch (error) {
             rethrowLiveApiError(error);

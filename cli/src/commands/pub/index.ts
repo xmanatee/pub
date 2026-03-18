@@ -143,6 +143,9 @@ export function registerPubCommands(program: Command): void {
         console.log(
           `  ${pub.slug}  ${formatVisibility(pub.isPublic)}  ${date}${sessionLabel}`,
         );
+        if (pub.description) {
+          console.log(`    ${pub.description}`);
+        }
       }
     });
 
