@@ -8,7 +8,7 @@ on:
 
 jobs:
   web:
-    name: Web App
+    name: Web + Backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +28,11 @@ jobs:
         run: pnpm convex deploy --dry-run -y --codegen disable
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - run: pnpm build
-      - run: pnpm lint
-      - run: pnpm test
+      - run: pnpm build:web
+      - run: pnpm lint:root
+      - run: pnpm lint:web
+      - run: pnpm test:root
+      - run: pnpm test:web
       - run: pnpm knip
 
   e2e-fullstack:
@@ -78,9 +80,6 @@ jobs:
   cli:
     name: CLI
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cli
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -94,16 +93,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
+      - run: pnpm lint:cli
+      - run: pnpm test:cli
+      - run: pnpm build:cli
       - name: Smoke test
+        working-directory: cli
         run: |
           VERSION=$(node -p "require('./package.json').version")
           ACTUAL=$(PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --version)
           test "$ACTUAL" = "$VERSION"
           PUB_SKIP_UPDATE_CHECK=1 ./dist-bin/pub-linux-x64 --help >/dev/null
       - name: Smoke test (daemon code path)
+        working-directory: cli
         run: |
           OUTPUT=$(PUB_DAEMON_MODE=1 ./dist-bin/pub-linux-x64 2>&1 || true)
           echo "$OUTPUT"

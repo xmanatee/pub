@@ -1,23 +1,36 @@
 {
-  "name": "pub",
+  "name": "pub-root",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "convex dev --once && concurrently -r 'pnpm --filter pub-web dev' 'pnpm run dev:db'",
+    "dev": "convex dev --once && concurrently -r 'pnpm dev:web' 'pnpm dev:db'",
     "dev:web": "pnpm --filter pub-web dev",
     "dev:db": "convex dev",
-    "build": "pnpm --filter pub-web build",
-    "preview": "pnpm --filter pub-web preview",
-    "deploy:convex": "convex deploy",
-    "test": "vitest run && pnpm --filter pub-web test",
+
+    "build:web": "pnpm --filter pub-web build",
+    "build:cli": "pnpm --filter pub-cli build",
+    "build": "pnpm build:web && pnpm build:cli",
+
+    "test:root": "vitest run",
+    "test:web": "pnpm --filter pub-web test",
+    "test:cli": "pnpm --filter pub-cli test",
+    "test": "pnpm test:root && pnpm test:web && pnpm test:cli",
     "test:watch": "pnpm --filter pub-web test:watch",
     "test:e2e": "pnpm --filter pub-web test:e2e",
     "test:e2e:fullstack": "docker compose -f tests/e2e/docker-compose.yml run --build --rm test-runner; docker compose -f tests/e2e/docker-compose.yml down -v",
-    "lint": "biome check AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills tests scripts web && pnpm --filter pub-web lint",
-    "lint:fix": "biome check --fix AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills tests scripts web",
-    "format": "biome format --write AGENTS.md CLAUDE.md FUTURE.md README.md biome.json knip.json package.json tsconfig.base.json tsconfig.json vercel.json vitest.config.ts convex docs shared skills tests scripts web",
+
+    "lint:root": "biome check convex docs shared skills tests scripts web *.json *.ts && tsc --noEmit",
+    "lint:web": "pnpm --filter pub-web lint",
+    "lint:cli": "pnpm --filter pub-cli lint",
+    "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:cli",
+    "lint:fix": "biome check --fix convex docs shared skills tests scripts web *.json *.ts",
+    "format": "biome format --write convex docs shared skills tests scripts web *.json *.ts",
+
     "knip": "knip",
-    "check": "pnpm build && pnpm lint && pnpm test && pnpm knip"
+    "check": "pnpm build && pnpm lint && pnpm test && pnpm knip",
+
+    "preview": "pnpm --filter pub-web preview",
+    "deploy:convex": "convex deploy"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
