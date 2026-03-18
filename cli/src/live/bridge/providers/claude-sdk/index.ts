@@ -68,7 +68,6 @@ export async function createClaudeSdkBridgeRunner(
     bridgeSettings,
     process.env,
   );
-  const systemPrompt = config.systemPrompt;
   const attachmentRoot = bridgeSettings.attachmentDir;
   const activeStreams = new Map<string, ActiveStream>();
   ensureDirectoryWritable(attachmentRoot);
@@ -98,10 +97,7 @@ export async function createClaudeSdkBridgeRunner(
     const session = loadedSdk.unstable_v2_createSession({
       model,
       pathToClaudeCodeExecutable: claudePath,
-      env: {
-        ...sdkEnv,
-        CLAUDE_CODE_APPEND_SYSTEM_PROMPT: systemPrompt,
-      },
+      env: sdkEnv,
       canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
     });
     activeSession = session;

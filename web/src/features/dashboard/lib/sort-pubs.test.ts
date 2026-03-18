@@ -20,20 +20,20 @@ const pubs: PubGridItem[] = [
     createdAt: 100,
     updatedAt: 300,
     lastViewedAt: 500,
-    content: "a",
+    contentSize: 1,
   }),
   makePub({
     slug: "beta",
     createdAt: 200,
     updatedAt: 100,
     lastViewedAt: 200,
-    content: "bbb",
+    contentSize: 3,
   }),
   makePub({
     slug: "gamma",
     createdAt: 300,
     updatedAt: 200,
-    content: "bb",
+    contentSize: 2,
   }),
 ];
 
@@ -84,7 +84,7 @@ describe("sortPubs", () => {
   });
 
   it("treats missing content as 0 size", () => {
-    const noPubs = [makePub({ slug: "empty" }), makePub({ slug: "has", content: "x" })];
+    const noPubs = [makePub({ slug: "empty" }), makePub({ slug: "has", contentSize: 1 })];
     const result = sortPubs(noPubs, "size");
     expect(slugs(result)).toEqual(["has", "empty"]);
   });

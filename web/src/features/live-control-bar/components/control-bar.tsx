@@ -41,6 +41,7 @@ export function ControlBar({ initialInput }: ControlBarProps) {
     agentName,
     audio,
     availableAgents,
+    collapseControlBar,
     connected,
     controlBarCollapsed,
     controlBarState,
@@ -234,7 +235,10 @@ export function ControlBar({ initialInput }: ControlBarProps) {
         variant="secondary"
         size="controlBack"
         className={CB.backButton}
-        onClick={() => setViewMode("canvas")}
+        onClick={() => {
+          setViewMode("canvas");
+          collapseControlBar();
+        }}
         aria-label="Back to canvas"
       >
         <ArrowLeft />

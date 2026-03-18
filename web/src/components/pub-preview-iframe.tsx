@@ -1,22 +1,20 @@
+import { getConvexSiteUrl } from "~/lib/convex-url";
+
+export function buildServePreviewUrl(slug: string): string {
+  return `${getConvexSiteUrl()}/serve/${slug}?preview=1`;
+}
+
 interface PubPreviewIframeProps {
-  content?: string;
-  htmlSrc?: string;
-  htmlSandbox?: string;
+  slug: string;
   title: string;
 }
 
-export function PubPreviewIframe({
-  content,
-  htmlSrc,
-  htmlSandbox = "allow-scripts",
-  title,
-}: PubPreviewIframeProps) {
+export function PubPreviewIframe({ slug, title }: PubPreviewIframeProps) {
   return (
     <div className="relative h-full w-full">
       <iframe
-        src={htmlSrc}
-        srcDoc={htmlSrc ? undefined : content}
-        sandbox={htmlSandbox}
+        src={buildServePreviewUrl(slug)}
+        sandbox="allow-scripts"
         loading="lazy"
         tabIndex={-1}
         title={title}

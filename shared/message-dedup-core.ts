@@ -8,14 +8,14 @@
  * Set.clear() which drops 100 % at the boundary.
  */
 
-export interface MessageDedup {
+export type MessageDedup = {
   /** Returns `true` if `key` was already seen; otherwise records it and returns `false`. */
   isDuplicate(key: string): boolean;
   /** Clears all tracked keys. */
   reset(): void;
   /** Returns the total number of tracked keys across both generations. */
   size(): number;
-}
+};
 
 export function createMessageDedup(maxSize: number): MessageDedup {
   const halfMax = Math.max(1, Math.floor(maxSize / 2));

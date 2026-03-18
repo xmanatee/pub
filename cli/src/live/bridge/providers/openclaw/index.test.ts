@@ -173,29 +173,41 @@ describe("render error helpers", () => {
 });
 
 describe("buildSessionBriefing", () => {
-  it("includes pub context and command protocol", () => {
+  it("includes system prompt, pub context, and command protocol", () => {
     const briefing = buildSessionBriefing("my-demo", {
       title: "My Landing Page",
       isPublic: true,
       canvasContentFilePath: "/tmp/my-demo.session-content.html",
     });
 
+    // System prompt — communication instructions
+    expect(briefing).toContain(SYSTEM_PROMPT);
+    expect(briefing).toContain("pub write");
+    expect(briefing).toContain("pub write -c canvas -f");
+
+    // Pub context
     expect(briefing).toContain("[Live: my-demo] Session started.");
     expect(briefing).toContain("Title: My Landing Page");
     expect(briefing).toContain("Visibility: public");
     expect(briefing).toContain(
       "The canvas contents are in </tmp/my-demo.session-content.html>. This file can be large",
     );
+
+    // Command protocol
     expect(briefing).toContain("## Canvas Command Channel");
     expect(briefing).toContain("application/pub-command-manifest+json");
     expect(briefing).toContain("pub.command(name, args)");
   });
 
-  it("does not duplicate instruction hints from the system prompt", () => {
-    const briefing = buildSessionBriefing("bare-pub", { isPublic: false });
-    expect(briefing).not.toContain("## How to respond");
-    expect(briefing).not.toContain("Respond using:");
-    expect(briefing).not.toContain('pub write "<');
+  it("system prompt precedes pub context (separated by ---)", () => {
+    const briefing = buildSessionBriefing("my-demo", { isPublic: false });
+    const separatorIndex = briefing.indexOf("---");
+    const systemPromptIndex = briefing.indexOf("pub write");
+    const pubContextIndex = briefing.indexOf("[Live: my-demo]");
+
+    expect(separatorIndex).toBeGreaterThan(0);
+    expect(systemPromptIndex).toBeLessThan(separatorIndex);
+    expect(pubContextIndex).toBeGreaterThan(separatorIndex);
   });
 
   it("shows empty canvas and default metadata", () => {
@@ -208,7 +220,7 @@ describe("buildSessionBriefing", () => {
   });
 });
 
-describe("prependSystemPrompt", () => {
+describe("prependSystemPrompt (for session-less per-message delivery)", () => {
   it("prepends the system prompt with a separator", () => {
     const result = prependSystemPrompt("Hello world");
     expect(result).toContain(SYSTEM_PROMPT);
@@ -221,7 +233,7 @@ describe("prependSystemPrompt", () => {
 });
 
 describe("system prompt content", () => {
-  it("contains all essential rules", () => {
+  it("contains all essential communication rules", () => {
     expect(SYSTEM_PROMPT).toContain("pub write");
     expect(SYSTEM_PROMPT).toContain('pub write "');
     expect(SYSTEM_PROMPT).toContain("pub write -c canvas -f");
@@ -231,12 +243,6 @@ describe("system prompt content", () => {
     expect(SYSTEM_PROMPT).toContain("console.error");
     expect(SYSTEM_PROMPT).toContain("sensitive data");
     expect(SYSTEM_PROMPT).toContain("Canvas Command Channel");
-  });
-
-  it("does not repeat session briefing content", () => {
-    expect(SYSTEM_PROMPT).not.toContain("## Pub Context");
-    expect(SYSTEM_PROMPT).not.toContain("Title:");
-    expect(SYSTEM_PROMPT).not.toContain("application/pub-command-manifest+json");
   });
 });
 

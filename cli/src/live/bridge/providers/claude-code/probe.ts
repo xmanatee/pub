@@ -39,10 +39,9 @@ async function runClaudeCodeWritePongProbe(
           ? buildClaudeArgsFromSettings(
               prompt,
               null,
-              null,
               bridgeConfig as ClaudeBridgeSettings,
             )
-          : buildClaudeArgs(prompt, null, null, env, undefined, bridgeConfig);
+          : buildClaudeArgs(prompt, null, env, undefined, bridgeConfig);
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 
       const cwd = options?.strictConfig

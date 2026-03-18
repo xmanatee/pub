@@ -14,7 +14,6 @@ import {
   type BufferedEntry,
   buildInboundPrompt,
   buildRenderErrorPrompt,
-  prependSystemPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
 } from "../../shared.js";
@@ -74,11 +73,9 @@ export async function createOpenClawBridgeRunner(
     });
   }
 
-  // System prompt is delivered once via the session briefing. OpenClaw's --session-id
-  // preserves conversation history, so subsequent messages don't need it repeated.
   debugLog(`openclaw deliver session briefing start slug=${slug} sessionId=${sessionId}`);
   await deliverMessageToOpenClaw(
-    { openclawPath, sessionId, text: prependSystemPrompt(sessionBriefing), local: useLocal },
+    { openclawPath, sessionId, text: sessionBriefing, local: useLocal },
     bridgeEnv,
     bridgeSettings,
   );

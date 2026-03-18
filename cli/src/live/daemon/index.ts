@@ -6,7 +6,7 @@ import {
   makeStatusMessage,
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
-import { flushSentry } from "../../core/telemetry/sentry.js";
+import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
@@ -18,7 +18,7 @@ import { createCanvasFileTransferHandler } from "./canvas-file-transfer.js";
 import { createDaemonLifecycle } from "./lifecycle.js";
 import { createSignalingController } from "./signaling.js";
 import type { DaemonConfig } from "./shared.js";
-import { getLiveWriteReadinessError, isPresenceOwnershipConflictError } from "./shared.js";
+import { getLiveWriteReadinessError, isPresenceOwnershipConflictError, isRateLimitError } from "./shared.js";
 import { createDaemonState, setDaemonExecutorState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -73,7 +73,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     state.stopped = true;
     presenceGeneration += 1;
     await cleanup();
-    process.exit(exitCode);
+    await exitProcess(exitCode);
   }
 
   const lifecycle = createDaemonLifecycle({
@@ -100,6 +100,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     markError: lifecycle.markError,
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
     onCanvasFileMessage: async (msg) => await canvasFileTransfer.onMessage(msg),
+    onChannelClosed: (name) => {
+      if (name === CONTROL_CHANNEL || name === "command") {
+        lifecycle.markError(`critical datachannel "${name}" closed unexpectedly`);
+        lifecycle.handleConnectionClosed(`channel-closed-${name}`);
+      }
+    },
   });
 
   publishRuntimeState = async (options) => {
@@ -208,6 +214,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       try {
         await apiClient.heartbeat({ daemonSessionId });
       } catch (error) {
+        if (isRateLimitError(error)) {
+          lifecycle.debugLog("heartbeat rate limited during reconnect, ignoring");
+          return;
+        }
         if (isPresenceOwnershipConflictError(error)) {
           await handlePresenceOwnershipConflict(error);
           return;
@@ -279,6 +289,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     try {
       await apiClient.heartbeat({ daemonSessionId });
     } catch (error) {
+      if (isRateLimitError(error)) {
+        lifecycle.debugLog("heartbeat rate limited during interval, ignoring");
+        return;
+      }
       if (isPresenceOwnershipConflictError(error)) {
         await handlePresenceOwnershipConflict(error);
         return;
@@ -359,7 +373,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
 
     lifecycle.debugLog("daemon cleanup complete");
-    await flushSentry(2000);
   }
 
   process.on("SIGTERM", () => {

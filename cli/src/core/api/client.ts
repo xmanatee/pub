@@ -218,9 +218,6 @@ export class PubApiClient {
     const path = query ? `/api/v1/agent/live?${query}` : "/api/v1/agent/live";
     const data = await this.request<{ live: unknown }>(path);
     const live = parseLiveInfo(data.live);
-    if (data.live !== null && data.live !== undefined && live === null) {
-      throw new PubApiError("Invalid live snapshot response from server.", 502);
-    }
     return live;
   }
 

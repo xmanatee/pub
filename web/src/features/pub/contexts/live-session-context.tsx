@@ -104,6 +104,7 @@ export function createMockLiveSession(
     clearFiles: noop,
     clearMessages: noop,
     canUseDeveloperMode: true,
+    collapseControlBar: noop,
     closeLive: noop,
     command: {
       activeCallId: null,

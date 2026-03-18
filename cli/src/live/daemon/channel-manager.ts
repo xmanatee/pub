@@ -28,8 +28,9 @@ export function createDaemonChannelManager(params: {
   markError: (message: string, error?: unknown) => void;
   onCommandMessage: (msg: BridgeMessage) => Promise<void>;
   onCanvasFileMessage: (msg: BridgeMessage) => Promise<void>;
+  onChannelClosed?: (name: string) => void;
 }) {
-  const { state, debugLog, markError, onCommandMessage, onCanvasFileMessage } = params;
+  const { state, debugLog, markError, onCommandMessage, onCanvasFileMessage, onChannelClosed } = params;
   const dedup = createMessageDedup(DEDUP_MAX_SIZE);
 
   function emitDeliveryStatus(params: {
@@ -197,6 +198,7 @@ export function createDaemonChannelManager(params: {
         state.inboundStreams.delete(name);
       }
       debugLog(`datachannel "${name}" closed`);
+      onChannelClosed?.(name);
     });
 
     dc.onError((err: string) => {

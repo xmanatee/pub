@@ -162,21 +162,24 @@ export const getBySlug = query({
 });
 
 export const listByUser = query({
-  args: { paginationOpts: paginationOptsValidator },
-  handler: async (ctx, { paginationOpts }) => {
+  args: {},
+  handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return { page: [], isDone: true, continueCursor: "" };
+    if (!userId) return [];
 
-    const result = await ctx.db
+    const pubs = await ctx.db
       .query("pubs")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .paginate(paginationOpts);
+      .collect();
 
-    return {
-      ...result,
-      page: result.page.map((p) => mapPub(p, true)),
-    };
+    return pubs.map((pub) => {
+      const dto = mapPub(pub, false);
+      return {
+        ...dto,
+        contentSize: pub.content?.length ?? 0,
+      };
+    });
   },
 });
 

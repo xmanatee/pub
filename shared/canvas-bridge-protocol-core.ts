@@ -26,38 +26,38 @@ import {
 export const CANVAS_TO_PARENT_SOURCE = "pub-canvas";
 export const PARENT_TO_CANVAS_SOURCE = "pub-parent";
 
-export interface CanvasRenderErrorPayload {
+export type CanvasRenderErrorPayload = {
   message: string;
   filename?: string;
   lineno?: number;
   colno?: number;
-}
+};
 
-export interface CanvasBridgeErrorMessage {
+export type CanvasBridgeErrorMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "error";
   payload: CanvasRenderErrorPayload;
-}
+};
 
-export interface CanvasBridgeReadyMessage {
+export type CanvasBridgeReadyMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "ready";
   payload: Record<string, never>;
-}
+};
 
-export interface CanvasBridgeInvokeMessage {
+export type CanvasBridgeInvokeMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "command.invoke";
   payload: CommandInvokePayload;
-}
+};
 
-export interface CanvasBridgeCancelMessage {
+export type CanvasBridgeCancelMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "command.cancel";
   payload: CommandCancelPayload;
-}
+};
 
-export interface CanvasBridgeFileUploadMessage {
+export type CanvasBridgeFileUploadMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "file.upload";
   payload: {
@@ -65,19 +65,19 @@ export interface CanvasBridgeFileUploadMessage {
     mime?: string;
     requestId: string;
   };
-}
+};
 
-export interface CanvasBridgeFileDownloadMessage {
+export type CanvasBridgeFileDownloadMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "file.download";
   payload: CanvasFileDownloadRequestPayload;
-}
+};
 
-export interface CanvasBridgeConsoleErrorMessage {
+export type CanvasBridgeConsoleErrorMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "console-error";
   payload: { message: string };
-}
+};
 
 export type CanvasBridgeCommandMessage =
   | CanvasBridgeInvokeMessage
@@ -94,17 +94,17 @@ export type CanvasBridgeInboundMessage =
   | CanvasBridgeFileUploadMessage
   | CanvasBridgeFileDownloadMessage;
 
-export interface CanvasBridgeResultMessage {
+export type CanvasBridgeResultMessage = {
   source: typeof PARENT_TO_CANVAS_SOURCE;
   type: "command.result";
   payload: CommandResultPayload;
-}
+};
 
-export interface CanvasBridgeFileResultMessage {
+export type CanvasBridgeFileResultMessage = {
   source: typeof PARENT_TO_CANVAS_SOURCE;
   type: "file.result";
   payload: CanvasFileResultPayload;
-}
+};
 
 export type CanvasBridgeOutboundMessage = CanvasBridgeResultMessage | CanvasBridgeFileResultMessage;
 

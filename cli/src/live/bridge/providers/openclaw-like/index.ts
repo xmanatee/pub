@@ -40,10 +40,8 @@ export async function createOpenClawLikeBridgeRunner(
   let lastError: string | undefined;
   let stopped = false;
 
-  // openclaw-like has no session persistence — every invocation is independent,
-  // so the system prompt must be prepended to every message.
   await deliverMessageToCommand(
-    { command, text: prependSystemPrompt(sessionBriefing) },
+    { command, text: sessionBriefing },
     process.env,
     bridgeSettings,
   );

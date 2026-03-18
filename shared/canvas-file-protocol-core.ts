@@ -12,31 +12,31 @@ export const CANVAS_FILE_RESULT_EVENT = "canvas.file.result";
 
 export type CanvasFileOperation = "upload" | "download";
 
-export interface CanvasFileRecord {
+export type CanvasFileRecord = {
   path?: string;
   filename: string;
   mime: string;
   size: number;
-}
+};
 
-export interface CanvasFileErrorPayload {
+export type CanvasFileErrorPayload = {
   code: string;
   message: string;
-}
+};
 
-export interface CanvasFileDownloadRequestPayload extends Record<string, unknown> {
+export type CanvasFileDownloadRequestPayload = Record<string, unknown> & {
   requestId: string;
   path: string;
   filename?: string;
-}
+};
 
-export interface CanvasFileResultPayload extends Record<string, unknown> {
+export type CanvasFileResultPayload = Record<string, unknown> & {
   requestId: string;
   op: CanvasFileOperation;
   ok: boolean;
   file?: CanvasFileRecord;
   error?: CanvasFileErrorPayload;
-}
+};
 
 function parseCanvasFileRecord(input: unknown): CanvasFileRecord | null {
   const record = readRecord(input);

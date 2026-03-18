@@ -30,7 +30,6 @@ function parseConfiguredMaxTurns(value: string | undefined): number | undefined 
 export function buildClaudeArgs(
   prompt: string,
   sessionId: string | null,
-  systemPrompt: string | null,
   env: NodeJS.ProcessEnv = process.env,
   opts?: { maxTurns?: number },
   bridgeConfig?: PubBridgeConfig,
@@ -44,7 +43,6 @@ export function buildClaudeArgs(
     "--dangerously-skip-permissions",
   ];
   if (sessionId) args.push("--resume", sessionId);
-  if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
   const configuredMaxTurns = getConfiguredClaudeCodeMaxTurns(env, bridgeConfig);
   const maxTurns = opts?.maxTurns ?? parseConfiguredMaxTurns(configuredMaxTurns);
   if (maxTurns !== undefined) args.push("--max-turns", String(maxTurns));

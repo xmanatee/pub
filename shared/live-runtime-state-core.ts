@@ -16,11 +16,11 @@ const LIVE_AGENT_STATES = new Set<LiveAgentState>(["idle", "preparing", "ready"]
 
 const LIVE_EXECUTOR_STATES = new Set<LiveExecutorState>(["idle", "loading", "ready"]);
 
-export interface LiveRuntimeStateSnapshot {
+export type LiveRuntimeStateSnapshot = {
   connectionState: LiveConnectionState;
   agentState: LiveAgentState;
   executorState: LiveExecutorState;
-}
+};
 
 export const IDLE_LIVE_RUNTIME_STATE: LiveRuntimeStateSnapshot = {
   connectionState: "idle",

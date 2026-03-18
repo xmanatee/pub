@@ -75,7 +75,6 @@ export async function createClaudeCodeBridgeRunner(
     const args = buildClaudeArgsFromSettings(
       prompt,
       sessionId,
-      config.systemPrompt,
       bridgeSettings,
       opts,
     );

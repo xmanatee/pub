@@ -20,16 +20,18 @@ interface PubCardProps {
 }
 
 export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }: PubCardProps) {
+  const hasContent = (pub.contentSize ?? 0) > 0;
+  const canPreview = pub.isPublic && hasContent;
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white relative">
-          {!pub.content ? (
+          {!canPreview ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
-            <PubPreviewIframe content={pub.content} title={pub.title || pub.slug} />
+            <PubPreviewIframe slug={pub.slug} title={pub.title || pub.slug} />
           )}
           {pub.description && (
             <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -60,11 +62,12 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
         </div>
         <div className="text-xs text-muted-foreground">
           {new Date(pub.createdAt).toLocaleDateString()}
-          {pub.content && (
+          {hasContent && (
             <span className="tabular-nums">
               {" "}
               &middot; {(() => {
-                const kb = new Blob([pub.content]).size / 1024;
+                const size = pub.contentSize ?? 0;
+                const kb = size / 1024;
                 return kb < 1 ? "< 1 KB" : `${kb.toFixed(1)} KB`;
               })()}
             </span>

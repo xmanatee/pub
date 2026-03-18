@@ -39,3 +39,7 @@ export function shouldRecoverForBrowserOfferChange(params: {
 export function isPresenceOwnershipConflictError(error: unknown): boolean {
   return error instanceof PubApiError && error.code === "presence_api_key_in_use";
 }
+
+export function isRateLimitError(error: unknown): boolean {
+  return error instanceof PubApiError && error.status === 429;
+}

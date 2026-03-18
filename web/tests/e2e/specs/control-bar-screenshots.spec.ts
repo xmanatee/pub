@@ -43,7 +43,7 @@ test.describe("Control bar screenshots", () => {
     });
   });
 
-  test("modes: normal, preview, menu", async ({ page }) => {
+  test("modes: normal, preview", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-preview");
     await expect(section).toBeVisible();

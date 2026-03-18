@@ -1,18 +1,18 @@
-export interface SessionDescriptionPayload {
+export type SessionDescriptionPayload = {
   sdp: string;
   type: string;
-}
+};
 
 export const LIVE_WEBRTC_ROLES = {
   browser: "offerer",
   agent: "answerer",
 } as const;
 
-export interface BrowserOfferPeer {
+export type BrowserOfferPeer = {
   createOffer(): Promise<SessionDescriptionPayload>;
   setLocalDescription(description: SessionDescriptionPayload): Promise<void>;
   getLocalDescription(): SessionDescriptionPayload | null;
-}
+};
 
 export async function createBrowserOffer(peer: BrowserOfferPeer): Promise<string> {
   const offer = assertSessionDescription(await peer.createOffer(), "Browser offer");
@@ -21,12 +21,12 @@ export async function createBrowserOffer(peer: BrowserOfferPeer): Promise<string
   return encodeSessionDescription(appliedOffer ?? offer);
 }
 
-export interface AgentAnswerPeer {
+export type AgentAnswerPeer = {
   setRemoteDescription(sdp: string, type: string): void;
   onLocalDescription(cb: (sdp: string, type: string) => void): void;
   onGatheringStateChange(cb: (state: string) => void): void;
   getLocalDescription(): SessionDescriptionPayload | null;
-}
+};
 
 export function createAgentAnswerFromBrowserOffer(
   peer: AgentAnswerPeer,

@@ -11,7 +11,6 @@ import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
-import { SYSTEM_PROMPT } from "../prompts/index.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { type DaemonState, setDaemonAgentState } from "./state.js";
 
@@ -166,7 +165,6 @@ export function createBridgeManager(params: {
     const runnerConfig = {
       slug,
       sessionBriefing,
-      systemPrompt: SYSTEM_PROMPT,
       bridgeSettings: runnerBridgeSettings,
       sendMessage: sendOnChannel,
       onDeliveryUpdate: ({

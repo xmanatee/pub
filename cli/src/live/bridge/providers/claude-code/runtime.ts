@@ -30,7 +30,6 @@ export async function runClaudeCodePreflight(
 export function buildClaudeArgsFromSettings(
   prompt: string,
   sessionId: string | null,
-  systemPrompt: string | null,
   bridgeSettings: ClaudeArgsSettings,
   opts?: { maxTurns?: number; model?: string },
 ): string[] {
@@ -43,7 +42,6 @@ export function buildClaudeArgsFromSettings(
     "--dangerously-skip-permissions",
   ];
   if (sessionId) args.push("--resume", sessionId);
-  if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
   const model =
     opts?.model?.trim() ||
     (bridgeSettings.liveModelProfile

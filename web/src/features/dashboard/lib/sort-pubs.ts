@@ -27,7 +27,7 @@ function comparePubs(
     case "oldest":
       return a.createdAt - b.createdAt;
     case "size":
-      return (b.content?.length ?? 0) - (a.content?.length ?? 0);
+      return (b.contentSize ?? 0) - (a.contentSize ?? 0);
     case "mostViewed":
       return (viewCounts?.[b.slug] ?? 0) - (viewCounts?.[a.slug] ?? 0);
   }

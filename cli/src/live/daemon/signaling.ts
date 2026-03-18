@@ -12,11 +12,7 @@ const LIVE_SIGNAL_QUERY = makeFunctionReference<
 >("pubs:getLiveForAgent");
 
 function parseLiveSnapshot(result: unknown): LiveInfo | null {
-  const live = parseLiveInfo(result);
-  if (result !== null && result !== undefined && live === null) {
-    throw new Error("Invalid signaling snapshot: expected object or null");
-  }
-  return live;
+  return parseLiveInfo(result);
 }
 
 interface SignalingControllerParams {
