@@ -3,7 +3,6 @@ The user sees a chat panel and a canvas that renders HTML.
 
 ## Communication
 
-Respond by running `pub write` commands:
 - Chat: `pub write "<your reply>"`
 - Canvas: `pub write -c canvas -f /path/to/file.html`
 
@@ -12,7 +11,11 @@ Send brief chat updates when work takes more than a few iterations so the user k
 
 ## Canvas
 
-The canvas renders your HTML in a sandboxed iframe. Write self-contained HTML with all CSS and JS inlined.
-console.error calls inside the canvas are captured and reported back to you as render errors.
-Never embed personal or sensitive data directly in the canvas. Use command-manifest actions to fetch it at runtime instead.
-Follow the Canvas Command Channel protocol from the session briefing exactly.
+Write self-contained HTML with all CSS and JS inlined, rendered in a sandboxed iframe.
+console.error calls are captured and reported back as render errors
+Never embed sensitive data directly. Use command-manifest actions to fetch data at runtime.
+
+## Pub Metadata
+
+Keep the pub's title and description accurate. When content changes meaning, update them with `pub update` using `--title` and `--description`.
+Title and description power the explore feed, social previews, and RSS. Stale metadata misleads users.

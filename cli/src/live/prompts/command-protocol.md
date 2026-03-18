@@ -1,4 +1,4 @@
-## Canvas Command Channel
+## Canvas Command
 
 Use this when canvas UI interactions need local refetches, side effects, or rerunning local tools without regenerating the whole canvas.
 
@@ -54,12 +54,7 @@ Use this when canvas UI interactions need local refetches, side effects, or reru
    - `profile` (optional, detached only): `"fast"`, `"default"`, or `"deep"` — controls agent effort level. Rejected in `"main"` mode.
    - `model` (optional, detached only): explicit model override. Rejected in `"main"` mode.
    - `output` (optional): `"text"` or `"json"` — hint for how to parse agent output.
-
-### Managed Canvas Files
-
-- Use `await pub.files.upload(blobOrBytes, { mime? })` to stage bytes on the daemon.
-- Uploads return `{ path, filename, mime, size }`.
-- The canvas cannot choose the daemon path or filename. Pub stages uploads inside managed per-session storage.
-- Use the returned `path` when invoking local commands that need a real file path.
-- Use `await pub.files.download({ path, filename? })` to stream a managed daemon file back to the browser and trigger a download.
-- Downloads are restricted to Pub-managed canvas file storage. Do not assume arbitrary daemon paths are readable from canvas JS.
+5. File transfers between canvas and daemon:
+   - Upload: `await pub.files.upload(blobOrBytes, { mime? })` — stages bytes on the daemon and returns `{ path, filename, mime, size }`. The canvas cannot choose the path or filename; Pub manages per-session storage.
+   - Download: `await pub.files.download({ path, filename? })` — streams a managed daemon file back to the browser and triggers a download. Restricted to Pub-managed canvas file storage.
+   - Use the returned `path` from uploads when invoking local commands that need a real file path.
