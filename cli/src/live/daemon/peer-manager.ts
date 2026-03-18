@@ -8,6 +8,8 @@ import { createAnswer } from "./answer.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
 import { setDaemonAgentState, setDaemonConnectionState, type DaemonState } from "./state.js";
 
+const RECOVERY_TIMEOUT_MS = 30_000;
+
 export function createPeerManager(params: {
   state: DaemonState;
   apiClient: Pick<PubApiClient, "signalAnswer">;
@@ -21,6 +23,7 @@ export function createPeerManager(params: {
   ) => void;
   flushQueuedAcks: () => void;
   failPendingAcks: () => void;
+  resetMessageDedup: () => void;
   clearAgentPreparation: () => void;
   ensureAgentReady: () => Promise<void>;
   handleConnectionClosed: (reason: string) => void;
@@ -39,6 +42,7 @@ export function createPeerManager(params: {
     setupChannel,
     flushQueuedAcks,
     failPendingAcks,
+    resetMessageDedup,
     clearAgentPreparation,
     handleConnectionClosed,
     clearLocalCandidateTimers,
@@ -104,7 +108,7 @@ export function createPeerManager(params: {
     state.channels = new Map();
     state.pendingInboundBinaryMeta = new Map();
     state.inboundStreams = new Map();
-    state.seenInboundMessageKeys = new Set();
+    resetMessageDedup();
     attachPeerHandlers(nextPeer);
   }
 
@@ -120,7 +124,7 @@ export function createPeerManager(params: {
     state.channels.clear();
     state.pendingInboundBinaryMeta.clear();
     state.inboundStreams.clear();
-    state.seenInboundMessageKeys.clear();
+    resetMessageDedup();
     if (state.peer) {
       try {
         await state.peer.close();
@@ -144,7 +148,7 @@ export function createPeerManager(params: {
     state.localCandidates.length = 0;
     clearLocalCandidateTimers();
     state.inboundStreams.clear();
-    state.seenInboundMessageKeys.clear();
+    resetMessageDedup();
   }
 
   async function clearActiveLiveSession(reason: string): Promise<void> {
@@ -185,26 +189,41 @@ export function createPeerManager(params: {
     state.recovering = true;
 
     try {
-      const t0 = Date.now();
-      debugLog(
-        `incoming live slug=${slug}${modelProfile ? ` modelProfile=${modelProfile}` : ""}`,
-      );
-      await clearActiveLiveSession("incoming-live-recovery");
-      debugLog(`[profile] cleared old session in ${Date.now() - t0}ms`);
-      createPeer();
-      if (!state.peer) throw new Error("PeerConnection not initialized");
+      const recoveryBody = async () => {
+        const t0 = Date.now();
+        debugLog(
+          `incoming live slug=${slug}${modelProfile ? ` modelProfile=${modelProfile}` : ""}`,
+        );
+        await clearActiveLiveSession("incoming-live-recovery");
+        debugLog(`[profile] cleared old session in ${Date.now() - t0}ms`);
+        createPeer();
+        if (!state.peer) throw new Error("PeerConnection not initialized");
 
-      const tAnswer = Date.now();
-      const answer = await createAnswer(state.peer, browserOffer, OFFER_TIMEOUT_MS);
-      debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
-      state.lastAppliedBrowserOffer = browserOffer;
-      state.activeSlug = slug;
-      state.activeLiveModelProfile = modelProfile ?? null;
+        const tAnswer = Date.now();
+        const answer = await createAnswer(state.peer, browserOffer, OFFER_TIMEOUT_MS);
+        debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
+        state.lastAppliedBrowserOffer = browserOffer;
+        state.activeSlug = slug;
+        state.activeLiveModelProfile = modelProfile ?? null;
 
-      const tSignal = Date.now();
-      await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });
-      debugLog(`[profile] answer posted in ${Date.now() - tSignal}ms (total ${Date.now() - t0}ms)`);
-      startLocalCandidateFlush(slug);
+        const tSignal = Date.now();
+        await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });
+        debugLog(
+          `[profile] answer posted in ${Date.now() - tSignal}ms (total ${Date.now() - t0}ms)`,
+        );
+        startLocalCandidateFlush(slug);
+      };
+
+      let timer: ReturnType<typeof setTimeout>;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("recovery timeout")), RECOVERY_TIMEOUT_MS);
+      });
+
+      try {
+        await Promise.race([recoveryBody(), timeout]);
+      } finally {
+        clearTimeout(timer!);
+      }
     } catch (error) {
       markError("failed to handle incoming live request", error);
     } finally {

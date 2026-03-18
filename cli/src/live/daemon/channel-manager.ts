@@ -3,6 +3,7 @@ import {
   type BridgeMessage,
   CHANNELS,
   CONTROL_CHANNEL,
+  STREAM_ORPHAN_TIMEOUT_MS,
   decodeMessage,
   encodeMessage,
   makeAckMessage,
@@ -11,12 +12,15 @@ import {
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
+import { createMessageDedup } from "../../../../shared/message-dedup-core";
 import { ORDERED_DATA_CHANNEL_OPTIONS } from "../../../../shared/webrtc-transport-core";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 import type { DaemonState } from "./state.js";
 
-const MAX_SEEN_INBOUND_MESSAGES = 10_000;
+const DEDUP_MAX_SIZE = 10_000;
 const OUTBOUND_SEND_MAX_ATTEMPTS = 2;
+const MAX_ACK_FAILURES = 3;
+const MAX_PENDING_ACKS = 200;
 
 export function createDaemonChannelManager(params: {
   state: DaemonState;
@@ -26,6 +30,7 @@ export function createDaemonChannelManager(params: {
   onCanvasFileMessage: (msg: BridgeMessage) => Promise<void>;
 }) {
   const { state, debugLog, markError, onCommandMessage, onCanvasFileMessage } = params;
+  const dedup = createMessageDedup(DEDUP_MAX_SIZE);
 
   function emitDeliveryStatus(params: {
     channel: string;
@@ -61,18 +66,16 @@ export function createDaemonChannelManager(params: {
     return `${channel}:${messageId}`;
   }
 
-  function isDuplicateInboundMessage(channel: string, messageId: string): boolean {
-    const key = `${channel}:${messageId}`;
-    if (state.seenInboundMessageKeys.has(key)) return true;
-    state.seenInboundMessageKeys.add(key);
-    if (state.seenInboundMessageKeys.size > MAX_SEEN_INBOUND_MESSAGES) {
-      state.seenInboundMessageKeys.clear();
-    }
-    return false;
-  }
-
   function queueAck(messageId: string, channel: string): void {
-    state.pendingOutboundAcks.set(getAckKey(messageId, channel), { messageId, channel });
+    if (state.pendingOutboundAcks.size >= MAX_PENDING_ACKS) {
+      const oldestKey = state.pendingOutboundAcks.keys().next().value;
+      if (oldestKey) state.pendingOutboundAcks.delete(oldestKey);
+    }
+    state.pendingOutboundAcks.set(getAckKey(messageId, channel), {
+      messageId,
+      channel,
+      failCount: 0,
+    });
     flushQueuedAcks();
   }
 
@@ -106,9 +109,16 @@ export function createDaemonChannelManager(params: {
         if (fallbackDc?.isOpen()) {
           fallbackDc.sendMessage(encodedAck);
           state.pendingOutboundAcks.delete(ackKey);
+          continue;
         }
       } catch (error) {
         markError("failed to flush queued ack on fallback channel", error);
+      }
+
+      ack.failCount += 1;
+      if (ack.failCount >= MAX_ACK_FAILURES) {
+        debugLog(`dropping ack for ${ack.channel}:${ack.messageId} after ${MAX_ACK_FAILURES} failures`);
+        state.pendingOutboundAcks.delete(ackKey);
       }
     }
   }
@@ -150,6 +160,29 @@ export function createDaemonChannelManager(params: {
     }
   }
 
+  function handleStreamStart(channel: string, streamId: string): void {
+    const existing = state.inboundStreams.get(channel);
+    if (existing) {
+      const elapsed = Date.now() - existing.startedAt;
+      debugLog(
+        `stream-start on "${channel}" while stream ${existing.streamId} active (${elapsed}ms old)`,
+      );
+      if (elapsed >= STREAM_ORPHAN_TIMEOUT_MS) {
+        emitDeliveryStatus({
+          channel,
+          messageId: existing.streamId,
+          stage: "failed",
+          error: "orphaned stream replaced",
+        });
+      }
+    }
+    state.inboundStreams.set(channel, { streamId, startedAt: Date.now() });
+  }
+
+  function resetMessageDedup(): void {
+    dedup.reset();
+  }
+
   function setupChannel(name: string, dc: AdapterDataChannel): void {
     state.channels.set(name, dc);
     dc.onOpen(() => {
@@ -187,8 +220,7 @@ export function createDaemonChannelManager(params: {
             }
             return;
           }
-          const duplicate = isDuplicateInboundMessage(name, msg.id);
-          if (duplicate) {
+          if (dedup.isDuplicate(`${name}:${msg.id}`)) {
             if (msg.type === "binary" && !msg.data) {
               state.pendingInboundBinaryMeta.set(name, msg);
               return;
@@ -199,7 +231,7 @@ export function createDaemonChannelManager(params: {
             return;
           }
           if (msg.type === "stream-start") {
-            state.inboundStreams.set(name, { streamId: msg.id });
+            handleStreamStart(name, msg.id);
           }
           if (msg.type === "stream-end") {
             const stream = state.inboundStreams.get(name);
@@ -260,7 +292,7 @@ export function createDaemonChannelManager(params: {
                 size: data.length,
               },
             };
-        if (isDuplicateInboundMessage(name, binMsg.id)) {
+        if (dedup.isDuplicate(`${name}:${binMsg.id}`)) {
           if (shouldAcknowledgeMessage(name, binMsg)) {
             queueAck(binMsg.id, name);
           }
@@ -366,6 +398,7 @@ export function createDaemonChannelManager(params: {
     failPendingAcks,
     flushQueuedAcks,
     openDataChannel,
+    resetMessageDedup,
     sendOutboundMessageWithAck,
     settlePendingAck,
     setupChannel,

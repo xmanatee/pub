@@ -35,7 +35,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let bridgeManager!: ReturnType<typeof createBridgeManager>;
   let canvasFileTransfer!: ReturnType<typeof createCanvasFileTransferHandler>;
   let peerManager!: ReturnType<typeof createPeerManager>;
-  let shuttingDown = false;
   let presenceGeneration = 0;
 
   function formatOptionalValue(value: string | undefined): string {
@@ -70,8 +69,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   });
 
   async function shutdown(exitCode = 0): Promise<void> {
-    if (shuttingDown) return;
-    shuttingDown = true;
+    if (state.stopped) return;
+    state.stopped = true;
     presenceGeneration += 1;
     await cleanup();
     process.exit(exitCode);
@@ -82,10 +81,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     cliVersion,
     versionFilePath,
     debugEnabled: verboseEnabled,
-    closeCurrentPeer: async () => await peerManager.closeCurrentPeer(),
-    resetNegotiationState: () => peerManager.resetNegotiationState(),
-    commandHandlerStop: () => commandHandler.stop(),
-    canvasFileTransferReset: () => canvasFileTransfer.reset(),
     shutdown: async () => await shutdown(),
   });
 
@@ -173,6 +168,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     setupChannel: channelManager.setupChannel,
     flushQueuedAcks: channelManager.flushQueuedAcks,
     failPendingAcks: channelManager.failPendingAcks,
+    resetMessageDedup: channelManager.resetMessageDedup,
     clearAgentPreparation: bridgeManager.clearAgentPreparation,
     ensureAgentReady: async () => {
       lifecycle.startPingPong();
@@ -183,6 +179,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     stopPingPong: lifecycle.stopPingPong,
     commandHandlerStop: () => commandHandler.stop(),
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
+  });
+
+  lifecycle.setConnectionClosedHandler((reason) => {
+    void peerManager.clearActiveLiveSession(reason);
   });
 
   const signaling = createSignalingController({
@@ -203,7 +203,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       await peerManager.clearActiveLiveSession("signaling-cleared");
     },
     onReconnect: async () => {
-      if (shuttingDown || state.stopped) return;
+      if (state.stopped) return;
       const generation = presenceGeneration;
       try {
         await apiClient.heartbeat({ daemonSessionId });
@@ -245,7 +245,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function reRegisterPresence(generation: number): Promise<void> {
-    if (shuttingDown || state.stopped || generation !== presenceGeneration) return;
+    if (state.stopped || generation !== presenceGeneration) return;
     lifecycle.debugLog("re-registering presence");
 
     try {
@@ -259,7 +259,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       return;
     }
 
-    if (shuttingDown || state.stopped || generation !== presenceGeneration) {
+    if (state.stopped || generation !== presenceGeneration) {
       lifecycle.debugLog("presence re-registered during shutdown, going offline again");
       try {
         await apiClient.goOffline({ daemonSessionId });
@@ -274,7 +274,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   await apiClient.goOnline({ daemonSessionId, agentName });
   state.heartbeatTimer = setInterval(async () => {
-    if (state.stopped || shuttingDown) return;
+    if (state.stopped) return;
     const generation = presenceGeneration;
     try {
       await apiClient.heartbeat({ daemonSessionId });
@@ -329,16 +329,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   signaling.start();
 
   async function cleanup(): Promise<void> {
-    if (state.stopped) return;
-    state.stopped = true;
     lifecycle.debugLog(
       `daemon cleanup start activeSlug=${state.activeSlug ?? "none"} connectionState=${state.runtimeState.connectionState} agentState=${state.runtimeState.agentState} executorState=${state.runtimeState.executorState}`,
     );
 
-    lifecycle.clearLocalCandidateTimers();
-    lifecycle.clearHealthCheckTimer();
-    lifecycle.clearHeartbeatTimer();
-    lifecycle.stopPingPong();
+    lifecycle.clearAllTimers();
     await signaling.stop();
 
     try {

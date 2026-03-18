@@ -9,6 +9,7 @@ import {
   IDLE_LIVE_RUNTIME_STATE,
   type LiveRuntimeStateSnapshot,
 } from "@shared/live-runtime-state-core";
+import { createMessageDedup } from "@shared/message-dedup-core";
 import {
   createBrowserOffer,
   parseSessionDescription,
@@ -52,7 +53,7 @@ type MessageHandler = (msg: ChannelMessage) => void;
 type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) => void;
 type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 
-const MAX_SEEN_INBOUND_MESSAGES = 10_000;
+const DEDUP_MAX_SIZE = 10_000;
 
 function toSessionDescription(
   description:
@@ -82,12 +83,12 @@ export class BrowserBridge {
   private iceCandidates: string[] = [];
   private pendingRemoteCandidates: string[] = [];
   private pendingBinaryMeta = new Map<string, BridgeMessage>();
-  private activeBinaryStreams = new Map<string, string>();
+  private activeBinaryStreams = new Map<string, { streamId: string; startedAt: number }>();
+  private dedup = createMessageDedup(DEDUP_MAX_SIZE);
   private pendingDeliveryAcks = new Map<
     string,
     { resolve: (received: boolean) => void; timer: ReturnType<typeof setTimeout> }
   >();
-  private seenInboundMessageKeys = new Set<string>();
   private remoteDescriptionSet = false;
   private offerSent = false;
   private pendingAnswer: string | null = null;
@@ -303,6 +304,7 @@ export class BrowserBridge {
       dc.close();
     }
     this.channels.clear();
+    this.dedup.reset();
     this.pc?.close();
     this.pc = null;
   }
@@ -360,16 +362,22 @@ export class BrowserBridge {
           }
 
           if (msg.type === "stream-start") {
-            this.activeBinaryStreams.set(dc.label, msg.id);
+            const existing = this.activeBinaryStreams.get(dc.label);
+            if (existing) {
+              console.warn(
+                `stream-start on "${dc.label}" while stream ${existing.streamId} active`,
+              );
+            }
+            this.activeBinaryStreams.set(dc.label, { streamId: msg.id, startedAt: Date.now() });
           } else if (
             msg.type === "stream-end" &&
             typeof msg.meta?.streamId === "string" &&
-            this.activeBinaryStreams.get(dc.label) === msg.meta.streamId
+            this.activeBinaryStreams.get(dc.label)?.streamId === msg.meta.streamId
           ) {
             this.activeBinaryStreams.delete(dc.label);
           }
 
-          if (this.isDuplicateInboundMessage(dc.label, msg.id)) {
+          if (this.dedup.isDuplicate(`${dc.label}:${msg.id}`)) {
             if (msg.type === "binary" && !msg.data) {
               this.pendingBinaryMeta.set(dc.label, msg);
               return;
@@ -430,25 +438,25 @@ export class BrowserBridge {
   private emitBinaryMessage(channel: string, payload: ArrayBuffer): void {
     const pendingMeta = this.pendingBinaryMeta.get(channel);
     if (pendingMeta) this.pendingBinaryMeta.delete(channel);
-    const activeStreamId = this.activeBinaryStreams.get(channel);
+    const activeStream = this.activeBinaryStreams.get(channel);
     const binaryMsg: BridgeMessage = pendingMeta
       ? {
           id: pendingMeta.id,
           type: "binary",
           meta: { ...pendingMeta.meta, size: payload.byteLength },
         }
-      : activeStreamId
+      : activeStream
         ? {
             id: generateMessageId(),
             type: "binary",
-            meta: { streamId: activeStreamId, size: payload.byteLength },
+            meta: { streamId: activeStream.streamId, size: payload.byteLength },
           }
         : {
             id: generateMessageId(),
             type: "binary",
             meta: { size: payload.byteLength },
           };
-    if (this.isDuplicateInboundMessage(channel, binaryMsg.id)) {
+    if (this.dedup.isDuplicate(`${channel}:${binaryMsg.id}`)) {
       if (shouldAcknowledgeMessage(channel, binaryMsg)) {
         this.sendAck(binaryMsg.id, channel);
       }
@@ -565,15 +573,5 @@ export class BrowserBridge {
       pending.resolve(false);
       this.pendingDeliveryAcks.delete(ackKey);
     }
-  }
-
-  private isDuplicateInboundMessage(channel: string, messageId: string): boolean {
-    const key = `${channel}:${messageId}`;
-    if (this.seenInboundMessageKeys.has(key)) return true;
-    this.seenInboundMessageKeys.add(key);
-    if (this.seenInboundMessageKeys.size > MAX_SEEN_INBOUND_MESSAGES) {
-      this.seenInboundMessageKeys.clear();
-    }
-    return false;
   }
 }

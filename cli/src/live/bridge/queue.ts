@@ -1,5 +1,6 @@
+import { createMessageDedup } from "../../../../shared/message-dedup-core";
 import { errorMessage } from "../../core/errors/cli-error.js";
-import { type BufferedEntry, MAX_SEEN_IDS } from "./shared.js";
+import type { BufferedEntry } from "./shared.js";
 
 interface BridgeEntryQueueParams {
   onEntry: (entry: BufferedEntry) => Promise<void>;
@@ -13,7 +14,7 @@ interface BridgeEntryQueue {
 
 export function createBridgeEntryQueue(params: BridgeEntryQueueParams): BridgeEntryQueue {
   const queue: BufferedEntry[] = [];
-  const seenIds = new Set<string>();
+  const dedup = createMessageDedup(10_000);
   let notify: (() => void) | null = null;
   let stopping = false;
 
@@ -37,12 +38,7 @@ export function createBridgeEntryQueue(params: BridgeEntryQueueParams): BridgeEn
       for (const entry of batch) {
         if (stopping) break;
 
-        const entryKey = `${entry.channel}:${entry.msg.id}`;
-        if (seenIds.has(entryKey)) continue;
-        seenIds.add(entryKey);
-        if (seenIds.size > MAX_SEEN_IDS) {
-          seenIds.clear();
-        }
+        if (dedup.isDuplicate(`${entry.channel}:${entry.msg.id}`)) continue;
 
         try {
           await params.onEntry(entry);

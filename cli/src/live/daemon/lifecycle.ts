@@ -12,23 +12,11 @@ export function createDaemonLifecycle(params: {
   cliVersion?: string;
   versionFilePath: string;
   debugEnabled: boolean;
-  closeCurrentPeer: () => Promise<void>;
-  resetNegotiationState: () => void;
-  commandHandlerStop: () => void;
-  canvasFileTransferReset: () => void;
   shutdown: () => Promise<void>;
 }) {
-  const {
-    state,
-    cliVersion,
-    versionFilePath,
-    debugEnabled,
-    closeCurrentPeer,
-    resetNegotiationState,
-    commandHandlerStop,
-    canvasFileTransferReset,
-    shutdown,
-  } = params;
+  const { state, cliVersion, versionFilePath, debugEnabled, shutdown } = params;
+
+  let onConnectionClosed: (reason: string) => void = () => {};
 
   function writeLog(message: string, error?: unknown, alwaysLog = false): void {
     if (!debugEnabled && !alwaysLog) return;
@@ -94,18 +82,23 @@ export function createDaemonLifecycle(params: {
     }
   }
 
+  function clearAllTimers(): void {
+    clearLocalCandidateTimers();
+    clearHealthCheckTimer();
+    clearHeartbeatTimer();
+    stopPingPong();
+  }
+
   function handleConnectionClosed(reason: string): void {
     const hadSession =
       state.runtimeState.connectionState !== "idle" || state.activeSlug !== null;
     if (!hadSession) return;
     logAlways(`connection closed: ${reason}`);
-    state.activeSlug = null;
-    resetNegotiationState();
-    commandHandlerStop();
-    canvasFileTransferReset();
-    void closeCurrentPeer().catch((error) => {
-      markError("failed to clean up after connection closed", error);
-    });
+    onConnectionClosed(reason);
+  }
+
+  function setConnectionClosedHandler(handler: (reason: string) => void): void {
+    onConnectionClosed = handler;
   }
 
   function startPingPong(): void {
@@ -151,13 +144,13 @@ export function createDaemonLifecycle(params: {
   }
 
   return {
-    clearHeartbeatTimer,
-    clearHealthCheckTimer,
+    clearAllTimers,
     clearLocalCandidateTimers,
     debugLog,
     handleConnectionClosed,
     logAlways,
     markError,
+    setConnectionClosedHandler,
     startHealthCheckTimer,
     startPingPong,
     stopPingPong,

@@ -1,3 +1,4 @@
+import { STREAM_CHUNK_SIZE } from "@shared/bridge-protocol-core";
 import { canSendAgentTraffic } from "@shared/live-runtime-state-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveBridge } from "~/features/live/hooks/use-live-bridge";
@@ -22,7 +23,6 @@ import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const RENDER_ERROR_ACK_TIMEOUT_MS = 4_000;
 const STREAM_ACK_TIMEOUT_MS = 10_000;
-const STREAM_CHUNK_SIZE = 48 * 1024;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 interface UseLiveTransportOptions {

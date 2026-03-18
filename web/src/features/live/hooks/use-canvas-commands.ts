@@ -1,3 +1,4 @@
+import { STREAM_CHUNK_SIZE } from "@shared/bridge-protocol-core";
 import {
   type CanvasFileOperation,
   type CanvasFileResultPayload,
@@ -35,7 +36,6 @@ import type {
 
 const COMMAND_ACK_TIMEOUT_MS = 4_000;
 const CANVAS_FILE_ACK_TIMEOUT_MS = 10_000;
-const CANVAS_FILE_STREAM_CHUNK_SIZE = 48 * 1024;
 const DOWNLOAD_URL_REVOKE_DELAY_MS = 1_000;
 
 interface UseCanvasCommandsOptions {
@@ -463,12 +463,8 @@ export function useCanvasCommands({
           }
 
           const chunkBytes = new Uint8Array(bytes);
-          for (
-            let offset = 0;
-            offset < chunkBytes.length;
-            offset += CANVAS_FILE_STREAM_CHUNK_SIZE
-          ) {
-            const nextChunk = chunkBytes.slice(offset, offset + CANVAS_FILE_STREAM_CHUNK_SIZE);
+          for (let offset = 0; offset < chunkBytes.length; offset += STREAM_CHUNK_SIZE) {
+            const nextChunk = chunkBytes.slice(offset, offset + STREAM_CHUNK_SIZE);
             if (!sendBinaryOnChannel(CHANNELS.CANVAS_FILE, nextChunk.buffer)) {
               emitFileFailureToCanvas({
                 requestId,

@@ -52,6 +52,7 @@ function createTestPeerManager() {
     setupChannel: vi.fn(),
     flushQueuedAcks,
     failPendingAcks: vi.fn(),
+    resetMessageDedup: vi.fn(),
     clearAgentPreparation: vi.fn(),
     ensureAgentReady,
     handleConnectionClosed,

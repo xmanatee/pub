@@ -8,6 +8,7 @@ import {
 } from "../../../../shared/canvas-file-protocol-core";
 import {
   CHANNELS,
+  STREAM_CHUNK_SIZE,
   encodeMessage,
   makeStreamEnd,
   makeStreamStart,
@@ -25,7 +26,6 @@ import { existsSync, readFileSync, realpathSync, renameSync, statSync, writeFile
 import { basename, join, relative, resolve } from "node:path";
 
 const CANVAS_FILE_STREAM_ACK_TIMEOUT_MS = 10_000;
-const CANVAS_FILE_STREAM_CHUNK_SIZE = 48 * 1024;
 
 interface ActiveUploadStream {
   bytes: number;
@@ -203,8 +203,8 @@ export function createCanvasFileTransferHandler(params: {
     );
     dc.sendMessage(encodeMessage(startMessage));
 
-    for (let offset = 0; offset < params.bytes.length; offset += CANVAS_FILE_STREAM_CHUNK_SIZE) {
-      const nextChunk = params.bytes.subarray(offset, offset + CANVAS_FILE_STREAM_CHUNK_SIZE);
+    for (let offset = 0; offset < params.bytes.length; offset += STREAM_CHUNK_SIZE) {
+      const nextChunk = params.bytes.subarray(offset, offset + STREAM_CHUNK_SIZE);
       dc.sendMessageBinary(nextChunk);
     }
 

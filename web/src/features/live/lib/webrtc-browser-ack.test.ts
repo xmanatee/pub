@@ -42,18 +42,20 @@ describe("BrowserBridge ack routing", () => {
 
   it("tags streamed binary chunks with the active stream id", () => {
     const bridge = new BrowserBridge() as unknown as {
-      activeBinaryStreams: Map<string, string>;
+      activeBinaryStreams: Map<string, { streamId: string; startedAt: number }>;
       pendingBinaryMeta: Map<string, unknown>;
+      dedup: { isDuplicate: (key: string) => boolean };
       emitBinaryMessage: (channel: string, payload: ArrayBuffer) => void;
-      isDuplicateInboundMessage: (channel: string, messageId: string) => boolean;
       onMessage: (message: unknown) => void;
       sendAck: (messageId: string, channel: string) => void;
     };
     const onMessage = vi.fn();
 
-    bridge.activeBinaryStreams = new Map([["canvas-file", "stream-1"]]);
+    bridge.activeBinaryStreams = new Map([
+      ["canvas-file", { streamId: "stream-1", startedAt: Date.now() }],
+    ]);
     bridge.pendingBinaryMeta = new Map();
-    bridge.isDuplicateInboundMessage = vi.fn(() => false);
+    bridge.dedup = { isDuplicate: () => false };
     bridge.onMessage = onMessage;
     bridge.sendAck = vi.fn();
 

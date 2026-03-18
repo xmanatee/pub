@@ -3,7 +3,6 @@ import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import type { BridgeInstructions } from "../daemon/shared.js";
 import CANVAS_POLICY_REMINDER from "./prompts/canvas-policy-reminder.md";
-export const MAX_SEEN_IDS = 10_000;
 
 export type BridgeRunnerConfig = {
   slug: string;

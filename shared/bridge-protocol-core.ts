@@ -128,6 +128,9 @@ export const CHANNELS = {
   COMMAND: "command",
 } as const;
 
+export const STREAM_CHUNK_SIZE = 48 * 1024;
+export const STREAM_ORPHAN_TIMEOUT_MS = 30_000;
+
 let idCounter = 0;
 
 export function generateMessageId(): string {

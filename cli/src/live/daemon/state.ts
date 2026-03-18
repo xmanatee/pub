@@ -13,6 +13,7 @@ import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/web
 export type PendingOutboundAck = {
   channel: string;
   messageId: string;
+  failCount: number;
 };
 
 export type PendingDeliveryAck = {
@@ -39,8 +40,7 @@ export type DaemonState = {
   peer: AdapterPeerConnection | null;
   channels: Map<string, AdapterDataChannel>;
   pendingInboundBinaryMeta: Map<string, BridgeMessage>;
-  inboundStreams: Map<string, { streamId: string }>;
-  seenInboundMessageKeys: Set<string>;
+  inboundStreams: Map<string, { streamId: string; startedAt: number }>;
   heartbeatTimer: ReturnType<typeof setInterval> | null;
   localCandidateInterval: ReturnType<typeof setInterval> | null;
   localCandidateStopTimer: ReturnType<typeof setTimeout> | null;
@@ -72,7 +72,6 @@ export function createDaemonState(): DaemonState {
     channels: new Map(),
     pendingInboundBinaryMeta: new Map(),
     inboundStreams: new Map(),
-    seenInboundMessageKeys: new Set(),
     heartbeatTimer: null,
     localCandidateInterval: null,
     localCandidateStopTimer: null,
