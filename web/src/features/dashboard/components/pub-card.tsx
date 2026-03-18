@@ -13,7 +13,6 @@ import { VisibilityBadge } from "./visibility-badge";
 
 interface PubCardProps {
   pub: PubGridItem;
-  viewCount?: number;
   isLive?: boolean;
   snapshot?: string;
   onToggleVisibility: (id: Id<"pubs">) => void;
@@ -23,15 +22,13 @@ interface PubCardProps {
 
 export function PubCard({
   pub,
-  viewCount,
   isLive,
   snapshot,
   onToggleVisibility,
   onDelete,
   onSnapshot,
 }: PubCardProps) {
-  const hasContent = (pub.contentSize ?? 0) > 0;
-  const canPreview = snapshot || (pub.isPublic && hasContent);
+  const canPreview = snapshot || (pub.isPublic && pub.hasContent);
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
@@ -77,18 +74,8 @@ export function PubCard({
         </div>
         <div className="text-xs text-muted-foreground">
           {new Date(pub.createdAt).toLocaleDateString()}
-          {hasContent && (
-            <span className="tabular-nums">
-              {" "}
-              &middot; {(() => {
-                const size = pub.contentSize ?? 0;
-                const kb = size / 1024;
-                return kb < 1 ? "< 1 KB" : `${kb.toFixed(1)} KB`;
-              })()}
-            </span>
-          )}
-          {viewCount !== undefined && (
-            <span className="tabular-nums"> &middot; {viewCount} views</span>
+          {pub.viewCount > 0 && (
+            <span className="tabular-nums"> &middot; {pub.viewCount} views</span>
           )}
         </div>
         <div className="flex items-center gap-0.5 pointer-coarse:gap-1.5">

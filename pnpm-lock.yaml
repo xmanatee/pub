@@ -17,9 +17,6 @@ importers:
       '@convex-dev/rate-limiter':
         specifier: ^0.3.2
         version: 0.3.2(convex@1.32.0(react@19.2.4))(react@19.2.4)
-      '@convex-dev/sharded-counter':
-        specifier: ^0.2.0
-        version: 0.2.0(convex@1.32.0(react@19.2.4))
       '@telegram-apps/init-data-node':
         specifier: ^2.0.10
         version: 2.0.10(typescript@5.9.3)
@@ -421,11 +418,6 @@ packages:
     peerDependencies:
       '@tanstack/react-query': ^5.0.0
       convex: ^1.17.0
-
-  '@convex-dev/sharded-counter@0.2.0':
-    resolution: {integrity: sha512-Qv1TvFXyQ60rADS1fWH01mnMDNSPfmKKowXva6WxIXGIC2ta5xvohe9TfUhXp4AT1vtOXoFgse3Z9mJB9fJlSQ==}
-    peerDependencies:
-      convex: ^1.24.8
 
   '@csstools/color-helpers@6.0.2':
     resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
@@ -3938,10 +3930,6 @@ snapshots:
   '@convex-dev/react-query@0.0.0-alpha.8(@tanstack/react-query@5.90.21(react@19.2.4))(convex@1.32.0(react@19.2.4))':
     dependencies:
       '@tanstack/react-query': 5.90.21(react@19.2.4)
-      convex: 1.32.0(react@19.2.4)
-
-  '@convex-dev/sharded-counter@0.2.0(convex@1.32.0(react@19.2.4))':
-    dependencies:
       convex: 1.32.0(react@19.2.4)
 
   '@csstools/color-helpers@6.0.2': {}

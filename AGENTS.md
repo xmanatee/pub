@@ -44,16 +44,16 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Package**: `web/package.json` (`pub-web`) — web-specific deps and scripts
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `pubs` (content/description optional, `by_slug`/`by_user`/`by_public` indexes), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser`, `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user; 1 live per agent; 1 live per slug
+- **Schema** (`schema.ts`): `pubs` (content/description optional, `viewCount` for analytics, indexes: `by_slug`, `by_user`, `by_public`, plus compound sort indexes `by_user_lastViewedAt`/`by_user_updatedAt`/`by_user_createdAt`/`by_user_viewCount`), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
+- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser` (paginated, server-side sorted by `sortKey`), `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user (200 for subscribed); 1 live per agent; 1 live per slug
 - **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
 - **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
-- **Analytics** (`analytics.ts`): view counting via `@convex-dev/sharded-counter`
+- **Analytics** (`analytics.ts`): view recording — increments `viewCount` and updates `lastViewedAt` on the pub document
 - **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
-- **Components** (`convex.config.ts`): registers `rateLimiter` and `shardedCounter` components
+- **Components** (`convex.config.ts`): registers `rateLimiter` component
 - **Visibility**: pubs are always created private; visibility can be changed via update or the dashboard toggle
 
 ### Pub Limits

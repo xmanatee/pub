@@ -46,10 +46,15 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     lastViewedAt: v.optional(v.number()),
+    viewCount: v.optional(v.number()),
   })
     .index("by_slug", ["slug"])
     .index("by_user", ["userId"])
-    .index("by_public", ["isPublic", "createdAt"]),
+    .index("by_public", ["isPublic", "createdAt"])
+    .index("by_user_lastViewedAt", ["userId", "lastViewedAt"])
+    .index("by_user_updatedAt", ["userId", "updatedAt"])
+    .index("by_user_createdAt", ["userId", "createdAt"])
+    .index("by_user_viewCount", ["userId", "viewCount"]),
 
   lives: defineTable({
     slug: v.string(),

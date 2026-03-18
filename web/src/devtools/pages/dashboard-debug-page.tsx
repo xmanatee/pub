@@ -25,7 +25,8 @@ const SAMPLE_PUBS: PubGridItem[] = [
     createdAt: Date.parse("2026-01-02T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-10T10:00:00.000Z"),
     lastViewedAt: Date.parse("2026-01-15T10:00:00.000Z"),
-    contentSize: 120,
+    viewCount: 142,
+    hasContent: true,
   },
   {
     _id: fakeId(2),
@@ -34,7 +35,8 @@ const SAMPLE_PUBS: PubGridItem[] = [
     isPublic: false,
     createdAt: Date.parse("2026-01-04T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-06T10:00:00.000Z"),
-    contentSize: 180,
+    viewCount: 0,
+    hasContent: true,
   },
   {
     _id: fakeId(3),
@@ -44,7 +46,8 @@ const SAMPLE_PUBS: PubGridItem[] = [
     createdAt: Date.parse("2026-01-05T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-12T10:00:00.000Z"),
     lastViewedAt: Date.parse("2026-01-14T10:00:00.000Z"),
-    contentSize: 250,
+    viewCount: 8,
+    hasContent: true,
   },
   {
     _id: fakeId(4),
@@ -52,30 +55,20 @@ const SAMPLE_PUBS: PubGridItem[] = [
     isPublic: false,
     createdAt: Date.parse("2025-12-28T10:00:00.000Z"),
     updatedAt: Date.parse("2025-12-28T10:00:00.000Z"),
+    viewCount: 0,
+    hasContent: false,
   },
 ];
 
 const LIVE_SLUGS = new Set<string>(["hello-world", "api-docs"]);
 
-const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };
-const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-docs": 8 };
-
-function PubCardGrid({
-  pubs,
-  viewCounts,
-  liveSlugs,
-}: {
-  pubs: PubGridItem[];
-  viewCounts: Record<string, number>;
-  liveSlugs: Set<string>;
-}) {
+function PubCardGrid({ pubs, liveSlugs }: { pubs: PubGridItem[]; liveSlugs: Set<string> }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {pubs.map((pub) => (
         <PubCard
           key={pub._id}
           pub={pub}
-          viewCount={viewCounts[pub.slug]}
           isLive={liveSlugs.has(pub.slug)}
           snapshot={SAMPLE_SNAPSHOTS[pub.slug]}
           onToggleVisibility={noop}
@@ -117,18 +110,14 @@ export function DashboardDebugPage() {
 
         <section data-testid="batch-dashboard-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
-          <PubCardGrid pubs={SAMPLE_PUBS} viewCounts={CARDS_VIEW_COUNTS} liveSlugs={LIVE_SLUGS} />
+          <PubCardGrid pubs={SAMPLE_PUBS} liveSlugs={LIVE_SLUGS} />
         </section>
 
         <section data-testid="batch-dashboard-gallery" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">
             Full Gallery — Cards with Live Tags
           </div>
-          <PubCardGrid
-            pubs={SAMPLE_PUBS}
-            viewCounts={GALLERY_VIEW_COUNTS}
-            liveSlugs={new Set<string>(["hello-world"])}
-          />
+          <PubCardGrid pubs={SAMPLE_PUBS} liveSlugs={new Set<string>(["hello-world"])} />
         </section>
       </div>
       <div

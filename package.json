@@ -36,7 +36,6 @@
     "@auth/core": "^0.37.0",
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/rate-limiter": "^0.3.2",
-    "@convex-dev/sharded-counter": "^0.2.0",
     "@telegram-apps/init-data-node": "^2.0.10",
     "concurrently": "^8.2.2",
     "convex": "^1.19.0",

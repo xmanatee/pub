@@ -1,13 +1,16 @@
 import { api } from "@backend/_generated/api";
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
+import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { PubSortChips } from "~/features/dashboard/components/pub-sort-chips";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
-import { type PubSortKey, sortPubs } from "~/features/dashboard/lib/sort-pubs";
+import type { PubSortKey } from "~/features/dashboard/lib/sort-pubs";
 import { trackError } from "~/lib/analytics";
+
+const PAGE_SIZE = 20;
 
 function mutationErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) return error.message;
@@ -15,27 +18,25 @@ function mutationErrorMessage(error: unknown): string {
 }
 
 export function PubsTab() {
-  const pubs = useQuery(api.pubs.listByUser);
+  const [sortKey, setSortKey] = React.useState<PubSortKey>("lastViewed");
+  const {
+    results: pubs,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.pubs.listByUser, { sortKey }, { initialNumItems: PAGE_SIZE });
+
   const navigate = useNavigate();
   const [startingLive, setStartingLive] = React.useState(false);
-  const [sortKey, setSortKey] = React.useState<PubSortKey>("lastViewed");
 
   const toggleVisibility = useMutation(api.pubs.toggleVisibility);
   const deletePub = useMutation(api.pubs.deleteByUser);
   const createDraftForLive = useMutation(api.pubs.createDraftForLive);
   const agentOnline = useQuery(api.presence.isCurrentUserAgentOnline);
 
-  const slugs = pubs?.map((p) => p.slug) ?? [];
-  const viewCounts = useQuery(api.analytics.getViewCounts, slugs.length > 0 ? { slugs } : "skip");
   const lives = useQuery(api.pubs.listActiveLives);
   const liveSlugs = React.useMemo<Set<string>>(
     () => new Set(lives?.map((live) => live.slug) ?? []),
     [lives],
-  );
-
-  const sortedPubs = React.useMemo(
-    () => sortPubs(pubs ?? [], sortKey, viewCounts),
-    [pubs, sortKey, viewCounts],
   );
 
   const canStartLive = agentOnline === true && !startingLive;
@@ -61,8 +62,8 @@ export function PubsTab() {
     }
   }
 
-  if (pubs === undefined) {
-    return <div className="text-muted-foreground py-8">Loading\u2026</div>;
+  if (status === "LoadingFirstPage") {
+    return <div className="text-muted-foreground py-8">Loading&hellip;</div>;
   }
 
   const disabled = agentOnline !== true || startingLive;
@@ -122,12 +123,21 @@ export function PubsTab() {
     <div className="mt-4 space-y-4">
       <PubSortChips value={sortKey} onChange={setSortKey} />
       <PubsGrid
-        pubs={sortedPubs}
-        viewCounts={viewCounts}
+        pubs={pubs}
         liveSlugs={liveSlugs}
         onToggleVisibility={(id) => toggleVisibility({ id })}
         onDelete={(id) => deletePub({ id })}
       />
+      {status === "CanLoadMore" && (
+        <div className="text-center pt-2">
+          <Button variant="outline" size="sm" onClick={() => loadMore(PAGE_SIZE)}>
+            Load more
+          </Button>
+        </div>
+      )}
+      {status === "LoadingMore" && (
+        <div className="text-center pt-2 text-muted-foreground text-sm">Loading more&hellip;</div>
+      )}
       {goLiveButton}
     </div>
   );

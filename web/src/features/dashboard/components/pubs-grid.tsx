@@ -11,18 +11,17 @@ export interface PubGridItem {
   createdAt: number;
   updatedAt: number;
   lastViewedAt?: number;
-  contentSize?: number;
+  viewCount: number;
+  hasContent: boolean;
 }
 
 export function PubsGrid({
   pubs,
-  viewCounts,
   liveSlugs,
   onToggleVisibility,
   onDelete,
 }: {
   pubs: PubGridItem[];
-  viewCounts?: Record<string, number>;
   liveSlugs: Set<string>;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
@@ -35,7 +34,6 @@ export function PubsGrid({
         <PubCard
           key={pub._id}
           pub={pub}
-          viewCount={viewCounts?.[pub.slug]}
           isLive={liveSlugs.has(pub.slug)}
           snapshot={snapshots.get(pub.slug)}
           onToggleVisibility={onToggleVisibility}

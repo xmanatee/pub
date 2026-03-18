@@ -92,6 +92,7 @@ function mapPub(
     createdAt: number;
     updatedAt: number;
     lastViewedAt?: number;
+    viewCount?: number;
   },
   includeContent = false,
 ) {
@@ -104,6 +105,7 @@ function mapPub(
     createdAt: number;
     updatedAt: number;
     lastViewedAt?: number;
+    viewCount: number;
     content?: string;
   } = {
     _id: pub._id,
@@ -114,6 +116,7 @@ function mapPub(
     createdAt: pub.createdAt,
     updatedAt: pub.updatedAt,
     lastViewedAt: pub.lastViewedAt,
+    viewCount: pub.viewCount ?? 0,
   };
   if (includeContent) dto.content = pub.content;
   return dto;
@@ -161,25 +164,49 @@ export const getBySlug = query({
   },
 });
 
+export const pubSortKeyValidator = v.union(
+  v.literal("lastViewed"),
+  v.literal("lastUpdated"),
+  v.literal("newest"),
+  v.literal("oldest"),
+  v.literal("mostViewed"),
+);
+
 export const listByUser = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    sortKey: v.optional(pubSortKeyValidator),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, { sortKey = "lastViewed", paginationOpts }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
+    if (!userId) return { page: [], isDone: true, continueCursor: "" };
 
-    const pubs = await ctx.db
-      .query("pubs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
+    const indexedQuery = (() => {
+      switch (sortKey) {
+        case "lastViewed":
+          return ctx.db
+            .query("pubs")
+            .withIndex("by_user_lastViewedAt", (q) => q.eq("userId", userId));
+        case "lastUpdated":
+          return ctx.db.query("pubs").withIndex("by_user_updatedAt", (q) => q.eq("userId", userId));
+        case "newest":
+        case "oldest":
+          return ctx.db.query("pubs").withIndex("by_user_createdAt", (q) => q.eq("userId", userId));
+        case "mostViewed":
+          return ctx.db.query("pubs").withIndex("by_user_viewCount", (q) => q.eq("userId", userId));
+      }
+    })();
 
-    return pubs.map((pub) => {
-      const dto = mapPub(pub, false);
-      return {
-        ...dto,
-        contentSize: pub.content?.length ?? 0,
-      };
-    });
+    const order = sortKey === "oldest" ? "asc" : "desc";
+    const result = await indexedQuery.order(order).paginate(paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.map((pub) => ({
+        ...mapPub(pub, false),
+        hasContent: !!pub.content,
+      })),
+    };
   },
 });
 
@@ -289,6 +316,7 @@ export const createDraftForLive = mutation({
       isPublic: false,
       createdAt: now,
       updatedAt: now,
+      viewCount: 0,
     });
 
     return { _id: id, slug };
@@ -587,6 +615,7 @@ export const createPub = internalMutation({
       isPublic: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      viewCount: 0,
     });
 
     return id;
