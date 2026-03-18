@@ -1,4 +1,4 @@
-import { type LucideIcon, AppWindow, LayoutDashboard, MessageCircle, Settings } from "lucide-react";
+import { AppWindow, LayoutDashboard, type LucideIcon, MessageCircle, Settings } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import type { LiveViewMode } from "~/features/live/types/live-types";

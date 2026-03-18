@@ -11,7 +11,6 @@ export interface PubGridItem {
   updatedAt: number;
   lastViewedAt?: number;
   contentSize?: number;
-  content?: string;
 }
 
 export function PubsGrid({
