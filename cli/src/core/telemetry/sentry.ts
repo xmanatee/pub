@@ -30,11 +30,6 @@ export function initSentryCli(opts: { dsn: string; version?: string }): void {
   initialized = true;
 }
 
-export async function flushSentry(timeoutMs = 2000): Promise<void> {
-  if (!initialized) return;
-  await Sentry.flush(timeoutMs);
-}
-
 export async function closeSentry(timeoutMs = 2000): Promise<void> {
   if (!initialized) return;
   await Sentry.close(timeoutMs);

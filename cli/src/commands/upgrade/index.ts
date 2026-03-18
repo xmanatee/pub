@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import {
   detectTarget,
   downloadAndReplace,
@@ -17,8 +18,7 @@ export function registerUpgradeCommand(program: Command): void {
       try {
         latest = await fetchLatestRelease();
       } catch (error) {
-        console.error(`Failed to check for updates: ${error instanceof Error ? error.message : error}`);
-        process.exit(1);
+        failCli(`Failed to check for updates: ${errorMessage(error)}`);
       }
 
       if (!isNewer(latest.version, CLI_VERSION)) {
@@ -35,8 +35,7 @@ export function registerUpgradeCommand(program: Command): void {
       try {
         await downloadAndReplace(latest.tag, target);
       } catch (error) {
-        console.error(`Upgrade failed: ${error instanceof Error ? error.message : error}`);
-        process.exit(1);
+        failCli(`Upgrade failed: ${errorMessage(error)}`);
       }
       console.log(`Updated to v${latest.version}.`);
     });

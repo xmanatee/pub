@@ -6,7 +6,7 @@ import {
   makeStatusMessage,
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
-import { flushSentry } from "../../core/telemetry/sentry.js";
+import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
@@ -73,7 +73,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     state.stopped = true;
     presenceGeneration += 1;
     await cleanup();
-    process.exit(exitCode);
+    await exitProcess(exitCode);
   }
 
   const lifecycle = createDaemonLifecycle({
@@ -373,7 +373,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
 
     lifecycle.debugLog("daemon cleanup complete");
-    await flushSentry(2000);
   }
 
   process.on("SIGTERM", () => {
