@@ -1,6 +1,6 @@
 import { api } from "@backend/_generated/api";
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
 import { Card, CardContent } from "~/components/ui/card";
@@ -15,11 +15,7 @@ function mutationErrorMessage(error: unknown): string {
 }
 
 export function PubsTab() {
-  const {
-    results: pubs,
-    status,
-    loadMore,
-  } = usePaginatedQuery(api.pubs.listByUser, {}, { initialNumItems: 12 });
+  const pubs = useQuery(api.pubs.listByUser);
   const navigate = useNavigate();
   const [startingLive, setStartingLive] = React.useState(false);
   const [sortKey, setSortKey] = React.useState<PubSortKey>("lastViewed");
@@ -38,7 +34,7 @@ export function PubsTab() {
   );
 
   const sortedPubs = React.useMemo(
-    () => sortPubs(pubs, sortKey, viewCounts),
+    () => sortPubs(pubs ?? [], sortKey, viewCounts),
     [pubs, sortKey, viewCounts],
   );
 
@@ -65,8 +61,8 @@ export function PubsTab() {
     }
   }
 
-  if (status === "LoadingFirstPage") {
-    return <div className="text-muted-foreground py-8">Loading…</div>;
+  if (pubs === undefined) {
+    return <div className="text-muted-foreground py-8">Loading\u2026</div>;
   }
 
   const disabled = agentOnline !== true || startingLive;
@@ -129,8 +125,6 @@ export function PubsTab() {
         pubs={sortedPubs}
         viewCounts={viewCounts}
         liveSlugs={liveSlugs}
-        status={status}
-        onLoadMore={() => loadMore(12)}
         onToggleVisibility={(id) => toggleVisibility({ id })}
         onDelete={(id) => deletePub({ id })}
       />

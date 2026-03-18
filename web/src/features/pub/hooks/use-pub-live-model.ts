@@ -54,7 +54,7 @@ export function usePubLiveModel({
   contentState,
 }: UsePubLiveModelOptions) {
   const navigate = useNavigate();
-  const recordPublicView = useMutation(api.analytics.recordPublicView);
+  const recordPubView = useMutation(api.analytics.recordPubView);
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
 
@@ -266,8 +266,11 @@ export function usePubLiveModel({
     setCanvasHtml(baseContentHtml ?? null);
   }, [baseContentHtml]);
 
+  const hadCanvasRef = useRef(Boolean(canvasHtml));
   useEffect(() => {
-    if (canvasHtml) setCollapsePreference(true);
+    const hadCanvas = hadCanvasRef.current;
+    hadCanvasRef.current = Boolean(canvasHtml);
+    if (canvasHtml && !hadCanvas) setCollapsePreference(true);
   }, [canvasHtml]);
 
   useEffect(() => {
@@ -308,6 +311,10 @@ export function usePubLiveModel({
     setCollapsePreference((prev) => !prev);
   }, []);
 
+  const collapseControlBar = useCallback(() => {
+    setCollapsePreference(true);
+  }, []);
+
   useEffect(() => {
     if (pub === undefined) return;
     const statusKey =
@@ -329,20 +336,14 @@ export function usePubLiveModel({
   }, [addSystemMessage, effectiveContentState, liveMode, pub]);
 
   useEffect(() => {
-    if (pub && !trackedAnalytics.current) {
-      trackedAnalytics.current = true;
-      trackPubViewed({
-        slug: pub.slug,
-        isPublic: pub.isPublic,
-      });
-    }
-  }, [pub]);
-
-  useEffect(() => {
-    if (!pub || !pub.isPublic || trackedViewCount.current) return;
-    trackedViewCount.current = true;
-    void recordPublicView({ slug: pub.slug });
-  }, [pub, recordPublicView]);
+    if (!pub || trackedAnalytics.current) return;
+    trackedAnalytics.current = true;
+    trackPubViewed({
+      slug: pub.slug,
+      isPublic: pub.isPublic,
+    });
+    void recordPubView({ slug: pub.slug });
+  }, [pub, recordPubView]);
 
   useEffect(() => {
     if (lastSlugRef.current === null) {
@@ -506,6 +507,7 @@ export function usePubLiveModel({
     clearFiles,
     clearMessages,
     clearSessionError,
+    collapseControlBar,
     closeLive: handleClose,
     command,
     connected: viewState.transportStatus === "connected",

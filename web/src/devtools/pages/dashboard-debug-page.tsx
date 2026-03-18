@@ -89,8 +89,6 @@ export function DashboardDebugPage() {
             pubs={SAMPLE_PUBS}
             viewCounts={CARDS_VIEW_COUNTS}
             liveSlugs={LIVE_SLUGS}
-            status="Exhausted"
-            onLoadMore={noop}
             onToggleVisibility={noop}
             onDelete={noop}
           />
@@ -104,8 +102,6 @@ export function DashboardDebugPage() {
             pubs={SAMPLE_PUBS}
             viewCounts={GALLERY_VIEW_COUNTS}
             liveSlugs={new Set<string>(["hello-world"])}
-            status="Exhausted"
-            onLoadMore={noop}
             onToggleVisibility={noop}
             onDelete={noop}
           />

@@ -1,12 +1,12 @@
-import { LayoutDashboard } from "lucide-react";
+import { type LucideIcon, AppWindow, LayoutDashboard, MessageCircle, Settings } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import type { LiveViewMode } from "~/features/live/types/live-types";
 
-const VIEW_OPTIONS: { label: string; mode: LiveViewMode }[] = [
-  { label: "Canvas view", mode: "canvas" },
-  { label: "Chat view", mode: "chat" },
-  { label: "Settings", mode: "settings" },
+const VIEW_OPTIONS: { label: string; mode: LiveViewMode; icon: LucideIcon }[] = [
+  { label: "Canvas view", mode: "canvas", icon: AppWindow },
+  { label: "Chat view", mode: "chat", icon: MessageCircle },
+  { label: "Settings", mode: "settings", icon: Settings },
 ];
 
 interface ExtendedOptionsProps {
@@ -24,10 +24,11 @@ export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptions
         <Button
           key={opt.mode}
           variant="ghost"
-          className="h-10 w-full justify-start rounded-xl px-3 text-sm font-medium"
+          className="h-10 w-full justify-start gap-2 rounded-xl px-3 text-sm font-medium"
           role="menuitem"
           onClick={() => onSelect(opt.mode)}
         >
+          <opt.icon className="size-4" />
           {opt.label}
         </Button>
       ))}

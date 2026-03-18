@@ -19,24 +19,24 @@ export type CommandAgentProvider = "auto" | "claude-code" | "claude-sdk" | "open
 export type CommandAgentMode = "main" | "detached";
 export type CommandAgentProfile = "fast" | "default" | "deep";
 
-export interface CommandExecSpec {
+export type CommandExecSpec = {
   kind: "exec";
   command: string;
   args?: string[];
   cwd?: string;
   timeoutMs?: number;
   env?: Record<string, string>;
-}
+};
 
-export interface CommandShellSpec {
+export type CommandShellSpec = {
   kind: "shell";
   script: string;
   shell?: string;
   cwd?: string;
   timeoutMs?: number;
-}
+};
 
-export interface CommandAgentSpec {
+export type CommandAgentSpec = {
   kind: "agent";
   prompt: string;
   provider?: CommandAgentProvider;
@@ -45,47 +45,47 @@ export interface CommandAgentSpec {
   model?: string;
   timeoutMs?: number;
   output?: "text" | "json";
-}
+};
 
 export type CommandExecutorSpec = CommandExecSpec | CommandShellSpec | CommandAgentSpec;
 
-export interface CommandFunctionSpec {
+export type CommandFunctionSpec = {
   name: string;
   returns?: CommandReturnType;
   timeoutMs?: number;
   description?: string;
   executor?: CommandExecutorSpec;
-}
+};
 
-export interface CommandInvokePayload extends Record<string, unknown> {
+export type CommandInvokePayload = Record<string, unknown> & {
   v: number;
   callId: string;
   name: string;
   args?: Record<string, unknown>;
   timeoutMs?: number;
-}
+};
 
-export interface CommandErrorPayload extends Record<string, unknown> {
+export type CommandErrorPayload = Record<string, unknown> & {
   code: string;
   message: string;
   retryable?: boolean;
   details?: unknown;
-}
+};
 
-export interface CommandResultPayload extends Record<string, unknown> {
+export type CommandResultPayload = Record<string, unknown> & {
   v: number;
   callId: string;
   ok: boolean;
   value?: unknown;
   error?: CommandErrorPayload;
   durationMs: number;
-}
+};
 
-export interface CommandCancelPayload extends Record<string, unknown> {
+export type CommandCancelPayload = Record<string, unknown> & {
   v: number;
   callId: string;
   reason?: string;
-}
+};
 
 export function makeCommandInvokeMessage(payload: CommandInvokePayload): BridgeMessage {
   return makeEventMessage("command.invoke", payload);
@@ -289,11 +289,11 @@ const MANIFEST_SCRIPT_RE = new RegExp(
   "i",
 );
 
-export interface CanvasManifest {
+export type CanvasManifest = {
   v: number;
   manifestId: string;
   functions: CommandFunctionSpec[];
-}
+};
 
 export function extractManifestFromHtml(html: string): CanvasManifest | null {
   const match = MANIFEST_SCRIPT_RE.exec(html);

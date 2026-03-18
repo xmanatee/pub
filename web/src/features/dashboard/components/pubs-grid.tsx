@@ -1,5 +1,4 @@
 import type { Id } from "@backend/_generated/dataModel";
-import { Button } from "~/components/ui/button";
 import { PubCard } from "./pub-card";
 
 export interface PubGridItem {
@@ -11,6 +10,7 @@ export interface PubGridItem {
   createdAt: number;
   updatedAt: number;
   lastViewedAt?: number;
+  contentSize?: number;
   content?: string;
 }
 
@@ -18,16 +18,12 @@ export function PubsGrid({
   pubs,
   viewCounts,
   liveSlugs,
-  status,
-  onLoadMore,
   onToggleVisibility,
   onDelete,
 }: {
   pubs: PubGridItem[];
   viewCounts?: Record<string, number>;
   liveSlugs: Set<string>;
-  status: "Exhausted" | "CanLoadMore" | "LoadingMore";
-  onLoadMore: () => void;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
 }) {
@@ -43,19 +39,6 @@ export function PubsGrid({
           onDelete={onDelete}
         />
       ))}
-
-      {status === "CanLoadMore" && (
-        <div className="col-span-full text-center pt-4">
-          <Button variant="outline" size="sm" onClick={onLoadMore}>
-            Load more
-          </Button>
-        </div>
-      )}
-      {status === "LoadingMore" && (
-        <div className="col-span-full text-center pt-4 text-muted-foreground text-sm">
-          Loading more\u2026
-        </div>
-      )}
     </div>
   );
 }

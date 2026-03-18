@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { ShardedCounter } from "@convex-dev/sharded-counter";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
@@ -19,14 +20,18 @@ export const recordView = internalMutation({
   },
 });
 
-export const recordPublicView = mutation({
+export const recordPubView = mutation({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     const pub = await ctx.db
       .query("pubs")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
-    if (!pub || !pub.isPublic) return { recorded: false };
+    if (!pub) return { recorded: false };
+    if (!pub.isPublic) {
+      const userId = await getAuthUserId(ctx);
+      if (pub.userId !== userId) return { recorded: false };
+    }
     await viewCounter.add(ctx, slug, 1);
     await ctx.db.patch(pub._id, { lastViewedAt: Date.now() });
     return { recorded: true };

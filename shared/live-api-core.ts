@@ -8,7 +8,7 @@ import {
   readTrimmedString,
 } from "./protocol-runtime-core";
 
-export interface LiveInfo {
+export type LiveInfo = {
   slug: string;
   status?: string;
   browserOffer?: string;
@@ -17,20 +17,20 @@ export interface LiveInfo {
   browserCandidates: string[];
   createdAt: number;
   modelProfile?: LiveModelProfile;
-}
+};
 
-export interface AgentPresenceBody {
+export type AgentPresenceBody = {
   daemonSessionId: string;
   agentName?: string;
-}
+};
 
-export interface AgentSignalBody {
+export type AgentSignalBody = {
   slug: string;
   daemonSessionId: string;
   answer?: string;
   candidates?: string[];
   agentName?: string;
-}
+};
 
 type ParseResult<T> =
   | {

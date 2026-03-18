@@ -67,27 +67,21 @@ test.describe("Control bar layout", () => {
     expect(collapsed).toBeCloseTo(baseline, 0);
   });
 
-  test("menu opens and closes via Open menu button", async ({ page }) => {
+  test("addons expand and collapse shell", async ({ page }) => {
     await openControlBarDebug(page);
-    const baseline = (await readControlMetrics(page)).shellHeight;
 
-    // Open menu — use dispatchEvent because the button is inside a fixed-positioned
-    // ControlBar within a transform container, making it unreachable by visual click
-    await interactiveSection(page)
-      .getByRole("button", { name: "Open menu" })
-      .dispatchEvent("click");
-
-    // Wait for menu expand transition
+    // Extended options auto-show on bar expansion
+    const menu = interactiveSection(page).locator('[role="menu"]');
+    await expect(menu).toBeVisible();
     await page.waitForTimeout(600);
-    const expanded = (await readControlMetrics(page)).shellHeight;
-    expect(expanded).toBeGreaterThan(baseline + 30);
+    const withAddons = (await readControlMetrics(page)).shellHeight;
 
-    // Close via the "Close menu" button in the interactive section
-    await interactiveSection(page)
-      .getByRole("button", { name: "Close menu" })
-      .dispatchEvent("click");
+    // Focus the textarea to dismiss extended options
+    await interactiveSection(page).getByLabel("Message").focus();
     await page.waitForTimeout(600);
-    const collapsed = (await readControlMetrics(page)).shellHeight;
-    expect(collapsed).toBeCloseTo(baseline, 0);
+    await expect(menu).not.toBeVisible();
+    const withoutAddons = (await readControlMetrics(page)).shellHeight;
+
+    expect(withAddons).toBeGreaterThan(withoutAddons + 20);
   });
 });

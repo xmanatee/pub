@@ -36,7 +36,7 @@ const BRIDGE_MESSAGE_TYPES = new Set<BridgeMessageType>([
   "event",
 ]);
 
-export interface BridgeMessageMeta {
+export type BridgeMessageMeta = {
   mime?: string;
   filename?: string;
   title?: string;
@@ -45,14 +45,14 @@ export interface BridgeMessageMeta {
   height?: number;
   size?: number;
   [key: string]: unknown;
-}
+};
 
-export interface BridgeMessage {
+export type BridgeMessage = {
   id: string;
   type: BridgeMessageType;
   data?: string;
   meta?: BridgeMessageMeta;
-}
+};
 
 export const CONTROL_CHANNEL = "_control";
 
@@ -81,42 +81,42 @@ export type BridgeCapability =
   | "stream"
   | "command";
 
-export interface CapabilitiesPayload {
+export type CapabilitiesPayload = {
   caps: BridgeCapability[];
-}
+};
 
-export interface ChannelEventPayload {
+export type ChannelEventPayload = {
   channel: string;
   format?: string;
-}
+};
 
-export interface StatusPayload extends LiveRuntimeStateSnapshot {
+export type StatusPayload = LiveRuntimeStateSnapshot & {
   channels?: string[];
   slug?: string;
   continued?: boolean;
-}
+};
 
-export interface ErrorPayload {
+export type ErrorPayload = {
   code: string;
   message: string;
   channel?: string;
-}
+};
 
-export interface DeliveryAckPayload {
+export type DeliveryAckPayload = {
   messageId: string;
   channel: string;
   receivedAt?: number;
-}
+};
 
 export type DeliveryStage = "received" | "confirmed" | "failed";
 
-export interface DeliveryReceiptPayload {
+export type DeliveryReceiptPayload = {
   messageId: string;
   channel: string;
   stage: DeliveryStage;
   at?: number;
   error?: string;
-}
+};
 
 export const CHANNELS = {
   CHAT: "chat",

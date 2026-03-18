@@ -61,6 +61,6 @@ server.on("upgrade", (req, socket, head) => {
   socket.on("error", () => target.destroy());
 });
 
-server.listen(PROXY_PORT, () => {
-  console.log(`[proxy] site(${HTTP_PORT}) api(${WS_PORT}) on :${PROXY_PORT} → ${CONVEX_HOST}`);
+server.listen(PROXY_PORT, "127.0.0.1", () => {
+  console.log(`[proxy] site(${HTTP_PORT}) api(${WS_PORT}) on 127.0.0.1:${PROXY_PORT} → ${CONVEX_HOST}`);
 });
