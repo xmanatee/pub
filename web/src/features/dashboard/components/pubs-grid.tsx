@@ -1,4 +1,5 @@
 import type { Id } from "@backend/_generated/dataModel";
+import { useSnapshotCache } from "~/hooks/use-snapshot-cache";
 import { PubCard } from "./pub-card";
 
 export interface PubGridItem {
@@ -26,6 +27,8 @@ export function PubsGrid({
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
 }) {
+  const { snapshots, handleSnapshot } = useSnapshotCache();
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {pubs.map((pub) => (
@@ -34,8 +37,10 @@ export function PubsGrid({
           pub={pub}
           viewCount={viewCounts?.[pub.slug]}
           isLive={liveSlugs.has(pub.slug)}
+          snapshot={snapshots.get(pub.slug)}
           onToggleVisibility={onToggleVisibility}
           onDelete={onDelete}
+          onSnapshot={handleSnapshot}
         />
       ))}
     </div>

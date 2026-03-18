@@ -15,13 +15,23 @@ interface PubCardProps {
   pub: PubGridItem;
   viewCount?: number;
   isLive?: boolean;
+  snapshot?: string;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
+  onSnapshot?: (slug: string, html: string) => void;
 }
 
-export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }: PubCardProps) {
+export function PubCard({
+  pub,
+  viewCount,
+  isLive,
+  snapshot,
+  onToggleVisibility,
+  onDelete,
+  onSnapshot,
+}: PubCardProps) {
   const hasContent = (pub.contentSize ?? 0) > 0;
-  const canPreview = pub.isPublic && hasContent;
+  const canPreview = snapshot || (pub.isPublic && hasContent);
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
@@ -31,7 +41,12 @@ export function PubCard({ pub, viewCount, isLive, onToggleVisibility, onDelete }
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
-            <PubPreviewIframe slug={pub.slug} title={pub.title || pub.slug} />
+            <PubPreviewIframe
+              slug={pub.slug}
+              title={pub.title || pub.slug}
+              snapshot={snapshot}
+              onSnapshot={onSnapshot}
+            />
           )}
           {pub.description && (
             <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">

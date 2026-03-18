@@ -1,12 +1,22 @@
 import type { Id } from "@backend/_generated/dataModel";
 import { FileText, Key, Play, User } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
+import { PubCard } from "~/features/dashboard/components/pub-card";
+import type { PubGridItem } from "~/features/dashboard/components/pubs-grid";
 
 const noop = () => {};
 const fakeId = (n: number) => `fake_${n}` as Id<"pubs">;
 
-const SAMPLE_PUBS = [
+const SAMPLE_SNAPSHOTS: Record<string, string> = {
+  "hello-world": `<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1>
+<p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>`,
+  "meeting-notes": `<h2 style="margin:16px">Meeting Notes</h2>
+<ul style="margin:0 16px;color:#555"><li>Discussed project timeline</li><li>Assigned tasks</li></ul>`,
+  "api-docs": `<h2 style="margin:16px">API Documentation</h2>
+<pre style="margin:0 16px;background:#f5f5f5;padding:12px;border-radius:4px"><code>const res = await fetch("/api/v1/pubs");</code></pre>`,
+};
+
+const SAMPLE_PUBS: PubGridItem[] = [
   {
     _id: fakeId(1),
     slug: "hello-world",
@@ -15,8 +25,7 @@ const SAMPLE_PUBS = [
     createdAt: Date.parse("2026-01-02T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-10T10:00:00.000Z"),
     lastViewedAt: Date.parse("2026-01-15T10:00:00.000Z"),
-    content: `<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1>
-<p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>`,
+    contentSize: 120,
   },
   {
     _id: fakeId(2),
@@ -25,8 +34,7 @@ const SAMPLE_PUBS = [
     isPublic: false,
     createdAt: Date.parse("2026-01-04T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-06T10:00:00.000Z"),
-    content: `<h2 style="margin:16px">Meeting Notes</h2>
-<ul style="margin:0 16px;color:#555"><li>Discussed project timeline</li><li>Assigned tasks</li></ul>`,
+    contentSize: 180,
   },
   {
     _id: fakeId(3),
@@ -36,8 +44,7 @@ const SAMPLE_PUBS = [
     createdAt: Date.parse("2026-01-05T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-12T10:00:00.000Z"),
     lastViewedAt: Date.parse("2026-01-14T10:00:00.000Z"),
-    content: `<h2 style="margin:16px">API Documentation</h2>
-<pre style="margin:0 16px;background:#f5f5f5;padding:12px;border-radius:4px"><code>const res = await fetch("/api/v1/pubs");</code></pre>`,
+    contentSize: 250,
   },
   {
     _id: fakeId(4),
@@ -45,7 +52,6 @@ const SAMPLE_PUBS = [
     isPublic: false,
     createdAt: Date.parse("2025-12-28T10:00:00.000Z"),
     updatedAt: Date.parse("2025-12-28T10:00:00.000Z"),
-    content: "",
   },
 ];
 
@@ -53,6 +59,32 @@ const LIVE_SLUGS = new Set<string>(["hello-world", "api-docs"]);
 
 const CARDS_VIEW_COUNTS: Record<string, number> = { "hello-world": 142 };
 const GALLERY_VIEW_COUNTS: Record<string, number> = { "hello-world": 142, "api-docs": 8 };
+
+function PubCardGrid({
+  pubs,
+  viewCounts,
+  liveSlugs,
+}: {
+  pubs: PubGridItem[];
+  viewCounts: Record<string, number>;
+  liveSlugs: Set<string>;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {pubs.map((pub) => (
+        <PubCard
+          key={pub._id}
+          pub={pub}
+          viewCount={viewCounts[pub.slug]}
+          isLive={liveSlugs.has(pub.slug)}
+          snapshot={SAMPLE_SNAPSHOTS[pub.slug]}
+          onToggleVisibility={noop}
+          onDelete={noop}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function DashboardDebugPage() {
   return (
@@ -85,25 +117,17 @@ export function DashboardDebugPage() {
 
         <section data-testid="batch-dashboard-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
-          <PubsGrid
-            pubs={SAMPLE_PUBS}
-            viewCounts={CARDS_VIEW_COUNTS}
-            liveSlugs={LIVE_SLUGS}
-            onToggleVisibility={noop}
-            onDelete={noop}
-          />
+          <PubCardGrid pubs={SAMPLE_PUBS} viewCounts={CARDS_VIEW_COUNTS} liveSlugs={LIVE_SLUGS} />
         </section>
 
         <section data-testid="batch-dashboard-gallery" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">
             Full Gallery — Cards with Live Tags
           </div>
-          <PubsGrid
+          <PubCardGrid
             pubs={SAMPLE_PUBS}
             viewCounts={GALLERY_VIEW_COUNTS}
             liveSlugs={new Set<string>(["hello-world"])}
-            onToggleVisibility={noop}
-            onDelete={noop}
           />
         </section>
       </div>
