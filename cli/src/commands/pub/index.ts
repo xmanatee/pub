@@ -6,24 +6,24 @@ import {
   resolveVisibilityFlags,
 } from "../shared/index.js";
 
-interface CreatePubOptions {
+type CreatePubOptions = {
   slug?: string;
   title?: string;
   description?: string;
-}
+};
 
-interface GetPubOptions {
+type GetPubOptions = {
   content?: boolean;
-}
+};
 
-interface UpdatePubOptions {
+type UpdatePubOptions = {
   file?: string;
   title?: string;
   description?: string;
   public?: boolean;
   private?: boolean;
   slug?: string;
-}
+};
 
 export function registerPubCommands(program: Command): void {
   program
@@ -123,6 +123,7 @@ export function registerPubCommands(program: Command): void {
 
       console.log(`Updated: ${result.slug}`);
       if (result.title) console.log(`  Title:  ${result.title}`);
+      if (result.description) console.log(`  Desc:   ${result.description}`);
       console.log(`  Status: ${formatVisibility(result.isPublic)}`);
     });
 
