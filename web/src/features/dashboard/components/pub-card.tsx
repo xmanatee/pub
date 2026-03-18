@@ -8,18 +8,11 @@ import { Card, CardContent } from "~/components/ui/card";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
 import { telegramConfirm, telegramOpenLink } from "~/lib/telegram";
 import { CopyButton } from "./copy-button";
+import type { PubGridItem } from "./pubs-grid";
 import { VisibilityBadge } from "./visibility-badge";
 
 interface PubCardProps {
-  pub: {
-    _id: Id<"pubs">;
-    slug: string;
-    title?: string;
-    description?: string;
-    isPublic: boolean;
-    createdAt: number;
-    content?: string;
-  };
+  pub: PubGridItem;
   viewCount?: number;
   isLive?: boolean;
   onToggleVisibility: (id: Id<"pubs">) => void;

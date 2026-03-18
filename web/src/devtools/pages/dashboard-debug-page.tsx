@@ -13,6 +13,8 @@ const SAMPLE_PUBS = [
     title: "Hello World",
     isPublic: true,
     createdAt: Date.parse("2026-01-02T10:00:00.000Z"),
+    updatedAt: Date.parse("2026-01-10T10:00:00.000Z"),
+    lastViewedAt: Date.parse("2026-01-15T10:00:00.000Z"),
     content: `<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1>
 <p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>`,
   },
@@ -22,6 +24,7 @@ const SAMPLE_PUBS = [
     title: "Meeting Notes",
     isPublic: false,
     createdAt: Date.parse("2026-01-04T10:00:00.000Z"),
+    updatedAt: Date.parse("2026-01-06T10:00:00.000Z"),
     content: `<h2 style="margin:16px">Meeting Notes</h2>
 <ul style="margin:0 16px;color:#555"><li>Discussed project timeline</li><li>Assigned tasks</li></ul>`,
   },
@@ -31,6 +34,8 @@ const SAMPLE_PUBS = [
     title: "API Documentation",
     isPublic: true,
     createdAt: Date.parse("2026-01-05T10:00:00.000Z"),
+    updatedAt: Date.parse("2026-01-12T10:00:00.000Z"),
+    lastViewedAt: Date.parse("2026-01-14T10:00:00.000Z"),
     content: `<h2 style="margin:16px">API Documentation</h2>
 <pre style="margin:0 16px;background:#f5f5f5;padding:12px;border-radius:4px"><code>const res = await fetch("/api/v1/pubs");</code></pre>`,
   },
@@ -39,6 +44,7 @@ const SAMPLE_PUBS = [
     slug: "empty-pub",
     isPublic: false,
     createdAt: Date.parse("2025-12-28T10:00:00.000Z"),
+    updatedAt: Date.parse("2025-12-28T10:00:00.000Z"),
     content: "",
   },
 ];

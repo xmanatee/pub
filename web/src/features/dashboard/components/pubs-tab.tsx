@@ -4,7 +4,9 @@ import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
 import { Card, CardContent } from "~/components/ui/card";
+import { PubSortChips } from "~/features/dashboard/components/pub-sort-chips";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
+import { type PubSortKey, sortPubs } from "~/features/dashboard/lib/sort-pubs";
 import { trackError } from "~/lib/analytics";
 
 function mutationErrorMessage(error: unknown): string {
@@ -20,6 +22,7 @@ export function PubsTab() {
   } = usePaginatedQuery(api.pubs.listByUser, {}, { initialNumItems: 12 });
   const navigate = useNavigate();
   const [startingLive, setStartingLive] = React.useState(false);
+  const [sortKey, setSortKey] = React.useState<PubSortKey>("lastViewed");
 
   const toggleVisibility = useMutation(api.pubs.toggleVisibility);
   const deletePub = useMutation(api.pubs.deleteByUser);
@@ -32,6 +35,11 @@ export function PubsTab() {
   const liveSlugs = React.useMemo<Set<string>>(
     () => new Set(lives?.map((live) => live.slug) ?? []),
     [lives],
+  );
+
+  const sortedPubs = React.useMemo(
+    () => sortPubs(pubs, sortKey, viewCounts),
+    [pubs, sortKey, viewCounts],
   );
 
   const canStartLive = agentOnline === true && !startingLive;
@@ -115,9 +123,10 @@ export function PubsTab() {
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-4">
+      <PubSortChips value={sortKey} onChange={setSortKey} />
       <PubsGrid
-        pubs={pubs}
+        pubs={sortedPubs}
         viewCounts={viewCounts}
         liveSlugs={liveSlugs}
         status={status}

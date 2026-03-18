@@ -9,6 +9,13 @@ export const recordView = internalMutation({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     await viewCounter.add(ctx, slug, 1);
+    const pub = await ctx.db
+      .query("pubs")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (pub) {
+      await ctx.db.patch(pub._id, { lastViewedAt: Date.now() });
+    }
   },
 });
 
@@ -21,6 +28,7 @@ export const recordPublicView = mutation({
       .unique();
     if (!pub || !pub.isPublic) return { recorded: false };
     await viewCounter.add(ctx, slug, 1);
+    await ctx.db.patch(pub._id, { lastViewedAt: Date.now() });
     return { recorded: true };
   },
 });

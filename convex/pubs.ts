@@ -91,6 +91,7 @@ function mapPub(
     isPublic: boolean;
     createdAt: number;
     updatedAt: number;
+    lastViewedAt?: number;
   },
   includeContent = false,
 ) {
@@ -102,6 +103,7 @@ function mapPub(
     isPublic: boolean;
     createdAt: number;
     updatedAt: number;
+    lastViewedAt?: number;
     content?: string;
   } = {
     _id: pub._id,
@@ -111,6 +113,7 @@ function mapPub(
     isPublic: pub.isPublic,
     createdAt: pub.createdAt,
     updatedAt: pub.updatedAt,
+    lastViewedAt: pub.lastViewedAt,
   };
   if (includeContent) dto.content = pub.content;
   return dto;
@@ -172,10 +175,7 @@ export const listByUser = query({
 
     return {
       ...result,
-      page: result.page.map((p) => ({
-        ...mapPub(p),
-        content: p.content,
-      })),
+      page: result.page.map((p) => mapPub(p, true)),
     };
   },
 });

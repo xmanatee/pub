@@ -45,6 +45,7 @@ export default defineSchema({
     isPublic: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    lastViewedAt: v.optional(v.number()),
   })
     .index("by_slug", ["slug"])
     .index("by_user", ["userId"])
