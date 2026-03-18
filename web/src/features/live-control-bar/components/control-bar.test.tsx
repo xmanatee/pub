@@ -58,8 +58,14 @@ const mockSession = {
 type AudioOverrides = Partial<typeof mockSession.audio>;
 type RenderOverrides = Omit<Partial<typeof mockSession>, "audio"> & { audio?: AudioOverrides };
 
+const mockExtendedOptions = { visible: false, dismiss: vi.fn() };
+
 vi.mock("~/features/pub/contexts/live-session-context", () => ({
   useLiveSession: () => mockSession,
+}));
+
+vi.mock("~/features/live-control-bar/hooks/use-extended-options-visibility", () => ({
+  useExtendedOptionsVisibility: () => mockExtendedOptions,
 }));
 
 vi.mock("~/features/live-control-bar/hooks/use-control-bar-text", () => ({
@@ -85,10 +91,14 @@ vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
   }),
 }));
 
-function renderControlBar(overrides?: RenderOverrides) {
+function renderControlBar(
+  overrides?: RenderOverrides,
+  hookOverrides?: Partial<typeof mockExtendedOptions>,
+) {
   const { audio, ...sessionOverrides } = overrides ?? {};
   Object.assign(mockSession, sessionOverrides);
   if (audio) Object.assign(mockSession.audio, audio);
+  Object.assign(mockExtendedOptions, { visible: false, dismiss: vi.fn(), ...hookOverrides });
 
   return renderToStaticMarkup(
     <TooltipProvider>
@@ -100,6 +110,7 @@ function renderControlBar(overrides?: RenderOverrides) {
 describe("ControlBar", () => {
   beforeEach(() => {
     mockSession.controlBarState = "idle";
+    mockSession.controlBarCollapsed = false;
     mockSession.audio.barMode = "idle";
     mockSession.audio.machineMode = "idle";
     mockSession.audio.elapsed = 0;
@@ -136,14 +147,13 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-label="Stop voice mode"');
   });
 
-  it("shows chat preview when preview is provided", () => {
+  it("shows chat preview as addon when preview is provided", () => {
     const html = renderControlBar({
       agentName: "Agent",
       preview: { text: "Hello from agent", source: "agent" },
     });
     expect(html).toContain("Hello from agent");
     expect(html).toContain("Agent");
-    expect(html).toContain("max-h-60 opacity-100");
     expect(html).toContain('aria-label="Open chat"');
   });
 
@@ -153,5 +163,64 @@ describe("ControlBar", () => {
 
     const chatHtml = renderControlBar({ viewMode: "chat" });
     expect(chatHtml).toContain('aria-label="Back to canvas"');
+  });
+
+  it("does not render a menu button", () => {
+    const html = renderControlBar();
+    expect(html).not.toContain('aria-label="Open menu"');
+    expect(html).not.toContain('aria-label="Close menu"');
+  });
+
+  it("includes extended options addon when hook reports visible", () => {
+    const html = renderControlBar({}, { visible: true });
+    expect(html).toContain("Chat view");
+    expect(html).toContain("Settings");
+    expect(html).toContain("Dashboard");
+  });
+
+  it("excludes extended options addon when hook reports not visible", () => {
+    const html = renderControlBar({}, { visible: false });
+    expect(html).not.toContain("Dashboard");
+  });
+
+  it("shows extended options and preview as separate addons simultaneously", () => {
+    const html = renderControlBar(
+      { agentName: "Agent", preview: { text: "Hello from agent", source: "agent" } },
+      { visible: true },
+    );
+    expect(html).toContain("Chat view");
+    expect(html).toContain("Dashboard");
+    expect(html).toContain("Hello from agent");
+    expect(html).toContain('aria-label="Open chat"');
+  });
+
+  it("shows backdrop when bar is expanded in canvas mode", () => {
+    const html = renderControlBar({
+      viewMode: "canvas",
+      controlBarCollapsed: false,
+    });
+    expect(html).toContain('aria-label="Dismiss control bar"');
+    expect(html).toContain("opacity-100");
+  });
+
+  it("hides backdrop when bar is collapsed", () => {
+    const html = renderControlBar({
+      viewMode: "canvas",
+      controlBarCollapsed: true,
+    });
+    expect(html).toContain("pointer-events-none opacity-0");
+  });
+
+  it("hides backdrop in non-canvas view modes", () => {
+    const html = renderControlBar({
+      viewMode: "chat",
+      controlBarCollapsed: false,
+    });
+    expect(html).toContain("pointer-events-none opacity-0");
+  });
+
+  it("always renders status dot toggle button", () => {
+    const html = renderControlBar();
+    expect(html).toContain('aria-label="Toggle control bar"');
   });
 });

@@ -25,19 +25,12 @@
   transition: opacity 400ms ease;
 }
 
-/* Collapse left slot and fade status blob when textarea is focused */
+/* Collapse left slot when textarea is focused */
 .cb-bar-wrapper:has(textarea:focus) .cb-left-slot {
   width: 0;
   opacity: 0;
   pointer-events: none;
   margin-right: 0;
-}
-
-.cb-bar-wrapper:has(textarea:focus) .cb-status-slot {
-  opacity: 0;
-  scale: 50%;
-  translate: 0 1rem;
-  pointer-events: none;
 }
 
 @keyframes cb-pulse {

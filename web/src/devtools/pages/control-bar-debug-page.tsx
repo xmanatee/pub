@@ -60,7 +60,6 @@ function StaticControlBar({
   sessionState = "active",
   lastTakeoverAt,
   initialInput,
-  initialExpanded = false,
 }: {
   agentName?: string;
   visualState?: LiveVisualState;
@@ -70,7 +69,6 @@ function StaticControlBar({
   sessionState?: SessionState;
   lastTakeoverAt?: number;
   initialInput?: string;
-  initialExpanded?: boolean;
 }) {
   const resolvedControlBarState =
     controlBarState ?? resolveDebugControlBarState(visualState, sessionState);
@@ -91,7 +89,7 @@ function StaticControlBar({
 
   return (
     <LiveSessionProvider value={value}>
-      <ControlBar initialInput={initialInput} initialExpanded={initialExpanded} />
+      <ControlBar initialInput={initialInput} />
     </LiveSessionProvider>
   );
 }
@@ -154,17 +152,13 @@ export function ControlBarDebugPage() {
         />
 
         <BatchSection
-          title="Modes: Normal, Preview, Menu"
+          title="Modes: Normal, Preview"
           testId="batch-preview"
           items={[
             { label: "normal", content: <StaticControlBar /> },
             {
               label: "preview",
               content: <StaticControlBar agentName="Agent" chatPreview={DEBUG_PREVIEW_TEXT} />,
-            },
-            {
-              label: "menu opened",
-              content: <StaticControlBar initialExpanded />,
             },
           ]}
           cellHeight={200}

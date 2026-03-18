@@ -1,16 +1,17 @@
-import { ArrowLeft, Ellipsis, X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { type ReactNode, useCallback, useEffect } from "react";
 import { Button } from "~/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { BlobVisual } from "~/features/live/components/visuals/blob-visual";
 import { VISUAL_THEME } from "~/features/live/components/visuals/shared";
 import type { LiveViewMode } from "~/features/live/types/live-types";
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
+import { useExtendedOptionsVisibility } from "~/features/live-control-bar/hooks/use-extended-options-visibility";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
 import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-record";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { cn } from "~/lib/utils";
 import { ControlBarPrimitive } from "../architecture/control-bar-primitive";
+import type { ControlBarAddon } from "../architecture/control-bar-types";
 import { ControlBarAgentSelectionMode } from "./control-bar-agent-selection-mode";
 import { ControlBarBusyMode } from "./control-bar-busy-mode";
 import { CB } from "./control-bar-classes";
@@ -31,12 +32,11 @@ function formatTime(seconds: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export interface ControlBarProps {
+interface ControlBarProps {
   initialInput?: string;
-  initialExpanded?: boolean;
 }
 
-export function ControlBar({ initialInput, initialExpanded = false }: ControlBarProps) {
+export function ControlBar({ initialInput }: ControlBarProps) {
   const {
     agentName,
     audio,
@@ -60,7 +60,10 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     closeLive,
   } = useLiveSession();
 
-  const [expanded, setExpanded] = useState(initialExpanded);
+  const isBarExpanded = viewMode === "canvas" ? !controlBarCollapsed : true;
+
+  const { visible: extendedOptionsVisible, dismiss: dismissExtendedOptions } =
+    useExtendedOptionsVisibility({ controlBarState, isBarExpanded, viewMode });
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
@@ -70,29 +73,22 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
 
   const { fileInputRef, handleFile } = useFileUpload({ onSendFile: sendFile });
 
-  const closeExpanded = useCallback(() => setExpanded(false), []);
-
   const handleViewSelect = useCallback(
     (mode: LiveViewMode) => {
       setViewMode(mode);
-      setExpanded(false);
+      dismissExtendedOptions();
     },
-    [setViewMode],
+    [setViewMode, dismissExtendedOptions],
   );
 
   useEffect(() => {
-    if (!expanded) return;
+    if (!isBarExpanded) return;
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setExpanded(false);
+      if (event.key === "Escape") toggleControlBar();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  useEffect(() => {
-    if (audio.machineMode === "idle" || !expanded) return;
-    setExpanded(false);
-  }, [audio.machineMode, expanded]);
+  }, [isBarExpanded, toggleControlBar]);
 
   const { pointerHandlers } = useHoldToRecord({
     disabled: !connected,
@@ -177,6 +173,7 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
         hasText={hasText}
         input={input}
         onFileChange={handleFile}
+        onFocus={dismissExtendedOptions}
         onInputChange={setInput}
         onInputKeyDown={handleKeyDown}
         onSend={handleSend}
@@ -189,24 +186,46 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
     );
   }
 
-  const leftAction =
-    viewMode === "canvas" && (controlBarState === "idle" || controlBarState === "connecting") ? (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="secondary"
-            size="controlBack"
-            className={CB.backButton}
-            onClick={() => setExpanded((prev) => !prev)}
-            aria-label={expanded ? "Close menu" : "Open menu"}
-          >
-            {expanded ? <X className="size-5" /> : <Ellipsis className="size-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{expanded ? "Close menu" : "Open menu"}</TooltipContent>
-      </Tooltip>
-    ) : null;
+  const addons: ControlBarAddon[] = [];
+
+  if (extendedOptionsVisible) {
+    addons.push({
+      key: "extended-options",
+      priority: 0,
+      content: (
+        <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
+      ),
+    });
+  }
+
+  if (preview) {
+    const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
+    const previewLabelClass =
+      preview.source === "system"
+        ? preview.severity === "error"
+          ? "text-destructive"
+          : "text-amber-600"
+        : "text-primary";
+
+    addons.push({
+      key: "preview",
+      priority: 1,
+      content: (
+        <button
+          type="button"
+          className="w-full overflow-hidden text-left"
+          onClick={handlePreviewClick}
+          aria-label="Open chat"
+        >
+          <div className="truncate px-4 py-2.5 text-sm leading-tight">
+            <span className={cn("font-semibold", previewLabelClass)}>{previewLabel}</span>
+            <span className="text-muted-foreground">: </span>
+            <span className="text-foreground">{preview.text}</span>
+          </div>
+        </button>
+      ),
+    });
+  }
 
   const rightAction =
     viewMode !== "canvas" ? (
@@ -222,38 +241,9 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
       </Button>
     ) : null;
 
-  let topAddon: ReactNode = null;
-  if (expanded) {
-    topAddon = (
-      <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
-    );
-  } else if (preview) {
-    const previewLabel = preview.source === "system" ? "System" : (agentName ?? "Agent");
-    const previewLabelClass =
-      preview.source === "system"
-        ? preview.severity === "error"
-          ? "text-destructive"
-          : "text-amber-600"
-        : "text-primary";
-
-    topAddon = (
-      <button
-        type="button"
-        className="w-full overflow-hidden text-left"
-        onClick={handlePreviewClick}
-        aria-label="Open chat"
-      >
-        <div className="truncate px-4 py-2.5 text-sm leading-tight">
-          <span className={cn("font-semibold", previewLabelClass)}>{previewLabel}</span>
-          <span className="text-muted-foreground">: </span>
-          <span className="text-foreground">{preview.text}</span>
-        </div>
-      </button>
-    );
-  }
+  const showBackdrop = isBarExpanded && viewMode === "canvas";
 
   const statusAction = <BlobVisual tone={VISUAL_THEME[visualState]} />;
-
   const shellStyle = controlBarStyleFromTone(VISUAL_THEME[visualState], visualState);
 
   return (
@@ -262,19 +252,18 @@ export function ControlBar({ initialInput, initialExpanded = false }: ControlBar
         type="button"
         className={cn(
           "fixed inset-0 z-10 bg-black/20 transition-opacity duration-300",
-          expanded ? "opacity-100" : "pointer-events-none opacity-0",
+          showBackdrop ? "opacity-100" : "pointer-events-none opacity-0",
         )}
-        onClick={closeExpanded}
-        aria-label="Close control bar menu"
+        onClick={toggleControlBar}
+        aria-label="Dismiss control bar"
       />
 
       <ControlBarPrimitive
-        leftAction={leftAction}
         centerContent={centerContent}
         rightAction={rightAction}
-        topAddon={topAddon}
+        addons={addons}
         statusAction={statusAction}
-        isExpanded={viewMode === "canvas" ? !controlBarCollapsed : true}
+        isExpanded={isBarExpanded}
         onStatusClick={toggleControlBar}
         className={
           controlBarState === "recording" || controlBarState === "recording-paused"

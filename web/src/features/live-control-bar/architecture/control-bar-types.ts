@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
 
-export interface ControlBarLayoutConfig {
+export interface ControlBarAddon {
+  key: string;
+  priority: number;
+  content: ReactNode;
+}
+
+interface ControlBarLayoutConfig {
   leftAction?: ReactNode;
   centerContent: ReactNode;
   rightAction?: ReactNode;
-  topAddon?: ReactNode;
+  addons: ControlBarAddon[];
   statusAction: ReactNode;
 }
 
-export interface ControlBarSurfaceConfig {
+interface ControlBarSurfaceConfig {
   isExpanded: boolean;
   onStatusClick: () => void;
   className?: string;

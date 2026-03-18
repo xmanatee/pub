@@ -23,6 +23,7 @@ interface ControlBarInputRowProps {
   hasText: boolean;
   input: string;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onFocus: () => void;
   onInputChange: (value: string) => void;
   onInputKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
@@ -38,6 +39,7 @@ export function ControlBarInputRow({
   hasText,
   input,
   onFileChange,
+  onFocus,
   onInputChange,
   onInputKeyDown,
   onSend,
@@ -83,6 +85,7 @@ export function ControlBarInputRow({
           placeholder={PLACEHOLDER[visualState] ?? "Message..."}
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
+          onFocus={onFocus}
           onKeyDown={onInputKeyDown}
           aria-label="Message"
           inputMode="text"

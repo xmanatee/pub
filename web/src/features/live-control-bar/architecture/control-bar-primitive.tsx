@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
 import { CB } from "../components/control-bar-classes";
@@ -8,13 +9,13 @@ import type { ControlBarFullConfig } from "./control-bar-types";
  * Pure UI Stage for the Control Bar.
  * Occupies full width of the container.
  * Transitions are implicit based on flex-box resizing.
- * Stacks topAddon and centerContent into a single visual assembly.
+ * Stacks priority-sorted addons above centerContent into a single visual assembly.
  */
 export function ControlBarPrimitive({
   leftAction,
   centerContent,
   rightAction,
-  topAddon,
+  addons,
   statusAction,
   isExpanded,
   onStatusClick,
@@ -23,6 +24,8 @@ export function ControlBarPrimitive({
 }: ControlBarFullConfig) {
   const hasLeft = Boolean(leftAction);
   const hasRight = Boolean(rightAction);
+  const sortedAddons = [...addons].sort((a, b) => a.priority - b.priority);
+  const hasAddons = sortedAddons.length > 0;
 
   return (
     <div
@@ -77,17 +80,22 @@ export function ControlBarPrimitive({
                 )}
                 style={shellStyle}
               >
-                {/* Top Addon Slot (Preview/Menu) */}
+                {/* Addons Slot — priority-sorted, each separated */}
                 <div
                   className={cn(
                     "transition-all duration-500 ease-in-out",
-                    topAddon
+                    hasAddons
                       ? "max-h-60 opacity-100 translate-y-0"
                       : "max-h-0 opacity-0 translate-y-4 pointer-events-none",
                   )}
                 >
-                  {topAddon}
-                  {topAddon && <Separator />}
+                  {sortedAddons.map((addon, i) => (
+                    <Fragment key={addon.key}>
+                      {addon.content}
+                      {i < sortedAddons.length - 1 && <Separator />}
+                    </Fragment>
+                  ))}
+                  {hasAddons && <Separator />}
                 </div>
 
                 {/* Center Main Bar Slot */}
