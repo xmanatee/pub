@@ -23,7 +23,7 @@ describe("buildClaudeArgs", () => {
   it("includes base flags", () => {
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("hello", null, null);
+    const args = buildClaudeArgs("hello", null);
     expect(args).toContain("-p");
     expect(args).toContain("hello");
     expect(args).toContain("--output-format");
@@ -34,7 +34,7 @@ describe("buildClaudeArgs", () => {
   it("adds --resume when sessionId is provided", () => {
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("hello", "session-abc", null);
+    const args = buildClaudeArgs("hello", "session-abc");
     expect(args).toContain("--resume");
     expect(args).toContain("session-abc");
   });
@@ -42,22 +42,21 @@ describe("buildClaudeArgs", () => {
   it("omits --resume when sessionId is null", () => {
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("hello", null, null);
+    const args = buildClaudeArgs("hello", null);
     expect(args).not.toContain("--resume");
   });
 
-  it("includes systemPrompt in --append-system-prompt", () => {
+  it("never includes --append-system-prompt", () => {
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("test", null, "You are helpful.");
-    expect(args).toContain("--append-system-prompt");
-    expect(args).toContain("You are helpful.");
+    const args = buildClaudeArgs("test", null);
+    expect(args).not.toContain("--append-system-prompt");
   });
 
   it("includes --max-turns from env", () => {
     process.env.CLAUDE_CODE_MAX_TURNS = "5";
 
-    const args = buildClaudeArgs("test", null, null);
+    const args = buildClaudeArgs("test", null);
     expect(args).toContain("--max-turns");
     expect(args).toContain("5");
   });
@@ -65,7 +64,7 @@ describe("buildClaudeArgs", () => {
   it("does not include --model or --allowedTools", () => {
     delete process.env.CLAUDE_CODE_MAX_TURNS;
 
-    const args = buildClaudeArgs("test", null, null);
+    const args = buildClaudeArgs("test", null);
     expect(args).not.toContain("--model");
     expect(args).not.toContain("--allowedTools");
   });
@@ -73,7 +72,6 @@ describe("buildClaudeArgs", () => {
   it("maps live model profiles to Claude model aliases", () => {
     const args = buildClaudeArgsFromSettings(
       "test",
-      null,
       null,
       {
         claudeCodeMaxTurns: 4,

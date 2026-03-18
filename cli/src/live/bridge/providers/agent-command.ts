@@ -257,7 +257,7 @@ async function executeDetachedClaudeAgentCommand(params: {
   model?: string;
 }): Promise<unknown> {
   const runtime = getClaudeCommandRuntime(params.bridgeSettings);
-  const args = buildClaudeArgsFromSettings(params.prompt, null, null, runtime, {
+  const args = buildClaudeArgsFromSettings(params.prompt, null, runtime, {
     model: params.model,
   });
   if (!args.includes("--max-turns")) {

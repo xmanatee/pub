@@ -6,7 +6,6 @@ import { COMMAND_PROTOCOL_GUIDE, SYSTEM_PROMPT } from "../prompts/index.js";
 export type BridgeRunnerConfig = {
   slug: string;
   sessionBriefing: string;
-  systemPrompt: string;
   bridgeSettings: BridgeSettings;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onDeliveryUpdate?: (update: {
@@ -71,7 +70,7 @@ export function buildRenderErrorPrompt(slug: string, errorText: string): string 
 }
 
 export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext): string {
-  const lines: string[] = [`[Live: ${slug}] Session started.`, "", "## Pub Context"];
+  const lines: string[] = [SYSTEM_PROMPT, "", "---", "", `[Live: ${slug}] Session started.`, "", "## Pub Context"];
 
   lines.push(`- Title: ${ctx.title || "(not set)"}`);
   lines.push(`- Description: ${ctx.description || "(not set)"}`);
