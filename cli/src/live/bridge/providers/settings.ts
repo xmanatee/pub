@@ -1,14 +1,13 @@
 import { join } from "node:path";
 import {
   type BridgeSettings,
+  type CommandAgentProfile,
   DEFAULT_COMMAND_AGENT_PROFILE,
-  DEFAULT_CANVAS_REMINDER_EVERY,
   DEFAULT_COMMAND_MAX_CONCURRENT,
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
   DEFAULT_COMMAND_TIMEOUT_MS,
-  getConfigDir,
-  type CommandAgentProfile,
   type DetachedAgentProvider,
+  getConfigDir,
   type PubBridgeConfig,
 } from "../../../core/config/index.js";
 import type { BridgeMode } from "./types.js";
@@ -111,10 +110,6 @@ export function buildBridgeSettings(
     mode,
     verbose: bridgeConfig.verbose === true,
     bridgeCwd,
-    canvasReminderEvery: positiveIntOr(
-      bridgeConfig.canvasReminderEvery,
-      DEFAULT_CANVAS_REMINDER_EVERY,
-    ),
     attachmentDir:
       trimToUndefined(bridgeConfig.attachmentDir) || join(getConfigDir(env), "attachments"),
     commandDefaultTimeoutMs: positiveIntOr(

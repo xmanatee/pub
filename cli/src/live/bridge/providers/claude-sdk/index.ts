@@ -16,21 +16,15 @@ import {
   buildRenderErrorPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
-import {
-  buildSdkSessionOptionsFromSettings,
-  loadClaudeSdk,
-} from "./runtime.js";
+import { buildSdkSessionOptionsFromSettings, loadClaudeSdk } from "./runtime.js";
 
 export {
   buildSdkSessionOptions,
   isClaudeSdkAvailableInEnv,
 } from "./discovery.js";
-export {
-  buildSdkSessionOptionsFromSettings,
-} from "./runtime.js";
 export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
+export { buildSdkSessionOptionsFromSettings } from "./runtime.js";
 
 const MAX_SESSION_RECREATIONS = 2;
 const SESSION_BRIEFING_MAX_TURNS = 2;
@@ -74,7 +68,7 @@ export async function createClaudeSdkBridgeRunner(
     bridgeSettings,
     process.env,
   );
-  const systemPrompt = config.instructions.systemPrompt ?? undefined;
+  const systemPrompt = config.systemPrompt;
   const attachmentRoot = bridgeSettings.attachmentDir;
   const activeStreams = new Map<string, ActiveStream>();
   ensureDirectoryWritable(attachmentRoot);
@@ -106,7 +100,7 @@ export async function createClaudeSdkBridgeRunner(
       pathToClaudeCodeExecutable: claudePath,
       env: {
         ...sdkEnv,
-        ...(systemPrompt ? { CLAUDE_CODE_APPEND_SYSTEM_PROMPT: systemPrompt } : {}),
+        CLAUDE_CODE_APPEND_SYSTEM_PROMPT: systemPrompt,
       },
       canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
     });
@@ -114,10 +108,7 @@ export async function createClaudeSdkBridgeRunner(
     return session;
   }
 
-  async function consumeStream(
-    session: SdkSession,
-    opts?: { maxTurns?: number },
-  ): Promise<string> {
+  async function consumeStream(session: SdkSession, opts?: { maxTurns?: number }): Promise<string> {
     let collected = "";
     let turnCount = 0;
     const maxTurns = opts?.maxTurns;
@@ -198,23 +189,27 @@ export async function createClaudeSdkBridgeRunner(
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
-      const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-        forwardedMessageCount + 1,
-        bridgeSettings.canvasReminderEvery,
-      );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        await deliverQueued(buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions));
+        await deliverQueued(buildInboundPrompt(slug, chat));
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        await deliverQueued(buildRenderErrorPrompt(slug, renderError, config.instructions));
+        await deliverQueued(buildRenderErrorPrompt(slug, renderError));
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
@@ -226,8 +221,6 @@ export async function createClaudeSdkBridgeRunner(
           await deliverQueued(prompt);
         },
         entry,
-        includeCanvasReminder,
-        instructions: config.instructions,
         slug,
       });
       if (deliveredAttachment) {
@@ -237,7 +230,11 @@ export async function createClaudeSdkBridgeRunner(
             ? entry.msg.meta.streamId
             : entry.msg.id;
         if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
-          config.onDeliveryUpdate?.({ channel: entry.channel, messageId: deliveryMessageId, stage: "confirmed" });
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
         }
       }
     },

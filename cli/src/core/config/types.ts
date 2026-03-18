@@ -4,7 +4,6 @@ import type { BridgeMode } from "../../live/bridge/providers/types.js";
 export { DEFAULT_COMMAND_TIMEOUT_MS } from "../../../../shared/command-protocol-core.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
-export const DEFAULT_CANVAS_REMINDER_EVERY = 10;
 export const DEFAULT_COMMAND_MAX_OUTPUT_BYTES = 256 * 1024;
 export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
 export const DEFAULT_COMMAND_AGENT_PROFILE = "default";
@@ -26,7 +25,6 @@ export type PubBridgeConfig = {
   sessionId?: string;
   verbose?: boolean;
   bridgeCwd?: string;
-  canvasReminderEvery?: number;
   attachmentDir?: string;
   claudeCodePath?: string;
   claudeCodeMaxTurns?: number;
@@ -60,7 +58,6 @@ interface BridgeSettingsBase {
   mode: BridgeMode;
   verbose: boolean;
   bridgeCwd: string;
-  canvasReminderEvery: number;
   attachmentDir: string;
   commandDefaultTimeoutMs: number;
   commandMaxOutputBytes: number;

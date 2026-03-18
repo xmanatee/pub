@@ -18,22 +18,16 @@ import {
   buildRenderErrorPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
-import {
-  buildClaudeArgsFromSettings,
-  runClaudeCodePreflight,
-} from "./runtime.js";
+import { buildClaudeArgsFromSettings, runClaudeCodePreflight } from "./runtime.js";
 
 export {
   buildClaudeArgs,
   isClaudeCodeAvailableInEnv,
   resolveClaudeCodePath,
 } from "./discovery.js";
-export {
-  buildClaudeArgsFromSettings,
-} from "./runtime.js";
 export { runClaudeCodeBridgeStartupProbe } from "./probe.js";
+export { buildClaudeArgsFromSettings } from "./runtime.js";
 
 const SESSION_BRIEFING_MAX_TURNS = 2;
 
@@ -81,7 +75,7 @@ export async function createClaudeCodeBridgeRunner(
     const args = buildClaudeArgsFromSettings(
       prompt,
       sessionId,
-      config.instructions.systemPrompt,
+      config.systemPrompt,
       bridgeSettings,
       opts,
     );
@@ -143,8 +137,7 @@ export async function createClaudeCodeBridgeRunner(
             ? parsed.text
             : parsed.delta && typeof parsed.delta.text === "string"
               ? parsed.delta.text
-              : parsed.message?.role === "assistant" &&
-                  typeof parsed.message.content === "string"
+              : parsed.message?.role === "assistant" && typeof parsed.message.content === "string"
                 ? parsed.message.content
                 : "";
         if (text.length > 0) {
@@ -195,23 +188,27 @@ export async function createClaudeCodeBridgeRunner(
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
-      const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-        forwardedMessageCount + 1,
-        bridgeSettings.canvasReminderEvery,
-      );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        await deliverToClaudeCode(buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions));
+        await deliverToClaudeCode(buildInboundPrompt(slug, chat));
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        await deliverToClaudeCode(buildRenderErrorPrompt(slug, renderError, config.instructions));
+        await deliverToClaudeCode(buildRenderErrorPrompt(slug, renderError));
         forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({ channel: entry.channel, messageId: entry.msg.id, stage: "confirmed" });
+        config.onDeliveryUpdate?.({
+          channel: entry.channel,
+          messageId: entry.msg.id,
+          stage: "confirmed",
+        });
         return;
       }
 
@@ -223,8 +220,6 @@ export async function createClaudeCodeBridgeRunner(
           await deliverToClaudeCode(prompt);
         },
         entry,
-        includeCanvasReminder,
-        instructions: config.instructions,
         slug,
       });
       if (deliveredAttachment) {
@@ -234,7 +229,11 @@ export async function createClaudeCodeBridgeRunner(
             ? entry.msg.meta.streamId
             : entry.msg.id;
         if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
-          config.onDeliveryUpdate?.({ channel: entry.channel, messageId: deliveryMessageId, stage: "confirmed" });
+          config.onDeliveryUpdate?.({
+            channel: entry.channel,
+            messageId: deliveryMessageId,
+            stage: "confirmed",
+          });
         }
       }
     },

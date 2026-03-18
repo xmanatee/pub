@@ -46,7 +46,6 @@ describe("buildSdkSessionOptions", () => {
       mode: "claude-sdk",
       verbose: false,
       bridgeCwd: "/tmp/project",
-      canvasReminderEvery: 10,
       attachmentDir: "/tmp/attachments",
       commandDefaultTimeoutMs: 15_000,
       commandMaxOutputBytes: 256 * 1024,

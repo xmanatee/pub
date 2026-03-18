@@ -3,14 +3,17 @@ import {
   CONTROL_CHANNEL,
   makeErrorMessage,
 } from "../../../../shared/bridge-protocol-core";
-import { canSendAgentTraffic, isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
+import {
+  canSendAgentTraffic,
+  isLiveConnectionReady,
+} from "../../../../shared/live-runtime-state-core";
 import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
+import { SYSTEM_PROMPT } from "../prompts/index.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
-import { buildBridgeInstructions } from "./shared.js";
-import { setDaemonAgentState, type DaemonState } from "./state.js";
+import { type DaemonState, setDaemonAgentState } from "./state.js";
 
 const SLOW_AGENT_PREPARATION_LOG_MS = 10_000;
 
@@ -112,30 +115,23 @@ export function createBridgeManager(params: {
     }
   }
 
-  async function buildInitialSessionBriefing(params: {
-    slug: string;
-    instructions: ReturnType<typeof buildBridgeInstructions>;
-  }): Promise<string> {
-    const sessionContent = await loadSessionContent(params.slug);
+  async function buildInitialSessionBriefing(slug: string): Promise<string> {
+    const sessionContent = await loadSessionContent(slug);
     const canvasContentFilePath =
       sessionContent.content.length > 0
-        ? writeLiveSessionContentFile({ slug: params.slug, content: sessionContent.content })
+        ? writeLiveSessionContentFile({ slug, content: sessionContent.content })
         : undefined;
 
     debugLog(
-      `bridge briefing load complete slug=${params.slug} contentBytes=${sessionContent.content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
+      `bridge briefing load complete slug=${slug} contentBytes=${sessionContent.content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
     );
 
-    return buildSessionBriefing(
-      params.slug,
-      {
-        title: sessionContent.title,
-        description: sessionContent.description,
-        isPublic: sessionContent.isPublic,
-        canvasContentFilePath,
-      },
-      params.instructions,
-    );
+    return buildSessionBriefing(slug, {
+      title: sessionContent.title,
+      description: sessionContent.description,
+      isPublic: sessionContent.isPublic,
+      canvasContentFilePath,
+    });
   }
 
   async function teardownBridgeRunner(): Promise<void> {
@@ -157,14 +153,14 @@ export function createBridgeManager(params: {
     const abort = new AbortController();
     state.bridgeAbort = abort;
     debugLog(`bridge runner start slug=${slug}`);
-    const instructions = buildBridgeInstructions();
-    const sessionBriefing = await buildInitialSessionBriefing({ slug, instructions });
+    const sessionBriefing = await buildInitialSessionBriefing(slug);
     const runnerBridgeSettings = state.activeLiveModelProfile
       ? { ...bridgeSettings, liveModelProfile: state.activeLiveModelProfile }
       : bridgeSettings;
     const runnerConfig = {
       slug,
       sessionBriefing,
+      systemPrompt: SYSTEM_PROMPT,
       bridgeSettings: runnerBridgeSettings,
       sendMessage: sendOnChannel,
       onDeliveryUpdate: ({
@@ -181,7 +177,6 @@ export function createBridgeManager(params: {
         emitDeliveryStatus({ channel, messageId, stage, error });
       },
       debugLog,
-      instructions,
     };
 
     const runner = await createBridgeRunnerForSettings({
@@ -232,7 +227,10 @@ export function createBridgeManager(params: {
         } catch (error) {
           setDaemonAgentState(state, "idle");
           await publishRuntimeState().catch((publishError) => {
-            debugLog(`failed to publish idle state after reattach error for "${slug}"`, publishError);
+            debugLog(
+              `failed to publish idle state after reattach error for "${slug}"`,
+              publishError,
+            );
           });
           markError(`failed to reattach bridge for "${slug}"`, error);
         }

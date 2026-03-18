@@ -46,7 +46,6 @@ describe("bridge-runtime", () => {
 
     expect(bridgeSettings.bridgeCwd).toBe("/tmp/pub-project");
     expect(bridgeSettings.attachmentDir).toContain("/attachments");
-    expect(bridgeSettings.canvasReminderEvery).toBe(10);
     expect(bridgeSettings.commandDefaultTimeoutMs).toBe(15_000);
     expect(bridgeSettings.commandAgentDefaultProfile).toBe("default");
     expect(bridgeSettings.verbose).toBe(false);

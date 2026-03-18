@@ -8,16 +8,15 @@ import {
 } from "../../attachments.js";
 import { createBridgeEntryQueue } from "../../queue.js";
 import {
-  applyBridgeSystemPrompt,
   type BridgeRunner,
   type BridgeRunnerConfig,
   type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
   buildRenderErrorPrompt,
+  prependSystemPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
 import { deliverMessageToCommand } from "./runtime.js";
 
@@ -41,10 +40,10 @@ export async function createOpenClawLikeBridgeRunner(
   let lastError: string | undefined;
   let stopped = false;
 
-  const withSystemPrompt = (prompt: string) => applyBridgeSystemPrompt(prompt, config.instructions);
-
+  // openclaw-like has no session persistence — every invocation is independent,
+  // so the system prompt must be prepended to every message.
   await deliverMessageToCommand(
-    { command, text: withSystemPrompt(sessionBriefing) },
+    { command, text: prependSystemPrompt(sessionBriefing) },
     process.env,
     bridgeSettings,
   );
@@ -52,19 +51,10 @@ export async function createOpenClawLikeBridgeRunner(
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
-      const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-        forwardedMessageCount + 1,
-        bridgeSettings.canvasReminderEvery,
-      );
       const chat = readTextChatMessage(entry);
       if (chat) {
         await deliverMessageToCommand(
-          {
-            command,
-            text: withSystemPrompt(
-              buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
-            ),
-          },
+          { command, text: prependSystemPrompt(buildInboundPrompt(slug, chat)) },
           process.env,
           bridgeSettings,
         );
@@ -80,10 +70,7 @@ export async function createOpenClawLikeBridgeRunner(
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
         await deliverMessageToCommand(
-          {
-            command,
-            text: withSystemPrompt(buildRenderErrorPrompt(slug, renderError, config.instructions)),
-          },
+          { command, text: prependSystemPrompt(buildRenderErrorPrompt(slug, renderError)) },
           process.env,
           bridgeSettings,
         );
@@ -102,14 +89,12 @@ export async function createOpenClawLikeBridgeRunner(
         attachmentRoot,
         deliverPrompt: async (prompt) => {
           await deliverMessageToCommand(
-            { command, text: withSystemPrompt(prompt) },
+            { command, text: prependSystemPrompt(prompt) },
             process.env,
             bridgeSettings,
           );
         },
         entry,
-        includeCanvasReminder,
-        instructions: config.instructions,
         slug,
       });
       if (deliveredAttachment) {

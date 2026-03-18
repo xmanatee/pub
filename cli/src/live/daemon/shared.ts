@@ -2,28 +2,8 @@ import {
   isLiveConnectionReady,
   type LiveConnectionState,
 } from "../../../../shared/live-runtime-state-core";
-import { PubApiError, type PubApiClient } from "../../core/api/client.js";
+import { type PubApiClient, PubApiError } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
-import BRIDGE_SYSTEM_PROMPT from "./prompts/bridge-system.md";
-import CANVAS_COMMAND_PROTOCOL_GUIDE from "../bridge/prompts/canvas-command-protocol.md";
-
-export type BridgeInstructions = {
-  replyHint: string;
-  canvasHint: string;
-  systemPrompt: string | null;
-  commandProtocolGuide: string;
-};
-
-const PUB_WRITE_REPLY_HINT = 'Reply command: pub write "<your reply>"';
-const PUB_WRITE_CANVAS_HINT = "Canvas command: pub write -c canvas -f /path/to/file.html";
-export function buildBridgeInstructions(): BridgeInstructions {
-  return {
-    replyHint: PUB_WRITE_REPLY_HINT,
-    canvasHint: PUB_WRITE_CANVAS_HINT,
-    systemPrompt: BRIDGE_SYSTEM_PROMPT.trimEnd(),
-    commandProtocolGuide: CANVAS_COMMAND_PROTOCOL_GUIDE.trimEnd(),
-  };
-}
 
 export type DaemonConfig = {
   cliVersion?: string;

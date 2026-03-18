@@ -1,12 +1,12 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import type { BridgeSettings } from "../../core/config/index.js";
-import type { BridgeInstructions } from "../daemon/shared.js";
-import CANVAS_POLICY_REMINDER from "./prompts/canvas-policy-reminder.md";
+import { COMMAND_PROTOCOL_GUIDE, SYSTEM_PROMPT } from "../prompts/index.js";
 
 export type BridgeRunnerConfig = {
   slug: string;
   sessionBriefing: string;
+  systemPrompt: string;
   bridgeSettings: BridgeSettings;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onDeliveryUpdate?: (update: {
@@ -16,7 +16,6 @@ export type BridgeRunnerConfig = {
     error?: string;
   }) => void;
   debugLog: (message: string, error?: unknown) => void;
-  instructions: BridgeInstructions;
 };
 
 export type BridgeStatus = {
@@ -50,78 +49,29 @@ interface SessionBriefingContext {
   canvasContentFilePath?: string;
 }
 
-export function buildCanvasPolicyReminderBlock(): string {
-  return `${CANVAS_POLICY_REMINDER.trimEnd()}\n`;
+export function buildInboundPrompt(slug: string, userText: string): string {
+  return [`[Live: ${slug}] User message:`, "", userText].join("\n");
 }
 
-export function shouldIncludeCanvasPolicyReminder(
-  forwardedMessageCount: number,
-  reminderEvery: number,
-): boolean {
-  if (!Number.isFinite(reminderEvery) || reminderEvery <= 0) return false;
-  if (forwardedMessageCount <= 0) return false;
-  return forwardedMessageCount % reminderEvery === 0;
-}
-
-export function buildInboundPrompt(
-  slug: string,
-  userText: string,
-  includeCanvasReminder: boolean,
-  instructions: BridgeInstructions,
-): string {
-  const policyReminder = includeCanvasReminder ? buildCanvasPolicyReminderBlock() : "";
-  return [
-    policyReminder,
-    `[Live: ${slug}] User message:`,
-    "",
-    userText,
-    "",
-    "---",
-    "Respond using:",
-    `- ${instructions.replyHint}`,
-    `- ${instructions.canvasHint}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-export function buildRenderErrorPrompt(
-  slug: string,
-  errorText: string,
-  instructions: BridgeInstructions,
-): string {
+export function buildRenderErrorPrompt(slug: string, errorText: string): string {
   const isConsoleError = errorText.startsWith("[console.error]");
   const consoleNote = isConsoleError
     ? "\n- This was captured from console.error, not a runtime exception. Assess severity before acting."
     : "";
   return [
-    `[Live: ${slug}] Canvas render error report:`,
+    `[Live: ${slug}] Canvas render error:`,
     "",
     errorText,
     "",
     "---",
     "Treat this as silent maintenance:",
-    "- Fix by sending an updated canvas payload.",
+    "- Fix by sending an updated canvas.",
     `- Do not send user-facing chat about this unless blocked or clarifying requirements.${consoleNote}`,
-    "",
-    "Respond using:",
-    `- ${instructions.canvasHint}`,
-    `- ${instructions.replyHint} (only if blocked)`,
   ].join("\n");
 }
 
-export function buildSessionBriefing(
-  slug: string,
-  ctx: SessionBriefingContext,
-  instructions: BridgeInstructions,
-): string {
-  const lines: string[] = [
-    `[Live: ${slug}] Session started.`,
-    "",
-    "You are in a live P2P session on pub.blue.",
-    "",
-    "## Pub Context",
-  ];
+export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext): string {
+  const lines: string[] = [`[Live: ${slug}] Session started.`, "", "## Pub Context"];
 
   lines.push(`- Title: ${ctx.title || "(not set)"}`);
   lines.push(`- Description: ${ctx.description || "(not set)"}`);
@@ -137,23 +87,15 @@ export function buildSessionBriefing(
     lines.push("- Canvas is currently empty.");
   }
 
-  lines.push(
-    "",
-    "## How to respond",
-    `- ${instructions.replyHint}`,
-    `- ${instructions.canvasHint}`,
-  );
-  if (instructions.commandProtocolGuide.trim().length > 0) {
-    lines.push("", instructions.commandProtocolGuide.trim());
+  if (COMMAND_PROTOCOL_GUIDE.length > 0) {
+    lines.push("", COMMAND_PROTOCOL_GUIDE);
   }
 
   return lines.join("\n");
 }
 
-export function applyBridgeSystemPrompt(prompt: string, instructions: BridgeInstructions): string {
-  const systemPrompt = instructions.systemPrompt?.trim();
-  if (!systemPrompt) return prompt;
-  return [systemPrompt, "", "---", "", prompt].join("\n");
+export function prependSystemPrompt(prompt: string): string {
+  return [SYSTEM_PROMPT, "", "---", "", prompt].join("\n");
 }
 
 export function readTextChatMessage(entry: BufferedEntry): string | null {

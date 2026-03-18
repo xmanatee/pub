@@ -3,8 +3,8 @@ import type { PubBridgeConfig, PubConfig, PubTelegramConfig } from "./index.js";
 import {
   compactPubConfig,
   parseConfigAssignment,
-  setPubConfigValue,
   SUPPORTED_CONFIG_KEYS,
+  setPubConfigValue,
   unsetPubConfigValue,
 } from "./index.js";
 
@@ -74,8 +74,8 @@ describe("setPubConfigValue", () => {
 
   it("sets integer bridge keys with parsing", () => {
     const config = makeConfig();
-    setPubConfigValue(config, "bridge.canvasReminderEvery", "123");
-    expect(config.bridge?.canvasReminderEvery).toBe(123);
+    setPubConfigValue(config, "claude-code.maxTurns", "5");
+    expect(config.bridge?.claudeCodeMaxTurns).toBe(5);
   });
 
   it("sets boolean bridge keys with parsing", () => {
@@ -143,7 +143,7 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(27);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(26);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");

@@ -2,10 +2,10 @@ import type { BridgeMode } from "../../live/bridge/providers/types.js";
 import { parsePositiveInteger } from "../utils/number.js";
 import { trimToUndefined } from "./location.js";
 import {
-  DEFAULT_COMMAND_AGENT_PROFILE,
   type CommandAgentProfile,
-  type DetachedAgentProvider,
   DEFAULT_BASE_URL,
+  DEFAULT_COMMAND_AGENT_PROFILE,
+  type DetachedAgentProvider,
   type PubBridgeConfig,
   type PubConfig,
   type PubTelegramConfig,
@@ -101,9 +101,6 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   }),
   bridgeVar("bridge.cwd", "bridgeCwd", "string", {
     description: "Working directory used by the live bridge runtime.",
-  }),
-  bridgeVar("bridge.canvasReminderEvery", "canvasReminderEvery", "integer", {
-    description: "Interval for canvas policy reminders.",
   }),
   bridgeVar("bridge.attachmentDir", "attachmentDir", "string", {
     description: "Attachment staging directory for live bridge payloads.",

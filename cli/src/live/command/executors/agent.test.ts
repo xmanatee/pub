@@ -9,7 +9,6 @@ import {
 const baseBridgeSettings = {
   verbose: false,
   bridgeCwd: "/tmp/pub-bridge",
-  canvasReminderEvery: 10,
   attachmentDir: "/tmp/pub-attachments",
   commandDefaultTimeoutMs: 15_000,
   commandMaxOutputBytes: 256 * 1024,

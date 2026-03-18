@@ -8,16 +8,15 @@ import {
 } from "../../attachments.js";
 import { createBridgeEntryQueue } from "../../queue.js";
 import {
-  applyBridgeSystemPrompt,
   type BridgeRunner,
   type BridgeRunnerConfig,
   type BridgeStatus,
   type BufferedEntry,
   buildInboundPrompt,
   buildRenderErrorPrompt,
+  prependSystemPrompt,
   readRenderErrorMessage,
   readTextChatMessage,
-  shouldIncludeCanvasPolicyReminder,
 } from "../../shared.js";
 import { deliverMessageToOpenClaw, invokeOpenClawPrompt } from "./runtime.js";
 
@@ -53,7 +52,6 @@ export async function createOpenClawBridgeRunner(
   let stopped = false;
   let sessionTaskChain = Promise.resolve();
 
-  const withSystemPrompt = (prompt: string) => applyBridgeSystemPrompt(prompt, config.instructions);
   function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
     const next = sessionTaskChain.then(task);
     sessionTaskChain = next.then(
@@ -69,16 +67,18 @@ export async function createOpenClawBridgeRunner(
   async function deliverQueued(prompt: string): Promise<void> {
     await queueSessionTask(async () => {
       await deliverMessageToOpenClaw(
-        { openclawPath, sessionId, text: withSystemPrompt(prompt), local: useLocal },
+        { openclawPath, sessionId, text: prompt, local: useLocal },
         bridgeEnv,
         bridgeSettings,
       );
     });
   }
 
+  // System prompt is delivered once via the session briefing. OpenClaw's --session-id
+  // preserves conversation history, so subsequent messages don't need it repeated.
   debugLog(`openclaw deliver session briefing start slug=${slug} sessionId=${sessionId}`);
   await deliverMessageToOpenClaw(
-    { openclawPath, sessionId, text: withSystemPrompt(sessionBriefing), local: useLocal },
+    { openclawPath, sessionId, text: prependSystemPrompt(sessionBriefing), local: useLocal },
     bridgeEnv,
     bridgeSettings,
   );
@@ -86,15 +86,9 @@ export async function createOpenClawBridgeRunner(
 
   const queue = createBridgeEntryQueue({
     onEntry: async (entry: BufferedEntry) => {
-      const includeCanvasReminder = shouldIncludeCanvasPolicyReminder(
-        forwardedMessageCount + 1,
-        bridgeSettings.canvasReminderEvery,
-      );
       const chat = readTextChatMessage(entry);
       if (chat) {
-        await deliverQueued(
-          buildInboundPrompt(slug, chat, includeCanvasReminder, config.instructions),
-        );
+        await deliverQueued(buildInboundPrompt(slug, chat));
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -106,7 +100,7 @@ export async function createOpenClawBridgeRunner(
 
       const renderError = readRenderErrorMessage(entry);
       if (renderError) {
-        await deliverQueued(buildRenderErrorPrompt(slug, renderError, config.instructions));
+        await deliverQueued(buildRenderErrorPrompt(slug, renderError));
         forwardedMessageCount += 1;
         config.onDeliveryUpdate?.({
           channel: entry.channel,
@@ -124,8 +118,6 @@ export async function createOpenClawBridgeRunner(
           await deliverQueued(prompt);
         },
         entry,
-        includeCanvasReminder,
-        instructions: config.instructions,
         slug,
       });
       if (deliveredAttachment) {
@@ -172,7 +164,7 @@ export async function createOpenClawBridgeRunner(
         const text = await invokeOpenClawPrompt({
           openclawPath,
           sessionId,
-          text: withSystemPrompt(prompt),
+          text: prompt,
           bridgeCwd: bridgeSettings.bridgeCwd,
           env: bridgeEnv,
           local: useLocal,
