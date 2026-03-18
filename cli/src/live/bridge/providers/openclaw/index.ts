@@ -159,7 +159,7 @@ export async function createOpenClawBridgeRunner(
 
   return {
     enqueue: (entries) => queue.enqueue(entries),
-    invokeAgentCommand: async ({ prompt, output }) =>
+    invokeAgentCommand: async ({ prompt, output, signal, timeoutMs }) =>
       await queueSessionTask(async () => {
         const text = await invokeOpenClawPrompt({
           openclawPath,
@@ -168,6 +168,8 @@ export async function createOpenClawBridgeRunner(
           bridgeCwd: bridgeSettings.bridgeCwd,
           env: bridgeEnv,
           local: useLocal,
+          signal,
+          timeoutMs,
         });
         if (output === "json") {
           return text.length === 0 ? {} : (JSON.parse(text) as unknown);

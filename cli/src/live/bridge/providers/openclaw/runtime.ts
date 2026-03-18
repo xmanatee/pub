@@ -4,7 +4,10 @@ import { formatExecFailure } from "../exec-failure.js";
 
 const execFileAsync = promisify(execFile);
 
-function getOpenClawInvocation(openclawPath: string, args: string[]): { cmd: string; args: string[] } {
+function getOpenClawInvocation(
+  openclawPath: string,
+  args: string[],
+): { cmd: string; args: string[] } {
   if (openclawPath.endsWith(".js")) {
     return { cmd: process.execPath, args: [openclawPath, ...args] };
   }
@@ -39,6 +42,8 @@ export async function invokeOpenClawPrompt(params: {
   bridgeCwd: string;
   env?: NodeJS.ProcessEnv;
   local?: boolean;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<string> {
   const args = [
     "agent",
@@ -52,8 +57,9 @@ export async function invokeOpenClawPrompt(params: {
   try {
     const result = await execFileAsync(invocation.cmd, invocation.args, {
       cwd: params.bridgeCwd,
-      timeout: OPENCLAW_DELIVER_TIMEOUT_MS,
+      timeout: params.timeoutMs ?? OPENCLAW_DELIVER_TIMEOUT_MS,
       env: params.env ?? process.env,
+      signal: params.signal,
     });
     return result.stdout.trim();
   } catch (error) {

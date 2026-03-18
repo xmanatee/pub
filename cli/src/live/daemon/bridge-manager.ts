@@ -89,49 +89,38 @@ export function createBridgeManager(params: {
     });
   }
 
-  async function loadSessionContent(slug: string): Promise<{
+  interface SessionContent {
     content: string;
     isPublic: boolean;
     title?: string;
     description?: string;
-  }> {
-    debugLog(`bridge session content load start slug=${slug}`);
+  }
+
+  async function fetchSessionContent(slug: string): Promise<SessionContent> {
+    debugLog(`bridge session content fetch start slug=${slug}`);
+    const pub = await apiClient.get(slug);
+    const content = typeof pub.content === "string" ? pub.content : "";
+    debugLog(`bridge session content fetch complete slug=${slug} contentBytes=${content.length}`);
+    return { title: pub.title, description: pub.description, isPublic: pub.isPublic, content };
+  }
+
+  function bindSessionManifest(content: string): void {
+    commandHandler.beginManifestLoad();
+    if (content.length > 0) commandHandler.bindFromHtml(content);
+    else commandHandler.clearBindings();
+  }
+
+  async function loadSessionContent(slug: string): Promise<SessionContent> {
     commandHandler.beginManifestLoad();
     try {
-      const pub = await apiClient.get(slug);
-      const content = typeof pub.content === "string" ? pub.content : "";
-      if (content.length > 0) commandHandler.bindFromHtml(content);
+      const sessionContent = await fetchSessionContent(slug);
+      if (sessionContent.content.length > 0) commandHandler.bindFromHtml(sessionContent.content);
       else commandHandler.clearBindings();
-      debugLog(`bridge session content load complete slug=${slug} contentBytes=${content.length}`);
-      return {
-        title: pub.title,
-        description: pub.description,
-        isPublic: pub.isPublic,
-        content,
-      };
+      return sessionContent;
     } catch (error) {
       commandHandler.clearBindings();
       throw error;
     }
-  }
-
-  async function buildInitialSessionBriefing(slug: string): Promise<string> {
-    const sessionContent = await loadSessionContent(slug);
-    const canvasContentFilePath =
-      sessionContent.content.length > 0
-        ? writeLiveSessionContentFile({ slug, content: sessionContent.content })
-        : undefined;
-
-    debugLog(
-      `bridge briefing load complete slug=${slug} contentBytes=${sessionContent.content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
-    );
-
-    return buildSessionBriefing(slug, {
-      title: sessionContent.title,
-      description: sessionContent.description,
-      isPublic: sessionContent.isPublic,
-      canvasContentFilePath,
-    });
   }
 
   async function teardownBridgeRunner(): Promise<void> {
@@ -153,7 +142,24 @@ export function createBridgeManager(params: {
     const abort = new AbortController();
     state.bridgeAbort = abort;
     debugLog(`bridge runner start slug=${slug}`);
-    const sessionBriefing = await buildInitialSessionBriefing(slug);
+
+    // Fetch content without binding the manifest — binding must happen AFTER
+    // the bridge runner is set so that agent commands can reach the runner.
+    const sessionContent = await fetchSessionContent(slug);
+    const canvasContentFilePath =
+      sessionContent.content.length > 0
+        ? writeLiveSessionContentFile({ slug, content: sessionContent.content })
+        : undefined;
+    debugLog(
+      `bridge briefing load complete slug=${slug} contentBytes=${sessionContent.content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
+    );
+    const sessionBriefing = buildSessionBriefing(slug, {
+      title: sessionContent.title,
+      description: sessionContent.description,
+      isPublic: sessionContent.isPublic,
+      canvasContentFilePath,
+    });
+
     const runnerBridgeSettings = state.activeLiveModelProfile
       ? { ...bridgeSettings, liveModelProfile: state.activeLiveModelProfile }
       : bridgeSettings;
@@ -192,6 +198,9 @@ export function createBridgeManager(params: {
     }
     state.bridgeRunner = runner;
     state.bridgeSlug = slug;
+
+    // Bind the manifest NOW — bridge runner is set, so agent commands will resolve.
+    bindSessionManifest(sessionContent.content);
   }
 
   async function flushOutboundBuffer(): Promise<void> {
