@@ -24,7 +24,10 @@ export function buildPubPatch(fields: {
   slug?: string;
 }) {
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
-  if (fields.content !== undefined) patch.content = fields.content;
+  if (fields.content !== undefined) {
+    patch.content = fields.content;
+    patch.previewHtml = undefined;
+  }
   if (fields.title !== undefined) patch.title = fields.title;
   if (fields.description !== undefined) patch.description = fields.description;
   if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
@@ -86,6 +89,7 @@ function mapPub(
     _id: Id<"pubs">;
     slug: string;
     content?: string;
+    previewHtml?: string;
     title?: string;
     description?: string;
     isPublic: boolean;
@@ -99,6 +103,7 @@ function mapPub(
   const dto: {
     _id: Id<"pubs">;
     slug: string;
+    previewHtml?: string;
     title?: string;
     description?: string;
     isPublic: boolean;
@@ -110,6 +115,7 @@ function mapPub(
   } = {
     _id: pub._id,
     slug: pub.slug,
+    previewHtml: pub.previewHtml,
     title: pub.title,
     description: pub.description,
     isPublic: pub.isPublic,
@@ -202,10 +208,7 @@ export const listByUser = query({
 
     return {
       ...result,
-      page: result.page.map((pub) => ({
-        ...mapPub(pub, false),
-        hasContent: !!pub.content,
-      })),
+      page: result.page.map((pub) => mapPub(pub, false)),
     };
   },
 });
@@ -223,6 +226,7 @@ export const listPublic = query({
       ...result,
       page: result.page.map((p) => ({
         slug: p.slug,
+        previewHtml: p.previewHtml,
         title: p.title,
         description: p.description,
         createdAt: p.createdAt,
@@ -587,6 +591,27 @@ export const closeLiveByUser = mutation({
     const live = await getLatestLiveBySlug(ctx.db, slug);
     if (!live || live.userId !== userId) return;
     await ctx.db.delete(live._id);
+  },
+});
+
+export const savePreviewHtml = mutation({
+  args: {
+    slug: v.string(),
+    previewHtml: v.string(),
+    updatedAt: v.number(),
+  },
+  handler: async (ctx, { slug, previewHtml, updatedAt }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const pub = await ctx.db
+      .query("pubs")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
+    if (pub.updatedAt !== updatedAt) return;
+
+    await ctx.db.patch(pub._id, { previewHtml });
   },
 });
 

@@ -1,18 +1,13 @@
 import * as React from "react";
-import { getConvexSiteUrl } from "~/lib/convex-url";
-
-export function buildServeUrl(slug: string): string {
-  return `${getConvexSiteUrl()}/serve/${slug}`;
-}
 
 const OBSERVER_OPTIONS: IntersectionObserverInit = { rootMargin: "200px" };
 
 interface PubPreviewIframeProps {
-  slug: string;
+  previewHtml: string;
   title: string;
 }
 
-export function PubPreviewIframe({ slug, title }: PubPreviewIframeProps) {
+export function PubPreviewIframe({ previewHtml, title }: PubPreviewIframeProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [visible, setVisible] = React.useState(false);
 
@@ -31,9 +26,8 @@ export function PubPreviewIframe({ slug, title }: PubPreviewIframeProps) {
     <div ref={containerRef} className="relative h-full w-full">
       {visible && (
         <iframe
-          src={buildServeUrl(slug)}
-          sandbox="allow-scripts"
-          loading="eager"
+          srcDoc={previewHtml}
+          sandbox=""
           tabIndex={-1}
           title={title}
           className="h-full w-full border-none"

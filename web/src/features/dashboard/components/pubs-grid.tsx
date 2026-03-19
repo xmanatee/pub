@@ -4,6 +4,7 @@ import { PubCard } from "./pub-card";
 export interface PubGridItem {
   _id: Id<"pubs">;
   slug: string;
+  previewHtml?: string;
   title?: string;
   description?: string;
   isPublic: boolean;
@@ -11,7 +12,6 @@ export interface PubGridItem {
   updatedAt: number;
   lastViewedAt?: number;
   viewCount: number;
-  hasContent: boolean;
 }
 
 export function PubsGrid({

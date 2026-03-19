@@ -5,6 +5,7 @@ import { SettingsPanel } from "~/features/live/components/panels/settings-panel"
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
+import { usePreviewCapture } from "~/features/preview-capture/use-preview-capture";
 import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
 import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-context";
 
@@ -19,16 +20,21 @@ export function PubRoutePage({ slug }: { slug: string }) {
       baseContentHtml={baseContentHtml}
       contentState={contentState}
     >
-      <PubRouteContent pub={pub} baseContentHtml={baseContentHtml} />
+      <PubRouteContent slug={slug} pub={pub} baseContentHtml={baseContentHtml} />
     </LiveSessionProvider>
   );
 }
 
 function PubRouteContent({
+  slug,
   pub,
   baseContentHtml,
 }: {
-  pub: UsePubLiveModelOptions["pub"];
+  slug: string;
+  pub:
+    | (UsePubLiveModelOptions["pub"] & { updatedAt?: number; previewHtml?: string })
+    | null
+    | undefined;
   baseContentHtml: string | null;
 }) {
   const session = useLiveSession();
@@ -37,6 +43,15 @@ function PubRouteContent({
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
   const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
+
+  const { capturePreview, handlePreviewCaptured } = usePreviewCapture({
+    slug,
+    liveMode,
+    command: session.command,
+    hasCanvasContent: session.hasCanvasContent,
+    pubUpdatedAt: pub?.updatedAt,
+    hasPreviewHtml: !!pub?.previewHtml,
+  });
 
   return (
     <div className="pub-overlay fixed inset-0 z-50 flex flex-col bg-background text-foreground">
@@ -54,7 +69,9 @@ function PubRouteContent({
         >
           <CanvasPanel
             html={effectiveCanvasHtml}
+            capturePreview={capturePreview}
             onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
+            onPreviewCaptured={isOwner ? handlePreviewCaptured : undefined}
             onRenderError={isOwner ? session.handleRenderError : undefined}
             outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
             visualState={session.visualState}

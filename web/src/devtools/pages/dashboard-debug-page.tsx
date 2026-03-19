@@ -12,22 +12,24 @@ const SAMPLE_PUBS: PubGridItem[] = [
     _id: fakeId(1),
     slug: "hello-world",
     title: "Hello World",
+    previewHtml:
+      '<h1 style="color:#2563eb;font-size:24px;margin:16px">Hello World</h1><p style="margin:0 16px;color:#555">This is an HTML pub with styled content.</p>',
     isPublic: true,
     createdAt: Date.parse("2026-01-02T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-10T10:00:00.000Z"),
     lastViewedAt: Date.parse("2026-01-15T10:00:00.000Z"),
     viewCount: 142,
-    hasContent: true,
   },
   {
     _id: fakeId(2),
     slug: "meeting-notes",
     title: "Meeting Notes",
+    previewHtml:
+      '<h2 style="margin:16px">Meeting Notes</h2><ul style="margin:0 16px;color:#555"><li>Discussed project timeline</li><li>Assigned tasks</li></ul>',
     isPublic: false,
     createdAt: Date.parse("2026-01-04T10:00:00.000Z"),
     updatedAt: Date.parse("2026-01-06T10:00:00.000Z"),
     viewCount: 0,
-    hasContent: true,
   },
   {
     _id: fakeId(3),
@@ -38,7 +40,6 @@ const SAMPLE_PUBS: PubGridItem[] = [
     updatedAt: Date.parse("2026-01-12T10:00:00.000Z"),
     lastViewedAt: Date.parse("2026-01-14T10:00:00.000Z"),
     viewCount: 8,
-    hasContent: true,
   },
   {
     _id: fakeId(4),
@@ -47,7 +48,6 @@ const SAMPLE_PUBS: PubGridItem[] = [
     createdAt: Date.parse("2025-12-28T10:00:00.000Z"),
     updatedAt: Date.parse("2025-12-28T10:00:00.000Z"),
     viewCount: 0,
-    hasContent: false,
   },
 ];
 

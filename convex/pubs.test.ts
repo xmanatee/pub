@@ -10,6 +10,17 @@ describe("update patch construction", () => {
     expect(patch).not.toHaveProperty("slug");
   });
 
+  it("clears previewHtml when content changes", () => {
+    const patch = buildPubPatch({ content: "new" });
+    expect(patch.previewHtml).toBeUndefined();
+    expect(patch).toHaveProperty("previewHtml");
+  });
+
+  it("does not clear previewHtml when only title changes", () => {
+    const patch = buildPubPatch({ title: "new title" });
+    expect(patch).not.toHaveProperty("previewHtml");
+  });
+
   it("includes all fields when all provided", () => {
     const patch = buildPubPatch({
       content: "c",
@@ -18,7 +29,7 @@ describe("update patch construction", () => {
       slug: "s",
     });
     expect(Object.keys(patch).sort()).toEqual(
-      ["content", "isPublic", "slug", "title", "updatedAt"].sort(),
+      ["content", "isPublic", "previewHtml", "slug", "title", "updatedAt"].sort(),
     );
   });
 

@@ -40,6 +40,7 @@ export default defineSchema({
     slug: v.string(),
     contentType: v.optional(v.string()),
     content: v.optional(v.string()),
+    previewHtml: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     isPublic: v.boolean(),

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { parseCanvasBridgeInboundMessage } from "~/features/live/types/live-command-types";
+import {
+  PARENT_TO_CANVAS_SOURCE,
+  parseCanvasBridgeInboundMessage,
+} from "~/features/live/types/live-command-types";
 import type {
   CanvasBridgeCommandMessage,
   CanvasBridgeOutboundMessage,
@@ -12,7 +15,9 @@ import { CanvasLiveVisual } from "./canvas-live-visual";
 
 interface CanvasPanelProps {
   html: string | null;
+  capturePreview?: boolean;
   onCanvasBridgeMessage?: (message: CanvasBridgeCommandMessage) => void;
+  onPreviewCaptured?: (html: string) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
   visualState: LiveVisualState;
@@ -36,7 +41,9 @@ function reportDedupedRenderError(
 
 export function CanvasPanel({
   html,
+  capturePreview,
   onCanvasBridgeMessage,
+  onPreviewCaptured,
   onRenderError,
   outboundCanvasBridgeMessage,
   visualState,
@@ -89,6 +96,11 @@ export function CanvasPanel({
         return;
       }
 
+      if (message.type === "preview.captured") {
+        onPreviewCaptured?.(message.payload.html);
+        return;
+      }
+
       if (message.type === "console-error") {
         reportDedupedRenderError(
           message.payload.message,
@@ -120,7 +132,14 @@ export function CanvasPanel({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [onCanvasBridgeMessage, onRenderError]);
+  }, [onCanvasBridgeMessage, onPreviewCaptured, onRenderError]);
+
+  useEffect(() => {
+    if (!capturePreview || !canvasBridgeReady) return;
+    const frame = iframeRef.current?.contentWindow;
+    if (!frame) return;
+    frame.postMessage({ source: PARENT_TO_CANVAS_SOURCE, type: "preview.capture" }, "*");
+  }, [capturePreview, canvasBridgeReady]);
 
   useEffect(() => {
     if (!outboundCanvasBridgeMessage) return;
