@@ -3,17 +3,13 @@
 Canvas UIs can invoke local tools and agent actions without regenerating the page.
 Commands run locally — check what tools are available before building manifests that depend on them.
 
-### Common tools
+### Tools
 
-- `gog` — Google Workspace (Gmail, Calendar, Drive, Docs, Sheets, etc.)
-- `ffmpeg` / `ffprobe` — video/audio processing
-- `yt-dlp` — YouTube download/metadata
-- `jq` — JSON processing
-- `curl` — HTTP requests
-- `ls`, `cat`, `find`, `wc`, etc. — filesystem operations
-- Any CLI tool installed on the host
+Pick the right tool for the task. Any CLI available on the host can be used as a command executor.
 
-Verify availability with `which <tool>` or `<tool> --help` before relying on it.
+Common: `gog` (Google Workspace), `gh` (GitHub), `curl`/`wget` (HTTP), `jq` (JSON), `sqlite3` (SQL), `python3` (scripting/math/data), `node` (JS), `ffmpeg`/`ffprobe` (audio/video), `imagemagick`/`convert` (images), `yt-dlp` (YouTube), `pandoc` (document conversion), `ls`/`cat`/`find`/`grep`/`awk`/`sed` (filesystem/text).
+
+Verify with `which <tool>` before depending on it.
 
 ### Protocol
 
