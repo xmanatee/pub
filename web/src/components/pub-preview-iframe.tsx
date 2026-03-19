@@ -1,9 +1,8 @@
-import { isNonTrivialSnapshot, parsePreviewSnapshotMessage } from "@shared/preview-snapshot-core";
 import * as React from "react";
 import { getConvexSiteUrl } from "~/lib/convex-url";
 
-export function buildServePreviewUrl(slug: string): string {
-  return `${getConvexSiteUrl()}/serve/${slug}?preview=1`;
+export function buildServeUrl(slug: string): string {
+  return `${getConvexSiteUrl()}/serve/${slug}`;
 }
 
 const OBSERVER_OPTIONS: IntersectionObserverInit = { rootMargin: "200px" };
@@ -11,13 +10,10 @@ const OBSERVER_OPTIONS: IntersectionObserverInit = { rootMargin: "200px" };
 interface PubPreviewIframeProps {
   slug: string;
   title: string;
-  snapshot?: string;
-  onSnapshot?: (slug: string, html: string) => void;
 }
 
-export function PubPreviewIframe({ slug, title, snapshot, onSnapshot }: PubPreviewIframeProps) {
+export function PubPreviewIframe({ slug, title }: PubPreviewIframeProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const iframeRef = React.useRef<HTMLIFrameElement>(null);
   const [visible, setVisible] = React.useState(false);
 
   React.useEffect(() => {
@@ -31,38 +27,13 @@ export function PubPreviewIframe({ slug, title, snapshot, onSnapshot }: PubPrevi
     return () => observer.disconnect();
   }, []);
 
-  React.useEffect(() => {
-    if (snapshot || !visible || !onSnapshot) return;
-    const callback = onSnapshot;
-
-    function handleMessage(event: MessageEvent) {
-      if (event.source !== iframeRef.current?.contentWindow) return;
-      const msg = parsePreviewSnapshotMessage(event.data);
-      if (!msg || !isNonTrivialSnapshot(msg.html)) return;
-      callback(slug, msg.html);
-    }
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [snapshot, visible, onSnapshot, slug]);
-
   return (
     <div ref={containerRef} className="relative h-full w-full">
-      {visible && !snapshot && (
+      {visible && (
         <iframe
-          ref={iframeRef}
-          src={buildServePreviewUrl(slug)}
+          src={buildServeUrl(slug)}
           sandbox="allow-scripts"
           loading="eager"
-          tabIndex={-1}
-          title={title}
-          className="h-full w-full border-none"
-        />
-      )}
-      {snapshot && (
-        <iframe
-          srcDoc={snapshot}
-          sandbox=""
           tabIndex={-1}
           title={title}
           className="h-full w-full border-none"

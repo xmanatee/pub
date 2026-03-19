@@ -223,6 +223,14 @@ export function buildOgTags(pub: { title?: string; description?: string; slug: s
   return tags.join("\n  ");
 }
 
+export function injectIntoHead(content: string, injection: string): string {
+  const match = content.match(/<\/head\s*>/i);
+  if (match?.index !== undefined) {
+    return content.slice(0, match.index) + injection + content.slice(match.index);
+  }
+  return `<head>${injection}</head>${content}`;
+}
+
 export function getOgCardData(
   pub: { title?: string; slug: string; isPublic: boolean } | null,
   slug: string,

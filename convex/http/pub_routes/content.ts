@@ -10,10 +10,10 @@ import {
   errorResponse,
   getOgCardData,
   getPublicUrl,
+  injectIntoHead,
   parseSlugFromRequest,
   rateLimitResponse,
 } from "../shared";
-import { buildPreviewSnapshotScript, injectIntoHead } from "./preview_snapshot";
 
 export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): void {
   http.route({
@@ -32,13 +32,9 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
         return new Response("Not found", { status: 404 });
       }
 
-      const isPreview = new URL(request.url).searchParams.get("preview") === "1";
-      if (!isPreview) {
-        await ctx.runMutation(internal.analytics.recordView, { slug });
-      }
+      await ctx.runMutation(internal.analytics.recordView, { slug });
 
-      const injection = isPreview ? buildPreviewSnapshotScript() : buildOgTags(pub);
-      const content = injectIntoHead(pub.content, injection);
+      const content = injectIntoHead(pub.content, buildOgTags(pub));
       return new Response(content, {
         status: 200,
         headers: {

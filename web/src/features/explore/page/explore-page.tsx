@@ -5,7 +5,6 @@ import { FileText } from "lucide-react";
 import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { useSnapshotCache } from "~/hooks/use-snapshot-cache";
 
 export function ExplorePage() {
   const {
@@ -13,8 +12,6 @@ export function ExplorePage() {
     status,
     loadMore,
   } = usePaginatedQuery(api.pubs.listPublic, {}, { initialNumItems: 12 });
-
-  const { snapshots, handleSnapshot } = useSnapshotCache();
 
   return (
     <div className="px-4 sm:px-6 py-8">
@@ -47,12 +44,7 @@ export function ExplorePage() {
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
                 <div className="aspect-[1200/630] overflow-hidden bg-white relative">
-                  <PubPreviewIframe
-                    slug={pub.slug}
-                    title={pub.title || pub.slug}
-                    snapshot={snapshots.get(pub.slug)}
-                    onSnapshot={handleSnapshot}
-                  />
+                  <PubPreviewIframe slug={pub.slug} title={pub.title || pub.slug} />
                   {pub.description && (
                     <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="px-3 py-2 text-xs text-white leading-snug">{pub.description}</p>

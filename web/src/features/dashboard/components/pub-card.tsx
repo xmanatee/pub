@@ -14,36 +14,21 @@ import { VisibilityBadge } from "./visibility-badge";
 interface PubCardProps {
   pub: PubGridItem;
   isLive?: boolean;
-  snapshot?: string;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
-  onSnapshot?: (slug: string, html: string) => void;
 }
 
-export function PubCard({
-  pub,
-  isLive,
-  snapshot,
-  onToggleVisibility,
-  onDelete,
-  onSnapshot,
-}: PubCardProps) {
-  const canPreview = snapshot || (pub.isPublic && pub.hasContent);
+export function PubCard({ pub, isLive, onToggleVisibility, onDelete }: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
         <div className="aspect-[1200/630] overflow-hidden bg-white relative">
-          {!canPreview ? (
+          {!pub.hasContent ? (
             <div className="h-full w-full flex items-center justify-center bg-muted/30">
               <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
           ) : (
-            <PubPreviewIframe
-              slug={pub.slug}
-              title={pub.title || pub.slug}
-              snapshot={snapshot}
-              onSnapshot={onSnapshot}
-            />
+            <PubPreviewIframe slug={pub.slug} title={pub.title || pub.slug} />
           )}
           {pub.description && (
             <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
