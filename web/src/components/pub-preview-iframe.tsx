@@ -1,16 +1,9 @@
+import { isNonTrivialSnapshot, parsePreviewSnapshotMessage } from "@shared/preview-snapshot-core";
 import * as React from "react";
 import { getConvexSiteUrl } from "~/lib/convex-url";
 
 export function buildServePreviewUrl(slug: string): string {
   return `${getConvexSiteUrl()}/serve/${slug}?preview=1`;
-}
-
-function parseSnapshot(data: unknown): string | null {
-  if (typeof data !== "object" || data === null) return null;
-  const msg = data as Record<string, unknown>;
-  if (msg.source !== "pub-preview" || msg.type !== "snapshot") return null;
-  if (typeof msg.html !== "string" || msg.html.length === 0) return null;
-  return msg.html;
 }
 
 const OBSERVER_OPTIONS: IntersectionObserverInit = { rootMargin: "200px" };
@@ -44,8 +37,9 @@ export function PubPreviewIframe({ slug, title, snapshot, onSnapshot }: PubPrevi
 
     function handleMessage(event: MessageEvent) {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      const html = parseSnapshot(event.data);
-      if (html) callback(slug, html);
+      const msg = parsePreviewSnapshotMessage(event.data);
+      if (!msg || !isNonTrivialSnapshot(msg.html)) return;
+      callback(slug, msg.html);
     }
 
     window.addEventListener("message", handleMessage);

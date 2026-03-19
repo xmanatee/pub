@@ -13,6 +13,7 @@ import {
   parseSlugFromRequest,
   rateLimitResponse,
 } from "../shared";
+import { buildPreviewSnapshotScript, injectIntoHead } from "./preview-snapshot";
 
 export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): void {
   http.route({
@@ -36,14 +37,8 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
         await ctx.runMutation(internal.analytics.recordView, { slug });
       }
 
-      const injection = isPreview
-        ? '<script>(function(){var s="pub-preview";function snap(){var c=document.documentElement.cloneNode(true);c.querySelectorAll("script").forEach(function(e){e.remove()});parent.postMessage({source:s,type:"snapshot",html:c.outerHTML},"*")}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){setTimeout(snap,1e3)})}else{setTimeout(snap,1e3)}})()</script>'
-        : buildOgTags(pub);
-      const headClose = pub.content.indexOf("</head>");
-      const content =
-        headClose !== -1
-          ? pub.content.slice(0, headClose) + injection + pub.content.slice(headClose)
-          : `<head>${injection}</head>${pub.content}`;
+      const injection = isPreview ? buildPreviewSnapshotScript() : buildOgTags(pub);
+      const content = injectIntoHead(pub.content, injection);
       return new Response(content, {
         status: 200,
         headers: {
