@@ -194,7 +194,7 @@ describe("buildSessionBriefing", () => {
     );
 
     // Command protocol
-    expect(briefing).toContain("## Canvas Command Channel");
+    expect(briefing).toContain("## Canvas Command");
     expect(briefing).toContain("application/pub-command-manifest+json");
     expect(briefing).toContain("pub.command(name, args)");
   });
@@ -242,13 +242,13 @@ describe("system prompt content", () => {
     expect(SYSTEM_PROMPT).toContain("self-contained");
     expect(SYSTEM_PROMPT).toContain("console.error");
     expect(SYSTEM_PROMPT).toContain("sensitive data");
-    expect(SYSTEM_PROMPT).toContain("Canvas Command Channel");
+    expect(SYSTEM_PROMPT).toContain("command-manifest");
   });
 });
 
 describe("command protocol guide content", () => {
   it("documents the full command manifest protocol", () => {
-    expect(COMMAND_PROTOCOL_GUIDE).toContain("## Canvas Command Channel");
+    expect(COMMAND_PROTOCOL_GUIDE).toContain("## Canvas Command");
     expect(COMMAND_PROTOCOL_GUIDE).toContain("application/pub-command-manifest+json");
     expect(COMMAND_PROTOCOL_GUIDE).toContain("pub.command(name, args)");
     expect(COMMAND_PROTOCOL_GUIDE).toContain("pub.files.upload");

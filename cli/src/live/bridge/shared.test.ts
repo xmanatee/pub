@@ -44,11 +44,8 @@ const REQUIRED_SYSTEM_PROMPT_CAPABILITIES: ReadonlyArray<readonly [string, strin
   ["console.error", "render error capture"],
   ["sensitive data", "sensitive data prohibition"],
 
-  // Commands — specific usage patterns, not just existence
-  ["pub-command-manifest+json", "manifest script tag declaration"],
-  ["pub.command(name, args)", "command invocation syntax"],
-  ["pub.files.upload(", "file upload call signature"],
-  ["pub.files.download(", "file download call signature"],
+  // Canvas — command-manifest reference
+  ["command-manifest", "command-manifest reference in canvas section"],
 
   // Pub management
   ["pub update", "metadata update command"],
