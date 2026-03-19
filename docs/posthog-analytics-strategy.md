@@ -40,8 +40,8 @@ Rules:
 
 | Event | Properties |
 |---|---|
-| `pub_viewed` | `slug`, `contentType`, `isPublic` |
-| `pub_deleted` | `slug`, `contentType` |
+| `pub_viewed` | `slug`, `isPublic` |
+| `pub_deleted` | `slug` |
 | `pub_visibility_toggled` | `slug`, `newVisibility` |
 | `pub_link_copied` | `slug` |
 
@@ -99,7 +99,7 @@ Create and maintain these dashboards in PostHog:
 - `dashboard_tab_changed` by `tab`
 
 3. Content and sharing
-- `pub_viewed` by `contentType`
+- `pub_viewed` by `isPublic`
 - `pub_visibility_toggled`
 - `pub_link_copied`
 
