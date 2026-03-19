@@ -38,6 +38,7 @@ export default defineSchema({
   pubs: defineTable({
     userId: v.id("users"),
     slug: v.string(),
+    contentType: v.optional(v.string()),
     content: v.optional(v.string()),
     previewHtml: v.optional(v.string()),
     title: v.optional(v.string()),
