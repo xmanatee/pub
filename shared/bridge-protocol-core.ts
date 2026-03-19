@@ -81,15 +81,6 @@ export type BridgeCapability =
   | "stream"
   | "command";
 
-export type CapabilitiesPayload = {
-  caps: BridgeCapability[];
-};
-
-export type ChannelEventPayload = {
-  channel: string;
-  format?: string;
-};
-
 export type StatusPayload = LiveRuntimeStateSnapshot & {
   channels?: string[];
   slug?: string;
