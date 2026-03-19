@@ -252,11 +252,15 @@ export function createDaemonChannelManager(params: {
             queueAck(msg.id, name);
           }
           if (name === CHANNELS.COMMAND) {
-            void onCommandMessage(msg);
+            void onCommandMessage(msg).catch((error) => {
+              markError("command message handler failed", error);
+            });
             return;
           }
           if (name === CHANNELS.CANVAS_FILE) {
-            void onCanvasFileMessage(msg);
+            void onCanvasFileMessage(msg).catch((error) => {
+              markError("canvas file message handler failed", error);
+            });
             return;
           }
           state.bridgeRunner?.enqueue([{ channel: name, msg }]);
@@ -304,7 +308,9 @@ export function createDaemonChannelManager(params: {
           queueAck(binMsg.id, name);
         }
         if (name === CHANNELS.CANVAS_FILE) {
-          void onCanvasFileMessage(binMsg);
+          void onCanvasFileMessage(binMsg).catch((error) => {
+            markError("canvas file binary handler failed", error);
+          });
           return;
         }
         state.bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);

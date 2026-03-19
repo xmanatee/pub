@@ -130,7 +130,11 @@ export function createBridgeManager(params: {
       state.bridgeAbort = null;
     }
     if (state.bridgeRunner) {
-      await state.bridgeRunner.stop();
+      try {
+        await state.bridgeRunner.stop();
+      } catch (error) {
+        debugLog("bridge runner stop failed", error);
+      }
       state.bridgeRunner = null;
     }
   }

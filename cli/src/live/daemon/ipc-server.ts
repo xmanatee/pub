@@ -4,8 +4,14 @@ import { type IpcRequest, parseIpcRequest } from "../transport/ipc-protocol.js";
 
 type DaemonIpcRequestHandler = (request: IpcRequest) => Promise<Record<string, unknown>>;
 
-export function createDaemonIpcServer(handler: DaemonIpcRequestHandler): net.Server {
-  return net.createServer((conn) => {
+export function createDaemonIpcServer(
+  handler: DaemonIpcRequestHandler,
+  onError?: (error: Error) => void,
+): net.Server {
+  const server = net.createServer((conn) => {
+    conn.on("error", (error) => {
+      onError?.(error);
+    });
     let data = "";
     conn.on("data", (chunk) => {
       data += chunk.toString();
@@ -31,4 +37,8 @@ export function createDaemonIpcServer(handler: DaemonIpcRequestHandler): net.Ser
       }
     });
   });
+  server.on("error", (error) => {
+    onError?.(error);
+  });
+  return server;
 }

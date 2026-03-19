@@ -70,7 +70,9 @@ export function createPeerManager(params: {
       if (peerState === "connected") {
         setConnectionState("connected");
         flushQueuedAcks();
-        void params.ensureAgentReady();
+        void params.ensureAgentReady().catch((error) => {
+          markError("failed to ensure agent ready after peer connected", error);
+        });
         return;
       }
       if (peerState === "disconnected") {

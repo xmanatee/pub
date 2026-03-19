@@ -130,7 +130,9 @@ export function createDaemonLifecycle(params: {
       const latest = readLatestCliVersion(versionFilePath);
       if (latest && latest !== cliVersion) {
         markError(`detected CLI upgrade (${cliVersion} → ${latest}); shutting down`);
-        void shutdown();
+        void shutdown().catch((error) => {
+          logAlways("shutdown failed after CLI upgrade detection", error);
+        });
       }
     } catch (error) {
       markError("health check failed to read latest CLI version", error);

@@ -72,7 +72,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     if (state.stopped) return;
     state.stopped = true;
     presenceGeneration += 1;
-    await cleanup();
+    try {
+      await cleanup();
+    } catch (error) {
+      lifecycle.logAlways("cleanup failed during shutdown", error);
+    }
     await exitProcess(exitCode);
   }
 
@@ -188,7 +192,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   });
 
   lifecycle.setConnectionClosedHandler((reason) => {
-    void peerManager.clearActiveLiveSession(reason);
+    void peerManager.clearActiveLiveSession(reason).catch((error) => {
+      lifecycle.debugLog("failed to clear active live session", error);
+    });
   });
 
   const signaling = createSignalingController({
@@ -323,13 +329,17 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     settlePendingAck: channelManager.settlePendingAck,
     markError: lifecycle.markError,
     shutdown: () => {
-      void shutdown();
+      void shutdown().catch((error) => {
+        lifecycle.logAlways("shutdown failed from IPC request", error);
+      });
     },
     writeAckTimeoutMs: 5_000,
     writeAckMaxAttempts: 2,
   });
 
-  const ipcServer = createDaemonIpcServer(handleIpcRequest);
+  const ipcServer = createDaemonIpcServer(handleIpcRequest, (error) => {
+    lifecycle.debugLog("IPC server error", error);
+  });
   ipcServer.listen(socketPath);
 
   const infoDir = path.dirname(infoPath);
@@ -348,7 +358,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     );
 
     lifecycle.clearAllTimers();
-    await signaling.stop();
+
+    try {
+      await signaling.stop();
+    } catch (error) {
+      lifecycle.debugLog("signaling stop failed during cleanup", error);
+    }
 
     try {
       await apiClient.goOffline({ daemonSessionId });
@@ -356,9 +371,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.debugLog("failed to go offline", error);
     }
 
-    await bridgeManager.stopBridge();
+    try {
+      await bridgeManager.stopBridge();
+    } catch (error) {
+      lifecycle.debugLog("bridge stop failed during cleanup", error);
+    }
+
     commandHandler.stop();
-    await peerManager.closeCurrentPeer();
+
+    try {
+      await peerManager.closeCurrentPeer();
+    } catch (error) {
+      lifecycle.debugLog("peer close failed during cleanup", error);
+    }
+
     ipcServer.close();
 
     try {
@@ -377,22 +403,29 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   process.on("SIGTERM", () => {
     lifecycle.logAlways("received SIGTERM");
-    void shutdown(0);
+    void shutdown(0).catch((error) => {
+      lifecycle.logAlways("shutdown failed after SIGTERM", error);
+    });
   });
   process.on("SIGINT", () => {
     lifecycle.logAlways("received SIGINT");
-    void shutdown(0);
+    void shutdown(0).catch((error) => {
+      lifecycle.logAlways("shutdown failed after SIGINT", error);
+    });
   });
   process.on("SIGHUP", () => {
     lifecycle.logAlways("received SIGHUP");
-    void shutdown(0);
+    void shutdown(0).catch((error) => {
+      lifecycle.logAlways("shutdown failed after SIGHUP", error);
+    });
   });
   process.on("uncaughtException", (error) => {
     lifecycle.markError("uncaught exception in daemon", error, { alwaysLog: true });
-    void shutdown(1);
+    void shutdown(1).catch((shutdownError) => {
+      lifecycle.logAlways("shutdown failed after uncaught exception", shutdownError);
+    });
   });
   process.on("unhandledRejection", (reason) => {
     lifecycle.markError("unhandled rejection in daemon", reason, { alwaysLog: true });
-    void shutdown(1);
   });
 }
