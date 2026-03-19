@@ -52,7 +52,7 @@ function makeDoc(html: string): Document {
 describe("capturePreview logic", () => {
   it("strips script tags", () => {
     const result = capturePreview(
-      makeDoc('<html><head></head><body><p>Hello</p><script>alert(1)</script></body></html>'),
+      makeDoc("<html><head></head><body><p>Hello</p><script>alert(1)</script></body></html>"),
     );
     expect(result).toContain("<p>Hello</p>");
     expect(result).not.toContain("<script");
@@ -94,9 +94,7 @@ describe("capturePreview logic", () => {
 
   it("preserves style tags", () => {
     const result = capturePreview(
-      makeDoc(
-        "<html><head><style>body{margin:0}</style></head><body><p>Content</p></body></html>",
-      ),
+      makeDoc("<html><head><style>body{margin:0}</style></head><body><p>Content</p></body></html>"),
     );
     expect(result).toContain("<style>");
     expect(result).toContain("<p>Content</p>");
