@@ -1,60 +1,62 @@
-## Canvas Command
+## Canvas Commands
 
-Use this when canvas UI interactions need local refetches, side effects, or rerunning local tools without regenerating the whole canvas.
+Canvas UIs can invoke local tools and agent actions without regenerating the page.
+Commands run locally — check what tools are available before building manifests that depend on them.
+
+### Common tools
+
+- `gog` — Google Workspace (Gmail, Calendar, Drive, Docs, Sheets, etc.)
+- `ffmpeg` / `ffprobe` — video/audio processing
+- `yt-dlp` — YouTube download/metadata
+- `jq` — JSON processing
+- `curl` — HTTP requests
+- `ls`, `cat`, `find`, `wc`, etc. — filesystem operations
+- Any CLI tool installed on the host
+
+Verify availability with `which <tool>` or `<tool> --help` before relying on it.
 
 ### Protocol
 
-1. Put a command manifest in the HTML:
+1. Embed a command manifest in the HTML:
 
 ```html
 <script type="application/pub-command-manifest+json">
 {
-  "manifestId": "mail-ui",
+  "manifestId": "my-ui",
   "functions": [
     {
-      "name": "archiveEmail",
-      "returns": "void",
-      "executor": {
-        "kind": "exec",
-        "command": "gog",
-        "args": ["archive", "{{emailId}}"]
-      }
-    },
-    {
-      "name": "getEmail",
+      "name": "fetchItems",
       "returns": "json",
-      "executor": {
-        "kind": "exec",
-        "command": "gog",
-        "args": ["get", "{{emailId}}", "--json"]
-      }
+      "executor": { "kind": "exec", "command": "my-tool", "args": ["list", "--json"] }
     },
     {
-      "name": "summarizeText",
+      "name": "deleteItem",
+      "returns": "void",
+      "executor": { "kind": "exec", "command": "my-tool", "args": ["delete", "{{itemId}}"] }
+    },
+    {
+      "name": "summarize",
       "returns": "text",
-      "executor": {
-        "kind": "agent",
-        "mode": "detached",
-        "prompt": "Summarize text: {{emailText}}"
-      }
+      "executor": { "kind": "agent", "mode": "detached", "prompt": "Summarize: {{content}}" }
     }
   ]
 }
 </script>
 ```
 
-2. In canvas JS, call actions with `await pub.command(name, args)` or `await pub.commands.<name>(args)`.
-3. Return semantics:
-   - `returns: "void"` for side effects (resolves `null`).
-   - `returns: "text" | "json"` for payload responses (promise resolves with value; errors reject).
-4. Agent executors (`executor.kind = "agent"`) use a local agent runtime, not the browser:
-   - `prompt`: the prompt to send. Use `{{paramName}}` for interpolation from the JS call's args object.
-   - `mode`: `"detached"` (default — spawns an independent agent, isolated and parallel-safe) or `"main"` (runs within the live session's main agent with full context and tools). Use `"detached"` for most command-style tasks (summarize, generate, analyze). Use `"main"` only when the command needs the agent's ongoing session context.
-   - `provider` (optional): `"auto"` (default — picks best available), `"claude-code"`, `"claude-sdk"`, or `"openclaw"`.
-   - `profile` (optional, detached only): `"fast"`, `"default"`, or `"deep"` — controls agent effort level. Rejected in `"main"` mode.
-   - `model` (optional, detached only): explicit model override. Rejected in `"main"` mode.
-   - `output` (optional): `"text"` or `"json"` — hint for how to parse agent output.
-5. File transfers between canvas and daemon:
-   - Upload: `await pub.files.upload(blobOrBytes, { mime? })` — stages bytes on the daemon and returns `{ path, filename, mime, size }`. The canvas cannot choose the path or filename; Pub manages per-session storage.
-   - Download: `await pub.files.download({ path, filename? })` — streams a managed daemon file back to the browser and triggers a download. Restricted to Pub-managed canvas file storage.
-   - Use the returned `path` from uploads when invoking local commands that need a real file path.
+2. Call from JS: `await pub.command("fetchItems", {})` or `await pub.commands.fetchItems({})`.
+
+3. Return types:
+   - `"void"` — side effect, resolves `null`
+   - `"text"` / `"json"` — resolves with payload; errors reject
+
+4. Agent executors (`kind: "agent"`) run a local agent, not in the browser:
+   - `prompt`: template with `{{param}}` interpolation from the JS call's args
+   - `mode`: `"detached"` (default — independent, parallel-safe) or `"main"` (uses session context and tools)
+   - `output`: `"text"` (default — agent response returned as string) or `"json"` (agent response parsed as JSON before returning to canvas). Match this to the function's `returns` type.
+   - Optional: `provider`, `profile` (`"fast"` / `"default"` / `"deep"`), `model`
+
+5. File transfers:
+   - Upload: `const { path } = await pub.files.upload(blob, { mime? })` → `{ path, filename, mime, size }`
+   - Download: `await pub.files.download({ path, filename? })` → triggers browser download
+   - Use the returned `path` when invoking commands that need file paths

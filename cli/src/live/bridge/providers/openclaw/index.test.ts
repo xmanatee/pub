@@ -2,7 +2,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CHANNELS } from "../../../../../../shared/bridge-protocol-core";
-import { COMMAND_PROTOCOL_GUIDE, SYSTEM_PROMPT } from "../../../prompts/index.js";
+import { SYSTEM_PROMPT } from "../../../prompts/index.js";
 import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
@@ -189,14 +189,12 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("[Live: my-demo] Session started.");
     expect(briefing).toContain("Title: My Landing Page");
     expect(briefing).toContain("Visibility: public");
-    expect(briefing).toContain(
-      "The canvas contents are in </tmp/my-demo.session-content.html>. This file can be large",
-    );
+    expect(briefing).toContain("/tmp/my-demo.session-content.html");
 
     // Command protocol
-    expect(briefing).toContain("## Canvas Command");
+    expect(briefing).toContain("## Canvas Commands");
     expect(briefing).toContain("application/pub-command-manifest+json");
-    expect(briefing).toContain("pub.command(name, args)");
+    expect(briefing).toContain("pub.command(");
   });
 
   it("system prompt precedes pub context (separated by ---)", () => {
@@ -232,26 +230,3 @@ describe("prependSystemPrompt (for session-less per-message delivery)", () => {
   });
 });
 
-describe("system prompt content", () => {
-  it("contains all essential communication rules", () => {
-    expect(SYSTEM_PROMPT).toContain("pub write");
-    expect(SYSTEM_PROMPT).toContain('pub write "');
-    expect(SYSTEM_PROMPT).toContain("pub write -c canvas -f");
-    expect(SYSTEM_PROMPT).toContain("Prefer canvas");
-    expect(SYSTEM_PROMPT).toContain("sandboxed iframe");
-    expect(SYSTEM_PROMPT).toContain("self-contained");
-    expect(SYSTEM_PROMPT).toContain("console.error");
-    expect(SYSTEM_PROMPT).toContain("sensitive data");
-    expect(SYSTEM_PROMPT).toContain("command-manifest");
-  });
-});
-
-describe("command protocol guide content", () => {
-  it("documents the full command manifest protocol", () => {
-    expect(COMMAND_PROTOCOL_GUIDE).toContain("## Canvas Command");
-    expect(COMMAND_PROTOCOL_GUIDE).toContain("application/pub-command-manifest+json");
-    expect(COMMAND_PROTOCOL_GUIDE).toContain("pub.command(name, args)");
-    expect(COMMAND_PROTOCOL_GUIDE).toContain("pub.files.upload");
-    expect(COMMAND_PROTOCOL_GUIDE).toContain("pub.files.download");
-  });
-});

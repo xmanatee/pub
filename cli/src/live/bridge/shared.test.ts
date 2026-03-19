@@ -40,7 +40,7 @@ const REQUIRED_SYSTEM_PROMPT_CAPABILITIES: ReadonlyArray<readonly [string, strin
 
   // Canvas
   ["sandboxed iframe", "canvas rendering model"],
-  ["self-contained", "self-contained HTML requirement"],
+  ["Self-contained", "self-contained HTML requirement"],
   ["console.error", "render error capture"],
   ["sensitive data", "sensitive data prohibition"],
 
