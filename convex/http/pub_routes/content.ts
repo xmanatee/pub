@@ -13,7 +13,7 @@ import {
   parseSlugFromRequest,
   rateLimitResponse,
 } from "../shared";
-import { buildPreviewSnapshotScript, injectIntoHead } from "./preview-snapshot";
+import { buildPreviewSnapshotScript, injectIntoHead } from "./preview_snapshot";
 
 export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): void {
   http.route({

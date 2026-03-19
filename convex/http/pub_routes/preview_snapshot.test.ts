@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PREVIEW_SNAPSHOT_SOURCE } from "../../../shared/preview-snapshot-core";
-import { buildPreviewSnapshotScript, injectIntoHead } from "./preview-snapshot";
+import { buildPreviewSnapshotScript, injectIntoHead } from "./preview_snapshot";
 
 describe("buildPreviewSnapshotScript", () => {
   const script = buildPreviewSnapshotScript();
