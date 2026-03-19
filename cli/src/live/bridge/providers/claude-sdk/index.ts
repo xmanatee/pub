@@ -17,6 +17,7 @@ import {
   readRenderErrorMessage,
   readTextChatMessage,
 } from "../../shared.js";
+import { readSdkAssistantText } from "./event-reader.js";
 import { buildSdkSessionOptionsFromSettings, loadClaudeSdk } from "./runtime.js";
 
 export {
@@ -28,29 +29,6 @@ export { buildSdkSessionOptionsFromSettings } from "./runtime.js";
 
 const MAX_SESSION_RECREATIONS = 2;
 const SESSION_BRIEFING_MAX_TURNS = 2;
-
-function readClaudeSdkAssistantOutput(message: unknown): string {
-  if (!message || typeof message !== "object") return "";
-  const event = message as {
-    text?: unknown;
-    message?: unknown;
-    delta?: { text?: unknown } | null;
-    content?: unknown;
-  };
-  if (typeof event.text === "string") return event.text;
-  if (event.delta && typeof event.delta.text === "string") return event.delta.text;
-  if (typeof event.message === "string") return event.message;
-  if (Array.isArray(event.content)) {
-    return event.content
-      .map((entry) =>
-        entry && typeof entry === "object" && "text" in entry && typeof entry.text === "string"
-          ? entry.text
-          : "",
-      )
-      .join("");
-  }
-  return "";
-}
 
 export async function createClaudeSdkBridgeRunner(
   config: BridgeRunnerConfig,
@@ -117,7 +95,7 @@ export async function createClaudeSdkBridgeRunner(
           break;
         }
       }
-      const text = readClaudeSdkAssistantOutput(msg);
+      const text = readSdkAssistantText(msg);
       if (text.length > 0) {
         collected += text;
       }

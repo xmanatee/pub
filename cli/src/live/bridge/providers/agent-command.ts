@@ -7,6 +7,7 @@ import type {
 import type { BridgeSettings, ClaudeBridgeSettings } from "../../../core/config/index.js";
 import type { BridgeRunner } from "../shared.js";
 import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
+import { readSdkAssistantText } from "./claude-sdk/event-reader.js";
 import { buildSdkSessionOptionsFromSettings } from "./claude-sdk/index.js";
 import { loadClaudeSdk } from "./claude-sdk/runtime.js";
 
@@ -35,29 +36,6 @@ function readClaudeAssistantOutput(line: string): string | null {
   } catch {
     return null;
   }
-}
-
-function readClaudeSdkAssistantOutput(message: unknown): string {
-  if (!message || typeof message !== "object") return "";
-  const event = message as {
-    text?: unknown;
-    message?: unknown;
-    delta?: { text?: unknown } | null;
-    content?: unknown;
-  };
-  if (typeof event.text === "string") return event.text;
-  if (event.delta && typeof event.delta.text === "string") return event.delta.text;
-  if (typeof event.message === "string") return event.message;
-  if (Array.isArray(event.content)) {
-    return event.content
-      .map((entry) =>
-        entry && typeof entry === "object" && "text" in entry && typeof entry.text === "string"
-          ? entry.text
-          : "",
-      )
-      .join("");
-  }
-  return "";
 }
 
 function parseAgentOutput(outputText: string, output: "text" | "json"): unknown {
@@ -401,7 +379,7 @@ async function executeDetachedClaudeSdkAgentCommand(params: {
       try {
         await session.send(params.prompt);
         for await (const message of session.stream()) {
-          const text = readClaudeSdkAssistantOutput(message);
+          const text = readSdkAssistantText(message);
           if (text.length > 0) {
             collected += text;
             if (collected.length > params.maxOutputBytes) {
