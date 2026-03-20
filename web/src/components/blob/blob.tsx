@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
+import { type BlobProps, smoothLerp, smoothLerpHue } from "~/components/blob/blob-tone";
 import { cn } from "~/lib/utils";
-import { smoothLerp, smoothLerpHue, type VisualProps } from "./shared";
 
 const TAU = Math.PI * 2;
 const POINTS = 7;
@@ -25,7 +25,7 @@ function buildBlobPath(ctx: CanvasRenderingContext2D, pts: [number, number][], c
   ctx.closePath();
 }
 
-export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
+export function Blob({ tone, dimmed = false, className }: BlobProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const toneRef = useRef(tone);
   const currentToneRef = useRef({ ...tone });
@@ -57,7 +57,7 @@ export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
     let cachedOpacity = Number.NaN;
     let cachedCoreScale = Number.NaN;
 
-    const BLUR_SCALE = 0.25;
+    const blurScale = 0.25;
     const offscreen = document.createElement("canvas");
     const offCtx = offscreen.getContext("2d");
     if (!offCtx) return;
@@ -72,8 +72,8 @@ export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
       canvas.height = h * dpr;
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.scale(dpr, dpr);
-      offscreen.width = w * BLUR_SCALE;
-      offscreen.height = h * BLUR_SCALE;
+      offscreen.width = w * blurScale;
+      offscreen.height = h * blurScale;
       cachedGrad = null;
       cachedInnerGrad = null;
     };
@@ -87,11 +87,11 @@ export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
 
     const phases = Array.from(
       { length: POINTS },
-      (_, i) => (i / POINTS) * TAU + Math.random() * 0.8,
+      (_, index) => (index / POINTS) * TAU + Math.random() * 0.8,
     );
     const innerPhases = Array.from(
       { length: INNER_POINTS },
-      (_, i) => (i / INNER_POINTS) * TAU + Math.random() * 1.0 + 1.0,
+      (_, index) => (index / INNER_POINTS) * TAU + Math.random() * 1.0 + 1.0,
     );
 
     let t = 0;
@@ -103,17 +103,17 @@ export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
       lastTimeRef.current = timestamp;
 
       const target = toneRef.current;
-      const cur = currentToneRef.current;
-      cur.hueA = smoothLerpHue(cur.hueA, target.hueA, 3.0, dt);
-      cur.hueB = smoothLerpHue(cur.hueB, target.hueB, 3.0, dt);
-      cur.hueC = smoothLerpHue(cur.hueC, target.hueC, 3.0, dt);
-      cur.energy = smoothLerp(cur.energy, target.energy, 3.0, dt);
-      cur.speedMs = smoothLerp(cur.speedMs, target.speedMs, 3.0, dt);
-      cur.glow = smoothLerp(cur.glow, target.glow, 3.0, dt);
-      cur.saturation = smoothLerp(cur.saturation, target.saturation, 3.0, dt);
-      cur.coreScale = smoothLerp(cur.coreScale, target.coreScale, 3.0, dt);
+      const currentTone = currentToneRef.current;
+      currentTone.hueA = smoothLerpHue(currentTone.hueA, target.hueA, 3.0, dt);
+      currentTone.hueB = smoothLerpHue(currentTone.hueB, target.hueB, 3.0, dt);
+      currentTone.hueC = smoothLerpHue(currentTone.hueC, target.hueC, 3.0, dt);
+      currentTone.energy = smoothLerp(currentTone.energy, target.energy, 3.0, dt);
+      currentTone.speedMs = smoothLerp(currentTone.speedMs, target.speedMs, 3.0, dt);
+      currentTone.glow = smoothLerp(currentTone.glow, target.glow, 3.0, dt);
+      currentTone.saturation = smoothLerp(currentTone.saturation, target.saturation, 3.0, dt);
+      currentTone.coreScale = smoothLerp(currentTone.coreScale, target.coreScale, 3.0, dt);
 
-      const speed = 16_000 / cur.speedMs;
+      const speed = 16_000 / currentTone.speedMs;
       t += dt * speed;
 
       ctx.globalAlpha = 1;
@@ -121,95 +121,110 @@ export function BlobVisual({ tone, dimmed = false, className }: VisualProps) {
 
       const cx = w * 0.5;
       const cy = h * 0.48;
-      const maxRadius = Math.min(w, h) * RADIUS_FRACTION * cur.coreScale;
+      const maxRadius = Math.min(w, h) * RADIUS_FRACTION * currentTone.coreScale;
       const innerMaxRadius = maxRadius * 0.4;
-      const wobbleBudget = maxRadius * WOBBLE_MAX * cur.energy;
+      const wobbleBudget = maxRadius * WOBBLE_MAX * currentTone.energy;
       const centerRadius = maxRadius - wobbleBudget;
       const amp1 = wobbleBudget * 0.48;
       const amp2 = wobbleBudget * 0.28;
       const amp3 = wobbleBudget * 0.17;
       const amp4 = wobbleBudget * 0.07;
 
-      const pts: [number, number][] = [];
+      const points: [number, number][] = [];
       for (let i = 0; i < POINTS; i++) {
-        const ph = phases[i];
-        const wobble = Math.sin(t * 0.7 + ph * 1.9) * 0.04 * cur.energy;
+        const phase = phases[i];
+        const wobble = Math.sin(t * 0.7 + phase * 1.9) * 0.04 * currentTone.energy;
         const angle = (i / POINTS) * TAU + wobble;
-        const r =
+        const radius =
           centerRadius +
-          Math.sin(t + ph) * amp1 +
-          Math.sin(t * 1.7 + ph * 2.3) * amp2 +
-          Math.sin(t * 2.3 + ph * 3.1) * amp3 +
-          Math.sin(t * 3.1 + ph * 4.7) * amp4;
-        pts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
+          Math.sin(t + phase) * amp1 +
+          Math.sin(t * 1.7 + phase * 2.3) * amp2 +
+          Math.sin(t * 2.3 + phase * 3.1) * amp3 +
+          Math.sin(t * 3.1 + phase * 4.7) * amp4;
+        points.push([cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius]);
       }
 
       const opacity = dimmedRef.current ? 0.24 : 1;
-      const sat = cur.saturation * 80;
+      const saturation = currentTone.saturation * 80;
 
       if (
         !cachedGrad ||
         !cachedInnerGrad ||
-        Math.abs(cur.hueA - cachedHueA) > 0.5 ||
-        Math.abs(cur.hueB - cachedHueB) > 0.5 ||
-        Math.abs(cur.hueC - cachedHueC) > 0.5 ||
-        Math.abs(sat - cachedSat) > 0.5 ||
+        Math.abs(currentTone.hueA - cachedHueA) > 0.5 ||
+        Math.abs(currentTone.hueB - cachedHueB) > 0.5 ||
+        Math.abs(currentTone.hueC - cachedHueC) > 0.5 ||
+        Math.abs(saturation - cachedSat) > 0.5 ||
         Math.abs(opacity - cachedOpacity) > 0.001 ||
-        Math.abs(cur.coreScale - cachedCoreScale) > 0.005
+        Math.abs(currentTone.coreScale - cachedCoreScale) > 0.005
       ) {
         cachedGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius * 1.2);
-        cachedGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 62% / ${0.7 * opacity})`);
-        cachedGrad.addColorStop(0.5, `hsl(${cur.hueB} ${sat}% 56% / ${0.5 * opacity})`);
-        cachedGrad.addColorStop(1, `hsl(${cur.hueC} ${sat}% 50% / ${0.15 * opacity})`);
+        cachedGrad.addColorStop(
+          0,
+          `hsl(${currentTone.hueA} ${saturation}% 62% / ${0.7 * opacity})`,
+        );
+        cachedGrad.addColorStop(
+          0.5,
+          `hsl(${currentTone.hueB} ${saturation}% 56% / ${0.5 * opacity})`,
+        );
+        cachedGrad.addColorStop(
+          1,
+          `hsl(${currentTone.hueC} ${saturation}% 50% / ${0.15 * opacity})`,
+        );
         cachedInnerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerMaxRadius * 1.4);
-        cachedInnerGrad.addColorStop(0, `hsl(${cur.hueA} ${sat}% 76% / ${0.6 * opacity})`);
-        cachedInnerGrad.addColorStop(0.6, `hsl(${cur.hueB} ${sat}% 68% / ${0.3 * opacity})`);
+        cachedInnerGrad.addColorStop(
+          0,
+          `hsl(${currentTone.hueA} ${saturation}% 76% / ${0.6 * opacity})`,
+        );
+        cachedInnerGrad.addColorStop(
+          0.6,
+          `hsl(${currentTone.hueB} ${saturation}% 68% / ${0.3 * opacity})`,
+        );
         cachedInnerGrad.addColorStop(1, "transparent");
-        cachedHueA = cur.hueA;
-        cachedHueB = cur.hueB;
-        cachedHueC = cur.hueC;
-        cachedSat = sat;
+        cachedHueA = currentTone.hueA;
+        cachedHueB = currentTone.hueB;
+        cachedHueC = currentTone.hueC;
+        cachedSat = saturation;
         cachedOpacity = opacity;
-        cachedCoreScale = cur.coreScale;
+        cachedCoreScale = currentTone.coreScale;
       }
 
-      buildBlobPath(ctx, pts, POINTS);
+      buildBlobPath(ctx, points, POINTS);
       ctx.fillStyle = cachedGrad;
       ctx.fill();
 
       offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
       offCtx.save();
-      offCtx.scale(BLUR_SCALE, BLUR_SCALE);
-      buildBlobPath(offCtx, pts, POINTS);
+      offCtx.scale(blurScale, blurScale);
+      buildBlobPath(offCtx, points, POINTS);
       offCtx.fillStyle = cachedGrad;
       offCtx.fill();
       offCtx.restore();
-      ctx.globalAlpha = (0.12 + cur.energy * 0.18) * opacity;
+      ctx.globalAlpha = (0.12 + currentTone.energy * 0.18) * opacity;
       ctx.drawImage(offscreen, 0, 0, w, h);
 
-      ctx.globalAlpha = (0.2 + cur.energy * 0.4) * opacity;
-      ctx.strokeStyle = `hsl(${cur.hueA} ${sat}% 74%)`;
+      ctx.globalAlpha = (0.2 + currentTone.energy * 0.4) * opacity;
+      ctx.strokeStyle = `hsl(${currentTone.hueA} ${saturation}% 74%)`;
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      const innerWobble = innerMaxRadius * WOBBLE_MAX * cur.energy;
+      const innerWobble = innerMaxRadius * WOBBLE_MAX * currentTone.energy;
       const innerCenter = innerMaxRadius - innerWobble;
       const innerAmp1 = innerWobble * 0.65;
       const innerAmp2 = innerWobble * 0.35;
-      const innerPts: [number, number][] = [];
+      const innerPoints: [number, number][] = [];
       for (let i = 0; i < INNER_POINTS; i++) {
-        const ph = innerPhases[i];
-        const wobble = Math.sin(t * 0.9 + ph * 2.1) * 0.06 * cur.energy;
+        const phase = innerPhases[i];
+        const wobble = Math.sin(t * 0.9 + phase * 2.1) * 0.06 * currentTone.energy;
         const angle = (i / INNER_POINTS) * TAU + wobble;
-        const r =
+        const radius =
           innerCenter +
-          Math.sin(t * 1.3 + ph) * innerAmp1 +
-          Math.sin(t * 2.1 + ph * 1.7) * innerAmp2;
-        innerPts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
+          Math.sin(t * 1.3 + phase) * innerAmp1 +
+          Math.sin(t * 2.1 + phase * 1.7) * innerAmp2;
+        innerPoints.push([cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius]);
       }
 
       ctx.globalAlpha = 1;
-      buildBlobPath(ctx, innerPts, INNER_POINTS);
+      buildBlobPath(ctx, innerPoints, INNER_POINTS);
       ctx.fillStyle = cachedInnerGrad;
       ctx.fill();
 

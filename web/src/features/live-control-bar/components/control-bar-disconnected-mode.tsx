@@ -1,8 +1,9 @@
 import { LayoutDashboard, RefreshCw } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import { cn } from "~/lib/utils";
-import { CB } from "./control-bar-classes";
+import {
+  ControlBarIconAction,
+  ControlBarLabel,
+  ControlBarPanel,
+} from "~/components/control-bar/control-bar-parts";
 
 interface ControlBarDisconnectedModeProps {
   onExit: () => void;
@@ -14,40 +15,21 @@ export function ControlBarDisconnectedMode({
   onReconnect,
 }: ControlBarDisconnectedModeProps) {
   return (
-    <div className={cn(CB.controlBar, CB.controlHeight)}>
-      <span className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground">
-        Connection lost
-      </span>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="control"
-            className={CB.actionButton}
-            onClick={onExit}
-            aria-label="Dashboard"
-          >
-            <LayoutDashboard />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Dashboard</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="default"
-            size="control"
-            className={CB.actionButton}
-            onClick={onReconnect}
-            aria-label="Reconnect"
-          >
-            <RefreshCw />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Reconnect</TooltipContent>
-      </Tooltip>
-    </div>
+    <ControlBarPanel>
+      <ControlBarLabel>Connection lost</ControlBarLabel>
+      <ControlBarIconAction
+        icon={<LayoutDashboard />}
+        label="Dashboard"
+        onClick={onExit}
+        tooltip="Dashboard"
+      />
+      <ControlBarIconAction
+        icon={<RefreshCw />}
+        label="Reconnect"
+        onClick={onReconnect}
+        tooltip="Reconnect"
+        variant="default"
+      />
+    </ControlBarPanel>
   );
 }

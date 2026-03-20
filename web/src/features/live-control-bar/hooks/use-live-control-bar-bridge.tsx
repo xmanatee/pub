@@ -1,0 +1,358 @@
+import { ArrowLeft } from "lucide-react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect } from "react";
+import {
+  useControlBarBaseLayer,
+  useControlBarChrome,
+  useControlBarLayer,
+} from "~/components/control-bar/control-bar-controller";
+import { controlBarNotificationsToAddons } from "~/components/control-bar/control-bar-parts";
+import { CONTROL_BAR_STYLES } from "~/components/control-bar/control-bar-styles";
+import type { ControlBarTone } from "~/components/control-bar/control-bar-tone";
+import { controlBarToneStyle } from "~/components/control-bar/control-bar-tone";
+import type {
+  ControlBarAddon,
+  ControlBarLayerConfig,
+  ControlBarNotificationConfig,
+} from "~/components/control-bar/control-bar-types";
+import { Button } from "~/components/ui/button";
+import type { LiveViewMode } from "~/features/live/types/live-types";
+import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
+import { useExtendedOptionsVisibility } from "~/features/live-control-bar/hooks/use-extended-options-visibility";
+import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
+import { useLiveSession } from "~/features/pub/contexts/live-session-context";
+import { ControlBarAgentSelectionMode } from "../components/control-bar-agent-selection-mode";
+import { ControlBarBusyMode } from "../components/control-bar-busy-mode";
+import { ControlBarDisconnectedMode } from "../components/control-bar-disconnected-mode";
+import { ControlBarInputRow } from "../components/control-bar-input-row";
+import { ControlBarOfflineMode } from "../components/control-bar-offline-mode";
+import { ControlBarRecordingMode } from "../components/control-bar-recording-mode";
+import { ControlBarTakeoverMode } from "../components/control-bar-takeover-mode";
+import { ControlBarVoiceMode } from "../components/control-bar-voice-mode";
+import { ExtendedOptions } from "../components/extended-options";
+
+const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
+
+function formatTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+interface UseLiveControlBarBridgeOptions {
+  initialInput?: string;
+  shellTone?: ControlBarTone | null;
+  statusButtonContent?: ReactNode;
+}
+
+export function useLiveControlBarBridge({
+  initialInput,
+  shellTone,
+  statusButtonContent,
+}: UseLiveControlBarBridgeOptions) {
+  const {
+    agentName,
+    audio,
+    availableAgents,
+    collapseControlBar,
+    connected,
+    controlBarCollapsed,
+    controlBarState,
+    dismissPreview,
+    lastTakeoverAt,
+    preview,
+    retryConnection,
+    toggleControlBar,
+    setSelectedPresenceId,
+    setViewMode,
+    sendChat,
+    sendFile,
+    takeoverLive,
+    viewMode,
+    blobState,
+    voiceModeEnabled,
+    closeLive,
+  } = useLiveSession();
+
+  const isExpanded = viewMode === "canvas" ? !controlBarCollapsed : true;
+
+  const { visible: extendedOptionsVisible, dismiss: dismissExtendedOptions } =
+    useExtendedOptionsVisibility({ controlBarState, isBarExpanded: isExpanded, viewMode });
+
+  const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
+    disabled: !connected,
+    onSendChat: sendChat,
+    initialInput,
+  });
+
+  const { fileInputRef, handleFile } = useFileUpload({ onSendFile: sendFile });
+
+  const handleViewSelect = useCallback(
+    (mode: LiveViewMode) => {
+      setViewMode(mode);
+      dismissExtendedOptions();
+    },
+    [dismissExtendedOptions, setViewMode],
+  );
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") toggleControlBar();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isExpanded, toggleControlBar]);
+
+  const handlePreviewClick = useCallback(() => {
+    setViewMode("chat");
+    dismissPreview();
+  }, [dismissPreview, setViewMode]);
+
+  const waveform = (
+    <div ref={audio.barsRef} className="flex h-7 items-center gap-0.5">
+      {WAVEFORM_BARS.map((id) => (
+        <div
+          key={id}
+          className="w-1 rounded-full bg-foreground/70 transition-all duration-75"
+          style={{ height: "4px" }}
+        />
+      ))}
+    </div>
+  );
+
+  const rightAction =
+    viewMode !== "canvas" ? (
+      <Button
+        type="button"
+        variant="secondary"
+        size="controlBack"
+        className={CONTROL_BAR_STYLES.backButton}
+        onClick={() => {
+          setViewMode("canvas");
+          collapseControlBar();
+        }}
+        aria-label="Back to canvas"
+      >
+        <ArrowLeft />
+      </Button>
+    ) : undefined;
+
+  const addons: ControlBarAddon[] = [];
+
+  if (extendedOptionsVisible) {
+    addons.push({
+      key: "extended-options",
+      priority: 0,
+      content: (
+        <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
+      ),
+    });
+  }
+
+  const notifications: ControlBarNotificationConfig[] = [];
+  if (preview) {
+    notifications.push({
+      key: "preview",
+      priority: 1,
+      ariaLabel: "Open chat",
+      content: preview.text,
+      label: preview.source === "system" ? "System" : (agentName ?? "Agent"),
+      labelClassName:
+        preview.source === "system"
+          ? preview.severity === "error"
+            ? "text-destructive"
+            : "text-amber-600"
+          : "text-primary",
+      onClick: handlePreviewClick,
+    });
+  }
+
+  addons.push(...controlBarNotificationsToAddons(notifications));
+
+  useControlBarBaseLayer({
+    addons,
+    mainContent: (
+      <ControlBarInputRow
+        fileInputRef={fileInputRef}
+        hasText={hasText}
+        input={input}
+        onFileChange={handleFile}
+        onFocus={dismissExtendedOptions}
+        onInputChange={setInput}
+        onInputKeyDown={handleKeyDown}
+        onSend={handleSend}
+        onStartRecording={audio.startRecording}
+        onStartVoiceMode={audio.startVoiceMode}
+        sendDisabled={!connected}
+        blobState={blobState}
+        voiceModeEnabled={voiceModeEnabled}
+      />
+    ),
+    rightAction,
+  });
+
+  useControlBarChrome({
+    backdropOnClick: toggleControlBar,
+    backdropVisible: isExpanded && viewMode === "canvas",
+    expanded: isExpanded,
+    shellStyle: controlBarToneStyle(shellTone),
+    statusButton: statusButtonContent
+      ? {
+          ariaLabel: "Toggle control bar",
+          content: statusButtonContent,
+          onClick: toggleControlBar,
+        }
+      : undefined,
+  });
+
+  useControlBarLayer(
+    resolveTransientLayer({
+      agents: availableAgents,
+      controlBarState,
+      elapsed: audio.elapsed,
+      lastTakeoverAt,
+      onCancelRecording: audio.cancelRecording,
+      onExit: closeLive,
+      onPauseResume:
+        controlBarState === "recording-paused" ? audio.resumeRecording : audio.pauseRecording,
+      onReconnect: retryConnection,
+      onSelectAgent: setSelectedPresenceId,
+      onSendRecording: audio.sendRecording,
+      onStopVoiceMode: audio.stopVoiceMode,
+      onTakeover: takeoverLive,
+      rightAction,
+      waveform,
+    }),
+  );
+}
+
+function resolveTransientLayer({
+  agents,
+  controlBarState,
+  elapsed,
+  lastTakeoverAt,
+  onCancelRecording,
+  onExit,
+  onPauseResume,
+  onReconnect,
+  onSelectAgent,
+  onSendRecording,
+  onStopVoiceMode,
+  onTakeover,
+  rightAction,
+  waveform,
+}: {
+  agents: ReturnType<typeof useLiveSession>["availableAgents"];
+  controlBarState: ReturnType<typeof useLiveSession>["controlBarState"];
+  elapsed: number;
+  lastTakeoverAt: number | undefined;
+  onCancelRecording: () => void;
+  onExit: () => void;
+  onPauseResume: () => void;
+  onReconnect: () => void;
+  onSelectAgent: ReturnType<typeof useLiveSession>["setSelectedPresenceId"];
+  onSendRecording: () => void;
+  onStopVoiceMode: () => void;
+  onTakeover: ReturnType<typeof useLiveSession>["takeoverLive"];
+  rightAction?: ReactNode;
+  waveform: ReactNode;
+}): ControlBarLayerConfig | null {
+  if (controlBarState === "idle" || controlBarState === "connecting") return null;
+
+  if (controlBarState === "agent-selection") {
+    return {
+      mainContent: (
+        <ControlBarAgentSelectionMode agents={agents} onExit={onExit} onSelect={onSelectAgent} />
+      ),
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "offline") {
+    return {
+      mainContent: <ControlBarOfflineMode onExit={onExit} />,
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "disconnected") {
+    return {
+      mainContent: <ControlBarDisconnectedMode onExit={onExit} onReconnect={onReconnect} />,
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "needs-takeover" || controlBarState === "taken-over") {
+    return {
+      mainContent: (
+        <ControlBarTakeoverMode
+          lastTakeoverAt={lastTakeoverAt}
+          onExit={onExit}
+          onTakeover={onTakeover}
+          sessionState={controlBarState}
+        />
+      ),
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "starting-recording") {
+    return {
+      mainContent: <ControlBarBusyMode label="Starting recording..." />,
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "stopping-recording") {
+    return {
+      mainContent: <ControlBarBusyMode label="Finishing recording..." />,
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "recording" || controlBarState === "recording-paused") {
+    return {
+      className: CONTROL_BAR_STYLES.recordingTone,
+      mainContent: (
+        <ControlBarRecordingMode
+          elapsedLabel={formatTime(elapsed)}
+          isPaused={controlBarState === "recording-paused"}
+          onCancelRecording={onCancelRecording}
+          onPauseResume={onPauseResume}
+          onSendRecording={onSendRecording}
+          waveformEl={waveform}
+        />
+      ),
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "starting-voice") {
+    return {
+      mainContent: <ControlBarBusyMode label="Starting voice mode..." />,
+      rightAction,
+    };
+  }
+
+  if (controlBarState === "stopping-voice") {
+    return {
+      mainContent: <ControlBarBusyMode label="Stopping voice mode..." />,
+      rightAction,
+    };
+  }
+
+  return {
+    className: CONTROL_BAR_STYLES.recordingTone,
+    mainContent: (
+      <ControlBarVoiceMode
+        elapsedLabel={formatTime(elapsed)}
+        onStopVoiceMode={onStopVoiceMode}
+        waveformEl={waveform}
+      />
+    ),
+    rightAction,
+  };
+}

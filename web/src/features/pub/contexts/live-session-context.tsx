@@ -149,7 +149,7 @@ export function createMockLiveSession(
     takeoverLive: async () => {},
     transportStatus: "connected",
     viewMode: "canvas",
-    visualState: "idle",
+    blobState: "idle",
     voiceModeEnabled: true,
     ...overrides,
   } as LiveSessionContextType;

@@ -1,9 +1,10 @@
 import { LayoutDashboard, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import { cn } from "~/lib/utils";
-import { CB } from "./control-bar-classes";
+import {
+  ControlBarIconAction,
+  ControlBarLabel,
+  ControlBarPanel,
+} from "~/components/control-bar/control-bar-parts";
 
 const TAKEOVER_COOLDOWN_MS = 20_000;
 
@@ -49,42 +50,23 @@ export function ControlBarTakeoverMode({
         : "Reclaim";
 
   return (
-    <div className={cn(CB.controlBar, CB.controlHeight)}>
-      <span className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground">
-        {statusText}
-      </span>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="control"
-            className={CB.actionButton}
-            onClick={onExit}
-            aria-label="Dashboard"
-          >
-            <LayoutDashboard />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Dashboard</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="default"
-            size="control"
-            className={CB.actionButton}
-            onClick={onTakeover}
-            disabled={cooldownActive}
-            aria-label={actionTooltip}
-          >
-            <RefreshCw />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{actionTooltip}</TooltipContent>
-      </Tooltip>
-    </div>
+    <ControlBarPanel>
+      <ControlBarLabel>{statusText}</ControlBarLabel>
+      <ControlBarIconAction
+        icon={<LayoutDashboard />}
+        label="Dashboard"
+        onClick={onExit}
+        tooltip="Dashboard"
+      />
+      <ControlBarIconAction
+        icon={<RefreshCw />}
+        label={actionTooltip}
+        onClick={onTakeover}
+        tooltip={actionTooltip}
+        disabled={cooldownActive}
+        variant="default"
+      />
+    </ControlBarPanel>
   );
 }
 

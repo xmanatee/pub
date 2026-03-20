@@ -53,7 +53,7 @@ describe("ControlBarInputRow", () => {
             onStartRecording={onStartRecording}
             onStartVoiceMode={() => {}}
             sendDisabled={false}
-            visualState="idle"
+            blobState="idle"
             voiceModeEnabled={false}
           />
         </TooltipProvider>,

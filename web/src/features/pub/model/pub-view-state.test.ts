@@ -166,7 +166,7 @@ describe("derivePubViewState", () => {
     });
 
     expect(state.controlBarState).toBe("idle");
-    expect(state.visualState).toBe("command-running");
+    expect(state.blobState).toBe("command-running");
   });
 
   it("surfaces command errors through the error summary", () => {
@@ -196,7 +196,7 @@ describe("derivePubViewState", () => {
       message: "Command execution timed out",
       source: "command",
     });
-    expect(state.visualState).toBe("error");
+    expect(state.blobState).toBe("error");
   });
 
   it("surfaces session errors through the error summary", () => {
@@ -226,7 +226,7 @@ describe("derivePubViewState", () => {
       message: "Agent went offline",
       source: "session",
     });
-    expect(state.visualState).toBe("error");
+    expect(state.blobState).toBe("error");
   });
 });
 

@@ -57,7 +57,7 @@ export type LiveControlBarState =
   | "stopping-voice"
   | "idle";
 
-export type LiveVisualState =
+export type LiveBlobState =
   | "content-loading"
   | "offline"
   | "connecting"

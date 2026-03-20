@@ -1,5 +1,7 @@
 import { api } from "@backend/_generated/api";
 import { useQuery } from "convex/react";
+import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
+import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import { CanvasPanel } from "~/features/live/components/panels/canvas-panel";
 import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
@@ -43,6 +45,7 @@ function PubRouteContent({
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
   const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
+  const liveBlob = createLiveBlobPresentation(session.blobState);
 
   const { capturePreview, handlePreviewCaptured } = usePreviewCapture({
     slug,
@@ -54,36 +57,43 @@ function PubRouteContent({
   });
 
   return (
-    <div className="pub-overlay fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      {liveMode && session.controlBarCollapsed ? null : (
-        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
-      )}
+    <ControlBarProvider>
+      <div className="pub-overlay fixed inset-0 z-50 flex flex-col bg-background text-foreground">
+        {liveMode && session.controlBarCollapsed ? null : (
+          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+        )}
 
-      <div className="flex-1 min-h-0 relative">
-        <div
-          className={
-            viewMode === "canvas"
-              ? "absolute inset-0"
-              : "absolute inset-0 opacity-0 pointer-events-none"
-          }
-        >
-          <CanvasPanel
-            html={effectiveCanvasHtml}
-            capturePreview={capturePreview}
-            onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
-            onPreviewCaptured={isOwner ? handlePreviewCaptured : undefined}
-            onRenderError={isOwner ? session.handleRenderError : undefined}
-            outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
-            visualState={session.visualState}
-          />
+        <div className="flex-1 min-h-0 relative">
+          <div
+            className={
+              viewMode === "canvas"
+                ? "absolute inset-0"
+                : "absolute inset-0 opacity-0 pointer-events-none"
+            }
+          >
+            <CanvasPanel
+              html={effectiveCanvasHtml}
+              capturePreview={capturePreview}
+              onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
+              onPreviewCaptured={isOwner ? handlePreviewCaptured : undefined}
+              onRenderError={isOwner ? session.handleRenderError : undefined}
+              outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
+              blobTone={liveBlob.tone}
+            />
+          </div>
+
+          {liveMode && viewMode === "chat" ? <ChatPanel /> : null}
+
+          {liveMode && viewMode === "settings" ? <SettingsPanel /> : null}
         </div>
 
-        {liveMode && viewMode === "chat" ? <ChatPanel /> : null}
-
-        {liveMode && viewMode === "settings" ? <SettingsPanel /> : null}
+        {isOwner ? (
+          <ControlBar
+            shellTone={liveBlob.controlBarTone}
+            statusButtonContent={liveBlob.statusButtonContent}
+          />
+        ) : null}
       </div>
-
-      {isOwner ? <ControlBar /> : null}
-    </div>
+    </ControlBarProvider>
   );
 }

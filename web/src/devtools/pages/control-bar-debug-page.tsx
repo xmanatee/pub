@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { BatchSection } from "~/devtools/components/batch-section";
+import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import type {
+  LiveBlobState,
   LiveControlBarState,
   LiveViewMode,
-  LiveVisualState,
   SessionState,
 } from "~/features/live/types/live-types";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
@@ -12,7 +14,7 @@ import {
   LiveSessionProvider,
 } from "~/features/pub/contexts/live-session-context";
 
-const ALL_VISUAL_STATES: LiveVisualState[] = [
+const ALL_BLOB_STATES: LiveBlobState[] = [
   "content-loading",
   "offline",
   "connecting",
@@ -33,27 +35,27 @@ const DEBUG_MULTILINE_TEXT =
 const DEBUG_BUTTON_CLASS = "rounded-md border border-border px-3 py-1.5 text-sm";
 
 function resolveDebugControlBarState(
-  visualState: LiveVisualState,
+  blobState: LiveBlobState,
   sessionState: SessionState,
 ): LiveControlBarState {
   if (sessionState === "needs-takeover" || sessionState === "taken-over") return sessionState;
-  if (visualState === "connecting") return "connecting";
-  if (visualState === "disconnected") return "disconnected";
-  if (visualState === "offline") return "offline";
-  if (visualState === "recording") return "recording";
-  if (visualState === "voice-mode") return "voice-mode";
+  if (blobState === "connecting") return "connecting";
+  if (blobState === "disconnected") return "disconnected";
+  if (blobState === "offline") return "offline";
+  if (blobState === "recording") return "recording";
+  if (blobState === "voice-mode") return "voice-mode";
   return "idle";
 }
 
-function resolveDebugTransportStatus(visualState: LiveVisualState) {
-  if (visualState === "connecting") return "connecting";
-  if (visualState === "disconnected") return "disconnected";
+function resolveDebugTransportStatus(blobState: LiveBlobState) {
+  if (blobState === "connecting") return "connecting";
+  if (blobState === "disconnected") return "disconnected";
   return "connected";
 }
 
 function StaticControlBar({
   agentName = "Agent",
-  visualState = "idle",
+  blobState = "idle",
   controlBarState,
   chatPreview,
   collapsed = false,
@@ -62,7 +64,7 @@ function StaticControlBar({
   initialInput,
 }: {
   agentName?: string;
-  visualState?: LiveVisualState;
+  blobState?: LiveBlobState;
   controlBarState?: LiveControlBarState;
   chatPreview?: string;
   collapsed?: boolean;
@@ -71,7 +73,7 @@ function StaticControlBar({
   initialInput?: string;
 }) {
   const resolvedControlBarState =
-    controlBarState ?? resolveDebugControlBarState(visualState, sessionState);
+    controlBarState ?? resolveDebugControlBarState(blobState, sessionState);
 
   const value = createMockLiveSession({
     agentName,
@@ -79,25 +81,32 @@ function StaticControlBar({
     controlBarCollapsed: collapsed,
     lastTakeoverAt,
     connected:
-      visualState !== "connecting" && visualState !== "disconnected" && visualState !== "offline",
+      blobState !== "connecting" && blobState !== "disconnected" && blobState !== "offline",
     hasCanvasContent: true,
     sessionState,
     controlBarState: resolvedControlBarState,
-    transportStatus: resolveDebugTransportStatus(visualState),
-    visualState,
+    transportStatus: resolveDebugTransportStatus(blobState),
+    blobState,
   });
+  const liveBlob = createLiveBlobPresentation(blobState);
 
   return (
-    <LiveSessionProvider value={value}>
-      <ControlBar initialInput={initialInput} />
-    </LiveSessionProvider>
+    <ControlBarProvider>
+      <LiveSessionProvider value={value}>
+        <ControlBar
+          initialInput={initialInput}
+          shellTone={liveBlob.controlBarTone}
+          statusButtonContent={liveBlob.statusButtonContent}
+        />
+      </LiveSessionProvider>
+    </ControlBarProvider>
   );
 }
 
 export function ControlBarDebugPage() {
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [chatPreview, setChatPreview] = useState<string | null>(null);
-  const [activeState, setActiveState] = useState<LiveVisualState>("idle");
+  const [activeState, setActiveState] = useState<LiveBlobState>("idle");
   const [collapsed, setCollapsed] = useState(false);
 
   const interactiveValue = createMockLiveSession({
@@ -110,12 +119,13 @@ export function ControlBarDebugPage() {
     viewMode,
     controlBarState: resolveDebugControlBarState(activeState, "active"),
     transportStatus: resolveDebugTransportStatus(activeState),
-    visualState: activeState,
+    blobState: activeState,
     voiceModeEnabled: true,
     setViewMode,
     dismissPreview: () => setChatPreview(null),
     toggleControlBar: () => setCollapsed((prev) => !prev),
   });
+  const interactiveBlob = createLiveBlobPresentation(activeState);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -123,11 +133,11 @@ export function ControlBarDebugPage() {
         <h1 className="text-xl font-semibold">Control Bar Debug</h1>
 
         <BatchSection
-          title="Visual States"
-          testId="batch-visual-state"
-          items={ALL_VISUAL_STATES.map((state) => ({
+          title="Blob States"
+          testId="batch-blob-state"
+          items={ALL_BLOB_STATES.map((state) => ({
             label: state,
-            content: <StaticControlBar visualState={state} />,
+            content: <StaticControlBar blobState={state} />,
           }))}
         />
 
@@ -232,7 +242,7 @@ export function ControlBarDebugPage() {
               </button>
             </div>
             <div className="flex flex-wrap gap-1">
-              {ALL_VISUAL_STATES.map((state) => (
+              {ALL_BLOB_STATES.map((state) => (
                 <button
                   key={state}
                   type="button"
@@ -245,9 +255,14 @@ export function ControlBarDebugPage() {
             </div>
           </div>
           <div className="relative mt-4 h-80" style={{ transform: "translateZ(0)" }}>
-            <LiveSessionProvider value={interactiveValue}>
-              <ControlBar />
-            </LiveSessionProvider>
+            <ControlBarProvider>
+              <LiveSessionProvider value={interactiveValue}>
+                <ControlBar
+                  shellTone={interactiveBlob.controlBarTone}
+                  statusButtonContent={interactiveBlob.statusButtonContent}
+                />
+              </LiveSessionProvider>
+            </ControlBarProvider>
           </div>
         </details>
       </div>

@@ -1,15 +1,15 @@
 import { AudioLines, Mic, Paperclip, Send } from "lucide-react";
 import { type ChangeEvent, type KeyboardEvent, useEffect, useRef } from "react";
+import { CONTROL_BAR_STYLES } from "~/components/control-bar/control-bar-styles";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import type { LiveVisualState } from "~/features/live/types/live-types";
-import { CB } from "./control-bar-classes";
+import type { LiveBlobState } from "~/features/live/types/live-types";
 
 const MAX_TEXTAREA_ROWS = 5;
 const TEXTAREA_LINE_HEIGHT = 20;
 const TEXTAREA_PADDING_Y = 10;
 
-const PLACEHOLDER: Partial<Record<LiveVisualState, string>> = {
+const PLACEHOLDER: Partial<Record<LiveBlobState, string>> = {
   connecting: "Connecting...",
   disconnected: "Disconnected",
   offline: "Disconnected",
@@ -29,7 +29,7 @@ interface ControlBarInputRowProps {
   onStartRecording: () => void;
   onStartVoiceMode: () => void;
   sendDisabled: boolean;
-  visualState: LiveVisualState;
+  blobState: LiveBlobState;
   voiceModeEnabled: boolean;
 }
 
@@ -45,7 +45,7 @@ export function ControlBarInputRow({
   onStartRecording,
   onStartVoiceMode,
   sendDisabled,
-  visualState,
+  blobState,
   voiceModeEnabled,
 }: ControlBarInputRowProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -60,14 +60,14 @@ export function ControlBarInputRow({
   }, [input]);
 
   return (
-    <div className={`w-full ${CB.controlHeight}`} style={{ WebkitTouchCallout: "none" }}>
-      <div className={CB.controlRow}>
+    <div className={`w-full ${CONTROL_BAR_STYLES.controlHeight}`}>
+      <div className={CONTROL_BAR_STYLES.controlRow}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="control"
-              className={CB.actionButton}
+              className={CONTROL_BAR_STYLES.actionButton}
               onClick={() => fileInputRef.current?.click()}
               disabled={sendDisabled}
               aria-label="Attach file"
@@ -81,7 +81,7 @@ export function ControlBarInputRow({
 
         <textarea
           ref={textareaRef}
-          placeholder={PLACEHOLDER[visualState] ?? "Message..."}
+          placeholder={PLACEHOLDER[blobState] ?? "Message..."}
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
           onFocus={onFocus}
@@ -99,7 +99,7 @@ export function ControlBarInputRow({
               <Button
                 variant="default"
                 size="control"
-                className={CB.actionButton}
+                className={CONTROL_BAR_STYLES.actionButton}
                 onClick={onSend}
                 disabled={sendDisabled}
                 aria-label="Send message"
@@ -116,7 +116,7 @@ export function ControlBarInputRow({
                 <Button
                   variant="ghost"
                   size="control"
-                  className={CB.actionButton}
+                  className={CONTROL_BAR_STYLES.actionButton}
                   onClick={onStartRecording}
                   disabled={sendDisabled}
                   aria-label="Record audio"
@@ -133,7 +133,7 @@ export function ControlBarInputRow({
                   <Button
                     variant="default"
                     size="control"
-                    className={CB.actionButton}
+                    className={CONTROL_BAR_STYLES.actionButton}
                     onClick={onStartVoiceMode}
                     disabled={sendDisabled}
                     aria-label="Voice mode"

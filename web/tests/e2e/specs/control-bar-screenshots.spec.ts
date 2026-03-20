@@ -16,11 +16,11 @@ async function setupPage(page: Page) {
 }
 
 test.describe("Control bar screenshots", () => {
-  test("visual states", async ({ page }) => {
+  test("blob states", async ({ page }) => {
     await setupPage(page);
-    const section = page.getByTestId("batch-visual-state");
+    const section = page.getByTestId("batch-blob-state");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-visual-state.png`, {
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-blob-state.png`, {
       maxDiffRatio: ANIMATED_TOLERANCE,
     });
   });

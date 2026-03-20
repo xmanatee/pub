@@ -1,16 +1,16 @@
 import type {
   AgentOutputActivity,
+  LiveBlobState,
   LiveCommandPhase,
   LiveContentState,
   LiveTransportStatus,
-  LiveVisualState,
 } from "~/features/live/types/live-types";
 import type { AudioMachineMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
 const RECENT_AGENT_ACTIVITY_WINDOW_MS = 4_000;
 const RECENT_USER_DELIVERED_WINDOW_MS = 12_000;
 
-interface ResolveVisualStateParams {
+interface ResolveBlobStateParams {
   agentOnline: boolean | undefined;
   audioMode: AudioMachineMode;
   commandPhase: LiveCommandPhase;
@@ -23,7 +23,7 @@ interface ResolveVisualStateParams {
   transportStatus: LiveTransportStatus;
 }
 
-export function resolveLiveVisualState({
+export function resolveLiveBlobState({
   agentOnline,
   audioMode,
   commandPhase,
@@ -34,7 +34,7 @@ export function resolveLiveVisualState({
   liveMode,
   now,
   transportStatus,
-}: ResolveVisualStateParams): LiveVisualState {
+}: ResolveBlobStateParams): LiveBlobState {
   if (!liveMode) {
     if (contentState === "loading") return "content-loading";
     if (contentState === "empty") return "waiting-content";

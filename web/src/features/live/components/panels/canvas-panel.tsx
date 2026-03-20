@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { BlobTone } from "~/components/blob/blob-tone";
 import {
   PARENT_TO_CANVAS_SOURCE,
   parseCanvasBridgeInboundMessage,
@@ -7,11 +8,10 @@ import type {
   CanvasBridgeCommandMessage,
   CanvasBridgeOutboundMessage,
   LiveRenderErrorPayload,
-  LiveVisualState,
 } from "~/features/live/types/live-types";
 import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
 import { cn } from "~/lib/utils";
-import { CanvasLiveVisual } from "./canvas-live-visual";
+import { CanvasLiveBlob } from "./canvas-live-blob";
 
 interface CanvasPanelProps {
   html: string | null;
@@ -20,10 +20,10 @@ interface CanvasPanelProps {
   onPreviewCaptured?: (html: string) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
-  visualState: LiveVisualState;
+  blobTone: BlobTone;
 }
 
-type VisualPhase = "visible" | "fading" | "hidden";
+type BlobPhase = "visible" | "fading" | "hidden";
 const RENDER_ERROR_REPORT_DEDUPE_MS = 2_500;
 
 function reportDedupedRenderError(
@@ -46,10 +46,10 @@ export function CanvasPanel({
   onPreviewCaptured,
   onRenderError,
   outboundCanvasBridgeMessage,
-  visualState,
+  blobTone,
 }: CanvasPanelProps) {
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
-  const [visualPhase, setVisualPhase] = useState<VisualPhase>("visible");
+  const [blobPhase, setBlobPhase] = useState<BlobPhase>("visible");
   const [canvasBridgeReady, setCanvasBridgeReady] = useState(false);
   const [pendingOutboundCanvasBridgeMessages, setPendingOutboundCanvasBridgeMessages] = useState<
     CanvasBridgeOutboundMessage[]
@@ -76,11 +76,11 @@ export function CanvasPanel({
 
   useEffect(() => {
     if (!hasVisibleCanvasContent) {
-      setVisualPhase("visible");
+      setBlobPhase("visible");
       return;
     }
-    setVisualPhase("fading");
-    const timer = setTimeout(() => setVisualPhase("hidden"), 420);
+    setBlobPhase("fading");
+    const timer = setTimeout(() => setBlobPhase("hidden"), 420);
     return () => clearTimeout(timer);
   }, [hasVisibleCanvasContent]);
 
@@ -185,12 +185,12 @@ export function CanvasPanel({
           }}
         />
       ) : null}
-      {visualPhase === "hidden" ? null : (
-        <CanvasLiveVisual
+      {blobPhase === "hidden" ? null : (
+        <CanvasLiveBlob
           className="absolute inset-0"
-          fadeOut={visualPhase === "fading"}
+          fadeOut={blobPhase === "fading"}
           hasCanvasContent={hasVisibleCanvasContent}
-          state={visualState}
+          tone={blobTone}
         />
       )}
     </div>

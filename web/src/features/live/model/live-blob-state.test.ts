@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolveLiveVisualState } from "./live-visual-state";
+import { resolveLiveBlobState } from "./live-blob-state";
 
-const NOW = 1_700_000_000_000;
-
-describe("resolveLiveVisualState", () => {
-  it("returns content-loading while markdown content is still resolving", () => {
+describe("resolveLiveBlobState", () => {
+  it("returns content-loading while static content is loading outside live mode", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: undefined,
         audioMode: "idle",
         commandPhase: "idle",
@@ -15,15 +13,32 @@ describe("resolveLiveVisualState", () => {
         lastAgentOutput: null,
         lastUserDeliveredAt: null,
         liveMode: false,
-        now: NOW,
+        now: 0,
         transportStatus: "disabled",
       }),
     ).toBe("content-loading");
   });
 
-  it("returns offline when no agent is available for owner live mode", () => {
+  it("returns waiting-content when static content is empty outside live mode", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
+        agentOnline: undefined,
+        audioMode: "idle",
+        commandPhase: "idle",
+        contentState: "empty",
+        errorMessage: null,
+        lastAgentOutput: null,
+        lastUserDeliveredAt: null,
+        liveMode: false,
+        now: 0,
+        transportStatus: "disabled",
+      }),
+    ).toBe("waiting-content");
+  });
+
+  it("returns offline when the agent is unavailable", () => {
+    expect(
+      resolveLiveBlobState({
         agentOnline: false,
         audioMode: "idle",
         commandPhase: "idle",
@@ -32,7 +47,7 @@ describe("resolveLiveVisualState", () => {
         lastAgentOutput: null,
         lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "disabled",
       }),
     ).toBe("offline");
@@ -40,7 +55,7 @@ describe("resolveLiveVisualState", () => {
 
   it("returns connecting while transport is connecting", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "idle",
@@ -49,32 +64,15 @@ describe("resolveLiveVisualState", () => {
         lastAgentOutput: null,
         lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connecting",
       }),
     ).toBe("connecting");
   });
 
-  it("returns disconnected when transport is disconnected", () => {
+  it("returns recording while recording is active or transitioning", () => {
     expect(
-      resolveLiveVisualState({
-        agentOnline: true,
-        audioMode: "idle",
-        commandPhase: "idle",
-        contentState: "ready",
-        errorMessage: null,
-        lastAgentOutput: { at: NOW, kind: "text" },
-        lastUserDeliveredAt: NOW,
-        liveMode: true,
-        now: NOW,
-        transportStatus: "disconnected",
-      }),
-    ).toBe("disconnected");
-  });
-
-  it("returns recording while any recording mode is active", () => {
-    expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "recording-paused",
         commandPhase: "idle",
@@ -83,15 +81,15 @@ describe("resolveLiveVisualState", () => {
         lastAgentOutput: null,
         lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
     ).toBe("recording");
   });
 
-  it("returns voice-mode while voice mode is active", () => {
+  it("returns voice-mode while voice mode is active or transitioning", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "starting-voice",
         commandPhase: "idle",
@@ -100,15 +98,15 @@ describe("resolveLiveVisualState", () => {
         lastAgentOutput: null,
         lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
     ).toBe("voice-mode");
   });
 
-  it("returns command-running while a command is active", () => {
+  it("returns command-running while a command is in flight", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "running",
@@ -117,109 +115,109 @@ describe("resolveLiveVisualState", () => {
         lastAgentOutput: null,
         lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
     ).toBe("command-running");
   });
 
-  it("returns agent-thinking after a recent delivered user message with no newer output", () => {
+  it("returns agent-replying after recent agent output", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
+        agentOnline: true,
+        audioMode: "idle",
+        commandPhase: "idle",
+        contentState: "ready",
+        errorMessage: null,
+        lastAgentOutput: { at: 10_000, kind: "text" },
+        lastUserDeliveredAt: 5_000,
+        liveMode: true,
+        now: 12_000,
+        transportStatus: "connected",
+      }),
+    ).toBe("agent-replying");
+  });
+
+  it("returns agent-thinking after recent delivered user input with no newer reply", () => {
+    expect(
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "idle",
         contentState: "ready",
         errorMessage: null,
         lastAgentOutput: null,
-        lastUserDeliveredAt: NOW - 1_000,
+        lastUserDeliveredAt: 10_000,
         liveMode: true,
-        now: NOW,
+        now: 12_000,
         transportStatus: "connected",
       }),
     ).toBe("agent-thinking");
   });
 
-  it("returns agent-replying on recent user-visible agent output", () => {
+  it("returns content-loading when live mode is active and content is loading", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "idle",
-        contentState: "ready",
+        contentState: "loading",
         errorMessage: null,
-        lastAgentOutput: { at: NOW - 500, kind: "text" },
-        lastUserDeliveredAt: NOW - 20_000,
+        lastAgentOutput: null,
+        lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
-    ).toBe("agent-replying");
+    ).toBe("content-loading");
   });
 
-  it("ignores track-only activity for agent-replying", () => {
+  it("returns waiting-content when live mode is active and content is empty", () => {
     expect(
-      resolveLiveVisualState({
-        agentOnline: true,
-        audioMode: "idle",
-        commandPhase: "idle",
-        contentState: "ready",
-        errorMessage: null,
-        lastAgentOutput: { at: NOW - 500, kind: "track" },
-        lastUserDeliveredAt: NOW - 20_000,
-        liveMode: true,
-        now: NOW,
-        transportStatus: "connected",
-      }),
-    ).toBe("idle");
-  });
-
-  it("returns waiting-content when connected and no content exists", () => {
-    expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "idle",
         contentState: "empty",
         errorMessage: null,
         lastAgentOutput: null,
-        lastUserDeliveredAt: NOW - 20_000,
+        lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
     ).toBe("waiting-content");
   });
 
-  it("returns error when an error is present and no higher-priority visual state applies", () => {
+  it("returns error when there is an active error and no higher-priority state", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "idle",
         contentState: "ready",
-        errorMessage: "Canvas exploded",
+        errorMessage: "boom",
         lastAgentOutput: null,
-        lastUserDeliveredAt: NOW - 20_000,
+        lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
     ).toBe("error");
   });
 
-  it("returns idle when no recent activity or errors remain", () => {
+  it("falls back to idle when nothing else applies", () => {
     expect(
-      resolveLiveVisualState({
+      resolveLiveBlobState({
         agentOnline: true,
         audioMode: "idle",
         commandPhase: "idle",
         contentState: "ready",
         errorMessage: null,
-        lastAgentOutput: { at: NOW - 20_000, kind: "text" },
-        lastUserDeliveredAt: NOW - 20_000,
+        lastAgentOutput: null,
+        lastUserDeliveredAt: null,
         liveMode: true,
-        now: NOW,
+        now: 0,
         transportStatus: "connected",
       }),
     ).toBe("idle");

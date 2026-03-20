@@ -1,0 +1,43 @@
+.cb-state-border {
+  position: relative;
+}
+
+.cb-state-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  background: linear-gradient(
+    135deg,
+    var(--cb-color-a) 0%,
+    var(--cb-color-b) 50%,
+    var(--cb-color-c) 100%
+  );
+  background-size: var(--cb-bg-size) var(--cb-bg-size);
+  animation: cb-pulse var(--cb-speed) ease-in-out infinite;
+  opacity: var(--cb-opacity);
+  transition: opacity 400ms ease;
+}
+
+.cb-bar-wrapper:has(textarea:focus) .cb-left-slot {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  margin-right: 0;
+}
+
+@keyframes cb-pulse {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}

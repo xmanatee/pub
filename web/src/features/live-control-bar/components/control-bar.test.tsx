@@ -1,8 +1,18 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment jsdom */
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import type { LiveSessionContextType } from "~/features/pub/contexts/live-session-context";
 import { ControlBar } from "./control-bar";
+
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockSession = {
   agentName: null as string | null,
@@ -48,7 +58,7 @@ const mockSession = {
   takeoverLive: vi.fn(),
   transportStatus: "connected",
   viewMode: "canvas",
-  visualState: "idle",
+  blobState: "idle",
   voiceModeEnabled: false,
   closeLive: vi.fn(),
 } as unknown as LiveSessionContextType;
@@ -57,6 +67,9 @@ type AudioOverrides = Partial<typeof mockSession.audio>;
 type RenderOverrides = Omit<Partial<typeof mockSession>, "audio"> & { audio?: AudioOverrides };
 
 const mockExtendedOptions = { visible: false, dismiss: vi.fn() };
+
+let root: Root | null = null;
+let container: HTMLDivElement | null = null;
 
 vi.mock("~/features/pub/contexts/live-session-context", () => ({
   useLiveSession: () => mockSession,
@@ -83,7 +96,26 @@ vi.mock("~/features/live-control-bar/hooks/use-file-upload", () => ({
   }),
 }));
 
-function renderControlBar(
+beforeEach(() => {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(async () => {
+  const currentRoot = root;
+  if (currentRoot) {
+    await act(async () => {
+      currentRoot.unmount();
+    });
+  }
+
+  root = null;
+  container?.remove();
+  container = null;
+});
+
+async function renderControlBar(
   overrides?: RenderOverrides,
   hookOverrides?: Partial<typeof mockExtendedOptions>,
 ) {
@@ -92,11 +124,28 @@ function renderControlBar(
   if (audio) Object.assign(mockSession.audio, audio);
   Object.assign(mockExtendedOptions, { visible: false, dismiss: vi.fn(), ...hookOverrides });
 
-  return renderToStaticMarkup(
-    <TooltipProvider>
-      <ControlBar />
-    </TooltipProvider>,
-  );
+  const currentRoot = root;
+  const currentContainer = container;
+  if (!currentRoot || !currentContainer) {
+    throw new Error("test root not initialized");
+  }
+
+  const liveBlob = createLiveBlobPresentation(mockSession.blobState);
+
+  await act(async () => {
+    currentRoot.render(
+      <TooltipProvider>
+        <ControlBarProvider>
+          <ControlBar
+            shellTone={liveBlob.controlBarTone}
+            statusButtonContent={liveBlob.statusButtonContent}
+          />
+        </ControlBarProvider>
+      </TooltipProvider>,
+    );
+  });
+
+  return currentContainer.innerHTML;
 }
 
 describe("ControlBar", () => {
@@ -110,19 +159,20 @@ describe("ControlBar", () => {
     mockSession.voiceModeEnabled = false;
     mockSession.preview = null;
     mockSession.agentName = null;
+    mockSession.blobState = "idle";
   });
 
-  it("shows record and voice actions in idle mode", () => {
-    const html = renderControlBar();
+  it("shows record and voice actions in idle mode", async () => {
+    const html = await renderControlBar();
     expect(html).toContain('aria-label="Record audio"');
     expect(html).not.toContain('aria-label="Voice mode"');
 
-    const htmlWithVoice = renderControlBar({ voiceModeEnabled: true });
+    const htmlWithVoice = await renderControlBar({ voiceModeEnabled: true });
     expect(htmlWithVoice).toContain('aria-label="Voice mode"');
   });
 
-  it("shows recording controls in recording mode", () => {
-    const html = renderControlBar({
+  it("shows recording controls in recording mode", async () => {
+    const html = await renderControlBar({
       controlBarState: "recording",
       audio: { barMode: "recording", machineMode: "recording", elapsed: 9 },
     });
@@ -131,16 +181,16 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-label="Send recording"');
   });
 
-  it("shows stop action in voice mode", () => {
-    const html = renderControlBar({
+  it("shows stop action in voice mode", async () => {
+    const html = await renderControlBar({
       controlBarState: "voice-mode",
       audio: { barMode: "voice-mode", machineMode: "voice-mode" },
     });
     expect(html).toContain('aria-label="Stop voice mode"');
   });
 
-  it("shows chat preview as addon when preview is provided", () => {
-    const html = renderControlBar({
+  it("shows chat preview as addon when preview is provided", async () => {
+    const html = await renderControlBar({
       agentName: "Agent",
       preview: { text: "Hello from agent", source: "agent" },
     });
@@ -149,34 +199,34 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-label="Open chat"');
   });
 
-  it("shows back button only outside canvas mode", () => {
-    const canvasHtml = renderControlBar({ viewMode: "canvas" });
+  it("shows back button only outside canvas mode", async () => {
+    const canvasHtml = await renderControlBar({ viewMode: "canvas" });
     expect(canvasHtml).not.toContain('aria-label="Back to canvas"');
 
-    const chatHtml = renderControlBar({ viewMode: "chat" });
+    const chatHtml = await renderControlBar({ viewMode: "chat" });
     expect(chatHtml).toContain('aria-label="Back to canvas"');
   });
 
-  it("does not render a menu button", () => {
-    const html = renderControlBar();
+  it("does not render a menu button", async () => {
+    const html = await renderControlBar();
     expect(html).not.toContain('aria-label="Open menu"');
     expect(html).not.toContain('aria-label="Close menu"');
   });
 
-  it("includes extended options addon when hook reports visible", () => {
-    const html = renderControlBar({}, { visible: true });
+  it("includes extended options addon when hook reports visible", async () => {
+    const html = await renderControlBar({}, { visible: true });
     expect(html).toContain("Chat view");
     expect(html).toContain("Settings");
     expect(html).toContain("Dashboard");
   });
 
-  it("excludes extended options addon when hook reports not visible", () => {
-    const html = renderControlBar({}, { visible: false });
+  it("excludes extended options addon when hook reports not visible", async () => {
+    const html = await renderControlBar({}, { visible: false });
     expect(html).not.toContain("Dashboard");
   });
 
-  it("shows extended options and preview as separate addons simultaneously", () => {
-    const html = renderControlBar(
+  it("shows extended options and preview as separate addons simultaneously", async () => {
+    const html = await renderControlBar(
       { agentName: "Agent", preview: { text: "Hello from agent", source: "agent" } },
       { visible: true },
     );
@@ -186,8 +236,8 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-label="Open chat"');
   });
 
-  it("shows backdrop when bar is expanded in canvas mode", () => {
-    const html = renderControlBar({
+  it("shows backdrop when bar is expanded in canvas mode", async () => {
+    const html = await renderControlBar({
       viewMode: "canvas",
       controlBarCollapsed: false,
     });
@@ -195,24 +245,24 @@ describe("ControlBar", () => {
     expect(html).toContain("opacity-100");
   });
 
-  it("hides backdrop when bar is collapsed", () => {
-    const html = renderControlBar({
+  it("hides backdrop when bar is collapsed", async () => {
+    const html = await renderControlBar({
       viewMode: "canvas",
       controlBarCollapsed: true,
     });
     expect(html).toContain("pointer-events-none opacity-0");
   });
 
-  it("hides backdrop in non-canvas view modes", () => {
-    const html = renderControlBar({
+  it("hides backdrop in non-canvas view modes", async () => {
+    const html = await renderControlBar({
       viewMode: "chat",
       controlBarCollapsed: false,
     });
     expect(html).toContain("pointer-events-none opacity-0");
   });
 
-  it("always renders status dot toggle button", () => {
-    const html = renderControlBar();
+  it("always renders status dot toggle button", async () => {
+    const html = await renderControlBar();
     expect(html).toContain('aria-label="Toggle control bar"');
   });
 });

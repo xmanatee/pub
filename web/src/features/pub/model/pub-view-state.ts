@@ -1,13 +1,13 @@
 import type { LiveConnectionState } from "@shared/live-runtime-state-core";
-import { resolveLiveVisualState } from "~/features/live/model/live-visual-state";
+import { resolveLiveBlobState } from "~/features/live/model/live-blob-state";
 import type {
   AgentOutputActivity,
+  LiveBlobState,
   LiveCommandSummary,
   LiveContentState,
   LiveControlBarState,
   LiveErrorSummary,
   LiveTransportStatus,
-  LiveVisualState,
   SessionState,
 } from "~/features/live/types/live-types";
 import type { AudioMachineMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
@@ -28,10 +28,10 @@ export interface PubViewSourceState {
 }
 
 export interface PubViewState {
+  blobState: LiveBlobState;
   controlBarState: LiveControlBarState;
   error: LiveErrorSummary;
   transportStatus: LiveTransportStatus;
-  visualState: LiveVisualState;
 }
 
 export function resolveTransportStatus({
@@ -136,7 +136,7 @@ export function derivePubViewState(source: PubViewSourceState): PubViewState {
     transportStatus,
   });
   const error = resolveLiveErrorSummary(source);
-  const visualState = resolveLiveVisualState({
+  const blobState = resolveLiveBlobState({
     agentOnline: source.agentOnline,
     audioMode: source.audioMode,
     commandPhase: source.command.phase,
@@ -150,9 +150,9 @@ export function derivePubViewState(source: PubViewSourceState): PubViewState {
   });
 
   return {
+    blobState,
     controlBarState,
     error,
     transportStatus,
-    visualState,
   };
 }

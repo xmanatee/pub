@@ -77,12 +77,8 @@ export function usePubLiveModel({
     takeoverLive,
   } = useLiveSessionModel(slug);
 
-  const {
-    autoOpenCanvas,
-    setAutoOpenCanvas,
-    setVoiceModeEnabled,
-    voiceModeEnabled,
-  } = useLivePreferences();
+  const { autoOpenCanvas, setAutoOpenCanvas, setVoiceModeEnabled, voiceModeEnabled } =
+    useLivePreferences();
 
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
@@ -540,7 +536,7 @@ export function usePubLiveModel({
     takeoverLive,
     transportStatus: viewState.transportStatus,
     viewMode,
-    visualState: viewState.visualState,
+    blobState: viewState.blobState,
     voiceModeEnabled,
   };
 }

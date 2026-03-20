@@ -1,17 +1,7 @@
-import type { LiveVisualState } from "~/features/live/types/live-types";
+import type { BlobTone } from "~/components/blob/blob-tone";
+import type { LiveBlobState } from "~/features/live/types/live-types";
 
-export interface Tone {
-  coreScale: number;
-  energy: number;
-  glow: number;
-  hueA: number;
-  hueB: number;
-  hueC: number;
-  speedMs: number;
-  saturation: number;
-}
-
-export const VISUAL_THEME: Record<LiveVisualState, Tone> = {
+export const LIVE_BLOB_TONES: Record<LiveBlobState, BlobTone> = {
   "content-loading": {
     coreScale: 0.86,
     energy: 0.42,
@@ -133,19 +123,3 @@ export const VISUAL_THEME: Record<LiveVisualState, Tone> = {
     glow: 0.74,
   },
 };
-
-export interface VisualProps {
-  tone: Tone;
-  dimmed?: boolean;
-  className?: string;
-}
-
-export function smoothLerp(current: number, target: number, rate: number, dt: number): number {
-  return current + (target - current) * (1 - Math.exp(-rate * dt));
-}
-
-export function smoothLerpHue(current: number, target: number, rate: number, dt: number): number {
-  const delta = ((((target - current) % 360) + 540) % 360) - 180;
-  const result = current + delta * (1 - Math.exp(-rate * dt));
-  return ((result % 360) + 360) % 360;
-}

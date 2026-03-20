@@ -1,10 +1,12 @@
 import type { Id } from "@backend/_generated/dataModel";
 import { LayoutDashboard, Play } from "lucide-react";
 import { useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import { cn } from "~/lib/utils";
-import { CB } from "./control-bar-classes";
+import {
+  ControlBarIconAction,
+  ControlBarPanel,
+  ControlBarSelect,
+  ControlBarTextAction,
+} from "~/components/control-bar/control-bar-parts";
 
 interface AgentInfo {
   presenceId: Id<"agentPresence">;
@@ -30,21 +32,15 @@ export function ControlBarAgentSelectionMode({
 
 function TwoAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelectionModeProps) {
   return (
-    <div className={cn(CB.controlBar, CB.controlHeight)}>
+    <ControlBarPanel>
       {agents.map((agent) => (
-        <Button
-          key={agent.presenceId}
-          variant="ghost"
-          size="control"
-          className="min-w-0 flex-1 truncate text-xs"
-          onClick={() => onSelect(agent.presenceId)}
-        >
+        <ControlBarTextAction key={agent.presenceId} onClick={() => onSelect(agent.presenceId)}>
           {agent.agentName}
-        </Button>
+        </ControlBarTextAction>
       ))}
 
       <DashboardButton onExit={onExit} />
-    </div>
+    </ControlBarPanel>
   );
 }
 
@@ -52,11 +48,10 @@ function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelection
   const [selected, setSelected] = useState<Id<"agentPresence"> | "">("");
 
   return (
-    <div className={cn(CB.controlBar, CB.controlHeight)}>
-      <select
+    <ControlBarPanel>
+      <ControlBarSelect
         value={selected}
         onChange={(e) => setSelected(e.target.value as Id<"agentPresence">)}
-        className="min-w-0 flex-1 truncate rounded-full bg-transparent px-3 text-xs outline-none"
       >
         <option value="" disabled>
           Select agent...
@@ -66,44 +61,29 @@ function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelection
             {agent.agentName}
           </option>
         ))}
-      </select>
+      </ControlBarSelect>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="default"
-            size="control"
-            className={CB.actionButton}
-            onClick={() => onSelect(selected as Id<"agentPresence">)}
-            disabled={!selected}
-            aria-label="Start live"
-          >
-            <Play />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Start live</TooltipContent>
-      </Tooltip>
+      <ControlBarIconAction
+        icon={<Play />}
+        label="Start live"
+        onClick={() => onSelect(selected as Id<"agentPresence">)}
+        disabled={!selected}
+        tooltip="Start live"
+        variant="default"
+      />
 
       <DashboardButton onExit={onExit} />
-    </div>
+    </ControlBarPanel>
   );
 }
 
 function DashboardButton({ onExit }: { onExit: () => void }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="control"
-          className={CB.actionButton}
-          onClick={onExit}
-          aria-label="Dashboard"
-        >
-          <LayoutDashboard />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Dashboard</TooltipContent>
-    </Tooltip>
+    <ControlBarIconAction
+      icon={<LayoutDashboard />}
+      label="Dashboard"
+      onClick={onExit}
+      tooltip="Dashboard"
+    />
   );
 }

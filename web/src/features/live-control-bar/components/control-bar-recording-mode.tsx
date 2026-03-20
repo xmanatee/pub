@@ -1,9 +1,8 @@
 import { Pause, Play, Send, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "~/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
+import { ControlBarIconAction, ControlBarPanel } from "~/components/control-bar/control-bar-parts";
+import { CONTROL_BAR_STYLES } from "~/components/control-bar/control-bar-styles";
 import { cn } from "~/lib/utils";
-import { CB } from "./control-bar-classes";
 
 interface ControlBarRecordingModeProps {
   elapsedLabel: string;
@@ -23,22 +22,14 @@ export function ControlBarRecordingMode({
   waveformEl,
 }: ControlBarRecordingModeProps) {
   return (
-    <div className={cn(CB.controlBar, CB.controlHeight, CB.recordingTone)}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="control"
-            className={cn(CB.actionButton, "text-destructive")}
-            onClick={onCancelRecording}
-            aria-label="Delete recording"
-          >
-            <Trash2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Delete recording</TooltipContent>
-      </Tooltip>
+    <ControlBarPanel className={CONTROL_BAR_STYLES.recordingTone}>
+      <ControlBarIconAction
+        className="text-destructive"
+        icon={<Trash2 />}
+        label="Delete recording"
+        onClick={onCancelRecording}
+        tooltip="Delete recording"
+      />
 
       <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-destructive/12 px-3 py-2">
         <div
@@ -56,37 +47,19 @@ export function ControlBarRecordingMode({
         </span>
       </div>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="control"
-            className={CB.actionButton}
-            onClick={onPauseResume}
-            aria-label={isPaused ? "Resume recording" : "Pause recording"}
-          >
-            {isPaused ? <Play /> : <Pause />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{isPaused ? "Resume" : "Pause"}</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="default"
-            size="control"
-            className={CB.actionButton}
-            onClick={onSendRecording}
-            aria-label="Send recording"
-          >
-            <Send />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Send recording</TooltipContent>
-      </Tooltip>
-    </div>
+      <ControlBarIconAction
+        icon={isPaused ? <Play /> : <Pause />}
+        label={isPaused ? "Resume recording" : "Pause recording"}
+        onClick={onPauseResume}
+        tooltip={isPaused ? "Resume" : "Pause"}
+      />
+      <ControlBarIconAction
+        icon={<Send />}
+        label="Send recording"
+        onClick={onSendRecording}
+        tooltip="Send recording"
+        variant="default"
+      />
+    </ControlBarPanel>
   );
 }
