@@ -22,8 +22,6 @@ interface UseControlBarAudioOptions {
   sendOnChannel: (channel: string, message: BridgeMessage) => boolean;
   sendBinaryOnChannel: (channel: string, data: ArrayBuffer) => boolean;
   ensureChannel: (channel: string, timeoutMs?: number) => Promise<boolean>;
-  micGranted: boolean;
-  onMicGranted: (granted: boolean) => void;
   onSystemMessage?: (params: {
     content: string;
     cooldownMs?: number;
@@ -45,8 +43,6 @@ export function useControlBarAudio({
   sendOnChannel,
   sendBinaryOnChannel,
   ensureChannel,
-  micGranted,
-  onMicGranted,
   onSystemMessage,
   onSendAudio,
 }: UseControlBarAudioOptions) {
@@ -147,21 +143,6 @@ export function useControlBarAudio({
     return stream;
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount to warm mic permission
-  useEffect(() => {
-    if (!micGranted) return;
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        for (const track of stream.getTracks()) track.stop();
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "NotAllowedError") {
-          onMicGranted(false);
-        }
-      });
-  }, []);
-
   useEffect(() => {
     elapsedRef.current = state.elapsed;
   }, [state.elapsed]);
@@ -212,7 +193,6 @@ export function useControlBarAudio({
 
     try {
       const stream = await setupAudio();
-      onMicGranted(true);
       const mimeType = getSupportedMimeType();
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
@@ -245,7 +225,6 @@ export function useControlBarAudio({
       return true;
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotAllowedError") {
-        onMicGranted(false);
         emitSystemMessage({
           content: "Microphone access is blocked. Allow mic access to record audio.",
           dedupeKey: "mic-denied-recording",
@@ -272,7 +251,6 @@ export function useControlBarAudio({
     disabled,
     state.mode,
     setupAudio,
-    onMicGranted,
     onSendAudio,
     emitSystemMessage,
     startTimer,
@@ -315,7 +293,6 @@ export function useControlBarAudio({
 
     try {
       const stream = await setupAudio();
-      onMicGranted(true);
       const mime = getSupportedMimeType();
 
       const ready = await ensureChannel(CHANNELS.AUDIO);
@@ -369,7 +346,6 @@ export function useControlBarAudio({
       animateWaveform();
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotAllowedError") {
-        onMicGranted(false);
         emitSystemMessage({
           content: "Microphone access is blocked. Allow mic access to use voice mode.",
           dedupeKey: "mic-denied-voice",
@@ -395,7 +371,6 @@ export function useControlBarAudio({
     sendBinaryOnChannel,
     state.mode,
     setupAudio,
-    onMicGranted,
     emitSystemMessage,
     teardownMediaState,
     startTimer,

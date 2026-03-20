@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 const STORAGE_KEYS = {
   autoOpenCanvas: "pub:live:auto-open-canvas",
   voiceModeEnabled: "pub:live:voice-mode-enabled",
-  micGranted: "pub:live:mic-granted",
 } as const;
 
 type GetItem = (key: string) => string | null;
@@ -29,10 +28,6 @@ export function useLivePreferences() {
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.voiceModeEnabled, false),
   );
-  const [micGranted, setMicGranted] = useState(() =>
-    readStoredBoolean(STORAGE_KEYS.micGranted, false),
-  );
-
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.autoOpenCanvas, autoOpenCanvas ? "1" : "0");
   }, [autoOpenCanvas]);
@@ -41,16 +36,10 @@ export function useLivePreferences() {
     window.localStorage.setItem(STORAGE_KEYS.voiceModeEnabled, voiceModeEnabled ? "1" : "0");
   }, [voiceModeEnabled]);
 
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.micGranted, micGranted ? "1" : "0");
-  }, [micGranted]);
-
   return {
     autoOpenCanvas,
     setAutoOpenCanvas,
     voiceModeEnabled,
     setVoiceModeEnabled,
-    micGranted,
-    setMicGranted,
   };
 }

@@ -35,7 +35,6 @@ import {
   STUN_SERVERS,
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
-import { prepareMobileLiveConnection } from "./mobile-live-preparation";
 
 export type BridgeState = "connecting" | "connected" | "disconnected" | "failed" | "closed";
 
@@ -143,11 +142,6 @@ export class BrowserBridge {
   }
 
   async createOffer(): Promise<string> {
-    const warmedMobileAudio = await prepareMobileLiveConnection();
-    if (warmedMobileAudio) {
-      this.onProfileMark?.("mobile-audio-warmup");
-    }
-
     const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
     this.pc = pc;
     this.setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "connecting" });

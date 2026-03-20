@@ -79,9 +79,7 @@ export function usePubLiveModel({
 
   const {
     autoOpenCanvas,
-    micGranted,
     setAutoOpenCanvas,
-    setMicGranted,
     setVoiceModeEnabled,
     voiceModeEnabled,
   } = useLivePreferences();
@@ -247,8 +245,6 @@ export function usePubLiveModel({
     sendOnChannel,
     sendBinaryOnChannel,
     ensureChannel,
-    micGranted,
-    onMicGranted: setMicGranted,
     onSendAudio: sendAudio,
     onSystemMessage: addSystemMessage,
   });
@@ -525,7 +521,6 @@ export function usePubLiveModel({
     live,
     messages,
     messagesEndRef,
-    micGranted,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
     preview,
@@ -539,7 +534,6 @@ export function usePubLiveModel({
     setAutoOpenCanvas,
     toggleControlBar,
     setDeveloperModeEnabled,
-    setMicGranted,
     setSelectedPresenceId: handleSelectedPresenceId,
     setViewMode,
     setVoiceModeEnabled,
