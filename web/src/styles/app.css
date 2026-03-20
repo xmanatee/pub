@@ -210,6 +210,28 @@
     mask-image: linear-gradient(to right, transparent, black 6rem, black calc(100% - 6rem), transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 6rem, black calc(100% - 6rem), transparent);
   }
+  .fade-edges-narrow {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  @media (min-width: 72rem) {
+    .fade-edges-narrow {
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        black 2.5rem,
+        black calc(100% - 2.5rem),
+        transparent
+      );
+      -webkit-mask-image: linear-gradient(
+        to right,
+        transparent,
+        black 2.5rem,
+        black calc(100% - 2.5rem),
+        transparent
+      );
+    }
+  }
   .hover-reveal {
     @media (hover: hover) {
       opacity: 0;

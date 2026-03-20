@@ -133,11 +133,16 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
             {!IN_TELEGRAM && !isLoading && !isAuthenticated && (
               <nav aria-label="Main navigation" className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" className="pointer-coarse:h-11" asChild>
-                  <Link to="/login">Sign in</Link>
-                </Button>
+                <a
+                  href="https://github.com/xmanatee/pub"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  GitHub
+                </a>
                 <Button size="sm" className="pointer-coarse:h-11" asChild>
-                  <Link to="/login">Get started</Link>
+                  <Link to="/login">Sign in</Link>
                 </Button>
               </nav>
             )}
