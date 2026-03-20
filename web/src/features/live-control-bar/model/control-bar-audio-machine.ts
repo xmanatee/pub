@@ -14,7 +14,6 @@ export type AudioMachineMode =
 export interface AudioMachineState {
   mode: AudioMachineMode;
   elapsed: number;
-  pendingStopIntent: RecordingStopIntent | null;
   stopIntent: RecordingStopIntent | null;
 }
 
@@ -37,7 +36,6 @@ export type AudioMachineEvent =
 export const INITIAL_AUDIO_MACHINE_STATE: AudioMachineState = {
   mode: "idle",
   elapsed: 0,
-  pendingStopIntent: null,
   stopIntent: null,
 };
 
@@ -55,24 +53,14 @@ export function reduceAudioMachine(
       return {
         mode: "starting-recording",
         elapsed: 0,
-        pendingStopIntent: null,
         stopIntent: null,
       };
 
     case "START_RECORDING_SUCCESS":
       if (state.mode !== "starting-recording") return state;
-      if (state.pendingStopIntent) {
-        return {
-          ...state,
-          mode: "stopping-recording",
-          pendingStopIntent: null,
-          stopIntent: state.pendingStopIntent,
-        };
-      }
       return {
         ...state,
         mode: "recording",
-        pendingStopIntent: null,
         stopIntent: null,
       };
 
@@ -81,9 +69,6 @@ export function reduceAudioMachine(
       return toIdle();
 
     case "REQUEST_RECORDING_STOP":
-      if (state.mode === "starting-recording") {
-        return { ...state, pendingStopIntent: event.intent };
-      }
       if (state.mode === "recording" || state.mode === "recording-paused") {
         return {
           ...state,
@@ -116,7 +101,6 @@ export function reduceAudioMachine(
       return {
         mode: "starting-voice",
         elapsed: 0,
-        pendingStopIntent: null,
         stopIntent: null,
       };
 

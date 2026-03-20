@@ -3,7 +3,6 @@ import { type ChangeEvent, type KeyboardEvent, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import type { LiveVisualState } from "~/features/live/types/live-types";
-import { cn } from "~/lib/utils";
 import { CB } from "./control-bar-classes";
 
 const MAX_TEXTAREA_ROWS = 5;
@@ -27,8 +26,8 @@ interface ControlBarInputRowProps {
   onInputChange: (value: string) => void;
   onInputKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
+  onStartRecording: () => void;
   onStartVoiceMode: () => void;
-  pointerHandlers: React.HTMLAttributes<HTMLButtonElement>;
   sendDisabled: boolean;
   visualState: LiveVisualState;
   voiceModeEnabled: boolean;
@@ -43,8 +42,8 @@ export function ControlBarInputRow({
   onInputChange,
   onInputKeyDown,
   onSend,
+  onStartRecording,
   onStartVoiceMode,
-  pointerHandlers,
   sendDisabled,
   visualState,
   voiceModeEnabled,
@@ -61,7 +60,7 @@ export function ControlBarInputRow({
   }, [input]);
 
   return (
-    <div className={cn("w-full", CB.controlHeight)} style={{ WebkitTouchCallout: "none" }}>
+    <div className={`w-full ${CB.controlHeight}`} style={{ WebkitTouchCallout: "none" }}>
       <div className={CB.controlRow}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -117,15 +116,15 @@ export function ControlBarInputRow({
                 <Button
                   variant="ghost"
                   size="control"
-                  className={cn(CB.actionButton, "touch-none")}
+                  className={CB.actionButton}
+                  onClick={onStartRecording}
                   disabled={sendDisabled}
-                  aria-label="Hold to record audio"
-                  {...pointerHandlers}
+                  aria-label="Record audio"
                 >
                   <Mic />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Hold to record</TooltipContent>
+              <TooltipContent>Record audio</TooltipContent>
             </Tooltip>
 
             {voiceModeEnabled ? (

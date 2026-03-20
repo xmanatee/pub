@@ -7,7 +7,6 @@ import type { LiveViewMode } from "~/features/live/types/live-types";
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
 import { useExtendedOptionsVisibility } from "~/features/live-control-bar/hooks/use-extended-options-visibility";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
-import { useHoldToRecord } from "~/features/live-control-bar/hooks/use-hold-to-record";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { cn } from "~/lib/utils";
 import { ControlBarPrimitive } from "../architecture/control-bar-primitive";
@@ -91,14 +90,6 @@ export function ControlBar({ initialInput }: ControlBarProps) {
     return () => document.removeEventListener("keydown", onKey);
   }, [isBarExpanded, toggleControlBar]);
 
-  const { pointerHandlers } = useHoldToRecord({
-    disabled: !connected,
-    mode: audio.barMode,
-    startRecording: audio.startRecording,
-    sendRecording: audio.sendRecording,
-    cancelRecording: audio.cancelRecording,
-  });
-
   const handlePreviewClick = useCallback(() => {
     setViewMode("chat");
     dismissPreview();
@@ -178,8 +169,8 @@ export function ControlBar({ initialInput }: ControlBarProps) {
         onInputChange={setInput}
         onInputKeyDown={handleKeyDown}
         onSend={handleSend}
+        onStartRecording={audio.startRecording}
         onStartVoiceMode={audio.startVoiceMode}
-        pointerHandlers={pointerHandlers}
         sendDisabled={!connected}
         visualState={visualState}
         voiceModeEnabled={voiceModeEnabled}

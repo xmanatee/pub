@@ -83,12 +83,6 @@ vi.mock("~/features/live-control-bar/hooks/use-file-upload", () => ({
   }),
 }));
 
-vi.mock("~/features/live-control-bar/hooks/use-hold-to-record", () => ({
-  useHoldToRecord: () => ({
-    pointerHandlers: {},
-  }),
-}));
-
 function renderControlBar(
   overrides?: RenderOverrides,
   hookOverrides?: Partial<typeof mockExtendedOptions>,
@@ -118,9 +112,9 @@ describe("ControlBar", () => {
     mockSession.agentName = null;
   });
 
-  it("shows hold-to-record and voice actions in idle mode", () => {
+  it("shows record and voice actions in idle mode", () => {
     const html = renderControlBar();
-    expect(html).toContain('aria-label="Hold to record audio"');
+    expect(html).toContain('aria-label="Record audio"');
     expect(html).not.toContain('aria-label="Voice mode"');
 
     const htmlWithVoice = renderControlBar({ voiceModeEnabled: true });
