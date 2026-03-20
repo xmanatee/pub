@@ -83,6 +83,7 @@ function StaticControlBar({
     connected:
       blobState !== "connecting" && blobState !== "disconnected" && blobState !== "offline",
     hasCanvasContent: true,
+    liveRequested: true,
     sessionState,
     controlBarState: resolvedControlBarState,
     transportStatus: resolveDebugTransportStatus(blobState),
@@ -115,6 +116,8 @@ export function ControlBarDebugPage() {
     controlBarCollapsed: collapsed,
     connected:
       activeState !== "connecting" && activeState !== "disconnected" && activeState !== "offline",
+    hasCanvasContent: true,
+    liveRequested: true,
     sessionState: "active",
     viewMode,
     controlBarState: resolveDebugControlBarState(activeState, "active"),

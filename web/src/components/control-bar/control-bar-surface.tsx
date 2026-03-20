@@ -1,9 +1,16 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
 import { CONTROL_BAR_STYLES } from "./control-bar-styles";
 import "./control-bar-state.css";
-import type { ControlBarSurfaceProps } from "./control-bar-types";
+import type { ControlBarAddon, ControlBarSurfaceProps } from "./control-bar-types";
+
+const ADDON_TRANSITION_MS = 500;
+
+function sameAddonKeys(left: ControlBarAddon[], right: ControlBarAddon[]) {
+  if (left.length !== right.length) return false;
+  return left.every((addon, index) => addon.key === right[index]?.key);
+}
 
 export function ControlBarSurface({
   addons = [],
@@ -17,9 +24,61 @@ export function ControlBarSurface({
 }: ControlBarSurfaceProps) {
   const hasLeft = Boolean(leftAction);
   const hasRight = Boolean(rightAction);
-  const sortedAddons = [...addons].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
-  const hasAddons = sortedAddons.length > 0;
+  const sortedAddons = useMemo(
+    () => [...addons].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)),
+    [addons],
+  );
+  const [renderedAddons, setRenderedAddons] = useState(sortedAddons);
+  const [addonsVisible, setAddonsVisible] = useState(sortedAddons.length > 0);
+  const addonTimeoutRef = useRef<number | null>(null);
+  const hasAddons = renderedAddons.length > 0;
   const showStatusButton = statusButton && !statusButton.hidden;
+
+  useEffect(() => {
+    const currentRendered = renderedAddons;
+    if (sameAddonKeys(sortedAddons, currentRendered)) {
+      setRenderedAddons(sortedAddons);
+      setAddonsVisible(sortedAddons.length > 0);
+      return;
+    }
+
+    if (addonTimeoutRef.current !== null) {
+      window.clearTimeout(addonTimeoutRef.current);
+      addonTimeoutRef.current = null;
+    }
+
+    if (currentRendered.length === 0) {
+      setRenderedAddons(sortedAddons);
+      if (sortedAddons.length > 0) {
+        const frameId = window.requestAnimationFrame(() => setAddonsVisible(true));
+        return () => window.cancelAnimationFrame(frameId);
+      }
+      setAddonsVisible(false);
+      return;
+    }
+
+    setAddonsVisible(false);
+    addonTimeoutRef.current = window.setTimeout(() => {
+      setRenderedAddons(sortedAddons);
+      setAddonsVisible(sortedAddons.length > 0);
+      addonTimeoutRef.current = null;
+    }, ADDON_TRANSITION_MS);
+
+    return () => {
+      if (addonTimeoutRef.current !== null) {
+        window.clearTimeout(addonTimeoutRef.current);
+        addonTimeoutRef.current = null;
+      }
+    };
+  }, [renderedAddons, sortedAddons]);
+
+  useEffect(() => {
+    return () => {
+      if (addonTimeoutRef.current !== null) {
+        window.clearTimeout(addonTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -74,15 +133,15 @@ export function ControlBarSurface({
                 <div
                   className={cn(
                     "transition-all duration-500 ease-in-out",
-                    hasAddons
+                    hasAddons && addonsVisible
                       ? "max-h-60 translate-y-0 opacity-100"
                       : "pointer-events-none max-h-0 translate-y-4 opacity-0",
                   )}
                 >
-                  {sortedAddons.map((addon, index) => (
+                  {renderedAddons.map((addon, index) => (
                     <Fragment key={addon.key}>
                       {addon.content}
-                      {index < sortedAddons.length - 1 && <Separator />}
+                      {index < renderedAddons.length - 1 && <Separator />}
                     </Fragment>
                   ))}
                   {hasAddons && <Separator />}

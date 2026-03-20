@@ -59,9 +59,9 @@ function PubRouteContent({
   return (
     <ControlBarProvider>
       <div className="pub-overlay fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-        {liveMode && session.controlBarCollapsed ? null : (
+        {liveMode && session.controlBarCollapsed ? null : session.hasCanvasContent ? (
           <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
-        )}
+        ) : null}
 
         <div className="flex-1 min-h-0 relative">
           <div

@@ -2,18 +2,14 @@ import { useCallback, useEffect, useReducer } from "react";
 import type { LiveControlBarState, LiveViewMode } from "~/features/live/types/live-types";
 
 /**
- * Edge-triggered state machine for extended options visibility.
- *
- * visible  → on bar expansion (collapsed → expanded)
- * hidden   → on textarea focus, non-idle controlBarState, view change, bar collapse
- *
- * Once hidden, stays hidden until the next bar expansion cycle.
+ * Edge-triggered visibility with an explicit toggle path for non-collapsible layouts.
  */
 
 export type ExtendedOptionsEvent =
   | { type: "bar-expanded" }
   | { type: "bar-collapsed" }
-  | { type: "dismiss" };
+  | { type: "dismiss" }
+  | { type: "toggle" };
 
 export function extendedOptionsReducer(_prev: boolean, event: ExtendedOptionsEvent): boolean {
   switch (event.type) {
@@ -22,23 +18,34 @@ export function extendedOptionsReducer(_prev: boolean, event: ExtendedOptionsEve
     case "bar-collapsed":
     case "dismiss":
       return false;
+    case "toggle":
+      return !_prev;
   }
 }
 
 export function useExtendedOptionsVisibility({
   controlBarState,
   isBarExpanded,
+  showOnExpand = true,
   viewMode,
 }: {
   controlBarState: LiveControlBarState;
   isBarExpanded: boolean;
+  showOnExpand?: boolean;
   viewMode: LiveViewMode;
 }) {
   const [visible, dispatch] = useReducer(extendedOptionsReducer, false);
 
   useEffect(() => {
+    if (!showOnExpand) return;
     dispatch({ type: isBarExpanded ? "bar-expanded" : "bar-collapsed" });
-  }, [isBarExpanded]);
+  }, [isBarExpanded, showOnExpand]);
+
+  useEffect(() => {
+    if (!showOnExpand) {
+      dispatch({ type: "dismiss" });
+    }
+  }, [showOnExpand]);
 
   useEffect(() => {
     if (controlBarState !== "idle" && controlBarState !== "connecting") {
@@ -53,6 +60,7 @@ export function useExtendedOptionsVisibility({
   }, [viewMode]);
 
   const dismiss = useCallback(() => dispatch({ type: "dismiss" }), []);
+  const toggle = useCallback(() => dispatch({ type: "toggle" }), []);
 
-  return { visible, dismiss };
+  return { visible, dismiss, toggle };
 }

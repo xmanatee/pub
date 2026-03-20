@@ -64,7 +64,6 @@ export function CanvasPanel({
   latestOutboundCanvasBridgeMessageRef.current = outboundCanvasBridgeMessage ?? null;
 
   useEffect(() => {
-    console.debug("[canvas] html-effect reset bridgeReady=false");
     setCanvasBridgeReady(false);
     setPendingOutboundCanvasBridgeMessages([]);
     lastAcceptedOutboundMessageRef.current = latestOutboundCanvasBridgeMessageRef.current;
@@ -91,7 +90,6 @@ export function CanvasPanel({
       if (!message) return;
 
       if (message.type === "ready") {
-        console.debug("[canvas] ready msg → bridgeReady=true");
         setCanvasBridgeReady(true);
         return;
       }
@@ -150,18 +148,10 @@ export function CanvasPanel({
 
   useEffect(() => {
     if (!canvasBridgeReady || pendingOutboundCanvasBridgeMessages.length === 0) {
-      if (pendingOutboundCanvasBridgeMessages.length > 0) {
-        console.debug(
-          "[canvas] BLOCKED pending=%d bridgeReady=%s",
-          pendingOutboundCanvasBridgeMessages.length,
-          canvasBridgeReady,
-        );
-      }
       return;
     }
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
-    console.debug("[canvas] posting to iframe", pendingOutboundCanvasBridgeMessages[0].type);
     frame.postMessage(pendingOutboundCanvasBridgeMessages[0], "*");
     setPendingOutboundCanvasBridgeMessages((current) => current.slice(1));
   }, [canvasBridgeReady, pendingOutboundCanvasBridgeMessages]);
@@ -179,10 +169,7 @@ export function CanvasPanel({
             loadedHtml === html ? "opacity-100" : "opacity-0",
           )}
           title="Canvas"
-          onLoad={() => {
-            console.debug("[canvas] onLoad");
-            setLoadedHtml(html);
-          }}
+          onLoad={() => setLoadedHtml(html)}
         />
       ) : null}
       {blobPhase === "hidden" ? null : (

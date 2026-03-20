@@ -53,6 +53,8 @@ test.describe("Control bar layout", () => {
 
   test("preview opens and expands shell height", async ({ page }) => {
     await openControlBarDebug(page);
+    await interactiveSection(page).getByLabel("Message").focus();
+    await page.waitForTimeout(600);
     const baseline = (await readControlMetrics(page)).shellHeight;
     await interactiveSection(page).getByRole("button", { name: "Show preview" }).click();
 

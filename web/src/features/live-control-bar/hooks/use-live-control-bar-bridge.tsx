@@ -26,12 +26,14 @@ import { ControlBarBusyMode } from "../components/control-bar-busy-mode";
 import { ControlBarDisconnectedMode } from "../components/control-bar-disconnected-mode";
 import { ControlBarInputRow } from "../components/control-bar-input-row";
 import { ControlBarOfflineMode } from "../components/control-bar-offline-mode";
+import { ControlBarOptionalLiveMode } from "../components/control-bar-optional-live-mode";
 import { ControlBarRecordingMode } from "../components/control-bar-recording-mode";
 import { ControlBarTakeoverMode } from "../components/control-bar-takeover-mode";
 import { ControlBarVoiceMode } from "../components/control-bar-voice-mode";
 import { ExtendedOptions } from "../components/extended-options";
 
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
+const RECORDING_SHELL_CLASS = "border-destructive/40 bg-background/88";
 
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -52,6 +54,7 @@ export function useLiveControlBarBridge({
 }: UseLiveControlBarBridgeOptions) {
   const {
     agentName,
+    agentOnline,
     audio,
     availableAgents,
     collapseControlBar,
@@ -59,8 +62,12 @@ export function useLiveControlBarBridge({
     controlBarCollapsed,
     controlBarState,
     dismissPreview,
+    hasCanvasContent,
+    hasCommandManifest,
     lastTakeoverAt,
+    liveRequested,
     preview,
+    requestLiveSession,
     retryConnection,
     toggleControlBar,
     setSelectedPresenceId,
@@ -74,10 +81,19 @@ export function useLiveControlBarBridge({
     closeLive,
   } = useLiveSession();
 
-  const isExpanded = viewMode === "canvas" ? !controlBarCollapsed : true;
+  const canCollapseBar = hasCanvasContent;
+  const isExpanded = viewMode === "canvas" ? (canCollapseBar ? !controlBarCollapsed : true) : true;
 
-  const { visible: extendedOptionsVisible, dismiss: dismissExtendedOptions } =
-    useExtendedOptionsVisibility({ controlBarState, isBarExpanded: isExpanded, viewMode });
+  const {
+    visible: extendedOptionsVisible,
+    dismiss: dismissExtendedOptions,
+    toggle: toggleExtendedOptions,
+  } = useExtendedOptionsVisibility({
+    controlBarState,
+    isBarExpanded: isExpanded,
+    showOnExpand: canCollapseBar,
+    viewMode,
+  });
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
@@ -99,12 +115,12 @@ export function useLiveControlBarBridge({
     if (!isExpanded) return;
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") toggleControlBar();
+      if (event.key === "Escape" && canCollapseBar) toggleControlBar();
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isExpanded, toggleControlBar]);
+  }, [canCollapseBar, isExpanded, toggleControlBar]);
 
   const handlePreviewClick = useCallback(() => {
     setViewMode("chat");
@@ -112,11 +128,11 @@ export function useLiveControlBarBridge({
   }, [dismissPreview, setViewMode]);
 
   const waveform = (
-    <div ref={audio.barsRef} className="flex h-7 items-center gap-0.5">
+    <div ref={audio.barsRef} className="flex h-7 w-full items-center gap-0.5 overflow-hidden">
       {WAVEFORM_BARS.map((id) => (
         <div
           key={id}
-          className="w-1 rounded-full bg-foreground/70 transition-all duration-75"
+          className="min-w-0 flex-1 rounded-full bg-foreground/70 transition-all duration-75"
           style={{ height: "4px" }}
         />
       ))}
@@ -172,9 +188,18 @@ export function useLiveControlBarBridge({
 
   addons.push(...controlBarNotificationsToAddons(notifications));
 
+  const rightActionForCanvasMode = viewMode === "canvas" ? undefined : rightAction;
+  const optionalLive = !hasCommandManifest && !liveRequested;
+
   useControlBarBaseLayer({
     addons,
-    mainContent: (
+    mainContent: optionalLive ? (
+      <ControlBarOptionalLiveMode
+        agentOnline={agentOnline === true}
+        onConnect={requestLiveSession}
+        onExit={closeLive}
+      />
+    ) : (
       <ControlBarInputRow
         fileInputRef={fileInputRef}
         hasText={hasText}
@@ -191,19 +216,19 @@ export function useLiveControlBarBridge({
         voiceModeEnabled={voiceModeEnabled}
       />
     ),
-    rightAction,
+    rightAction: rightActionForCanvasMode,
   });
 
   useControlBarChrome({
-    backdropOnClick: toggleControlBar,
-    backdropVisible: isExpanded && viewMode === "canvas",
+    backdropOnClick: canCollapseBar ? toggleControlBar : undefined,
+    backdropVisible: canCollapseBar && isExpanded && viewMode === "canvas",
     expanded: isExpanded,
     shellStyle: controlBarToneStyle(shellTone),
     statusButton: statusButtonContent
       ? {
-          ariaLabel: "Toggle control bar",
+          ariaLabel: canCollapseBar ? "Toggle control bar" : "Toggle extended options",
           content: statusButtonContent,
-          onClick: toggleControlBar,
+          onClick: canCollapseBar ? toggleControlBar : toggleExtendedOptions,
         }
       : undefined,
   });
@@ -223,7 +248,7 @@ export function useLiveControlBarBridge({
       onSendRecording: audio.sendRecording,
       onStopVoiceMode: audio.stopVoiceMode,
       onTakeover: takeoverLive,
-      rightAction,
+      rightAction: rightActionForCanvasMode,
       waveform,
     }),
   );
@@ -315,7 +340,7 @@ function resolveTransientLayer({
 
   if (controlBarState === "recording" || controlBarState === "recording-paused") {
     return {
-      className: CONTROL_BAR_STYLES.recordingTone,
+      className: RECORDING_SHELL_CLASS,
       mainContent: (
         <ControlBarRecordingMode
           elapsedLabel={formatTime(elapsed)}
@@ -345,7 +370,7 @@ function resolveTransientLayer({
   }
 
   return {
-    className: CONTROL_BAR_STYLES.recordingTone,
+    className: RECORDING_SHELL_CLASS,
     mainContent: (
       <ControlBarVoiceMode
         elapsedLabel={formatTime(elapsed)}

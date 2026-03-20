@@ -1,7 +1,10 @@
 import { Pause, Play, Send, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { ControlBarIconAction, ControlBarPanel } from "~/components/control-bar/control-bar-parts";
-import { CONTROL_BAR_STYLES } from "~/components/control-bar/control-bar-styles";
+import {
+  ControlBarChip,
+  ControlBarIconAction,
+  ControlBarPanel,
+} from "~/components/control-bar/control-bar-parts";
 import { cn } from "~/lib/utils";
 
 interface ControlBarRecordingModeProps {
@@ -22,7 +25,7 @@ export function ControlBarRecordingMode({
   waveformEl,
 }: ControlBarRecordingModeProps) {
   return (
-    <ControlBarPanel className={CONTROL_BAR_STYLES.recordingTone}>
+    <ControlBarPanel>
       <ControlBarIconAction
         className="text-destructive"
         icon={<Trash2 />}
@@ -31,7 +34,7 @@ export function ControlBarRecordingMode({
         tooltip="Delete recording"
       />
 
-      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-destructive/12 px-3 py-2">
+      <ControlBarChip className="bg-destructive/12">
         <div
           className={cn(
             "h-2.5 w-2.5 rounded-full",
@@ -39,13 +42,15 @@ export function ControlBarRecordingMode({
           )}
         />
         <span className="text-sm font-semibold">{elapsedLabel}</span>
-        <div className={cn("min-w-0 flex-1", isPaused ? "opacity-45" : "opacity-100")}>
+        <div
+          className={cn("hidden min-w-0 flex-1 sm:block", isPaused ? "opacity-45" : "opacity-100")}
+        >
           {waveformEl}
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
           {isPaused ? "Paused" : "Recording"}
         </span>
-      </div>
+      </ControlBarChip>
 
       <ControlBarIconAction
         icon={isPaused ? <Play /> : <Pause />}

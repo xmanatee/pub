@@ -1,8 +1,9 @@
 import { api } from "@backend/_generated/api";
+import { extractManifestFromHtml } from "@shared/command-protocol-core";
 import { canSendAgentTraffic } from "@shared/live-runtime-state-core";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCanvasCommands } from "~/features/live/hooks/use-canvas-commands";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
@@ -57,6 +58,12 @@ export function usePubLiveModel({
   const recordPubView = useMutation(api.analytics.recordPubView);
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
+  const baseManifest = useMemo(
+    () => (baseContentHtml ? extractManifestFromHtml(baseContentHtml) : null),
+    [baseContentHtml],
+  );
+  const defaultCollapsed = Boolean(baseContentHtml) && baseManifest === null;
+  const defaultLiveRequested = baseManifest !== null;
 
   const {
     agentOnline,
@@ -107,10 +114,10 @@ export function usePubLiveModel({
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
-  const [collapsePreference, setCollapsePreference] = useState(Boolean(baseContentHtml));
+  const [collapsePreference, setCollapsePreference] = useState(defaultCollapsed);
+  const [liveRequested, setLiveRequested] = useState(defaultLiveRequested);
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
-  const trackedViewCount = useRef(false);
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
@@ -125,8 +132,14 @@ export function usePubLiveModel({
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
   const canvasFileMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
+  const hasCommandManifest = useMemo(() => {
+    const content = canvasHtml ?? baseContentHtml ?? null;
+    return content ? extractManifestFromHtml(content) !== null : false;
+  }, [baseContentHtml, canvasHtml]);
+  const liveEnabled = liveMode && (hasCommandManifest || liveRequested);
+
   const enabled =
-    liveMode &&
+    liveEnabled &&
     agentOnline === true &&
     selectedPresenceId !== null &&
     (sessionState === "inactive" || sessionState === "active");
@@ -151,8 +164,8 @@ export function usePubLiveModel({
     slug,
     enabled,
     transportKey,
-    agentAnswer: liveMode && sessionState === "active" ? live?.agentAnswer : undefined,
-    agentCandidates: liveMode && sessionState === "active" ? live?.agentCandidates : undefined,
+    agentAnswer: liveEnabled && sessionState === "active" ? live?.agentAnswer : undefined,
+    agentCandidates: liveEnabled && sessionState === "active" ? live?.agentCandidates : undefined,
     storeBrowserOffer,
     storeBrowserCandidates,
     addAgentAudioMessage,
@@ -191,15 +204,15 @@ export function usePubLiveModel({
   const profileStartedRef = useRef(false);
 
   useEffect(() => {
-    if (liveMode && agentOnline === true && !profileStartedRef.current) {
+    if (liveEnabled && agentOnline === true && !profileStartedRef.current) {
       profileStartedRef.current = true;
       profileStart();
       profileMark("queries-resolved");
     }
-    if (!liveMode || agentOnline !== true) {
+    if (!liveEnabled || agentOnline !== true) {
       profileStartedRef.current = false;
     }
-  }, [liveMode, agentOnline]);
+  }, [liveEnabled, agentOnline]);
 
   useEffect(() => {
     if (enabled) profileMark("enabled");
@@ -230,7 +243,7 @@ export function usePubLiveModel({
     ensureChannel,
     canvasScopeKey,
     runtimeState,
-    liveMode,
+    liveMode: liveEnabled,
     sessionKey: transportKey,
   });
   commandMessageHandlerRef.current = handleBridgeCommandMessage;
@@ -248,13 +261,18 @@ export function usePubLiveModel({
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
 
   useEffect(() => {
+    if (hasCommandManifest) {
+      setLiveRequested(true);
+    }
+  }, [hasCommandManifest]);
+
+  useEffect(() => {
     setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    console.debug("[model] baseContentHtml changed len=%d", baseContentHtml?.length ?? -1);
     setCanvasHtml(baseContentHtml ?? null);
   }, [baseContentHtml]);
 
@@ -262,8 +280,10 @@ export function usePubLiveModel({
   useEffect(() => {
     const hadCanvas = hadCanvasRef.current;
     hadCanvasRef.current = Boolean(canvasHtml);
-    if (canvasHtml && !hadCanvas) setCollapsePreference(true);
-  }, [canvasHtml]);
+    if (canvasHtml && !hadCanvas) {
+      setCollapsePreference(!hasCommandManifest);
+    }
+  }, [canvasHtml, hasCommandManifest]);
 
   useEffect(() => {
     const previous = lastCanvasScopeRef.current;
@@ -271,10 +291,7 @@ export function usePubLiveModel({
     const hadPriorCanvas = previous.html !== null;
     lastCanvasScopeRef.current = { slug, html: canvasHtml };
     if (hadPriorCanvas) {
-      console.debug("[model] canvasScopeVersion++ (hadPriorCanvas, html changed)");
       setCanvasScopeVersion((current) => current + 1);
-    } else {
-      console.debug("[model] canvasHtml changed but no prior canvas — skip version bump");
     }
   }, [canvasHtml, slug]);
 
@@ -289,7 +306,7 @@ export function usePubLiveModel({
     contentState: effectiveContentState,
     lastAgentOutput,
     lastUserDeliveredAt,
-    liveMode,
+    liveMode: liveEnabled,
     needsAgentSelection,
     now,
     sessionError,
@@ -297,15 +314,24 @@ export function usePubLiveModel({
   });
 
   const controlBarCollapsed =
-    collapsePreference && isControlBarCollapsible(viewState.controlBarState);
+    hasCanvasContent && collapsePreference && isControlBarCollapsible(viewState.controlBarState);
 
   const toggleControlBar = useCallback(() => {
+    if (!hasCanvasContent) return;
     setCollapsePreference((prev) => !prev);
-  }, []);
+  }, [hasCanvasContent]);
 
   const collapseControlBar = useCallback(() => {
+    if (!hasCanvasContent) return;
     setCollapsePreference(true);
-  }, []);
+  }, [hasCanvasContent]);
+
+  const requestLiveSession = useCallback(() => {
+    setLiveRequested(true);
+    if (hasCanvasContent) {
+      setCollapsePreference(false);
+    }
+  }, [hasCanvasContent]);
 
   useEffect(() => {
     if (pub === undefined) return;
@@ -350,9 +376,9 @@ export function usePubLiveModel({
     lastLiveSessionIdRef.current = null;
     lastSelectedPresenceIdRef.current = null;
     setCanvasHtml(baseContentHtml ?? null);
-    setCollapsePreference(Boolean(baseContentHtml));
+    setCollapsePreference(defaultCollapsed);
+    setLiveRequested(defaultLiveRequested);
     trackedAnalytics.current = false;
-    trackedViewCount.current = false;
     dismissPreview();
     clearMessages();
     clearFiles();
@@ -361,6 +387,8 @@ export function usePubLiveModel({
   }, [
     baseContentHtml,
     slug,
+    defaultCollapsed,
+    defaultLiveRequested,
     dismissPreview,
     clearMessages,
     clearFiles,
@@ -375,10 +403,10 @@ export function usePubLiveModel({
   useEffect(() => {
     const previousCanvasHtml = lastCanvasHtmlRef.current;
     lastCanvasHtmlRef.current = canvasHtml;
-    if (!liveMode || !autoOpenCanvas) return;
+    if (!liveEnabled || !autoOpenCanvas) return;
     if (!canvasHtml || canvasHtml === previousCanvasHtml) return;
     setViewMode("canvas");
-  }, [autoOpenCanvas, canvasHtml, liveMode, setViewMode]);
+  }, [autoOpenCanvas, canvasHtml, liveEnabled, setViewMode]);
 
   useEffect(() => {
     const nextError = sessionError;
@@ -411,7 +439,6 @@ export function usePubLiveModel({
   ]);
 
   const resetLiveSurface = useCallback(() => {
-    console.debug("[model] resetLiveSurface");
     dismissPreview();
     clearFiles();
     clearMessages();
@@ -430,7 +457,7 @@ export function usePubLiveModel({
   ]);
 
   useEffect(() => {
-    if (!liveMode) {
+    if (!liveEnabled) {
       lastLiveSessionIdRef.current = null;
       return;
     }
@@ -450,12 +477,11 @@ export function usePubLiveModel({
       return;
     }
 
-    console.debug("[model] liveSessionId changed → resetLiveSurface");
     resetLiveSurface();
-  }, [live?._id, liveMode, resetLiveSurface]);
+  }, [live?._id, liveEnabled, resetLiveSurface]);
 
   useEffect(() => {
-    if (!liveMode) {
+    if (!liveEnabled) {
       lastSelectedPresenceIdRef.current = null;
       return;
     }
@@ -467,16 +493,16 @@ export function usePubLiveModel({
       return;
     }
 
-    console.debug("[model] selectedPresenceId changed → resetLiveSurface");
     resetLiveSurface();
-  }, [liveMode, resetLiveSurface, selectedPresenceId]);
+  }, [liveEnabled, resetLiveSurface, selectedPresenceId]);
 
   const handleClose = useCallback(() => {
     setCollapsePreference(false);
+    setLiveRequested(false);
     resetLiveSurface();
-    if (liveMode) closeLive();
+    if (liveEnabled) closeLive();
     void navigate({ to: "/dashboard" });
-  }, [closeLive, liveMode, navigate, resetLiveSurface]);
+  }, [closeLive, liveEnabled, navigate, resetLiveSurface]);
 
   const handleSelectedPresenceId = useCallback(
     (presenceId: typeof selectedPresenceId) => {
@@ -510,6 +536,7 @@ export function usePubLiveModel({
     dismissPreview,
     error: viewState.error,
     files,
+    hasCommandManifest,
     hasCanvasContent,
     connectionState: runtimeState.connectionState,
     executorState: runtimeState.executorState,
@@ -520,6 +547,8 @@ export function usePubLiveModel({
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
     preview,
+    liveRequested,
+    requestLiveSession,
     retryConnection,
     sendAudio,
     sendChat,

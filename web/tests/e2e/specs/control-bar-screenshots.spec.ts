@@ -47,6 +47,7 @@ test.describe("Control bar screenshots", () => {
     await setupPage(page);
     const section = page.getByTestId("batch-preview");
     await expect(section).toBeVisible();
+    await page.waitForTimeout(600);
     await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-preview.png`, {
       maxDiffRatio: ANIMATED_TOLERANCE,
     });

@@ -205,18 +205,21 @@ export function ControlBarHost() {
 
   const view = resolveSurfaceProps(state);
   if (!view.surface) return null;
+  const showBackdrop = view.backdropVisible || typeof view.backdropOnClick === "function";
 
   return (
     <>
-      <button
-        type="button"
-        className={cn(
-          "fixed inset-0 z-10 bg-black/20 transition-opacity duration-300",
-          view.backdropVisible ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-        onClick={view.backdropOnClick}
-        aria-label="Dismiss control bar"
-      />
+      {showBackdrop ? (
+        <button
+          type="button"
+          className={cn(
+            "fixed inset-0 z-10 bg-black/20 transition-opacity duration-300",
+            view.backdropVisible ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+          onClick={view.backdropOnClick}
+          aria-label="Dismiss control bar"
+        />
+      ) : null}
       <ControlBarSurface {...view.surface} />
     </>
   );

@@ -45,8 +45,12 @@ const mockSession = {
   controlBarState: "idle",
   canvasHtml: null as string | null,
   dismissPreview: vi.fn(),
+  hasCanvasContent: true,
+  hasCommandManifest: false,
   lastTakeoverAt: undefined as number | undefined,
+  liveRequested: true,
   preview: null,
+  requestLiveSession: vi.fn(),
   retryConnection: vi.fn(),
   toggleControlBar: vi.fn(),
   setSelectedPresenceId: vi.fn(),
@@ -66,7 +70,7 @@ const mockSession = {
 type AudioOverrides = Partial<typeof mockSession.audio>;
 type RenderOverrides = Omit<Partial<typeof mockSession>, "audio"> & { audio?: AudioOverrides };
 
-const mockExtendedOptions = { visible: false, dismiss: vi.fn() };
+const mockExtendedOptions = { visible: false, dismiss: vi.fn(), toggle: vi.fn() };
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -122,7 +126,12 @@ async function renderControlBar(
   const { audio, ...sessionOverrides } = overrides ?? {};
   Object.assign(mockSession, sessionOverrides);
   if (audio) Object.assign(mockSession.audio, audio);
-  Object.assign(mockExtendedOptions, { visible: false, dismiss: vi.fn(), ...hookOverrides });
+  Object.assign(mockExtendedOptions, {
+    visible: false,
+    dismiss: vi.fn(),
+    toggle: vi.fn(),
+    ...hookOverrides,
+  });
 
   const currentRoot = root;
   const currentContainer = container;
@@ -160,6 +169,9 @@ describe("ControlBar", () => {
     mockSession.preview = null;
     mockSession.agentName = null;
     mockSession.blobState = "idle";
+    mockSession.hasCanvasContent = true;
+    mockSession.hasCommandManifest = false;
+    mockSession.liveRequested = true;
   });
 
   it("shows record and voice actions in idle mode", async () => {
@@ -264,5 +276,14 @@ describe("ControlBar", () => {
   it("always renders status dot toggle button", async () => {
     const html = await renderControlBar();
     expect(html).toContain('aria-label="Toggle control bar"');
+  });
+
+  it("uses the status button to toggle extended options when canvas is empty", async () => {
+    const html = await renderControlBar({
+      hasCanvasContent: false,
+      liveRequested: false,
+    });
+    expect(html).toContain('aria-label="Toggle extended options"');
+    expect(html).not.toContain('aria-label="Dismiss control bar"');
   });
 });

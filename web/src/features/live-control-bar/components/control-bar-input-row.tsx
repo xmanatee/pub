@@ -61,7 +61,7 @@ export function ControlBarInputRow({
 
   return (
     <div className={`w-full ${CONTROL_BAR_STYLES.controlHeight}`}>
-      <div className={CONTROL_BAR_STYLES.controlRow}>
+      <div className="flex w-full items-end gap-1.5 p-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

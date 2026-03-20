@@ -33,6 +33,20 @@ export function ControlBarLabel({
   );
 }
 
+export function ControlBarChip({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full px-3", className)}>
+      {children}
+    </div>
+  );
+}
+
 interface ControlBarIconActionProps
   extends Omit<ButtonProps, "aria-label" | "children" | "size" | "variant"> {
   icon: ReactNode;
