@@ -105,7 +105,12 @@ describe("deriveLiveStartPolicy", () => {
         hasCommandManifest: true,
         liveRequested: true,
         selectedPresenceId: "presence-1",
-      }).requiresUserAction,
-    ).toBe(false);
+      }),
+    ).toEqual({
+      autoStartAvailable: false,
+      defaultCollapsed: true,
+      optionalLive: false,
+      requiresUserAction: false,
+    });
   });
 });

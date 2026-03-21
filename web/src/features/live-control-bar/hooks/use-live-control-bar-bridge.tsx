@@ -219,7 +219,7 @@ export function useLiveControlBarBridge({
 
   useControlBarChrome({
     backdropOnClick: canCollapseBar ? toggleControlBar : undefined,
-    backdropVisible: canCollapseBar && isExpanded && viewMode === "canvas",
+    backdropVisible: canCollapseBar && isExpanded && viewMode === "canvas" && !preview,
     expanded: isExpanded,
     shellStyle: controlBarToneStyle(shellTone),
     statusButton: statusButtonContent

@@ -31,10 +31,12 @@ export function deriveLiveStartPolicy(source: LiveStartPolicySource): LiveStartP
     source.hasCommandManifest &&
     source.selectedPresenceId === null &&
     source.availableAgentCount !== 1;
+  const canStartOnCanvas =
+    source.hasCommandManifest && (autoStartAvailable || source.selectedPresenceId !== null);
 
   return {
     autoStartAvailable,
-    defaultCollapsed: source.hasCanvasContent && (!source.hasCommandManifest || autoStartAvailable),
+    defaultCollapsed: source.hasCanvasContent && (!source.hasCommandManifest || canStartOnCanvas),
     optionalLive,
     requiresUserAction,
   };

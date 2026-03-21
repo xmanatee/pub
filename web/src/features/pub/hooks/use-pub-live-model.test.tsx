@@ -18,6 +18,7 @@ const {
   retryConnectionMock,
   setSelectedPresenceIdMock,
   setViewModeMock,
+  sharedPreviewState,
   sharedState,
   storeBrowserCandidatesMock,
   storeBrowserOfferMock,
@@ -37,6 +38,13 @@ const {
   retryConnectionMock: vi.fn(),
   setSelectedPresenceIdMock: vi.fn(),
   setViewModeMock: vi.fn(),
+  sharedPreviewState: {
+    preview: null as null | {
+      source: "agent" | "system";
+      severity?: "error" | "warning";
+      text: string;
+    },
+  },
   sharedState: {
     availableAgents: [{ presenceId: "presence-1", agentName: "Agent" }] as Array<{
       presenceId: string;
@@ -114,7 +122,7 @@ vi.mock("~/hooks/use-developer-mode", () => ({
 vi.mock("~/features/live-chat/hooks/use-chat-preview", () => ({
   useChatPreview: () => ({
     dismissPreview: dismissPreviewMock,
-    preview: null,
+    preview: sharedPreviewState.preview,
   }),
 }));
 
@@ -258,6 +266,7 @@ describe("usePubLiveModel", () => {
     retryConnectionMock.mockReset();
     setSelectedPresenceIdMock.mockReset();
     setViewModeMock.mockReset();
+    sharedPreviewState.preview = null;
     storeBrowserCandidatesMock.mockReset();
     storeBrowserOfferMock.mockReset();
     takeoverLiveMock.mockReset();
@@ -383,6 +392,77 @@ describe("usePubLiveModel", () => {
 
     expect(states.at(-1)?.controlBarCollapsed).toBe(true);
     expect(states.at(-1)?.liveRequested).toBe(true);
+  });
+
+  it("collapses a manifest pub after agent selection is resolved", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    sharedState.availableAgents = [
+      { presenceId: "presence-1", agentName: "Agent 1" },
+      { presenceId: "presence-2", agentName: "Agent 2" },
+    ];
+    sharedState.selectedPresenceId = null;
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(false);
+
+    sharedState.selectedPresenceId = "presence-1";
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(true);
+  });
+
+  it("temporarily expands a collapsed canvas when a preview arrives", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(true);
+
+    sharedPreviewState.preview = {
+      source: "agent",
+      text: "echo: hello",
+    };
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(false);
+
+    sharedPreviewState.preview = null;
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(true);
   });
 
   it("auto-requests live for empty pubs", async () => {

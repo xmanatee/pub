@@ -1,10 +1,17 @@
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
-import * as net from "node:net";
-import * as os from "node:os";
 import * as path from "node:path";
 import type { ChildProcess } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { ipcCallMock } = vi.hoisted(() => ({
+  ipcCallMock: vi.fn(),
+}));
+
+vi.mock("../transport/ipc.js", () => ({
+  ipcCall: ipcCallMock,
+}));
+
 import { waitForDaemonReady } from "./daemon-process.js";
 
 function makeStatusResponse(): string {
@@ -26,43 +33,27 @@ function makeStatusResponse(): string {
 
 class FakeChild extends EventEmitter {}
 
+function makeTempDir(prefix: string): string {
+  return fs.mkdtempSync(path.join("/tmp", prefix));
+}
+
 describe("waitForDaemonReady", () => {
   const tempDirs: string[] = [];
-  const servers: net.Server[] = [];
 
   afterEach(async () => {
-    await Promise.all(
-      servers.splice(0).map(
-        (server) =>
-          new Promise<void>((resolve) => {
-            server.close(() => resolve());
-          }),
-      ),
-    );
-
+    ipcCallMock.mockReset();
     for (const dir of tempDirs.splice(0)) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 
   it("ignores launcher exit when failOnChildExit is false", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-daemon-ready-"));
+    const dir = makeTempDir("pub-daemon-ready-");
     tempDirs.push(dir);
     const socketPath = path.join(dir, "daemon.sock");
     const infoPath = path.join(dir, "daemon.json");
     fs.writeFileSync(infoPath, JSON.stringify({ pid: 123 }));
-
-    const server = net.createServer((conn) => {
-      let data = "";
-      conn.on("data", (chunk) => {
-        data += chunk.toString("utf-8");
-        if (!data.includes("\n")) return;
-        conn.write(makeStatusResponse());
-        conn.end();
-      });
-    });
-    servers.push(server);
-    await new Promise<void>((resolve) => server.listen(socketPath, () => resolve()));
+    ipcCallMock.mockResolvedValue(JSON.parse(makeStatusResponse()) as { ok: boolean });
 
     const child = new FakeChild() as unknown as ChildProcess;
     setTimeout(() => {
@@ -81,7 +72,7 @@ describe("waitForDaemonReady", () => {
   });
 
   it("fails fast when the spawned child exits before readiness by default", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-daemon-exit-"));
+    const dir = makeTempDir("pub-daemon-exit-");
     tempDirs.push(dir);
     const socketPath = path.join(dir, "daemon.sock");
     const infoPath = path.join(dir, "daemon.json");

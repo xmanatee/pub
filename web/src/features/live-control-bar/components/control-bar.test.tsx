@@ -279,6 +279,15 @@ describe("ControlBar", () => {
     expect(html).toContain("pointer-events-none opacity-0");
   });
 
+  it("hides backdrop when a preview is visible on canvas", async () => {
+    const html = await renderControlBar({
+      viewMode: "canvas",
+      controlBarCollapsed: false,
+      preview: { text: "Hello from agent", source: "agent" },
+    });
+    expect(html).toContain("pointer-events-none opacity-0");
+  });
+
   it("always renders status dot toggle button", async () => {
     const html = await renderControlBar();
     expect(html).toContain('aria-label="Toggle control bar"');

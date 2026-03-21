@@ -145,6 +145,7 @@ export function usePubLiveModel({
   const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const lastReportedCommandErrorRef = useRef<number | null>(null);
+  const previewExpandedBarRef = useRef(false);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
   const canvasFileMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
@@ -331,8 +332,18 @@ export function usePubLiveModel({
     if (!canvasHtml || !hasCommandManifest) return;
     if (!previousRequiresUserAction && liveStartPolicy.requiresUserAction) {
       setCollapsePreference(false);
+      previewExpandedBarRef.current = false;
+      return;
     }
-  }, [canvasHtml, hasCommandManifest, liveStartPolicy.requiresUserAction]);
+    if (previousRequiresUserAction && !liveStartPolicy.requiresUserAction) {
+      setCollapsePreference(liveStartPolicy.defaultCollapsed);
+    }
+  }, [
+    canvasHtml,
+    hasCommandManifest,
+    liveStartPolicy.defaultCollapsed,
+    liveStartPolicy.requiresUserAction,
+  ]);
 
   useEffect(() => {
     const previous = lastCanvasScopeRef.current;
@@ -478,6 +489,30 @@ export function usePubLiveModel({
       severity: "error",
     });
   }, [addSystemMessage, sessionError]);
+
+  useEffect(() => {
+    if (viewMode === "chat") {
+      previewExpandedBarRef.current = false;
+      return;
+    }
+
+    if (!hasCanvasContent || !isControlBarCollapsible(viewState.controlBarState)) {
+      previewExpandedBarRef.current = false;
+      return;
+    }
+
+    if (preview) {
+      if (controlBarCollapsed) {
+        previewExpandedBarRef.current = true;
+        setCollapsePreference(false);
+      }
+      return;
+    }
+
+    if (!previewExpandedBarRef.current) return;
+    previewExpandedBarRef.current = false;
+    setCollapsePreference(true);
+  }, [controlBarCollapsed, hasCanvasContent, preview, viewMode, viewState.controlBarState]);
 
   useEffect(() => {
     if (command.phase !== "failed" || !command.errorMessage || !command.finishedAt) return;
