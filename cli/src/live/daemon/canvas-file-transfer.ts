@@ -23,7 +23,7 @@ import {
 import { getMimeType } from "../runtime/file-payload.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 import { existsSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 const CANVAS_FILE_STREAM_ACK_TIMEOUT_MS = 10_000;
 
@@ -36,11 +36,6 @@ interface ActiveUploadStream {
 
 function canvasFileRoot(attachmentDir: string, slug: string): string {
   return join(attachmentDir, "_canvas", sanitizeFilename(slug));
-}
-
-function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
-  const relativePath = relative(rootPath, targetPath);
-  return relativePath === "" || (!relativePath.startsWith("..") && !relativePath.startsWith("../"));
 }
 
 function sanitizeDownloadFilename(input: string | undefined, fallbackPath: string): string {
@@ -88,22 +83,14 @@ function stageCanvasUpload(params: {
 }
 
 function resolveDownloadPath(
-  attachmentDir: string,
-  slug: string,
   payload: CanvasFileDownloadRequestPayload,
 ): { path: string; filename: string; size: number; mime: string } {
-  const rootDir = canvasFileRoot(attachmentDir, slug);
-  if (!existsSync(rootDir)) {
-    throw new Error("No canvas files are available for this session.");
-  }
-
   const resolvedPath = resolve(payload.path);
-  const realRoot = realpathSync(rootDir);
-  const realTarget = realpathSync(resolvedPath);
-  if (!isPathWithinRoot(realRoot, realTarget)) {
-    throw new Error("Only files inside Pub-managed canvas storage can be downloaded.");
+  if (!existsSync(resolvedPath)) {
+    throw new Error("Requested file does not exist.");
   }
 
+  const realTarget = realpathSync(resolvedPath);
   const stats = statSync(realTarget);
   if (!stats.isFile()) {
     throw new Error("Requested path is not a file.");
@@ -244,7 +231,7 @@ export function createCanvasFileTransferHandler(params: {
     }
 
     try {
-      const resolvedFile = resolveDownloadPath(params_.bridgeSettings.attachmentDir, slug, payload);
+      const resolvedFile = resolveDownloadPath(payload);
       const bytes = readFileSync(resolvedFile.path);
       await sendDownloadStream({
         requestId: payload.requestId,

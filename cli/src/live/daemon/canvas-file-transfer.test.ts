@@ -134,29 +134,58 @@ describe("createCanvasFileTransferHandler", () => {
     rmSync(harness.attachmentDir, { force: true, recursive: true });
   });
 
-  it("rejects downloads outside Pub-managed canvas storage", async () => {
+  it("supports upload, external processing, and download of the processed file", async () => {
     const harness = createHandlerHarness();
-    const outsideFile = join(harness.attachmentDir, "..", "outside.txt");
 
-    writeFileSync(outsideFile, "blocked");
+    // 1. Upload a text file via the canvas file protocol
+    const originalContent = "hello world, hello universe";
+    const originalBytes = Buffer.from(originalContent);
 
     await harness.handler.onMessage(
+      makeStreamStart({ mime: "text/plain", size: originalBytes.length }, "upload-proc"),
+    );
+    await harness.handler.onMessage({
+      id: "bin-proc",
+      type: "binary",
+      data: originalBytes.toString("base64"),
+      meta: { streamId: "upload-proc", size: originalBytes.length },
+    });
+    await harness.handler.onMessage(makeStreamEnd("upload-proc"));
+
+    const uploadResult = readSentResult(harness.sendMessage);
+    expect(uploadResult).toMatchObject({ op: "upload", ok: true });
+    const uploadedPath = uploadResult?.file?.path ?? "";
+    expect(readFileSync(uploadedPath, "utf-8")).toBe(originalContent);
+
+    // 2. Simulate command processing: read uploaded file, transform, write to /tmp/
+    const processedContent = readFileSync(uploadedPath, "utf-8").replace(/hello/g, "goodbye");
+    const processedPath = join(tmpdir(), `pub-processed-${Date.now()}.txt`);
+    writeFileSync(processedPath, processedContent);
+
+    // 3. Download the processed file (lives outside _canvas/{slug}/)
+    harness.sendMessage.mockClear();
+    await harness.handler.onMessage(
       makeCanvasFileDownloadRequestMessage({
-        requestId: "download-2",
-        path: outsideFile,
+        requestId: "download-proc",
+        path: processedPath,
+        filename: "processed.txt",
       }),
     );
 
-    const result = readSentResult(harness.sendMessage);
-    expect(result).toMatchObject({
-      requestId: "download-2",
+    expect(harness.dc.sendMessageBinary).toHaveBeenCalledWith(Buffer.from(processedContent));
+
+    const downloadResult = readSentResult(harness.sendMessage);
+    expect(downloadResult).toMatchObject({
+      requestId: "download-proc",
       op: "download",
-      ok: false,
-      error: {
-        code: "DOWNLOAD_FAILED",
+      ok: true,
+      file: {
+        filename: "processed.txt",
+        size: processedContent.length,
       },
     });
 
     rmSync(harness.attachmentDir, { force: true, recursive: true });
+    rmSync(processedPath, { force: true });
   });
 });
