@@ -66,6 +66,17 @@ export function liveConflictsWithRequest<TPresenceId extends string>(
   return live.slug === request.slug || live.targetPresenceId === request.targetPresenceId;
 }
 
+export function liveMatchesRequest<TPresenceId extends string>(
+  live: { browserSessionId?: string; slug: string; targetPresenceId?: TPresenceId },
+  request: { browserSessionId: string; slug: string; targetPresenceId: TPresenceId },
+) {
+  return (
+    live.slug === request.slug &&
+    live.targetPresenceId === request.targetPresenceId &&
+    live.browserSessionId === request.browserSessionId
+  );
+}
+
 async function deleteActiveLivesForSlug(db: GenericDatabaseWriter<DataModel>, slug: string) {
   const lives = await db
     .query("lives")
@@ -498,22 +509,54 @@ export const requestLive = mutation({
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+    const request = {
+      browserSessionId,
+      slug,
+      targetPresenceId: targetPresence._id,
+    };
+    let reusableLiveId: Id<"lives"> | null = null;
     for (const live of existing) {
       if (!liveConflictsWithRequest(live, { slug, targetPresenceId: targetPresence._id })) continue;
+      if (reusableLiveId === null && liveMatchesRequest(live, request)) {
+        reusableLiveId = live._id;
+        continue;
+      }
       await ctx.db.delete(live._id);
     }
 
-    const id = await ctx.db.insert("lives", {
-      slug,
-      userId,
+    const livePatch: {
+      agentAnswer: undefined;
+      agentCandidates: string[];
+      agentName: string | undefined;
+      browserCandidates: string[];
+      browserOffer: string;
+      browserSessionId: string;
+      createdAt: number;
+      lastTakeoverAt: undefined;
+      status: "active";
+      targetPresenceId: Id<"agentPresence">;
+    } = {
       status: "active",
       targetPresenceId: targetPresence._id,
       agentName: targetPresence.agentName,
       browserOffer,
       browserSessionId,
+      agentAnswer: undefined,
       agentCandidates: [],
       browserCandidates: [],
       createdAt: Date.now(),
+      lastTakeoverAt: undefined,
+    };
+
+    if (reusableLiveId) {
+      await ctx.db.patch(reusableLiveId, livePatch);
+      return { _id: reusableLiveId, slug };
+    }
+
+    const id = await ctx.db.insert("lives", {
+      slug,
+      userId,
+      ...livePatch,
     });
 
     return { _id: id, slug };

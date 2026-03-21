@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPubPatch, liveConflictsWithRequest } from "./pubs";
+import { buildPubPatch, liveConflictsWithRequest, liveMatchesRequest } from "./pubs";
 
 describe("update patch construction", () => {
   it("includes only provided fields plus updatedAt", () => {
@@ -72,6 +72,59 @@ describe("liveConflictsWithRequest", () => {
       liveConflictsWithRequest(
         { slug: "untargeted" },
         { slug: "fresh", targetPresenceId: "agent-a" },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("liveMatchesRequest", () => {
+  it("treats the same slug, target agent, and browser session as the same logical live", () => {
+    expect(
+      liveMatchesRequest(
+        {
+          slug: "demo",
+          targetPresenceId: "agent-a",
+          browserSessionId: "session-1",
+        },
+        {
+          slug: "demo",
+          targetPresenceId: "agent-a",
+          browserSessionId: "session-1",
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match when the browser session changes", () => {
+    expect(
+      liveMatchesRequest(
+        {
+          slug: "demo",
+          targetPresenceId: "agent-a",
+          browserSessionId: "session-1",
+        },
+        {
+          slug: "demo",
+          targetPresenceId: "agent-a",
+          browserSessionId: "session-2",
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match when the target agent changes", () => {
+    expect(
+      liveMatchesRequest(
+        {
+          slug: "demo",
+          targetPresenceId: "agent-a",
+          browserSessionId: "session-1",
+        },
+        {
+          slug: "demo",
+          targetPresenceId: "agent-b",
+          browserSessionId: "session-1",
+        },
       ),
     ).toBe(false);
   });

@@ -125,7 +125,7 @@ export function usePubLiveModel({
     html: baseContentHtml ?? null,
     slug,
   });
-  const lastLiveSessionIdRef = useRef<string | null>(null);
+  const lastLiveBrowserSessionIdRef = useRef<string | null>(null);
   const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const lastReportedCommandErrorRef = useRef<number | null>(null);
@@ -373,7 +373,7 @@ export function usePubLiveModel({
     lastSessionErrorRef.current = null;
     lastReportedCommandErrorRef.current = null;
     notifiedStatusRef.current = null;
-    lastLiveSessionIdRef.current = null;
+    lastLiveBrowserSessionIdRef.current = null;
     lastSelectedPresenceIdRef.current = null;
     setCanvasHtml(baseContentHtml ?? null);
     setCollapsePreference(defaultCollapsed);
@@ -443,42 +443,35 @@ export function usePubLiveModel({
     clearFiles();
     clearMessages();
     clearSessionError();
-    resetCanvasCommands();
+    // Keep pending canvas commands intact here. Startup commands may still be queued
+    // for first dispatch while the live session document rolls over underneath us.
     setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
-  }, [
-    baseContentHtml,
-    clearFiles,
-    clearMessages,
-    clearSessionError,
-    dismissPreview,
-    resetCanvasCommands,
-    setViewMode,
-  ]);
+  }, [baseContentHtml, clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
 
   useEffect(() => {
     if (!liveEnabled) {
-      lastLiveSessionIdRef.current = null;
+      lastLiveBrowserSessionIdRef.current = null;
       return;
     }
 
-    const nextLiveSessionId = live?._id ?? null;
-    const previousLiveSessionId = lastLiveSessionIdRef.current;
+    const nextLiveBrowserSessionId = live?.browserSessionId ?? null;
+    const previousLiveBrowserSessionId = lastLiveBrowserSessionIdRef.current;
 
-    if (nextLiveSessionId !== null) {
-      lastLiveSessionIdRef.current = nextLiveSessionId;
+    if (nextLiveBrowserSessionId !== null) {
+      lastLiveBrowserSessionIdRef.current = nextLiveBrowserSessionId;
     }
 
     if (
-      previousLiveSessionId === null ||
-      nextLiveSessionId === null ||
-      previousLiveSessionId === nextLiveSessionId
+      previousLiveBrowserSessionId === null ||
+      nextLiveBrowserSessionId === null ||
+      previousLiveBrowserSessionId === nextLiveBrowserSessionId
     ) {
       return;
     }
 
     resetLiveSurface();
-  }, [live?._id, liveEnabled, resetLiveSurface]);
+  }, [live?.browserSessionId, liveEnabled, resetLiveSurface]);
 
   useEffect(() => {
     if (!liveEnabled) {
