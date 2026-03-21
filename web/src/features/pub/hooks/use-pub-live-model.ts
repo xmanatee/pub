@@ -114,14 +114,15 @@ export function usePubLiveModel({
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
-  const [collapsePreference, setCollapsePreference] = useState(() =>
-    deriveLiveStartPolicy({
-      availableAgentCount: availableAgents.length,
-      hasCanvasContent: Boolean(baseContentHtml),
-      hasCommandManifest: baseManifest !== null,
-      liveRequested: defaultLiveRequested,
-      selectedPresenceId,
-    }).defaultCollapsed,
+  const [collapsePreference, setCollapsePreference] = useState(
+    () =>
+      deriveLiveStartPolicy({
+        availableAgentCount: availableAgents.length,
+        hasCanvasContent: Boolean(baseContentHtml),
+        hasCommandManifest: baseManifest !== null,
+        liveRequested: defaultLiveRequested,
+        selectedPresenceId,
+      }).defaultCollapsed,
   );
   const [liveRequested, setLiveRequested] = useState(defaultLiveRequested);
   const [now, setNow] = useState(() => Date.now());
@@ -309,7 +310,7 @@ export function usePubLiveModel({
     const previousAutoStartAvailable = previousAutoStartAvailableRef.current;
     previousAutoStartAvailableRef.current = liveStartPolicy.autoStartAvailable;
 
-    if (!Boolean(canvasHtml) || !hasCommandManifest) return;
+    if (!canvasHtml || !hasCommandManifest) return;
     if (!previousAutoStartAvailable && liveStartPolicy.autoStartAvailable) {
       setCollapsePreference(true);
     }
@@ -320,7 +321,7 @@ export function usePubLiveModel({
     const previousRequiresUserAction = previousRequiresUserActionRef.current;
     previousRequiresUserActionRef.current = liveStartPolicy.requiresUserAction;
 
-    if (!Boolean(canvasHtml) || !hasCommandManifest) return;
+    if (!canvasHtml || !hasCommandManifest) return;
     if (!previousRequiresUserAction && liveStartPolicy.requiresUserAction) {
       setCollapsePreference(false);
     }

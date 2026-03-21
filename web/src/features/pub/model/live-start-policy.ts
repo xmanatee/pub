@@ -23,8 +23,7 @@ export function deriveLiveStartPolicy(source: LiveStartPolicySource): LiveStartP
 
   return {
     autoStartAvailable,
-    defaultCollapsed:
-      source.hasCanvasContent && (!source.hasCommandManifest || autoStartAvailable),
+    defaultCollapsed: source.hasCanvasContent && (!source.hasCommandManifest || autoStartAvailable),
     optionalLive,
     requiresUserAction,
   };
