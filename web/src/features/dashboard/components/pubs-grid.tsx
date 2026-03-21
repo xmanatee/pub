@@ -19,11 +19,15 @@ export function PubsGrid({
   liveSlugs,
   onToggleVisibility,
   onDelete,
+  onDuplicate,
+  developerMode,
 }: {
   pubs: PubGridItem[];
   liveSlugs: Set<string>;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
+  onDuplicate?: (id: Id<"pubs">) => void;
+  developerMode?: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -34,6 +38,8 @@ export function PubsGrid({
           isLive={liveSlugs.has(pub.slug)}
           onToggleVisibility={onToggleVisibility}
           onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          developerMode={developerMode}
         />
       ))}
     </div>

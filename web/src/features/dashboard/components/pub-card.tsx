@@ -1,6 +1,6 @@
 import type { Id } from "@backend/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, FileText, Globe, Lock, Radio, Trash2 } from "lucide-react";
+import { Code, Copy, ExternalLink, FileText, Globe, Lock, Radio, Trash2 } from "lucide-react";
 import { PubPreviewIframe } from "~/components/pub-preview-iframe";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -16,9 +16,18 @@ interface PubCardProps {
   isLive?: boolean;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
+  onDuplicate?: (id: Id<"pubs">) => void;
+  developerMode?: boolean;
 }
 
-export function PubCard({ pub, isLive, onToggleVisibility, onDelete }: PubCardProps) {
+export function PubCard({
+  pub,
+  isLive,
+  onToggleVisibility,
+  onDelete,
+  onDuplicate,
+  developerMode,
+}: PubCardProps) {
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
@@ -79,6 +88,30 @@ export function PubCard({ pub, isLive, onToggleVisibility, onDelete }: PubCardPr
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
+          {developerMode && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
+              aria-label="View source"
+              asChild
+            >
+              <Link to="/p/$slug" params={{ slug: pub.slug }} search={{ source: true }}>
+                <Code className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </Button>
+          )}
+          {developerMode && onDuplicate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11"
+              onClick={() => onDuplicate(pub._id)}
+              aria-label="Duplicate pub"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

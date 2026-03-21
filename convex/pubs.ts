@@ -260,6 +260,51 @@ export const toggleVisibility = mutation({
   },
 });
 
+export const duplicateByUser = mutation({
+  args: { id: v.id("pubs") },
+  handler: async (ctx, { id }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const pub = await ctx.db.get(id);
+    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
+
+    const user = await ctx.db.get(userId);
+    const limit = getPubLimit(user ?? {});
+    const count = await countUserPubs(ctx.db, userId);
+    if (count >= limit) throw new Error(`Pub limit reached (${limit})`);
+
+    let slug: string | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = generateSlug();
+      const existing = await ctx.db
+        .query("pubs")
+        .withIndex("by_slug", (q) => q.eq("slug", candidate))
+        .unique();
+      if (!existing) {
+        slug = candidate;
+        break;
+      }
+    }
+    if (!slug) throw new Error("Could not generate unique slug");
+
+    const now = Date.now();
+    const newId = await ctx.db.insert("pubs", {
+      userId,
+      slug,
+      content: pub.content,
+      title: pub.title ? `${pub.title} (copy)` : undefined,
+      description: pub.description,
+      isPublic: false,
+      createdAt: now,
+      updatedAt: now,
+      viewCount: 0,
+    });
+
+    return { _id: newId, slug };
+  },
+});
+
 export const deleteByUser = mutation({
   args: { id: v.id("pubs") },
   handler: async (ctx, { id }) => {

@@ -9,11 +9,18 @@ import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { usePreviewCapture } from "~/features/preview-capture/use-preview-capture";
 import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
+import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-context";
+import { PubSourceView } from "./pub-source-view";
 
-export function PubRoutePage({ slug }: { slug: string }) {
+export function PubRoutePage({ slug, showSource }: { slug: string; showSource?: boolean }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
+  const { developerModeEnabled } = useDeveloperMode();
   const { html: baseContentHtml, status: contentState } = useContentHtml(pub?.content);
+
+  if (showSource && developerModeEnabled && pub) {
+    return <PubSourceView slug={slug} title={pub.title} content={pub.content} />;
+  }
 
   return (
     <LiveSessionProvider

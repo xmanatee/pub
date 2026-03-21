@@ -8,6 +8,7 @@ import { Card, CardContent } from "~/components/ui/card";
 import { PubSortChips } from "~/features/dashboard/components/pub-sort-chips";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import type { PubSortKey } from "~/features/dashboard/lib/sort-pubs";
+import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackError } from "~/lib/analytics";
 
 const PAGE_SIZE = 20;
@@ -30,8 +31,10 @@ export function PubsTab() {
 
   const toggleVisibility = useMutation(api.pubs.toggleVisibility);
   const deletePub = useMutation(api.pubs.deleteByUser);
+  const duplicatePub = useMutation(api.pubs.duplicateByUser);
   const createDraftForLive = useMutation(api.pubs.createDraftForLive);
   const agentOnline = useQuery(api.presence.isCurrentUserAgentOnline);
+  const { developerModeEnabled } = useDeveloperMode();
 
   const lives = useQuery(api.pubs.listActiveLives);
   const liveSlugs = React.useMemo<Set<string>>(
@@ -127,6 +130,8 @@ export function PubsTab() {
         liveSlugs={liveSlugs}
         onToggleVisibility={(id) => toggleVisibility({ id })}
         onDelete={(id) => deletePub({ id })}
+        onDuplicate={developerModeEnabled ? (id) => duplicatePub({ id }) : undefined}
+        developerMode={developerModeEnabled}
       />
       {status === "CanLoadMore" && (
         <div className="text-center pt-2">
