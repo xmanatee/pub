@@ -31,7 +31,7 @@ const HERO_BLOB_FADE = {
 
 function ExamplePromptCarousel() {
   const loopStartIndex = EXAMPLE_REQUESTS.length;
-  const [activeIndex, setActiveIndex] = useState(loopStartIndex);
+  const [activeIndex, setActiveIndex] = useState<number>(loopStartIndex);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
   const repeatedRequests = Array.from({ length: 3 }, (_, cycle) =>
     EXAMPLE_REQUESTS.map((request) => ({

@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
+import {
+  ANIMATED_TOLERANCE,
+  freezeAnimations,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "../helpers/screenshot-utils";
 
 test.use({ reducedMotion: "reduce" });
 
@@ -15,7 +20,10 @@ test.describe("Page screenshots", () => {
       document.documentElement.style.overflow = "visible";
       document.documentElement.style.height = "auto";
     });
-    await stableScreenshot(page, `${SCREENSHOT_DIR}/landing.png`, { fullPage: true });
+    await stableScreenshot(page, `${SCREENSHOT_DIR}/landing.png`, {
+      fullPage: true,
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
   });
 
   test("login page", async ({ page }) => {

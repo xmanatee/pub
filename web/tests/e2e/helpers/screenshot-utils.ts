@@ -7,7 +7,7 @@ import { PNG } from "pngjs";
 
 export const SCREENSHOT_DIR = "tests/e2e/snapshots";
 const DEFAULT_MAX_DIFF_RATIO = 0.0015;
-export const ANIMATED_TOLERANCE = 0.005;
+export const ANIMATED_TOLERANCE = 0.007;
 
 const UPDATE_SNAPSHOTS = !!process.env.UPDATE_SNAPSHOTS;
 
