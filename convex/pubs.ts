@@ -505,18 +505,21 @@ export const requestLive = mutation({
       throw new Error("Selected agent unavailable");
     }
 
+    const conflictRequest = {
+      slug,
+      targetPresenceId: targetPresence._id,
+    };
     const existing = await ctx.db
       .query("lives")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     const request = {
+      ...conflictRequest,
       browserSessionId,
-      slug,
-      targetPresenceId: targetPresence._id,
     };
     let reusableLiveId: Id<"lives"> | null = null;
     for (const live of existing) {
-      if (!liveConflictsWithRequest(live, { slug, targetPresenceId: targetPresence._id })) continue;
+      if (!liveConflictsWithRequest(live, conflictRequest)) continue;
       if (reusableLiveId === null && liveMatchesRequest(live, request)) {
         reusableLiveId = live._id;
         continue;
@@ -544,7 +547,7 @@ export const requestLive = mutation({
       agentAnswer: undefined,
       agentCandidates: [],
       browserCandidates: [],
-      createdAt: Date.now(),
+      createdAt: now,
       lastTakeoverAt: undefined,
     };
 

@@ -443,8 +443,7 @@ export function usePubLiveModel({
     clearFiles();
     clearMessages();
     clearSessionError();
-    // Keep pending canvas commands intact here. Startup commands may still be queued
-    // for first dispatch while the live session document rolls over underneath us.
+    // Command lifecycle is keyed separately by sessionKey/canvasScopeKey.
     setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
   }, [baseContentHtml, clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
