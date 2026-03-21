@@ -5,6 +5,7 @@ import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { OnboardingGuide } from "~/features/dashboard/components/onboarding-guide";
 import { PubSortChips } from "~/features/dashboard/components/pub-sort-chips";
 import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
 import type { PubSortKey } from "~/features/dashboard/lib/sort-pubs";
@@ -35,6 +36,7 @@ export function PubsTab() {
   const createDraftForLive = useMutation(api.pubs.createDraftForLive);
   const agentOnline = useQuery(api.presence.isCurrentUserAgentOnline);
   const { developerModeEnabled } = useDeveloperMode();
+  const keys = useQuery(api.apiKeys.list);
 
   const lives = useQuery(api.pubs.listActiveLives);
   const liveSlugs = React.useMemo<Set<string>>(
@@ -67,6 +69,16 @@ export function PubsTab() {
 
   if (status === "LoadingFirstPage") {
     return <div className="text-muted-foreground py-8">Loading&hellip;</div>;
+  }
+
+  const isNewUser = pubs.length === 0 && (keys?.length ?? 0) === 0;
+
+  if (isNewUser) {
+    return (
+      <div className="mt-4">
+        <OnboardingGuide />
+      </div>
+    );
   }
 
   const disabled = agentOnline !== true || startingLive;

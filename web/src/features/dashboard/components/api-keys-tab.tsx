@@ -1,15 +1,16 @@
 import { api } from "@backend/_generated/api";
 import type { Id } from "@backend/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Key, Plus, Rss, Trash2 } from "lucide-react";
+import { Key, Plus, Terminal, Trash2 } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { CopyButton } from "~/features/dashboard/components/copy-button";
 import { trackApiKeyCopied, trackApiKeyCreated, trackApiKeyDeleted } from "~/lib/analytics";
-import { getConvexSiteUrl } from "~/lib/convex-url";
 import { telegramConfirm } from "~/lib/telegram";
+
+const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
 
 export function ApiKeysTab() {
   const keys = useQuery(api.apiKeys.list);
@@ -18,7 +19,6 @@ export function ApiKeysTab() {
   const [newKeyName, setNewKeyName] = React.useState("");
   const [createdKey, setCreatedKey] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const user = useQuery(api.users.currentUser);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -41,10 +41,15 @@ export function ApiKeysTab() {
     await deleteKey({ id });
   }
 
-  const rssUrl = user?._id ? `${getConvexSiteUrl()}/rss/${user._id}` : null;
-
   return (
     <div className="mt-4 space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border border-border/50 px-4 py-2">
+        <Terminal className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>Install CLI:</span>
+        <code className="text-xs font-mono truncate flex-1">{INSTALL_COMMAND}</code>
+        <CopyButton text={INSTALL_COMMAND} label="Copy install command" />
+      </div>
+
       <form onSubmit={handleCreate} className="flex gap-2">
         <label htmlFor="api-key-name" className="sr-only">
           API key name
@@ -91,15 +96,6 @@ export function ApiKeysTab() {
             </Button>
           </CardContent>
         </Card>
-      )}
-
-      {rssUrl && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border border-border/50 px-4 py-2">
-          <Rss className="h-4 w-4 text-orange-500 shrink-0" aria-hidden="true" />
-          <span>RSS feed:</span>
-          <code className="text-xs font-mono truncate flex-1">{rssUrl}</code>
-          <CopyButton text={rssUrl} label="Copy RSS URL" />
-        </div>
       )}
 
       {!keys ? (

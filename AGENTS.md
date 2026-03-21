@@ -29,7 +29,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `__root.tsx` — root layout (header, footer with Explore link, providers)
   - `index.tsx` — landing page
   - `login.tsx` — OAuth login (GitHub, Google)
-  - `dashboard.tsx` — protected; paginated pubs (with view counts + live status) + API keys + RSS feed URL + Telegram linking
+  - `dashboard.tsx` — protected; three tabs (Pubs, Agents and Keys, Settings); onboarding guide for new users; account management
   - `explore.tsx` — public discovery feed; paginated list of public agent-built apps and experiences
   - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing and owner live mode; auth-aware for private pubs
   - `link.tsx` — Telegram account linking flow
@@ -48,7 +48,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser` (paginated, server-side sorted by `sortKey`), `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user (200 for subscribed); 1 live per agent; 1 live per slug
 - **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
-- **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; RSS at `/rss/:userId`; content serving at `/serve/:slug` with view tracking
+- **Account** (`account.ts`): `disconnectProvider` (with guard: at least 1 provider must remain), `deleteAccount` (cascading delete of all user data)
+- **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; content serving at `/serve/:slug` with view tracking
 - **Analytics** (`analytics.ts`): view recording — increments `viewCount` and updates `lastViewedAt` on the pub document
 - **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
@@ -87,7 +88,6 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`/p/:slug`** — SPA route → unified pub page (content + live mode toggle), auth-aware
 - **`/serve/:slug`** — Convex HTTP endpoint, serves **public content only** with OG meta tags and view tracking
 - **`/og/:slug`** — Dynamic SVG Open Graph image for social previews
-- **`/rss/:userId`** — RSS 2.0 feed of user's public pubs
 - Env vars: `PUB_PUBLIC_URL` (Convex, e.g. `https://pub.blue`)
 
 ### Skills (`skills/`)

@@ -17,12 +17,14 @@ vi.mock("@sentry/react", () => ({
 import {
   identifyUser,
   resetIdentity,
+  trackAccountDeleted,
   trackApiKeyCopied,
   trackApiKeyCreated,
   trackApiKeyDeleted,
   trackCtaClicked,
   trackDashboardTabChanged,
   trackError,
+  trackProviderDisconnected,
   trackPubDeleted,
   trackPubLinkCopied,
   trackPubViewed,
@@ -61,6 +63,11 @@ const EVENT_CATALOG: Record<string, { fn: () => void; props?: string[] }> = {
     fn: () => trackError(new Error("e")),
     props: ["error_message", "error_name"],
   },
+  account_deleted: { fn: () => trackAccountDeleted() },
+  provider_disconnected: {
+    fn: () => trackProviderDisconnected({ provider: "github" }),
+    props: ["provider"],
+  },
 };
 
 describe("analytics event catalog", () => {
@@ -96,6 +103,8 @@ describe("analytics event catalog", () => {
       trackDashboardTabChanged,
       trackCtaClicked,
       trackError,
+      trackAccountDeleted,
+      trackProviderDisconnected,
     };
     const trackFunctions = Object.keys(exports).filter((k) => k.startsWith("track"));
     expect(trackFunctions.length).toBe(Object.keys(EVENT_CATALOG).length);

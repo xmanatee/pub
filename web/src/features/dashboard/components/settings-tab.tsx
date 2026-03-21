@@ -1,14 +1,23 @@
 import { api } from "@backend/_generated/api";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Check, ExternalLink, Link2 } from "lucide-react";
+import { Check, ExternalLink, Link2, LogOut, Unlink, X } from "lucide-react";
 import * as React from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { LiveModelSettingsCard } from "~/features/dashboard/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
+import {
+  resetIdentity,
+  trackAccountDeleted,
+  trackProviderDisconnected,
+  trackSignOut,
+} from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
 
@@ -18,17 +27,26 @@ const PROVIDER_LABELS: Record<string, string> = {
   telegram: "Telegram",
 };
 
-export function AccountTab() {
+export function SettingsTab() {
   const providers = useQuery(api.telegram.getLinkedProviders);
   const createLinkToken = useMutation(api.linking.createLinkToken);
+  const disconnectProvider = useMutation(api.account.disconnectProvider);
+  const deleteAccount = useMutation(api.account.deleteAccount);
+  const { signOut } = useAuthActions();
+  const navigate = useNavigate();
+
   const [linkUrl, setLinkUrl] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
+  const [linkLoading, setLinkLoading] = React.useState(false);
+  const [disconnecting, setDisconnecting] = React.useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = React.useState("");
+  const [deleting, setDeleting] = React.useState(false);
+
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
   const { telemetryEnabled, setTelemetryEnabled } = useTelemetryPreference();
 
   async function handleCreateLink() {
-    setLoading(true);
+    setLinkLoading(true);
     setLinkError(null);
     try {
       const { token } = await createLinkToken();
@@ -38,7 +56,37 @@ export function AccountTab() {
       pushAuthDebug("account_link_token_error", error);
       setLinkError("Could not generate a link right now. Please try again.");
     } finally {
-      setLoading(false);
+      setLinkLoading(false);
+    }
+  }
+
+  async function handleDisconnect(provider: string) {
+    setDisconnecting(provider);
+    try {
+      await disconnectProvider({ provider });
+      trackProviderDisconnected({ provider });
+    } finally {
+      setDisconnecting(null);
+    }
+  }
+
+  async function handleSignOut() {
+    trackSignOut();
+    resetIdentity();
+    await signOut();
+    navigate({ to: "/", replace: true });
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      trackAccountDeleted();
+      resetIdentity();
+      await deleteAccount();
+      navigate({ to: "/", replace: true });
+    } catch (error) {
+      setDeleting(false);
+      throw error;
     }
   }
 
@@ -49,6 +97,7 @@ export function AccountTab() {
   const hasGithub = providers.includes("github");
   const hasGoogle = providers.includes("google");
   const hasTelegram = providers.includes("telegram");
+  const canDisconnect = providers.length > 1;
 
   return (
     <div className="space-y-4 mt-4">
@@ -64,6 +113,22 @@ export function AccountTab() {
               <Badge variant="secondary" className="text-xs">
                 Connected
               </Badge>
+              {canDisconnect && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-muted-foreground hover:text-destructive"
+                  disabled={disconnecting === provider}
+                  onClick={() => handleDisconnect(provider)}
+                  aria-label={`Disconnect ${PROVIDER_LABELS[provider] ?? provider}`}
+                >
+                  {disconnecting === provider ? (
+                    <span className="text-xs">…</span>
+                  ) : (
+                    <Unlink className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                </Button>
+              )}
             </div>
           ))}
           {providers.length === 0 && (
@@ -93,9 +158,9 @@ export function AccountTab() {
                 </Button>
               </div>
             ) : (
-              <Button variant="outline" size="sm" disabled={loading} onClick={handleCreateLink}>
+              <Button variant="outline" size="sm" disabled={linkLoading} onClick={handleCreateLink}>
                 <Link2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                {loading ? "Generating\u2026" : "Generate link"}
+                {linkLoading ? "Generating\u2026" : "Generate link"}
               </Button>
             )}
           </CardContent>
@@ -107,7 +172,7 @@ export function AccountTab() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Developer Mode</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-sm">Enable in-app debug console (Eruda)</p>
@@ -117,15 +182,6 @@ export function AccountTab() {
               </div>
               <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                window.location.assign("/debug/auth");
-              }}
-            >
-              Open auth debug log
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -160,6 +216,56 @@ export function AccountTab() {
           </CardContent>
         </Card>
       )}
+
+      {!IN_TELEGRAM && (
+        <Card className="border-border/50">
+          <CardContent className="pt-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => void handleSignOut()}
+            >
+              <LogOut className="h-4 w-4 mr-1.5" aria-hidden="true" />
+              Sign out
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="border-destructive/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium text-destructive">Danger Zone</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Permanently delete your account and all associated data including pubs, API keys, and
+            live sessions. This action cannot be undone.
+          </p>
+          <div className="flex items-center gap-2">
+            <label htmlFor="delete-confirm" className="sr-only">
+              Type &quot;delete&quot; to confirm
+            </label>
+            <Input
+              id="delete-confirm"
+              placeholder='Type "delete" to confirm'
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              className="max-w-48"
+              autoComplete="off"
+            />
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleteConfirmText !== "delete" || deleting}
+              onClick={() => void handleDeleteAccount()}
+            >
+              <X className="h-4 w-4 mr-1" aria-hidden="true" />
+              {deleting ? "Deleting…" : "Delete account"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

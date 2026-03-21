@@ -38,8 +38,7 @@
     "@convex-dev/rate-limiter": "^0.3.2",
     "@telegram-apps/init-data-node": "^2.0.10",
     "concurrently": "^8.2.2",
-    "convex": "^1.19.0",
-    "feed": "^5.2.0"
+    "convex": "^1.19.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",

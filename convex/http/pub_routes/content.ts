@@ -1,5 +1,4 @@
 import { httpRouter } from "convex/server";
-import { Feed } from "feed";
 import { internal } from "../../_generated/api";
 import { httpAction } from "../../_generated/server";
 import { rateLimiter } from "../../rateLimits";
@@ -7,9 +6,7 @@ import { escapeXml, truncate } from "../../utils";
 import {
   buildOgTags,
   contentSecurityHeaders,
-  errorResponse,
   getOgCardData,
-  getPublicUrl,
   injectIntoHead,
   parseSlugFromRequest,
   rateLimitResponse,
@@ -78,53 +75,6 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
         headers: {
           "Content-Type": "image/svg+xml",
           "Cache-Control": "public, max-age=86400",
-        },
-      });
-    }),
-  });
-
-  http.route({
-    pathPrefix: "/rss/",
-    method: "GET",
-    handler: httpAction(async (ctx, request) => {
-      const url = new URL(request.url);
-      const userId = url.pathname.slice("/rss/".length).replace(/\/$/, "");
-      if (!userId) return errorResponse("Missing user ID", 400);
-
-      const publicUrl = getPublicUrl();
-      const siteUrl = process.env.CONVEX_SITE_URL ?? "";
-
-      const pubs = await ctx.runQuery(internal.pubs.listPublicByUserInternal, {
-        userId,
-        limit: 50,
-      });
-
-      const feed = new Feed({
-        title: "pub.blue",
-        id: `${publicUrl}/`,
-        link: `${publicUrl}/`,
-        copyright: "",
-        language: "en",
-        feedLinks: {
-          rss: `${siteUrl}/rss/${userId}`,
-        },
-      });
-
-      for (const pub of pubs) {
-        feed.addItem({
-          title: pub.title || pub.slug,
-          id: `${publicUrl}/p/${pub.slug}`,
-          link: `${publicUrl}/p/${pub.slug}`,
-          date: new Date(pub.createdAt),
-          description: pub.description || pub.title || pub.slug,
-        });
-      }
-
-      return new Response(feed.rss2(), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/rss+xml; charset=utf-8",
-          "Cache-Control": "public, max-age=300",
         },
       });
     }),

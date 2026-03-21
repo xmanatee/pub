@@ -811,19 +811,6 @@ export const listByUserInternal = internalQuery({
   },
 });
 
-export const listPublicByUserInternal = internalQuery({
-  args: { userId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { userId, limit }) => {
-    const pubs = await ctx.db
-      .query("pubs")
-      .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
-      .order("desc")
-      .collect();
-
-    return pubs.filter((p) => p.isPublic).slice(0, limit ?? 50);
-  },
-});
-
 export const storeAgentAnswer = internalMutation({
   args: {
     slug: v.string(),

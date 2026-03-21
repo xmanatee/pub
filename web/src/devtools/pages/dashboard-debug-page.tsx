@@ -1,5 +1,5 @@
 import type { Id } from "@backend/_generated/dataModel";
-import { FileText, Key, Play, User } from "lucide-react";
+import { FileText, Key, Play, Settings } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { PubCard } from "~/features/dashboard/components/pub-card";
 import type { PubGridItem } from "~/features/dashboard/components/pubs-grid";
@@ -85,14 +85,14 @@ export function DashboardDebugPage() {
               </TabsTrigger>
               <TabsTrigger value="keys">
                 <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                Agent and Keys
+                Agents and Keys
                 <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
                   3
                 </span>
               </TabsTrigger>
-              <TabsTrigger value="account">
-                <User className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                Account
+              <TabsTrigger value="settings">
+                <Settings className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                Settings
               </TabsTrigger>
             </TabsList>
           </Tabs>

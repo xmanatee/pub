@@ -54,8 +54,16 @@ export function trackApiKeyCopied() {
   posthog.capture("api_key_copied");
 }
 
-export function trackDashboardTabChanged(props: { tab: "pubs" | "keys" | "account" }) {
+export function trackDashboardTabChanged(props: { tab: "pubs" | "keys" | "settings" }) {
   posthog.capture("dashboard_tab_changed", props);
+}
+
+export function trackAccountDeleted() {
+  posthog.capture("account_deleted");
+}
+
+export function trackProviderDisconnected(props: { provider: string }) {
+  posthog.capture("provider_disconnected", props);
 }
 
 export function trackCtaClicked(props: { cta: string; location: string }) {
