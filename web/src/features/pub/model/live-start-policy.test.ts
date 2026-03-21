@@ -1,7 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { deriveLiveStartPolicy } from "./live-start-policy";
+import { deriveDefaultLiveRequested, deriveLiveStartPolicy } from "./live-start-policy";
 
 describe("deriveLiveStartPolicy", () => {
+  it("auto-requests live for empty pubs even without a manifest", () => {
+    expect(
+      deriveDefaultLiveRequested({
+        contentState: "empty",
+        hasCommandManifest: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not auto-request live for ready static pubs without a manifest", () => {
+    expect(
+      deriveDefaultLiveRequested({
+        contentState: "ready",
+        hasCommandManifest: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("auto-requests live for manifest pubs", () => {
+    expect(
+      deriveDefaultLiveRequested({
+        contentState: "ready",
+        hasCommandManifest: true,
+      }),
+    ).toBe(true);
+  });
+
   it("collapses static pubs by default and keeps them optional-live", () => {
     expect(
       deriveLiveStartPolicy({

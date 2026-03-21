@@ -1,3 +1,10 @@
+import type { LiveContentState } from "~/features/live/types/live-types";
+
+export interface DefaultLiveRequestedSource {
+  contentState: LiveContentState;
+  hasCommandManifest: boolean;
+}
+
 export interface LiveStartPolicySource {
   availableAgentCount: number;
   hasCanvasContent: boolean;
@@ -11,6 +18,10 @@ export interface LiveStartPolicy {
   defaultCollapsed: boolean;
   optionalLive: boolean;
   requiresUserAction: boolean;
+}
+
+export function deriveDefaultLiveRequested(source: DefaultLiveRequestedSource): boolean {
+  return source.hasCommandManifest || source.contentState === "empty";
 }
 
 export function deriveLiveStartPolicy(source: LiveStartPolicySource): LiveStartPolicy {

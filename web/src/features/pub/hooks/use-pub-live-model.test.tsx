@@ -214,15 +214,19 @@ import { usePubLiveModel } from "./use-pub-live-model";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 function HookHarness({
+  baseContentHtml = "<html><body>manifest</body></html>",
+  contentState = "ready",
   onChange,
 }: {
+  baseContentHtml?: string | null;
+  contentState?: "loading" | "empty" | "ready";
   onChange: (value: ReturnType<typeof usePubLiveModel>) => void;
 }) {
   const value = usePubLiveModel({
     slug: "email-tinder",
     pub: { isOwner: true, isPublic: false, slug: "email-tinder" },
-    baseContentHtml: "<html><body>manifest</body></html>",
-    contentState: "ready",
+    baseContentHtml,
+    contentState,
   });
 
   useEffect(() => {
@@ -379,5 +383,29 @@ describe("usePubLiveModel", () => {
 
     expect(states.at(-1)?.controlBarCollapsed).toBe(true);
     expect(states.at(-1)?.liveRequested).toBe(true);
+  });
+
+  it("auto-requests live for empty pubs", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml={null}
+          contentState="empty"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    expect(states.at(-1)?.liveRequested).toBe(true);
+    expect(states.at(-1)?.optionalLive).toBe(false);
+    expect(states.at(-1)?.controlBarCollapsed).toBe(false);
   });
 });

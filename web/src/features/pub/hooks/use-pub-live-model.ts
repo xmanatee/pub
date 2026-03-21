@@ -15,7 +15,10 @@ import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
-import { deriveLiveStartPolicy } from "~/features/pub/model/live-start-policy";
+import {
+  deriveDefaultLiveRequested,
+  deriveLiveStartPolicy,
+} from "~/features/pub/model/live-start-policy";
 import { derivePubViewState, isControlBarCollapsible } from "~/features/pub/model/pub-view-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackPubViewed } from "~/lib/analytics";
@@ -63,7 +66,11 @@ export function usePubLiveModel({
     () => (baseContentHtml ? extractManifestFromHtml(baseContentHtml) : null),
     [baseContentHtml],
   );
-  const defaultLiveRequested = baseManifest !== null;
+  const hasBaseCommandManifest = baseManifest !== null;
+  const defaultLiveRequested = deriveDefaultLiveRequested({
+    contentState,
+    hasCommandManifest: hasBaseCommandManifest,
+  });
 
   const {
     agentOnline,
@@ -119,7 +126,7 @@ export function usePubLiveModel({
       deriveLiveStartPolicy({
         availableAgentCount: availableAgents.length,
         hasCanvasContent: Boolean(baseContentHtml),
-        hasCommandManifest: baseManifest !== null,
+        hasCommandManifest: hasBaseCommandManifest,
         liveRequested: defaultLiveRequested,
         selectedPresenceId,
       }).defaultCollapsed,
@@ -420,7 +427,7 @@ export function usePubLiveModel({
     const resetLiveStartPolicy = deriveLiveStartPolicy({
       availableAgentCount: availableAgents.length,
       hasCanvasContent: Boolean(baseContentHtml),
-      hasCommandManifest: baseManifest !== null,
+      hasCommandManifest: hasBaseCommandManifest,
       liveRequested: defaultLiveRequested,
       selectedPresenceId,
     });
@@ -440,7 +447,7 @@ export function usePubLiveModel({
     slug,
     availableAgents.length,
     defaultLiveRequested,
-    baseManifest,
+    hasBaseCommandManifest,
     selectedPresenceId,
     dismissPreview,
     clearMessages,

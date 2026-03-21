@@ -101,6 +101,10 @@ vi.mock("~/features/live-control-bar/hooks/use-file-upload", () => ({
   }),
 }));
 
+vi.mock("~/components/blob/blob", () => ({
+  Blob: () => <div data-testid="mock-blob" />,
+}));
+
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);

@@ -80,7 +80,7 @@ export function createMockLiveSession(
   overrides: Partial<LiveSessionContextType> = {},
 ): LiveSessionContextType {
   const noop = () => {};
-  return {
+  const session = {
     agentName: "Agent",
     agentOnline: true,
     agentState: "ready",
@@ -157,4 +157,10 @@ export function createMockLiveSession(
     voiceModeEnabled: true,
     ...overrides,
   } as LiveSessionContextType;
+
+  if (overrides.optionalLive === undefined) {
+    session.optionalLive = !session.hasCommandManifest && !session.liveRequested;
+  }
+
+  return session;
 }
