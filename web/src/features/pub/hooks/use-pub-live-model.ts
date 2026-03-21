@@ -15,6 +15,7 @@ import { useChatPreview } from "~/features/live-chat/hooks/use-chat-preview";
 import { useLiveChatDelivery } from "~/features/live-chat/hooks/use-live-chat-delivery";
 import { useLiveFiles } from "~/features/live-chat/hooks/use-live-files";
 import { useControlBarAudio } from "~/features/live-control-bar/hooks/use-control-bar-audio";
+import { deriveLiveStartPolicy } from "~/features/pub/model/live-start-policy";
 import { derivePubViewState, isControlBarCollapsible } from "~/features/pub/model/pub-view-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackPubViewed } from "~/lib/analytics";
@@ -62,7 +63,6 @@ export function usePubLiveModel({
     () => (baseContentHtml ? extractManifestFromHtml(baseContentHtml) : null),
     [baseContentHtml],
   );
-  const defaultCollapsed = Boolean(baseContentHtml) && baseManifest === null;
   const defaultLiveRequested = baseManifest !== null;
 
   const {
@@ -114,7 +114,15 @@ export function usePubLiveModel({
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
-  const [collapsePreference, setCollapsePreference] = useState(defaultCollapsed);
+  const [collapsePreference, setCollapsePreference] = useState(() =>
+    deriveLiveStartPolicy({
+      availableAgentCount: availableAgents.length,
+      hasCanvasContent: Boolean(baseContentHtml),
+      hasCommandManifest: baseManifest !== null,
+      liveRequested: defaultLiveRequested,
+      selectedPresenceId,
+    }).defaultCollapsed,
+  );
   const [liveRequested, setLiveRequested] = useState(defaultLiveRequested);
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
@@ -136,6 +144,17 @@ export function usePubLiveModel({
     const content = canvasHtml ?? baseContentHtml ?? null;
     return content ? extractManifestFromHtml(content) !== null : false;
   }, [baseContentHtml, canvasHtml]);
+  const liveStartPolicy = useMemo(
+    () =>
+      deriveLiveStartPolicy({
+        availableAgentCount: availableAgents.length,
+        hasCanvasContent: Boolean(canvasHtml),
+        hasCommandManifest,
+        liveRequested,
+        selectedPresenceId,
+      }),
+    [availableAgents.length, canvasHtml, hasCommandManifest, liveRequested, selectedPresenceId],
+  );
   const liveEnabled = liveMode && (hasCommandManifest || liveRequested);
 
   const enabled =
@@ -281,9 +300,31 @@ export function usePubLiveModel({
     const hadCanvas = hadCanvasRef.current;
     hadCanvasRef.current = Boolean(canvasHtml);
     if (canvasHtml && !hadCanvas) {
-      setCollapsePreference(!hasCommandManifest);
+      setCollapsePreference(liveStartPolicy.defaultCollapsed);
     }
-  }, [canvasHtml, hasCommandManifest]);
+  }, [canvasHtml, liveStartPolicy.defaultCollapsed]);
+
+  const previousAutoStartAvailableRef = useRef(liveStartPolicy.autoStartAvailable);
+  useEffect(() => {
+    const previousAutoStartAvailable = previousAutoStartAvailableRef.current;
+    previousAutoStartAvailableRef.current = liveStartPolicy.autoStartAvailable;
+
+    if (!Boolean(canvasHtml) || !hasCommandManifest) return;
+    if (!previousAutoStartAvailable && liveStartPolicy.autoStartAvailable) {
+      setCollapsePreference(true);
+    }
+  }, [canvasHtml, hasCommandManifest, liveStartPolicy.autoStartAvailable]);
+
+  const previousRequiresUserActionRef = useRef(liveStartPolicy.requiresUserAction);
+  useEffect(() => {
+    const previousRequiresUserAction = previousRequiresUserActionRef.current;
+    previousRequiresUserActionRef.current = liveStartPolicy.requiresUserAction;
+
+    if (!Boolean(canvasHtml) || !hasCommandManifest) return;
+    if (!previousRequiresUserAction && liveStartPolicy.requiresUserAction) {
+      setCollapsePreference(false);
+    }
+  }, [canvasHtml, hasCommandManifest, liveStartPolicy.requiresUserAction]);
 
   useEffect(() => {
     const previous = lastCanvasScopeRef.current;
@@ -375,8 +416,17 @@ export function usePubLiveModel({
     notifiedStatusRef.current = null;
     lastLiveBrowserSessionIdRef.current = null;
     lastSelectedPresenceIdRef.current = null;
+    const resetLiveStartPolicy = deriveLiveStartPolicy({
+      availableAgentCount: availableAgents.length,
+      hasCanvasContent: Boolean(baseContentHtml),
+      hasCommandManifest: baseManifest !== null,
+      liveRequested: defaultLiveRequested,
+      selectedPresenceId,
+    });
+    previousAutoStartAvailableRef.current = resetLiveStartPolicy.autoStartAvailable;
+    previousRequiresUserActionRef.current = resetLiveStartPolicy.requiresUserAction;
     setCanvasHtml(baseContentHtml ?? null);
-    setCollapsePreference(defaultCollapsed);
+    setCollapsePreference(resetLiveStartPolicy.defaultCollapsed);
     setLiveRequested(defaultLiveRequested);
     trackedAnalytics.current = false;
     dismissPreview();
@@ -387,8 +437,10 @@ export function usePubLiveModel({
   }, [
     baseContentHtml,
     slug,
-    defaultCollapsed,
+    availableAgents.length,
     defaultLiveRequested,
+    baseManifest,
+    selectedPresenceId,
     dismissPreview,
     clearMessages,
     clearFiles,
@@ -540,6 +592,7 @@ export function usePubLiveModel({
     outboundCanvasBridgeMessage,
     preview,
     liveRequested,
+    optionalLive: liveStartPolicy.optionalLive,
     requestLiveSession,
     retryConnection,
     sendAudio,

@@ -132,6 +132,7 @@ export function createMockLiveSession(
     hasCanvasContent: false,
     onCanvasBridgeMessage: noop,
     outboundCanvasBridgeMessage: null,
+    optionalLive: true,
     preview: null,
     retryConnection: noop,
     sendAudio: noop,

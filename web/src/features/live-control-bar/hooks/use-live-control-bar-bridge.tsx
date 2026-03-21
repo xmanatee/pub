@@ -63,9 +63,8 @@ export function useLiveControlBarBridge({
     controlBarState,
     dismissPreview,
     hasCanvasContent,
-    hasCommandManifest,
     lastTakeoverAt,
-    liveRequested,
+    optionalLive,
     preview,
     requestLiveSession,
     retryConnection,
@@ -189,7 +188,6 @@ export function useLiveControlBarBridge({
   addons.push(...controlBarNotificationsToAddons(notifications));
 
   const rightActionForCanvasMode = viewMode === "canvas" ? undefined : rightAction;
-  const optionalLive = !hasCommandManifest && !liveRequested;
 
   useControlBarBaseLayer({
     addons,

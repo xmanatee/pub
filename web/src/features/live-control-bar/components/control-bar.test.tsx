@@ -49,6 +49,7 @@ const mockSession = {
   hasCommandManifest: false,
   lastTakeoverAt: undefined as number | undefined,
   liveRequested: true,
+  optionalLive: false,
   preview: null,
   requestLiveSession: vi.fn(),
   retryConnection: vi.fn(),
@@ -172,6 +173,7 @@ describe("ControlBar", () => {
     mockSession.hasCanvasContent = true;
     mockSession.hasCommandManifest = false;
     mockSession.liveRequested = true;
+    mockSession.optionalLive = false;
   });
 
   it("shows record and voice actions in idle mode", async () => {
@@ -282,6 +284,7 @@ describe("ControlBar", () => {
     const html = await renderControlBar({
       hasCanvasContent: false,
       liveRequested: false,
+      optionalLive: true,
     });
     expect(html).toContain('aria-label="Toggle extended options"');
     expect(html).not.toContain('aria-label="Dismiss control bar"');

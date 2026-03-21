@@ -690,8 +690,52 @@ test("page reload: commands work after reload", async ({ page }) => {
   const user = seedUser("Reload User");
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
+  const counterFile = `/tmp/pub-reload-counter-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const reloadHtml = `<!DOCTYPE html>
+<html>
+<head><title>Reload Command</title></head>
+<body>
+  <div id="auto-result">pending</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "reload-cmd",
+    "functions": [
+      {
+        "name": "nextLoadCount",
+        "returns": "text",
+        "executor": {
+          "kind": "shell",
+          "script": "COUNT_FILE=\\"${counterFile}\\"\\ncount=$(cat \\"$COUNT_FILE\\" 2>/dev/null || echo 0)\\ncount=$((count + 1))\\nprintf '%s' \\"$count\\" > \\"$COUNT_FILE\\"\\nprintf '%s' \\"$count\\""
+        }
+      },
+      {
+        "name": "cwd",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "pwd" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.command('nextLoadCount', {}).then(function(r) {
+      document.getElementById('auto-result').textContent = 'load: ' + r;
+    }).catch(function(e) {
+      document.getElementById('auto-result').textContent = 'error: ' + e.message;
+    });
+    function runCommand() {
+      pub.command('cwd', {}).then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
 
-  await api.createPub({ slug: "reload-e2e", title: "Reload E2E", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "reload-e2e", title: "Reload E2E", content: reloadHtml });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("reload-bot");
@@ -702,7 +746,7 @@ test("page reload: commands work after reload", async ({ page }) => {
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
 
   const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("load: 1", { timeout: 30_000 });
 
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 15_000 });
@@ -716,6 +760,7 @@ test("page reload: commands work after reload", async ({ page }) => {
     await switchBtn.dispatchEvent("click");
   }
   await expect(messageInput).toBeVisible({ timeout: 30_000 });
+  await expect(canvasFrame.locator("#auto-result")).toHaveText("load: 2", { timeout: 30_000 });
 
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 30_000 });

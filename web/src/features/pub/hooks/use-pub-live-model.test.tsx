@@ -38,12 +38,17 @@ const {
   setSelectedPresenceIdMock: vi.fn(),
   setViewModeMock: vi.fn(),
   sharedState: {
+    availableAgents: [{ presenceId: "presence-1", agentName: "Agent" }] as Array<{
+      presenceId: string;
+      agentName: string;
+    }>,
     live: null as {
       _id: string;
       agentAnswer?: string;
       agentCandidates: string[];
       browserSessionId?: string;
     } | null,
+    selectedPresenceId: "presence-1" as string | null,
   },
   storeBrowserCandidatesMock: vi.fn(async () => ({})),
   storeBrowserOfferMock: vi.fn(async () => ({})),
@@ -70,8 +75,8 @@ vi.mock("@shared/command-protocol-core", async () => {
 
 vi.mock("~/features/live/hooks/use-live-session-model", () => ({
   useLiveSessionModel: () => ({
-    availableAgents: [{ presenceId: "presence-1", agentName: "Agent" }],
-    agentOnline: true,
+    availableAgents: sharedState.availableAgents,
+    agentOnline: sharedState.availableAgents.length > 0,
     clearSessionError: clearSessionErrorMock,
     closeLive: closeLiveMock,
     connectionAttempt: 0,
@@ -81,7 +86,7 @@ vi.mock("~/features/live/hooks/use-live-session-model", () => ({
     retryConnection: retryConnectionMock,
     sessionError: null,
     sessionState: "active",
-    selectedPresenceId: "presence-1",
+    selectedPresenceId: sharedState.selectedPresenceId,
     setSelectedPresenceId: setSelectedPresenceIdMock,
     storeBrowserCandidates: storeBrowserCandidatesMock,
     storeBrowserOffer: storeBrowserOfferMock,
@@ -232,7 +237,9 @@ describe("usePubLiveModel", () => {
   let root: Root | null = null;
 
   beforeEach(() => {
+    sharedState.availableAgents = [{ presenceId: "presence-1", agentName: "Agent" }];
     sharedState.live = null;
+    sharedState.selectedPresenceId = "presence-1";
     addSystemMessageMock.mockReset();
     clearFilesMock.mockReset();
     clearMessagesMock.mockReset();
@@ -341,5 +348,36 @@ describe("usePubLiveModel", () => {
     expect(dismissPreviewMock).toHaveBeenCalledTimes(1);
     expect(setViewModeMock).toHaveBeenCalledWith("canvas");
     expect(resetCanvasCommandsMock).not.toHaveBeenCalled();
+  });
+
+  it("collapses a manifest pub once exactly one agent becomes available", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    sharedState.availableAgents = [];
+    sharedState.selectedPresenceId = null;
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(false);
+
+    sharedState.availableAgents = [{ presenceId: "presence-1", agentName: "Agent" }];
+    sharedState.selectedPresenceId = "presence-1";
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    expect(states.at(-1)?.controlBarCollapsed).toBe(true);
+    expect(states.at(-1)?.liveRequested).toBe(true);
   });
 });
