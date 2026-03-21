@@ -51,6 +51,18 @@ test.describe("Control bar layout", () => {
     expect(rowHeight).toBeCloseTo(48, 0);
   });
 
+  test("preview becomes visible after the bar is collapsed", async ({ page }) => {
+    await openControlBarDebug(page);
+    await interactiveSection(page).getByLabel("Toggle control bar").click();
+    await page.waitForTimeout(600);
+
+    await interactiveSection(page).getByRole("button", { name: "Show preview" }).click();
+    await expect(interactiveSection(page).getByText("Debug preview message")).toBeVisible();
+
+    await interactiveSection(page).getByRole("button", { name: "Hide preview" }).click();
+    await expect(interactiveSection(page).getByText("Debug preview message")).not.toBeVisible();
+  });
+
   test("preview opens and expands shell height", async ({ page }) => {
     await openControlBarDebug(page);
     await interactiveSection(page).getByLabel("Message").focus();

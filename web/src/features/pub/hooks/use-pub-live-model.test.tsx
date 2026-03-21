@@ -426,45 +426,6 @@ describe("usePubLiveModel", () => {
     expect(states.at(-1)?.controlBarCollapsed).toBe(true);
   });
 
-  it("temporarily expands a collapsed canvas when a preview arrives", async () => {
-    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
-
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-
-    await act(async () => {
-      const currentRoot = root;
-      if (!currentRoot) throw new Error("root not initialized");
-      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
-    });
-
-    expect(states.at(-1)?.controlBarCollapsed).toBe(true);
-
-    sharedPreviewState.preview = {
-      source: "agent",
-      text: "echo: hello",
-    };
-
-    await act(async () => {
-      const currentRoot = root;
-      if (!currentRoot) throw new Error("root not initialized");
-      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
-    });
-
-    expect(states.at(-1)?.controlBarCollapsed).toBe(false);
-
-    sharedPreviewState.preview = null;
-
-    await act(async () => {
-      const currentRoot = root;
-      if (!currentRoot) throw new Error("root not initialized");
-      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
-    });
-
-    expect(states.at(-1)?.controlBarCollapsed).toBe(true);
-  });
-
   it("auto-requests live for empty pubs", async () => {
     const states: Array<ReturnType<typeof usePubLiveModel>> = [];
 

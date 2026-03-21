@@ -12,7 +12,7 @@ export interface ChatPreview {
 
 export function useChatPreview(messages: ChatEntry[], viewMode: LiveViewMode) {
   const [preview, setPreview] = useState<ChatPreview | null>(null);
-  const lastSeenIdRef = useRef<string | null>(null);
+  const lastSeenKeyRef = useRef<string | null>(null);
   const initializedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -30,24 +30,25 @@ export function useChatPreview(messages: ChatEntry[], viewMode: LiveViewMode) {
 
   useEffect(() => {
     const lastPreviewEntry = findLastPreviewEntry(messages);
+    const lastPreviewKey = lastPreviewEntry ? getPreviewEntryKey(lastPreviewEntry) : null;
 
     if (!initializedRef.current) {
       initializedRef.current = true;
-      lastSeenIdRef.current = lastPreviewEntry?.id ?? null;
+      lastSeenKeyRef.current = lastPreviewKey;
       return;
     }
 
     if (viewMode === "chat") {
-      if (lastPreviewEntry) lastSeenIdRef.current = lastPreviewEntry.id;
+      lastSeenKeyRef.current = lastPreviewKey;
       dismissPreview();
       return;
     }
 
-    if (!lastPreviewEntry || lastPreviewEntry.id === lastSeenIdRef.current) return;
+    if (!lastPreviewEntry || lastPreviewKey === lastSeenKeyRef.current) return;
 
     const nextPreview = previewFromChatEntry(lastPreviewEntry);
     if (!nextPreview) return;
-    lastSeenIdRef.current = lastPreviewEntry.id;
+    lastSeenKeyRef.current = lastPreviewKey;
     setPreview(nextPreview);
     clearTimer();
     timerRef.current = setTimeout(() => setPreview(null), AUTO_DISMISS_MS);
@@ -87,4 +88,11 @@ export function previewFromChatEntry(entry: ChatEntry): ChatPreview | null {
     source: "agent",
     text: buildChatPreviewText(entry),
   };
+}
+
+function getPreviewEntryKey(entry: ChatEntry): string {
+  if (entry.type === "system") {
+    return `${entry.id}:${entry.severity}:${entry.content}`;
+  }
+  return `${entry.id}:${buildChatPreviewText(entry)}`;
 }

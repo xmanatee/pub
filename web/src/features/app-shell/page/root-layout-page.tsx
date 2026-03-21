@@ -29,7 +29,10 @@ export function RootRouteErrorPage({ error }: { error: Error }) {
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 px-4">
+    <div
+      className="flex flex-col items-center justify-center gap-3 px-4"
+      style={{ minHeight: "50vh" }}
+    >
       <h1 className="text-xl font-bold">Something went wrong</h1>
       <p className="text-muted-foreground text-center max-w-md">
         An unexpected error occurred. The issue has been reported and we're looking into it.
@@ -103,7 +106,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     >
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
       >
         Skip to content
       </a>
@@ -153,7 +156,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       {!IN_TELEGRAM ? (
-        <footer className="border-t border-border/50">
+        <footer className="relative z-0 border-t border-border/50 bg-background">
           <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">

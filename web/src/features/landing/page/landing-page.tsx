@@ -12,7 +12,7 @@ export function LandingPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="flex items-center justify-center" style={{ minHeight: "50vh" }}>
         <div className="text-muted-foreground text-sm">Loading…</div>
       </div>
     );
@@ -24,7 +24,7 @@ export function LandingPage() {
 
   return (
     <ControlBarProvider>
-      <div className="fade-edges-narrow flex flex-col pb-28">
+      <div className="flex flex-col">
         <LandingControlBar />
         <HeroSection />
         <LogoBar />

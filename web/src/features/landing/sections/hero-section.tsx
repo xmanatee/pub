@@ -1,123 +1,185 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowRight, Github } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Blob } from "~/components/blob/blob";
-import { TerminalPreview } from "~/components/terminal-preview";
-import { Button } from "~/components/ui/button";
-import { trackCtaClicked } from "~/lib/analytics";
+import { cn } from "~/lib/utils";
 
 const HERO_BLOB_TONE = {
-  coreScale: 1.1,
-  energy: 0.72,
-  glow: 0.5,
+  coreScale: 1.12,
+  energy: 0.78,
+  glow: 0.62,
   hueA: 186,
   hueB: 211,
   hueC: 169,
-  saturation: 0.92,
+  saturation: 0.96,
   speedMs: 7600,
 };
 
-export function HeroSection() {
+const EXAMPLE_REQUESTS = [
+  "Build me a morning dashboard",
+  "Visualize my todos like a tree",
+  "Sort my emails like Tinder",
+  "Pull email, notes, and tasks into one interface",
+  "Make me a one-off dashboard for this launch",
+  "Combine my calendar and tasks into one day view",
+  "Show me everything relevant to this project",
+  "Turn my backlog into something I can actually scan",
+] as const;
+
+const HERO_BLOB_FADE = {
+  background:
+    "radial-gradient(circle at top, rgba(255,255,255,0) 0%, rgba(255,255,255,0.02) 18%, rgba(255,255,255,0.12) 42%, rgba(255,255,255,0.42) 68%, rgba(255,255,255,0.82) 86%, rgba(255,255,255,0.98) 100%)",
+};
+
+function ExamplePromptCarousel() {
+  const loopStartIndex = EXAMPLE_REQUESTS.length;
+  const [activeIndex, setActiveIndex] = useState(loopStartIndex);
+  const [transitionEnabled, setTransitionEnabled] = useState(true);
+  const repeatedRequests = Array.from({ length: 3 }, (_, cycle) =>
+    EXAMPLE_REQUESTS.map((request) => ({
+      id: `${cycle}-${request}`,
+      text: request,
+    })),
+  ).flat();
+  const visibleIndex = activeIndex % EXAMPLE_REQUESTS.length;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => current + 1);
+    }, 2600);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (activeIndex < EXAMPLE_REQUESTS.length * 2) return;
+
+    const timer = window.setTimeout(() => {
+      setTransitionEnabled(false);
+      setActiveIndex(loopStartIndex);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          setTransitionEnabled(true);
+        });
+      });
+    }, 720);
+
+    return () => window.clearTimeout(timer);
+  }, [activeIndex]);
+
+  const itemHeight = 76;
+  const itemGap = 10;
+  const trackOffset = activeIndex * (itemHeight + itemGap);
+
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,27,45,0.04),transparent_32%,transparent_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-[30rem] sm:h-[34rem]">
-          <Blob tone={HERO_BLOB_TONE} dimmed className="opacity-90" />
+    <div
+      className="w-full rounded-3xl border border-border/60 bg-background/95 p-4"
+      style={{ boxShadow: "0 18px 36px rgba(15, 23, 42, 0.10)" }}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3 px-1">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Try Requests Like
+        </p>
+        <div className="flex items-center gap-1.5">
+          {EXAMPLE_REQUESTS.map((request, index) => (
+            <span
+              key={request}
+              className={cn(
+                "h-1.5 rounded-full bg-primary/25 transition-all duration-500",
+                index === visibleIndex ? "w-5 bg-primary/80" : "w-1.5",
+              )}
+            />
+          ))}
         </div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_0,transparent_28%,rgba(248,250,252,0.92)_72%)] dark:bg-[radial-gradient(circle_at_top,transparent_0,transparent_22%,rgba(2,6,23,0.82)_72%)]" />
       </div>
 
-      <div className="px-4 sm:px-6">
-        <div className="flex min-h-[calc(100vh-3.5rem)] items-center py-12 sm:py-14">
-          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:gap-10">
+      <div className="relative overflow-hidden rounded-3xl bg-muted/20 p-2" style={{ height: 332 }}>
+        <div
+          className={cn(
+            "flex flex-col gap-2.5 ease-out",
+            transitionEnabled ? "transition-transform duration-700" : null,
+          )}
+          style={{ transform: `translateY(${120 - trackOffset}px)` }}
+        >
+          {repeatedRequests.map((request, index) => {
+            const distance = Math.abs(index - activeIndex);
+            const faded = distance > 1;
+
+            return (
+              <div
+                key={request.id}
+                className={cn(
+                  "flex items-center rounded-3xl border bg-background px-5 transition-all duration-700 ease-out",
+                  index === activeIndex
+                    ? "border-primary/20 opacity-100"
+                    : "border-border/60 opacity-65",
+                  faded ? "opacity-35" : null,
+                )}
+                style={{ height: itemHeight }}
+              >
+                <p className="text-base font-medium leading-snug text-foreground sm:text-lg">
+                  {request.text}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0"
+          style={{
+            height: 56,
+            background: "linear-gradient(to bottom, var(--background), transparent)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0"
+          style={{
+            height: 56,
+            background: "linear-gradient(to top, var(--background), transparent)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function HeroSection() {
+  return (
+    <section className="relative bg-background">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-x-0 top-0" style={{ height: "34rem" }}>
+          <Blob tone={HERO_BLOB_TONE} dimmed={false} className="h-full w-full opacity-100" />
+        </div>
+        <div className="absolute inset-0" style={HERO_BLOB_FADE} />
+      </div>
+
+      <div className="relative z-10 px-4 sm:px-6">
+        <div
+          className="flex items-center py-12 sm:py-14"
+          style={{ minHeight: "calc(100vh - 3.5rem)" }}
+        >
+          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
             <div className="text-left">
-              <p className="mb-4 text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase sm:text-sm">
-                Adaptive interfaces for AI agents
+              <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground sm:text-sm">
+                Software that adapts to you
               </p>
 
-              <h1 className="max-w-2xl text-balance text-5xl font-bold leading-[1.02] tracking-tighter sm:text-6xl lg:text-[4.15rem]">
+              <h1
+                className="max-w-2xl text-balance text-5xl font-bold leading-tight tracking-tight sm:text-6xl"
+                style={{ fontSize: "clamp(3rem, 7vw, 4.15rem)" }}
+              >
                 One app to rule them all.
               </h1>
 
               <p className="mt-4 max-w-xl text-xl leading-snug text-foreground/92 sm:text-2xl">
-                A direct, visual connection to your agent, machine, and services.
+                Your agent doesn&apos;t just assist. It shapes the experience.
               </p>
 
               <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                No more setting up yet another TODO app or email client. Pub adapts to the task.
+                The old model was one-size-fits-all software. Pub gives you software with a point of
+                view: yours.
               </p>
-
-              <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                <span>Adaptive</span>
-                <span>Private peer-to-peer</span>
-                <span>Built for you</span>
-              </div>
-
-              <div className="mt-7 flex flex-wrap items-center gap-4">
-                <Button
-                  size="lg"
-                  className="h-12 px-8 text-base"
-                  asChild
-                  onClick={() => trackCtaClicked({ cta: "sign_in", location: "hero" })}
-                >
-                  <Link to="/login">
-                    Sign in
-                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                  <a href="#how-it-works" className="transition-colors hover:text-foreground">
-                    See how it works
-                  </a>
-                  <a
-                    href="https://github.com/xmanatee/pub"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
-                  >
-                    <Github className="h-4 w-4" aria-hidden="true" />
-                    GitHub
-                  </a>
-                </div>
-              </div>
             </div>
 
-            <div className="mx-auto flex w-full max-w-md flex-col gap-4 lg:items-end">
-              <div className="w-full rounded-[1.75rem] border border-border/60 bg-background/72 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-                <TerminalPreview className="shadow-2xl shadow-primary/10">
-                  <div className="space-y-2 p-4 font-mono text-sm leading-relaxed">
-                    <div className="text-white/45"># install pub once</div>
-                    <div className="text-primary">
-                      <span className="text-primary/70">$</span> curl -fsSL pub.blue/install.sh |
-                      bash
-                    </div>
-                    <div className="text-emerald-400">
-                      Installed. Your agent runs the rest on the host machine.
-                    </div>
-                  </div>
-                </TerminalPreview>
-              </div>
-
-              <div className="w-full rounded-[1.75rem] border border-border/60 bg-background/80 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-xl">
-                <div className="flex items-center justify-between gap-4 rounded-full border border-border/70 bg-background/88 px-2 py-2 shadow-sm">
-                  <div className="min-w-0 px-2">
-                    <p className="truncate text-sm font-medium text-foreground">Connect to Pub</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      Private session with your agent
-                    </p>
-                  </div>
-                  <Button
-                    asChild
-                    className="h-10 shrink-0 rounded-full px-4 text-xs font-medium"
-                    onClick={() =>
-                      trackCtaClicked({ cta: "sign_in", location: "hero_control_bar" })
-                    }
-                  >
-                    <Link to="/login">Sign in</Link>
-                  </Button>
-                </div>
-              </div>
+            <div className="mx-auto w-full max-w-md px-2 lg:px-0 lg:justify-self-end">
+              <ExamplePromptCarousel />
             </div>
           </div>
         </div>

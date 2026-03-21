@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+/** @vitest-environment jsdom */
+import { act, createElement, useEffect } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   AttachmentChatEntry,
   AudioChatEntry,
+  ChatEntry,
   SystemChatEntry,
   TextChatEntry,
 } from "~/features/live-chat/types/live-chat-types";
@@ -9,7 +13,14 @@ import {
   buildChatPreviewText,
   findLastPreviewEntry,
   previewFromChatEntry,
+  useChatPreview,
 } from "./use-chat-preview";
+
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const USER_TEXT: TextChatEntry = {
   id: "u1",
@@ -57,7 +68,41 @@ const SYSTEM_ERROR: SystemChatEntry = {
   timestamp: 4,
 };
 
+let latestPreview: ReturnType<typeof useChatPreview> | null = null;
+let container: HTMLDivElement | null = null;
+let root: Root | null = null;
+
+function HookHarness({ messages }: { messages: ChatEntry[] }) {
+  const preview = useChatPreview(messages, "canvas");
+
+  useEffect(() => {
+    latestPreview = preview;
+  }, [preview]);
+
+  return null;
+}
+
 describe("useChatPreview helpers", () => {
+  beforeEach(() => {
+    latestPreview = null;
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    const currentRoot = root;
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot.unmount();
+      });
+    }
+    root = null;
+    container?.remove();
+    container = null;
+    latestPreview = null;
+  });
+
   it("finds the latest preview-eligible message", () => {
     const last = findLastPreviewEntry([USER_TEXT, AGENT_TEXT, AGENT_AUDIO, SYSTEM_ERROR]);
     expect(last?.id).toBe("s1");
@@ -103,5 +148,34 @@ describe("useChatPreview helpers", () => {
     expect(buildChatPreviewText(AGENT_AUDIO)).toBe("Audio message");
     expect(buildChatPreviewText(AGENT_ATTACHMENT)).toBe("File: report.pdf");
     expect(buildChatPreviewText(SYSTEM_ERROR)).toBe("connection failed");
+  });
+
+  it("treats same-id content changes as a new preview", () => {
+    const currentRoot = root;
+    if (!currentRoot) throw new Error("root not initialized");
+
+    act(() => {
+      currentRoot.render(createElement(HookHarness, { messages: [AGENT_TEXT] }));
+    });
+
+    expect(latestPreview?.preview).toBeNull();
+
+    act(() => {
+      currentRoot.render(
+        createElement(HookHarness, {
+          messages: [
+            {
+              ...AGENT_TEXT,
+              content: "updated agent reply",
+            },
+          ],
+        }),
+      );
+    });
+
+    expect(latestPreview?.preview).toEqual({
+      source: "agent",
+      text: "updated agent reply",
+    });
   });
 });

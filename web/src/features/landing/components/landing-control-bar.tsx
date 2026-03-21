@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Blob } from "~/components/blob/blob";
+import { useMemo } from "react";
 import {
   ControlBarHost,
   useControlBarBaseLayer,
@@ -11,17 +10,6 @@ import { controlBarToneStyle } from "~/components/control-bar/control-bar-tone";
 import { Button } from "~/components/ui/button";
 import { trackCtaClicked } from "~/lib/analytics";
 
-const LANDING_BLOB_TONE = {
-  coreScale: 1,
-  energy: 0.64,
-  glow: 0.44,
-  hueA: 184,
-  hueB: 207,
-  hueC: 160,
-  saturation: 0.9,
-  speedMs: 7800,
-};
-
 const LANDING_BAR_TONE = {
   backgroundSize: "180%",
   colorA: "rgba(28, 199, 255, 0.55)",
@@ -31,48 +19,18 @@ const LANDING_BAR_TONE = {
   speedMs: 6800,
 };
 
-function useLandingBarVisibility() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const update = () => {
-      setVisible(window.scrollY > Math.max(window.innerHeight * 0.4, 220));
-    };
-
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, []);
-
-  return visible;
-}
-
 export function LandingControlBar() {
-  const visible = useLandingBarVisibility();
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      setExpanded(true);
-      return;
-    }
-    setExpanded(false);
-  }, [visible]);
-
   const baseLayer = useMemo(
     () => ({
       mainContent: (
         <ControlBarPanel>
           <ControlBarLabel className="px-2 text-foreground">
-            Connect to Pub and start a private session with your agent.
+            Take 5 minutes to try it with your agent.
           </ControlBarLabel>
           <Button
             asChild
-            className="h-10 shrink-0 rounded-full px-4 text-xs font-medium"
+            variant="default"
+            className="h-10 shrink-0 rounded-full px-4 text-xs font-semibold"
             onClick={() => trackCtaClicked({ cta: "sign_in", location: "floating_control_bar" })}
           >
             <Link to="/login">Sign in</Link>
@@ -85,18 +43,8 @@ export function LandingControlBar() {
 
   useControlBarBaseLayer(baseLayer);
   useControlBarChrome({
-    expanded: visible && expanded,
+    expanded: true,
     shellStyle: controlBarToneStyle(LANDING_BAR_TONE),
-    statusButton: {
-      ariaLabel: expanded ? "Hide control bar" : "Show control bar",
-      content: (
-        <div className="h-full w-full bg-background/60">
-          <Blob tone={LANDING_BLOB_TONE} dimmed={!expanded} />
-        </div>
-      ),
-      hidden: !visible,
-      onClick: () => setExpanded((current) => !current),
-    },
   });
 
   return <ControlBarHost />;

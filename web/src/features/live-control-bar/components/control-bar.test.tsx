@@ -254,6 +254,24 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-label="Open chat"');
   });
 
+  it("keeps preview visible without auto-expanded options", async () => {
+    const html = await renderControlBar({
+      agentName: "Agent",
+      preview: { text: "Hello from agent", source: "agent" },
+    });
+    expect(html).toContain("Hello from agent");
+    expect(html).not.toContain("Dashboard");
+  });
+
+  it("keeps the bar expanded while a preview is visible even if the canvas is collapsed", async () => {
+    const html = await renderControlBar({
+      controlBarCollapsed: true,
+      preview: { text: "Hello from agent", source: "agent" },
+    });
+    expect(html).toContain("Hello from agent");
+    expect(html).not.toContain("translate-y-full");
+  });
+
   it("shows backdrop when bar is expanded in canvas mode", async () => {
     const html = await renderControlBar({
       viewMode: "canvas",

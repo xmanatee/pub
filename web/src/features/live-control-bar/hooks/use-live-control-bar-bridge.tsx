@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   useControlBarBaseLayer,
   useControlBarChrome,
@@ -81,7 +81,14 @@ export function useLiveControlBarBridge({
   } = useLiveSession();
 
   const canCollapseBar = hasCanvasContent;
-  const isExpanded = viewMode === "canvas" ? (canCollapseBar ? !controlBarCollapsed : true) : true;
+  const previewForcesExpansion = canCollapseBar && viewMode === "canvas" && preview !== null;
+  const isExpanded =
+    viewMode === "canvas"
+      ? canCollapseBar
+        ? previewForcesExpansion || !controlBarCollapsed
+        : true
+      : true;
+  const suppressAutoOptionsRef = useRef(false);
 
   const {
     visible: extendedOptionsVisible,
@@ -90,9 +97,21 @@ export function useLiveControlBarBridge({
   } = useExtendedOptionsVisibility({
     controlBarState,
     isBarExpanded: isExpanded,
-    showOnExpand: canCollapseBar,
+    showOnExpand: canCollapseBar && !preview && !suppressAutoOptionsRef.current,
     viewMode,
   });
+
+  useEffect(() => {
+    if (preview) {
+      suppressAutoOptionsRef.current = true;
+      dismissExtendedOptions();
+      return;
+    }
+
+    if (!isExpanded || viewMode !== "canvas") {
+      suppressAutoOptionsRef.current = false;
+    }
+  }, [dismissExtendedOptions, isExpanded, preview, viewMode]);
 
   const { input, setInput, hasText, handleSend, handleKeyDown } = useControlBarText({
     disabled: !connected,
