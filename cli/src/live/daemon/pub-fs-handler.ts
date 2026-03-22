@@ -286,7 +286,9 @@ export function createPubFsHandler(params: {
           message.data === "pub-fs.delete"
         ) {
           opQueue.push(message);
-          void processQueue();
+          void processQueue().catch((error) =>
+            params.markError("pub-fs queue processing failed", error),
+          );
           return;
         }
         if (message.data === "pub-fs.cancel") {

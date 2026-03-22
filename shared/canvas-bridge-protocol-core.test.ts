@@ -95,49 +95,21 @@ describe("canvas-bridge-protocol-core", () => {
     });
   });
 
-  it("parses file upload envelopes", () => {
-    const bytes = new Uint8Array([1, 2, 3]).buffer;
+  it("rejects removed file message types", () => {
     expect(
       parseCanvasBridgeInboundMessage({
         source: CANVAS_TO_PARENT_SOURCE,
         type: "file.upload",
-        payload: {
-          requestId: "file-1",
-          mime: "audio/webm",
-          bytes,
-        },
+        payload: { requestId: "file-1", bytes: new ArrayBuffer(3) },
       }),
-    ).toEqual({
-      source: CANVAS_TO_PARENT_SOURCE,
-      type: "file.upload",
-      payload: {
-        requestId: "file-1",
-        mime: "audio/webm",
-        bytes,
-      },
-    });
-  });
-
-  it("parses file download envelopes", () => {
+    ).toBeNull();
     expect(
       parseCanvasBridgeInboundMessage({
         source: CANVAS_TO_PARENT_SOURCE,
         type: "file.download",
-        payload: {
-          requestId: "file-2",
-          path: "/tmp/demo.txt",
-          filename: "demo.txt",
-        },
+        payload: { requestId: "file-2", path: "/tmp/demo.txt" },
       }),
-    ).toEqual({
-      source: CANVAS_TO_PARENT_SOURCE,
-      type: "file.download",
-      payload: {
-        requestId: "file-2",
-        path: "/tmp/demo.txt",
-        filename: "demo.txt",
-      },
-    });
+    ).toBeNull();
   });
 
   it("parses parent command result envelopes", () => {
@@ -166,39 +138,14 @@ describe("canvas-bridge-protocol-core", () => {
     });
   });
 
-  it("parses parent file result envelopes", () => {
+  it("rejects removed file result type", () => {
     expect(
       parseCanvasBridgeOutboundMessage({
         source: PARENT_TO_CANVAS_SOURCE,
         type: "file.result",
-        payload: {
-          requestId: "file-3",
-          op: "upload",
-          ok: true,
-          file: {
-            path: "/tmp/file.webm",
-            filename: "file.webm",
-            mime: "audio/webm",
-            size: 512,
-          },
-        },
+        payload: { requestId: "file-3", op: "upload", ok: true },
       }),
-    ).toEqual({
-      source: PARENT_TO_CANVAS_SOURCE,
-      type: "file.result",
-      payload: {
-        requestId: "file-3",
-        op: "upload",
-        ok: true,
-        file: {
-          path: "/tmp/file.webm",
-          filename: "file.webm",
-          mime: "audio/webm",
-          size: 512,
-        },
-        error: undefined,
-      },
-    });
+    ).toBeNull();
   });
 
   it("parses preview.captured envelopes", () => {
@@ -248,20 +195,6 @@ describe("canvas-bridge-protocol-core", () => {
         source: PARENT_TO_CANVAS_SOURCE,
         type: "command.result",
         payload: { ok: true },
-      }),
-    ).toBeNull();
-    expect(
-      parseCanvasBridgeInboundMessage({
-        source: CANVAS_TO_PARENT_SOURCE,
-        type: "file.upload",
-        payload: { requestId: "missing-bytes" },
-      }),
-    ).toBeNull();
-    expect(
-      parseCanvasBridgeOutboundMessage({
-        source: PARENT_TO_CANVAS_SOURCE,
-        type: "file.result",
-        payload: { requestId: "missing-payload", ok: true },
       }),
     ).toBeNull();
   });

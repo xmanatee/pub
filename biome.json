@@ -18,7 +18,8 @@
       "!**/.claude",
       "!**/test-results",
       "!**/playwright-report",
-      "!**/.worktrees"
+      "!**/.worktrees",
+      "!web/public/sandbox"
     ]
   },
   "linter": {

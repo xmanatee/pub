@@ -20,7 +20,7 @@ function createHandlerHarness() {
   const sendMessage = vi.fn(async (_channel: string, _message: unknown) => true);
   const dc = {
     close: vi.fn(),
-    getLabel: vi.fn(() => CHANNELS.CANVAS_FILE),
+    getLabel: vi.fn(() => "canvas-file"),
     isOpen: vi.fn(() => true),
     onClosed: vi.fn(),
     onError: vi.fn(),

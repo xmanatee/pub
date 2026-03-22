@@ -175,6 +175,7 @@ vi.mock("~/features/live-control-bar/hooks/use-control-bar-audio", () => ({
 
 vi.mock("~/features/live/hooks/use-live-transport", () => ({
   useLiveTransport: () => ({
+    bridgeRef: { current: null },
     ensureChannel: vi.fn(async () => true),
     runtimeState: {
       connectionState: "idle",
@@ -184,14 +185,20 @@ vi.mock("~/features/live/hooks/use-live-transport", () => ({
     lastAgentOutput: null,
     lastUserDeliveredAt: null,
     sendAudio: vi.fn(),
-    sendBinaryOnChannel: vi.fn(() => true),
     sendChat: vi.fn(),
     sendFile: vi.fn(),
-    sendOnChannel: vi.fn(() => true),
     sendRenderError: vi.fn(),
     sendWithAckOnChannel: vi.fn(async () => true),
     setViewMode: setViewModeMock,
     viewMode: "canvas",
+  }),
+}));
+
+vi.mock("~/features/live/hooks/use-pub-fs-bridge", () => ({
+  usePubFsBridge: () => ({
+    setIframeWindow: vi.fn(),
+    handlePubFsChannelMessage: vi.fn(),
+    resetPubFs: vi.fn(),
   }),
 }));
 

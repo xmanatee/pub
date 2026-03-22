@@ -65,7 +65,7 @@ function stageCanvasUpload(params: {
   const rootDir = canvasFileRoot(params.attachmentDir, params.slug);
   ensureDirectoryWritable(rootDir);
   const filename = resolveAttachmentFilename({
-    channel: CHANNELS.CANVAS_FILE,
+    channel: "canvas-file",
     fallbackId: params.requestId,
     mime: params.mime,
   });
@@ -140,7 +140,7 @@ export function createCanvasFileTransferHandler(params: {
     };
   }): Promise<void> {
     const delivered = await params_.sendMessage(
-      CHANNELS.CANVAS_FILE,
+      "canvas-file",
       makeCanvasFileResultMessage({
         requestId: params.requestId,
         op: params.op,
@@ -176,7 +176,7 @@ export function createCanvasFileTransferHandler(params: {
     mime: string;
     bytes: Buffer;
   }): Promise<void> {
-    const dc = params_.openDataChannel(CHANNELS.CANVAS_FILE);
+    const dc = params_.openDataChannel("canvas-file");
     await params_.waitForChannelOpen(dc);
 
     const startMessage = makeStreamStart(
@@ -198,14 +198,14 @@ export function createCanvasFileTransferHandler(params: {
     const endMessage = makeStreamEnd(params.requestId);
     const ackPromise = params_.waitForDeliveryAck(
       endMessage.id,
-      CHANNELS.CANVAS_FILE,
+      "canvas-file",
       CANVAS_FILE_STREAM_ACK_TIMEOUT_MS,
     );
 
     try {
       dc.sendMessage(encodeMessage(endMessage));
     } catch (error) {
-      params_.settlePendingAck(endMessage.id, CHANNELS.CANVAS_FILE, false);
+      params_.settlePendingAck(endMessage.id, "canvas-file", false);
       throw error;
     }
 

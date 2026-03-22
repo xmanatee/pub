@@ -1,4 +1,8 @@
-import { type BridgeMessage, makeEventMessage } from "./bridge-protocol-core";
+import {
+  type BridgeMessage,
+  type BridgeMessageMeta,
+  generateMessageId,
+} from "./bridge-protocol-core";
 import {
   readFiniteNumber,
   readNonEmptyString,
@@ -81,7 +85,12 @@ export function parseCanvasFileDownloadRequestPayload(
 export function makeCanvasFileDownloadRequestMessage(
   payload: CanvasFileDownloadRequestPayload,
 ): BridgeMessage {
-  return makeEventMessage(CANVAS_FILE_DOWNLOAD_REQUEST_EVENT, payload);
+  return {
+    id: generateMessageId(),
+    type: "event",
+    data: CANVAS_FILE_DOWNLOAD_REQUEST_EVENT,
+    meta: payload as BridgeMessageMeta,
+  };
 }
 
 export function parseCanvasFileDownloadRequestMessage(
@@ -114,7 +123,12 @@ export function parseCanvasFileResultPayload(input: unknown): CanvasFileResultPa
 }
 
 export function makeCanvasFileResultMessage(payload: CanvasFileResultPayload): BridgeMessage {
-  return makeEventMessage(CANVAS_FILE_RESULT_EVENT, payload);
+  return {
+    id: generateMessageId(),
+    type: "event",
+    data: CANVAS_FILE_RESULT_EVENT,
+    meta: payload as BridgeMessageMeta,
+  };
 }
 
 export function parseCanvasFileResultMessage(msg: BridgeMessage): CanvasFileResultPayload | null {
