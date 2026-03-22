@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { listFreshOnlinePresences } from "./presence";
+import { listFreshOnlineHosts } from "./presence";
 import { generateApiKey, hashApiKey, keyPreviewFromKey, MAX_KEY_NAME_LENGTH } from "./utils";
 
 export const getUserByApiKey = internalQuery({
@@ -68,17 +68,15 @@ export const list = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const presences = await ctx.db
-      .query("agentPresence")
+    const hosts = await ctx.db
+      .query("hosts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const freshOnlineIds = new Set(
-      listFreshOnlinePresences(presences, Date.now()).map((p) => p._id),
-    );
+    const freshOnlineIds = new Set(listFreshOnlineHosts(hosts, Date.now()).map((h) => h._id));
     const agentByKeyId = new Map(
-      presences
-        .filter((p) => freshOnlineIds.has(p._id))
-        .map((p) => [p.apiKeyId as string, p.agentName ?? "Agent"]),
+      hosts
+        .filter((h) => freshOnlineIds.has(h._id))
+        .map((h) => [h.apiKeyId as string, h.agentName ?? "Agent"]),
     );
 
     return keys.map((k) => ({

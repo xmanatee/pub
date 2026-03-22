@@ -56,24 +56,7 @@ export default defineSchema({
     .index("by_user_createdAt", ["userId", "createdAt"])
     .index("by_user_viewCount", ["userId", "viewCount"]),
 
-  lives: defineTable({
-    slug: v.string(),
-    userId: v.id("users"),
-    status: v.literal("active"),
-    targetPresenceId: v.optional(v.id("agentPresence")),
-    agentName: v.optional(v.string()),
-    browserOffer: v.optional(v.string()),
-    agentAnswer: v.optional(v.string()),
-    agentCandidates: v.array(v.string()),
-    browserCandidates: v.array(v.string()),
-    browserSessionId: v.optional(v.string()),
-    lastTakeoverAt: v.optional(v.number()),
-    createdAt: v.number(),
-  })
-    .index("by_slug", ["slug"])
-    .index("by_user", ["userId"]),
-
-  agentPresence: defineTable({
+  hosts: defineTable({
     userId: v.id("users"),
     apiKeyId: v.id("apiKeys"),
     agentName: v.optional(v.string()),
@@ -85,6 +68,21 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_api_key", ["apiKeyId"]),
+
+  connections: defineTable({
+    userId: v.id("users"),
+    hostId: v.id("hosts"),
+    browserSessionId: v.optional(v.string()),
+    browserOffer: v.optional(v.string()),
+    agentAnswer: v.optional(v.string()),
+    agentCandidates: v.array(v.string()),
+    browserCandidates: v.array(v.string()),
+    activeSlug: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_host", ["hostId"])
+    .index("by_active_slug", ["activeSlug"]),
 
   linkTokens: defineTable({
     userId: v.id("users"),

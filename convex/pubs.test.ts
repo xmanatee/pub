@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPubPatch, liveConflictsWithRequest, liveMatchesRequest } from "./pubs";
+import { buildPubPatch } from "./pubs";
 
 describe("update patch construction", () => {
   it("includes only provided fields plus updatedAt", () => {
@@ -36,96 +36,5 @@ describe("update patch construction", () => {
   it("includes slug for rename", () => {
     const patch = buildPubPatch({ slug: "new-slug" });
     expect(patch.slug).toBe("new-slug");
-  });
-});
-
-describe("liveConflictsWithRequest", () => {
-  it("treats the same slug as conflicting even for another agent", () => {
-    expect(
-      liveConflictsWithRequest(
-        { slug: "demo", targetPresenceId: "agent-a" },
-        { slug: "demo", targetPresenceId: "agent-b" },
-      ),
-    ).toBe(true);
-  });
-
-  it("treats the same target agent as conflicting across slugs", () => {
-    expect(
-      liveConflictsWithRequest(
-        { slug: "alpha", targetPresenceId: "agent-a" },
-        { slug: "beta", targetPresenceId: "agent-a" },
-      ),
-    ).toBe(true);
-  });
-
-  it("allows different slug and different agent", () => {
-    expect(
-      liveConflictsWithRequest(
-        { slug: "alpha", targetPresenceId: "agent-a" },
-        { slug: "beta", targetPresenceId: "agent-b" },
-      ),
-    ).toBe(false);
-  });
-
-  it("allows untargeted live when slug and target agent differ", () => {
-    expect(
-      liveConflictsWithRequest(
-        { slug: "untargeted" },
-        { slug: "fresh", targetPresenceId: "agent-a" },
-      ),
-    ).toBe(false);
-  });
-});
-
-describe("liveMatchesRequest", () => {
-  it("treats the same slug, target agent, and browser session as the same logical live", () => {
-    expect(
-      liveMatchesRequest(
-        {
-          slug: "demo",
-          targetPresenceId: "agent-a",
-          browserSessionId: "session-1",
-        },
-        {
-          slug: "demo",
-          targetPresenceId: "agent-a",
-          browserSessionId: "session-1",
-        },
-      ),
-    ).toBe(true);
-  });
-
-  it("does not match when the browser session changes", () => {
-    expect(
-      liveMatchesRequest(
-        {
-          slug: "demo",
-          targetPresenceId: "agent-a",
-          browserSessionId: "session-1",
-        },
-        {
-          slug: "demo",
-          targetPresenceId: "agent-a",
-          browserSessionId: "session-2",
-        },
-      ),
-    ).toBe(false);
-  });
-
-  it("does not match when the target agent changes", () => {
-    expect(
-      liveMatchesRequest(
-        {
-          slug: "demo",
-          targetPresenceId: "agent-a",
-          browserSessionId: "session-1",
-        },
-        {
-          slug: "demo",
-          targetPresenceId: "agent-b",
-          browserSessionId: "session-1",
-        },
-      ),
-    ).toBe(false);
   });
 });

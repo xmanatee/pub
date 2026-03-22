@@ -5,55 +5,47 @@ import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 
-export const PRESENCE_STALENESS_THRESHOLD_MS = 90_000;
+export const HOST_STALENESS_THRESHOLD_MS = 90_000;
 
-function isFreshOnlinePresence(
-  presence: {
+function isFreshOnlineHost(
+  host: {
     status: "online" | "offline";
     lastHeartbeatAt: number;
   } | null,
   now: number,
 ): boolean {
-  if (!presence || presence.status !== "online") return false;
-  return now - presence.lastHeartbeatAt < PRESENCE_STALENESS_THRESHOLD_MS;
+  if (!host || host.status !== "online") return false;
+  return now - host.lastHeartbeatAt < HOST_STALENESS_THRESHOLD_MS;
 }
 
-async function listPresencesByApiKey(
-  db: GenericDatabaseReader<DataModel>,
-  apiKeyId: Id<"apiKeys">,
-) {
+async function listHostsByApiKey(db: GenericDatabaseReader<DataModel>, apiKeyId: Id<"apiKeys">) {
   return db
-    .query("agentPresence")
+    .query("hosts")
     .withIndex("by_api_key", (q) => q.eq("apiKeyId", apiKeyId))
     .collect();
 }
 
-export function listFreshOnlinePresences(
-  presences: Array<{
-    _id: Id<"agentPresence">;
+export function listFreshOnlineHosts(
+  hosts: Array<{
+    _id: Id<"hosts">;
     status: "online" | "offline";
     lastHeartbeatAt: number;
     agentName?: string;
   }>,
   now: number,
 ) {
-  return presences
-    .filter((presence) => isFreshOnlinePresence(presence, now))
+  return hosts
+    .filter((host) => isFreshOnlineHost(host, now))
     .sort((a, b) => b.lastHeartbeatAt - a.lastHeartbeatAt);
 }
 
-async function deleteLivesForPresence(
-  db: GenericDatabaseWriter<DataModel>,
-  userId: Id<"users">,
-  presenceId: Id<"agentPresence">,
-) {
-  const lives = await db
-    .query("lives")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
+async function deleteConnectionsForHost(db: GenericDatabaseWriter<DataModel>, hostId: Id<"hosts">) {
+  const conns = await db
+    .query("connections")
+    .withIndex("by_host", (q) => q.eq("hostId", hostId))
     .collect();
-  for (const live of lives) {
-    if (live.targetPresenceId !== presenceId) continue;
-    await db.delete(live._id);
+  for (const conn of conns) {
+    await db.delete(conn._id);
   }
 }
 
@@ -66,46 +58,35 @@ export const goOnline = internalMutation({
   },
   handler: async (ctx, { userId, apiKeyId, daemonSessionId, agentName }) => {
     const now = Date.now();
-    const byApiKey = await listPresencesByApiKey(ctx.db, apiKeyId);
+    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
 
-    const existingOtherSession = byApiKey.find(
-      (presence) =>
-        presence.daemonSessionId !== daemonSessionId && isFreshOnlinePresence(presence, now),
+    const otherSession = byApiKey.find(
+      (h) => h.daemonSessionId !== daemonSessionId && isFreshOnlineHost(h, now),
     );
-    if (existingOtherSession) {
+    if (otherSession) {
       throw new Error("API key already in use");
     }
 
-    const existingForSession = byApiKey.find(
-      (presence) => presence.daemonSessionId === daemonSessionId,
-    );
+    const existing = byApiKey.find((h) => h.daemonSessionId === daemonSessionId);
 
-    if (existingForSession) {
+    if (existing) {
       const patch: {
         status: "online";
         lastHeartbeatAt: number;
         updatedAt: number;
         agentName?: string;
-      } = {
-        status: "online",
-        lastHeartbeatAt: now,
-        updatedAt: now,
-      };
-      if (agentName !== undefined) {
-        patch.agentName = agentName;
-      }
-      await ctx.db.patch(existingForSession._id, patch);
+      } = { status: "online", lastHeartbeatAt: now, updatedAt: now };
+      if (agentName !== undefined) patch.agentName = agentName;
+      await ctx.db.patch(existing._id, patch);
       await ctx.scheduler.runAt(
-        now + PRESENCE_STALENESS_THRESHOLD_MS,
+        now + HOST_STALENESS_THRESHOLD_MS,
         internal.presence.checkStaleness,
-        {
-          presenceId: existingForSession._id,
-        },
+        { presenceId: existing._id },
       );
-      return existingForSession._id;
+      return existing._id;
     }
 
-    const id = await ctx.db.insert("agentPresence", {
+    const hostId = await ctx.db.insert("hosts", {
       userId,
       apiKeyId,
       agentName,
@@ -116,64 +97,59 @@ export const goOnline = internalMutation({
       updatedAt: now,
     });
 
-    await ctx.scheduler.runAt(
-      now + PRESENCE_STALENESS_THRESHOLD_MS,
-      internal.presence.checkStaleness,
-      {
-        presenceId: id,
-      },
-    );
+    await ctx.scheduler.runAt(now + HOST_STALENESS_THRESHOLD_MS, internal.presence.checkStaleness, {
+      presenceId: hostId,
+    });
 
-    return id;
+    return hostId;
   },
 });
 
 export const heartbeat = internalMutation({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
-    const byApiKey = await listPresencesByApiKey(ctx.db, apiKeyId);
-    const presence = byApiKey.find(
-      (candidate) => candidate.daemonSessionId === daemonSessionId && candidate.status === "online",
+    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
+    const host = byApiKey.find(
+      (h) => h.daemonSessionId === daemonSessionId && h.status === "online",
     );
-    if (!presence) throw new Error("Not online");
+    if (!host) throw new Error("Not online");
 
     const now = Date.now();
-    await ctx.db.patch(presence._id, { lastHeartbeatAt: now, updatedAt: now });
+    await ctx.db.patch(host._id, { lastHeartbeatAt: now, updatedAt: now });
   },
 });
 
 export const goOffline = internalMutation({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
-    const byApiKey = await listPresencesByApiKey(ctx.db, apiKeyId);
-    const presence = byApiKey.find((candidate) => candidate.daemonSessionId === daemonSessionId);
-    if (!presence) return;
+    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
+    const host = byApiKey.find((h) => h.daemonSessionId === daemonSessionId);
+    if (!host) return;
 
-    const now = Date.now();
-    await ctx.db.patch(presence._id, { status: "offline", updatedAt: now });
-    await deleteLivesForPresence(ctx.db, presence.userId, presence._id);
+    await ctx.db.patch(host._id, { status: "offline", updatedAt: Date.now() });
+    await deleteConnectionsForHost(ctx.db, host._id);
   },
 });
 
 export const checkStaleness = internalMutation({
-  args: { presenceId: v.id("agentPresence") },
-  handler: async (ctx, { presenceId }) => {
-    const presence = await ctx.db.get(presenceId);
-    if (!presence || presence.status === "offline") return;
+  args: { presenceId: v.id("hosts") },
+  handler: async (ctx, { presenceId: hostId }) => {
+    const host = await ctx.db.get(hostId);
+    if (!host || host.status === "offline") return;
 
     const now = Date.now();
-    const elapsed = now - presence.lastHeartbeatAt;
-    if (elapsed < PRESENCE_STALENESS_THRESHOLD_MS) {
+    const elapsed = now - host.lastHeartbeatAt;
+    if (elapsed < HOST_STALENESS_THRESHOLD_MS) {
       await ctx.scheduler.runAt(
-        presence.lastHeartbeatAt + PRESENCE_STALENESS_THRESHOLD_MS,
+        host.lastHeartbeatAt + HOST_STALENESS_THRESHOLD_MS,
         internal.presence.checkStaleness,
-        { presenceId },
+        { presenceId: hostId },
       );
       return;
     }
 
-    await ctx.db.patch(presenceId, { status: "offline", updatedAt: now });
-    await deleteLivesForPresence(ctx.db, presence.userId, presenceId);
+    await ctx.db.patch(hostId, { status: "offline", updatedAt: now });
+    await deleteConnectionsForHost(ctx.db, hostId);
   },
 });
 
@@ -189,14 +165,13 @@ export const listAvailableForSlug = query({
       .unique();
     if (!pub || pub.userId !== userId) return [];
 
-    const presences = await ctx.db
-      .query("agentPresence")
+    const hosts = await ctx.db
+      .query("hosts")
       .withIndex("by_user", (q) => q.eq("userId", pub.userId))
       .collect();
-    const fresh = listFreshOnlinePresences(presences, Date.now());
-    return fresh.map((presence) => ({
-      presenceId: presence._id,
-      agentName: presence.agentName ?? "Agent",
+    return listFreshOnlineHosts(hosts, Date.now()).map((host) => ({
+      hostId: host._id,
+      agentName: host.agentName ?? "Agent",
     }));
   },
 });
@@ -207,30 +182,29 @@ export const getOnlineAgentCount = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return 0;
 
-    const presences = await ctx.db
-      .query("agentPresence")
+    const hosts = await ctx.db
+      .query("hosts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-
-    return listFreshOnlinePresences(presences, Date.now()).length;
+    return listFreshOnlineHosts(hosts, Date.now()).length;
   },
 });
 
-export const getPresenceByApiKeySession = internalQuery({
+export const getHostByApiKeySession = internalQuery({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
-    const byApiKey = await listPresencesByApiKey(ctx.db, apiKeyId);
+    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
     const now = Date.now();
-    const presence = byApiKey.find(
-      (entry) => entry.daemonSessionId === daemonSessionId && isFreshOnlinePresence(entry, now),
+    const host = byApiKey.find(
+      (h) => h.daemonSessionId === daemonSessionId && isFreshOnlineHost(h, now),
     );
-    if (!presence) return null;
+    if (!host) return null;
     return {
-      _id: presence._id,
-      userId: presence.userId,
-      apiKeyId: presence.apiKeyId,
-      agentName: presence.agentName,
-      lastHeartbeatAt: presence.lastHeartbeatAt,
+      _id: host._id,
+      userId: host.userId,
+      apiKeyId: host.apiKeyId,
+      agentName: host.agentName,
+      lastHeartbeatAt: host.lastHeartbeatAt,
     };
   },
 });
@@ -241,11 +215,10 @@ export const isCurrentUserAgentOnline = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return false;
 
-    const presences = await ctx.db
-      .query("agentPresence")
+    const hosts = await ctx.db
+      .query("hosts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-
-    return listFreshOnlinePresences(presences, Date.now()).length > 0;
+    return listFreshOnlineHosts(hosts, Date.now()).length > 0;
   },
 });

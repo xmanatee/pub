@@ -10,7 +10,7 @@ export interface LiveStartPolicySource {
   hasCanvasContent: boolean;
   hasCommandManifest: boolean;
   liveRequested: boolean;
-  selectedPresenceId: string | null;
+  selectedHostId: string | null;
 }
 
 export interface LiveStartPolicy {
@@ -28,11 +28,9 @@ export function deriveLiveStartPolicy(source: LiveStartPolicySource): LiveStartP
   const autoStartAvailable = source.hasCommandManifest && source.availableAgentCount === 1;
   const optionalLive = !source.hasCommandManifest && !source.liveRequested;
   const requiresUserAction =
-    source.hasCommandManifest &&
-    source.selectedPresenceId === null &&
-    source.availableAgentCount !== 1;
+    source.hasCommandManifest && source.selectedHostId === null && source.availableAgentCount !== 1;
   const canStartOnCanvas =
-    source.hasCommandManifest && (autoStartAvailable || source.selectedPresenceId !== null);
+    source.hasCommandManifest && (autoStartAvailable || source.selectedHostId !== null);
 
   return {
     autoStartAvailable,

@@ -54,7 +54,7 @@ const mockSession = {
   requestLiveSession: vi.fn(),
   retryConnection: vi.fn(),
   toggleControlBar: vi.fn(),
-  setSelectedPresenceId: vi.fn(),
+  setSelectedHostId: vi.fn(),
   setViewMode: vi.fn(),
   sendAudio: vi.fn(),
   sendChat: vi.fn(),

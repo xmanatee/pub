@@ -84,8 +84,8 @@ export function usePubLiveModel({
     retryConnection,
     sessionState,
     sessionError,
-    selectedPresenceId,
-    setSelectedPresenceId,
+    selectedHostId,
+    setSelectedHostId,
     storeBrowserCandidates,
     storeBrowserOffer,
     takeoverLive,
@@ -128,7 +128,7 @@ export function usePubLiveModel({
         hasCanvasContent: Boolean(baseContentHtml),
         hasCommandManifest: hasBaseCommandManifest,
         liveRequested: defaultLiveRequested,
-        selectedPresenceId,
+        selectedHostId,
       }).defaultCollapsed,
   );
   const [liveRequested, setLiveRequested] = useState(defaultLiveRequested);
@@ -142,7 +142,7 @@ export function usePubLiveModel({
     slug,
   });
   const lastLiveBrowserSessionIdRef = useRef<string | null>(null);
-  const lastSelectedPresenceIdRef = useRef<typeof selectedPresenceId>(null);
+  const lastSelectedHostIdRef = useRef<typeof selectedHostId>(null);
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const lastReportedCommandErrorRef = useRef<number | null>(null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
@@ -159,18 +159,18 @@ export function usePubLiveModel({
         hasCanvasContent: Boolean(canvasHtml),
         hasCommandManifest,
         liveRequested,
-        selectedPresenceId,
+        selectedHostId,
       }),
-    [availableAgents.length, canvasHtml, hasCommandManifest, liveRequested, selectedPresenceId],
+    [availableAgents.length, canvasHtml, hasCommandManifest, liveRequested, selectedHostId],
   );
   const liveEnabled = liveMode && (hasCommandManifest || liveRequested);
 
   const enabled =
     liveEnabled &&
     agentOnline === true &&
-    selectedPresenceId !== null &&
+    selectedHostId !== null &&
     (sessionState === "inactive" || sessionState === "active");
-  const transportKey = [slug, selectedPresenceId ?? "unselected", connectionAttempt].join(":");
+  const transportKey = [slug, selectedHostId ?? "unselected", connectionAttempt].join(":");
   const canvasScopeKey = `${slug}:${canvasScopeVersion}`;
 
   const {
@@ -355,7 +355,7 @@ export function usePubLiveModel({
 
   const effectiveContentState = canvasHtml ? "ready" : contentState;
   const hasCanvasContent = Boolean(canvasHtml);
-  const needsAgentSelection = availableAgents.length > 1 && selectedPresenceId === null;
+  const needsAgentSelection = availableAgents.length > 1 && selectedHostId === null;
   const viewState = derivePubViewState({
     agentOnline,
     audioMode: audio.machineMode,
@@ -432,13 +432,13 @@ export function usePubLiveModel({
     lastReportedCommandErrorRef.current = null;
     notifiedStatusRef.current = null;
     lastLiveBrowserSessionIdRef.current = null;
-    lastSelectedPresenceIdRef.current = null;
+    lastSelectedHostIdRef.current = null;
     const resetLiveStartPolicy = deriveLiveStartPolicy({
       availableAgentCount: availableAgents.length,
       hasCanvasContent: Boolean(baseContentHtml),
       hasCommandManifest: hasBaseCommandManifest,
       liveRequested: defaultLiveRequested,
-      selectedPresenceId,
+      selectedHostId,
     });
     previousAutoStartAvailableRef.current = resetLiveStartPolicy.autoStartAvailable;
     previousRequiresUserActionRef.current = resetLiveStartPolicy.requiresUserAction;
@@ -457,7 +457,7 @@ export function usePubLiveModel({
     availableAgents.length,
     defaultLiveRequested,
     hasBaseCommandManifest,
-    selectedPresenceId,
+    selectedHostId,
     dismissPreview,
     clearMessages,
     clearFiles,
@@ -543,19 +543,19 @@ export function usePubLiveModel({
 
   useEffect(() => {
     if (!liveEnabled) {
-      lastSelectedPresenceIdRef.current = null;
+      lastSelectedHostIdRef.current = null;
       return;
     }
 
-    const previousPresenceId = lastSelectedPresenceIdRef.current;
-    lastSelectedPresenceIdRef.current = selectedPresenceId;
+    const previousHostId = lastSelectedHostIdRef.current;
+    lastSelectedHostIdRef.current = selectedHostId;
 
-    if (previousPresenceId === null || previousPresenceId === selectedPresenceId) {
+    if (previousHostId === null || previousHostId === selectedHostId) {
       return;
     }
 
     resetLiveSurface();
-  }, [liveEnabled, resetLiveSurface, selectedPresenceId]);
+  }, [liveEnabled, resetLiveSurface, selectedHostId]);
 
   const handleClose = useCallback(() => {
     setCollapsePreference(false);
@@ -565,12 +565,12 @@ export function usePubLiveModel({
     void navigate({ to: "/dashboard" });
   }, [closeLive, liveEnabled, navigate, resetLiveSurface]);
 
-  const handleSelectedPresenceId = useCallback(
-    (presenceId: typeof selectedPresenceId) => {
-      if (presenceId === selectedPresenceId) return;
-      setSelectedPresenceId(presenceId);
+  const handleSelectedHostId = useCallback(
+    (hostId: typeof selectedHostId) => {
+      if (hostId === selectedHostId) return;
+      setSelectedHostId(hostId);
     },
-    [selectedPresenceId, setSelectedPresenceId],
+    [selectedHostId, setSelectedHostId],
   );
 
   return {
@@ -601,7 +601,7 @@ export function usePubLiveModel({
     hasCanvasContent,
     connectionState: runtimeState.connectionState,
     executorState: runtimeState.executorState,
-    lastTakeoverAt: live?.lastTakeoverAt,
+    lastTakeoverAt: undefined as number | undefined,
     live,
     messages,
     messagesEndRef,
@@ -617,11 +617,11 @@ export function usePubLiveModel({
     sendFile,
     handleRenderError,
     sessionState,
-    selectedPresenceId,
+    selectedHostId,
     setAutoOpenCanvas,
     toggleControlBar,
     setDeveloperModeEnabled,
-    setSelectedPresenceId: handleSelectedPresenceId,
+    setSelectedHostId: handleSelectedHostId,
     setViewMode,
     setVoiceModeEnabled,
     takeoverLive,

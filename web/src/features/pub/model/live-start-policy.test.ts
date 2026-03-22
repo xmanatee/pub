@@ -36,7 +36,7 @@ describe("deriveLiveStartPolicy", () => {
         hasCanvasContent: true,
         hasCommandManifest: false,
         liveRequested: false,
-        selectedPresenceId: null,
+        selectedHostId: null,
       }),
     ).toEqual({
       autoStartAvailable: false,
@@ -53,7 +53,7 @@ describe("deriveLiveStartPolicy", () => {
         hasCanvasContent: true,
         hasCommandManifest: true,
         liveRequested: true,
-        selectedPresenceId: null,
+        selectedHostId: null,
       }),
     ).toEqual({
       autoStartAvailable: true,
@@ -70,7 +70,7 @@ describe("deriveLiveStartPolicy", () => {
         hasCanvasContent: true,
         hasCommandManifest: true,
         liveRequested: true,
-        selectedPresenceId: null,
+        selectedHostId: null,
       }),
     ).toEqual({
       autoStartAvailable: false,
@@ -87,7 +87,7 @@ describe("deriveLiveStartPolicy", () => {
         hasCanvasContent: true,
         hasCommandManifest: true,
         liveRequested: true,
-        selectedPresenceId: null,
+        selectedHostId: null,
       }),
     ).toEqual({
       autoStartAvailable: false,
@@ -104,7 +104,7 @@ describe("deriveLiveStartPolicy", () => {
         hasCanvasContent: true,
         hasCommandManifest: true,
         liveRequested: true,
-        selectedPresenceId: "presence-1",
+        selectedHostId: "presence-1",
       }),
     ).toEqual({
       autoStartAvailable: false,

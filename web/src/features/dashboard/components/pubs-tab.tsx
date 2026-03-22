@@ -38,7 +38,7 @@ export function PubsTab() {
   const { developerModeEnabled } = useDeveloperMode();
   const keys = useQuery(api.apiKeys.list);
 
-  const lives = useQuery(api.pubs.listActiveLives);
+  const lives = useQuery(api.connections.listActiveConnections);
   const liveSlugs = React.useMemo<Set<string>>(
     () => new Set(lives?.map((live) => live.slug) ?? []),
     [lives],
