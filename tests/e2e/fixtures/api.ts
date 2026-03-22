@@ -96,8 +96,4 @@ export class ApiClient {
   async getOgImage(slug: string): Promise<Response> {
     return fetch(`${this.baseUrl}/og/${encodeURIComponent(slug)}`);
   }
-
-  async getRss(userId: string): Promise<Response> {
-    return fetch(`${this.baseUrl}/rss/${userId}`);
-  }
 }

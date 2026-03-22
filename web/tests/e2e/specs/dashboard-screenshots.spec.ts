@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   ANIMATED_TOLERANCE,
   freezeAnimations,
+  openDebugPage,
   SCREENSHOT_DIR,
   stableScreenshot,
 } from "../helpers/screenshot-utils";
@@ -10,8 +11,7 @@ test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 test.describe("Dashboard screenshots", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/debug/dashboard");
-    await expect(page.getByRole("heading", { name: "Dashboard Debug" })).toBeVisible();
+    await openDebugPage(page, "/debug/dashboard", "Dashboard Debug");
     await freezeAnimations(page);
   });
 

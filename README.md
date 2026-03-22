@@ -12,7 +12,6 @@ Adaptive interfaces, powered by your agent. Real-time UI generation, interactive
 - CLI tool (`pub`) for creating and managing interfaces from the terminal
 - Claude Code and OpenClaw bridge support for live agent-to-browser sessions
 - API key authentication for programmatic access
-- RSS feeds per user
 - Open Graph preview images
 - Telegram account linking
 

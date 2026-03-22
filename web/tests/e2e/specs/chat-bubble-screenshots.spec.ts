@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
+import {
+  freezeAnimations,
+  openDebugPage,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "../helpers/screenshot-utils";
 
 const DELIVERY_TOLERANCE = 0.002;
 const MIXED_CONVERSATION_TOLERANCE = 0.006;
@@ -8,8 +13,7 @@ test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 6000 } });
 
 test.describe("Chat bubble screenshots", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/debug/chat-bubbles");
-    await expect(page.getByRole("heading", { name: "Chat Bubbles Debug" })).toBeVisible();
+    await openDebugPage(page, "/debug/chat-bubbles", "Chat Bubbles Debug");
     await freezeAnimations(page);
   });
 

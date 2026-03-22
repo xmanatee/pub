@@ -46,20 +46,6 @@ test.describe("Content serving", () => {
     expect(contentType).toContain("svg");
   });
 
-  test("/rss/:userId returns RSS feed", async () => {
-    const user = seedUser();
-    const api = new ApiClient({ user });
-
-    await api.createPub({ slug: "rss-pub", title: "RSS Pub", content: "<p>rss</p>" });
-    await api.updatePub("rss-pub", { isPublic: true });
-
-    const res = await api.getRss(user.userId);
-    expect(res.status).toBe(200);
-    const xml = await res.text();
-    expect(xml).toContain("<rss");
-    expect(xml).toContain("RSS Pub");
-  });
-
   test("/serve/:slug increments view count without error", async () => {
     const user = seedUser();
     const api = new ApiClient({ user });

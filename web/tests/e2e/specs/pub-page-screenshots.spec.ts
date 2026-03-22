@@ -1,12 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
+import {
+  freezeAnimations,
+  openDebugPage,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "../helpers/screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 test.describe("Pub page screenshots", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/debug/pub-page");
-    await expect(page.getByRole("heading", { name: "Pub Page Debug" })).toBeVisible();
+    await openDebugPage(page, "/debug/pub-page", "Pub Page Debug");
     await freezeAnimations(page);
   });
 

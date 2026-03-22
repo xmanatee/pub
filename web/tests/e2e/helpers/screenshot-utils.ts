@@ -1,13 +1,14 @@
 import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import type { Locator, Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 
 export const SCREENSHOT_DIR = "tests/e2e/snapshots";
 const DEFAULT_MAX_DIFF_RATIO = 0.0015;
 export const ANIMATED_TOLERANCE = 0.007;
+const DEBUG_PAGE_TIMEOUT_MS = 15_000;
 
 const UPDATE_SNAPSHOTS = !!process.env.UPDATE_SNAPSHOTS;
 
@@ -104,5 +105,17 @@ export async function freezeAnimations(page: Page) {
         transition-duration: 0s !important;
       }
     `,
+  });
+}
+
+/**
+ * Open a debug page and wait for its heading to render. Visual debug pages are
+ * relatively heavy, and under parallel load they can exceed Playwright's
+ * default 5s assertion timeout even though the route is healthy.
+ */
+export async function openDebugPage(page: Page, path: string, heading: string) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: heading })).toBeVisible({
+    timeout: DEBUG_PAGE_TIMEOUT_MS,
   });
 }
