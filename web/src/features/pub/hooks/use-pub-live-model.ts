@@ -8,6 +8,7 @@ import { useCanvasCommands } from "~/features/live/hooks/use-canvas-commands";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
+import { usePubFsBridge } from "~/features/live/hooks/use-pub-fs-bridge";
 import { profileMark, profilePrint, profileStart } from "~/features/live/lib/connection-profiler";
 import type { ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import type { LiveContentState, LiveRenderErrorPayload } from "~/features/live/types/live-types";
@@ -147,6 +148,7 @@ export function usePubLiveModel({
   const lastReportedCommandErrorRef = useRef<number | null>(null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
   const canvasFileMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
+  const pubFsMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const hasCommandManifest = useMemo(() => {
     const content = canvasHtml ?? baseContentHtml ?? null;
@@ -174,6 +176,7 @@ export function usePubLiveModel({
   const canvasScopeKey = `${slug}:${canvasScopeVersion}`;
 
   const {
+    bridgeRef,
     ensureChannel,
     runtimeState,
     lastAgentOutput,
@@ -213,6 +216,7 @@ export function usePubLiveModel({
     updateAudioMessageAnalysis,
     onCommandMessageRef: commandMessageHandlerRef,
     onCanvasFileMessageRef: canvasFileMessageHandlerRef,
+    onPubFsMessageRef: pubFsMessageHandlerRef,
   });
 
   const handleRenderError = useCallback(
@@ -275,6 +279,24 @@ export function usePubLiveModel({
   });
   commandMessageHandlerRef.current = handleBridgeCommandMessage;
   canvasFileMessageHandlerRef.current = handleBridgeCanvasFileMessage;
+
+  const { setIframeWindow, handlePubFsChannelMessage } = usePubFsBridge({
+    bridgeRef,
+    enabled: liveEnabled,
+  });
+  pubFsMessageHandlerRef.current = handlePubFsChannelMessage;
+
+  // Derive sandbox URL for pub-fs Service Worker mode
+  const sandboxOrigin = import.meta.env.VITE_SANDBOX_ORIGIN as string | undefined;
+  const sandboxUrl = useMemo(() => {
+    if (!liveEnabled) return null;
+    const sessionId = transportKey.replace(/[^a-zA-Z0-9-]/g, "_");
+    if (sandboxOrigin) {
+      return `${sandboxOrigin}/__canvas__/${sessionId}/`;
+    }
+    // Dev/test fallback: same-origin sandbox path
+    return `/__sandbox__/__canvas__/${sessionId}/`;
+  }, [liveEnabled, transportKey]);
 
   const audio = useControlBarAudio({
     disabled: runtimeState.connectionState !== "connected" || runtimeState.agentState !== "ready",
@@ -606,6 +628,7 @@ export function usePubLiveModel({
     messages,
     messagesEndRef,
     onCanvasBridgeMessage,
+    onIframeWindow: setIframeWindow,
     outboundCanvasBridgeMessage,
     preview,
     liveRequested,
@@ -627,6 +650,7 @@ export function usePubLiveModel({
     takeoverLive,
     transportStatus: viewState.transportStatus,
     viewMode,
+    sandboxUrl,
     blobState: viewState.blobState,
     voiceModeEnabled,
   };

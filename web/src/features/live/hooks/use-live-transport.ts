@@ -90,6 +90,7 @@ interface UseLiveTransportOptions {
   updateAudioMessageAnalysis: (messageId: string, duration: number, waveform: number[]) => void;
   onCommandMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
   onCanvasFileMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
+  onPubFsMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
 }
 
 export function useLiveTransport({
@@ -118,6 +119,7 @@ export function useLiveTransport({
   updateAudioMessageAnalysis,
   onCommandMessageRef,
   onCanvasFileMessageRef,
+  onPubFsMessageRef,
 }: UseLiveTransportOptions) {
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
   const [lastAgentOutput, setLastAgentOutput] = useState<AgentOutputActivity | null>(null);
@@ -216,6 +218,11 @@ export function useLiveTransport({
 
       if (channel === CHANNELS.CANVAS_FILE) {
         onCanvasFileMessageRef?.current?.(cm);
+        return;
+      }
+
+      if (channel === CHANNELS.PUB_FS) {
+        onPubFsMessageRef?.current?.(cm);
       }
     },
     [
@@ -226,6 +233,7 @@ export function useLiveTransport({
       markAgentOutput,
       onCanvasFileMessageRef,
       onCommandMessageRef,
+      onPubFsMessageRef,
       updateAudioMessageAnalysis,
     ],
   );
@@ -636,6 +644,7 @@ export function useLiveTransport({
   }, [runtimeState.connectionState, emitSystemMessage, failSentMessages]);
 
   return {
+    bridgeRef,
     ensureChannel,
     runtimeState,
     lastAgentOutput,

@@ -1,12 +1,12 @@
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { LiveConnectionState } from "../../../../shared/live-runtime-state-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
-import type { PubApiClient } from "../../core/api/client.js";
 import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
+import type { PubApiClient } from "../../core/api/client.js";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
-import { setDaemonAgentState, setDaemonConnectionState, type DaemonState } from "./state.js";
+import { type DaemonState, setDaemonAgentState, setDaemonConnectionState } from "./state.js";
 
 const RECOVERY_TIMEOUT_MS = 30_000;
 
@@ -31,6 +31,7 @@ export function createPeerManager(params: {
   stopPingPong: () => void;
   commandHandlerStop: () => void;
   canvasFileTransferReset: () => void;
+  pubFsHandlerReset: () => void;
 }) {
   const {
     state,
@@ -49,6 +50,7 @@ export function createPeerManager(params: {
     stopPingPong,
     commandHandlerStop,
     canvasFileTransferReset,
+    pubFsHandlerReset,
   } = params;
 
   function setConnectionState(nextState: LiveConnectionState): void {
@@ -64,9 +66,7 @@ export function createPeerManager(params: {
 
     currentPeer.onStateChange((peerState: string) => {
       if (state.stopped || currentPeer !== state.peer) return;
-      debugLog(
-        `peer state: ${peerState}${state.activeSlug ? ` slug=${state.activeSlug}` : ""}`,
-      );
+      debugLog(`peer state: ${peerState}${state.activeSlug ? ` slug=${state.activeSlug}` : ""}`);
       if (peerState === "connected") {
         setConnectionState("connected");
         flushQueuedAcks();
@@ -160,6 +160,7 @@ export function createPeerManager(params: {
     setConnectionState("idle");
     commandHandlerStop();
     canvasFileTransferReset();
+    pubFsHandlerReset();
     await closeCurrentPeer();
     resetNegotiationState();
   }

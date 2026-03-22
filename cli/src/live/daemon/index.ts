@@ -1,24 +1,26 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-  CONTROL_CHANNEL,
-  makeStatusMessage,
-} from "../../../../shared/bridge-protocol-core";
+import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
-import { createDaemonIpcHandler } from "./ipc-handler.js";
-import { createDaemonIpcServer } from "./ipc-server.js";
-import { createPeerManager } from "./peer-manager.js";
-import { createDaemonChannelManager } from "./channel-manager.js";
 import { createBridgeManager } from "./bridge-manager.js";
 import { createCanvasFileTransferHandler } from "./canvas-file-transfer.js";
+import { createDaemonChannelManager } from "./channel-manager.js";
+import { createDaemonIpcHandler } from "./ipc-handler.js";
+import { createDaemonIpcServer } from "./ipc-server.js";
 import { createDaemonLifecycle } from "./lifecycle.js";
-import { createSignalingController } from "./signaling.js";
+import { createPeerManager } from "./peer-manager.js";
+import { createPubFsHandler } from "./pub-fs-handler.js";
 import type { DaemonConfig } from "./shared.js";
-import { getLiveWriteReadinessError, isPresenceOwnershipConflictError, isRateLimitError } from "./shared.js";
+import {
+  getLiveWriteReadinessError,
+  isPresenceOwnershipConflictError,
+  isRateLimitError,
+} from "./shared.js";
+import { createSignalingController } from "./signaling.js";
 import { createDaemonState, setDaemonExecutorState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -34,6 +36,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   let channelManager!: ReturnType<typeof createDaemonChannelManager>;
   let bridgeManager!: ReturnType<typeof createBridgeManager>;
   let canvasFileTransfer!: ReturnType<typeof createCanvasFileTransferHandler>;
+  let pubFsHandler!: ReturnType<typeof createPubFsHandler>;
   let peerManager!: ReturnType<typeof createPeerManager>;
   let presenceGeneration = 0;
 
@@ -104,6 +107,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     markError: lifecycle.markError,
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
     onCanvasFileMessage: async (msg) => await canvasFileTransfer.onMessage(msg),
+    onPubFsMessage: async (msg) => pubFsHandler.onMessage(msg),
     onChannelClosed: (name) => {
       if (name === CONTROL_CHANNEL || name === "command") {
         lifecycle.markError(`critical datachannel "${name}" closed unexpectedly`);
@@ -132,9 +136,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     );
 
     if (!delivered && options?.requireDelivery) {
-      throw new Error(
-        `Failed to deliver runtime state for "${state.activeSlug ?? "unknown"}"`,
-      );
+      throw new Error(`Failed to deliver runtime state for "${state.activeSlug ?? "unknown"}"`);
     }
 
     return delivered;
@@ -154,6 +156,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     waitForChannelOpen: channelManager.waitForChannelOpen,
     waitForDeliveryAck: channelManager.waitForDeliveryAck,
     settlePendingAck: channelManager.settlePendingAck,
+  });
+
+  pubFsHandler = createPubFsHandler({
+    debugLog: lifecycle.debugLog,
+    markError: lifecycle.markError,
+    openDataChannel: channelManager.openDataChannel,
+    waitForChannelOpen: channelManager.waitForChannelOpen,
   });
 
   bridgeManager = createBridgeManager({
@@ -189,6 +198,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     stopPingPong: lifecycle.stopPingPong,
     commandHandlerStop: () => commandHandler.stop(),
     canvasFileTransferReset: () => canvasFileTransfer.reset(),
+    pubFsHandlerReset: () => pubFsHandler.reset(),
   });
 
   lifecycle.setConnectionClosedHandler((reason) => {

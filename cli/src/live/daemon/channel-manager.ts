@@ -3,12 +3,12 @@ import {
   type BridgeMessage,
   CHANNELS,
   CONTROL_CHANNEL,
-  STREAM_ORPHAN_TIMEOUT_MS,
   decodeMessage,
   encodeMessage,
   makeAckMessage,
   makeDeliveryReceiptMessage,
   parseAckMessage,
+  STREAM_ORPHAN_TIMEOUT_MS,
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
@@ -28,9 +28,18 @@ export function createDaemonChannelManager(params: {
   markError: (message: string, error?: unknown) => void;
   onCommandMessage: (msg: BridgeMessage) => Promise<void>;
   onCanvasFileMessage: (msg: BridgeMessage) => Promise<void>;
+  onPubFsMessage: (msg: BridgeMessage) => Promise<void>;
   onChannelClosed?: (name: string) => void;
 }) {
-  const { state, debugLog, markError, onCommandMessage, onCanvasFileMessage, onChannelClosed } = params;
+  const {
+    state,
+    debugLog,
+    markError,
+    onCommandMessage,
+    onCanvasFileMessage,
+    onPubFsMessage,
+    onChannelClosed,
+  } = params;
   const dedup = createMessageDedup(DEDUP_MAX_SIZE);
 
   function emitDeliveryStatus(params: {
@@ -118,7 +127,9 @@ export function createDaemonChannelManager(params: {
 
       ack.failCount += 1;
       if (ack.failCount >= MAX_ACK_FAILURES) {
-        debugLog(`dropping ack for ${ack.channel}:${ack.messageId} after ${MAX_ACK_FAILURES} failures`);
+        debugLog(
+          `dropping ack for ${ack.channel}:${ack.messageId} after ${MAX_ACK_FAILURES} failures`,
+        );
         state.pendingOutboundAcks.delete(ackKey);
       }
     }
@@ -263,6 +274,12 @@ export function createDaemonChannelManager(params: {
             });
             return;
           }
+          if (name === CHANNELS.PUB_FS) {
+            void onPubFsMessage(msg).catch((error) => {
+              markError("pub-fs message handler failed", error);
+            });
+            return;
+          }
           state.bridgeRunner?.enqueue([{ channel: name, msg }]);
           if (
             name !== CONTROL_CHANNEL &&
@@ -395,7 +412,9 @@ export function createDaemonChannelManager(params: {
       if (!waitForAck) return true;
       const acked = await waitForAck;
       if (acked) return true;
-      markError(`${context} delivery ack timeout for message ${msg.id} (attempt ${attempt}/${maxAttempts})`);
+      markError(
+        `${context} delivery ack timeout for message ${msg.id} (attempt ${attempt}/${maxAttempts})`,
+      );
     }
 
     return false;

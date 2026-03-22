@@ -70,7 +70,12 @@ export type ControlEvent =
   | "command.result"
   | "command.cancel"
   | "canvas.file.download.request"
-  | "canvas.file.result";
+  | "canvas.file.result"
+  | "pub-fs.read"
+  | "pub-fs.metadata"
+  | "pub-fs.error"
+  | "pub-fs.done"
+  | "pub-fs.cancel";
 
 export type BridgeCapability =
   | "text"
@@ -117,6 +122,7 @@ export const CHANNELS = {
   FILE: "file",
   CANVAS_FILE: "canvas-file",
   COMMAND: "command",
+  PUB_FS: "pub-fs",
 } as const;
 
 export const STREAM_CHUNK_SIZE = 48 * 1024;

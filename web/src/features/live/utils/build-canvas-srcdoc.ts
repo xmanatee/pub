@@ -75,3 +75,24 @@ function injectHead(html: string, script: string): string {
 export function buildCanvasSrcDoc(html: string): string {
   return injectHead(html, buildCanvasBridgeScript());
 }
+
+/**
+ * Build HTML for the sandbox iframe (Service Worker mode).
+ * Injects the bridge script (window.pub API) + an SW relay script that
+ * forwards pub-fs-request messages from the Service Worker to the parent page.
+ */
+export function buildSandboxHtml(html: string): string {
+  const swRelay = [
+    "<script>",
+    "(function(){",
+    'if(!("serviceWorker" in navigator))return;',
+    'navigator.serviceWorker.addEventListener("message",function(e){',
+    'if(e.data&&e.data.type==="pub-fs-request"){',
+    'parent.postMessage(e.data,"*",e.ports);',
+    "}",
+    "});",
+    "})();",
+    "</script>",
+  ].join("");
+  return injectHead(html, buildCanvasBridgeScript() + swRelay);
+}
