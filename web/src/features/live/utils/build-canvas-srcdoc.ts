@@ -2,13 +2,11 @@ import {
   CANVAS_TO_PARENT_SOURCE,
   PARENT_TO_CANVAS_SOURCE,
 } from "@shared/canvas-bridge-protocol-core";
-import { MAX_CANVAS_FILE_BYTES } from "@shared/canvas-file-protocol-core";
 import {
   COMMAND_PROTOCOL_VERSION,
   DEFAULT_COMMAND_TIMEOUT_MS,
 } from "@shared/command-protocol-core";
 
-const DEFAULT_FILE_TIMEOUT_MS = 30_000;
 const COMMAND_RESULT_GRACE_MS = 5_000;
 const COMMAND_RESULT_GUARD_MS = 5 * 60_000;
 
@@ -25,14 +23,9 @@ function buildCanvasBridgeScript(): string {
     `function createPendingCall(callId,requestedTimeoutMs,defaultTimeoutMs,label){var guardTimeoutMs=getGuardTimeoutMs(requestedTimeoutMs,defaultTimeoutMs);var resultPromise=new Promise(function(resolve,reject){var timer=setTimeout(function(){clearPending(callId,false,"Timed out waiting for "+label+" after "+guardTimeoutMs+"ms");},guardTimeoutMs);pendingCalls[callId]={resolve:resolve,reject:reject,timer:timer};});return{guardTimeoutMs:guardTimeoutMs,resultPromise:resultPromise};}`,
     `function notify(payload,transfer){if(notifyFailed){return;}try{parent.postMessage(payload,"*",Array.isArray(transfer)?transfer:[]);}catch(error){notifyFailed=true;console.warn("pub canvas bridge postMessage failed",error);}}`,
     `function emit(type,payload,transfer){notify({source:"${CANVAS_TO_PARENT_SOURCE}",type:type,payload:payload&&typeof payload==="object"?payload:{}},transfer);}`,
-    `function normalizeMime(input){return typeof input==="string"&&input.trim().length>0?input.trim():undefined;}`,
-    `function normalizeBinaryInput(input){if(input instanceof Blob){return input.arrayBuffer().then(function(bytes){return{bytes:bytes,mime:normalizeMime(input.type)};});}if(input instanceof ArrayBuffer){return Promise.resolve({bytes:input,mime:undefined});}if(typeof ArrayBuffer!=="undefined"&&ArrayBuffer.isView&&ArrayBuffer.isView(input)){return Promise.resolve({bytes:input.buffer.slice(input.byteOffset,input.byteOffset+input.byteLength),mime:undefined});}return Promise.reject(new Error("pub.files.upload expects a Blob, ArrayBuffer, or typed array."));}`,
-    'function normalizeDownloadInput(input){if(typeof input==="string"&&input.trim().length>0){return{path:input.trim()};}if(input&&typeof input==="object"){var path=typeof input.path==="string"?input.path.trim():"";if(path.length===0){throw new Error("pub.files.download requires a non-empty path.");}var filename=typeof input.filename==="string"&&input.filename.trim().length>0?input.filename.trim():undefined;return{path:path,filename:filename};}throw new Error("pub.files.download expects a path string or { path, filename? }.");}',
     `function invokeCommand(name,args,options){var callId=nextCallId();var requestedTimeoutMs=options&&typeof options.timeoutMs==="number"&&options.timeoutMs>0?options.timeoutMs:undefined;var pending=createPendingCall(callId,requestedTimeoutMs,${DEFAULT_COMMAND_TIMEOUT_MS},"command result");var payload={v:${COMMAND_PROTOCOL_VERSION},callId:callId,name:name,args:args&&typeof args==="object"?args:{}};if(requestedTimeoutMs!==undefined){payload.timeoutMs=requestedTimeoutMs;}emit("command.invoke",payload);return pending.resultPromise;}`,
     `function cancelCommand(callId,reason){if(typeof callId!=="string"||callId.length===0){return;}emit("command.cancel",{v:${COMMAND_PROTOCOL_VERSION},callId:callId,reason:typeof reason==="string"?reason:undefined});}`,
-    `function uploadFile(input,options){return normalizeBinaryInput(input).then(function(normalized){var bytes=normalized.bytes;if(!(bytes instanceof ArrayBuffer)||bytes.byteLength===0){throw new Error("pub.files.upload requires non-empty bytes.");}if(bytes.byteLength>${MAX_CANVAS_FILE_BYTES}){throw new Error("pub.files.upload exceeds the "+${MAX_CANVAS_FILE_BYTES}+" byte limit.");}var requestId=nextCallId();var requestedTimeoutMs=options&&typeof options.timeoutMs==="number"&&options.timeoutMs>0?options.timeoutMs:undefined;var pending=createPendingCall(requestId,requestedTimeoutMs,${DEFAULT_FILE_TIMEOUT_MS},"file upload result");var mime=normalizeMime(options&&options.mime)||normalized.mime;emit("file.upload",{requestId:requestId,mime:mime,bytes:bytes},[bytes]);return pending.resultPromise;});}`,
-    `function downloadFile(input,options){var resolved=normalizeDownloadInput(input);var requestId=nextCallId();var requestedTimeoutMs=options&&typeof options.timeoutMs==="number"&&options.timeoutMs>0?options.timeoutMs:undefined;var pending=createPendingCall(requestId,requestedTimeoutMs,${DEFAULT_FILE_TIMEOUT_MS},"file download result");var payload={requestId:requestId,path:resolved.path};if(resolved.filename){payload.filename=resolved.filename;}emit("file.download",payload);return pending.resultPromise;}`,
-    'function ensurePubApi(){var api=(window.pub&&typeof window.pub==="object")?window.pub:{};var files=(api.files&&typeof api.files==="object")?api.files:{};api.command=invokeCommand;api.cancelCommand=cancelCommand;api.commands=new Proxy({},{get:function(t,name){if(typeof name!=="string"){return undefined;}return function(args,options){return invokeCommand(name,args,{timeoutMs:options&&options.timeoutMs});};}});files.upload=uploadFile;files.download=downloadFile;api.files=files;window.pub=api;}',
+    'function ensurePubApi(){var api=(window.pub&&typeof window.pub==="object")?window.pub:{};api.command=invokeCommand;api.cancelCommand=cancelCommand;api.commands=new Proxy({},{get:function(t,name){if(typeof name!=="string"){return undefined;}return function(args,options){return invokeCommand(name,args,{timeoutMs:options&&options.timeoutMs});};}});window.pub=api;}',
     "ensurePubApi();",
 
     "function capturePreview(){",
@@ -47,7 +40,7 @@ function buildCanvasBridgeScript(): string {
     "if(rules.length>0){var h=c.querySelector('head');if(!h){h=document.createElement('head');c.insertBefore(h,c.firstChild);}var st=document.createElement('style');st.textContent=rules.join('\\n');h.appendChild(st);}",
     "emit('preview.captured',{html:c.outerHTML});}",
 
-    `window.addEventListener("message",function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}if(data.type==="preview.capture"){capturePreview();return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type==="command.result"){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}return;}if(data.type==="file.result"){if(payload.ok){clearPending(payload.requestId,true,payload.file);}else{var fileErrorMessage=payload.error&&payload.error.message?payload.error.message:"File operation failed";clearPending(payload.requestId,false,fileErrorMessage);}}});`,
+    `window.addEventListener("message",function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}if(data.type==="preview.capture"){capturePreview();return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type==="command.result"){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}}});`,
     'window.addEventListener("error",function(ev){emit("error",{message:ev&&ev.message?ev.message:"Script error",filename:ev&&ev.filename?ev.filename:"",lineno:ev&&typeof ev.lineno==="number"?ev.lineno:0,colno:ev&&typeof ev.colno==="number"?ev.colno:0});});',
     'window.addEventListener("unhandledrejection",function(ev){var reason=ev&&ev.reason;var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");emit("error",{message:message});});',
     'var origConsoleError=console.error;console.error=function(){origConsoleError.apply(console,arguments);try{var parts=[];for(var i=0;i<arguments.length;i++){parts.push(arguments[i] instanceof Error?arguments[i].message:String(arguments[i]));}var msg=parts.join(" ");if(msg.length>0){emit("console-error",{message:msg});}}catch(e){}};',
@@ -78,8 +71,8 @@ export function buildCanvasSrcDoc(html: string): string {
 
 /**
  * Build HTML for the sandbox iframe (Service Worker mode).
- * Injects the bridge script (window.pub API) + an SW relay script that
- * forwards pub-fs-request messages from the Service Worker to the parent page.
+ * Injects the bridge script (window.pub commands API) + an SW relay script
+ * that forwards pub-fs-request messages from the Service Worker to the parent page.
  */
 export function buildSandboxHtml(html: string): string {
   const swRelay = [

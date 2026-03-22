@@ -14,6 +14,8 @@ import { readFiniteNumber, readNonEmptyString, readRecord } from "./protocol-run
 
 export const PUB_FS_URL_PREFIX = "/__pub_files__/";
 export const PUB_FS_READ_EVENT = "pub-fs.read";
+export const PUB_FS_WRITE_EVENT = "pub-fs.write";
+export const PUB_FS_DELETE_EVENT = "pub-fs.delete";
 export const PUB_FS_METADATA_EVENT = "pub-fs.metadata";
 export const PUB_FS_ERROR_EVENT = "pub-fs.error";
 export const PUB_FS_CANCEL_EVENT = "pub-fs.cancel";
@@ -47,7 +49,20 @@ export type PubFsErrorResponse = {
   message: string;
 };
 
-/** Browser → CLI: cancel an in-progress read. */
+/** Browser → CLI: request to write a file. */
+export type PubFsWriteRequest = {
+  requestId: string;
+  path: string;
+  size: number;
+};
+
+/** Browser → CLI: request to delete a file. */
+export type PubFsDeleteRequest = {
+  requestId: string;
+  path: string;
+};
+
+/** Browser → CLI: cancel an in-progress operation. */
 export type PubFsCancelRequest = {
   requestId: string;
 };
@@ -95,6 +110,25 @@ export function parsePubFsErrorResponse(input: unknown): PubFsErrorResponse | nu
   return { requestId, code, message };
 }
 
+export function parsePubFsWriteRequest(input: unknown): PubFsWriteRequest | null {
+  const record = readRecord(input);
+  if (!record) return null;
+  const requestId = readNonEmptyString(record.requestId);
+  const path = readNonEmptyString(record.path);
+  const size = readFiniteNumber(record.size);
+  if (!requestId || !path || size === undefined || size < 0) return null;
+  return { requestId, path, size };
+}
+
+export function parsePubFsDeleteRequest(input: unknown): PubFsDeleteRequest | null {
+  const record = readRecord(input);
+  if (!record) return null;
+  const requestId = readNonEmptyString(record.requestId);
+  const path = readNonEmptyString(record.path);
+  if (!requestId || !path) return null;
+  return { requestId, path };
+}
+
 export function parsePubFsCancelRequest(input: unknown): PubFsCancelRequest | null {
   const record = readRecord(input);
   if (!record) return null;
@@ -121,6 +155,14 @@ export function makePubFsErrorMessage(payload: PubFsErrorResponse): BridgeMessag
 
 export function makePubFsDoneMessage(requestId: string): BridgeMessage {
   return makeEventMessage(PUB_FS_DONE_EVENT, { requestId });
+}
+
+export function makePubFsWriteMessage(payload: PubFsWriteRequest): BridgeMessage {
+  return makeEventMessage(PUB_FS_WRITE_EVENT, payload);
+}
+
+export function makePubFsDeleteMessage(payload: PubFsDeleteRequest): BridgeMessage {
+  return makeEventMessage(PUB_FS_DELETE_EVENT, payload);
 }
 
 export function makePubFsCancelMessage(payload: PubFsCancelRequest): BridgeMessage {
@@ -151,6 +193,16 @@ export function parsePubFsDoneMessage(msg: BridgeMessage): string | null {
   const record = readRecord(msg.meta);
   if (!record) return null;
   return readNonEmptyString(record.requestId) ?? null;
+}
+
+export function parsePubFsWriteMessage(msg: BridgeMessage): PubFsWriteRequest | null {
+  if (msg.type !== "event" || msg.data !== PUB_FS_WRITE_EVENT) return null;
+  return parsePubFsWriteRequest(msg.meta);
+}
+
+export function parsePubFsDeleteMessage(msg: BridgeMessage): PubFsDeleteRequest | null {
+  if (msg.type !== "event" || msg.data !== PUB_FS_DELETE_EVENT) return null;
+  return parsePubFsDeleteRequest(msg.meta);
 }
 
 export function parsePubFsCancelMessage(msg: BridgeMessage): PubFsCancelRequest | null {

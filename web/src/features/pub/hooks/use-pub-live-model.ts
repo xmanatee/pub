@@ -147,7 +147,6 @@ export function usePubLiveModel({
   const lastCanvasHtmlRef = useRef<string | null>(baseContentHtml ?? null);
   const lastReportedCommandErrorRef = useRef<number | null>(null);
   const commandMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
-  const canvasFileMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
   const pubFsMessageHandlerRef = useRef<((cm: ChannelMessage) => void) | undefined>(undefined);
 
   const hasCommandManifest = useMemo(() => {
@@ -215,7 +214,6 @@ export function usePubLiveModel({
     markMessageSentIfPending,
     updateAudioMessageAnalysis,
     onCommandMessageRef: commandMessageHandlerRef,
-    onCanvasFileMessageRef: canvasFileMessageHandlerRef,
     onPubFsMessageRef: pubFsMessageHandlerRef,
   });
 
@@ -262,14 +260,11 @@ export function usePubLiveModel({
 
   const {
     command,
-    handleBridgeCanvasFileMessage,
     handleBridgeCommandMessage,
     onCanvasBridgeMessage,
     outboundCanvasBridgeMessage,
     reset: resetCanvasCommands,
   } = useCanvasCommands({
-    sendOnChannel,
-    sendBinaryOnChannel,
     sendWithAckOnChannel,
     ensureChannel,
     canvasScopeKey,
@@ -278,7 +273,6 @@ export function usePubLiveModel({
     sessionKey: transportKey,
   });
   commandMessageHandlerRef.current = handleBridgeCommandMessage;
-  canvasFileMessageHandlerRef.current = handleBridgeCanvasFileMessage;
 
   const { setIframeWindow, handlePubFsChannelMessage } = usePubFsBridge({
     bridgeRef,

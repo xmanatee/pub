@@ -1,18 +1,14 @@
 /**
- * Pub FS Service Worker — intercepts /__pub_files__/* requests and streams
- * file bytes from the host machine via a MessagePort relay to the main page.
+ * Pub FS Service Worker — intercepts /__pub_files__/* and proxies file
+ * operations (GET/PUT/DELETE) to the host machine via MessagePort relay.
  *
- * Architecture (WebTorrent-inspired pull-based MessagePort protocol):
- * 1. SW intercepts fetch for /__pub_files__/path/to/file
- * 2. SW creates MessageChannel, sends request + port1 to controlled client
- * 3. Client page relays port1 to pub.blue parent via postMessage
- * 4. Parent page fetches file bytes from CLI via WebRTC data channel
- * 5. Parent sends metadata/chunks/done/error to port1
- * 6. SW reads from port2, constructs Response with ReadableStream body
+ * GET  → stream file bytes from host (Range/206 support)
+ * PUT  → write request body to host path
+ * DELETE → delete file on host
  */
 
 var PUB_FS_PREFIX = "/__pub_files__/";
-var METADATA_TIMEOUT_MS = 30000;
+var RESPONSE_TIMEOUT_MS = 30000;
 
 self.addEventListener("install", function () {
   self.skipWaiting();
@@ -25,54 +21,81 @@ self.addEventListener("activate", function (event) {
 self.addEventListener("fetch", function (event) {
   var url = new URL(event.request.url);
   if (!url.pathname.startsWith(PUB_FS_PREFIX)) return;
-  event.respondWith(handlePubFileRequest(event));
+  event.respondWith(handleRequest(event));
 });
 
-async function handlePubFileRequest(event) {
-  var url = new URL(event.request.url);
-  var filePath = decodeURIComponent(url.pathname.slice(PUB_FS_PREFIX.length));
-  if (!filePath) {
-    return new Response("Missing file path", { status: 400 });
-  }
+function extractPath(url) {
+  return decodeURIComponent(url.pathname.slice(PUB_FS_PREFIX.length));
+}
 
+async function getClient() {
+  var list = await self.clients.matchAll({ type: "window", includeUncontrolled: false });
+  return list[0] || null;
+}
+
+function sendToClient(client, msg, transfers) {
+  var channel = new MessageChannel();
+  client.postMessage(msg, [channel.port1].concat(transfers || []));
+  return channel.port2;
+}
+
+function waitForResponse(port, timeoutMs) {
+  return new Promise(function (resolve) {
+    var timer = setTimeout(function () {
+      port.onmessage = null;
+      resolve({ type: "error", code: "TIMEOUT", message: "Operation timed out" });
+    }, timeoutMs);
+    port.onmessage = function (ev) {
+      clearTimeout(timer);
+      port.onmessage = null;
+      resolve(ev.data);
+    };
+  });
+}
+
+async function handleRequest(event) {
+  var filePath = extractPath(new URL(event.request.url));
+  if (!filePath) return new Response("Missing file path", { status: 400 });
+
+  var client = await getClient();
+  if (!client) return new Response("No active client", { status: 502 });
+
+  var method = event.request.method;
+  if (method === "GET" || method === "HEAD") return handleGet(event, client, filePath);
+  if (method === "PUT") return handlePut(event, client, filePath);
+  if (method === "DELETE") return handleDelete(client, filePath);
+  return new Response("Method not allowed", { status: 405 });
+}
+
+// --- GET (streaming with Range support) ---
+
+async function handleGet(event, client, filePath) {
   var range = parseRangeHeader(event.request.headers.get("range"));
   var requestId = crypto.randomUUID();
 
-  var clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: false });
-  if (clientList.length === 0) {
-    return new Response("No active client", { status: 502 });
-  }
-
-  var channel = new MessageChannel();
-  var port = channel.port2;
-
-  clientList[0].postMessage(
-    {
-      type: "pub-fs-request",
-      requestId: requestId,
-      path: filePath,
-      rangeStart: range ? range.start : undefined,
-      rangeEnd: range ? range.end : undefined,
-    },
-    [channel.port1],
-  );
+  var port = sendToClient(client, {
+    type: "pub-fs-request",
+    method: "GET",
+    requestId: requestId,
+    path: filePath,
+    rangeStart: range ? range.start : undefined,
+    rangeEnd: range ? range.end : undefined,
+  });
 
   return new Promise(function (resolve) {
     var resolved = false;
     var controller = null;
 
-    var metadataTimeout = setTimeout(function () {
+    var timer = setTimeout(function () {
       port.onmessage = null;
       if (!resolved) {
         resolved = true;
-        resolve(new Response("Timeout waiting for file metadata", { status: 504 }));
+        resolve(new Response("Timeout", { status: 504 }));
       }
-    }, METADATA_TIMEOUT_MS);
+    }, RESPONSE_TIMEOUT_MS);
 
     var body = new ReadableStream({
-      start: function (c) {
-        controller = c;
-      },
+      start: function (c) { controller = c; },
       cancel: function () {
         port.postMessage({ type: "cancel" });
         port.onmessage = null;
@@ -84,22 +107,18 @@ async function handlePubFileRequest(event) {
       if (!msg || typeof msg.type !== "string") return;
 
       if (msg.type === "metadata") {
-        clearTimeout(metadataTimeout);
+        clearTimeout(timer);
         resolved = true;
-        resolve(
-          new Response(body, {
-            status: range ? 206 : 200,
-            statusText: range ? "Partial Content" : "OK",
-            headers: buildResponseHeaders(msg, range),
-          }),
-        );
+        resolve(new Response(event.request.method === "HEAD" ? null : body, {
+          status: range ? 206 : 200,
+          statusText: range ? "Partial Content" : "OK",
+          headers: buildGetHeaders(msg, range),
+        }));
         return;
       }
 
       if (msg.type === "chunk") {
-        if (controller && msg.data) {
-          controller.enqueue(new Uint8Array(msg.data));
-        }
+        if (controller && msg.data) controller.enqueue(new Uint8Array(msg.data));
         return;
       }
 
@@ -110,22 +129,59 @@ async function handlePubFileRequest(event) {
       }
 
       if (msg.type === "error") {
-        clearTimeout(metadataTimeout);
+        clearTimeout(timer);
         port.onmessage = null;
         if (resolved) {
-          if (controller) controller.error(new Error(msg.message || "File read error"));
+          if (controller) controller.error(new Error(msg.message || "Read error"));
         } else {
           resolved = true;
-          resolve(
-            new Response(msg.message || "File read error", {
-              status: msg.code === "NOT_FOUND" ? 404 : 502,
-            }),
-          );
+          resolve(new Response(msg.message || "Read error", {
+            status: msg.code === "NOT_FOUND" ? 404 : 502,
+          }));
         }
       }
     };
   });
 }
+
+// --- PUT (write file) ---
+
+async function handlePut(event, client, filePath) {
+  var bodyBuffer = await event.request.arrayBuffer();
+  var port = sendToClient(client, {
+    type: "pub-fs-request",
+    method: "PUT",
+    requestId: crypto.randomUUID(),
+    path: filePath,
+    size: bodyBuffer.byteLength,
+    body: bodyBuffer,
+  }, [bodyBuffer]);
+
+  var response = await waitForResponse(port, RESPONSE_TIMEOUT_MS);
+  if (response.type === "done") return new Response(null, { status: 201 });
+  return new Response(response.message || "Write failed", {
+    status: response.code === "NOT_FOUND" ? 404 : 502,
+  });
+}
+
+// --- DELETE ---
+
+async function handleDelete(client, filePath) {
+  var port = sendToClient(client, {
+    type: "pub-fs-request",
+    method: "DELETE",
+    requestId: crypto.randomUUID(),
+    path: filePath,
+  });
+
+  var response = await waitForResponse(port, RESPONSE_TIMEOUT_MS);
+  if (response.type === "done") return new Response(null, { status: 204 });
+  return new Response(response.message || "Delete failed", {
+    status: response.code === "NOT_FOUND" ? 404 : 502,
+  });
+}
+
+// --- Helpers ---
 
 function parseRangeHeader(header) {
   if (!header || typeof header !== "string") return null;
@@ -140,7 +196,7 @@ function parseRangeHeader(header) {
   };
 }
 
-function buildResponseHeaders(metadata, range) {
+function buildGetHeaders(metadata, range) {
   var headers = {
     "Content-Type": metadata.mime || "application/octet-stream",
     "Accept-Ranges": "bytes",

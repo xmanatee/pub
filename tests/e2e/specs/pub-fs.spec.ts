@@ -1,14 +1,15 @@
 /**
  * E2E tests for the pub-fs Service Worker virtual filesystem.
  *
- * Validates that generated HTML can inline host files via /__pub_files__/ URLs:
- * - Image loading via <img src="/__pub_files__/...">
- * - Text file access via fetch("/__pub_files__/...")
- * - 404 handling for nonexistent files
+ * Validates that generated HTML can access host files via /__pub_files__/ URLs:
+ * - GET: read files (text, image)
+ * - PUT: write files
+ * - GET after PUT: write then read back
+ * - 404: nonexistent file
  *
  * Uses real OpenClaw + CLI daemon with the full WebRTC live session.
  */
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -19,8 +20,6 @@ import { clearAll, getState, seedUser } from "../fixtures/convex";
 import { setupDefaultRules } from "../fixtures/mock-llm";
 
 let cli: CliFixture;
-
-/** Temp directory for test files accessible to the CLI daemon. */
 let testFilesDir: string;
 
 async function waitForConnection(page: Page) {
@@ -41,21 +40,21 @@ test.afterEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test: fetch a text file via /__pub_files__/
+// GET: read a text file
 // ---------------------------------------------------------------------------
 
-test("pub-fs: fetch text file returns correct content", async ({ page }) => {
+test("pub-fs GET: fetch text file returns correct content", async ({ page }) => {
   const testContent = "hello from pub-fs test";
   const testFilePath = join(testFilesDir, "test.txt");
   writeFileSync(testFilePath, testContent);
 
   const html = `<!DOCTYPE html>
 <html>
-<head><title>Pub FS Fetch Test</title></head>
+<head><title>Pub FS GET Test</title></head>
 <body>
   <div id="result">loading</div>
   <script type="application/pub-command-manifest+json">
-  { "manifestId": "pub-fs-fetch-test", "functions": [] }
+  { "manifestId": "pub-fs-get-test", "functions": [] }
   </script>
   <script>
     fetch("/__pub_files__${testFilePath}")
@@ -70,17 +69,17 @@ test("pub-fs: fetch text file returns correct content", async ({ page }) => {
 </body>
 </html>`;
 
-  const user = seedUser("PubFS Fetch User");
+  const user = seedUser("PubFS GET User");
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-fetch", title: "PubFS Fetch", content: html });
+  await api.createPub({ slug: "pub-fs-get", title: "PubFS GET", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("pub-fs-fetch-bot");
+  await cli.startDaemon("pub-fs-get-bot");
 
   await injectAuth(page, user);
-  await page.goto("/p/pub-fs-fetch");
+  await page.goto("/p/pub-fs-get");
 
   await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
   await waitForConnection(page);
@@ -92,11 +91,10 @@ test("pub-fs: fetch text file returns correct content", async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Test: inline image via <img src="/__pub_files__/...">
+// GET: inline image via <img src>
 // ---------------------------------------------------------------------------
 
-test("pub-fs: inline image loads successfully", async ({ page }) => {
-  // Create a minimal 1x1 PNG
+test("pub-fs GET: inline image loads successfully", async ({ page }) => {
   const pngBytes = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
     "base64",
@@ -145,10 +143,67 @@ test("pub-fs: inline image loads successfully", async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Test: 404 for nonexistent file
+// PUT then GET: write a file, read it back
 // ---------------------------------------------------------------------------
 
-test("pub-fs: nonexistent file returns error", async ({ page }) => {
+test("pub-fs PUT+GET: write file then read back", async ({ page }) => {
+  const writePath = join(testFilesDir, "written.txt");
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><title>Pub FS PUT Test</title></head>
+<body>
+  <div id="result">loading</div>
+  <script type="application/pub-command-manifest+json">
+  { "manifestId": "pub-fs-put-test", "functions": [] }
+  </script>
+  <script>
+    var writePath = "/__pub_files__${writePath}";
+    fetch(writePath, { method: "PUT", body: "hello from PUT" })
+      .then(function(r) {
+        if (!r.ok) throw new Error("PUT failed: " + r.status);
+        return fetch(writePath);
+      })
+      .then(function(r) { return r.text(); })
+      .then(function(text) {
+        document.getElementById("result").textContent = "ok:" + text;
+      })
+      .catch(function(e) {
+        document.getElementById("result").textContent = "error:" + e.message;
+      });
+  </script>
+</body>
+</html>`;
+
+  const user = seedUser("PubFS PUT User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+
+  await api.createPub({ slug: "pub-fs-put", title: "PubFS PUT", content: html });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("pub-fs-put-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/pub-fs-put");
+
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+  await waitForConnection(page);
+
+  const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#result")).toHaveText("ok:hello from PUT", {
+    timeout: 30_000,
+  });
+
+  // Verify the file was actually written on the host
+  expect(readFileSync(writePath, "utf-8")).toBe("hello from PUT");
+});
+
+// ---------------------------------------------------------------------------
+// GET 404: nonexistent file
+// ---------------------------------------------------------------------------
+
+test("pub-fs GET: nonexistent file returns 404", async ({ page }) => {
   const html = `<!DOCTYPE html>
 <html>
 <head><title>Pub FS 404 Test</title></head>

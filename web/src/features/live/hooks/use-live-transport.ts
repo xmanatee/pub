@@ -89,7 +89,6 @@ interface UseLiveTransportOptions {
   markMessageSentIfPending: (messageId: string) => void;
   updateAudioMessageAnalysis: (messageId: string, duration: number, waveform: number[]) => void;
   onCommandMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
-  onCanvasFileMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
   onPubFsMessageRef?: { current: ((cm: ChannelMessage) => void) | undefined };
 }
 
@@ -118,7 +117,6 @@ export function useLiveTransport({
   markMessageSentIfPending,
   updateAudioMessageAnalysis,
   onCommandMessageRef,
-  onCanvasFileMessageRef,
   onPubFsMessageRef,
 }: UseLiveTransportOptions) {
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
@@ -216,11 +214,6 @@ export function useLiveTransport({
         return;
       }
 
-      if (channel === CHANNELS.CANVAS_FILE) {
-        onCanvasFileMessageRef?.current?.(cm);
-        return;
-      }
-
       if (channel === CHANNELS.PUB_FS) {
         onPubFsMessageRef?.current?.(cm);
       }
@@ -231,7 +224,6 @@ export function useLiveTransport({
       addAgentMessage,
       addReceivedBinaryFile,
       markAgentOutput,
-      onCanvasFileMessageRef,
       onCommandMessageRef,
       onPubFsMessageRef,
       updateAudioMessageAnalysis,

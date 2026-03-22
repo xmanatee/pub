@@ -1,5 +1,14 @@
 import type { ReadStream } from "node:fs";
-import { createReadStream, existsSync, realpathSync, statSync } from "node:fs";
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, resolve } from "node:path";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -11,7 +20,9 @@ import {
   makePubFsErrorMessage,
   makePubFsMetadataMessage,
   parsePubFsCancelMessage,
+  parsePubFsDeleteMessage,
   parsePubFsReadMessage,
+  parsePubFsWriteMessage,
 } from "../../../../shared/pub-fs-protocol-core";
 import { getMimeType } from "../runtime/file-payload.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
@@ -21,6 +32,14 @@ interface ActiveRead {
   stream: ReadStream;
 }
 
+interface ActiveWrite {
+  requestId: string;
+  path: string;
+  expectedSize: number;
+  chunks: Buffer[];
+  receivedSize: number;
+}
+
 export function createPubFsHandler(params: {
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
@@ -28,7 +47,8 @@ export function createPubFsHandler(params: {
   waitForChannelOpen: (dc: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
 }) {
   const activeReads = new Map<string, ActiveRead>();
-  const readQueue: BridgeMessage[] = [];
+  const activeWrite: { current: ActiveWrite | null } = { current: null };
+  const opQueue: BridgeMessage[] = [];
   let processing = false;
 
   function sendMessage(dc: AdapterDataChannel, msg: BridgeMessage): void {
@@ -49,20 +69,18 @@ export function createPubFsHandler(params: {
     if (!active) return;
     activeReads.delete(requestId);
     active.stream.destroy();
-    params.debugLog(`pub-fs: cancelled read ${requestId}`);
   }
 
-  async function handleReadRequest(msg: BridgeMessage): Promise<void> {
+  // --- READ ---
+
+  async function handleRead(msg: BridgeMessage): Promise<void> {
     const request = parsePubFsReadMessage(msg);
     if (!request) return;
 
     const { requestId, path, rangeStart, rangeEnd } = request;
-    params.debugLog(`pub-fs: read ${requestId} path=${path} range=${rangeStart}-${rangeEnd}`);
-
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
 
-    // Resolve and validate path
     let realPath: string;
     let fileSize: number;
     try {
@@ -87,7 +105,6 @@ export function createPubFsHandler(params: {
       return;
     }
 
-    // Compute effective byte range
     let effectiveStart: number;
     let effectiveEnd: number;
 
@@ -98,7 +115,6 @@ export function createPubFsHandler(params: {
       effectiveStart = rangeStart;
       effectiveEnd = fileSize - 1;
     } else if (rangeEnd !== undefined) {
-      // Suffix range: last N bytes
       effectiveStart = Math.max(0, fileSize - rangeEnd);
       effectiveEnd = fileSize - 1;
     } else {
@@ -111,34 +127,28 @@ export function createPubFsHandler(params: {
       return;
     }
 
-    const mime = getMimeType(realPath);
-
-    // Send metadata
     sendMessage(
       dc,
       makePubFsMetadataMessage({
         requestId,
         totalSize: fileSize,
-        mime,
+        mime: getMimeType(realPath),
         rangeStart: effectiveStart,
         rangeEnd: effectiveEnd,
       }),
     );
 
-    // Stream file chunks
     const readStream = createReadStream(realPath, {
       start: effectiveStart,
       end: effectiveEnd,
       highWaterMark: STREAM_CHUNK_SIZE,
     });
-
     activeReads.set(requestId, { requestId, stream: readStream });
 
     try {
       for await (const chunk of readStream) {
-        if (!activeReads.has(requestId)) return; // cancelled
-        const buffer = chunk instanceof Buffer ? chunk : Buffer.from(chunk);
-        dc.sendMessageBinary(buffer);
+        if (!activeReads.has(requestId)) return;
+        dc.sendMessageBinary(chunk instanceof Buffer ? chunk : Buffer.from(chunk));
       }
       if (activeReads.has(requestId)) {
         activeReads.delete(requestId);
@@ -155,37 +165,148 @@ export function createPubFsHandler(params: {
     }
   }
 
+  // --- WRITE ---
+
+  async function handleWrite(msg: BridgeMessage): Promise<void> {
+    const request = parsePubFsWriteMessage(msg);
+    if (!request) return;
+
+    const { requestId, path: filePath, size } = request;
+    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    await params.waitForChannelOpen(dc);
+
+    if (size === 0) {
+      // Zero-byte file: write immediately
+      try {
+        const resolvedPath = resolve(filePath);
+        mkdirSync(dirname(resolvedPath), { recursive: true });
+        writeFileSync(resolvedPath, Buffer.alloc(0));
+        sendMessage(dc, makePubFsDoneMessage(requestId));
+      } catch (error) {
+        sendError(
+          dc,
+          requestId,
+          "WRITE_ERROR",
+          error instanceof Error ? error.message : "Write failed.",
+        );
+      }
+      return;
+    }
+
+    // Set up to receive binary chunks
+    activeWrite.current = {
+      requestId,
+      path: filePath,
+      expectedSize: size,
+      chunks: [],
+      receivedSize: 0,
+    };
+  }
+
+  function handleWriteChunk(data: Buffer): void {
+    const write = activeWrite.current;
+    if (!write) return;
+    write.chunks.push(data);
+    write.receivedSize += data.length;
+
+    if (write.receivedSize >= write.expectedSize) {
+      finishWrite();
+    }
+  }
+
+  function finishWrite(): void {
+    const write = activeWrite.current;
+    if (!write) return;
+    activeWrite.current = null;
+
+    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    try {
+      const resolvedPath = resolve(write.path);
+      mkdirSync(dirname(resolvedPath), { recursive: true });
+      writeFileSync(resolvedPath, Buffer.concat(write.chunks));
+      sendMessage(dc, makePubFsDoneMessage(write.requestId));
+    } catch (error) {
+      sendError(
+        dc,
+        write.requestId,
+        "WRITE_ERROR",
+        error instanceof Error ? error.message : "Write failed.",
+      );
+    }
+  }
+
+  // --- DELETE ---
+
+  async function handleDelete(msg: BridgeMessage): Promise<void> {
+    const request = parsePubFsDeleteMessage(msg);
+    if (!request) return;
+
+    const { requestId, path: filePath } = request;
+    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    await params.waitForChannelOpen(dc);
+
+    try {
+      const resolvedPath = resolve(filePath);
+      if (!existsSync(resolvedPath)) {
+        sendError(dc, requestId, "NOT_FOUND", "File does not exist.");
+        return;
+      }
+      unlinkSync(resolvedPath);
+      sendMessage(dc, makePubFsDoneMessage(requestId));
+    } catch (error) {
+      sendError(
+        dc,
+        requestId,
+        "DELETE_ERROR",
+        error instanceof Error ? error.message : "Delete failed.",
+      );
+    }
+  }
+
+  // --- Queue (serializes all operations to avoid binary chunk interleaving) ---
+
   async function processQueue(): Promise<void> {
     if (processing) return;
     processing = true;
-    while (readQueue.length > 0) {
-      const next = readQueue.shift()!;
-      await handleReadRequest(next);
+    while (opQueue.length > 0) {
+      const next = opQueue.shift()!;
+      if (next.type === "event" && next.data === "pub-fs.read") await handleRead(next);
+      else if (next.type === "event" && next.data === "pub-fs.write") await handleWrite(next);
+      else if (next.type === "event" && next.data === "pub-fs.delete") await handleDelete(next);
     }
     processing = false;
   }
 
-  function handleCancelRequest(msg: BridgeMessage): void {
-    const request = parsePubFsCancelMessage(msg);
-    if (!request) return;
-    cancelRead(request.requestId);
-  }
-
   return {
     onMessage(message: BridgeMessage): void {
-      if (message.type === "event" && message.data === "pub-fs.read") {
-        readQueue.push(message);
-        void processQueue();
-        return;
+      if (message.type === "event") {
+        if (
+          message.data === "pub-fs.read" ||
+          message.data === "pub-fs.write" ||
+          message.data === "pub-fs.delete"
+        ) {
+          opQueue.push(message);
+          void processQueue();
+          return;
+        }
+        if (message.data === "pub-fs.cancel") {
+          const request = parsePubFsCancelMessage(message);
+          if (request) cancelRead(request.requestId);
+          return;
+        }
       }
-      if (message.type === "event" && message.data === "pub-fs.cancel") {
-        handleCancelRequest(message);
+      if (message.type === "binary") {
+        handleWriteChunk(Buffer.from(message.data ?? "", "base64"));
         return;
       }
     },
+    onBinaryMessage(data: Buffer): void {
+      handleWriteChunk(data);
+    },
     reset(): void {
-      readQueue.length = 0;
+      opQueue.length = 0;
       processing = false;
+      activeWrite.current = null;
       for (const [, active] of activeReads) {
         active.stream.destroy();
       }

@@ -53,7 +53,3 @@ export function canSendAgentTraffic(snapshot: LiveRuntimeStateSnapshot): boolean
 export function canSendCommandTraffic(snapshot: LiveRuntimeStateSnapshot): boolean {
   return isLiveConnectionReady(snapshot) && snapshot.executorState === "ready";
 }
-
-export function canSendCanvasFileTraffic(snapshot: LiveRuntimeStateSnapshot): boolean {
-  return isLiveConnectionReady(snapshot);
-}

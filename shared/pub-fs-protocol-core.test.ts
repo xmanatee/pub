@@ -1,18 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { makeEventMessage } from "./bridge-protocol-core";
 import {
-  PUB_FS_CANCEL_EVENT,
-  PUB_FS_DONE_EVENT,
-  PUB_FS_ERROR_EVENT,
-  PUB_FS_METADATA_EVENT,
-  PUB_FS_READ_EVENT,
   makePubFsCancelMessage,
+  makePubFsDeleteMessage,
   makePubFsDoneMessage,
   makePubFsErrorMessage,
   makePubFsMetadataMessage,
   makePubFsReadMessage,
+  makePubFsWriteMessage,
+  PUB_FS_CANCEL_EVENT,
+  PUB_FS_DELETE_EVENT,
+  PUB_FS_DONE_EVENT,
+  PUB_FS_READ_EVENT,
+  PUB_FS_WRITE_EVENT,
   parsePubFsCancelMessage,
   parsePubFsCancelRequest,
+  parsePubFsDeleteMessage,
+  parsePubFsDeleteRequest,
   parsePubFsDoneMessage,
   parsePubFsErrorMessage,
   parsePubFsErrorResponse,
@@ -20,6 +24,8 @@ import {
   parsePubFsMetadataResponse,
   parsePubFsReadMessage,
   parsePubFsReadRequest,
+  parsePubFsWriteMessage,
+  parsePubFsWriteRequest,
 } from "./pub-fs-protocol-core";
 
 describe("parsePubFsReadRequest", () => {
@@ -165,12 +171,57 @@ describe("bridge message round-trip", () => {
     expect(parsePubFsCancelMessage(msg)).toEqual({ requestId: "r1" });
   });
 
+  it("write request round-trips", () => {
+    const msg = makePubFsWriteMessage({ requestId: "w1", path: "/tmp/out.txt", size: 100 });
+    expect(msg.data).toBe(PUB_FS_WRITE_EVENT);
+    expect(parsePubFsWriteMessage(msg)).toEqual({
+      requestId: "w1",
+      path: "/tmp/out.txt",
+      size: 100,
+    });
+  });
+
+  it("delete request round-trips", () => {
+    const msg = makePubFsDeleteMessage({ requestId: "d1", path: "/tmp/old.txt" });
+    expect(msg.data).toBe(PUB_FS_DELETE_EVENT);
+    expect(parsePubFsDeleteMessage(msg)).toEqual({ requestId: "d1", path: "/tmp/old.txt" });
+  });
+
   it("rejects wrong event type", () => {
     const msg = makeEventMessage("status", { requestId: "r1" });
     expect(parsePubFsReadMessage(msg)).toBeNull();
+    expect(parsePubFsWriteMessage(msg)).toBeNull();
+    expect(parsePubFsDeleteMessage(msg)).toBeNull();
     expect(parsePubFsMetadataMessage(msg)).toBeNull();
     expect(parsePubFsErrorMessage(msg)).toBeNull();
     expect(parsePubFsDoneMessage(msg)).toBeNull();
     expect(parsePubFsCancelMessage(msg)).toBeNull();
+  });
+});
+
+describe("parsePubFsWriteRequest", () => {
+  it("parses valid write", () => {
+    expect(parsePubFsWriteRequest({ requestId: "w1", path: "/tmp/f.txt", size: 42 })).toEqual({
+      requestId: "w1",
+      path: "/tmp/f.txt",
+      size: 42,
+    });
+  });
+
+  it("rejects negative size", () => {
+    expect(parsePubFsWriteRequest({ requestId: "w1", path: "/f", size: -1 })).toBeNull();
+  });
+});
+
+describe("parsePubFsDeleteRequest", () => {
+  it("parses valid delete", () => {
+    expect(parsePubFsDeleteRequest({ requestId: "d1", path: "/tmp/f.txt" })).toEqual({
+      requestId: "d1",
+      path: "/tmp/f.txt",
+    });
+  });
+
+  it("rejects missing path", () => {
+    expect(parsePubFsDeleteRequest({ requestId: "d1" })).toBeNull();
   });
 });

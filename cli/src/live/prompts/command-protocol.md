@@ -52,15 +52,11 @@ Verify with `which <tool>` before depending on it.
    - `output`: `"text"` (default — agent response returned as string) or `"json"` (agent response parsed as JSON before returning to canvas). Match this to the function's `returns` type.
    - Optional: `provider`, `profile` (`"fast"` / `"default"` / `"deep"`), `model`
 
-5. File transfers:
-   - Upload: `const { path } = await pub.files.upload(blob, { mime? })` → `{ path, filename, mime, size }`
-   - Download: `await pub.files.download({ path, filename? })` → triggers browser download
-   - Use the returned `path` when invoking commands that need file paths
-
-6. Inline host files (images, video, audio, any file):
-   - Use `/__pub_files__/` prefix with an absolute path: `<video src="/__pub_files__/home/user/video.mp4">`
+5. Host file access via `/__pub_files__/` URLs (standard HTTP semantics):
+   - **Read**: `<img src="/__pub_files__/tmp/chart.png">`, `fetch("/__pub_files__/path")`, `<video src="/__pub_files__/path">`
+   - **Write**: `fetch("/__pub_files__/tmp/output.png", { method: "PUT", body: blob })`
+   - **Delete**: `fetch("/__pub_files__/tmp/output.png", { method: "DELETE" })`
+   - **Download**: `<a href="/__pub_files__/path/to/file" download="filename.ext">Download</a>`
    - Works with `<img>`, `<video>`, `<audio>`, `<source>`, CSS `url()`, `fetch()`, etc.
-   - Files are streamed on demand from the host machine — no size limit
-   - The path must be absolute (e.g., `/home/user/file.mp4` or `/tmp/output.png`)
-   - Video seeking works (Range request support)
-   - Example: `<img src="/__pub_files__/tmp/chart.png">` displays a host file inline
+   - Files are streamed on demand — no size limit. Video seeking works (Range request support).
+   - Paths must be absolute (e.g., `/home/user/file.mp4` or `/tmp/output.png`)

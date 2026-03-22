@@ -2,14 +2,18 @@
  * Main-page bridge for the pub-fs Service Worker virtual filesystem.
  *
  * Receives file requests from the sandbox iframe (forwarded from the SW via
- * postMessage), sends them over WebRTC to the CLI agent, and streams bytes
- * back through the MessagePort directly to the SW.
+ * postMessage), sends them over WebRTC to the CLI agent, and streams
+ * responses back through the MessagePort directly to the SW.
+ *
+ * Supports GET (read/stream), PUT (write), and DELETE operations.
  */
 
-import { CHANNELS } from "@shared/bridge-protocol-core";
+import { CHANNELS, STREAM_CHUNK_SIZE } from "@shared/bridge-protocol-core";
 import {
   makePubFsCancelMessage,
+  makePubFsDeleteMessage,
   makePubFsReadMessage,
+  makePubFsWriteMessage,
   parsePubFsDoneMessage,
   parsePubFsErrorMessage,
   parsePubFsMetadataMessage,
@@ -43,7 +47,7 @@ export class PubFsBridge {
     if (!data || data.type !== "pub-fs-request") return;
     if (this.iframeWindow && event.source !== this.iframeWindow) return;
 
-    const { requestId, path, rangeStart, rangeEnd } = data;
+    const { method, requestId, path } = data;
     if (typeof requestId !== "string" || typeof path !== "string") return;
 
     const port = event.ports[0];
@@ -55,23 +59,72 @@ export class PubFsBridge {
       return;
     }
 
-    this.pending.set(requestId, { requestId, port });
+    if (method === "PUT") {
+      this.handlePut(bridge, requestId, path, data, port);
+      return;
+    }
 
+    if (method === "DELETE") {
+      this.handleDelete(bridge, requestId, path, port);
+      return;
+    }
+
+    this.handleGet(bridge, requestId, path, data, port);
+  }
+
+  private handleGet(
+    bridge: BrowserBridge,
+    requestId: string,
+    path: string,
+    data: Record<string, unknown>,
+    port: MessagePort,
+  ): void {
+    this.pending.set(requestId, { requestId, port });
     bridge.send(
       CHANNELS.PUB_FS,
       makePubFsReadMessage({
         requestId,
         path,
-        rangeStart: typeof rangeStart === "number" ? rangeStart : undefined,
-        rangeEnd: typeof rangeEnd === "number" ? rangeEnd : undefined,
+        rangeStart: typeof data.rangeStart === "number" ? data.rangeStart : undefined,
+        rangeEnd: typeof data.rangeEnd === "number" ? data.rangeEnd : undefined,
       }),
     );
+  }
+
+  private handlePut(
+    bridge: BrowserBridge,
+    requestId: string,
+    path: string,
+    data: Record<string, unknown>,
+    port: MessagePort,
+  ): void {
+    const body = data.body instanceof ArrayBuffer ? data.body : null;
+    if (!body) {
+      port.postMessage({ type: "error", code: "INVALID_BODY", message: "Missing request body." });
+      return;
+    }
+    this.pending.set(requestId, { requestId, port });
+    bridge.send(CHANNELS.PUB_FS, makePubFsWriteMessage({ requestId, path, size: body.byteLength }));
+    // Send body in chunks
+    const bytes = new Uint8Array(body);
+    for (let offset = 0; offset < bytes.length; offset += STREAM_CHUNK_SIZE) {
+      bridge.sendBinary(CHANNELS.PUB_FS, bytes.slice(offset, offset + STREAM_CHUNK_SIZE).buffer);
+    }
+  }
+
+  private handleDelete(
+    bridge: BrowserBridge,
+    requestId: string,
+    path: string,
+    port: MessagePort,
+  ): void {
+    this.pending.set(requestId, { requestId, port });
+    bridge.send(CHANNELS.PUB_FS, makePubFsDeleteMessage({ requestId, path }));
   }
 
   handleChannelMessage(cm: ChannelMessage): void {
     const { message, binaryData } = cm;
 
-    // Binary data: CLI serializes reads, so chunks belong to activeRequestId
     if (message.type === "binary" && binaryData) {
       if (!this.activeRequestId) return;
       const pending = this.pending.get(this.activeRequestId);
@@ -97,7 +150,7 @@ export class PubFsBridge {
 
     const doneRequestId = parsePubFsDoneMessage(message);
     if (doneRequestId) {
-      this.activeRequestId = null;
+      if (this.activeRequestId === doneRequestId) this.activeRequestId = null;
       const pending = this.pending.get(doneRequestId);
       if (!pending) return;
       pending.port.postMessage({ type: "done" });

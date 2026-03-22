@@ -27,19 +27,10 @@ export function createDaemonChannelManager(params: {
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   onCommandMessage: (msg: BridgeMessage) => Promise<void>;
-  onCanvasFileMessage: (msg: BridgeMessage) => Promise<void>;
   onPubFsMessage: (msg: BridgeMessage) => Promise<void>;
   onChannelClosed?: (name: string) => void;
 }) {
-  const {
-    state,
-    debugLog,
-    markError,
-    onCommandMessage,
-    onCanvasFileMessage,
-    onPubFsMessage,
-    onChannelClosed,
-  } = params;
+  const { state, debugLog, markError, onCommandMessage, onPubFsMessage, onChannelClosed } = params;
   const dedup = createMessageDedup(DEDUP_MAX_SIZE);
 
   function emitDeliveryStatus(params: {
@@ -268,12 +259,6 @@ export function createDaemonChannelManager(params: {
             });
             return;
           }
-          if (name === CHANNELS.CANVAS_FILE) {
-            void onCanvasFileMessage(msg).catch((error) => {
-              markError("canvas file message handler failed", error);
-            });
-            return;
-          }
           if (name === CHANNELS.PUB_FS) {
             void onPubFsMessage(msg).catch((error) => {
               markError("pub-fs message handler failed", error);
@@ -324,9 +309,9 @@ export function createDaemonChannelManager(params: {
         if (shouldAcknowledgeMessage(name, binMsg)) {
           queueAck(binMsg.id, name);
         }
-        if (name === CHANNELS.CANVAS_FILE) {
-          void onCanvasFileMessage(binMsg).catch((error) => {
-            markError("canvas file binary handler failed", error);
+        if (name === CHANNELS.PUB_FS) {
+          void onPubFsMessage(binMsg).catch((error) => {
+            markError("pub-fs binary handler failed", error);
           });
           return;
         }

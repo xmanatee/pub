@@ -30,7 +30,6 @@ export function createPeerManager(params: {
   clearLocalCandidateTimers: () => void;
   stopPingPong: () => void;
   commandHandlerStop: () => void;
-  canvasFileTransferReset: () => void;
   pubFsHandlerReset: () => void;
 }) {
   const {
@@ -49,7 +48,6 @@ export function createPeerManager(params: {
     clearLocalCandidateTimers,
     stopPingPong,
     commandHandlerStop,
-    canvasFileTransferReset,
     pubFsHandlerReset,
   } = params;
 
@@ -159,7 +157,6 @@ export function createPeerManager(params: {
     state.activeSlug = null;
     setConnectionState("idle");
     commandHandlerStop();
-    canvasFileTransferReset();
     pubFsHandlerReset();
     await closeCurrentPeer();
     resetNegotiationState();

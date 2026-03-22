@@ -7,7 +7,6 @@ import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import { createBridgeManager } from "./bridge-manager.js";
-import { createCanvasFileTransferHandler } from "./canvas-file-transfer.js";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
 import { createDaemonIpcServer } from "./ipc-server.js";
@@ -35,7 +34,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   let channelManager!: ReturnType<typeof createDaemonChannelManager>;
   let bridgeManager!: ReturnType<typeof createBridgeManager>;
-  let canvasFileTransfer!: ReturnType<typeof createCanvasFileTransferHandler>;
   let pubFsHandler!: ReturnType<typeof createPubFsHandler>;
   let peerManager!: ReturnType<typeof createPeerManager>;
   let presenceGeneration = 0;
@@ -106,7 +104,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     debugLog: lifecycle.debugLog,
     markError: lifecycle.markError,
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
-    onCanvasFileMessage: async (msg) => await canvasFileTransfer.onMessage(msg),
     onPubFsMessage: async (msg) => pubFsHandler.onMessage(msg),
     onChannelClosed: (name) => {
       if (name === CONTROL_CHANNEL || name === "command") {
@@ -141,22 +138,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     return delivered;
   };
-
-  canvasFileTransfer = createCanvasFileTransferHandler({
-    state,
-    bridgeSettings: config.bridgeSettings,
-    debugLog: lifecycle.debugLog,
-    markError: lifecycle.markError,
-    sendMessage: async (channel, msg) =>
-      await channelManager.sendOutboundMessageWithAck(channel, msg, {
-        context: `canvas-file outbound on "${channel}"`,
-        maxAttempts: 1,
-      }),
-    openDataChannel: channelManager.openDataChannel,
-    waitForChannelOpen: channelManager.waitForChannelOpen,
-    waitForDeliveryAck: channelManager.waitForDeliveryAck,
-    settlePendingAck: channelManager.settlePendingAck,
-  });
 
   pubFsHandler = createPubFsHandler({
     debugLog: lifecycle.debugLog,
@@ -197,7 +178,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     clearLocalCandidateTimers: lifecycle.clearLocalCandidateTimers,
     stopPingPong: lifecycle.stopPingPong,
     commandHandlerStop: () => commandHandler.stop(),
-    canvasFileTransferReset: () => canvasFileTransfer.reset(),
     pubFsHandlerReset: () => pubFsHandler.reset(),
   });
 

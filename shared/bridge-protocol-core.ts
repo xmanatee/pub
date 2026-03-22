@@ -69,9 +69,9 @@ export type ControlEvent =
   | "command.invoke"
   | "command.result"
   | "command.cancel"
-  | "canvas.file.download.request"
-  | "canvas.file.result"
   | "pub-fs.read"
+  | "pub-fs.write"
+  | "pub-fs.delete"
   | "pub-fs.metadata"
   | "pub-fs.error"
   | "pub-fs.done"
@@ -120,7 +120,6 @@ export const CHANNELS = {
   AUDIO: "audio",
   MEDIA: "media",
   FILE: "file",
-  CANVAS_FILE: "canvas-file",
   COMMAND: "command",
   PUB_FS: "pub-fs",
 } as const;

@@ -1,12 +1,4 @@
 import type {
-  CanvasFileDownloadRequestPayload,
-  CanvasFileResultPayload,
-} from "./canvas-file-protocol-core";
-import {
-  parseCanvasFileDownloadRequestPayload,
-  parseCanvasFileResultPayload,
-} from "./canvas-file-protocol-core";
-import type {
   CommandCancelPayload,
   CommandInvokePayload,
   CommandResultPayload,
@@ -57,22 +49,6 @@ export type CanvasBridgeCancelMessage = {
   payload: CommandCancelPayload;
 };
 
-export type CanvasBridgeFileUploadMessage = {
-  source: typeof CANVAS_TO_PARENT_SOURCE;
-  type: "file.upload";
-  payload: {
-    bytes: ArrayBuffer;
-    mime?: string;
-    requestId: string;
-  };
-};
-
-export type CanvasBridgeFileDownloadMessage = {
-  source: typeof CANVAS_TO_PARENT_SOURCE;
-  type: "file.download";
-  payload: CanvasFileDownloadRequestPayload;
-};
-
 export type CanvasBridgeConsoleErrorMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
   type: "console-error";
@@ -85,11 +61,7 @@ export type CanvasBridgePreviewCapturedMessage = {
   payload: { html: string };
 };
 
-export type CanvasBridgeCommandMessage =
-  | CanvasBridgeInvokeMessage
-  | CanvasBridgeCancelMessage
-  | CanvasBridgeFileUploadMessage
-  | CanvasBridgeFileDownloadMessage;
+export type CanvasBridgeCommandMessage = CanvasBridgeInvokeMessage | CanvasBridgeCancelMessage;
 
 export type CanvasBridgeInboundMessage =
   | CanvasBridgeReadyMessage
@@ -97,9 +69,7 @@ export type CanvasBridgeInboundMessage =
   | CanvasBridgeConsoleErrorMessage
   | CanvasBridgePreviewCapturedMessage
   | CanvasBridgeInvokeMessage
-  | CanvasBridgeCancelMessage
-  | CanvasBridgeFileUploadMessage
-  | CanvasBridgeFileDownloadMessage;
+  | CanvasBridgeCancelMessage;
 
 export type CanvasBridgeResultMessage = {
   source: typeof PARENT_TO_CANVAS_SOURCE;
@@ -107,32 +77,7 @@ export type CanvasBridgeResultMessage = {
   payload: CommandResultPayload;
 };
 
-export type CanvasBridgeFileResultMessage = {
-  source: typeof PARENT_TO_CANVAS_SOURCE;
-  type: "file.result";
-  payload: CanvasFileResultPayload;
-};
-
-export type CanvasBridgeOutboundMessage = CanvasBridgeResultMessage | CanvasBridgeFileResultMessage;
-
-function readArrayBuffer(input: unknown): ArrayBuffer | null {
-  return input instanceof ArrayBuffer ? input : null;
-}
-
-function parseCanvasFileUploadPayload(
-  input: unknown,
-): CanvasBridgeFileUploadMessage["payload"] | null {
-  const record = readRecord(input);
-  if (!record) return null;
-  const requestId = readNonEmptyString(record.requestId);
-  const bytes = readArrayBuffer(record.bytes);
-  if (!requestId || !bytes) return null;
-  return {
-    requestId,
-    bytes,
-    mime: readNonEmptyString(record.mime),
-  };
-}
+export type CanvasBridgeOutboundMessage = CanvasBridgeResultMessage;
 
 function parseCanvasRenderErrorPayload(input: unknown): CanvasRenderErrorPayload | null {
   const record = readRecord(input);
@@ -196,18 +141,6 @@ export function parseCanvasBridgeInboundMessage(input: unknown): CanvasBridgeInb
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
   }
 
-  if (type === "file.upload") {
-    const payload = parseCanvasFileUploadPayload(record.payload);
-    if (!payload) return null;
-    return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
-  }
-
-  if (type === "file.download") {
-    const payload = parseCanvasFileDownloadRequestPayload(record.payload);
-    if (!payload) return null;
-    return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
-  }
-
   return null;
 }
 
@@ -223,16 +156,6 @@ export function parseCanvasBridgeOutboundMessage(
     return {
       source: PARENT_TO_CANVAS_SOURCE,
       type: "command.result",
-      payload,
-    };
-  }
-
-  if (record.type === "file.result") {
-    const payload = parseCanvasFileResultPayload(record.payload);
-    if (!payload) return null;
-    return {
-      source: PARENT_TO_CANVAS_SOURCE,
-      type: "file.result",
       payload,
     };
   }
