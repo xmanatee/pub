@@ -1,7 +1,6 @@
-import type { LiveConnectionState } from "@shared/live-runtime-state-core";
+import type { LiveAgentActivity, LiveConnectionState } from "@shared/live-runtime-state-core";
 import { resolveLiveBlobState } from "~/features/live/model/live-blob-state";
 import type {
-  AgentOutputActivity,
   LiveBlobState,
   LiveCommandSummary,
   LiveContentState,
@@ -13,16 +12,14 @@ import type {
 import type { AudioMachineMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
 export interface PubViewSourceState {
+  agentActivity: LiveAgentActivity;
   agentOnline: boolean | undefined;
   audioMode: AudioMachineMode;
   command: LiveCommandSummary;
   connectionState: LiveConnectionState;
   contentState: LiveContentState;
-  lastAgentOutput: AgentOutputActivity | null;
-  lastUserDeliveredAt: number | null;
   liveMode: boolean;
   needsAgentSelection: boolean;
-  now: number;
   sessionError: string | null;
   sessionState: SessionState;
 }
@@ -137,15 +134,13 @@ export function derivePubViewState(source: PubViewSourceState): PubViewState {
   });
   const error = resolveLiveErrorSummary(source);
   const blobState = resolveLiveBlobState({
+    agentActivity: source.agentActivity,
     agentOnline: source.agentOnline,
     audioMode: source.audioMode,
     commandPhase: source.command.phase,
     contentState: source.contentState,
     errorMessage: error.message,
-    lastAgentOutput: source.lastAgentOutput,
-    lastUserDeliveredAt: source.lastUserDeliveredAt,
     liveMode: source.liveMode,
-    now: source.now,
     transportStatus,
   });
 

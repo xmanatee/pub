@@ -29,8 +29,9 @@ describe("live-ipc-protocol", () => {
     expect(
       parseIpcResponse("status", {
         ok: true,
-        connectionState: "connected",
+        agentActivity: "idle",
         agentState: "ready",
+        connectionState: "connected",
         executorState: "ready",
         signalingConnected: null,
         activeSlug: "demo",
@@ -43,8 +44,9 @@ describe("live-ipc-protocol", () => {
       }),
     ).toEqual({
       ok: true,
-      connectionState: "connected",
+      agentActivity: "idle",
       agentState: "ready",
+      connectionState: "connected",
       executorState: "ready",
       signalingConnected: null,
       activeSlug: "demo",

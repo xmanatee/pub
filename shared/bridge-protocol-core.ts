@@ -1,5 +1,6 @@
 import type { LiveRuntimeStateSnapshot } from "./live-runtime-state-core";
 import {
+  isLiveAgentActivity,
   isLiveAgentState,
   isLiveConnectionState,
   isLiveExecutorState,
@@ -280,9 +281,11 @@ export function parseStatusMessage(msg: BridgeMessage): StatusPayload | null {
 
   const connectionState =
     typeof msg.meta.connectionState === "string" ? msg.meta.connectionState : null;
+  const agentActivity = typeof msg.meta.agentActivity === "string" ? msg.meta.agentActivity : null;
   const agentState = typeof msg.meta.agentState === "string" ? msg.meta.agentState : null;
   const executorState = typeof msg.meta.executorState === "string" ? msg.meta.executorState : null;
   if (!isLiveConnectionState(connectionState)) return null;
+  if (!isLiveAgentActivity(agentActivity)) return null;
   if (!isLiveAgentState(agentState)) return null;
   if (!isLiveExecutorState(executorState)) return null;
 
@@ -293,8 +296,9 @@ export function parseStatusMessage(msg: BridgeMessage): StatusPayload | null {
   const continued = msg.meta.continued === true ? true : undefined;
 
   return {
-    connectionState,
+    agentActivity,
     agentState,
+    connectionState,
     executorState,
     channels,
     slug,

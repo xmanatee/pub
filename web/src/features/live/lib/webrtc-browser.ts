@@ -344,6 +344,7 @@ export class BrowserBridge {
             this.onControlError?.(errorPayload);
             this.setRuntimeState({
               ...this.runtimeState,
+              agentActivity: "idle",
               agentState: "idle",
               executorState: "idle",
             });
@@ -482,8 +483,9 @@ export class BrowserBridge {
     } else if (newState === "disconnected" || newState === "failed") {
       this.failPendingAcks();
       this.setRuntimeState({
-        connectionState: newState,
+        agentActivity: "idle",
         agentState: "idle",
+        connectionState: newState,
         executorState: "idle",
       });
     } else if (newState === "closed") {
@@ -496,8 +498,9 @@ export class BrowserBridge {
 
   private setRuntimeState(nextState: LiveRuntimeStateSnapshot): void {
     if (
-      this.runtimeState.connectionState === nextState.connectionState &&
+      this.runtimeState.agentActivity === nextState.agentActivity &&
       this.runtimeState.agentState === nextState.agentState &&
+      this.runtimeState.connectionState === nextState.connectionState &&
       this.runtimeState.executorState === nextState.executorState
     ) {
       return;

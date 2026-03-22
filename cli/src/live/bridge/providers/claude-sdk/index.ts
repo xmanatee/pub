@@ -162,6 +162,8 @@ export async function createClaudeSdkBridgeRunner(
   await sendAndStream(createSession(), sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
 
   const queue = createBridgeEntryQueue({
+    onProcessingStart: () => config.onActivityChange("thinking"),
+    onProcessingEnd: () => config.onActivityChange("idle"),
     onEntry: async (entry: BufferedEntry) => {
       const chat = readTextChatMessage(entry);
       if (chat) {

@@ -29,13 +29,6 @@ export interface LiveCommandSummary {
   phase: LiveCommandPhase;
 }
 
-export type AgentOutputKind = "text" | "audio" | "image" | "file" | "track";
-
-export interface AgentOutputActivity {
-  at: number;
-  kind: AgentOutputKind;
-}
-
 export interface LiveErrorSummary {
   message: string | null;
   source: "none" | "command" | "session";

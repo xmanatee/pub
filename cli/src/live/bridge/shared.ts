@@ -1,5 +1,6 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { CHANNELS } from "../../../../shared/bridge-protocol-core";
+import type { LiveAgentActivity } from "../../../../shared/live-runtime-state-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { COMMAND_PROTOCOL_GUIDE, SYSTEM_PROMPT } from "../prompts/index.js";
 
@@ -8,6 +9,7 @@ export type BridgeRunnerConfig = {
   sessionBriefing: string;
   bridgeSettings: BridgeSettings;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
+  onActivityChange: (activity: LiveAgentActivity) => void;
   onDeliveryUpdate?: (update: {
     channel: string;
     messageId: string;

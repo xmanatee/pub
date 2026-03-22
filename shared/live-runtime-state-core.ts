@@ -2,6 +2,8 @@ export type LiveConnectionState = "idle" | "connecting" | "connected" | "disconn
 
 export type LiveAgentState = "idle" | "preparing" | "ready";
 
+export type LiveAgentActivity = "idle" | "thinking" | "streaming";
+
 export type LiveExecutorState = "idle" | "loading" | "ready";
 
 const LIVE_CONNECTION_STATES = new Set<LiveConnectionState>([
@@ -14,17 +16,21 @@ const LIVE_CONNECTION_STATES = new Set<LiveConnectionState>([
 
 const LIVE_AGENT_STATES = new Set<LiveAgentState>(["idle", "preparing", "ready"]);
 
+const LIVE_AGENT_ACTIVITIES = new Set<LiveAgentActivity>(["idle", "thinking", "streaming"]);
+
 const LIVE_EXECUTOR_STATES = new Set<LiveExecutorState>(["idle", "loading", "ready"]);
 
 export type LiveRuntimeStateSnapshot = {
-  connectionState: LiveConnectionState;
+  agentActivity: LiveAgentActivity;
   agentState: LiveAgentState;
+  connectionState: LiveConnectionState;
   executorState: LiveExecutorState;
 };
 
 export const IDLE_LIVE_RUNTIME_STATE: LiveRuntimeStateSnapshot = {
-  connectionState: "idle",
+  agentActivity: "idle",
   agentState: "idle",
+  connectionState: "idle",
   executorState: "idle",
 };
 
@@ -34,6 +40,10 @@ export function isLiveConnectionState(value: string | null): value is LiveConnec
 
 export function isLiveAgentState(value: string | null): value is LiveAgentState {
   return value != null && LIVE_AGENT_STATES.has(value as LiveAgentState);
+}
+
+export function isLiveAgentActivity(value: string | null): value is LiveAgentActivity {
+  return value != null && LIVE_AGENT_ACTIVITIES.has(value as LiveAgentActivity);
 }
 
 export function isLiveExecutorState(value: string | null): value is LiveExecutorState {

@@ -186,6 +186,8 @@ export async function createClaudeCodeBridgeRunner(
   debugLog("session briefing delivered");
 
   const queue = createBridgeEntryQueue({
+    onProcessingStart: () => config.onActivityChange("thinking"),
+    onProcessingEnd: () => config.onActivityChange("idle"),
     onEntry: async (entry: BufferedEntry) => {
       const chat = readTextChatMessage(entry);
       if (chat) {

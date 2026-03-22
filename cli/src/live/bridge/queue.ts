@@ -5,6 +5,8 @@ import type { BufferedEntry } from "./shared.js";
 interface BridgeEntryQueueParams {
   onEntry: (entry: BufferedEntry) => Promise<void>;
   onError: (error: unknown, entry: BufferedEntry) => void;
+  onProcessingStart: () => void;
+  onProcessingEnd: () => void;
 }
 
 interface BridgeEntryQueue {
@@ -40,10 +42,13 @@ export function createBridgeEntryQueue(params: BridgeEntryQueueParams): BridgeEn
 
         if (dedup.isDuplicate(`${entry.channel}:${entry.msg.id}`)) continue;
 
+        params.onProcessingStart();
         try {
           await params.onEntry(entry);
         } catch (error) {
           params.onError(error instanceof Error ? error : new Error(errorMessage(error)), entry);
+        } finally {
+          params.onProcessingEnd();
         }
       }
     }

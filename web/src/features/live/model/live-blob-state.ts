@@ -1,5 +1,5 @@
+import type { LiveAgentActivity } from "@shared/live-runtime-state-core";
 import type {
-  AgentOutputActivity,
   LiveBlobState,
   LiveCommandPhase,
   LiveContentState,
@@ -7,32 +7,25 @@ import type {
 } from "~/features/live/types/live-types";
 import type { AudioMachineMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
-const RECENT_AGENT_ACTIVITY_WINDOW_MS = 4_000;
-const RECENT_USER_DELIVERED_WINDOW_MS = 12_000;
-
 interface ResolveBlobStateParams {
+  agentActivity: LiveAgentActivity;
   agentOnline: boolean | undefined;
   audioMode: AudioMachineMode;
   commandPhase: LiveCommandPhase;
   contentState: LiveContentState;
   errorMessage: string | null;
-  lastAgentOutput: AgentOutputActivity | null;
-  lastUserDeliveredAt: number | null;
   liveMode: boolean;
-  now: number;
   transportStatus: LiveTransportStatus;
 }
 
 export function resolveLiveBlobState({
+  agentActivity,
   agentOnline,
   audioMode,
   commandPhase,
   contentState,
   errorMessage,
-  lastAgentOutput,
-  lastUserDeliveredAt,
   liveMode,
-  now,
   transportStatus,
 }: ResolveBlobStateParams): LiveBlobState {
   if (!liveMode) {
@@ -64,17 +57,8 @@ export function resolveLiveBlobState({
 
   if (commandPhase === "running" || commandPhase === "canceling") return "command-running";
 
-  const hasRecentAgentActivity =
-    typeof lastAgentOutput?.at === "number" &&
-    lastAgentOutput.kind !== "track" &&
-    now - lastAgentOutput.at <= RECENT_AGENT_ACTIVITY_WINDOW_MS;
-  if (hasRecentAgentActivity) return "agent-replying";
-
-  const isWaitingForAgentReply =
-    typeof lastUserDeliveredAt === "number" &&
-    now - lastUserDeliveredAt <= RECENT_USER_DELIVERED_WINDOW_MS &&
-    (typeof lastAgentOutput?.at !== "number" || lastAgentOutput.at < lastUserDeliveredAt);
-  if (isWaitingForAgentReply) return "agent-thinking";
+  if (agentActivity === "streaming") return "agent-replying";
+  if (agentActivity === "thinking") return "agent-thinking";
 
   if (contentState === "loading") return "content-loading";
   if (contentState === "empty") return "waiting-content";

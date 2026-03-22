@@ -82,6 +82,8 @@ export async function createOpenClawBridgeRunner(
   debugLog(`openclaw deliver session briefing complete slug=${slug} sessionId=${sessionId}`);
 
   const queue = createBridgeEntryQueue({
+    onProcessingStart: () => config.onActivityChange("thinking"),
+    onProcessingEnd: () => config.onActivityChange("idle"),
     onEntry: async (entry: BufferedEntry) => {
       const chat = readTextChatMessage(entry);
       if (chat) {

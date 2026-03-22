@@ -103,8 +103,9 @@ function HookHarness({
   ensureChannel,
   canvasScopeKey = "canvas-1",
   runtimeState = {
-    connectionState: "idle",
+    agentActivity: "idle",
     agentState: "idle",
+    connectionState: "idle",
     executorState: "idle",
   },
   liveMode,
@@ -136,8 +137,9 @@ function createRuntimeState(
   overrides: Partial<LiveRuntimeStateSnapshot>,
 ): LiveRuntimeStateSnapshot {
   return {
-    connectionState: "idle",
+    agentActivity: "idle",
     agentState: "idle",
+    connectionState: "idle",
     executorState: "idle",
     ...overrides,
   };

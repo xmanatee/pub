@@ -177,12 +177,11 @@ vi.mock("~/features/live/hooks/use-live-transport", () => ({
   useLiveTransport: () => ({
     ensureChannel: vi.fn(async () => true),
     runtimeState: {
-      connectionState: "idle",
+      agentActivity: "idle",
       agentState: "idle",
+      connectionState: "idle",
       executorState: "idle",
     },
-    lastAgentOutput: null,
-    lastUserDeliveredAt: null,
     sendAudio: vi.fn(),
     sendBinaryOnChannel: vi.fn(() => true),
     sendChat: vi.fn(),
