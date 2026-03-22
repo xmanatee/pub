@@ -32,7 +32,7 @@ function sandboxDevPlugin(): Plugin {
           const content = readFileSync(filePath);
           if (subPath === "sw.js") {
             res.setHeader("Content-Type", "application/javascript");
-            res.setHeader("Service-Worker-Allowed", "/__sandbox__/");
+            res.setHeader("Service-Worker-Allowed", "/");
           } else {
             res.setHeader("Content-Type", "text/html; charset=utf-8");
           }

@@ -19,8 +19,11 @@
       console.error("[sandbox] Service workers not supported");
       return;
     }
+    // SW at /__sandbox__/sw.js (dev) or /sw.js (prod), always scoped to /
+    // Service-Worker-Allowed: / header allows scope beyond the SW script's directory
+    var swPath = location.pathname.indexOf("/__sandbox__/") === 0 ? "/__sandbox__/sw.js" : "/sw.js";
     navigator.serviceWorker
-      .register("./sw.js")
+      .register(swPath, { scope: "/" })
       .then(function (reg) {
         if (reg.active) {
           signalReady();
