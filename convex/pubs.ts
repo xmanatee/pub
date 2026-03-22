@@ -7,7 +7,15 @@ import { type LiveModelProfile, resolveLiveModelProfile } from "../shared/live-m
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { listFreshOnlinePresences, PRESENCE_STALENESS_THRESHOLD_MS } from "./presence";
-import { generateSlug, hashApiKey, MAX_PUBS, MAX_PUBS_SUBSCRIBED } from "./utils";
+import {
+  escapeHtmlAttr,
+  extractOgMeta,
+  generateSlug,
+  hashApiKey,
+  hasOgTag,
+  MAX_PUBS,
+  MAX_PUBS_SUBSCRIBED,
+} from "./utils";
 
 function getPubLimit(user: { isSubscribed?: boolean }): number {
   return user.isSubscribed ? MAX_PUBS_SUBSCRIBED : MAX_PUBS;
@@ -862,6 +870,67 @@ export const getLiveBySlugInternal = internalQuery({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     return getLatestLiveBySlug(ctx.db, slug);
+  },
+});
+
+function buildOgTagsForInjection(fields: { title?: string; description?: string }): string {
+  const tags: string[] = [];
+  if (fields.title) {
+    tags.push(`<meta property="og:title" content="${escapeHtmlAttr(fields.title)}" />`);
+  }
+  if (fields.description) {
+    tags.push(`<meta property="og:description" content="${escapeHtmlAttr(fields.description)}" />`);
+  }
+  return tags.join("\n  ");
+}
+
+function injectIntoHead(content: string, injection: string): string {
+  const match = content.match(/<\/head\s*>/i);
+  if (match?.index !== undefined) {
+    return content.slice(0, match.index) + injection + content.slice(match.index);
+  }
+  return `<head>${injection}</head>${content}`;
+}
+
+export const backfillOgMeta = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const pubs = await ctx.db.query("pubs").collect();
+    let extracted = 0;
+    let injected = 0;
+
+    for (const pub of pubs) {
+      if (!pub.content) continue;
+
+      const patch: Record<string, unknown> = {};
+
+      const meta = extractOgMeta(pub.content);
+      if (!pub.title && meta.title) patch.title = meta.title;
+      if (!pub.description && meta.description) patch.description = meta.description;
+      if (patch.title || patch.description) extracted++;
+
+      const effectiveTitle = (patch.title as string | undefined) ?? pub.title;
+      const effectiveDescription = (patch.description as string | undefined) ?? pub.description;
+      const missingTitle = effectiveTitle && !hasOgTag(pub.content, "og:title");
+      const missingDesc = effectiveDescription && !hasOgTag(pub.content, "og:description");
+
+      if (missingTitle || missingDesc) {
+        const ogTags = buildOgTagsForInjection({
+          title: missingTitle ? effectiveTitle : undefined,
+          description: missingDesc ? effectiveDescription : undefined,
+        });
+        patch.content = injectIntoHead(pub.content, ogTags);
+        patch.previewHtml = undefined;
+        injected++;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        patch.updatedAt = Date.now();
+        await ctx.db.patch(pub._id, patch);
+      }
+    }
+
+    return { total: pubs.length, extracted, injected };
   },
 });
 

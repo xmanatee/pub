@@ -2,12 +2,11 @@ import { httpRouter } from "convex/server";
 import { internal } from "../../_generated/api";
 import { httpAction } from "../../_generated/server";
 import {
+  extractOgMeta,
   generateSlug,
   INVALID_SLUG_MESSAGE,
   isValidSlug,
   MAX_CONTENT_SIZE,
-  MAX_DESCRIPTION_LENGTH,
-  MAX_TITLE_LENGTH,
 } from "../../utils";
 import {
   ApiError,
@@ -37,12 +36,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
-      let body: {
-        content?: string;
-        title?: string;
-        description?: string;
-        slug?: string;
-      };
+      let body: { content?: string; slug?: string };
       try {
         body = await request.json();
       } catch {
@@ -55,15 +49,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       if (body.slug && !isValidSlug(body.slug)) {
         return errorResponse(INVALID_SLUG_MESSAGE, 400);
       }
-      if (body.title && body.title.length > MAX_TITLE_LENGTH) {
-        return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
-      }
-      if (body.description && body.description.length > MAX_DESCRIPTION_LENGTH) {
-        return errorResponse(
-          `Description exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters`,
-          400,
-        );
-      }
+
+      const { title, description } = body.content ? extractOgMeta(body.content) : {};
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "createPub");
       if (auth instanceof Response) return auth;
@@ -80,8 +67,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               userId: auth.userId,
               slug: finalSlug,
               content: body.content,
-              title: body.title,
-              description: body.description,
+              title,
+              description,
             });
           } catch (error) {
             rethrowPubLimitError(error);
@@ -211,13 +198,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const slug = parseSlugFromRequest(request, "/api/v1/pubs/");
       if (slug instanceof Response) return slug;
 
-      let body: {
-        content?: string;
-        title?: string;
-        description?: string;
-        isPublic?: boolean;
-        slug?: string;
-      };
+      let body: { content?: string; isPublic?: boolean; slug?: string };
       try {
         body = await request.json();
       } catch {
@@ -227,18 +208,11 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       if (body.content && body.content.length > MAX_CONTENT_SIZE) {
         return errorResponse(`Content exceeds maximum size of ${MAX_CONTENT_SIZE / 1024}KB`, 400);
       }
-      if (body.title && body.title.length > MAX_TITLE_LENGTH) {
-        return errorResponse(`Title exceeds maximum length of ${MAX_TITLE_LENGTH} characters`, 400);
-      }
-      if (body.description && body.description.length > MAX_DESCRIPTION_LENGTH) {
-        return errorResponse(
-          `Description exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters`,
-          400,
-        );
-      }
       if (body.slug !== undefined) {
         if (!isValidSlug(body.slug)) return errorResponse(INVALID_SLUG_MESSAGE, 400);
       }
+
+      const extracted = body.content ? extractOgMeta(body.content) : {};
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "updatePub");
       if (auth instanceof Response) return auth;
@@ -258,16 +232,16 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           await ctx.runMutation(internal.pubs.updatePub, {
             id: pub._id,
             content: body.content,
-            title: body.title,
-            description: body.description,
+            title: extracted.title,
+            description: extracted.description,
             isPublic: body.isPublic,
             slug: body.slug,
           });
 
           return {
             slug: body.slug ?? pub.slug,
-            title: body.title ?? pub.title,
-            description: body.description ?? pub.description,
+            title: extracted.title ?? pub.title,
+            description: extracted.description ?? pub.description,
             isPublic: body.isPublic ?? pub.isPublic,
             updatedAt: Date.now(),
           };

@@ -25,8 +25,8 @@ const REQUIRED_BRIEFING_CAPABILITIES: ReadonlyArray<readonly [string, string]> =
 
   // Pub management
   ["pub update", "pub metadata updates via CLI"],
-  ["--title", "title flag for metadata updates"],
-  ["--description", "description flag for metadata updates"],
+  ["og:title", "OG title tag for metadata"],
+  ["og:description", "OG description tag for metadata"],
 ];
 
 /**
@@ -49,8 +49,8 @@ const REQUIRED_SYSTEM_PROMPT_CAPABILITIES: ReadonlyArray<readonly [string, strin
 
   // Pub management
   ["pub update", "metadata update command"],
-  ["--title", "title flag"],
-  ["--description", "description flag"],
+  ["og:title", "OG title tag"],
+  ["og:description", "OG description tag"],
 ];
 
 describe("session briefing completeness", () => {

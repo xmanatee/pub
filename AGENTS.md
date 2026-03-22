@@ -56,6 +56,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Components** (`convex.config.ts`): registers `rateLimiter` component
 - **Visibility**: pubs are always created private; visibility can be changed via update or the dashboard toggle
+- **OG Metadata**: OG meta tags in HTML are the single source of truth for title/description. On create/update, the API extracts `og:title`/`og:description` (falling back to `<title>` and `<meta name="description">`) and stores them in DB fields. Content serving at `/serve/:slug` supplements missing OG tags without duplicating existing ones.
 
 ### Pub Limits
 - **Total**: max 10 pubs per user (enforced on create)
@@ -66,8 +67,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`pub`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
 - **Pub commands**: `config`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `doctor`
-- `create [file]` — supports `--slug`, `--title`, `--description`; always creates private pubs (use `update --public` to change visibility)
-- `update <slug>` — supports `--file`, `--title`, `--description`, `--public`/`--private`, `--slug <newSlug>` for rename
+- `create [file]` — supports `--slug`; always creates private pubs (use `update --public` to change visibility); title/description extracted from OG meta tags in the HTML
+- `update <slug>` — supports `--file`, `--public`/`--private`, `--slug <newSlug>` for rename; title/description re-extracted from content on update
 - `get --content` outputs raw content to stdout (pipeable)
 - `list` — auto-paginates through all pages; shows `[live]` for pubs that are live
 - `start --agent-name <name>` — registers agent presence and starts the per-user daemon using saved bridge config; `--agent-name` is required and shown in browser UI; prints log path and current runtime status on success

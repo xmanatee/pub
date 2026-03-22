@@ -8,8 +8,6 @@ import {
 
 type CreatePubOptions = {
   slug?: string;
-  title?: string;
-  description?: string;
 };
 
 type GetPubOptions = {
@@ -18,8 +16,6 @@ type GetPubOptions = {
 
 type UpdatePubOptions = {
   file?: string;
-  title?: string;
-  description?: string;
   public?: boolean;
   private?: boolean;
   slug?: string;
@@ -31,8 +27,6 @@ export function registerPubCommands(program: Command): void {
     .description("Create a new pub")
     .argument("[file]", "Path to the file (reads stdin if omitted)")
     .option("--slug <slug>", "Custom slug for the URL")
-    .option("--title <title>", "Title for the pub")
-    .option("--description <description>", "Short description (max 100 chars)")
     .action(async (fileArg: string | undefined, opts: CreatePubOptions) => {
       const context = createCliCommandContext();
 
@@ -44,8 +38,6 @@ export function registerPubCommands(program: Command): void {
 
       const result = await context.getApiClient().create({
         content,
-        title: opts.title,
-        description: opts.description,
         slug: opts.slug,
       });
 
@@ -85,8 +77,6 @@ export function registerPubCommands(program: Command): void {
     .description("Update a pub's content and/or metadata")
     .argument("<slug>", "Slug of the pub to update")
     .option("--file <file>", "New content from file")
-    .option("--title <title>", "New title")
-    .option("--description <description>", "Short description (max 100 chars)")
     .option("--public", "Make the pub public")
     .option("--private", "Make the pub private")
     .option("--slug <newSlug>", "Rename the slug")
@@ -100,23 +90,15 @@ export function registerPubCommands(program: Command): void {
         commandName: "update",
       });
 
-      if (
-        content === undefined &&
-        opts.title === undefined &&
-        opts.description === undefined &&
-        isPublic === undefined &&
-        opts.slug === undefined
-      ) {
+      if (content === undefined && isPublic === undefined && opts.slug === undefined) {
         throw new Error(
-          "Nothing to update. Provide at least one of --file, --title, --description, --public, --private, or --slug.",
+          "Nothing to update. Provide at least one of --file, --public, --private, or --slug.",
         );
       }
 
       const result = await context.getApiClient().update({
         slug,
         content,
-        title: opts.title,
-        description: opts.description,
         isPublic,
         newSlug: opts.slug,
       });

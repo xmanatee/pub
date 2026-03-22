@@ -123,12 +123,7 @@ export class PubApiClient {
 
   // -- Pub CRUD -------------------------------------------------------------
 
-  async create(opts: {
-    content?: string;
-    title?: string;
-    description?: string;
-    slug?: string;
-  }): Promise<CreateResult> {
+  async create(opts: { content?: string; slug?: string }): Promise<CreateResult> {
     return this.request<CreateResult>("/api/v1/pubs", {
       method: "POST",
       body: JSON.stringify(opts),
@@ -164,8 +159,6 @@ export class PubApiClient {
   async update(opts: {
     slug: string;
     content?: string;
-    title?: string;
-    description?: string;
     isPublic?: boolean;
     newSlug?: string;
   }): Promise<UpdateResult> {

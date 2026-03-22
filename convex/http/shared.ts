@@ -3,7 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { httpAction } from "../_generated/server";
 import { rateLimiter } from "../rateLimits";
-import { escapeHtmlAttr, isValidSlug } from "../utils";
+import { escapeHtmlAttr, hasOgTag, isValidSlug } from "../utils";
 
 const CONTENT_CSP = [
   "default-src 'none'",
@@ -207,19 +207,35 @@ export function getPublicUrl() {
   return process.env.PUB_PUBLIC_URL ?? "";
 }
 
-export function buildOgTags(pub: { title?: string; description?: string; slug: string }): string {
+export function buildSupplementalOgTags(
+  pub: { title?: string; description?: string; slug: string },
+  html: string,
+): string {
   const publicUrl = getPublicUrl();
   const siteUrl = process.env.CONVEX_SITE_URL ?? "";
   const title = escapeHtmlAttr(pub.title || pub.slug);
-  const tags = [
-    `<meta property="og:title" content="${title}" />`,
-    `<meta property="og:type" content="article" />`,
-    `<meta property="og:url" content="${escapeHtmlAttr(`${publicUrl}/p/${pub.slug}`)}" />`,
-    `<meta property="og:image" content="${escapeHtmlAttr(`${siteUrl}/og/${pub.slug}`)}" />`,
-  ];
-  if (pub.description) {
+  const tags: string[] = [];
+
+  if (!hasOgTag(html, "og:title")) {
+    tags.push(`<meta property="og:title" content="${title}" />`);
+  }
+  if (!hasOgTag(html, "og:type")) {
+    tags.push(`<meta property="og:type" content="article" />`);
+  }
+  if (!hasOgTag(html, "og:url")) {
+    tags.push(
+      `<meta property="og:url" content="${escapeHtmlAttr(`${publicUrl}/p/${pub.slug}`)}" />`,
+    );
+  }
+  if (!hasOgTag(html, "og:image")) {
+    tags.push(
+      `<meta property="og:image" content="${escapeHtmlAttr(`${siteUrl}/og/${pub.slug}`)}" />`,
+    );
+  }
+  if (pub.description && !hasOgTag(html, "og:description")) {
     tags.push(`<meta property="og:description" content="${escapeHtmlAttr(pub.description)}" />`);
   }
+
   return tags.join("\n  ");
 }
 

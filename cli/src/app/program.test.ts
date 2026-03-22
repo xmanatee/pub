@@ -30,11 +30,10 @@ describe("CLI command surface", () => {
     ]);
   });
 
-  it("keeps create slug/title options", () => {
+  it("keeps create slug option", () => {
     const createCommand = requireCommand("create");
     const optionFlags = createCommand.options.map((option) => option.long);
     expect(optionFlags).toContain("--slug");
-    expect(optionFlags).toContain("--title");
   });
 
   it("keeps start agent-name option", () => {
