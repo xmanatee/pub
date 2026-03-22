@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   ANIMATED_TOLERANCE,
   freezeAnimations,
+  openDebugPage,
   SCREENSHOT_DIR,
   stableScreenshot,
 } from "../helpers/screenshot-utils";
@@ -10,8 +11,7 @@ import {
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
 async function setupPage(page: Page) {
-  await page.goto("/debug/control-bar");
-  await expect(page.getByRole("heading", { name: "Control Bar Debug" })).toBeVisible();
+  await openDebugPage(page, "/debug/control-bar", "Control Bar Debug");
   await freezeAnimations(page);
 }
 

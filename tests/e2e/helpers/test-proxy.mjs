@@ -2,7 +2,7 @@
  * Test proxy that combines Convex API port (3210) and site port (3211)
  * on a single port (3212).
  *
- * - HTTP requests to /api/v1/* or /serve/* or /og/* or /rss/* → site port (HTTP actions)
+ * - HTTP requests to /api/v1/* or /serve/* or /og/* → site port (HTTP actions)
  * - All other HTTP + WebSocket → API port (Convex client, auth, subscriptions)
  *
  * This is needed because the CLI's `getConvexCloudUrl()` only handles
@@ -22,8 +22,7 @@ function isSiteRoute(url) {
   return (
     url.startsWith("/api/v1/") ||
     url.startsWith("/serve/") ||
-    url.startsWith("/og/") ||
-    url.startsWith("/rss/")
+    url.startsWith("/og/")
   );
 }
 

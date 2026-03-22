@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
+import {
+  freezeAnimations,
+  openDebugPage,
+  SCREENSHOT_DIR,
+  stableScreenshot,
+} from "../helpers/screenshot-utils";
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
@@ -7,8 +12,7 @@ const PANEL_TOLERANCE = 0.003;
 
 test.describe("Panel screenshots", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/debug/panels");
-    await expect(page.getByRole("heading", { name: "Panels Debug" })).toBeVisible();
+    await openDebugPage(page, "/debug/panels", "Panels Debug");
     await freezeAnimations(page);
   });
 

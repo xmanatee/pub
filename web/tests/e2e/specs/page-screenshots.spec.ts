@@ -1,10 +1,7 @@
 import { expect, test } from "@playwright/test";
-import {
-  ANIMATED_TOLERANCE,
-  freezeAnimations,
-  SCREENSHOT_DIR,
-  stableScreenshot,
-} from "../helpers/screenshot-utils";
+import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
+
+const LANDING_PAGE_TOLERANCE = 0.01;
 
 test.use({ reducedMotion: "reduce" });
 
@@ -12,6 +9,7 @@ test.describe("Page screenshots", () => {
   test("landing page", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "One app to rule them all." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Examples that make it click" })).toBeVisible();
     await freezeAnimations(page);
     // html has overflow:hidden + height:100% (TMA viewport hardening), so body
     // scrolls internally and fullPage:true only captures the viewport-sized html.
@@ -22,7 +20,7 @@ test.describe("Page screenshots", () => {
     });
     await stableScreenshot(page, `${SCREENSHOT_DIR}/landing.png`, {
       fullPage: true,
-      maxDiffRatio: ANIMATED_TOLERANCE,
+      maxDiffRatio: LANDING_PAGE_TOLERANCE,
     });
   });
 

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   ANIMATED_TOLERANCE,
   freezeAnimations,
+  openDebugPage,
   SCREENSHOT_DIR,
   stableScreenshot,
 } from "../helpers/screenshot-utils";
@@ -10,8 +11,7 @@ test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 6000 } });
 
 test.describe("Blob animation screenshots", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/debug/blob");
-    await expect(page.getByRole("heading", { name: "Blob Debug" })).toBeVisible();
+    await openDebugPage(page, "/debug/blob", "Blob Debug");
     await freezeAnimations(page);
   });
 
