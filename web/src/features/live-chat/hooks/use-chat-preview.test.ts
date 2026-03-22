@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { act, createElement, useEffect } from "react";
+import { act, createElement, useEffect, useLayoutEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
@@ -78,6 +78,21 @@ function HookHarness({ messages }: { messages: ChatEntry[] }) {
   useEffect(() => {
     latestPreview = preview;
   }, [preview]);
+
+  return null;
+}
+
+function MountRaceHarness({ entry }: { entry: ChatEntry }) {
+  const [messages, setMessages] = useState<ChatEntry[]>([]);
+  const preview = useChatPreview(messages, "canvas");
+
+  useEffect(() => {
+    latestPreview = preview;
+  }, [preview]);
+
+  useLayoutEffect(() => {
+    setMessages([entry]);
+  }, [entry]);
 
   return null;
 }
@@ -176,6 +191,32 @@ describe("useChatPreview helpers", () => {
     expect(latestPreview?.preview).toEqual({
       source: "agent",
       text: "updated agent reply",
+    });
+  });
+
+  it("does not preview history that already exists on first render", () => {
+    const currentRoot = root;
+    if (!currentRoot) throw new Error("root not initialized");
+
+    act(() => {
+      currentRoot.render(createElement(HookHarness, { messages: [SYSTEM_ERROR] }));
+    });
+
+    expect(latestPreview?.preview).toBeNull();
+  });
+
+  it("previews the first system message added during mount", () => {
+    const currentRoot = root;
+    if (!currentRoot) throw new Error("root not initialized");
+
+    act(() => {
+      currentRoot.render(createElement(MountRaceHarness, { entry: SYSTEM_ERROR }));
+    });
+
+    expect(latestPreview?.preview).toEqual({
+      source: "system",
+      severity: "error",
+      text: "connection failed",
     });
   });
 });
