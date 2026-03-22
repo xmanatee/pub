@@ -18,8 +18,7 @@ const REQUIRED_BRIEFING_CAPABILITIES: ReadonlyArray<readonly [string, string]> =
   ["pub write -c canvas -f", "canvas updates via pub write"],
 
   // Canvas interactivity
-  ["pub.files.upload", "file upload from canvas to daemon"],
-  ["pub.files.download", "file download from daemon to browser"],
+  ["/__pub_files__/", "host file access via pub-fs URLs"],
   ["pub-command-manifest", "command manifest embedding in HTML"],
   ["pub.command(", "command invocation from canvas JS"],
 

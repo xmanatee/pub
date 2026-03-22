@@ -30,14 +30,12 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain('emit("ready",{})');
     expect(output).toContain("api.command=invokeCommand");
     expect(output).toContain("api.cancelCommand=cancelCommand");
-    expect(output).toContain("files.upload=uploadFile");
-    expect(output).toContain("files.download=downloadFile");
     expect(output).toContain('emit("command.invoke"');
-    expect(output).toContain('emit("file.upload"');
-    expect(output).toContain('emit("file.download"');
     expect(output).toContain("command.result");
-    expect(output).toContain("file.result");
     expect(output).toContain("getGuardTimeoutMs");
+    expect(output).not.toContain("files.upload");
+    expect(output).not.toContain("files.download");
+    expect(output).not.toContain("file.result");
   });
 
   it("intercepts console.error", () => {

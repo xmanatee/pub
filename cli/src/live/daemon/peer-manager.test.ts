@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDaemonState } from "./state.js";
 import { createPeerManager } from "./peer-manager.js";
+import { createDaemonState } from "./state.js";
 
 type StateChangeCallback = (state: string) => void;
 type IceStateChangeCallback = (state: string) => void;
@@ -59,7 +59,7 @@ function createTestPeerManager() {
     clearLocalCandidateTimers: vi.fn(),
     stopPingPong: vi.fn(),
     commandHandlerStop: vi.fn(),
-    canvasFileTransferReset: vi.fn(),
+    pubFsHandlerReset: vi.fn(),
   });
 
   manager.createPeer();

@@ -205,7 +205,6 @@ vi.mock("~/features/live/hooks/use-canvas-commands", () => ({
       finishedAt: null,
       phase: "idle",
     },
-    handleBridgeCanvasFileMessage: vi.fn(),
     handleBridgeCommandMessage: vi.fn(),
     onCanvasBridgeMessage: vi.fn(),
     outboundCanvasBridgeMessage: null,
