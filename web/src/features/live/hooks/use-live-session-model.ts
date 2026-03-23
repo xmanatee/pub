@@ -17,48 +17,48 @@ function getOrCreateSessionId(slug: string): string {
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) return error.message;
   if (typeof error === "string" && error.trim().length > 0) return error;
-  return "Live request failed";
+  return "Connection request failed";
 }
 
 export function useLiveSessionModel(slug: string) {
-  const live = useQuery(api.pubs.getLiveBySlug, { slug });
+  const live = useQuery(api.connections.getConnectionBySlug, { slug });
   const availableAgents = useQuery(api.presence.listAvailableForSlug, { slug });
   const agentOnline = availableAgents === undefined ? undefined : availableAgents.length > 0;
 
-  const requestLiveMutation = useMutation(api.pubs.requestLive);
-  const storeBrowserCandidatesMutation = useMutation(api.pubs.storeBrowserCandidates);
-  const takeoverLiveMutation = useMutation(api.pubs.takeoverLive);
-  const closeLiveMutation = useMutation(api.pubs.closeLiveByUser);
+  const requestConnectionMutation = useMutation(api.connections.requestConnection);
+  const storeBrowserCandidatesMutation = useMutation(api.connections.storeBrowserCandidates);
+  const takeoverConnectionMutation = useMutation(api.connections.takeoverConnection);
+  const closeConnectionMutation = useMutation(api.connections.closeConnectionByUser);
 
   const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
   const [wasConnected, setWasConnected] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
-  const [selectedPresenceId, setSelectedPresenceId] = useState<Id<"agentPresence"> | null>(null);
+  const [selectedHostId, setSelectedHostId] = useState<Id<"hosts"> | null>(null);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
 
   const resetSession = useCallback(() => {
     setWasConnected(false);
     setSessionError(null);
-    setSelectedPresenceId(null);
+    setSelectedHostId(null);
     setConnectionAttempt(0);
   }, []);
 
   useEffect(() => {
     if (!availableAgents) return;
     if (availableAgents.length === 0) {
-      setSelectedPresenceId(null);
+      setSelectedHostId(null);
       return;
     }
     const stillAvailable = availableAgents.some(
-      (agent: { presenceId: Id<"agentPresence"> }) => agent.presenceId === selectedPresenceId,
+      (agent: { hostId: Id<"hosts"> }) => agent.hostId === selectedHostId,
     );
     if (stillAvailable) return;
     if (availableAgents.length === 1) {
-      setSelectedPresenceId(availableAgents[0].presenceId);
+      setSelectedHostId(availableAgents[0].hostId);
     } else {
-      setSelectedPresenceId(null);
+      setSelectedHostId(null);
     }
-  }, [availableAgents, selectedPresenceId]);
+  }, [availableAgents, selectedHostId]);
 
   const sessionState: SessionState = useMemo(() => {
     if (!live) return "inactive";
@@ -68,13 +68,13 @@ export function useLiveSessionModel(slug: string) {
 
   const storeBrowserOffer = useCallback(
     async (input: { slug: string; offer: string }) => {
-      if (!selectedPresenceId) throw new Error("No agent selected");
+      if (!selectedHostId) throw new Error("No agent selected");
       try {
-        const result = await requestLiveMutation({
+        const result = await requestConnectionMutation({
           slug: input.slug,
           browserSessionId,
           browserOffer: input.offer,
-          targetPresenceId: selectedPresenceId,
+          hostId: selectedHostId,
         });
         setSessionError(null);
         return result;
@@ -83,7 +83,7 @@ export function useLiveSessionModel(slug: string) {
         throw error;
       }
     },
-    [browserSessionId, requestLiveMutation, selectedPresenceId],
+    [browserSessionId, requestConnectionMutation, selectedHostId],
   );
 
   const storeBrowserCandidates = useCallback(
@@ -105,7 +105,7 @@ export function useLiveSessionModel(slug: string) {
   );
 
   const takeoverLive = useCallback(() => {
-    return takeoverLiveMutation({ slug, sessionId: browserSessionId })
+    return takeoverConnectionMutation({ slug, sessionId: browserSessionId })
       .then((result) => {
         setSessionError(null);
         return result;
@@ -114,14 +114,14 @@ export function useLiveSessionModel(slug: string) {
         setSessionError(errorMessage(error));
         throw error;
       });
-  }, [browserSessionId, slug, takeoverLiveMutation]);
+  }, [browserSessionId, slug, takeoverConnectionMutation]);
 
   const closeLive = useCallback(() => {
     setSessionError(null);
-    void closeLiveMutation({ slug }).catch((error) => {
+    void closeConnectionMutation({ slug }).catch((error) => {
       setSessionError(errorMessage(error));
     });
-  }, [closeLiveMutation, slug]);
+  }, [closeConnectionMutation, slug]);
 
   const markBridgeConnected = useCallback(() => {
     setWasConnected(true);
@@ -148,8 +148,8 @@ export function useLiveSessionModel(slug: string) {
     retryConnection,
     sessionState,
     sessionError,
-    selectedPresenceId,
-    setSelectedPresenceId,
+    selectedHostId,
+    setSelectedHostId,
     storeBrowserCandidates,
     storeBrowserOffer,
     takeoverLive,

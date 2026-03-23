@@ -138,12 +138,12 @@ describe("getOgCardData", () => {
 
 describe("mapLiveError", () => {
   it("maps known live errors to API statuses", () => {
-    expect(mapLiveError(new Error("Live not found"))).toEqual({
-      message: "Live not found",
+    expect(mapLiveError(new Error("Connection not found"))).toEqual({
+      message: "Connection not found",
       status: 404,
     });
-    expect(mapLiveError(new Error("Live assigned to another agent"))).toEqual({
-      message: "Live assigned to another agent",
+    expect(mapLiveError(new Error("Connection assigned to another agent"))).toEqual({
+      message: "Connection assigned to another agent",
       status: 409,
     });
     expect(mapLiveError(new Error("Agent went offline"))).toEqual({

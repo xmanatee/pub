@@ -130,19 +130,19 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
         async () => {
           const url = new URL(request.url);
           const daemonSessionId = url.searchParams.get("daemonSessionId")?.trim();
-          let targetPresenceId: Id<"agentPresence"> | undefined;
+          let hostId: Id<"hosts"> | undefined;
           if (daemonSessionId) {
-            const presence = await ctx.runQuery(internal.presence.getPresenceByApiKeySession, {
+            const host = await ctx.runQuery(internal.presence.getHostByApiKeySession, {
               apiKeyId: auth.apiKeyId,
               daemonSessionId,
             });
-            if (!presence) return { live: null };
-            targetPresenceId = presence._id;
+            if (!host) return { live: null };
+            hostId = host._id;
           }
 
-          const result = await ctx.runQuery(internal.pubs.getLive, {
+          const result = await ctx.runQuery(internal.connections.getConnectionForHost, {
             userId: auth.userId,
-            targetPresenceId,
+            hostId,
           });
           return { live: result };
         },
@@ -170,7 +170,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       return executeAction(
         async () => {
           try {
-            await ctx.runMutation(internal.pubs.storeAgentAnswer, {
+            await ctx.runMutation(internal.connections.signalConnection, {
               slug: body.value.slug,
               userId: auth.userId,
               apiKeyId: auth.apiKeyId,
@@ -252,23 +252,23 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
         async () => {
           const url = new URL(request.url);
           const daemonSessionId = url.searchParams.get("daemonSessionId")?.trim();
-          let targetPresenceId: Id<"agentPresence"> | undefined;
+          let hostId: Id<"hosts"> | undefined;
           if (daemonSessionId) {
-            const presence = await ctx.runQuery(internal.presence.getPresenceByApiKeySession, {
+            const host = await ctx.runQuery(internal.presence.getHostByApiKeySession, {
               apiKeyId: auth.apiKeyId,
               daemonSessionId,
             });
-            if (!presence) return;
-            targetPresenceId = presence._id;
+            if (!host) return;
+            hostId = host._id;
           }
 
-          const active = await ctx.runQuery(internal.pubs.getLive, {
+          const active = await ctx.runQuery(internal.connections.getConnectionForHost, {
             userId: auth.userId,
-            targetPresenceId,
+            hostId,
           });
           if (!active) return;
           try {
-            await ctx.runMutation(internal.pubs.closeLive, {
+            await ctx.runMutation(internal.connections.closeConnection, {
               slug: active.slug,
               userId: auth.userId,
             });

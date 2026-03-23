@@ -69,7 +69,7 @@ export function useLiveControlBarBridge({
     requestLiveSession,
     retryConnection,
     toggleControlBar,
-    setSelectedPresenceId,
+    setSelectedHostId,
     setViewMode,
     sendChat,
     sendFile,
@@ -261,7 +261,7 @@ export function useLiveControlBarBridge({
       onPauseResume:
         controlBarState === "recording-paused" ? audio.resumeRecording : audio.pauseRecording,
       onReconnect: retryConnection,
-      onSelectAgent: setSelectedPresenceId,
+      onSelectAgent: setSelectedHostId,
       onSendRecording: audio.sendRecording,
       onStopVoiceMode: audio.stopVoiceMode,
       onTakeover: takeoverLive,
@@ -295,7 +295,7 @@ function resolveTransientLayer({
   onExit: () => void;
   onPauseResume: () => void;
   onReconnect: () => void;
-  onSelectAgent: ReturnType<typeof useLiveSession>["setSelectedPresenceId"];
+  onSelectAgent: ReturnType<typeof useLiveSession>["setSelectedHostId"];
   onSendRecording: () => void;
   onStopVoiceMode: () => void;
   onTakeover: ReturnType<typeof useLiveSession>["takeoverLive"];

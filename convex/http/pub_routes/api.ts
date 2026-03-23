@@ -115,10 +115,10 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             limit,
           });
 
-          const lives = await ctx.runQuery(internal.pubs.listLivesByUserInternal, {
+          const conns = await ctx.runQuery(internal.connections.listConnectionsByUserInternal, {
             userId: auth.userId,
           });
-          const liveMap = new Map(lives.map((s) => [s.slug, s]));
+          const liveMap = new Map(conns.map((c) => [c.slug, c]));
 
           return {
             pubs: result.pubs.map((p) => {
@@ -130,7 +130,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
                 isPublic: p.isPublic,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
-                live: live ? { status: live.status } : null,
+                live: live ? { status: "active" } : null,
               };
             }),
             cursor: result.isDone ? undefined : result.cursor,
@@ -169,7 +169,9 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
           if (!pub || pub.userId !== auth.userId) throw new ApiError("Pub not found", 404);
 
-          const live = await ctx.runQuery(internal.pubs.getLiveBySlugInternal, { slug });
+          const live = await ctx.runQuery(internal.connections.getConnectionBySlugInternal, {
+            slug,
+          });
 
           return {
             slug: pub.slug,
@@ -179,7 +181,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             isPublic: pub.isPublic,
             createdAt: pub.createdAt,
             updatedAt: pub.updatedAt,
-            live: live ? { status: live.status } : null,
+            live: live ? { status: "active" } : null,
           };
         },
         (pub) => jsonResponse({ pub }),

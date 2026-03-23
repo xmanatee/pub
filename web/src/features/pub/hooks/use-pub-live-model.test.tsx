@@ -16,7 +16,7 @@ const {
   resetCanvasCommandsMock,
   resetSessionMock,
   retryConnectionMock,
-  setSelectedPresenceIdMock,
+  setSelectedHostIdMock,
   setViewModeMock,
   sharedPreviewState,
   sharedState,
@@ -36,7 +36,7 @@ const {
   resetCanvasCommandsMock: vi.fn(),
   resetSessionMock: vi.fn(),
   retryConnectionMock: vi.fn(),
-  setSelectedPresenceIdMock: vi.fn(),
+  setSelectedHostIdMock: vi.fn(),
   setViewModeMock: vi.fn(),
   sharedPreviewState: {
     preview: null as null | {
@@ -46,8 +46,8 @@ const {
     },
   },
   sharedState: {
-    availableAgents: [{ presenceId: "presence-1", agentName: "Agent" }] as Array<{
-      presenceId: string;
+    availableAgents: [{ hostId: "presence-1", agentName: "Agent" }] as Array<{
+      hostId: string;
       agentName: string;
     }>,
     live: null as {
@@ -56,7 +56,7 @@ const {
       agentCandidates: string[];
       browserSessionId?: string;
     } | null,
-    selectedPresenceId: "presence-1" as string | null,
+    selectedHostId: "presence-1" as string | null,
   },
   storeBrowserCandidatesMock: vi.fn(async () => ({})),
   storeBrowserOfferMock: vi.fn(async () => ({})),
@@ -95,8 +95,8 @@ vi.mock("~/features/live/hooks/use-live-session-model", () => ({
     retryConnection: retryConnectionMock,
     sessionError: null,
     sessionState: "active",
-    selectedPresenceId: sharedState.selectedPresenceId,
-    setSelectedPresenceId: setSelectedPresenceIdMock,
+    selectedHostId: sharedState.selectedHostId,
+    setSelectedHostId: setSelectedHostIdMock,
     storeBrowserCandidates: storeBrowserCandidatesMock,
     storeBrowserOffer: storeBrowserOfferMock,
     takeoverLive: takeoverLiveMock,
@@ -262,9 +262,9 @@ describe("usePubLiveModel", () => {
   let root: Root | null = null;
 
   beforeEach(() => {
-    sharedState.availableAgents = [{ presenceId: "presence-1", agentName: "Agent" }];
+    sharedState.availableAgents = [{ hostId: "presence-1", agentName: "Agent" }];
     sharedState.live = null;
-    sharedState.selectedPresenceId = "presence-1";
+    sharedState.selectedHostId = "presence-1";
     addSystemMessageMock.mockReset();
     clearFilesMock.mockReset();
     clearMessagesMock.mockReset();
@@ -277,7 +277,7 @@ describe("usePubLiveModel", () => {
     resetCanvasCommandsMock.mockReset();
     resetSessionMock.mockReset();
     retryConnectionMock.mockReset();
-    setSelectedPresenceIdMock.mockReset();
+    setSelectedHostIdMock.mockReset();
     setViewModeMock.mockReset();
     sharedPreviewState.preview = null;
     storeBrowserCandidatesMock.mockReset();
@@ -380,7 +380,7 @@ describe("usePubLiveModel", () => {
     const states: Array<ReturnType<typeof usePubLiveModel>> = [];
 
     sharedState.availableAgents = [];
-    sharedState.selectedPresenceId = null;
+    sharedState.selectedHostId = null;
 
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -394,8 +394,8 @@ describe("usePubLiveModel", () => {
 
     expect(states.at(-1)?.controlBarCollapsed).toBe(false);
 
-    sharedState.availableAgents = [{ presenceId: "presence-1", agentName: "Agent" }];
-    sharedState.selectedPresenceId = "presence-1";
+    sharedState.availableAgents = [{ hostId: "presence-1", agentName: "Agent" }];
+    sharedState.selectedHostId = "presence-1";
 
     await act(async () => {
       const currentRoot = root;
@@ -411,10 +411,10 @@ describe("usePubLiveModel", () => {
     const states: Array<ReturnType<typeof usePubLiveModel>> = [];
 
     sharedState.availableAgents = [
-      { presenceId: "presence-1", agentName: "Agent 1" },
-      { presenceId: "presence-2", agentName: "Agent 2" },
+      { hostId: "presence-1", agentName: "Agent 1" },
+      { hostId: "presence-2", agentName: "Agent 2" },
     ];
-    sharedState.selectedPresenceId = null;
+    sharedState.selectedHostId = null;
 
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -428,7 +428,7 @@ describe("usePubLiveModel", () => {
 
     expect(states.at(-1)?.controlBarCollapsed).toBe(false);
 
-    sharedState.selectedPresenceId = "presence-1";
+    sharedState.selectedHostId = "presence-1";
 
     await act(async () => {
       const currentRoot = root;

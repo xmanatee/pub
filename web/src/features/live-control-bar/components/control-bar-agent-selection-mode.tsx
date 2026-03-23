@@ -9,14 +9,14 @@ import {
 } from "~/components/control-bar/control-bar-parts";
 
 interface AgentInfo {
-  presenceId: Id<"agentPresence">;
+  hostId: Id<"hosts">;
   agentName: string;
 }
 
 interface ControlBarAgentSelectionModeProps {
   agents: AgentInfo[];
   onExit: () => void;
-  onSelect: (presenceId: Id<"agentPresence">) => void;
+  onSelect: (hostId: Id<"hosts">) => void;
 }
 
 export function ControlBarAgentSelectionMode({
@@ -34,7 +34,7 @@ function TwoAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelectionMo
   return (
     <ControlBarPanel>
       {agents.map((agent) => (
-        <ControlBarTextAction key={agent.presenceId} onClick={() => onSelect(agent.presenceId)}>
+        <ControlBarTextAction key={agent.hostId} onClick={() => onSelect(agent.hostId)}>
           {agent.agentName}
         </ControlBarTextAction>
       ))}
@@ -45,19 +45,19 @@ function TwoAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelectionMo
 }
 
 function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelectionModeProps) {
-  const [selected, setSelected] = useState<Id<"agentPresence"> | "">("");
+  const [selected, setSelected] = useState<Id<"hosts"> | "">("");
 
   return (
     <ControlBarPanel>
       <ControlBarSelect
         value={selected}
-        onChange={(e) => setSelected(e.target.value as Id<"agentPresence">)}
+        onChange={(e) => setSelected(e.target.value as Id<"hosts">)}
       >
         <option value="" disabled>
           Select agent...
         </option>
         {agents.map((agent) => (
-          <option key={agent.presenceId} value={agent.presenceId}>
+          <option key={agent.hostId} value={agent.hostId}>
             {agent.agentName}
           </option>
         ))}
@@ -66,7 +66,7 @@ function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelection
       <ControlBarIconAction
         icon={<Play />}
         label="Start live"
-        onClick={() => onSelect(selected as Id<"agentPresence">)}
+        onClick={() => onSelect(selected as Id<"hosts">)}
         disabled={!selected}
         tooltip="Start live"
         variant="default"

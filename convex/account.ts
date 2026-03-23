@@ -46,20 +46,20 @@ export const deleteAccount = mutation({
       await ctx.db.delete(key._id);
     }
 
-    const lives = await ctx.db
-      .query("lives")
+    const connections = await ctx.db
+      .query("connections")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    for (const live of lives) {
-      await ctx.db.delete(live._id);
+    for (const conn of connections) {
+      await ctx.db.delete(conn._id);
     }
 
-    const presence = await ctx.db
-      .query("agentPresence")
+    const hosts = await ctx.db
+      .query("hosts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    for (const p of presence) {
-      await ctx.db.delete(p._id);
+    for (const host of hosts) {
+      await ctx.db.delete(host._id);
     }
 
     const linkTokens = await ctx.db

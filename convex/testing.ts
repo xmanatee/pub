@@ -16,8 +16,8 @@ export const clearAll = internalMutation({
     assertTestEnv();
     const tables = [
       "pubs",
-      "lives",
-      "agentPresence",
+      "connections",
+      "hosts",
       "apiKeys",
       "linkTokens",
       "telegramBots",

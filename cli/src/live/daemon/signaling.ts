@@ -5,11 +5,13 @@ import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { PubApiClient } from "../../core/api/client.js";
 import { decideSignalingUpdate } from "../transport/signaling.js";
 
-const LIVE_SIGNAL_QUERY = makeFunctionReference<
+export const LIVE_SIGNAL_QUERY_NAME = "connections:getConnectionForAgent";
+
+export const LIVE_SIGNAL_QUERY = makeFunctionReference<
   "query",
   { apiKey: string; daemonSessionId: string },
   LiveInfo | null
->("pubs:getLiveForAgent");
+>(LIVE_SIGNAL_QUERY_NAME);
 
 function parseLiveSnapshot(result: unknown): LiveInfo | null {
   return parseLiveInfo(result);

@@ -113,20 +113,20 @@ export const completeMerge = mutation({
       await ctx.db.patch(session._id, { userId: targetUserId });
     }
 
-    const lives = await ctx.db
-      .query("lives")
+    const connections = await ctx.db
+      .query("connections")
       .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
       .collect();
-    for (const live of lives) {
-      await ctx.db.patch(live._id, { userId: targetUserId });
+    for (const conn of connections) {
+      await ctx.db.patch(conn._id, { userId: targetUserId });
     }
 
-    const presence = await ctx.db
-      .query("agentPresence")
+    const hosts = await ctx.db
+      .query("hosts")
       .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
       .collect();
-    for (const p of presence) {
-      await ctx.db.patch(p._id, { userId: targetUserId });
+    for (const host of hosts) {
+      await ctx.db.patch(host._id, { userId: targetUserId });
     }
 
     await ctx.db.delete(sourceUserId);
