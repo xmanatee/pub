@@ -44,9 +44,10 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Package**: `web/package.json` (`pub-web`) — web-specific deps and scripts
 
 ### Backend (`convex/`)
-- **Schema** (`schema.ts`): `pubs` (content/description optional, `viewCount` for analytics, indexes: `by_slug`, `by_user`, `by_public`, plus compound sort indexes `by_user_lastViewedAt`/`by_user_updatedAt`/`by_user_createdAt`/`by_user_viewCount`), `lives` (WebRTC signaling with browser-initiated flow: `browserOffer`/`agentAnswer`/`browserSessionId`/`lastTakeoverAt`, `by_slug`/`by_user` indexes), `agentPresence` (per-user online/offline status), `apiKeys`, `linkTokens`, plus auth tables
-- **Pubs** (`pubs.ts`): unified CRUD + live management — `getBySlug`, `listByUser` (paginated, server-side sorted by `sortKey`), `listPublic`, `toggleVisibility`, `deleteByUser`, `requestLive`, `getLiveBySlug`, `listActiveLives`, `takeoverLive`, `storeAgentAnswer`, `storeBrowserCandidates`, `getLive`, `closeLive`; limit: 10 total pubs per user (200 for subscribed); 1 live per agent; 1 live per slug
-- **Presence** (`presence.ts`): agent presence management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s
+- **Schema** (`schema.ts`): `users` (profile, flags: `isDeveloper`/`isSubscribed`, `liveModelProfile`), `pubs` (content/previewHtml/title/description optional, `viewCount` for analytics, indexes: `by_slug`, `by_user`, `by_public`, plus compound sort indexes `by_user_lastViewedAt`/`by_user_updatedAt`/`by_user_createdAt`/`by_user_viewCount`), `hosts` (agent daemon sessions: `userId`/`apiKeyId`/`agentName`/`daemonSessionId`/`status`/`lastHeartbeatAt`, indexes: `by_user`/`by_api_key`), `connections` (WebRTC signaling: `hostId`/`browserOffer`/`agentAnswer`/`agentCandidates`/`browserCandidates`/`activeSlug`, indexes: `by_user`/`by_host`/`by_active_slug`), `apiKeys`, `linkTokens`, `telegramBots`, plus auth tables
+- **Pubs** (`pubs.ts`): CRUD — `getBySlug`, `listByUser` (paginated, server-side sorted by `sortKey`), `listPublic`, `toggleVisibility`, `duplicateByUser`, `deleteByUser`, `createDraftForLive`, `savePreviewHtml`; limit: 10 total pubs per user (200 for subscribed)
+- **Connections** (`connections.ts`): WebRTC signaling and live session management — `requestConnection`, `takeoverConnection`, `closeConnectionByUser`, `storeBrowserCandidates`, `updateActiveSlug`, `listActiveConnections`, `getConnectionBySlug`, `getConnectionForAgent`; plus internal: `signalConnection`, `closeConnection`, `getConnectionForHost`; max 1 connection per host, max 1 connection per slug
+- **Presence** (`presence.ts`): host lifecycle management — `goOnline`, `heartbeat`, `goOffline`, `checkStaleness`, `isCurrentUserAgentOnline`, `getOnlineAgentCount`, `listAvailableForSlug`; heartbeat interval 30s, staleness threshold 90s; host going offline cascades to closing all its connections
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
 - **Account** (`account.ts`): `disconnectProvider` (with guard: at least 1 provider must remain), `deleteAccount` (cascading delete of all user data)
 - **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; content serving at `/serve/:slug` with view tracking
@@ -60,7 +61,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Pub Limits
 - **Total**: max 10 pubs per user (enforced on create)
-- **Live**: max 1 concurrent live per agent; max 1 live per slug (starting a new live on the same slug or same agent replaces the previous session; if the selected agent goes offline, that live closes)
+- **Live**: max 1 connection per host; max 1 connection per slug (starting a new connection on the same slug or same host replaces the previous; if the host goes offline, its connections close)
 - These are free-tier limits; will become plan-dependent when paid plans are added
 
 ### CLI (`cli/`)

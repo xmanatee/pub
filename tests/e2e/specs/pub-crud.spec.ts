@@ -140,15 +140,15 @@ test.describe("Pub CRUD via API", () => {
     expect(res.status).toBe(401);
   });
 
-  test("reject deprecated title and description fields", async () => {
+  test("reject title and description fields in create body", async () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
     const res = await api.createPub({
-      slug: "deprecated-fields",
+      slug: "rejected-fields",
       content: "<p>content</p>",
       // Exercise the real HTTP contract, not the narrowed helper type.
-      ...({ title: "Legacy Title", description: "Legacy Description" } as Record<string, unknown>),
+      ...({ title: "Inline Title", description: "Inline Description" } as Record<string, unknown>),
     });
 
     expect(res.status).toBe(400);

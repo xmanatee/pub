@@ -177,7 +177,7 @@ describe("buildSessionBriefing", () => {
     const briefing = buildSessionBriefing("my-demo", {
       title: "My Landing Page",
       isPublic: true,
-      canvasContentFilePath: "/tmp/my-demo.session-content.html",
+      contentFilePath: "/tmp/my-demo.session-content.html",
     });
 
     // System prompt — communication instructions

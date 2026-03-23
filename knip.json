@@ -4,7 +4,7 @@
   "ignoreDependencies": ["tw-animate-css", "tailwindcss"],
   "workspaces": {
     ".": {
-      "entry": ["shared/*.ts", "convex/**/*.ts", "!convex/**/*.test.ts", "!convex/_generated/**"],
+      "entry": ["convex/**/*.ts", "!convex/**/*.test.ts", "!convex/_generated/**"],
       "project": ["convex/**/*.ts", "shared/**/*.ts", "!convex/_generated/**"]
     },
     "web": {

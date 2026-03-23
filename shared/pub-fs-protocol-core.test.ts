@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeEventMessage } from "./bridge-protocol-core";
 import {
@@ -12,6 +14,7 @@ import {
   PUB_FS_DELETE_EVENT,
   PUB_FS_DONE_EVENT,
   PUB_FS_READ_EVENT,
+  PUB_FS_URL_PREFIX,
   PUB_FS_WRITE_EVENT,
   parsePubFsCancelMessage,
   parsePubFsCancelRequest,
@@ -223,5 +226,15 @@ describe("parsePubFsDeleteRequest", () => {
 
   it("rejects missing path", () => {
     expect(parsePubFsDeleteRequest({ requestId: "d1" })).toBeNull();
+  });
+});
+
+describe("SW prefix drift", () => {
+  it("sw.js uses the same prefix as PUB_FS_URL_PREFIX", () => {
+    const swPath = resolve(__dirname, "../web/public/sandbox/sw.js");
+    const swSource = readFileSync(swPath, "utf-8");
+    const match = swSource.match(/var PUB_FS_PREFIX\s*=\s*"([^"]+)"/);
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe(PUB_FS_URL_PREFIX);
   });
 });

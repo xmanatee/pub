@@ -78,15 +78,6 @@ export type ControlEvent =
   | "pub-fs.done"
   | "pub-fs.cancel";
 
-export type BridgeCapability =
-  | "text"
-  | "html"
-  | "audio"
-  | "video"
-  | "binary"
-  | "stream"
-  | "command";
-
 export type StatusPayload = LiveRuntimeStateSnapshot & {
   channels?: string[];
   slug?: string;

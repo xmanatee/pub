@@ -14,7 +14,6 @@ export const COMMAND_MANIFEST_MIME = "application/pub-command-manifest+json";
 export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 
 export type CommandReturnType = "void" | "text" | "json";
-export type CommandExecutorKind = "exec" | "shell" | "agent";
 export type CommandAgentProvider = "auto" | "claude-code" | "claude-sdk" | "openclaw";
 export type CommandAgentMode = "main" | "detached";
 export type CommandAgentProfile = "fast" | "default" | "deep";

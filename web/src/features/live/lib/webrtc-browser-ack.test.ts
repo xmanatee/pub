@@ -52,18 +52,18 @@ describe("BrowserBridge ack routing", () => {
     const onMessage = vi.fn();
 
     bridge.activeBinaryStreams = new Map([
-      ["canvas-file", { streamId: "stream-1", startedAt: Date.now() }],
+      ["pub-fs", { streamId: "stream-1", startedAt: Date.now() }],
     ]);
     bridge.pendingBinaryMeta = new Map();
     bridge.dedup = { isDuplicate: () => false };
     bridge.onMessage = onMessage;
     bridge.sendAck = vi.fn();
 
-    bridge.emitBinaryMessage("canvas-file", new Uint8Array([1, 2, 3]).buffer);
+    bridge.emitBinaryMessage("pub-fs", new Uint8Array([1, 2, 3]).buffer);
 
     expect(onMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        channel: "canvas-file",
+        channel: "pub-fs",
         message: expect.objectContaining({
           type: "binary",
           meta: expect.objectContaining({

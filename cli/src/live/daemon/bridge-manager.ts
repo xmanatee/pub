@@ -164,18 +164,18 @@ export function createBridgeManager(params: {
     // Fetch content without binding the manifest — binding must happen AFTER
     // the bridge runner is set so that agent commands can reach the runner.
     const sessionContent = await fetchSessionContent(slug);
-    const canvasContentFilePath =
+    const contentFilePath =
       sessionContent.content.length > 0
         ? writeLiveSessionContentFile({ slug, content: sessionContent.content })
         : undefined;
     debugLog(
-      `bridge briefing load complete slug=${slug} contentBytes=${sessionContent.content.length} hasCanvasFile=${String(Boolean(canvasContentFilePath))}`,
+      `bridge briefing load complete slug=${slug} contentBytes=${sessionContent.content.length} hasContentFile=${String(Boolean(contentFilePath))}`,
     );
     const sessionBriefing = buildSessionBriefing(slug, {
       title: sessionContent.title,
       description: sessionContent.description,
       isPublic: sessionContent.isPublic,
-      canvasContentFilePath,
+      contentFilePath,
     });
 
     const runnerBridgeSettings = state.activeLiveModelProfile

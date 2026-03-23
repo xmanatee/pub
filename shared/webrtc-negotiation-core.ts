@@ -3,11 +3,6 @@ export type SessionDescriptionPayload = {
   type: string;
 };
 
-export const LIVE_WEBRTC_ROLES = {
-  browser: "offerer",
-  agent: "answerer",
-} as const;
-
 export type BrowserOfferPeer = {
   createOffer(): Promise<SessionDescriptionPayload>;
   setLocalDescription(description: SessionDescriptionPayload): Promise<void>;
