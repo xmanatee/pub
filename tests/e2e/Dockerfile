@@ -27,7 +27,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
     fi
 
 # Stage 1b: Pull OpenClaw from its official Docker image
-FROM ghcr.io/openclaw/openclaw:latest AS openclaw-source
+FROM ghcr.io/openclaw/openclaw@sha256:b86307b257ff42a81353b0d6b3963ccd09bbd9eb1916077d1833a967763c5bc7 AS openclaw-source  # pinned 2026-03-23
 
 # Stage 2: Test runner (Vite + proxy + CLI + OpenClaw + mock LLM + Playwright — all in one)
 FROM mcr.microsoft.com/playwright:v1.58.2-noble AS test-runner

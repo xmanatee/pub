@@ -139,6 +139,10 @@ Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list.
 - Prefer explicit, debuggable failures; avoid silent fallbacks in CLI/daemon/bridge paths.
 - Avoid Tailwind arbitrary-value or arbitrary-selector utility patterns in UI classes (for example `text-[...]`, `[&_...]`) unless there is no practical alternative.
 
+## E2E Docker Images
+
+Pinned by sha256 digest in `tests/e2e/`. Update no more than once a week — pull `:latest`, replace the `@sha256:...` value and the `# pinned` date.
+
 ## Frontend Structure and Testing References
 
 - Frontend structure conventions: `@docs/frontend-structure.md`
