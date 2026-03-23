@@ -296,17 +296,11 @@ export function usePubLiveModel({
   });
   pubFsMessageHandlerRef.current = handlePubFsChannelMessage;
 
-  // Owners always use the sandbox iframe so render errors, previews, and
-  // pub-fs all run through the same bridge surface.
   const sandboxOrigin = import.meta.env.VITE_SANDBOX_ORIGIN as string | undefined;
   const sandboxUrl = useMemo(() => {
-    if (!liveMode) return null;
+    if (!liveMode || !sandboxOrigin) return null;
     const sessionId = (liveEnabled ? transportKey : `${slug}:owner`).replace(/[^a-zA-Z0-9-]/g, "_");
-    if (sandboxOrigin) {
-      return `${sandboxOrigin}/__canvas__/${sessionId}/`;
-    }
-    // Dev/test fallback: same-origin sandbox path
-    return `/__sandbox__/__canvas__/${sessionId}/`;
+    return `${sandboxOrigin}/__canvas__/${sessionId}/`;
   }, [liveEnabled, liveMode, slug, transportKey]);
 
   const audio = useControlBarAudio({

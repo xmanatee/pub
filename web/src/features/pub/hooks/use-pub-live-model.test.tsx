@@ -567,7 +567,10 @@ describe("usePubLiveModel", () => {
     expect(states.at(-1)?.optionalLive).toBe(false);
   });
 
-  it("uses the sandbox iframe path for static owner content", async () => {
+  it("returns sandboxUrl using VITE_SANDBOX_ORIGIN for owner content", async () => {
+    const prev = import.meta.env.VITE_SANDBOX_ORIGIN;
+    import.meta.env.VITE_SANDBOX_ORIGIN = "https://sandbox.test";
+
     const states: Array<ReturnType<typeof usePubLiveModel>> = [];
 
     container = document.createElement("div");
@@ -586,7 +589,35 @@ describe("usePubLiveModel", () => {
       );
     });
 
-    expect(states.at(-1)?.liveRequested).toBe(false);
-    expect(states.at(-1)?.sandboxUrl).toContain("/__sandbox__/__canvas__/email-tinder_owner/");
+    expect(states.at(-1)?.sandboxUrl).toBe("https://sandbox.test/__canvas__/email-tinder_owner/");
+
+    import.meta.env.VITE_SANDBOX_ORIGIN = prev;
+  });
+
+  it("returns null sandboxUrl when VITE_SANDBOX_ORIGIN is not set", async () => {
+    const prev = import.meta.env.VITE_SANDBOX_ORIGIN;
+    delete import.meta.env.VITE_SANDBOX_ORIGIN;
+
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml="<html><body>static</body></html>"
+          contentState="ready"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    expect(states.at(-1)?.sandboxUrl).toBeNull();
+
+    import.meta.env.VITE_SANDBOX_ORIGIN = prev;
   });
 });
