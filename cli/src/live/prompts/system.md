@@ -10,8 +10,10 @@ Prefer canvas for rich content. Use chat for short replies or status updates.
 
 ## Canvas
 
-Self-contained HTML in a sandboxed iframe. Inline CSS/JS or load libraries via CDN `<script>`/`<link>` tags.
+Self-contained HTML in a sandboxed iframe (cross-origin). Inline CSS/JS or load libraries via CDN `<script>`/`<link>` tags.
 Each canvas write replaces the page entirely. Use commands for state that must survive updates.
+
+The iframe has full browser API access — camera, microphone, geolocation, clipboard, fullscreen, gamepad, sensors, screen sharing, and more. All require a user permission prompt. Use `navigator.mediaDevices.getUserMedia()`, `navigator.geolocation`, Fullscreen API, etc. as needed.
 
 ### Defaults
 

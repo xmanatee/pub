@@ -6,6 +6,8 @@ import { getPublicUrl, getSiteUrl } from "../env";
 import { rateLimiter } from "../rateLimits";
 import { escapeHtmlAttr, hasOgTag, isValidSlug } from "../utils";
 
+// Sandbox tokens and permissions features are canonical in shared/sandbox-policy-core.ts.
+// A test in sandbox-policy-core.test.ts reads this file and verifies both lists stay in sync.
 const CONTENT_CSP = [
   "default-src 'none'",
   "base-uri 'none'",
@@ -16,8 +18,27 @@ const CONTENT_CSP = [
   "style-src 'unsafe-inline' https: http:",
   "script-src 'unsafe-inline' 'unsafe-eval' https: http:",
   "connect-src https: http: wss:",
-  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads",
+  "sandbox allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-pointer-lock allow-orientation-lock allow-top-navigation-by-user-activation",
 ].join("; ");
+
+const CONTENT_PERMISSIONS_POLICY = [
+  "camera=*",
+  "microphone=*",
+  "display-capture=*",
+  "geolocation=*",
+  "fullscreen=*",
+  "autoplay=*",
+  "clipboard-read=*",
+  "clipboard-write=*",
+  "accelerometer=*",
+  "gyroscope=*",
+  "magnetometer=*",
+  "midi=*",
+  "gamepad=*",
+  "screen-wake-lock=*",
+  "web-share=*",
+].join(", ");
+
 const API_KEY_TOUCH_INTERVAL_MS = 15 * 60 * 1000;
 
 export function corsHeaders() {
@@ -43,6 +64,7 @@ export function contentSecurityHeaders() {
   return {
     "Cross-Origin-Resource-Policy": "cross-origin",
     "Content-Security-Policy": CONTENT_CSP,
+    "Permissions-Policy": CONTENT_PERMISSIONS_POLICY,
   };
 }
 
