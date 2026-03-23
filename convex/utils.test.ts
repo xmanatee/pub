@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
   escapeHtmlAttr,
   escapeXml,
+  extractOgMeta,
   generateApiKey,
   generateSlug,
   hashApiKey,
+  hasOgTag,
   isValidSlug,
   keyPreviewFromKey,
   MAX_CONTENT_SIZE,
+  MAX_DESCRIPTION_LENGTH,
   MAX_KEY_NAME_LENGTH,
   MAX_PUBS,
   MAX_PUBS_SUBSCRIBED,
@@ -154,10 +157,126 @@ describe("truncate", () => {
   });
 });
 
+describe("extractOgMeta", () => {
+  it("extracts og:title and og:description", () => {
+    const html = `<html><head>
+      <meta property="og:title" content="My Title">
+      <meta property="og:description" content="My description">
+    </head><body></body></html>`;
+    expect(extractOgMeta(html)).toEqual({ title: "My Title", description: "My description" });
+  });
+
+  it("falls back to <title> when no og:title", () => {
+    const html = "<html><head><title>Page Title</title></head><body></body></html>";
+    expect(extractOgMeta(html)).toEqual({ title: "Page Title" });
+  });
+
+  it("falls back to meta name=description when no og:description", () => {
+    const html = '<html><head><meta name="description" content="Fallback desc"></head></html>';
+    expect(extractOgMeta(html)).toEqual({ description: "Fallback desc" });
+  });
+
+  it("prefers og:title over <title>", () => {
+    const html = `<head>
+      <title>Fallback</title>
+      <meta property="og:title" content="OG Title">
+    </head>`;
+    expect(extractOgMeta(html).title).toBe("OG Title");
+  });
+
+  it("prefers og:description over meta name=description", () => {
+    const html = `<head>
+      <meta name="description" content="Fallback">
+      <meta property="og:description" content="OG Desc">
+    </head>`;
+    expect(extractOgMeta(html).description).toBe("OG Desc");
+  });
+
+  it("handles content attribute before property attribute", () => {
+    const html = '<meta content="Reversed Title" property="og:title">';
+    expect(extractOgMeta(html).title).toBe("Reversed Title");
+  });
+
+  it("handles single quotes in attributes", () => {
+    const html = "<meta property='og:title' content='Single Quoted'>";
+    expect(extractOgMeta(html).title).toBe("Single Quoted");
+  });
+
+  it("returns empty object for HTML with no meta tags", () => {
+    const html = "<html><body><p>Hello</p></body></html>";
+    expect(extractOgMeta(html)).toEqual({});
+  });
+
+  it("returns empty object for empty string", () => {
+    expect(extractOgMeta("")).toEqual({});
+  });
+
+  it("truncates long titles", () => {
+    const longTitle = "A".repeat(300);
+    const html = `<meta property="og:title" content="${longTitle}">`;
+    const result = extractOgMeta(html);
+    expect(result.title?.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+  });
+
+  it("truncates long descriptions", () => {
+    const longDesc = "B".repeat(300);
+    const html = `<meta property="og:description" content="${longDesc}">`;
+    const result = extractOgMeta(html);
+    expect(result.description?.length).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
+  });
+
+  it("trims whitespace from extracted values", () => {
+    const html = '<meta property="og:title" content="  Spaced Title  ">';
+    expect(extractOgMeta(html).title).toBe("Spaced Title");
+  });
+
+  it("handles <title> with whitespace", () => {
+    const html = "<title>  Trimmed  </title>";
+    expect(extractOgMeta(html).title).toBe("Trimmed");
+  });
+
+  it("ignores empty <title>", () => {
+    const html = "<title>   </title>";
+    expect(extractOgMeta(html)).toEqual({});
+  });
+});
+
+describe("hasOgTag", () => {
+  it("returns true when OG tag exists", () => {
+    const html = '<meta property="og:title" content="Test">';
+    expect(hasOgTag(html, "og:title")).toBe(true);
+  });
+
+  it("returns false when OG tag does not exist", () => {
+    const html = '<meta property="og:title" content="Test">';
+    expect(hasOgTag(html, "og:description")).toBe(false);
+  });
+
+  it("is case-insensitive", () => {
+    const html = '<META PROPERTY="og:title" CONTENT="Test">';
+    expect(hasOgTag(html, "og:title")).toBe(true);
+  });
+
+  it("returns false for empty HTML", () => {
+    expect(hasOgTag("", "og:title")).toBe(false);
+  });
+
+  it("detects og:image and og:url", () => {
+    const html = `<head>
+      <meta property="og:image" content="https://example.com/img.png">
+      <meta property="og:url" content="https://example.com">
+    </head>`;
+    expect(hasOgTag(html, "og:image")).toBe(true);
+    expect(hasOgTag(html, "og:url")).toBe(true);
+    expect(hasOgTag(html, "og:type")).toBe(false);
+  });
+});
+
 describe("constants", () => {
   it("limits are reasonable", () => {
     expect(MAX_CONTENT_SIZE).toBe(300 * 1024);
     expect(MAX_TITLE_LENGTH).toBe(256);
+    expect(MAX_DESCRIPTION_LENGTH).toBe(200);
     expect(MAX_KEY_NAME_LENGTH).toBe(128);
     expect(MAX_PUBS).toBe(10);
     expect(MAX_PUBS_SUBSCRIBED).toBe(200);

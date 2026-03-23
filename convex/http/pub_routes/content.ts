@@ -4,7 +4,7 @@ import { httpAction } from "../../_generated/server";
 import { rateLimiter } from "../../rateLimits";
 import { escapeXml, truncate } from "../../utils";
 import {
-  buildOgTags,
+  buildSupplementalOgTags,
   contentSecurityHeaders,
   getOgCardData,
   injectIntoHead,
@@ -31,7 +31,7 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
 
       await ctx.runMutation(internal.analytics.recordView, { slug });
 
-      const content = injectIntoHead(pub.content, buildOgTags(pub));
+      const content = injectIntoHead(pub.content, buildSupplementalOgTags(pub, pub.content));
       return new Response(content, {
         status: 200,
         headers: {

@@ -1,6 +1,6 @@
 export const MAX_CONTENT_SIZE = 300 * 1024; // 300KB
 export const MAX_TITLE_LENGTH = 256;
-export const MAX_DESCRIPTION_LENGTH = 100;
+export const MAX_DESCRIPTION_LENGTH = 200;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
 export const MAX_PUBS_SUBSCRIBED = 200;
@@ -57,4 +57,52 @@ export function escapeHtmlAttr(str: string): string {
 
 export function truncate(str: string, maxLen: number): string {
   return str.length > maxLen ? `${str.slice(0, maxLen - 1)}…` : str;
+}
+
+function extractMetaContent(html: string, attrName: string, attrValue: string): string | undefined {
+  const patterns = [
+    new RegExp(
+      `<meta\\s+[^>]*${attrName}\\s*=\\s*["']${attrValue}["'][^>]*content\\s*=\\s*["']([^"']*)["']`,
+      "i",
+    ),
+    new RegExp(
+      `<meta\\s+[^>]*content\\s*=\\s*["']([^"']*)["'][^>]*${attrName}\\s*=\\s*["']${attrValue}["']`,
+      "i",
+    ),
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+export function extractOgMeta(html: string): { title?: string; description?: string } {
+  const result: { title?: string; description?: string } = {};
+
+  const ogTitle = extractMetaContent(html, "property", "og:title");
+  if (ogTitle) {
+    result.title = truncate(ogTitle, MAX_TITLE_LENGTH);
+  } else {
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    if (titleMatch?.[1]?.trim()) {
+      result.title = truncate(titleMatch[1].trim(), MAX_TITLE_LENGTH);
+    }
+  }
+
+  const ogDesc = extractMetaContent(html, "property", "og:description");
+  if (ogDesc) {
+    result.description = truncate(ogDesc, MAX_DESCRIPTION_LENGTH);
+  } else {
+    const metaDesc = extractMetaContent(html, "name", "description");
+    if (metaDesc) {
+      result.description = truncate(metaDesc, MAX_DESCRIPTION_LENGTH);
+    }
+  }
+
+  return result;
+}
+
+export function hasOgTag(html: string, property: string): boolean {
+  return new RegExp(`<meta\\s+[^>]*property\\s*=\\s*["']${property}["']`, "i").test(html);
 }

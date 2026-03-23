@@ -35,4 +35,9 @@ Each canvas write replaces the page entirely. Use commands for state that must s
 
 ## Metadata
 
-Keep title and description current via `pub update --title "..." --description "..."` when content meaning changes.
+Title and description are set via OG meta tags in the HTML `<head>`. Always include them and keep them current:
+```html
+<meta property="og:title" content="My Title">
+<meta property="og:description" content="What this pub does">
+```
+The server extracts them automatically — `pub update` has no title/description flags.

@@ -27,7 +27,6 @@ describe("PubApiClient", () => {
 
       const result = await client.create({
         content: "<h1>Hello</h1>",
-        title: "Test",
       });
 
       expect(result).toEqual(mockResponse);
@@ -152,7 +151,6 @@ describe("PubApiClient", () => {
 
       const result = await client.update({
         slug: "abc",
-        title: "New Title",
         isPublic: false,
       });
 

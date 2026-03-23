@@ -65,14 +65,14 @@ For OpenClaw bridge mode, set an explicit workspace before `pub config --auto`, 
 
 ```bash
 pub create page.html
-pub create --slug demo --title "Demo" --description "A short demo" page.html
+pub create --slug demo page.html
 cat page.html | pub create
 
 pub get <slug>
 pub get <slug> --content
 
 pub update <slug> --file next.html
-pub update <slug> --title "New title" --description "Updated description" --public
+pub update <slug> --public
 
 pub list
 pub delete <slug>
@@ -82,9 +82,16 @@ Notes:
 - Pub is built for adaptive interfaces — agents generate real-time UIs tailored to the user's task.
 - Pubs are **private by default**.
 - **Reuse existing pubs** for regular or repeated tasks. Use `pub list` to check if a relevant pub already exists, then `pub update <slug>` instead of creating a new one. Each user is limited to 10 pubs.
-- **Keep title and description accurate.** When updating a pub's content, check whether the existing title and description still match. If they no longer reflect what the pub does, update them in the same `pub update` call.
-- `create` supports `--title`, `--description`, `--slug`.
-- `update` supports `--file`, `--title`, `--description`, `--public/--private`, `--slug`.
+- **Title and description come from OG meta tags in the HTML.** Always include `og:title` and `og:description` in your `<head>`. The server extracts them automatically — there are no CLI flags for title/description.
+  ```html
+  <head>
+    <meta property="og:title" content="My Pub Title">
+    <meta property="og:description" content="A short description of what this pub does">
+  </head>
+  ```
+  When updating a pub's content, always keep the OG tags accurate.
+- `create` supports `--slug`.
+- `update` supports `--file`, `--public/--private`, `--slug`.
 - Content is optional: a pub can be live-only.
 
 ## Going Live
