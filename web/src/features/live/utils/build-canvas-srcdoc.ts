@@ -41,10 +41,33 @@ function buildCanvasBridgeScript(): string {
     "emit('preview.captured',{html:c.outerHTML});}",
 
     `window.addEventListener("message",function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}if(data.type==="preview.capture"){capturePreview();return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type==="command.result"){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}}});`,
-    'window.addEventListener("error",function(ev){emit("error",{message:ev&&ev.message?ev.message:"Script error",filename:ev&&ev.filename?ev.filename:"",lineno:ev&&typeof ev.lineno==="number"?ev.lineno:0,colno:ev&&typeof ev.colno==="number"?ev.colno:0});});',
-    'window.addEventListener("unhandledrejection",function(ev){var reason=ev&&ev.reason;var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");emit("error",{message:message});});',
+    'window.onerror=function(message,source,lineno,colno,error){var resolvedMessage=error&&error.message?error.message:(typeof message==="string"&&message?message:"Script error");emit("error",{message:resolvedMessage,filename:typeof source==="string"?source:"",lineno:typeof lineno==="number"?lineno:0,colno:typeof colno==="number"?colno:0});return false;};',
+    'window.onunhandledrejection=function(ev){var reason=ev&&ev.reason;var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");emit("error",{message:message});};',
     'var origConsoleError=console.error;console.error=function(){origConsoleError.apply(console,arguments);try{var parts=[];for(var i=0;i<arguments.length;i++){parts.push(arguments[i] instanceof Error?arguments[i].message:String(arguments[i]));}var msg=parts.join(" ");if(msg.length>0){emit("console-error",{message:msg});}}catch(e){}};',
     'emit("ready",{});',
+    "})();",
+    "</script>",
+  ].join("");
+}
+
+function buildSandboxBootstrapScript(): string {
+  return [
+    "<script>",
+    "(function(){",
+    `var PARENT_SOURCE="${PARENT_TO_CANVAS_SOURCE}";`,
+    'var SANDBOX_SOURCE="pub-sandbox";',
+    "var swReady=false;",
+    "var handshakeStarted=false;",
+    "var keepaliveTimer=null;",
+    "var keepaliveListener=null;",
+    "var controllerChangeListener=null;",
+    'function cleanupHandshake(){if(keepaliveTimer){clearInterval(keepaliveTimer);keepaliveTimer=null;}if(keepaliveListener){navigator.serviceWorker.removeEventListener("message",keepaliveListener);keepaliveListener=null;}if(controllerChangeListener){navigator.serviceWorker.removeEventListener("controllerchange",controllerChangeListener);controllerChangeListener=null;}handshakeStarted=false;}',
+    'function signalReady(){if(swReady)return;swReady=true;cleanupHandshake();parent.postMessage({type:"sandbox-ready",source:SANDBOX_SOURCE},"*");}',
+    'function pingController(){var controller=navigator.serviceWorker&&navigator.serviceWorker.controller;if(!controller){return false;}controller.postMessage({type:"keepalive"});return true;}',
+    'function startHandshake(){if(swReady||handshakeStarted||!("serviceWorker" in navigator)){return;}handshakeStarted=true;keepaliveListener=function(event){if(event.data&&event.data.type==="keepalive-ack"){signalReady();}};controllerChangeListener=function(){pingController();};navigator.serviceWorker.addEventListener("message",keepaliveListener);navigator.serviceWorker.addEventListener("controllerchange",controllerChangeListener);pingController();keepaliveTimer=setInterval(function(){pingController();},100);}',
+    'function registerSW(){if(!("serviceWorker" in navigator)){console.error("[sandbox] Service workers not supported");return;}var swPath=location.pathname.indexOf("/__sandbox__/")===0?"/__sandbox__/sw.js":"/sw.js";navigator.serviceWorker.register(swPath,{scope:"/"}).then(function(){startHandshake();}).catch(function(err){console.error("[sandbox] SW registration failed:",err);});if(navigator.serviceWorker.controller){startHandshake();}}',
+    'window.addEventListener("message",function(ev){var data=ev.data;if(!data||data.source!==PARENT_SOURCE){return;}if(data.type==="inject-content"&&typeof data.html==="string"){document.open();document.write(data.html);document.close();}});',
+    "registerSW();",
     "})();",
     "</script>",
   ].join("");
@@ -87,5 +110,5 @@ export function buildSandboxHtml(html: string): string {
     "})();",
     "</script>",
   ].join("");
-  return injectHead(html, buildCanvasBridgeScript() + swRelay);
+  return injectHead(html, buildSandboxBootstrapScript() + buildCanvasBridgeScript() + swRelay);
 }

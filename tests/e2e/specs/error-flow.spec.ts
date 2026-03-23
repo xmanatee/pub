@@ -2,7 +2,7 @@
  * Error flow E2E tests.
  *
  * Verifies that canvas render errors and command execution failures
- * surface correctly in the browser and are forwarded to the agent.
+ * surface correctly in the browser.
  */
 import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
@@ -27,13 +27,12 @@ test.afterEach(async () => {
  * Test 1: Canvas JS error is caught by the bridge error handler.
  * Verifies: canvas throws → window error event → bridge postMessage → parent.
  *
- * The error is triggered only after the owner UI is ready, so the test does
- * not depend on auth/query timing. The bridge's window error handler catches
- * it, posts it to the parent, and the parent creates a system message.
+ * The error is triggered after the static owner canvas is ready. This keeps
+ * the test on the local render-error path instead of depending on live
+ * session startup.
  */
 test("canvas render error surfaces as system message", async ({ page }) => {
   const user = seedUser("Canvas Error User");
-  const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
   const sentinel = "E2E_CANVAS_RENDER_ERROR";
 
@@ -55,21 +54,27 @@ test("canvas render error surfaces as system message", async ({ page }) => {
 
   await api.createPub({ slug: "canvas-error-e2e", title: "Canvas Error E2E", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("canvas-error-bot");
-
   await injectAuth(page, user);
   await page.goto("/p/canvas-error-e2e");
 
-  // Wait for the owner UI before triggering the render error. This guarantees
-  // onRenderError is wired and avoids Docker auth timing races.
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-
   const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#throw")).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(async () =>
+      canvasFrame
+        .locator("body")
+        .evaluate(() => typeof (window as Window & { pub?: unknown }).pub === "object"),
+    )
+    .toBe(true);
   await canvasFrame.locator("#throw").click();
 
-  // The render error becomes a system preview notification in the control bar.
-  await expect(page.getByText(sentinel)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("menuitem", { name: "Chat view" }).dispatchEvent("click");
+
+  // Render errors are stored as durable system messages; the canvas preview
+  // is only a notification layer on top of this state.
+  await expect(page.getByText(`Error: ${sentinel}`, { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 /**

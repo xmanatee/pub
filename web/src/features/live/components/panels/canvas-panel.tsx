@@ -27,6 +27,8 @@ interface CanvasPanelProps {
   sandboxUrl?: string | null;
   /** Callback to set the iframe's contentWindow for pub-fs bridge. */
   onIframeWindow?: (win: Window | null) => void;
+  /** When false, delay sandbox HTML injection until the parent relay is ready. */
+  sandboxContentReady?: boolean;
 }
 
 type BlobPhase = "visible" | "fading" | "hidden";
@@ -45,6 +47,12 @@ function reportDedupedRenderError(
   cb?.(payload);
 }
 
+function getRejectionMessage(reason: unknown): string {
+  if (reason instanceof Error && reason.message.trim().length > 0) return reason.message;
+  if (typeof reason === "string" && reason.trim().length > 0) return reason;
+  return String(reason ?? "Unhandled promise rejection");
+}
+
 export function CanvasPanel({
   html,
   capturePreview,
@@ -55,6 +63,7 @@ export function CanvasPanel({
   blobTone,
   sandboxUrl,
   onIframeWindow,
+  sandboxContentReady = true,
 }: CanvasPanelProps) {
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [blobPhase, setBlobPhase] = useState<BlobPhase>("visible");
@@ -164,9 +173,72 @@ export function CanvasPanel({
     return () => window.removeEventListener("message", onMessage);
   }, [onCanvasBridgeMessage, onPreviewCaptured, onRenderError, sandboxMode]);
 
+  useEffect(() => {
+    if (!sandboxMode || !canvasBridgeReady || !onRenderError) return;
+    const frameWindow = iframeRef.current?.contentWindow;
+    if (!frameWindow) return;
+
+    const reportFrameError = (payload: LiveRenderErrorPayload) => {
+      const errorMessage = payload.message.trim() || "Script error";
+      const keyParts = [
+        errorMessage,
+        payload.filename ?? "",
+        typeof payload.lineno === "number" ? String(payload.lineno) : "",
+        typeof payload.colno === "number" ? String(payload.colno) : "",
+      ];
+      reportDedupedRenderError(
+        keyParts.join("|"),
+        { ...payload, message: errorMessage },
+        lastReportedErrorRef,
+        onRenderError,
+      );
+    };
+
+    const previousOnError = frameWindow.onerror;
+    frameWindow.onerror = (message, source, lineno, colno, error) => {
+      reportFrameError({
+        message:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : typeof message === "string" && message.trim().length > 0
+              ? message
+              : "Script error",
+        filename: typeof source === "string" && source.length > 0 ? source : undefined,
+        lineno: typeof lineno === "number" ? lineno : undefined,
+        colno: typeof colno === "number" ? colno : undefined,
+      });
+
+      if (typeof previousOnError === "function") {
+        return previousOnError.call(frameWindow, message, source, lineno, colno, error);
+      }
+      return false;
+    };
+
+    const previousOnUnhandledRejection = frameWindow.onunhandledrejection;
+    frameWindow.onunhandledrejection = (event) => {
+      const message = getRejectionMessage(event.reason);
+      reportDedupedRenderError(
+        `rejection|${message}`,
+        { message },
+        lastReportedErrorRef,
+        onRenderError,
+      );
+
+      if (typeof previousOnUnhandledRejection === "function") {
+        return previousOnUnhandledRejection.call(frameWindow, event);
+      }
+      return false;
+    };
+
+    return () => {
+      frameWindow.onerror = previousOnError;
+      frameWindow.onunhandledrejection = previousOnUnhandledRejection;
+    };
+  }, [canvasBridgeReady, onRenderError, sandboxMode]);
+
   // Inject content into sandbox iframe once it's ready
   useEffect(() => {
-    if (!sandboxMode || !sandboxReady || !html) return;
+    if (!sandboxMode || !sandboxReady || !sandboxContentReady || !html) return;
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
     const injectedHtml = buildSandboxHtml(html);
@@ -175,7 +247,7 @@ export function CanvasPanel({
       "*",
     );
     setLoadedHtml(html);
-  }, [sandboxMode, sandboxReady, html]);
+  }, [sandboxMode, sandboxReady, sandboxContentReady, html]);
 
   useEffect(() => {
     if (!capturePreview || !canvasBridgeReady) return;

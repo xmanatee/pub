@@ -7,11 +7,58 @@
   var PARENT_SOURCE = "pub-parent";
   var SANDBOX_SOURCE = "pub-sandbox";
   var swReady = false;
+  var handshakeStarted = false;
+  var keepaliveTimer = null;
+  var keepaliveListener = null;
+  var controllerChangeListener = null;
+
+  function cleanupHandshake() {
+    if (keepaliveTimer) {
+      clearInterval(keepaliveTimer);
+      keepaliveTimer = null;
+    }
+    if (keepaliveListener) {
+      navigator.serviceWorker.removeEventListener("message", keepaliveListener);
+      keepaliveListener = null;
+    }
+    if (controllerChangeListener) {
+      navigator.serviceWorker.removeEventListener("controllerchange", controllerChangeListener);
+      controllerChangeListener = null;
+    }
+    handshakeStarted = false;
+  }
 
   function signalReady() {
     if (swReady) return;
     swReady = true;
+    cleanupHandshake();
     parent.postMessage({ type: "sandbox-ready", source: SANDBOX_SOURCE }, "*");
+  }
+
+  function pingController() {
+    var controller = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!controller) return false;
+    controller.postMessage({ type: "keepalive" });
+    return true;
+  }
+
+  function startHandshake() {
+    if (swReady || handshakeStarted || !("serviceWorker" in navigator)) return;
+    handshakeStarted = true;
+    keepaliveListener = function (event) {
+      if (event.data && event.data.type === "keepalive-ack") {
+        signalReady();
+      }
+    };
+    controllerChangeListener = function () {
+      pingController();
+    };
+    navigator.serviceWorker.addEventListener("message", keepaliveListener);
+    navigator.serviceWorker.addEventListener("controllerchange", controllerChangeListener);
+    pingController();
+    keepaliveTimer = setInterval(function () {
+      pingController();
+    }, 100);
   }
 
   function registerSW() {
@@ -24,32 +71,15 @@
     var swPath = location.pathname.indexOf("/__sandbox__/") === 0 ? "/__sandbox__/sw.js" : "/sw.js";
     navigator.serviceWorker
       .register(swPath, { scope: "/" })
-      .then(function (reg) {
-        if (reg.active) {
-          signalReady();
-          return;
-        }
-        var worker = reg.installing || reg.waiting;
-        if (worker) {
-          worker.addEventListener("statechange", function () {
-            if (worker.state === "activated") signalReady();
-          });
-        }
-        reg.addEventListener("updatefound", function () {
-          var newWorker = reg.installing;
-          if (newWorker) {
-            newWorker.addEventListener("statechange", function () {
-              if (newWorker.state === "activated") signalReady();
-            });
-          }
-        });
+      .then(function () {
+        startHandshake();
       })
       .catch(function (err) {
         console.error("[sandbox] SW registration failed:", err);
       });
 
     if (navigator.serviceWorker.controller) {
-      signalReady();
+      startHandshake();
     }
   }
 

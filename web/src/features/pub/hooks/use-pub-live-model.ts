@@ -132,7 +132,8 @@ export function usePubLiveModel({
         selectedPresenceId,
       }).defaultCollapsed,
   );
-  const [liveRequested, setLiveRequested] = useState(defaultLiveRequested);
+  const [liveRequestedOverride, setLiveRequestedOverride] = useState<boolean | null>(null);
+  const liveRequested = liveRequestedOverride ?? defaultLiveRequested;
   const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
   const notifiedStatusRef = useRef<string | null>(null);
@@ -274,23 +275,29 @@ export function usePubLiveModel({
   });
   commandMessageHandlerRef.current = handleBridgeCommandMessage;
 
-  const { setIframeWindow, handlePubFsChannelMessage } = usePubFsBridge({
+  const {
+    setIframeWindow,
+    handlePubFsChannelMessage,
+    ready: pubFsBridgeReady,
+  } = usePubFsBridge({
     bridgeRef,
     enabled: liveEnabled,
+    ensureChannel,
   });
   pubFsMessageHandlerRef.current = handlePubFsChannelMessage;
 
-  // Derive sandbox URL for pub-fs Service Worker mode
+  // Owners always use the sandbox iframe so render errors, previews, and
+  // pub-fs all run through the same bridge surface.
   const sandboxOrigin = import.meta.env.VITE_SANDBOX_ORIGIN as string | undefined;
   const sandboxUrl = useMemo(() => {
-    if (!liveEnabled) return null;
-    const sessionId = transportKey.replace(/[^a-zA-Z0-9-]/g, "_");
+    if (!liveMode) return null;
+    const sessionId = (liveEnabled ? transportKey : `${slug}:owner`).replace(/[^a-zA-Z0-9-]/g, "_");
     if (sandboxOrigin) {
       return `${sandboxOrigin}/__canvas__/${sessionId}/`;
     }
     // Dev/test fallback: same-origin sandbox path
     return `/__sandbox__/__canvas__/${sessionId}/`;
-  }, [liveEnabled, transportKey]);
+  }, [liveEnabled, liveMode, slug, transportKey]);
 
   const audio = useControlBarAudio({
     disabled: runtimeState.connectionState !== "connected" || runtimeState.agentState !== "ready",
@@ -302,12 +309,6 @@ export function usePubLiveModel({
   });
 
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
-
-  useEffect(() => {
-    if (hasCommandManifest) {
-      setLiveRequested(true);
-    }
-  }, [hasCommandManifest]);
 
   useEffect(() => {
     setNow(Date.now());
@@ -401,7 +402,7 @@ export function usePubLiveModel({
   }, [hasCanvasContent]);
 
   const requestLiveSession = useCallback(() => {
-    setLiveRequested(true);
+    setLiveRequestedOverride(true);
     if (hasCanvasContent) {
       setCollapsePreference(false);
     }
@@ -460,7 +461,7 @@ export function usePubLiveModel({
     previousRequiresUserActionRef.current = resetLiveStartPolicy.requiresUserAction;
     setCanvasHtml(baseContentHtml ?? null);
     setCollapsePreference(resetLiveStartPolicy.defaultCollapsed);
-    setLiveRequested(defaultLiveRequested);
+    setLiveRequestedOverride(null);
     trackedAnalytics.current = false;
     dismissPreview();
     clearMessages();
@@ -575,7 +576,7 @@ export function usePubLiveModel({
 
   const handleClose = useCallback(() => {
     setCollapsePreference(false);
-    setLiveRequested(false);
+    setLiveRequestedOverride(false);
     resetLiveSurface();
     if (liveEnabled) closeLive();
     void navigate({ to: "/dashboard" });
@@ -645,6 +646,7 @@ export function usePubLiveModel({
     transportStatus: viewState.transportStatus,
     viewMode,
     sandboxUrl,
+    pubFsBridgeReady,
     blobState: viewState.blobState,
     voiceModeEnabled,
   };

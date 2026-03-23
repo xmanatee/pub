@@ -23,17 +23,23 @@ import type { BrowserBridge, ChannelMessage } from "~/features/live/lib/webrtc-b
 interface PendingRequest {
   requestId: string;
   port: MessagePort;
+  sent: boolean;
 }
 
 export class PubFsBridge {
   private pending = new Map<string, PendingRequest>();
   private activeRequestId: string | null = null;
   private bridgeRef: React.RefObject<BrowserBridge | null>;
+  private getReadyBridge: () => Promise<BrowserBridge | null>;
   private iframeWindow: Window | null = null;
   private boundWindowListener: ((event: MessageEvent) => void) | null = null;
 
-  constructor(bridgeRef: React.RefObject<BrowserBridge | null>) {
+  constructor(
+    bridgeRef: React.RefObject<BrowserBridge | null>,
+    getReadyBridge: () => Promise<BrowserBridge | null>,
+  ) {
     this.bridgeRef = bridgeRef;
+    this.getReadyBridge = getReadyBridge;
     this.boundWindowListener = this.handleWindowMessage.bind(this);
     window.addEventListener("message", this.boundWindowListener);
   }
@@ -53,34 +59,36 @@ export class PubFsBridge {
     const port = event.ports[0];
     if (!port) return;
 
-    const bridge = this.bridgeRef.current;
-    if (!bridge) {
-      port.postMessage({ type: "error", code: "NO_CONNECTION", message: "No live connection." });
-      return;
-    }
-
     if (method === "PUT") {
-      this.handlePut(bridge, requestId, path, data, port);
+      void this.handlePut(requestId, path, data, port);
       return;
     }
 
     if (method === "DELETE") {
-      this.handleDelete(bridge, requestId, path, port);
+      void this.handleDelete(requestId, path, port);
       return;
     }
 
-    this.handleGet(bridge, requestId, path, data, port);
+    void this.handleGet(requestId, path, data, port);
   }
 
-  private handleGet(
-    bridge: BrowserBridge,
+  private async resolveReadyBridge(port: MessagePort): Promise<BrowserBridge | null> {
+    const bridge = await this.getReadyBridge();
+    if (bridge) return bridge;
+    port.postMessage({ type: "error", code: "NO_CONNECTION", message: "No live connection." });
+    return null;
+  }
+
+  private async handleGet(
     requestId: string,
     path: string,
     data: Record<string, unknown>,
     port: MessagePort,
-  ): void {
-    this.pending.set(requestId, { requestId, port });
-    bridge.send(
+  ): Promise<void> {
+    this.pending.set(requestId, { requestId, port, sent: false });
+    const bridge = await this.resolveReadyBridge(port);
+    if (!bridge || !this.pending.has(requestId)) return;
+    const sent = bridge.send(
       CHANNELS.PUB_FS,
       makePubFsReadMessage({
         requestId,
@@ -89,37 +97,84 @@ export class PubFsBridge {
         rangeEnd: typeof data.rangeEnd === "number" ? data.rangeEnd : undefined,
       }),
     );
+    if (!sent) {
+      this.pending.delete(requestId);
+      port.postMessage({
+        type: "error",
+        code: "CHANNEL_NOT_READY",
+        message: "Pub FS channel is not ready.",
+      });
+      return;
+    }
+    const pending = this.pending.get(requestId);
+    if (pending) pending.sent = true;
   }
 
-  private handlePut(
-    bridge: BrowserBridge,
+  private async handlePut(
     requestId: string,
     path: string,
     data: Record<string, unknown>,
     port: MessagePort,
-  ): void {
+  ): Promise<void> {
     const body = data.body instanceof ArrayBuffer ? data.body : null;
     if (!body) {
       port.postMessage({ type: "error", code: "INVALID_BODY", message: "Missing request body." });
       return;
     }
-    this.pending.set(requestId, { requestId, port });
-    bridge.send(CHANNELS.PUB_FS, makePubFsWriteMessage({ requestId, path, size: body.byteLength }));
+    this.pending.set(requestId, { requestId, port, sent: false });
+    const bridge = await this.resolveReadyBridge(port);
+    if (!bridge || !this.pending.has(requestId)) return;
+    const started = bridge.send(
+      CHANNELS.PUB_FS,
+      makePubFsWriteMessage({ requestId, path, size: body.byteLength }),
+    );
+    if (!started) {
+      this.pending.delete(requestId);
+      port.postMessage({
+        type: "error",
+        code: "CHANNEL_NOT_READY",
+        message: "Pub FS channel is not ready.",
+      });
+      return;
+    }
+    const pending = this.pending.get(requestId);
+    if (pending) pending.sent = true;
     // Send body in chunks
     const bytes = new Uint8Array(body);
     for (let offset = 0; offset < bytes.length; offset += STREAM_CHUNK_SIZE) {
-      bridge.sendBinary(CHANNELS.PUB_FS, bytes.slice(offset, offset + STREAM_CHUNK_SIZE).buffer);
+      const sent = bridge.sendBinary(
+        CHANNELS.PUB_FS,
+        bytes.slice(offset, offset + STREAM_CHUNK_SIZE).buffer,
+      );
+      if (!sent) {
+        this.pending.delete(requestId);
+        this.activeRequestId = null;
+        port.postMessage({
+          type: "error",
+          code: "CHANNEL_NOT_READY",
+          message: "Pub FS channel is not ready.",
+        });
+        return;
+      }
     }
   }
 
-  private handleDelete(
-    bridge: BrowserBridge,
-    requestId: string,
-    path: string,
-    port: MessagePort,
-  ): void {
-    this.pending.set(requestId, { requestId, port });
-    bridge.send(CHANNELS.PUB_FS, makePubFsDeleteMessage({ requestId, path }));
+  private async handleDelete(requestId: string, path: string, port: MessagePort): Promise<void> {
+    this.pending.set(requestId, { requestId, port, sent: false });
+    const bridge = await this.resolveReadyBridge(port);
+    if (!bridge || !this.pending.has(requestId)) return;
+    const sent = bridge.send(CHANNELS.PUB_FS, makePubFsDeleteMessage({ requestId, path }));
+    if (!sent) {
+      this.pending.delete(requestId);
+      port.postMessage({
+        type: "error",
+        code: "CHANNEL_NOT_READY",
+        message: "Pub FS channel is not ready.",
+      });
+      return;
+    }
+    const pending = this.pending.get(requestId);
+    if (pending) pending.sent = true;
   }
 
   handleChannelMessage(cm: ChannelMessage): void {
@@ -181,24 +236,12 @@ export class PubFsBridge {
         code: "BRIDGE_DESTROYED",
         message: "Connection closed.",
       });
-      if (bridge) {
+      if (bridge && pending.sent) {
         bridge.send(CHANNELS.PUB_FS, makePubFsCancelMessage({ requestId }));
       }
     }
     this.pending.clear();
     this.activeRequestId = null;
     this.iframeWindow = null;
-  }
-
-  reset(): void {
-    for (const [, pending] of this.pending) {
-      pending.port.postMessage({
-        type: "error",
-        code: "SESSION_RESET",
-        message: "Live session reset.",
-      });
-    }
-    this.pending.clear();
-    this.activeRequestId = null;
   }
 }

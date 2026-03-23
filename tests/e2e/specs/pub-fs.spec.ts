@@ -26,7 +26,7 @@ async function waitForConnection(page: Page) {
   const textbox = page.getByRole("textbox", { name: "Message" });
   await textbox.fill("_");
   await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
-  await page.keyboard.press("Escape");
+  await textbox.fill("");
 }
 
 test.beforeEach(async () => {

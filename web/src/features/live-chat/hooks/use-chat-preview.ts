@@ -28,24 +28,24 @@ export function useChatPreview(messages: ChatEntry[], viewMode: LiveViewMode) {
   }, [clearTimer]);
 
   useEffect(() => {
-    const lastPreviewEntry = findLastPreviewEntry(messages);
-    const lastPreviewKey = lastPreviewEntry ? getPreviewEntryKey(lastPreviewEntry) : null;
-
     if (viewMode === "chat") {
-      lastSeenKeyRef.current = lastPreviewKey;
+      lastSeenKeyRef.current = getLastPreviewEntryKey(messages);
       dismissPreview();
       return;
     }
 
-    if (!lastPreviewEntry || lastPreviewKey === lastSeenKeyRef.current) return;
+    const nextEntry = findNextPreviewEntry(messages, lastSeenKeyRef.current);
+    if (!nextEntry) return;
 
-    const nextPreview = previewFromChatEntry(lastPreviewEntry);
+    const nextPreview = previewFromChatEntry(nextEntry.entry);
     if (!nextPreview) return;
-    lastSeenKeyRef.current = lastPreviewKey;
+    if (isBlockingPreview(preview) && !isBlockingPreview(nextPreview)) return;
+
+    lastSeenKeyRef.current = nextEntry.lastUnseenKey;
     setPreview(nextPreview);
     clearTimer();
     timerRef.current = setTimeout(() => setPreview(null), AUTO_DISMISS_MS);
-  }, [viewMode, messages, clearTimer, dismissPreview]);
+  }, [viewMode, messages, preview, clearTimer, dismissPreview]);
 
   useEffect(() => clearTimer, [clearTimer]);
 
@@ -93,4 +93,35 @@ function getPreviewEntryKey(entry: ChatEntry): string {
 function getLastPreviewEntryKey(messages: ChatEntry[]): string | null {
   const entry = findLastPreviewEntry(messages);
   return entry ? getPreviewEntryKey(entry) : null;
+}
+
+function findNextPreviewEntry(
+  messages: ChatEntry[],
+  lastSeenKey: string | null,
+): { entry: ChatEntry; lastUnseenKey: string } | null {
+  const previewEntries = messages.filter(
+    (entry) => entry.from === "agent" || entry.from === "system",
+  );
+  if (previewEntries.length === 0) return null;
+
+  const lastSeenIndex =
+    lastSeenKey === null
+      ? -1
+      : previewEntries.findIndex((entry) => getPreviewEntryKey(entry) === lastSeenKey);
+  const unseen = previewEntries.slice(lastSeenIndex + 1);
+  if (unseen.length === 0) return null;
+
+  const lastUnseenKey = getPreviewEntryKey(unseen[unseen.length - 1]);
+  const prioritizedEntry =
+    [...unseen].reverse().find((entry) => entry.type === "system" && entry.severity === "error") ??
+    unseen[unseen.length - 1];
+
+  return {
+    entry: prioritizedEntry,
+    lastUnseenKey,
+  };
+}
+
+function isBlockingPreview(preview: ChatPreview | null): boolean {
+  return preview?.source === "system" && preview.severity === "error";
 }

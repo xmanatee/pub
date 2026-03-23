@@ -16,7 +16,9 @@ import { PubSourceView } from "./pub-source-view";
 export function PubRoutePage({ slug, showSource }: { slug: string; showSource?: boolean }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
   const { developerModeEnabled } = useDeveloperMode();
-  const { html: baseContentHtml, status: contentState } = useContentHtml(pub?.content);
+  const { html: baseContentHtml, status: contentState } = useContentHtml(pub?.content, {
+    loading: pub === undefined,
+  });
 
   if (showSource && developerModeEnabled && pub) {
     return <PubSourceView slug={slug} title={pub.title} content={pub.content} />;
@@ -88,6 +90,13 @@ function PubRouteContent({
               blobTone={liveBlob.tone}
               sandboxUrl={isOwner ? session.sandboxUrl : null}
               onIframeWindow={isOwner ? session.onIframeWindow : undefined}
+              sandboxContentReady={
+                isOwner
+                  ? !session.liveRequested && !session.hasCommandManifest
+                    ? true
+                    : session.pubFsBridgeReady
+                  : true
+              }
             />
           </div>
 

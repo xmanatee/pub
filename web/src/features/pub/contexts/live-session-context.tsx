@@ -153,6 +153,7 @@ export function createMockLiveSession(
     takeoverLive: async () => {},
     transportStatus: "connected",
     viewMode: "canvas",
+    pubFsBridgeReady: true,
     blobState: "idle",
     voiceModeEnabled: true,
     ...overrides,

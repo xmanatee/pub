@@ -77,7 +77,8 @@ vi.mock("@shared/command-protocol-core", async () => {
   );
   return {
     ...actual,
-    extractManifestFromHtml: (html?: string | null) => (html ? { commands: [] } : null),
+    extractManifestFromHtml: (html?: string | null) =>
+      html?.includes('type="application/pub-command-manifest+json"') ? { commands: [] } : null,
   };
 });
 
@@ -198,7 +199,7 @@ vi.mock("~/features/live/hooks/use-pub-fs-bridge", () => ({
   usePubFsBridge: () => ({
     setIframeWindow: vi.fn(),
     handlePubFsChannelMessage: vi.fn(),
-    resetPubFs: vi.fn(),
+    ready: true,
   }),
 }));
 
@@ -228,7 +229,14 @@ import { usePubLiveModel } from "./use-pub-live-model";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 function HookHarness({
-  baseContentHtml = "<html><body>manifest</body></html>",
+  baseContentHtml = `<!DOCTYPE html>
+<html>
+<body>
+  <script type="application/pub-command-manifest+json">
+  { "manifestId": "test-manifest", "functions": [] }
+  </script>
+</body>
+</html>`,
   contentState = "ready",
   onChange,
 }: {
@@ -454,5 +462,130 @@ describe("usePubLiveModel", () => {
     expect(states.at(-1)?.liveRequested).toBe(true);
     expect(states.at(-1)?.optionalLive).toBe(false);
     expect(states.at(-1)?.controlBarCollapsed).toBe(false);
+  });
+
+  it("does not latch an early empty state into live mode for static pubs", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml={null}
+          contentState="loading"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml="<html><body>static</body></html>"
+          contentState="ready"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    expect(states.at(-1)?.liveRequested).toBe(false);
+    expect(states.at(-1)?.optionalLive).toBe(true);
+  });
+
+  it("enters live mode when a static owner pub explicitly requests it", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml="<html><body>static</body></html>"
+          contentState="ready"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    const initialState = states.at(-1);
+    if (!initialState) throw new Error("hook did not emit state");
+    expect(initialState.liveRequested).toBe(false);
+    expect(initialState.optionalLive).toBe(true);
+
+    await act(async () => {
+      initialState.requestLiveSession();
+    });
+
+    expect(states.at(-1)?.liveRequested).toBe(true);
+    expect(states.at(-1)?.optionalLive).toBe(false);
+  });
+
+  it("adopts the empty-pub default after loading completes", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml={null}
+          contentState="loading"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml={null}
+          contentState="empty"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    expect(states.at(-1)?.liveRequested).toBe(true);
+    expect(states.at(-1)?.optionalLive).toBe(false);
+  });
+
+  it("uses the sandbox iframe path for static owner content", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness
+          baseContentHtml="<html><body>static</body></html>"
+          contentState="ready"
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    expect(states.at(-1)?.liveRequested).toBe(false);
+    expect(states.at(-1)?.sandboxUrl).toContain("/__sandbox__/__canvas__/email-tinder_owner/");
   });
 });

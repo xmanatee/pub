@@ -31,16 +31,28 @@ async function retryWrite(fixture: CliFixture, message: string, maxAttempts = 10
 }
 
 /**
- * Wait for the WebRTC connection to be established by filling a dummy message
- * and checking the send button becomes enabled, then clearing the input.
+ * Ensure the page is in live mode, then wait for the WebRTC connection by
+ * filling a dummy message and checking the send button becomes enabled.
  *
- * Uses .fill() instead of .click() because the control bar's fixed positioning
- * with pointer-events-none outer container and the full-viewport canvas iframe
- * cause Playwright's hit-test (elementFromPoint) to find the iframe instead of
- * the textarea. The .fill() method auto-focuses without a hit-test check.
+ * Static owner pubs without a command manifest intentionally start in
+ * optional-live mode, so the control bar first shows "Connect agent" instead
+ * of the message box. Uses .fill() instead of .click() because the control
+ * bar's fixed positioning with pointer-events-none outer container and the
+ * full-viewport canvas iframe cause Playwright's hit-test (elementFromPoint)
+ * to find the iframe instead of the textarea. The .fill() method auto-focuses
+ * without a hit-test check.
  */
 async function waitForConnection(page: Page) {
   const textbox = page.getByRole("textbox", { name: "Message" });
+  const connectButton = page.getByRole("button", { name: "Connect agent" });
+
+  await expect(textbox.or(connectButton)).toBeVisible({ timeout: 30_000 });
+  if (await connectButton.isVisible()) {
+    await expect(connectButton).toBeEnabled();
+    await connectButton.dispatchEvent("click");
+  }
+
+  await expect(textbox).toBeVisible({ timeout: 60_000 });
   await textbox.fill("_");
   await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
   // Clear the dummy text. Use fill("") instead of Escape — Escape toggles

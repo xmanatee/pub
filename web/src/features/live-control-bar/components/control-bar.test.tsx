@@ -320,4 +320,13 @@ describe("ControlBar", () => {
     expect(html).toContain('aria-label="Toggle extended options"');
     expect(html).not.toContain('aria-label="Dismiss control bar"');
   });
+
+  it("shows the optional-live connect action instead of the message input", async () => {
+    const html = await renderControlBar({
+      liveRequested: false,
+      optionalLive: true,
+    });
+    expect(html).toContain("Connect agent");
+    expect(html).not.toContain('aria-label="Message"');
+  });
 });

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { act, createElement, useEffect, useLayoutEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AttachmentChatEntry,
   AudioChatEntry,
@@ -66,6 +66,14 @@ const SYSTEM_ERROR: SystemChatEntry = {
   content: "connection failed",
   severity: "error",
   timestamp: 4,
+};
+
+const LATE_AGENT_TEXT: TextChatEntry = {
+  id: "a3",
+  type: "text",
+  from: "agent",
+  content: "late agent reply",
+  timestamp: 5,
 };
 
 let latestPreview: ReturnType<typeof useChatPreview> | null = null;
@@ -218,5 +226,75 @@ describe("useChatPreview helpers", () => {
       severity: "error",
       text: "connection failed",
     });
+  });
+
+  it("prioritizes unseen system errors over newer agent previews", () => {
+    const currentRoot = root;
+    if (!currentRoot) throw new Error("root not initialized");
+
+    act(() => {
+      currentRoot.render(createElement(HookHarness, { messages: [AGENT_TEXT] }));
+    });
+
+    expect(latestPreview?.preview).toBeNull();
+
+    act(() => {
+      currentRoot.render(
+        createElement(HookHarness, {
+          messages: [AGENT_TEXT, SYSTEM_ERROR, LATE_AGENT_TEXT],
+        }),
+      );
+    });
+
+    expect(latestPreview?.preview).toEqual({
+      source: "system",
+      severity: "error",
+      text: "connection failed",
+    });
+  });
+
+  it("does not replace an active system error preview with a lower-priority preview", () => {
+    vi.useFakeTimers();
+    try {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+
+      act(() => {
+        currentRoot.render(createElement(HookHarness, { messages: [] }));
+      });
+
+      act(() => {
+        currentRoot.render(createElement(HookHarness, { messages: [SYSTEM_ERROR] }));
+      });
+
+      expect(latestPreview?.preview).toEqual({
+        source: "system",
+        severity: "error",
+        text: "connection failed",
+      });
+
+      act(() => {
+        currentRoot.render(
+          createElement(HookHarness, { messages: [SYSTEM_ERROR, LATE_AGENT_TEXT] }),
+        );
+      });
+
+      expect(latestPreview?.preview).toEqual({
+        source: "system",
+        severity: "error",
+        text: "connection failed",
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+
+      expect(latestPreview?.preview).toEqual({
+        source: "agent",
+        text: "late agent reply",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

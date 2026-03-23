@@ -25,12 +25,13 @@ self.addEventListener("fetch", function (event) {
 });
 
 function extractPath(url) {
-  return decodeURIComponent(url.pathname.slice(PUB_FS_PREFIX.length));
+  var trimmed = decodeURIComponent(url.pathname.slice(PUB_FS_PREFIX.length));
+  return trimmed.startsWith("/") ? trimmed : "/" + trimmed;
 }
 
-async function getClient() {
-  var list = await self.clients.matchAll({ type: "window", includeUncontrolled: false });
-  return list[0] || null;
+async function getClient(clientId) {
+  if (!clientId || typeof clientId !== "string") return null;
+  return await self.clients.get(clientId);
 }
 
 function sendToClient(client, msg, transfers) {
@@ -57,8 +58,8 @@ async function handleRequest(event) {
   var filePath = extractPath(new URL(event.request.url));
   if (!filePath) return new Response("Missing file path", { status: 400 });
 
-  var client = await getClient();
-  if (!client) return new Response("No active client", { status: 502 });
+  var client = await getClient(event.clientId);
+  if (!client) return new Response("No requesting client", { status: 502 });
 
   var method = event.request.method;
   if (method === "GET" || method === "HEAD") return handleGet(event, client, filePath);

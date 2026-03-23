@@ -12,12 +12,14 @@ import { useContentHtml } from "./use-content-html";
 
 function HookHarness({
   content,
+  loading = false,
   onChange,
 }: {
   content?: string;
+  loading?: boolean;
   onChange: (value: ReturnType<typeof useContentHtml>) => void;
 }) {
-  const value = useContentHtml(content);
+  const value = useContentHtml(content, { loading });
 
   useEffect(() => {
     onChange(value);
@@ -42,7 +44,27 @@ afterEach(async () => {
 });
 
 describe("useContentHtml", () => {
-  it("returns empty state when content is undefined", async () => {
+  it("returns loading state while content is unresolved", async () => {
+    const states: Array<ReturnType<typeof useContentHtml>> = [];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(
+        <HookHarness content={undefined} loading onChange={(value) => states.push(value)} />,
+      );
+    });
+
+    const latest = states.at(-1);
+    expect(latest?.html).toBeNull();
+    expect(latest?.status).toBe("loading");
+  });
+
+  it("returns empty state when content is missing after loading", async () => {
     const states: Array<ReturnType<typeof useContentHtml>> = [];
 
     container = document.createElement("div");

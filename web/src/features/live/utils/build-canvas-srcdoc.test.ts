@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
+import { buildCanvasSrcDoc, buildSandboxHtml } from "~/features/live/utils/build-canvas-srcdoc";
 
 describe("buildCanvasSrcDoc", () => {
   it("injects base/debug script into existing head", () => {
@@ -73,5 +73,22 @@ describe("buildCanvasSrcDoc", () => {
     const output = buildCanvasSrcDoc(input);
     expect(output).toContain("toDataURL()");
     expect(output).toContain("replaceChild(img,cc[i])");
+  });
+});
+
+describe("buildSandboxHtml", () => {
+  it("keeps sandbox documents reinjectable after the first load", () => {
+    const output = buildSandboxHtml("<html><body>ok</body></html>");
+    expect(output).toContain("sandbox-ready");
+    expect(output).toContain('data.type==="inject-content"');
+    expect(output).toContain("document.write(data.html)");
+    expect(output).toContain('controller.postMessage({type:"keepalive"})');
+    expect(output).toContain('event.data&&event.data.type==="keepalive-ack"');
+  });
+
+  it("includes the service-worker pub-fs relay", () => {
+    const output = buildSandboxHtml("<html><body>ok</body></html>");
+    expect(output).toContain('navigator.serviceWorker.addEventListener("message"');
+    expect(output).toContain('e.data.type==="pub-fs-request"');
   });
 });
