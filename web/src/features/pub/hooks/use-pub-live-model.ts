@@ -134,7 +134,6 @@ export function usePubLiveModel({
   );
   const [liveRequestedOverride, setLiveRequestedOverride] = useState<boolean | null>(null);
   const liveRequested = liveRequestedOverride ?? defaultLiveRequested;
-  const [now, setNow] = useState(() => Date.now());
   const trackedAnalytics = useRef(false);
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
@@ -179,8 +178,6 @@ export function usePubLiveModel({
     bridgeRef,
     ensureChannel,
     runtimeState,
-    lastAgentOutput,
-    lastUserDeliveredAt,
     sendAudio,
     sendBinaryOnChannel,
     sendChat,
@@ -311,12 +308,6 @@ export function usePubLiveModel({
   const { preview, dismissPreview } = useChatPreview(messages, viewMode);
 
   useEffect(() => {
-    setNow(Date.now());
-    const interval = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
     setCanvasHtml(baseContentHtml ?? null);
   }, [baseContentHtml]);
 
@@ -374,16 +365,14 @@ export function usePubLiveModel({
   const hasCanvasContent = Boolean(canvasHtml);
   const needsAgentSelection = availableAgents.length > 1 && selectedPresenceId === null;
   const viewState = derivePubViewState({
+    agentActivity: runtimeState.agentActivity,
     agentOnline,
     audioMode: audio.machineMode,
     command,
     connectionState: runtimeState.connectionState,
     contentState: effectiveContentState,
-    lastAgentOutput,
-    lastUserDeliveredAt,
     liveMode: liveEnabled,
     needsAgentSelection,
-    now,
     sessionError,
     sessionState,
   });

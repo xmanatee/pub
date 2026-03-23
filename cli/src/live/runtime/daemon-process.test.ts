@@ -17,8 +17,9 @@ import { waitForDaemonReady } from "./daemon-process.js";
 function makeStatusResponse(): string {
   return `${JSON.stringify({
     ok: true,
-    connectionState: "idle",
+    agentActivity: "idle",
     agentState: "idle",
+    connectionState: "idle",
     executorState: "idle",
     signalingConnected: null,
     activeSlug: null,

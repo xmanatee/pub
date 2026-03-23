@@ -21,7 +21,6 @@ interface UseLiveBridgeOptions {
     dedupeKey?: string;
     severity: "warning" | "error";
   }) => void;
-  onTrackActivity: (kind: "track") => void;
 }
 
 export function useLiveBridge({
@@ -35,7 +34,6 @@ export function useLiveBridge({
   onDeliveryReceipt,
   onMessage,
   onSystemMessage,
-  onTrackActivity,
 }: UseLiveBridgeOptions) {
   const bridgeRef = useRef<BrowserBridge | null>(null);
   const [bridgeState, setBridgeState] = useState<BridgeState>("closed");
@@ -44,7 +42,6 @@ export function useLiveBridge({
   const onDeliveryReceiptRef = useRef(onDeliveryReceipt);
   const onMessageRef = useRef(onMessage);
   const onSystemMessageRef = useRef(onSystemMessage);
-  const onTrackActivityRef = useRef(onTrackActivity);
   const storeBrowserOfferRef = useRef(storeBrowserOffer);
   const storeBrowserCandidatesRef = useRef(storeBrowserCandidates);
 
@@ -56,7 +53,6 @@ export function useLiveBridge({
   onDeliveryReceiptRef.current = onDeliveryReceipt;
   onMessageRef.current = onMessage;
   onSystemMessageRef.current = onSystemMessage;
-  onTrackActivityRef.current = onTrackActivity;
   storeBrowserOfferRef.current = storeBrowserOffer;
   storeBrowserCandidatesRef.current = storeBrowserCandidates;
 
@@ -92,7 +88,6 @@ export function useLiveBridge({
       });
     });
     bridge.setOnMessage((message) => onMessageRef.current(message));
-    bridge.setOnTrack(() => onTrackActivityRef.current("track"));
     bridge.setOnDeliveryReceipt((receipt) => onDeliveryReceiptRef.current(receipt));
     bridge.setOnProfileMark(profileMark);
 

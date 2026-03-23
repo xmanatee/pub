@@ -6,7 +6,12 @@ import type { PubApiClient } from "../../core/api/client.js";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
-import { type DaemonState, setDaemonAgentState, setDaemonConnectionState } from "./state.js";
+import {
+  type DaemonState,
+  setDaemonAgentActivity,
+  setDaemonAgentState,
+  setDaemonConnectionState,
+} from "./state.js";
 
 const RECOVERY_TIMEOUT_MS = 30_000;
 
@@ -137,6 +142,7 @@ export function createPeerManager(params: {
 
   function resetNegotiationState(): void {
     setConnectionState("idle");
+    setDaemonAgentActivity(state, "idle");
     setDaemonAgentState(state, "idle");
     clearAgentPreparation();
     state.activeLiveModelProfile = null;

@@ -6,8 +6,6 @@ import {
   resolveTransportStatus,
 } from "./pub-view-state";
 
-const NOW = 1_700_000_000_000;
-
 describe("resolveTransportStatus", () => {
   it("disables transport for viewers", () => {
     expect(
@@ -67,6 +65,7 @@ describe("derivePubViewState", () => {
   it("derives agent-selection control state when multiple agents and none selected", () => {
     expect(
       derivePubViewState({
+        agentActivity: "idle",
         agentOnline: true,
         audioMode: "idle",
         connectionState: "connecting",
@@ -79,11 +78,8 @@ describe("derivePubViewState", () => {
           phase: "idle",
         },
         contentState: "ready",
-        lastAgentOutput: null,
-        lastUserDeliveredAt: null,
         liveMode: true,
         needsAgentSelection: true,
-        now: NOW,
         sessionError: null,
         sessionState: "active",
       }).controlBarState,
@@ -93,6 +89,7 @@ describe("derivePubViewState", () => {
   it("derives disconnected control state for terminal bridge failure", () => {
     expect(
       derivePubViewState({
+        agentActivity: "idle",
         agentOnline: true,
         audioMode: "idle",
         connectionState: "failed",
@@ -105,11 +102,8 @@ describe("derivePubViewState", () => {
           phase: "idle",
         },
         contentState: "ready",
-        lastAgentOutput: null,
-        lastUserDeliveredAt: null,
         liveMode: true,
         needsAgentSelection: false,
-        now: NOW,
         sessionError: null,
         sessionState: "active",
       }).controlBarState,
@@ -119,6 +113,7 @@ describe("derivePubViewState", () => {
   it("derives disconnected control state when connection is disconnected", () => {
     expect(
       derivePubViewState({
+        agentActivity: "idle",
         agentOnline: true,
         audioMode: "idle",
         connectionState: "disconnected",
@@ -131,11 +126,8 @@ describe("derivePubViewState", () => {
           phase: "idle",
         },
         contentState: "ready",
-        lastAgentOutput: null,
-        lastUserDeliveredAt: null,
         liveMode: true,
         needsAgentSelection: false,
-        now: NOW,
         sessionError: null,
         sessionState: "active",
       }).controlBarState,
@@ -144,6 +136,7 @@ describe("derivePubViewState", () => {
 
   it("keeps command execution orthogonal to idle control-bar mode", () => {
     const state = derivePubViewState({
+      agentActivity: "idle",
       agentOnline: true,
       audioMode: "idle",
       connectionState: "connected",
@@ -156,11 +149,8 @@ describe("derivePubViewState", () => {
         phase: "running",
       },
       contentState: "ready",
-      lastAgentOutput: null,
-      lastUserDeliveredAt: null,
       liveMode: true,
       needsAgentSelection: false,
-      now: NOW,
       sessionError: null,
       sessionState: "active",
     });
@@ -171,6 +161,7 @@ describe("derivePubViewState", () => {
 
   it("surfaces command errors through the error summary", () => {
     const state = derivePubViewState({
+      agentActivity: "idle",
       agentOnline: true,
       audioMode: "idle",
       connectionState: "connected",
@@ -179,15 +170,12 @@ describe("derivePubViewState", () => {
         activeCommandName: "render",
         activeCount: 0,
         errorMessage: "Command execution timed out",
-        finishedAt: NOW,
+        finishedAt: 1_700_000_000_000,
         phase: "failed",
       },
       contentState: "ready",
-      lastAgentOutput: null,
-      lastUserDeliveredAt: null,
       liveMode: true,
       needsAgentSelection: false,
-      now: NOW,
       sessionError: null,
       sessionState: "active",
     });
@@ -201,6 +189,7 @@ describe("derivePubViewState", () => {
 
   it("surfaces session errors through the error summary", () => {
     const state = derivePubViewState({
+      agentActivity: "idle",
       agentOnline: true,
       audioMode: "idle",
       connectionState: "connected",
@@ -213,11 +202,8 @@ describe("derivePubViewState", () => {
         phase: "idle",
       },
       contentState: "ready",
-      lastAgentOutput: null,
-      lastUserDeliveredAt: null,
       liveMode: true,
       needsAgentSelection: false,
-      now: NOW,
       sessionError: "Agent went offline",
       sessionState: "active",
     });

@@ -1,6 +1,7 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import { IDLE_LIVE_RUNTIME_STATE } from "../../../../shared/live-runtime-state-core";
 import type {
+  LiveAgentActivity,
   LiveAgentState,
   LiveConnectionState,
   LiveExecutorState,
@@ -92,6 +93,13 @@ export function setDaemonConnectionState(
 
 export function setDaemonAgentState(state: DaemonState, agentState: LiveAgentState): void {
   state.runtimeState = { ...state.runtimeState, agentState };
+}
+
+export function setDaemonAgentActivity(
+  state: DaemonState,
+  agentActivity: LiveAgentActivity,
+): void {
+  state.runtimeState = { ...state.runtimeState, agentActivity };
 }
 
 export function setDaemonExecutorState(state: DaemonState, executorState: LiveExecutorState): void {

@@ -317,6 +317,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     waitForChannelOpen: channelManager.waitForChannelOpen,
     waitForDeliveryAck: channelManager.waitForDeliveryAck,
     settlePendingAck: channelManager.settlePendingAck,
+    markAgentStreaming: () => bridgeManager.markAgentStreaming(),
     markError: lifecycle.markError,
     shutdown: () => {
       void shutdown().catch((error) => {

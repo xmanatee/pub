@@ -4,6 +4,7 @@ import {
   makeErrorMessage,
 } from "../../../../shared/bridge-protocol-core";
 import {
+  type LiveAgentActivity,
   canSendAgentTraffic,
   isLiveConnectionReady,
 } from "../../../../shared/live-runtime-state-core";
@@ -12,7 +13,7 @@ import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
 import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
-import { type DaemonState, setDaemonAgentState } from "./state.js";
+import { type DaemonState, setDaemonAgentActivity, setDaemonAgentState } from "./state.js";
 
 const SLOW_AGENT_PREPARATION_LOG_MS = 10_000;
 
@@ -54,6 +55,20 @@ export function createBridgeManager(params: {
     publishRuntimeState,
     emitDeliveryStatus,
   } = params;
+
+  function handleActivityChange(activity: LiveAgentActivity): void {
+    const prev = state.runtimeState.agentActivity;
+    if (prev === activity) return;
+    setDaemonAgentActivity(state, activity);
+    void publishRuntimeState().catch((error) => {
+      debugLog(`failed to publish activity=${activity}`, error);
+    });
+  }
+
+  function markAgentStreaming(): void {
+    if (state.runtimeState.agentActivity !== "thinking") return;
+    handleActivityChange("streaming");
+  }
 
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
     if (state.stopped) return false;
@@ -171,6 +186,7 @@ export function createBridgeManager(params: {
       sessionBriefing,
       bridgeSettings: runnerBridgeSettings,
       sendMessage: sendOnChannel,
+      onActivityChange: handleActivityChange,
       onDeliveryUpdate: ({
         channel,
         messageId,
@@ -236,6 +252,7 @@ export function createBridgeManager(params: {
           await publishRuntimeState({ continued: true, requireDelivery: true });
           await flushOutboundBuffer();
         } catch (error) {
+          setDaemonAgentActivity(state, "idle");
           setDaemonAgentState(state, "idle");
           await publishRuntimeState().catch((publishError) => {
             debugLog(
@@ -288,6 +305,7 @@ export function createBridgeManager(params: {
         );
       } catch (error) {
         if (isStale()) return;
+        setDaemonAgentActivity(state, "idle");
         setDaemonAgentState(state, "idle");
         await publishRuntimeState().catch((publishError) => {
           debugLog(`failed to publish idle state for "${slug}"`, publishError);
@@ -310,6 +328,7 @@ export function createBridgeManager(params: {
   }
 
   async function stopBridge(): Promise<void> {
+    setDaemonAgentActivity(state, "idle");
     setDaemonAgentState(state, "idle");
     state.agentPreparing = null;
     await teardownBridgeRunner();
@@ -322,6 +341,7 @@ export function createBridgeManager(params: {
   return {
     clearAgentPreparation,
     ensureAgentReady,
+    markAgentStreaming,
     stopBridge,
   };
 }

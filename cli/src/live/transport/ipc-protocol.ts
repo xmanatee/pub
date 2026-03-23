@@ -1,10 +1,12 @@
 import { type BridgeMessage, parseBridgeMessage } from "../../../../shared/bridge-protocol-core";
 import type {
+  LiveAgentActivity,
   LiveAgentState,
   LiveConnectionState,
   LiveExecutorState,
 } from "../../../../shared/live-runtime-state-core";
 import {
+  isLiveAgentActivity,
   isLiveAgentState,
   isLiveConnectionState,
   isLiveExecutorState,
@@ -27,8 +29,9 @@ type IpcSuccessResponse<T extends object = Record<string, never>> = {
 } & T;
 
 type StatusResponse = IpcSuccessResponse<{
-  connectionState: LiveConnectionState;
+  agentActivity: LiveAgentActivity;
   agentState: LiveAgentState;
+  connectionState: LiveConnectionState;
   executorState: LiveExecutorState;
   signalingConnected: boolean | null;
   activeSlug: string | null;
@@ -163,8 +166,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
   }
 
   if (method === "status") {
-    const connectionState = readString(record.connectionState) ?? null;
+    const agentActivity = readString(record.agentActivity) ?? null;
     const agentState = readString(record.agentState) ?? null;
+    const connectionState = readString(record.connectionState) ?? null;
     const executorState = readString(record.executorState) ?? null;
     const signalingConnected =
       record.signalingConnected === null ? null : readBoolean(record.signalingConnected);
@@ -176,8 +180,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const bridgeMode =
       record.bridgeMode === null ? null : readString(record.bridgeMode);
     if (
-      !isLiveConnectionState(connectionState) ||
+      !isLiveAgentActivity(agentActivity) ||
       !isLiveAgentState(agentState) ||
+      !isLiveConnectionState(connectionState) ||
       !isLiveExecutorState(executorState) ||
       signalingConnected === undefined ||
       activeSlug === undefined ||
@@ -195,8 +200,9 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const logPath = readString(record.logPath) ?? null;
     return {
       ok: true,
-      connectionState,
+      agentActivity,
       agentState,
+      connectionState,
       executorState,
       signalingConnected,
       activeSlug,

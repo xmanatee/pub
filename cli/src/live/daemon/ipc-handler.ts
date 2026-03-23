@@ -25,6 +25,7 @@ interface DaemonIpcHandlerParams {
   waitForChannelOpen: (channel: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
   waitForDeliveryAck: (messageId: string, channel: string, timeoutMs: number) => Promise<boolean>;
   settlePendingAck: (messageId: string, channel: string, received: boolean) => void;
+  markAgentStreaming: () => void;
   markError: (message: string, error?: unknown) => void;
   shutdown: () => void;
   writeAckTimeoutMs: number;
@@ -125,6 +126,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
             }
           }
 
+          params.markAgentStreaming();
           return { ok: true, delivered: true };
         }
 

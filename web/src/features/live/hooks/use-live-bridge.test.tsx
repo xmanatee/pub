@@ -72,7 +72,6 @@ function HookHarness({
     onDeliveryReceipt: () => {},
     onMessage: () => {},
     onSystemMessage,
-    onTrackActivity: () => {},
   });
 
   useEffect(() => {
