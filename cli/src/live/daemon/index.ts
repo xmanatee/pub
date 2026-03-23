@@ -298,8 +298,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }, HEARTBEAT_INTERVAL_MS);
 
   const handleIpcRequest = createDaemonIpcHandler({
-    apiClient,
-    bindCanvasCommands: (html) => commandHandler.bindFromHtml(html),
+    persistCanvasHtml: (html) => bridgeManager.persistCanvasHtml(html),
     getRuntimeState: () => state.runtimeState,
     getSignalingConnected: () => {
       const signalState = signaling.status();

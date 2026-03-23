@@ -25,7 +25,7 @@ export function createBridgeManager(params: {
     bindFromHtml: (html: string) => void;
     clearBindings: () => void;
   };
-  apiClient: Pick<PubApiClient, "get">;
+  apiClient: Pick<PubApiClient, "get" | "update">;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendOutboundMessageWithAck: (
@@ -334,6 +334,20 @@ export function createBridgeManager(params: {
     await teardownBridgeRunner();
   }
 
+  async function persistCanvasHtml(html: string): Promise<Record<string, unknown>> {
+    const slug = state.bridgeSlug;
+    if (!slug) return { ok: false, error: "No active live session." };
+    try {
+      await apiClient.update({ slug, content: html });
+      commandHandler.bindFromHtml(html);
+      return { ok: true, delivered: true };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      markError(`failed to persist canvas HTML for "${slug}"`, error);
+      return { ok: false, error: `Canvas update failed: ${errMsg}` };
+    }
+  }
+
   function clearAgentPreparation(): void {
     state.agentPreparing = null;
   }
@@ -342,6 +356,7 @@ export function createBridgeManager(params: {
     clearAgentPreparation,
     ensureAgentReady,
     markAgentStreaming,
+    persistCanvasHtml,
     stopBridge,
   };
 }

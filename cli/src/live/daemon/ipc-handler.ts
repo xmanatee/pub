@@ -4,13 +4,11 @@ import {
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
 import type { LiveRuntimeStateSnapshot } from "../../../../shared/live-runtime-state-core";
-import type { PubApiClient } from "../../core/api/client.js";
 import type { IpcRequest } from "../transport/ipc-protocol.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 
 interface DaemonIpcHandlerParams {
-  apiClient: PubApiClient;
-  bindCanvasCommands: (html: string) => void;
+  persistCanvasHtml: (html: string) => Promise<Record<string, unknown>>;
   getRuntimeState: () => LiveRuntimeStateSnapshot;
   getSignalingConnected: () => boolean | null;
   getActiveSlug: () => string | null;
@@ -44,20 +42,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
         const msg: BridgeMessage = req.params.msg;
 
         if (channel === "canvas" && msg.type === "html" && typeof msg.data === "string") {
-          const slug = params.getActiveSlug();
-          if (!slug) return { ok: false, error: "No active live session." };
-          try {
-            await params.apiClient.update({
-              slug,
-              content: msg.data,
-            });
-            params.bindCanvasCommands(msg.data);
-            return { ok: true, delivered: true };
-          } catch (error) {
-            const errMsg = error instanceof Error ? error.message : String(error);
-            params.markError(`failed to persist canvas HTML for "${slug}"`, error);
-            return { ok: false, error: `Canvas update failed: ${errMsg}` };
-          }
+          return await params.persistCanvasHtml(msg.data);
         }
 
         const readinessError = params.getWriteReadinessError();

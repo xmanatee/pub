@@ -27,9 +27,15 @@ export type DaemonState = {
   runtimeState: LiveRuntimeStateSnapshot;
   agentPreparing: Promise<void> | null;
   bridgeAbort: AbortController | null;
+  /** Slug the bridge runner is currently serving. Set after the bridge starts,
+   *  cleared before teardown. Canvas writes target this slug — it stays correct
+   *  even when `activeSlug` has already moved to a new session. */
   bridgeSlug: string | null;
   bridgeOutboundBuffer: Array<{ channel: string; msg: BridgeMessage }>;
   recovering: boolean;
+  /** Slug of the current WebRTC signaling session. Changes immediately when
+   *  a new live request arrives — before the old bridge is torn down.
+   *  Used for signaling decisions and status reporting, NOT for routing writes. */
   activeSlug: string | null;
   activeLiveModelProfile: LiveModelProfile | null;
   lastAppliedBrowserOffer: string | null;
