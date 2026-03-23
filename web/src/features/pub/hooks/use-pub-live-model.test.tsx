@@ -83,7 +83,7 @@ vi.mock("@shared/command-protocol-core", async () => {
 });
 
 vi.mock("~/features/live/hooks/use-live-session-model", () => ({
-  useLiveSessionModel: () => ({
+  useLiveSessionModel: (_slug: string, _defaultAgentName: string | null) => ({
     availableAgents: sharedState.availableAgents,
     agentOnline: sharedState.availableAgents.length > 0,
     clearSessionError: clearSessionErrorMock,
@@ -106,7 +106,9 @@ vi.mock("~/features/live/hooks/use-live-session-model", () => ({
 vi.mock("~/features/live/hooks/use-live-preferences", () => ({
   useLivePreferences: () => ({
     autoOpenCanvas: false,
+    defaultAgentName: null,
     setAutoOpenCanvas: vi.fn(),
+    setDefaultAgentName: vi.fn(),
     setVoiceModeEnabled: vi.fn(),
     voiceModeEnabled: false,
   }),

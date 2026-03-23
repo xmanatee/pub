@@ -2,6 +2,7 @@ import { api } from "@backend/_generated/api";
 import type { Id } from "@backend/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { resolveSelectedHost } from "~/features/live/model/agent-selection";
 import type { SessionState } from "~/features/live/types/live-types";
 
 const SESSION_STORAGE_PREFIX = "pub-live-session:";
@@ -20,7 +21,7 @@ function errorMessage(error: unknown): string {
   return "Connection request failed";
 }
 
-export function useLiveSessionModel(slug: string) {
+export function useLiveSessionModel(slug: string, defaultAgentName: string | null) {
   const live = useQuery(api.connections.getConnectionBySlug, { slug });
   const availableAgents = useQuery(api.presence.listAvailableForSlug, { slug });
   const agentOnline = availableAgents === undefined ? undefined : availableAgents.length > 0;
@@ -45,20 +46,11 @@ export function useLiveSessionModel(slug: string) {
 
   useEffect(() => {
     if (!availableAgents) return;
-    if (availableAgents.length === 0) {
-      setSelectedHostId(null);
-      return;
+    const resolved = resolveSelectedHost(availableAgents, selectedHostId, defaultAgentName);
+    if (resolved !== selectedHostId) {
+      setSelectedHostId(resolved);
     }
-    const stillAvailable = availableAgents.some(
-      (agent: { hostId: Id<"hosts"> }) => agent.hostId === selectedHostId,
-    );
-    if (stillAvailable) return;
-    if (availableAgents.length === 1) {
-      setSelectedHostId(availableAgents[0].hostId);
-    } else {
-      setSelectedHostId(null);
-    }
-  }, [availableAgents, selectedHostId]);
+  }, [availableAgents, defaultAgentName, selectedHostId]);
 
   const sessionState: SessionState = useMemo(() => {
     if (!live) return "inactive";

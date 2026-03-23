@@ -1,3 +1,4 @@
+import type { Id } from "@backend/_generated/dataModel";
 import { useState } from "react";
 import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { BatchSection } from "~/devtools/components/batch-section";
@@ -55,19 +56,23 @@ function resolveDebugTransportStatus(blobState: LiveBlobState) {
 
 function StaticControlBar({
   agentName = "Agent",
+  availableAgents,
   blobState = "idle",
   controlBarState,
   chatPreview,
   collapsed = false,
+  defaultAgentName,
   sessionState = "active",
   lastTakeoverAt,
   initialInput,
 }: {
   agentName?: string;
+  availableAgents?: Array<{ hostId: Id<"hosts">; agentName: string }>;
   blobState?: LiveBlobState;
   controlBarState?: LiveControlBarState;
   chatPreview?: string;
   collapsed?: boolean;
+  defaultAgentName?: string | null;
   sessionState?: SessionState;
   lastTakeoverAt?: number;
   initialInput?: string;
@@ -77,6 +82,8 @@ function StaticControlBar({
 
   const value = createMockLiveSession({
     agentName,
+    availableAgents: availableAgents ?? [],
+    defaultAgentName: defaultAgentName ?? null,
     preview: chatPreview ? { text: chatPreview, source: "agent", severity: undefined } : null,
     controlBarCollapsed: collapsed,
     lastTakeoverAt,
@@ -195,6 +202,65 @@ export function ControlBarDebugPage() {
               label: "taken over — expired",
               content: (
                 <StaticControlBar sessionState="taken-over" lastTakeoverAt={Date.now() - 30_000} />
+              ),
+            },
+          ]}
+        />
+
+        <BatchSection
+          title="Agent Selection"
+          testId="batch-agent-selection"
+          items={[
+            {
+              label: "two agents, no default",
+              content: (
+                <StaticControlBar
+                  controlBarState="agent-selection"
+                  availableAgents={[
+                    { hostId: "h1" as never, agentName: "Claude" },
+                    { hostId: "h2" as never, agentName: "GPT" },
+                  ]}
+                />
+              ),
+            },
+            {
+              label: "two agents, default set",
+              content: (
+                <StaticControlBar
+                  controlBarState="agent-selection"
+                  availableAgents={[
+                    { hostId: "h1" as never, agentName: "Claude" },
+                    { hostId: "h2" as never, agentName: "GPT" },
+                  ]}
+                  defaultAgentName="Claude"
+                />
+              ),
+            },
+            {
+              label: "three agents, no default",
+              content: (
+                <StaticControlBar
+                  controlBarState="agent-selection"
+                  availableAgents={[
+                    { hostId: "h1" as never, agentName: "Claude" },
+                    { hostId: "h2" as never, agentName: "GPT" },
+                    { hostId: "h3" as never, agentName: "Gemini" },
+                  ]}
+                />
+              ),
+            },
+            {
+              label: "three agents, default set",
+              content: (
+                <StaticControlBar
+                  controlBarState="agent-selection"
+                  availableAgents={[
+                    { hostId: "h1" as never, agentName: "Claude" },
+                    { hostId: "h2" as never, agentName: "GPT" },
+                    { hostId: "h3" as never, agentName: "Gemini" },
+                  ]}
+                  defaultAgentName="GPT"
+                />
               ),
             },
           ]}

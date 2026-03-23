@@ -7,45 +7,102 @@ import {
   ControlBarSelect,
   ControlBarTextAction,
 } from "~/components/control-bar/control-bar-parts";
-
-interface AgentInfo {
-  hostId: Id<"hosts">;
-  agentName: string;
-}
+import type { AgentInfo } from "~/features/live/model/agent-selection";
 
 interface ControlBarAgentSelectionModeProps {
   agents: AgentInfo[];
+  defaultAgentName: string | null;
   onExit: () => void;
   onSelect: (hostId: Id<"hosts">) => void;
+  onSetDefault: (name: string | null) => void;
 }
 
 export function ControlBarAgentSelectionMode({
   agents,
+  defaultAgentName,
   onExit,
   onSelect,
+  onSetDefault,
 }: ControlBarAgentSelectionModeProps) {
   if (agents.length === 2) {
-    return <TwoAgentLayout agents={agents} onExit={onExit} onSelect={onSelect} />;
+    return (
+      <TwoAgentLayout
+        agents={agents}
+        defaultAgentName={defaultAgentName}
+        onExit={onExit}
+        onSelect={onSelect}
+        onSetDefault={onSetDefault}
+      />
+    );
   }
-  return <MultiAgentLayout agents={agents} onExit={onExit} onSelect={onSelect} />;
+  return (
+    <MultiAgentLayout
+      agents={agents}
+      defaultAgentName={defaultAgentName}
+      onExit={onExit}
+      onSelect={onSelect}
+      onSetDefault={onSetDefault}
+    />
+  );
 }
 
-function TwoAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelectionModeProps) {
+function TwoAgentLayout({
+  agents,
+  defaultAgentName,
+  onExit,
+  onSelect,
+  onSetDefault,
+}: ControlBarAgentSelectionModeProps) {
+  const [selected, setSelected] = useState<Id<"hosts"> | null>(null);
+  const selectedName = selected ? agents.find((a) => a.hostId === selected)?.agentName : null;
+
+  function handleStart() {
+    if (!selected || !selectedName) return;
+    onSetDefault(selectedName);
+    onSelect(selected);
+  }
+
   return (
     <ControlBarPanel>
       {agents.map((agent) => (
-        <ControlBarTextAction key={agent.hostId} onClick={() => onSelect(agent.hostId)}>
+        <ControlBarTextAction
+          key={agent.hostId}
+          onClick={() => setSelected(agent.hostId)}
+          className={selected === agent.hostId ? "bg-accent" : ""}
+        >
           {agent.agentName}
+          {agent.agentName === defaultAgentName ? " \u2605" : ""}
         </ControlBarTextAction>
       ))}
 
+      <ControlBarIconAction
+        icon={<Play />}
+        label="Start live"
+        onClick={handleStart}
+        disabled={!selected}
+        tooltip="Start live"
+        variant="default"
+      />
       <DashboardButton onExit={onExit} />
     </ControlBarPanel>
   );
 }
 
-function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelectionModeProps) {
+function MultiAgentLayout({
+  agents,
+  defaultAgentName,
+  onExit,
+  onSelect,
+  onSetDefault,
+}: ControlBarAgentSelectionModeProps) {
   const [selected, setSelected] = useState<Id<"hosts"> | "">("");
+  const selectedName = selected ? agents.find((a) => a.hostId === selected)?.agentName : undefined;
+
+  function handleStart() {
+    if (!selected || !selectedName) return;
+    onSetDefault(selectedName);
+    onSelect(selected as Id<"hosts">);
+  }
 
   return (
     <ControlBarPanel>
@@ -59,6 +116,7 @@ function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelection
         {agents.map((agent) => (
           <option key={agent.hostId} value={agent.hostId}>
             {agent.agentName}
+            {agent.agentName === defaultAgentName ? " \u2605" : ""}
           </option>
         ))}
       </ControlBarSelect>
@@ -66,12 +124,11 @@ function MultiAgentLayout({ agents, onExit, onSelect }: ControlBarAgentSelection
       <ControlBarIconAction
         icon={<Play />}
         label="Start live"
-        onClick={() => onSelect(selected as Id<"hosts">)}
+        onClick={handleStart}
         disabled={!selected}
         tooltip="Start live"
         variant="default"
       />
-
       <DashboardButton onExit={onExit} />
     </ControlBarPanel>
   );

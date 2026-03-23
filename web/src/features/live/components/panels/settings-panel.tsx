@@ -1,3 +1,5 @@
+import type { Id } from "@backend/_generated/dataModel";
+import { Star } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
@@ -7,24 +9,41 @@ import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 export function SettingsPanel() {
   const {
     autoOpenCanvas,
+    availableAgents,
     canUseDeveloperMode,
     clearFiles,
     clearMessages,
+    defaultAgentName,
     developerModeEnabled,
     files,
     hasCanvasContent,
     messages,
+    selectedHostId,
     setAutoOpenCanvas,
+    setDefaultAgentName,
     setDeveloperModeEnabled,
+    setSelectedHostId,
     setVoiceModeEnabled,
     voiceModeEnabled,
   } = useLiveSession();
+
+  const canSwitchAgent = availableAgents.length > 1;
 
   return (
     <div
       className="absolute inset-0 overflow-y-auto p-4 pb-36 space-y-3"
       style={{ paddingTop: "calc(var(--safe-top) + 1rem)" }}
     >
+      {canSwitchAgent && (
+        <AgentCard
+          availableAgents={availableAgents}
+          defaultAgentName={defaultAgentName}
+          selectedHostId={selectedHostId}
+          onSelect={setSelectedHostId}
+          onSetDefault={setDefaultAgentName}
+        />
+      )}
+
       <Card>
         <CardHeader className="px-4 py-3">
           <CardTitle className="text-sm">Behavior</CardTitle>
@@ -93,5 +112,63 @@ export function SettingsPanel() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function AgentCard({
+  availableAgents,
+  defaultAgentName,
+  selectedHostId,
+  onSelect,
+  onSetDefault,
+}: {
+  availableAgents: Array<{ hostId: Id<"hosts">; agentName: string }>;
+  defaultAgentName: string | null;
+  selectedHostId: Id<"hosts"> | null;
+  onSelect: (hostId: Id<"hosts"> | null) => void;
+  onSetDefault: (name: string | null) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="px-4 py-3">
+        <CardTitle className="text-sm">Agent</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1 px-2 pb-3">
+        {availableAgents.map((agent) => {
+          const isCurrent = agent.hostId === selectedHostId;
+          const isDefault = agent.agentName === defaultAgentName;
+
+          return (
+            <div
+              key={agent.hostId}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 ${isCurrent ? "bg-accent" : ""}`}
+            >
+              <button
+                type="button"
+                className="min-w-0 flex-1 text-left text-sm font-medium truncate"
+                onClick={() => onSelect(agent.hostId)}
+                disabled={isCurrent}
+              >
+                {agent.agentName}
+                {isCurrent && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">(active)</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="shrink-0 rounded-md p-1 hover:bg-accent"
+                onClick={() => onSetDefault(isDefault ? null : agent.agentName)}
+                aria-label={isDefault ? "Remove default" : `Set ${agent.agentName} as default`}
+              >
+                <Star
+                  className={`size-4 ${isDefault ? "fill-current text-foreground" : "text-muted-foreground"}`}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
