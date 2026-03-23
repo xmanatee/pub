@@ -78,6 +78,7 @@ export function useLiveControlBarBridge({
     blobState,
     voiceModeEnabled,
     closeLive,
+    errorThrottle,
   } = useLiveSession();
 
   const canCollapseBar = hasCanvasContent;
@@ -187,6 +188,54 @@ export function useLiveControlBarBridge({
   }
 
   const notifications: ControlBarNotificationConfig[] = [];
+
+  if (errorThrottle.phase === "paused") {
+    notifications.push({
+      key: "error-throttle",
+      priority: 0,
+      label: "Paused",
+      labelClassName: "text-destructive",
+      content: (
+        <span>
+          {errorThrottle.errorCount} errors —{" "}
+          <button
+            type="button"
+            className="underline font-medium hover:text-foreground"
+            onClick={errorThrottle.resume}
+          >
+            Resume
+          </button>
+        </span>
+      ),
+    });
+  } else if (errorThrottle.phase === "suggest-pause") {
+    notifications.push({
+      key: "error-throttle",
+      priority: 0,
+      label: "Errors",
+      labelClassName: "text-amber-600",
+      content: (
+        <span>
+          {errorThrottle.errorCount} canvas errors —{" "}
+          <button
+            type="button"
+            className="underline font-medium hover:text-foreground"
+            onClick={errorThrottle.pause}
+          >
+            Pause
+          </button>{" "}
+          <button
+            type="button"
+            className="underline font-medium hover:text-foreground"
+            onClick={errorThrottle.dismiss}
+          >
+            Dismiss
+          </button>
+        </span>
+      ),
+    });
+  }
+
   if (preview) {
     notifications.push({
       key: "preview",

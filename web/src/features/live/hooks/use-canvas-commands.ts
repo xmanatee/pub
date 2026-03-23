@@ -33,6 +33,7 @@ interface UseCanvasCommandsOptions {
   runtimeState: LiveRuntimeStateSnapshot;
   liveMode: boolean;
   sessionKey: string;
+  commandsPaused?: boolean;
 }
 
 interface ActiveCommand {
@@ -150,6 +151,7 @@ export function useCanvasCommands({
   runtimeState,
   liveMode,
   sessionKey,
+  commandsPaused = false,
 }: UseCanvasCommandsOptions) {
   const [outboundCanvasBridgeMessage, setOutboundCanvasBridgeMessage] =
     useState<CanvasBridgeOutboundMessage | null>(null);
@@ -427,18 +429,18 @@ export function useCanvasCommands({
         return;
       }
 
-      if (!canSendCommandTraffic(runtimeState)) {
+      if (commandsPaused || !canSendCommandTraffic(runtimeState)) {
         pendingBridgeQueueRef.current.push(message);
         return;
       }
 
       dispatchCommand(message);
     },
-    [dispatchCommand, emitCommandFailureToCanvas, liveMode, runtimeState],
+    [commandsPaused, dispatchCommand, emitCommandFailureToCanvas, liveMode, runtimeState],
   );
 
   useEffect(() => {
-    if (pendingBridgeQueueRef.current.length === 0) return;
+    if (commandsPaused || pendingBridgeQueueRef.current.length === 0) return;
     const queued = pendingBridgeQueueRef.current.splice(0);
     const stillPending: CanvasBridgeCommandMessage[] = [];
     for (const message of queued) {
@@ -449,7 +451,7 @@ export function useCanvasCommands({
       dispatchCommand(message);
     }
     pendingBridgeQueueRef.current = stillPending;
-  }, [dispatchCommand, runtimeState]);
+  }, [commandsPaused, dispatchCommand, runtimeState]);
 
   useEffect(() => {
     if (liveMode && runtimeState.connectionState !== "failed") return;

@@ -66,6 +66,16 @@ const mockSession = {
   blobState: "idle",
   voiceModeEnabled: false,
   closeLive: vi.fn(),
+  errorThrottle: {
+    phase: "normal" as const,
+    errorCount: 0,
+    paused: false,
+    recordError: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    dismiss: vi.fn(),
+    reset: vi.fn(),
+  },
 } as unknown as LiveSessionContextType;
 
 type AudioOverrides = Partial<typeof mockSession.audio>;

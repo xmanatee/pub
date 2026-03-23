@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCanvasCommands } from "~/features/live/hooks/use-canvas-commands";
+import { useErrorThrottle } from "~/features/live/hooks/use-error-throttle";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useLiveSessionModel } from "~/features/live/hooks/use-live-session-model";
 import { useLiveTransport } from "~/features/live/hooks/use-live-transport";
@@ -215,9 +216,14 @@ export function usePubLiveModel({
     onPubFsMessageRef: pubFsMessageHandlerRef,
   });
 
+  const errorThrottle = useErrorThrottle();
+
   const handleRenderError = useCallback(
     (payload: LiveRenderErrorPayload) => {
-      sendRenderError(payload);
+      errorThrottle.recordError();
+      if (!errorThrottle.paused) {
+        sendRenderError(payload);
+      }
       addSystemMessage({
         content: payload.message,
         severity: "error",
@@ -225,7 +231,7 @@ export function usePubLiveModel({
         details: formatRenderErrorDetails(payload),
       });
     },
-    [addSystemMessage, sendRenderError],
+    [addSystemMessage, errorThrottle, sendRenderError],
   );
 
   const profileStartedRef = useRef(false);
@@ -269,6 +275,7 @@ export function usePubLiveModel({
     runtimeState,
     liveMode: liveEnabled,
     sessionKey: transportKey,
+    commandsPaused: errorThrottle.paused,
   });
   commandMessageHandlerRef.current = handleBridgeCommandMessage;
 
@@ -359,7 +366,8 @@ export function usePubLiveModel({
     if (hadPriorCanvas) {
       setCanvasScopeVersion((current) => current + 1);
     }
-  }, [canvasHtml, slug]);
+    errorThrottle.reset();
+  }, [canvasHtml, errorThrottle, slug]);
 
   const effectiveContentState = canvasHtml ? "ready" : contentState;
   const hasCanvasContent = Boolean(canvasHtml);
@@ -498,6 +506,7 @@ export function usePubLiveModel({
     if (command.phase !== "failed" || !command.errorMessage || !command.finishedAt) return;
     if (lastReportedCommandErrorRef.current === command.finishedAt) return;
     lastReportedCommandErrorRef.current = command.finishedAt;
+    errorThrottle.recordError();
     const name = command.activeCommandName;
     addSystemMessage({
       content: name
@@ -511,6 +520,7 @@ export function usePubLiveModel({
     command.errorMessage,
     command.finishedAt,
     command.phase,
+    errorThrottle,
   ]);
 
   const resetLiveSurface = useCallback(() => {
@@ -518,10 +528,19 @@ export function usePubLiveModel({
     clearFiles();
     clearMessages();
     clearSessionError();
+    errorThrottle.reset();
     // Command lifecycle is keyed separately by sessionKey/canvasScopeKey.
     setCanvasHtml(baseContentHtml ?? null);
     setViewMode("canvas");
-  }, [baseContentHtml, clearFiles, clearMessages, clearSessionError, dismissPreview, setViewMode]);
+  }, [
+    baseContentHtml,
+    clearFiles,
+    clearMessages,
+    clearSessionError,
+    dismissPreview,
+    errorThrottle,
+    setViewMode,
+  ]);
 
   useEffect(() => {
     if (!liveEnabled) {
@@ -602,6 +621,7 @@ export function usePubLiveModel({
     developerModeEnabled,
     dismissPreview,
     error: viewState.error,
+    errorThrottle,
     files,
     hasCommandManifest,
     hasCanvasContent,
