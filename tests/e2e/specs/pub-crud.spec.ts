@@ -2,6 +2,16 @@ import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
 
+function withOgTitle(title: string, body = "<h1>Hello</h1>") {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta property="og:title" content="${title}" />
+  </head>
+  <body>${body}</body>
+</html>`;
+}
+
 test.beforeEach(() => {
   clearAll();
 });
@@ -11,7 +21,7 @@ test.describe("Pub CRUD via API", () => {
     const user = seedUser("CRUD User");
     const api = new ApiClient({ user });
 
-    const res = await api.createPub({ title: "Test Pub", content: "<h1>Hello</h1>" });
+    const res = await api.createPub({ content: withOgTitle("Test Pub") });
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.slug).toBeTruthy();
@@ -21,7 +31,7 @@ test.describe("Pub CRUD via API", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    const res = await api.createPub({ slug: "my-test-pub", title: "Custom" });
+    const res = await api.createPub({ slug: "my-test-pub" });
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.slug).toBe("my-test-pub");
@@ -43,8 +53,8 @@ test.describe("Pub CRUD via API", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "list-1", title: "First" });
-    await api.createPub({ slug: "list-2", title: "Second" });
+    await api.createPub({ slug: "list-1" });
+    await api.createPub({ slug: "list-2" });
     const res = await api.listPubs();
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -55,24 +65,27 @@ test.describe("Pub CRUD via API", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "update-test", title: "Original" });
+    await api.createPub({
+      slug: "update-test",
+      content: withOgTitle("Original", "<p>old</p>"),
+    });
+    const updatedContent = withOgTitle("Updated", "<p>new</p>");
     const updateRes = await api.updatePub("update-test", {
-      title: "Updated",
-      content: "<p>new</p>",
+      content: updatedContent,
     });
     expect(updateRes.status).toBe(200);
 
     const get = await api.getPub("update-test");
     const body = await get.json();
     expect(body.pub.title).toBe("Updated");
-    expect(body.pub.content).toBe("<p>new</p>");
+    expect(body.pub.content).toBe(updatedContent);
   });
 
   test("rename pub slug", async () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "old-slug", title: "Rename Me" });
+    await api.createPub({ slug: "old-slug" });
     await api.updatePub("old-slug", { slug: "new-slug" });
 
     expect((await api.getPub("old-slug")).status).toBe(404);
@@ -125,5 +138,22 @@ test.describe("Pub CRUD via API", () => {
       headers: { "Content-Type": "application/json" },
     });
     expect(res.status).toBe(401);
+  });
+
+  test("reject deprecated title and description fields", async () => {
+    const user = seedUser();
+    const api = new ApiClient({ user });
+
+    const res = await api.createPub({
+      slug: "deprecated-fields",
+      content: "<p>content</p>",
+      // Exercise the real HTTP contract, not the narrowed helper type.
+      ...({ title: "Legacy Title", description: "Legacy Description" } as Record<string, unknown>),
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "Title and description must come from og:title and og:description in content.",
+    });
   });
 });

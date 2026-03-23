@@ -11,7 +11,7 @@ test.describe("Content serving", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "served", content: "<h1>Served</h1>", title: "Served" });
+    await api.createPub({ slug: "served", content: "<h1>Served</h1>" });
     await api.updatePub("served", { isPublic: true });
 
     const res = await api.servePub("served");
@@ -37,7 +37,7 @@ test.describe("Content serving", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "og-test", title: "OG Test" });
+    await api.createPub({ slug: "og-test" });
     await api.updatePub("og-test", { isPublic: true });
 
     const res = await api.getOgImage("og-test");

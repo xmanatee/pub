@@ -36,11 +36,18 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
-      let body: { content?: string; slug?: string };
+      let body: { content?: string; slug?: string; title?: unknown; description?: unknown };
       try {
         body = await request.json();
       } catch {
         return errorResponse("Invalid JSON body", 400);
+      }
+
+      if ("title" in body || "description" in body) {
+        return errorResponse(
+          "Title and description must come from og:title and og:description in content.",
+          400,
+        );
       }
 
       if (body.content && body.content.length > MAX_CONTENT_SIZE) {
@@ -198,11 +205,24 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const slug = parseSlugFromRequest(request, "/api/v1/pubs/");
       if (slug instanceof Response) return slug;
 
-      let body: { content?: string; isPublic?: boolean; slug?: string };
+      let body: {
+        content?: string;
+        isPublic?: boolean;
+        slug?: string;
+        title?: unknown;
+        description?: unknown;
+      };
       try {
         body = await request.json();
       } catch {
         return errorResponse("Invalid JSON body", 400);
+      }
+
+      if ("title" in body || "description" in body) {
+        return errorResponse(
+          "Title and description must come from og:title and og:description in content.",
+          400,
+        );
       }
 
       if (body.content && body.content.length > MAX_CONTENT_SIZE) {

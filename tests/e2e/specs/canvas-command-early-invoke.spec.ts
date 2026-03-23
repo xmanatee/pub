@@ -69,7 +69,7 @@ test("command fired at canvas load resolves after connection", async ({ page }) 
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "early-cmd", title: "Early Cmd", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "early-cmd", content: AUTO_INVOKE_HTML });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("early-cmd-bot");
@@ -98,7 +98,7 @@ test("command fired at canvas load resolves with slow briefing (10s)", async ({ 
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "slow-brief", title: "Slow Brief", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "slow-brief", content: AUTO_INVOKE_HTML });
 
   // Replace default rules with a slow-responding briefing rule.
   // Must clear first — rules are first-match-wins, so adding a second

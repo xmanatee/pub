@@ -2,6 +2,16 @@ import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
 import { clearAll, seedUser } from "../fixtures/convex";
 
+function withOgTitle(title: string, body = "<h1>Hi</h1>") {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta property="og:title" content="${title}" />
+  </head>
+  <body>${body}</body>
+</html>`;
+}
+
 test.beforeEach(() => {
   clearAll();
 });
@@ -11,7 +21,7 @@ test.describe("Pub visibility", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "priv", title: "Private" });
+    await api.createPub({ slug: "priv" });
     const body = await (await api.getPub("priv")).json();
     expect(body.pub.isPublic).toBe(false);
   });
@@ -41,7 +51,7 @@ test.describe("Pub visibility", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "explore-pub", title: "Explore Me", content: "<h1>Hi</h1>" });
+    await api.createPub({ slug: "explore-pub", content: withOgTitle("Explore Me") });
     await api.updatePub("explore-pub", { isPublic: true });
 
     await page.goto("/explore");
@@ -52,7 +62,10 @@ test.describe("Pub visibility", () => {
     const user = seedUser();
     const api = new ApiClient({ user });
 
-    await api.createPub({ slug: "hidden", title: "Hidden From Explore" });
+    await api.createPub({
+      slug: "hidden",
+      content: withOgTitle("Hidden From Explore"),
+    });
 
     await page.goto("/explore");
     await page.waitForLoadState("networkidle");

@@ -103,7 +103,6 @@ test("agent command: text return via main-mode bridge", async ({ page }) => {
 
   await api.createPub({
     slug: "agent-text-cmd",
-    title: "Agent Text Cmd",
     content: AGENT_COMMAND_HTML,
   });
 
@@ -138,7 +137,6 @@ test("agent command: JSON return via main-mode bridge", async ({ page }) => {
 
   await api.createPub({
     slug: "agent-json-cmd",
-    title: "Agent JSON Cmd",
     content: AGENT_COMMAND_HTML,
   });
 

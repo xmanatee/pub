@@ -93,7 +93,7 @@ test("agent lifecycle: start, status, stop", async () => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  expect((await api.createPub({ slug: "lifecycle", title: "Lifecycle" })).status).toBe(201);
+  expect((await api.createPub({ slug: "lifecycle" })).status).toBe(201);
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("lifecycle-bot");
@@ -132,7 +132,7 @@ test("browser detects agent and shows live control bar", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "connect-test", title: "Connect Test" });
+  await api.createPub({ slug: "connect-test" });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("connect-bot");
@@ -154,7 +154,7 @@ test("chat roundtrip: browser to OpenClaw and back", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "chat-e2e", title: "Chat E2E" });
+  await api.createPub({ slug: "chat-e2e" });
 
   // Configure mock LLM: when user message contains "hello from browser",
   // respond with exec tool calling pub write
@@ -185,7 +185,7 @@ test("cli write delivers message to browser", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "write-e2e", title: "Write E2E" });
+  await api.createPub({ slug: "write-e2e" });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("write-bot");
@@ -216,7 +216,7 @@ test("chat and canvas update in one session", async ({ page }) => {
   const initialHtml = `<!DOCTYPE html>
 <html><body><h1 id="status">initial</h1></body></html>`;
 
-  await api.createPub({ slug: "combo-e2e", title: "Combo E2E", content: initialHtml });
+  await api.createPub({ slug: "combo-e2e", content: initialHtml });
 
   // Canvas rule must be added BEFORE the echo rule — rules are first-match-wins,
   // and generic matches like "say hello" could match text in OpenClaw's prompt context.
@@ -295,7 +295,7 @@ test("canvas command executes via daemon", async ({ page }) => {
 </body>
 </html>`;
 
-  await api.createPub({ slug: "cmd-e2e", title: "Command E2E", content: html });
+  await api.createPub({ slug: "cmd-e2e", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("cmd-bot");
@@ -370,7 +370,7 @@ test("canvas writes and reads files via pub-fs, processes via command", async ({
 </body>
 </html>`;
 
-  await api.createPub({ slug: "pub-fs-transfer-e2e", title: "PubFS Transfer", content: html });
+  await api.createPub({ slug: "pub-fs-transfer-e2e", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("pub-fs-transfer-bot");
@@ -443,7 +443,6 @@ test("commands work after canvas HTML update", async ({ page }) => {
 
   await api.createPub({
     slug: "cmd-rebind",
-    title: "Command Rebind",
     content: initialHtml,
   });
 
@@ -654,7 +653,7 @@ test("page reload: commands work after reload", async ({ page }) => {
 </body>
 </html>`;
 
-  await api.createPub({ slug: "reload-e2e", title: "Reload E2E", content: reloadHtml });
+  await api.createPub({ slug: "reload-e2e", content: reloadHtml });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("reload-bot");
@@ -693,7 +692,7 @@ test("takeover: second browser takes over and commands work", async ({ page, bro
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "takeover-e2e", title: "Takeover E2E", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "takeover-e2e", content: AUTO_INVOKE_HTML });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("takeover-bot");
@@ -729,8 +728,8 @@ test("navigate between pubs: commands work on both", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "nav-a", title: "Nav A", content: AUTO_INVOKE_HTML });
-  await api.createPub({ slug: "nav-b", title: "Nav B", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "nav-a", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "nav-b", content: AUTO_INVOKE_HTML });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("nav-bot");
@@ -762,7 +761,7 @@ test("agent picker: two agents, select one, commands work", async ({ page }) => 
   const api = new ApiClient({ user });
   const user2 = seedExtraApiKey(user);
 
-  await api.createPub({ slug: "picker-e2e", title: "Picker E2E", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "picker-e2e", content: AUTO_INVOKE_HTML });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("alpha-bot");
@@ -801,7 +800,6 @@ test("multiple auto-invoke commands all resolve after connection", async ({ page
 
   await api.createPub({
     slug: "multi-cmd-e2e",
-    title: "Multi Cmd E2E",
     content: MULTI_AUTO_INVOKE_HTML,
   });
 
@@ -837,7 +835,7 @@ test("agent offline: recovery to remaining agent, commands work", async ({ page 
   const api = new ApiClient({ user });
   const user2 = seedExtraApiKey(user);
 
-  await api.createPub({ slug: "offline-e2e", title: "Offline E2E", content: AUTO_INVOKE_HTML });
+  await api.createPub({ slug: "offline-e2e", content: AUTO_INVOKE_HTML });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("alpha-bot");
@@ -926,7 +924,6 @@ test("agent picker + canvas update: commands work in new canvas", async ({ page 
 
   await api.createPub({
     slug: "picker-canvas",
-    title: "Picker Canvas",
     content: initialHtml,
   });
 

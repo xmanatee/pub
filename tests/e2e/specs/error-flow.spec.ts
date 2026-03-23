@@ -52,7 +52,7 @@ test("canvas render error surfaces as system message", async ({ page }) => {
 </body>
 </html>`;
 
-  await api.createPub({ slug: "canvas-error-e2e", title: "Canvas Error E2E", content: html });
+  await api.createPub({ slug: "canvas-error-e2e", content: html });
 
   await injectAuth(page, user);
   await page.goto("/p/canvas-error-e2e");
@@ -118,7 +118,7 @@ test("command failure surfaces in canvas", async ({ page }) => {
 </body>
 </html>`;
 
-  await api.createPub({ slug: "cmd-error-e2e", title: "Cmd Error E2E", content: html });
+  await api.createPub({ slug: "cmd-error-e2e", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("cmd-error-bot");

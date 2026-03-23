@@ -73,7 +73,7 @@ test("pub-fs GET: fetch text file returns correct content", async ({ page }) => 
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-get", title: "PubFS GET", content: html });
+  await api.createPub({ slug: "pub-fs-get", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("pub-fs-get-bot");
@@ -127,7 +127,7 @@ test("pub-fs GET: inline image loads successfully", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-img", title: "PubFS Image", content: html });
+  await api.createPub({ slug: "pub-fs-img", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("pub-fs-img-bot");
@@ -179,7 +179,7 @@ test("pub-fs PUT+GET: write file then read back", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-put", title: "PubFS PUT", content: html });
+  await api.createPub({ slug: "pub-fs-put", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("pub-fs-put-bot");
@@ -228,7 +228,7 @@ test("pub-fs GET: nonexistent file returns 404", async ({ page }) => {
   const { convexProxyUrl } = getState();
   const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-404", title: "PubFS 404", content: html });
+  await api.createPub({ slug: "pub-fs-404", content: html });
 
   cli = new CliFixture(user, convexProxyUrl);
   await cli.startDaemon("pub-fs-404-bot");

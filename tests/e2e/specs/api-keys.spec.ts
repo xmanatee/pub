@@ -11,7 +11,7 @@ test.describe("API Keys", () => {
     const user = seedUser("Key User");
     const api = new ApiClient({ user });
 
-    const res = await api.createPub({ slug: "key-test", title: "Key Test" });
+    const res = await api.createPub({ slug: "key-test" });
     expect(res.status).toBe(201);
   });
 
@@ -35,8 +35,8 @@ test.describe("API Keys", () => {
     const api1 = new ApiClient({ user: user1 });
     const api2 = new ApiClient({ user: user2 });
 
-    await api1.createPub({ slug: "user1-pub", title: "User 1" });
-    await api2.createPub({ slug: "user2-pub", title: "User 2" });
+    await api1.createPub({ slug: "user1-pub" });
+    await api2.createPub({ slug: "user2-pub" });
 
     const list1 = await (await api1.listPubs()).json();
     const list2 = await (await api2.listPubs()).json();
