@@ -61,6 +61,7 @@ export function useLiveControlBarBridge({
     connected,
     controlBarCollapsed,
     controlBarState,
+    defaultAgentName,
     dismissPreview,
     hasCanvasContent,
     lastTakeoverAt,
@@ -69,6 +70,7 @@ export function useLiveControlBarBridge({
     requestLiveSession,
     retryConnection,
     toggleControlBar,
+    setDefaultAgentName,
     setSelectedHostId,
     setViewMode,
     sendChat,
@@ -303,6 +305,7 @@ export function useLiveControlBarBridge({
     resolveTransientLayer({
       agents: availableAgents,
       controlBarState,
+      defaultAgentName,
       elapsed: audio.elapsed,
       lastTakeoverAt,
       onCancelRecording: audio.cancelRecording,
@@ -312,6 +315,7 @@ export function useLiveControlBarBridge({
       onReconnect: retryConnection,
       onSelectAgent: setSelectedHostId,
       onSendRecording: audio.sendRecording,
+      onSetDefaultAgent: setDefaultAgentName,
       onStopVoiceMode: audio.stopVoiceMode,
       onTakeover: takeoverLive,
       rightAction: rightActionForCanvasMode,
@@ -323,6 +327,7 @@ export function useLiveControlBarBridge({
 function resolveTransientLayer({
   agents,
   controlBarState,
+  defaultAgentName,
   elapsed,
   lastTakeoverAt,
   onCancelRecording,
@@ -331,6 +336,7 @@ function resolveTransientLayer({
   onReconnect,
   onSelectAgent,
   onSendRecording,
+  onSetDefaultAgent,
   onStopVoiceMode,
   onTakeover,
   rightAction,
@@ -338,6 +344,7 @@ function resolveTransientLayer({
 }: {
   agents: ReturnType<typeof useLiveSession>["availableAgents"];
   controlBarState: ReturnType<typeof useLiveSession>["controlBarState"];
+  defaultAgentName: string | null;
   elapsed: number;
   lastTakeoverAt: number | undefined;
   onCancelRecording: () => void;
@@ -346,6 +353,7 @@ function resolveTransientLayer({
   onReconnect: () => void;
   onSelectAgent: ReturnType<typeof useLiveSession>["setSelectedHostId"];
   onSendRecording: () => void;
+  onSetDefaultAgent: (name: string | null) => void;
   onStopVoiceMode: () => void;
   onTakeover: ReturnType<typeof useLiveSession>["takeoverLive"];
   rightAction?: ReactNode;
@@ -356,7 +364,13 @@ function resolveTransientLayer({
   if (controlBarState === "agent-selection") {
     return {
       mainContent: (
-        <ControlBarAgentSelectionMode agents={agents} onExit={onExit} onSelect={onSelectAgent} />
+        <ControlBarAgentSelectionMode
+          agents={agents}
+          defaultAgentName={defaultAgentName}
+          onExit={onExit}
+          onSelect={onSelectAgent}
+          onSetDefault={onSetDefaultAgent}
+        />
       ),
       rightAction,
     };

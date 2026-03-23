@@ -31,4 +31,12 @@ test.describe("Panel screenshots", () => {
       maxDiffRatio: PANEL_TOLERANCE,
     });
   });
+
+  test("multi-agent settings", async ({ page }) => {
+    const section = page.getByTestId("batch-panels-multi-agent");
+    await expect(section).toBeVisible();
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/panels-multi-agent.png`, {
+      maxDiffRatio: PANEL_TOLERANCE,
+    });
+  });
 });

@@ -53,6 +53,17 @@ function TmaWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+const MULTI_AGENT_OVERRIDES = {
+  availableAgents: [
+    { hostId: "h1" as never, agentName: "Claude" },
+    { hostId: "h2" as never, agentName: "GPT" },
+    { hostId: "h3" as never, agentName: "Gemini" },
+  ],
+  selectedHostId: "h1" as never,
+  agentName: "Claude",
+  defaultAgentName: "Claude",
+};
+
 export function PanelsDebugPage() {
   const mockValue = createMockLiveSession({
     messages: SAMPLE_MESSAGES,
@@ -60,6 +71,11 @@ export function PanelsDebugPage() {
     autoOpenCanvas: true,
     canUseDeveloperMode: true,
     hasCanvasContent: true,
+  });
+
+  const multiAgentMockValue = createMockLiveSession({
+    ...mockValue,
+    ...MULTI_AGENT_OVERRIDES,
   });
 
   return (
@@ -100,6 +116,15 @@ export function PanelsDebugPage() {
                 ),
               },
             ]}
+          />
+        </LiveSessionProvider>
+
+        <LiveSessionProvider value={multiAgentMockValue}>
+          <BatchSection
+            title="Panels — Multi-Agent Settings"
+            testId="batch-panels-multi-agent"
+            cellHeight={500}
+            items={[{ label: "settings (with agent card)", content: <SettingsPanel /> }]}
           />
         </LiveSessionProvider>
       </div>

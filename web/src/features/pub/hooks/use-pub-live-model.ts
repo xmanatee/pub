@@ -75,6 +75,15 @@ export function usePubLiveModel({
   });
 
   const {
+    autoOpenCanvas,
+    defaultAgentName,
+    setAutoOpenCanvas,
+    setDefaultAgentName,
+    setVoiceModeEnabled,
+    voiceModeEnabled,
+  } = useLivePreferences();
+
+  const {
     agentOnline,
     availableAgents,
     clearSessionError,
@@ -91,10 +100,7 @@ export function usePubLiveModel({
     storeBrowserCandidates,
     storeBrowserOffer,
     takeoverLive,
-  } = useLiveSessionModel(slug);
-
-  const { autoOpenCanvas, setAutoOpenCanvas, setVoiceModeEnabled, voiceModeEnabled } =
-    useLivePreferences();
+  } = useLiveSessionModel(slug, defaultAgentName);
 
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
@@ -606,6 +612,7 @@ export function usePubLiveModel({
     addSystemMessage,
     autoOpenCanvas,
     agentState: runtimeState.agentState,
+    defaultAgentName,
     canvasHtml,
     canUseDeveloperMode,
     clearFiles,
@@ -646,6 +653,7 @@ export function usePubLiveModel({
     sessionState,
     selectedHostId,
     setAutoOpenCanvas,
+    setDefaultAgentName,
     toggleControlBar,
     setDeveloperModeEnabled,
     setSelectedHostId: handleSelectedHostId,

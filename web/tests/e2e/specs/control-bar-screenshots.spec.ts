@@ -63,6 +63,15 @@ test.describe("Control bar screenshots", () => {
     });
   });
 
+  test("agent selection", async ({ page }) => {
+    await setupPage(page);
+    const section = page.getByTestId("batch-agent-selection");
+    await expect(section).toBeVisible();
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-agent-selection.png`, {
+      maxDiffRatio: ANIMATED_TOLERANCE,
+    });
+  });
+
   test("multiline input", async ({ page }) => {
     await setupPage(page);
     const section = page.getByTestId("batch-multiline");

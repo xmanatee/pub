@@ -1,3 +1,8 @@
+import {
+  CROSS_ORIGIN_SANDBOX_ATTR,
+  IFRAME_ALLOW_ATTR,
+  SRCDOC_SANDBOX_ATTR,
+} from "@shared/sandbox-policy-core";
 import { useEffect, useRef, useState } from "react";
 import type { BlobTone } from "~/components/blob/blob-tone";
 import {
@@ -281,7 +286,8 @@ export function CanvasPanel({
             key={sandboxUrl}
             ref={iframeRef}
             src={sandboxUrl}
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads allow-pointer-lock"
+            sandbox={CROSS_ORIGIN_SANDBOX_ATTR}
+            allow={IFRAME_ALLOW_ATTR}
             className={cn(
               "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
               loadedHtml === html ? "opacity-100" : "opacity-0",
@@ -293,7 +299,8 @@ export function CanvasPanel({
             key={html}
             ref={iframeRef}
             srcDoc={buildCanvasSrcDoc(html)}
-            sandbox="allow-scripts allow-popups allow-forms allow-downloads allow-pointer-lock"
+            sandbox={SRCDOC_SANDBOX_ATTR}
+            allow={IFRAME_ALLOW_ATTR}
             className={cn(
               "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
               loadedHtml === html ? "opacity-100" : "opacity-0",

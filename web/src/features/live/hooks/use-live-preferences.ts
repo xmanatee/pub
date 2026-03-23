@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEYS = {
   autoOpenCanvas: "pub:live:auto-open-canvas",
+  defaultAgentName: "pub:live:default-agent",
   voiceModeEnabled: "pub:live:voice-mode-enabled",
 } as const;
 
@@ -21,6 +22,10 @@ export function readStoredBoolean(
   return fallback;
 }
 
+export function readStoredString(key: string, getItem: GetItem = defaultGetItem): string | null {
+  return getItem(key) ?? null;
+}
+
 export function useLivePreferences() {
   const [autoOpenCanvas, setAutoOpenCanvas] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.autoOpenCanvas, true),
@@ -28,6 +33,10 @@ export function useLivePreferences() {
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.voiceModeEnabled, false),
   );
+  const [defaultAgentName, setDefaultAgentName] = useState(() =>
+    readStoredString(STORAGE_KEYS.defaultAgentName),
+  );
+
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.autoOpenCanvas, autoOpenCanvas ? "1" : "0");
   }, [autoOpenCanvas]);
@@ -36,9 +45,19 @@ export function useLivePreferences() {
     window.localStorage.setItem(STORAGE_KEYS.voiceModeEnabled, voiceModeEnabled ? "1" : "0");
   }, [voiceModeEnabled]);
 
+  useEffect(() => {
+    if (defaultAgentName === null) {
+      window.localStorage.removeItem(STORAGE_KEYS.defaultAgentName);
+    } else {
+      window.localStorage.setItem(STORAGE_KEYS.defaultAgentName, defaultAgentName);
+    }
+  }, [defaultAgentName]);
+
   return {
     autoOpenCanvas,
+    defaultAgentName,
     setAutoOpenCanvas,
+    setDefaultAgentName,
     voiceModeEnabled,
     setVoiceModeEnabled,
   };

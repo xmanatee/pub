@@ -19,11 +19,18 @@ Create two files in the current directory:
 - External CDN scripts and Google Fonts via `<link>` are allowed (script-src permits `https:`).
 - No other external files.
 
-Sandbox constraints — the page runs inside `<iframe sandbox="allow-scripts allow-popups allow-forms allow-downloads allow-pointer-lock">`:
-- No `localStorage`, `sessionStorage`, or `document.cookie`
+The page runs in a sandboxed cross-origin iframe with `allow-same-origin`, so it has access to:
+- `localStorage`, `sessionStorage`, `document.cookie` (scoped to the sandbox origin)
+- `fetch()` to any HTTPS/HTTP/WSS endpoint
+- Camera, microphone, geolocation, clipboard, fullscreen, gamepad, and other browser APIs (user will be prompted for permission)
+- `window.open()` / `target="_blank"` popups (escape sandbox restrictions)
+- `alert()`, `confirm()`, `prompt()`, `print()` dialogs
+- Pointer lock and orientation lock
+- File downloads via `<a download>`
+
+Restrictions:
 - No `parent`, `top`, or `window.opener` access
-- No `fetch()` to cross-origin URLs (same-origin only)
-- `allow-popups` is enabled, but use sparingly
+- No programmatic top-frame navigation (only user-activated links)
 </html_requirements>
 
 <command_system>
