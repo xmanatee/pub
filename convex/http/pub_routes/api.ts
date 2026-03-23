@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { internal } from "../../_generated/api";
 import { httpAction } from "../../_generated/server";
+import { getPublicUrl } from "../../env";
 import {
   extractOgMeta,
   generateSlug,
@@ -15,7 +16,6 @@ import {
   errorResponse,
   executeAction,
   getApiKey,
-  getPublicUrl,
   jsonResponse,
   parseSlugFromRequest,
   rethrowPubLimitError,

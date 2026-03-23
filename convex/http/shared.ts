@@ -2,6 +2,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { httpAction } from "../_generated/server";
+import { getPublicUrl, getSiteUrl } from "../env";
 import { rateLimiter } from "../rateLimits";
 import { escapeHtmlAttr, hasOgTag, isValidSlug } from "../utils";
 
@@ -203,16 +204,12 @@ export async function authenticateAgentAndRateLimit(
   return { userId: user.userId, apiKeyId: user.apiKeyId };
 }
 
-export function getPublicUrl() {
-  return process.env.PUB_PUBLIC_URL ?? "";
-}
-
 export function buildSupplementalOgTags(
   pub: { title?: string; description?: string; slug: string },
   html: string,
 ): string {
   const publicUrl = getPublicUrl();
-  const siteUrl = process.env.CONVEX_SITE_URL ?? "";
+  const siteUrl = getSiteUrl();
   const title = escapeHtmlAttr(pub.title || pub.slug);
   const tags: string[] = [];
 

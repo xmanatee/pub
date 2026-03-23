@@ -1,7 +1,9 @@
+import { getSiteUrl } from "./env";
+
 export default {
   providers: [
     {
-      domain: process.env.CONVEX_SITE_URL,
+      domain: getSiteUrl(),
       applicationID: "convex",
     },
   ],

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildSupplementalOgTags,
   corsHeaders,
   errorResponse,
   extractSlugFromPath,
@@ -172,5 +173,53 @@ describe("shouldTouchApiKey", () => {
     const now = 90 * 60 * 1000;
     const lastUsedAt = 0;
     expect(shouldTouchApiKey(lastUsedAt, now)).toBe(true);
+  });
+});
+
+describe("buildSupplementalOgTags", () => {
+  const savedSiteUrl = process.env.CONVEX_SITE_URL;
+  const savedPublicUrl = process.env.PUB_PUBLIC_URL;
+
+  afterEach(() => {
+    if (savedSiteUrl === undefined) delete process.env.CONVEX_SITE_URL;
+    else process.env.CONVEX_SITE_URL = savedSiteUrl;
+    if (savedPublicUrl === undefined) delete process.env.PUB_PUBLIC_URL;
+    else process.env.PUB_PUBLIC_URL = savedPublicUrl;
+  });
+
+  it("builds absolute og:url using PUB_PUBLIC_URL", () => {
+    process.env.CONVEX_SITE_URL = "https://api.pub.blue";
+    process.env.PUB_PUBLIC_URL = "https://pub.blue";
+    const tags = buildSupplementalOgTags({ slug: "demo", title: "Demo" }, "<html><head></head>");
+    expect(tags).toContain('content="https://pub.blue/p/demo"');
+  });
+
+  it("builds absolute og:image using CONVEX_SITE_URL", () => {
+    process.env.CONVEX_SITE_URL = "https://api.pub.blue";
+    process.env.PUB_PUBLIC_URL = "https://pub.blue";
+    const tags = buildSupplementalOgTags({ slug: "demo", title: "Demo" }, "<html><head></head>");
+    expect(tags).toContain('content="https://api.pub.blue/og/demo"');
+  });
+
+  it("skips tags that already exist in the HTML", () => {
+    process.env.CONVEX_SITE_URL = "https://api.pub.blue";
+    process.env.PUB_PUBLIC_URL = "https://pub.blue";
+    const html =
+      '<html><head><meta property="og:image" content="https://custom.com/img.png" /></head>';
+    const tags = buildSupplementalOgTags({ slug: "demo", title: "Demo" }, html);
+    expect(tags).not.toContain("og:image");
+  });
+
+  it("uses slug as title fallback", () => {
+    process.env.CONVEX_SITE_URL = "https://api.pub.blue";
+    process.env.PUB_PUBLIC_URL = "https://pub.blue";
+    const tags = buildSupplementalOgTags({ slug: "my-app" }, "<html><head></head>");
+    expect(tags).toContain('content="my-app"');
+  });
+
+  it("throws when env vars are missing", () => {
+    delete process.env.CONVEX_SITE_URL;
+    delete process.env.PUB_PUBLIC_URL;
+    expect(() => buildSupplementalOgTags({ slug: "demo" }, "<html><head></head>")).toThrow();
   });
 });

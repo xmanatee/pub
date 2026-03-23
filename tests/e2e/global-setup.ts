@@ -51,6 +51,7 @@ export default async function globalSetup() {
   console.log("[e2e] Setting auth env vars...");
   const envVars: Record<string, string> = {
     SITE_URL: convexSiteUrl,
+    PUB_PUBLIC_URL: process.env.PUB_PUBLIC_URL ?? convexProxyUrl,
     AUTH_GITHUB_ID: "test-github-id",
     AUTH_GITHUB_SECRET: "test-github-secret",
     AUTH_GOOGLE_ID: "test-google-id",
