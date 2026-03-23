@@ -157,6 +157,16 @@ export function createMockLiveSession(
     viewMode: "canvas",
     pubFsBridgeReady: true,
     blobState: "idle",
+    errorThrottle: {
+      phase: "normal",
+      errorCount: 0,
+      paused: false,
+      recordError: noop,
+      pause: noop,
+      resume: noop,
+      dismiss: noop,
+      reset: noop,
+    },
     voiceModeEnabled: true,
     ...overrides,
   } as LiveSessionContextType;
