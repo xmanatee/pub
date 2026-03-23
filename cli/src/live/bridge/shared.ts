@@ -4,19 +4,25 @@ import type { LiveAgentActivity } from "../../../../shared/live-runtime-state-co
 import type { BridgeSettings } from "../../core/config/index.js";
 import { COMMAND_PROTOCOL_GUIDE, SYSTEM_PROMPT } from "../prompts/index.js";
 
+export type DeliveryUpdate = {
+  channel: string;
+  messageId: string;
+  stage: "confirmed" | "failed";
+  error?: string;
+};
+
 export type BridgeRunnerConfig = {
   slug: string;
   sessionBriefing: string;
   bridgeSettings: BridgeSettings;
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onActivityChange: (activity: LiveAgentActivity) => void;
-  onDeliveryUpdate?: (update: {
-    channel: string;
-    messageId: string;
-    stage: "confirmed" | "failed";
-    error?: string;
-  }) => void;
+  onDeliveryUpdate?: (update: DeliveryUpdate) => void;
   debugLog: (message: string, error?: unknown) => void;
+};
+
+export type BridgeCapabilities = {
+  conversational: boolean;
 };
 
 export type BridgeStatus = {
@@ -27,6 +33,7 @@ export type BridgeStatus = {
 };
 
 export type BridgeRunner = {
+  capabilities: BridgeCapabilities;
   enqueue(entries: Array<{ channel: string; msg: BridgeMessage }>): void;
   stop(): Promise<void>;
   status(): BridgeStatus;
@@ -54,6 +61,12 @@ export function buildInboundPrompt(slug: string, userText: string): string {
   return [`[Live: ${slug}] User message:`, "", userText].join("\n");
 }
 
+export function buildBatchedInboundPrompt(slug: string, messages: string[]): string {
+  if (messages.length === 1) return buildInboundPrompt(slug, messages[0]);
+  const numbered = messages.map((m, i) => `[${i + 1}] ${m}`).join("\n\n");
+  return [`[Live: ${slug}] User sent ${messages.length} messages:`, "", numbered].join("\n");
+}
+
 export function buildRenderErrorPrompt(slug: string, errorText: string): string {
   const isConsoleError = errorText.startsWith("[console.error]");
   const consoleNote = isConsoleError
@@ -72,7 +85,15 @@ export function buildRenderErrorPrompt(slug: string, errorText: string): string 
 }
 
 export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext): string {
-  const lines: string[] = [SYSTEM_PROMPT, "", "---", "", `[Live: ${slug}] Session started.`, "", "## Pub Context"];
+  const lines: string[] = [
+    SYSTEM_PROMPT,
+    "",
+    "---",
+    "",
+    `[Live: ${slug}] Session started.`,
+    "",
+    "## Pub Context",
+  ];
 
   lines.push(`- Title: ${ctx.title || "(not set)"}`);
   lines.push(`- Description: ${ctx.description || "(not set)"}`);

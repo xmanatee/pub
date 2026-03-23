@@ -1,21 +1,12 @@
-import { CHANNELS, generateMessageId } from "../../../../../../shared/bridge-protocol-core";
 import { errorMessage } from "../../../../core/errors/cli-error.js";
-import {
-  type ActiveStream,
-  ensureDirectoryWritable,
-  handleAttachmentEntry,
-  MONITORED_ATTACHMENT_CHANNELS,
-} from "../../attachments.js";
+import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
+import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
 import { createBridgeEntryQueue } from "../../queue.js";
-import {
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
-  type BufferedEntry,
-  buildInboundPrompt,
-  buildRenderErrorPrompt,
-  readRenderErrorMessage,
-  readTextChatMessage,
+import type {
+  BridgeCapabilities,
+  BridgeRunner,
+  BridgeRunnerConfig,
+  BridgeStatus,
 } from "../../shared.js";
 import { readSdkAssistantText } from "./event-reader.js";
 import { buildSdkSessionOptionsFromSettings, loadClaudeSdk } from "./runtime.js";
@@ -30,6 +21,8 @@ export { buildSdkSessionOptionsFromSettings } from "./runtime.js";
 const MAX_SESSION_RECREATIONS = 2;
 const SESSION_BRIEFING_MAX_TURNS = 2;
 
+const CAPABILITIES: BridgeCapabilities = { conversational: true };
+
 export async function createClaudeSdkBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
@@ -38,17 +31,14 @@ export async function createClaudeSdkBridgeRunner(
     throw new Error("Claude SDK runtime is not prepared.");
   }
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
-  const bridgeSettings = config.bridgeSettings;
 
   const loadedSdk = loadClaudeSdk();
-
   const { model, claudePath, sdkEnv } = buildSdkSessionOptionsFromSettings(
-    bridgeSettings,
+    config.bridgeSettings,
     process.env,
   );
-  const attachmentRoot = bridgeSettings.attachmentDir;
   const activeStreams = new Map<string, ActiveStream>();
-  ensureDirectoryWritable(attachmentRoot);
+  ensureDirectoryWritable(config.bridgeSettings.attachmentDir);
 
   let sessionId: string | undefined;
   let forwardedMessageCount = 0;
@@ -96,9 +86,7 @@ export async function createClaudeSdkBridgeRunner(
         }
       }
       const text = readSdkAssistantText(msg);
-      if (text.length > 0) {
-        collected += text;
-      }
+      if (text.length > 0) collected += text;
       if (msg.type === "result") {
         if ("session_id" in msg && typeof msg.session_id === "string") {
           sessionId = msg.session_id;
@@ -129,9 +117,7 @@ export async function createClaudeSdkBridgeRunner(
       return await sendAndStream(activeSession, prompt);
     } catch (error) {
       debugLog(`session error: ${errorMessage(error)}`, error);
-      if (stopped || sessionRecreations >= MAX_SESSION_RECREATIONS) {
-        throw error;
-      }
+      if (stopped || sessionRecreations >= MAX_SESSION_RECREATIONS) throw error;
 
       sessionRecreations += 1;
       try {
@@ -155,88 +141,38 @@ export async function createClaudeSdkBridgeRunner(
     return next;
   }
 
-  async function deliverQueued(prompt: string): Promise<string> {
-    return await queueSessionTask(async () => await deliverWithRecovery(prompt));
+  async function deliver(prompt: string): Promise<void> {
+    await queueSessionTask(async () => {
+      await deliverWithRecovery(prompt);
+    });
   }
 
   await sendAndStream(createSession(), sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
 
+  const handler = createEntryHandler({
+    slug,
+    attachmentRoot: config.bridgeSettings.attachmentDir,
+    activeStreams,
+    deliver,
+    onDeliveryUpdate: config.onDeliveryUpdate,
+    onForwarded: () => {
+      forwardedMessageCount += 1;
+    },
+    onError: (message) => {
+      lastError = message;
+    },
+    sendErrorToChat: createErrorChatSender(sendMessage),
+    debugLog,
+  });
+
   const queue = createBridgeEntryQueue({
     onProcessingStart: () => config.onActivityChange("thinking"),
     onProcessingEnd: () => config.onActivityChange("idle"),
-    onEntry: async (entry: BufferedEntry) => {
-      const chat = readTextChatMessage(entry);
-      if (chat) {
-        await deliverQueued(buildInboundPrompt(slug, chat));
-        forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: entry.msg.id,
-          stage: "confirmed",
-        });
-        return;
-      }
-
-      const renderError = readRenderErrorMessage(entry);
-      if (renderError) {
-        await deliverQueued(buildRenderErrorPrompt(slug, renderError));
-        forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: entry.msg.id,
-          stage: "confirmed",
-        });
-        return;
-      }
-
-      if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
-      const deliveredAttachment = await handleAttachmentEntry({
-        activeStreams,
-        attachmentRoot,
-        deliverPrompt: async (prompt) => {
-          await deliverQueued(prompt);
-        },
-        entry,
-        slug,
-      });
-      if (deliveredAttachment) {
-        forwardedMessageCount += 1;
-        const deliveryMessageId =
-          entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
-            ? entry.msg.meta.streamId
-            : entry.msg.id;
-        if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
-          config.onDeliveryUpdate?.({
-            channel: entry.channel,
-            messageId: deliveryMessageId,
-            stage: "confirmed",
-          });
-        }
-      }
-    },
-    onError: (error, entry) => {
-      const message = errorMessage(error);
-      lastError = message;
-      debugLog(`bridge entry processing failed: ${message}`, error);
-      const deliveryMessageId =
-        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
-          ? entry.msg.meta.streamId
-          : entry.msg.id;
-      config.onDeliveryUpdate?.({
-        channel: entry.channel,
-        messageId: deliveryMessageId,
-        stage: "failed",
-        error: message,
-      });
-      void sendMessage(CHANNELS.CHAT, {
-        id: generateMessageId(),
-        type: "text",
-        data: `Bridge error: ${message}`,
-      });
-    },
+    onBatch: handler.onBatch,
   });
 
   return {
+    capabilities: CAPABILITIES,
     enqueue: (entries) => queue.enqueue(entries),
     invokeAgentCommand: async ({ prompt, output }) =>
       await queueSessionTask(async () => {

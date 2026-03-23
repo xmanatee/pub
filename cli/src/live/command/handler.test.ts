@@ -324,6 +324,7 @@ describe("createLiveCommandHandler", () => {
     const invokeAgentCommand = vi.fn(async () => "bridge-result");
     const { handler, sentMessages } = buildHandler({
       getBridgeRunner: () => ({
+        capabilities: { conversational: true },
         enqueue: () => {},
         stop: async () => {},
         status: () => ({ running: true, forwardedMessages: 0 }),

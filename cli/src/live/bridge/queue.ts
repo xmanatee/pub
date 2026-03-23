@@ -1,10 +1,8 @@
 import { createMessageDedup } from "../../../../shared/message-dedup-core";
-import { errorMessage } from "../../core/errors/cli-error.js";
 import type { BufferedEntry } from "./shared.js";
 
 interface BridgeEntryQueueParams {
-  onEntry: (entry: BufferedEntry) => Promise<void>;
-  onError: (error: unknown, entry: BufferedEntry) => void;
+  onBatch: (entries: BufferedEntry[]) => Promise<void>;
   onProcessingStart: () => void;
   onProcessingEnd: () => void;
 }
@@ -36,20 +34,20 @@ export function createBridgeEntryQueue(params: BridgeEntryQueueParams): BridgeEn
         if (stopping) break;
       }
 
-      const batch = queue.splice(0);
-      for (const entry of batch) {
-        if (stopping) break;
-
-        if (dedup.isDuplicate(`${entry.channel}:${entry.msg.id}`)) continue;
-
-        params.onProcessingStart();
-        try {
-          await params.onEntry(entry);
-        } catch (error) {
-          params.onError(error instanceof Error ? error : new Error(errorMessage(error)), entry);
-        } finally {
-          params.onProcessingEnd();
+      const raw = queue.splice(0);
+      const entries: BufferedEntry[] = [];
+      for (const entry of raw) {
+        if (!dedup.isDuplicate(`${entry.channel}:${entry.msg.id}`)) {
+          entries.push(entry);
         }
+      }
+      if (entries.length === 0) continue;
+
+      params.onProcessingStart();
+      try {
+        await params.onBatch(entries);
+      } finally {
+        params.onProcessingEnd();
       }
     }
   })();

@@ -1,23 +1,13 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { CHANNELS, generateMessageId } from "../../../../../../shared/bridge-protocol-core";
-import { errorMessage } from "../../../../core/errors/cli-error.js";
-import {
-  type ActiveStream,
-  ensureDirectoryWritable,
-  handleAttachmentEntry,
-  MONITORED_ATTACHMENT_CHANNELS,
-} from "../../attachments.js";
+import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
+import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
 import { createBridgeEntryQueue } from "../../queue.js";
-import {
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
-  type BufferedEntry,
-  buildInboundPrompt,
-  buildRenderErrorPrompt,
-  readRenderErrorMessage,
-  readTextChatMessage,
+import type {
+  BridgeCapabilities,
+  BridgeRunner,
+  BridgeRunnerConfig,
+  BridgeStatus,
 } from "../../shared.js";
 import { buildClaudeArgsFromSettings, runClaudeCodePreflight } from "./runtime.js";
 
@@ -31,6 +21,8 @@ export { buildClaudeArgsFromSettings } from "./runtime.js";
 
 const SESSION_BRIEFING_MAX_TURNS = 2;
 
+const CAPABILITIES: BridgeCapabilities = { conversational: true };
+
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
@@ -43,10 +35,9 @@ export async function createClaudeCodeBridgeRunner(
 
   const claudePath = bridgeSettings.claudeCodePath;
   const cwd = bridgeSettings.bridgeCwd;
-  const attachmentRoot = bridgeSettings.attachmentDir;
   const activeStreams = new Map<string, ActiveStream>();
 
-  ensureDirectoryWritable(attachmentRoot);
+  ensureDirectoryWritable(bridgeSettings.attachmentDir);
   await runClaudeCodePreflight(claudePath, process.env);
 
   let sessionId: string | null = null;
@@ -72,12 +63,7 @@ export async function createClaudeCodeBridgeRunner(
     opts?: { maxTurns?: number; signal?: AbortSignal },
   ): Promise<string> {
     if (stopped) return "";
-    const args = buildClaudeArgsFromSettings(
-      prompt,
-      sessionId,
-      bridgeSettings,
-      opts,
-    );
+    const args = buildClaudeArgsFromSettings(prompt, sessionId, bridgeSettings, opts);
     debugLog(`spawning claude: ${args.join(" ").slice(0, 200)}...`);
 
     const spawnEnv = { ...process.env };
@@ -139,9 +125,7 @@ export async function createClaudeCodeBridgeRunner(
               : parsed.message?.role === "assistant" && typeof parsed.message.content === "string"
                 ? parsed.message.content
                 : "";
-        if (text.length > 0) {
-          assistantChunks.push(text);
-        }
+        if (text.length > 0) assistantChunks.push(text);
       }
     }
 
@@ -176,91 +160,41 @@ export async function createClaudeCodeBridgeRunner(
     return next;
   }
 
-  async function deliverToClaudeCode(prompt: string, opts?: { maxTurns?: number }): Promise<void> {
+  async function deliver(prompt: string): Promise<void> {
     await queueSessionTask(async () => {
-      await runClaudeCodePrompt(prompt, opts);
+      await runClaudeCodePrompt(prompt);
     });
   }
 
-  await deliverToClaudeCode(sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
+  await queueSessionTask(async () => {
+    await runClaudeCodePrompt(sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
+  });
   debugLog("session briefing delivered");
+
+  const handler = createEntryHandler({
+    slug,
+    attachmentRoot: bridgeSettings.attachmentDir,
+    activeStreams,
+    deliver,
+    onDeliveryUpdate: config.onDeliveryUpdate,
+    onForwarded: () => {
+      forwardedMessageCount += 1;
+    },
+    onError: (message) => {
+      lastError = message;
+    },
+    sendErrorToChat: createErrorChatSender(sendMessage),
+    debugLog,
+  });
 
   const queue = createBridgeEntryQueue({
     onProcessingStart: () => config.onActivityChange("thinking"),
     onProcessingEnd: () => config.onActivityChange("idle"),
-    onEntry: async (entry: BufferedEntry) => {
-      const chat = readTextChatMessage(entry);
-      if (chat) {
-        await deliverToClaudeCode(buildInboundPrompt(slug, chat));
-        forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: entry.msg.id,
-          stage: "confirmed",
-        });
-        return;
-      }
-
-      const renderError = readRenderErrorMessage(entry);
-      if (renderError) {
-        await deliverToClaudeCode(buildRenderErrorPrompt(slug, renderError));
-        forwardedMessageCount += 1;
-        config.onDeliveryUpdate?.({
-          channel: entry.channel,
-          messageId: entry.msg.id,
-          stage: "confirmed",
-        });
-        return;
-      }
-
-      if (!MONITORED_ATTACHMENT_CHANNELS.has(entry.channel)) return;
-      const deliveredAttachment = await handleAttachmentEntry({
-        activeStreams,
-        attachmentRoot,
-        deliverPrompt: async (prompt) => {
-          await deliverToClaudeCode(prompt);
-        },
-        entry,
-        slug,
-      });
-      if (deliveredAttachment) {
-        forwardedMessageCount += 1;
-        const deliveryMessageId =
-          entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
-            ? entry.msg.meta.streamId
-            : entry.msg.id;
-        if (entry.msg.type === "binary" || entry.msg.type === "stream-end") {
-          config.onDeliveryUpdate?.({
-            channel: entry.channel,
-            messageId: deliveryMessageId,
-            stage: "confirmed",
-          });
-        }
-      }
-    },
-    onError: (error, entry) => {
-      const message = errorMessage(error);
-      lastError = message;
-      debugLog(`bridge entry processing failed: ${message}`, error);
-      const deliveryMessageId =
-        entry.msg.type === "stream-end" && typeof entry.msg.meta?.streamId === "string"
-          ? entry.msg.meta.streamId
-          : entry.msg.id;
-      config.onDeliveryUpdate?.({
-        channel: entry.channel,
-        messageId: deliveryMessageId,
-        stage: "failed",
-        error: message,
-      });
-      void sendMessage(CHANNELS.CHAT, {
-        id: generateMessageId(),
-        type: "text",
-        data: `Bridge error: ${message}`,
-      });
-    },
+    onBatch: handler.onBatch,
   });
 
   return {
+    capabilities: CAPABILITIES,
     enqueue: (entries) => queue.enqueue(entries),
     invokeAgentCommand: async ({ prompt, output, signal }) =>
       await queueSessionTask(async () => {
