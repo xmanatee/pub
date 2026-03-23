@@ -53,36 +53,20 @@ function TwoAgentLayout({
   onSelect,
   onSetDefault,
 }: ControlBarAgentSelectionModeProps) {
-  const [selected, setSelected] = useState<Id<"hosts"> | null>(null);
-  const selectedName = selected ? agents.find((a) => a.hostId === selected)?.agentName : null;
-
-  function handleStart() {
-    if (!selected || !selectedName) return;
-    onSetDefault(selectedName);
-    onSelect(selected);
-  }
-
   return (
     <ControlBarPanel>
       {agents.map((agent) => (
         <ControlBarTextAction
           key={agent.hostId}
-          onClick={() => setSelected(agent.hostId)}
-          className={selected === agent.hostId ? "bg-accent" : ""}
+          onClick={() => {
+            onSetDefault(agent.agentName);
+            onSelect(agent.hostId);
+          }}
         >
           {agent.agentName}
           {agent.agentName === defaultAgentName ? " \u2605" : ""}
         </ControlBarTextAction>
       ))}
-
-      <ControlBarIconAction
-        icon={<Play />}
-        label="Start live"
-        onClick={handleStart}
-        disabled={!selected}
-        tooltip="Start live"
-        variant="default"
-      />
       <DashboardButton onExit={onExit} />
     </ControlBarPanel>
   );
