@@ -20,6 +20,21 @@ pnpm test             # vitest run (root + web)
 # Fixing
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
+
+# Screenshot tests (Playwright, web/tests/e2e/)
+pnpm test:e2e                        # Run all e2e + screenshot tests
+pnpm test:e2e -- --grep "dashboard"  # Run only dashboard screenshot tests
+UPDATE_SNAPSHOTS=1 pnpm test:e2e     # Update screenshot baselines
+```
+
+### Worktree Setup for Screenshot Tests
+
+Screenshot tests (`web/tests/e2e/`) require Convex codegen and the TanStack Router route tree, which are gitignored. In a worktree, copy them from the main worktree before running:
+
+```bash
+mkdir -p convex/_generated
+cp <main-worktree>/convex/_generated/* convex/_generated/
+cp <main-worktree>/web/src/routeTree.gen.ts web/src/routeTree.gen.ts
 ```
 
 The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` (uses Bun compile).
