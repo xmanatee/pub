@@ -59,7 +59,7 @@ PROXY_PID=$!
 
 # --- Start Vite dev server (browser connects to Convex via the local proxy) ---
 echo "[e2e] Starting Vite dev server..."
-cd /app/web && VITE_CONVEX_URL="http://localhost:3212" npx vite dev --host 0.0.0.0 --port 3000 &
+cd /app/web && VITE_CONVEX_URL="http://localhost:3212" VITE_SANDBOX_ORIGIN="/__sandbox__" npx vite dev --host 0.0.0.0 --port 3000 &
 VITE_PID=$!
 cd /app
 
