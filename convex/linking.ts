@@ -72,6 +72,7 @@ async function transferUserOwnedRows(
   for (const { table, index } of USER_OWNED_TABLES) {
     // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
     const rows = await (ctx.db.query(table) as any)
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
       .withIndex(index, (q: any) => q.eq("userId", sourceUserId))
       .collect();
     for (const row of rows) {

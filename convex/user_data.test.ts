@@ -20,7 +20,7 @@ describe("USER_OWNED_TABLES", () => {
       const name = match[1];
       if (name === "users") continue;
       // Extract the table's defineTable block (until the next top-level entry)
-      const startIdx = match.index!;
+      const startIdx = match.index ?? 0;
       const nextTable = schema.slice(startIdx + 1).search(/\n {2}\w+:\s*defineTable\(/);
       const block =
         nextTable === -1
