@@ -93,7 +93,10 @@
     });
   }
 
-  window.addEventListener("message", function (ev) {
+  // Initial inject-content handler — receives the first content injection from the parent.
+  // After document.write(), the injected bridge script re-registers this handler via
+  // window.__pubInjectHandler so subsequent updates are received.
+  var injectHandler = function (ev) {
     var data = ev.data;
     if (!data || data.source !== PARENT_SOURCE) return;
     if (data.type === "inject-content" && typeof data.html === "string") {
@@ -101,7 +104,9 @@
       document.write(data.html);
       document.close();
     }
-  });
+  };
+  window.__pubInjectHandler = injectHandler;
+  window.addEventListener("message", injectHandler);
 
   registerSW();
 })();

@@ -16,6 +16,9 @@ const COMMAND_RESULT_GUARD_MS = 5 * 60_000;
  * This script is idempotent across document.write() cycles:
  * - The message handler is stored on window and swapped (remove old, add new)
  *   so duplicate listeners never accumulate.
+ * - The inject-content handler is re-registered after each document.write() so
+ *   subsequent canvas updates are received. sandbox/index.html provides the
+ *   initial handler; this script takes over for all later cycles.
  * - The console.error wrapper stores the original once and reuses it.
  * - Assignment-based handlers (onerror, onunhandledrejection) naturally overwrite.
  */
@@ -60,6 +63,12 @@ function buildCanvasBridgeScript(): string {
     // Store the real console.error once — re-capturing would chain wrappers.
     "if(!window.__pubOrigConsoleError){window.__pubOrigConsoleError=console.error;}",
     'var origConsoleError=window.__pubOrigConsoleError;console.error=function(){origConsoleError.apply(console,arguments);try{var parts=[];for(var i=0;i<arguments.length;i++){parts.push(arguments[i] instanceof Error?arguments[i].message:String(arguments[i]));}var msg=parts.join(" ");if(msg.length>0){emit("console-error",{message:msg});}}catch(e){}};',
+
+    // Re-register inject-content handler — document.write() destroys the one from sandbox/index.html.
+    // Uses the same swap pattern as __pubBridgeHandler to prevent duplicate listeners.
+    `var injectHandler=function(ev){var d=ev&&ev.data;if(!d||d.source!=="${PARENT_TO_CANVAS_SOURCE}"||d.type!=="inject-content"||typeof d.html!=="string"){return;}document.open();document.write(d.html);document.close();};`,
+    'if(window.__pubInjectHandler){window.removeEventListener("message",window.__pubInjectHandler);}',
+    'window.__pubInjectHandler=injectHandler;window.addEventListener("message",injectHandler);',
 
     'emit("ready",{});',
     "})();",

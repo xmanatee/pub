@@ -95,11 +95,18 @@ describe("buildCanvasSrcDoc idempotency", () => {
 
   it("does not contain sandbox bootstrap or SW relay code", () => {
     const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
-    // Must NOT contain infrastructure that belongs in sandbox/index.html
+    // Must NOT contain infrastructure that belongs exclusively in sandbox/index.html
     expect(output).not.toContain("sandbox-ready");
-    expect(output).not.toContain("inject-content");
     expect(output).not.toContain("registerSW");
     expect(output).not.toContain("keepalive");
     expect(output).not.toContain("pub-fs-request");
+  });
+
+  it("re-registers inject-content handler for subsequent document.write() cycles", () => {
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    expect(output).toContain("window.__pubInjectHandler");
+    expect(output).toContain('window.removeEventListener("message",window.__pubInjectHandler)');
+    expect(output).toContain("inject-content");
+    expect(output).toContain("document.write(d.html)");
   });
 });
