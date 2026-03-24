@@ -83,6 +83,16 @@
     }
   }
 
+  // Relay pub-fs-request from the SW to the parent page.
+  // Must live here — navigator.serviceWorker listeners survive document.write().
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", function (e) {
+      if (e.data && e.data.type === "pub-fs-request") {
+        parent.postMessage(e.data, "*", e.ports);
+      }
+    });
+  }
+
   window.addEventListener("message", function (ev) {
     var data = ev.data;
     if (!data || data.source !== PARENT_SOURCE) return;

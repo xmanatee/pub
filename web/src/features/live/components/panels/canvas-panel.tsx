@@ -14,7 +14,7 @@ import type {
   CanvasBridgeOutboundMessage,
   LiveRenderErrorPayload,
 } from "~/features/live/types/live-types";
-import { buildCanvasSrcDoc, buildSandboxHtml } from "~/features/live/utils/build-canvas-srcdoc";
+import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
 import { cn } from "~/lib/utils";
 import { CanvasLiveBlob } from "./canvas-live-blob";
 
@@ -81,17 +81,24 @@ export function CanvasPanel({
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
   latestOutboundCanvasBridgeMessageRef.current = outboundCanvasBridgeMessage ?? null;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sandboxUrl changes require full reset
+  // biome-ignore lint/correctness/useExhaustiveDependencies: html changes reset content-dependent state
   useEffect(() => {
     setCanvasBridgeReady(false);
-    setSandboxReady(false);
     setPendingOutboundCanvasBridgeMessages([]);
     lastAcceptedOutboundMessageRef.current = latestOutboundCanvasBridgeMessageRef.current;
     lastReportedErrorRef.current = null;
     if (!html) {
       setLoadedHtml(null);
     }
-  }, [html, sandboxUrl]);
+  }, [html]);
+
+  // sandboxReady tracks the iframe's SW lifecycle — reset only when the iframe is recreated.
+  // Also reset canvasBridgeReady since the new iframe has no bridge yet.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sandboxUrl changes require iframe-level reset
+  useEffect(() => {
+    setSandboxReady(false);
+    setCanvasBridgeReady(false);
+  }, [sandboxUrl]);
 
   useEffect(() => {
     if (!hasVisibleCanvasContent) {
@@ -177,7 +184,7 @@ export function CanvasPanel({
     if (!sandboxMode || !sandboxReady || !sandboxContentReady || !html) return;
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
-    const injectedHtml = buildSandboxHtml(html);
+    const injectedHtml = buildCanvasSrcDoc(html);
     frame.postMessage(
       { type: "inject-content", source: PARENT_TO_CANVAS_SOURCE, html: injectedHtml },
       "*",

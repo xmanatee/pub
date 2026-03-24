@@ -58,6 +58,26 @@ export class AdapterDataChannel {
     this.dc.send(data);
   }
 
+  get bufferedAmount(): number {
+    return this.dc.bufferedAmount;
+  }
+
+  waitForDrain(threshold: number, timeoutMs: number): Promise<boolean> {
+    if (this.dc.bufferedAmount <= threshold) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        sub.unSubscribe();
+        resolve(false);
+      }, timeoutMs);
+      this.dc.bufferedAmountLowThreshold = threshold;
+      const sub = this.dc.bufferedAmountLow.subscribe(() => {
+        clearTimeout(timer);
+        sub.unSubscribe();
+        resolve(true);
+      });
+    });
+  }
+
   close(): void {
     this.dc.close();
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCanvasSrcDoc, buildSandboxHtml } from "~/features/live/utils/build-canvas-srcdoc";
+import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
 
 describe("buildCanvasSrcDoc", () => {
   it("injects base/debug script into existing head", () => {
@@ -76,19 +76,30 @@ describe("buildCanvasSrcDoc", () => {
   });
 });
 
-describe("buildSandboxHtml", () => {
-  it("keeps sandbox documents reinjectable after the first load", () => {
-    const output = buildSandboxHtml("<html><body>ok</body></html>");
-    expect(output).toContain("sandbox-ready");
-    expect(output).toContain('data.type==="inject-content"');
-    expect(output).toContain("document.write(data.html)");
-    expect(output).toContain('controller.postMessage({type:"keepalive"})');
-    expect(output).toContain('event.data&&event.data.type==="keepalive-ack"');
+describe("buildCanvasSrcDoc idempotency", () => {
+  it("uses swappable message handler to prevent listener accumulation", () => {
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    // Must remove old handler before adding new one
+    expect(output).toContain("window.__pubBridgeHandler");
+    expect(output).toContain('window.removeEventListener("message",window.__pubBridgeHandler)');
+    expect(output).toContain('window.addEventListener("message",handler)');
   });
 
-  it("includes the service-worker pub-fs relay", () => {
-    const output = buildSandboxHtml("<html><body>ok</body></html>");
-    expect(output).toContain('navigator.serviceWorker.addEventListener("message"');
-    expect(output).toContain('e.data.type==="pub-fs-request"');
+  it("guards console.error wrapping to prevent chaining", () => {
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    // Must store original once, not re-capture the wrapped version
+    expect(output).toContain("window.__pubOrigConsoleError");
+    expect(output).toContain("if(!window.__pubOrigConsoleError)");
+    expect(output).toContain("var origConsoleError=window.__pubOrigConsoleError");
+  });
+
+  it("does not contain sandbox bootstrap or SW relay code", () => {
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    // Must NOT contain infrastructure that belongs in sandbox/index.html
+    expect(output).not.toContain("sandbox-ready");
+    expect(output).not.toContain("inject-content");
+    expect(output).not.toContain("registerSW");
+    expect(output).not.toContain("keepalive");
+    expect(output).not.toContain("pub-fs-request");
   });
 });

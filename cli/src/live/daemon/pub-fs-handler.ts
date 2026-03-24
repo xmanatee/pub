@@ -145,10 +145,23 @@ export function createPubFsHandler(params: {
     });
     activeReads.set(requestId, { requestId, stream: readStream });
 
+    const DRAIN_THRESHOLD = STREAM_CHUNK_SIZE * 5;
+    const DRAIN_TIMEOUT_MS = 10_000;
+
     try {
       for await (const chunk of readStream) {
         if (!activeReads.has(requestId)) return;
         dc.sendMessageBinary(chunk instanceof Buffer ? chunk : Buffer.from(chunk));
+        if (dc.bufferedAmount > DRAIN_THRESHOLD) {
+          const drained = await dc.waitForDrain(DRAIN_THRESHOLD, DRAIN_TIMEOUT_MS);
+          if (!activeReads.has(requestId)) return;
+          if (!drained) {
+            activeReads.delete(requestId);
+            readStream.destroy();
+            sendError(dc, requestId, "READ_ERROR", "Data channel backpressure timeout.");
+            return;
+          }
+        }
       }
       if (activeReads.has(requestId)) {
         activeReads.delete(requestId);

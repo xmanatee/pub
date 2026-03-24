@@ -80,6 +80,7 @@ export function createPeerManager(params: {
       }
       if (peerState === "disconnected") {
         setConnectionState("disconnected");
+        stopPingPong();
         return;
       }
       if (peerState === "failed" || peerState === "closed") {

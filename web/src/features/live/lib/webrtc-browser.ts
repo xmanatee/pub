@@ -480,12 +480,18 @@ export class BrowserBridge {
         ...this.runtimeState,
         connectionState: "connected",
       });
-    } else if (newState === "disconnected" || newState === "failed") {
+    } else if (newState === "disconnected") {
+      this.failPendingAcks();
+      this.setRuntimeState({
+        ...this.runtimeState,
+        connectionState: "disconnected",
+      });
+    } else if (newState === "failed") {
       this.failPendingAcks();
       this.setRuntimeState({
         agentActivity: "idle",
         agentState: "idle",
-        connectionState: newState,
+        connectionState: "failed",
         executorState: "idle",
       });
     } else if (newState === "closed") {
