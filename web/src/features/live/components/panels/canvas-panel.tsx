@@ -81,7 +81,6 @@ export function CanvasPanel({
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
   latestOutboundCanvasBridgeMessageRef.current = outboundCanvasBridgeMessage ?? null;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: html changes reset content-dependent state
   useEffect(() => {
     setCanvasBridgeReady(false);
     setPendingOutboundCanvasBridgeMessages([]);
