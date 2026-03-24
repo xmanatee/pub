@@ -35,9 +35,7 @@ export const getLinkedProviders = query({
     return accounts.map((a) => ({
       provider: a.provider,
       identifier:
-        ((a as Record<string, unknown>).emailVerified as string | undefined) ??
-        user?.name ??
-        undefined,
+        ((a as Record<string, unknown>).emailVerified as string | undefined) ?? user?.name,
     }));
   },
 });

@@ -143,7 +143,7 @@ export function SettingsTab() {
                     size="sm"
                     className="text-xs text-muted-foreground hover:text-destructive shrink-0"
                     disabled={disconnecting === account.provider}
-                    onClick={() => handleDisconnect(account.provider)}
+                    onClick={() => void handleDisconnect(account.provider)}
                   >
                     {disconnecting === account.provider ? "…" : "Disconnect"}
                   </Button>
