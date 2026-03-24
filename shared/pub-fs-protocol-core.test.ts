@@ -235,6 +235,6 @@ describe("SW prefix drift", () => {
     const swSource = readFileSync(swPath, "utf-8");
     const match = swSource.match(/var PUB_FS_PREFIX\s*=\s*"([^"]+)"/);
     expect(match).not.toBeNull();
-    expect(match![1]).toBe(PUB_FS_URL_PREFIX);
+    expect(match?.[1]).toBe(PUB_FS_URL_PREFIX);
   });
 });
