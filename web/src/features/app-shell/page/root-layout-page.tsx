@@ -9,6 +9,7 @@ import * as React from "react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { TelegramNotLinkedPage } from "~/features/auth/page/telegram-not-linked-page";
 import { useTelegramAuth } from "~/hooks/use-telegram-auth";
 import { useTelegramBackButton } from "~/hooks/use-telegram-back-button";
 import { useTelegramTheme } from "~/hooks/use-telegram-theme";
@@ -46,13 +47,27 @@ export function RootLayoutPage() {
   useIdentifyUser();
   useTelegramBackButton();
   useTelegramTheme();
-  const { telegramPending } = useTelegramAuth();
+  const { telegramPending, telegramNotLinked, createTelegramAccount } = useTelegramAuth();
+  const [showNotLinked, setShowNotLinked] = React.useState(false);
+
+  React.useEffect(() => {
+    if (telegramNotLinked) setShowNotLinked(true);
+  }, [telegramNotLinked]);
 
   if (telegramPending) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-muted-foreground text-sm">Signing in via Telegram…</div>
       </div>
+    );
+  }
+
+  if (showNotLinked) {
+    return (
+      <TelegramNotLinkedPage
+        createAccount={createTelegramAccount}
+        onDone={() => setShowNotLinked(false)}
+      />
     );
   }
 

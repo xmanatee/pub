@@ -1,7 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { USER_OWNED_TABLES } from "./user-data";
 
 function generateToken(): string {
   const bytes = new Uint8Array(32);
@@ -61,6 +64,23 @@ export const getLinkTokenInfo = query({
   },
 });
 
+async function transferUserOwnedRows(
+  ctx: MutationCtx,
+  sourceUserId: Id<"users">,
+  targetUserId: Id<"users">,
+) {
+  for (const { table, index } of USER_OWNED_TABLES) {
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
+    const rows = await (ctx.db.query(table) as any)
+      .withIndex(index, (q: any) => q.eq("userId", sourceUserId))
+      .collect();
+    for (const row of rows) {
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
+      await ctx.db.patch(row._id, { userId: targetUserId } as any);
+    }
+  }
+}
+
 export const completeMerge = mutation({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -81,21 +101,7 @@ export const completeMerge = mutation({
 
     if (sourceUserId === targetUserId) return;
 
-    const pubs = await ctx.db
-      .query("pubs")
-      .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
-      .collect();
-    for (const pub of pubs) {
-      await ctx.db.patch(pub._id, { userId: targetUserId });
-    }
-
-    const apiKeys = await ctx.db
-      .query("apiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
-      .collect();
-    for (const key of apiKeys) {
-      await ctx.db.patch(key._id, { userId: targetUserId });
-    }
+    await transferUserOwnedRows(ctx, sourceUserId, targetUserId);
 
     const accounts = await ctx.db
       .query("authAccounts")
@@ -111,22 +117,6 @@ export const completeMerge = mutation({
       .collect();
     for (const session of sessions) {
       await ctx.db.patch(session._id, { userId: targetUserId });
-    }
-
-    const connections = await ctx.db
-      .query("connections")
-      .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
-      .collect();
-    for (const conn of connections) {
-      await ctx.db.patch(conn._id, { userId: targetUserId });
-    }
-
-    const hosts = await ctx.db
-      .query("hosts")
-      .withIndex("by_user", (q) => q.eq("userId", sourceUserId))
-      .collect();
-    for (const host of hosts) {
-      await ctx.db.patch(host._id, { userId: targetUserId });
     }
 
     await ctx.db.delete(sourceUserId);

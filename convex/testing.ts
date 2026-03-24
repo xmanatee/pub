@@ -1,5 +1,7 @@
 import { v } from "convex/values";
+import type { TableNames } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
+import { AUTH_TABLES, USER_OWNED_TABLES } from "./user-data";
 import { generateApiKey, hashApiKey, keyPreviewFromKey } from "./utils";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -14,21 +16,11 @@ export const clearAll = internalMutation({
   args: {},
   handler: async (ctx) => {
     assertTestEnv();
-    const tables = [
-      "pubs",
-      "connections",
-      "hosts",
-      "apiKeys",
-      "linkTokens",
-      "telegramBots",
-      "authSessions",
-      "authRefreshTokens",
-      "authAccounts",
-      "authVerificationCodes",
-      "authVerifiers",
-      "authRateLimits",
+    const tables: TableNames[] = [
+      ...USER_OWNED_TABLES.map((t) => t.table),
+      ...AUTH_TABLES,
       "users",
-    ] as const;
+    ];
     for (const table of tables) {
       const docs = await ctx.db.query(table).collect();
       for (const doc of docs) {

@@ -1,6 +1,43 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation } from "./_generated/server";
+import { USER_OWNED_TABLES } from "./user-data";
+
+async function deleteUserOwnedRows(ctx: MutationCtx, userId: Id<"users">) {
+  for (const { table, index } of USER_OWNED_TABLES) {
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
+    const rows = await (ctx.db.query(table) as any)
+      .withIndex(index, (q: any) => q.eq("userId", userId))
+      .collect();
+    for (const row of rows) {
+      await ctx.db.delete(row._id);
+    }
+  }
+}
+
+async function invalidateSessionsExcept(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  keepSessionId: Id<"authSessions"> | null,
+) {
+  const sessions = await ctx.db
+    .query("authSessions")
+    .withIndex("userId", (q) => q.eq("userId", userId))
+    .collect();
+  for (const session of sessions) {
+    if (session._id === keepSessionId) continue;
+    const refreshTokens = await ctx.db
+      .query("authRefreshTokens")
+      .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+      .collect();
+    for (const rt of refreshTokens) {
+      await ctx.db.delete(rt._id);
+    }
+    await ctx.db.delete(session._id);
+  }
+}
 
 export const disconnectProvider = mutation({
   args: { provider: v.string() },
@@ -21,6 +58,9 @@ export const disconnectProvider = mutation({
     if (!account) throw new Error("Provider not connected");
 
     await ctx.db.delete(account._id);
+
+    const currentSessionId = await getAuthSessionId(ctx);
+    await invalidateSessionsExcept(ctx, userId, currentSessionId);
   },
 });
 
@@ -30,53 +70,8 @@ export const deleteAccount = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const pubs = await ctx.db
-      .query("pubs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const pub of pubs) {
-      await ctx.db.delete(pub._id);
-    }
-
-    const apiKeys = await ctx.db
-      .query("apiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const key of apiKeys) {
-      await ctx.db.delete(key._id);
-    }
-
-    const connections = await ctx.db
-      .query("connections")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const conn of connections) {
-      await ctx.db.delete(conn._id);
-    }
-
-    const hosts = await ctx.db
-      .query("hosts")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const host of hosts) {
-      await ctx.db.delete(host._id);
-    }
-
-    const linkTokens = await ctx.db
-      .query("linkTokens")
-      .filter((q) => q.eq(q.field("userId"), userId))
-      .collect();
-    for (const t of linkTokens) {
-      await ctx.db.delete(t._id);
-    }
-
-    const sessions = await ctx.db
-      .query("authSessions")
-      .withIndex("userId", (q) => q.eq("userId", userId))
-      .collect();
-    for (const s of sessions) {
-      await ctx.db.delete(s._id);
-    }
+    await deleteUserOwnedRows(ctx, userId);
+    await invalidateSessionsExcept(ctx, userId, null);
 
     const accounts = await ctx.db
       .query("authAccounts")
@@ -84,14 +79,6 @@ export const deleteAccount = mutation({
       .collect();
     for (const a of accounts) {
       await ctx.db.delete(a._id);
-    }
-
-    const telegramBots = await ctx.db
-      .query("telegramBots")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const bot of telegramBots) {
-      await ctx.db.delete(bot._id);
     }
 
     await ctx.db.delete(userId);

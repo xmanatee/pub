@@ -13,11 +13,30 @@ import {
 const TELEGRAM_INIT_DATA_RETRY_MS = 250;
 const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
 
-export function useTelegramAuth(): { telegramPending: boolean } {
+export function isNotLinkedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("TELEGRAM_ACCOUNT_NOT_LINKED");
+}
+
+function getSlugFromStartParam(): string | undefined {
+  const startParam = getTelegramStartParam();
+  const parsed = startParam ? parseStartParam(startParam) : null;
+  return parsed?.path?.replace("/p/", "") || undefined;
+}
+
+export interface TelegramAuthState {
+  telegramPending: boolean;
+  telegramNotLinked: boolean;
+  createTelegramAccount: () => Promise<void>;
+}
+
+export function useTelegramAuth(): TelegramAuthState {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
   const [telegramPending, setTelegramPending] = React.useState(IN_TELEGRAM);
+  const [telegramNotLinked, setTelegramNotLinked] = React.useState(false);
   const attemptedRef = React.useRef(false);
+  const initDataRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!IN_TELEGRAM) {
@@ -46,15 +65,14 @@ export function useTelegramAuth(): { telegramPending: boolean } {
       if (!initData) return;
 
       attemptedRef.current = true;
+      initDataRef.current = initData;
       clearTimers();
       trackSignInStarted("telegram");
       pushAuthDebug("telegram_signin_start", {
         initDataLength: initData.length,
       });
 
-      const startParam = getTelegramStartParam();
-      const parsed = startParam ? parseStartParam(startParam) : null;
-      const slug = parsed?.path?.replace("/p/", "");
+      const slug = getSlugFromStartParam();
 
       void signIn("telegram", slug ? { initData, slug } : { initData })
         .then(() => {
@@ -62,10 +80,15 @@ export function useTelegramAuth(): { telegramPending: boolean } {
           pushAuthDebug("telegram_signin_success");
         })
         .catch((error) => {
-          trackError(error instanceof Error ? error : new Error(String(error)), {
-            provider: "telegram",
-          });
-          pushAuthDebug("telegram_signin_error", error);
+          if (isNotLinkedError(error)) {
+            pushAuthDebug("telegram_not_linked");
+            setTelegramNotLinked(true);
+          } else {
+            trackError(error instanceof Error ? error : new Error(String(error)), {
+              provider: "telegram",
+            });
+            pushAuthDebug("telegram_signin_error", error);
+          }
         })
         .finally(() => {
           if (!disposed) setTelegramPending(false);
@@ -91,5 +114,18 @@ export function useTelegramAuth(): { telegramPending: boolean } {
     };
   }, [isLoading, isAuthenticated, signIn]);
 
-  return { telegramPending };
+  const createTelegramAccount = React.useCallback(async () => {
+    const initData = initDataRef.current ?? getTelegramInitData();
+    if (!initData) throw new Error("Telegram initData not available");
+
+    const slug = getSlugFromStartParam();
+    await signIn("telegram", {
+      initData,
+      createAccount: "true",
+      ...(slug ? { slug } : {}),
+    });
+    setTelegramNotLinked(false);
+  }, [signIn]);
+
+  return { telegramPending, telegramNotLinked, createTelegramAccount };
 }

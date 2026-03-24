@@ -7,6 +7,18 @@ import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { parseInitDataUser } from "./telegram";
 
+const MISSING_ACCOUNT_PATTERNS = [
+  /account.+not found/i,
+  /no account/i,
+  /does not exist/i,
+  /could not find/i,
+];
+
+function isMissingAccountError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return MISSING_ACCOUNT_PATTERNS.some((p) => p.test(message));
+}
+
 const telegram = ConvexCredentials<DataModel>({
   id: "telegram",
   authorize: async (credentials, ctx) => {
@@ -21,28 +33,13 @@ const telegram = ConvexCredentials<DataModel>({
           userId: pub.userId,
         });
         if (botToken) {
-          try {
-            await validateInitData(initData, botToken);
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : error;
-            console.error(
-              "[TELEGRAM AUTH] initData validation FAILED —",
-              "allowing login but signature is invalid.",
-              "slug:",
-              slug,
-              "error:",
-              msg,
-            );
-          }
+          await validateInitData(initData, botToken);
         }
       }
     }
 
     const user = parseInitDataUser(initData);
     const accountId = String(user.id);
-    const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
-    const profile: Record<string, string> = { name };
-    if (user.photo_url) profile.image = user.photo_url;
 
     try {
       const { user: existingUser } = await retrieveAccount(ctx, {
@@ -51,14 +48,16 @@ const telegram = ConvexCredentials<DataModel>({
       });
       return { userId: existingUser._id };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const isMissingAccount = [
-        /account.+not found/i,
-        /no account/i,
-        /does not exist/i,
-        /could not find/i,
-      ].some((pattern) => pattern.test(message));
-      if (!isMissingAccount) throw error;
+      if (!isMissingAccountError(error)) throw error;
+
+      const shouldCreate = credentials.createAccount === "true";
+      if (!shouldCreate) {
+        throw new Error("TELEGRAM_ACCOUNT_NOT_LINKED");
+      }
+
+      const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
+      const profile: Record<string, string> = { name };
+      if (user.photo_url) profile.image = user.photo_url;
 
       const { user: newUser } = await createAccount(ctx, {
         provider: "telegram",
