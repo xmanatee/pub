@@ -1,27 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
-import * as React from "react";
-import { pushAuthDebug } from "~/lib/auth-debug";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/auth/callback")({
-  component: AuthCallbackPage,
-});
-
-function AuthCallbackPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const navigate = useNavigate();
-
-  React.useEffect(() => {
-    pushAuthDebug("callback_state", { isLoading, isAuthenticated });
-    if (isLoading) return;
-    const to = isAuthenticated ? "/dashboard" : "/login";
-    pushAuthDebug("callback_navigate", { to, isAuthenticated });
-    navigate({ to, replace: true });
-  }, [isAuthenticated, isLoading, navigate]);
-
-  return (
+  beforeLoad: ({ context }) => {
+    if (!context.auth.isLoading) {
+      throw redirect({
+        to: context.auth.isAuthenticated ? "/dashboard" : "/login",
+        replace: true,
+      });
+    }
+  },
+  component: () => (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-      <div className="text-muted-foreground text-sm">Completing sign-in\u2026</div>
+      <div className="text-muted-foreground text-sm">Completing sign-in…</div>
     </div>
-  );
-}
+  ),
+});

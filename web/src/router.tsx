@@ -34,7 +34,10 @@ export function getRouter() {
   const router = createRouter({
     routeTree,
     defaultPreload: "intent",
-    context: { queryClient },
+    context: {
+      queryClient,
+      auth: undefined as never, // Provided at runtime by RouterProvider in main.tsx
+    },
     scrollRestoration: true,
   });
 

@@ -1,19 +1,15 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons";
-import { useNavigate } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { trackSignIn, trackSignInStarted } from "~/lib/analytics";
+import { trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
 
 export function LoginPage() {
   const { signIn } = useAuthActions();
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const navigate = useNavigate();
   const isStartingSignInRef = React.useRef(false);
   const [pendingProvider, setPendingProvider] = React.useState<"github" | "google" | null>(null);
   const [authError, setAuthError] = React.useState<string | null>(null);
@@ -53,25 +49,6 @@ export function LoginPage() {
     },
     [pendingProvider, signIn],
   );
-
-  React.useEffect(() => {
-    pushAuthDebug("login_auth_state", {
-      isLoading,
-      isAuthenticated,
-    });
-    if (!isLoading && isAuthenticated) {
-      trackSignIn("oauth");
-      navigate({ to: "/dashboard", replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate]);
-
-  if (isLoading || isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <div className="text-muted-foreground text-sm">Loading…</div>
-      </div>
-    );
-  }
 
   if (IN_TELEGRAM) {
     return (

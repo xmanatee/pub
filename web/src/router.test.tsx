@@ -49,4 +49,11 @@ describe("getRouter", () => {
     const config = (result.router as unknown as { config: Record<string, unknown> }).config;
     expect(config.Wrap).toBeUndefined();
   });
+
+  it("router context includes auth placeholder for route guards", () => {
+    const result = getRouter();
+    const config = (result.router as unknown as { config: Record<string, unknown> }).config;
+    const context = config.context as Record<string, unknown>;
+    expect(context).toHaveProperty("auth");
+  });
 });
