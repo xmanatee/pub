@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { registerChannelServerCommand } from "../commands/channel-server.js";
 import { registerConfigCommand } from "../commands/config/index.js";
 import { registerLiveCommands } from "../commands/live/index.js";
 import { registerPubCommands } from "../commands/pub/index.js";
@@ -15,6 +16,7 @@ export function buildProgram(): Command {
   registerPubCommands(program);
   registerLiveCommands(program);
   registerUpgradeCommand(program);
+  registerChannelServerCommand(program);
 
   return program;
 }

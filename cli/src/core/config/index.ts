@@ -25,6 +25,7 @@ export type {
   ApiClientSettings,
   BridgeSettings,
   ClaudeBridgeSettings,
+  ClaudeChannelBridgeSettings,
   CommandAgentProfile,
   DetachedAgentProvider,
   OpenClawBridgeSettings,

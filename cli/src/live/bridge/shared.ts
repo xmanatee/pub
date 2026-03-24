@@ -18,6 +18,7 @@ export type BridgeRunnerConfig = {
   sendMessage: (channel: string, msg: BridgeMessage) => Promise<boolean>;
   onActivityChange: (activity: LiveAgentActivity) => void;
   onDeliveryUpdate?: (update: DeliveryUpdate) => void;
+  onCanvasWrite?: (html: string) => void;
   debugLog: (message: string, error?: unknown) => void;
 };
 

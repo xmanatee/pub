@@ -177,6 +177,11 @@ export function buildBridgeSettings(
       "PUB_OPENCLAW_LIKE_COMMAND",
       env,
     ),
+    channelSocketPath: stringValueOrEnv(
+      bridgeConfig.channelSocketPath,
+      "PUB_CHANNEL_SOCKET_PATH",
+      env,
+    ),
   };
 
   if (mode === "openclaw") {
@@ -185,6 +190,13 @@ export function buildBridgeSettings(
       mode,
       openclawPath: requireString(base.openclawPath, "openclaw.path"),
       sessionId: requireString(base.sessionId, "openclaw.sessionId"),
+    };
+  }
+
+  if (mode === "claude-channel") {
+    return {
+      ...base,
+      mode,
     };
   }
 

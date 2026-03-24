@@ -187,6 +187,11 @@ export function createBridgeManager(params: {
       bridgeSettings: runnerBridgeSettings,
       sendMessage: sendOnChannel,
       onActivityChange: handleActivityChange,
+      onCanvasWrite: (html: string) => {
+        void persistCanvasHtml(html).catch((error) => {
+          markError("unexpected canvas persist failure", error);
+        });
+      },
       onDeliveryUpdate: ({
         channel,
         messageId,

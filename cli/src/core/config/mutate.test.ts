@@ -90,6 +90,12 @@ describe("setPubConfigValue", () => {
     expect(config.bridge?.mode).toBe("claude-sdk");
   });
 
+  it("sets bridge.mode to claude-channel", () => {
+    const config = makeConfig();
+    setPubConfigValue(config, "bridge.mode", "claude-channel");
+    expect(config.bridge?.mode).toBe("claude-channel");
+  });
+
   it("rejects unknown and derived keys", () => {
     const config = makeConfig();
     expect(() => setPubConfigValue(config, "unknown.key", "v")).toThrow("Unknown config key");
@@ -143,7 +149,7 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(26);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(27);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");
@@ -152,5 +158,6 @@ describe("SUPPORTED_CONFIG_KEYS", () => {
     expect(SUPPORTED_CONFIG_KEYS).toContain("command.agent.defaultProfile");
     expect(SUPPORTED_CONFIG_KEYS).toContain("claude-sdk.commandModelFast");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("claude-channel.socketPath");
   });
 });

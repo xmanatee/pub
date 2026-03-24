@@ -1,6 +1,12 @@
 import type { BridgeSettings, PubBridgeConfig } from "../../../core/config/index.js";
 import type { BridgeRunner, BridgeRunnerConfig } from "../shared.js";
 import {
+  createClaudeChannelBridgeRunner,
+  isChannelSocketAvailable,
+  resolveChannelSocketPath,
+  runClaudeChannelBridgeStartupProbe,
+} from "./claude-channel/index.js";
+import {
   createClaudeCodeBridgeRunner,
   isClaudeCodeAvailableInEnv,
   runClaudeCodeBridgeStartupProbe,
@@ -193,6 +199,38 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       };
     },
     createRunner: createClaudeCodeBridgeRunner,
+  },
+  {
+    mode: "claude-channel" as const,
+    priority: 25,
+    detect(env: NodeJS.ProcessEnv, bridgeConfig?: PubBridgeConfig) {
+      const available = isChannelSocketAvailable(env, bridgeConfig);
+      const socketPath = resolveChannelSocketPath(env, bridgeConfig);
+      return {
+        available,
+        detail: available
+          ? `Channel relay socket detected at ${socketPath}`
+          : `Channel relay socket not found at ${socketPath}`,
+      };
+    },
+    async startupProbe(
+      env: NodeJS.ProcessEnv,
+      bridgeConfig: PubBridgeConfig | BridgeSettings | undefined,
+      options: { strictConfig: boolean },
+    ) {
+      const result = await runClaudeChannelBridgeStartupProbe(env, bridgeConfig, options);
+      return {
+        detailLines: [
+          `Channel relay socket: ${result.socketPath}`,
+          "Channel relay probe: OK",
+        ],
+        configPatch: {
+          mode: "claude-channel" as const,
+          channelSocketPath: result.socketPath,
+        },
+      };
+    },
+    createRunner: createClaudeChannelBridgeRunner,
   },
   {
     mode: "openclaw-like" as const,

@@ -1,4 +1,4 @@
-import type { BridgeMode } from "../../live/bridge/providers/types.js";
+import { BRIDGE_MODES, type BridgeMode } from "../../live/bridge/providers/types.js";
 import { parsePositiveInteger } from "../utils/number.js";
 import { trimToUndefined } from "./location.js";
 import {
@@ -129,6 +129,10 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "Command path for openclaw-like bridge delivery.",
     env: ["PUB_OPENCLAW_LIKE_COMMAND"],
   }),
+  bridgeVar("claude-channel.socketPath", "channelSocketPath", "string", {
+    description: "Unix socket path for the claude-channel relay.",
+    env: ["PUB_CHANNEL_SOCKET_PATH"],
+  }),
   bridgeVar("command.defaultTimeoutMs", "commandDefaultTimeoutMs", "integer", {
     description: "Default timeout for canvas command execution.",
   }),
@@ -210,13 +214,8 @@ function parseBooleanValue(raw: string, key: string): boolean {
 
 function parseBridgeModeValue(raw: string, key: string): BridgeMode {
   const normalized = raw.trim().toLowerCase();
-  if (
-    normalized === "openclaw" ||
-    normalized === "claude-code" ||
-    normalized === "claude-sdk" ||
-    normalized === "openclaw-like"
-  ) {
-    return normalized;
+  if ((BRIDGE_MODES as readonly string[]).includes(normalized)) {
+    return normalized as BridgeMode;
   }
   throw new Error(`Invalid bridge mode for ${key}: ${raw}`);
 }

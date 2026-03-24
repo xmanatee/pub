@@ -40,6 +40,7 @@ export type PubBridgeConfig = {
   claudeSdkCommandModelFast?: string;
   claudeSdkCommandModelDeep?: string;
   openclawLikeCommand?: string;
+  channelSocketPath?: string;
 };
 
 export type PubTelegramConfig = {
@@ -76,6 +77,7 @@ interface BridgeSettingsBase {
   claudeSdkCommandModelFast?: string;
   claudeSdkCommandModelDeep?: string;
   openclawLikeCommand?: string;
+  channelSocketPath?: string;
   liveModelProfile?: LiveModelProfile;
 }
 
@@ -90,6 +92,10 @@ export type ClaudeBridgeSettings = BridgeSettingsBase & {
   claudeCodePath: string;
 };
 
+export type ClaudeChannelBridgeSettings = BridgeSettingsBase & {
+  mode: "claude-channel";
+};
+
 export type OpenClawLikeBridgeSettings = BridgeSettingsBase & {
   mode: "openclaw-like";
   openclawLikeCommand: string;
@@ -98,6 +104,7 @@ export type OpenClawLikeBridgeSettings = BridgeSettingsBase & {
 export type BridgeSettings =
   | OpenClawBridgeSettings
   | ClaudeBridgeSettings
+  | ClaudeChannelBridgeSettings
   | OpenClawLikeBridgeSettings;
 
 export type ApiClientSettings = {
