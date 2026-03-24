@@ -30,6 +30,14 @@ export const getLinkedProviders = query({
       .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
       .collect();
 
-    return accounts.map((a) => a.provider);
+    const user = await ctx.db.get(userId);
+
+    return accounts.map((a) => ({
+      provider: a.provider,
+      identifier:
+        ((a as Record<string, unknown>).emailVerified as string | undefined) ??
+        user?.name ??
+        undefined,
+    }));
   },
 });

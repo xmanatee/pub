@@ -1,10 +1,11 @@
 import { api } from "@backend/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { SiGithub, SiGoogle, SiTelegram } from "@icons-pack/react-simple-icons";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Check, ExternalLink, Link2, LogOut, Unlink, X } from "lucide-react";
-import * as React from "react";
-import { Badge } from "~/components/ui/badge";
+import { ExternalLink, Link2, LogOut, X } from "lucide-react";
+import type * as React from "react";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -21,26 +22,29 @@ import {
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
 
-const PROVIDER_LABELS: Record<string, string> = {
-  github: "GitHub",
-  google: "Google",
-  telegram: "Telegram",
+const PROVIDER_CONFIG: Record<
+  string,
+  { label: string; Icon: React.ComponentType<{ className?: string }> }
+> = {
+  github: { label: "GitHub", Icon: SiGithub },
+  google: { label: "Google", Icon: SiGoogle },
+  telegram: { label: "Telegram", Icon: SiTelegram },
 };
 
 export function SettingsTab() {
-  const providers = useQuery(api.telegram.getLinkedProviders);
+  const accounts = useQuery(api.telegram.getLinkedProviders);
   const createLinkToken = useMutation(api.linking.createLinkToken);
   const disconnectProvider = useMutation(api.account.disconnectProvider);
   const deleteAccount = useMutation(api.account.deleteAccount);
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
 
-  const [linkUrl, setLinkUrl] = React.useState<string | null>(null);
-  const [linkError, setLinkError] = React.useState<string | null>(null);
-  const [linkLoading, setLinkLoading] = React.useState(false);
-  const [disconnecting, setDisconnecting] = React.useState<string | null>(null);
-  const [deleteConfirmText, setDeleteConfirmText] = React.useState("");
-  const [deleting, setDeleting] = React.useState(false);
+  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
   const { telemetryEnabled, setTelemetryEnabled } = useTelemetryPreference();
@@ -90,14 +94,18 @@ export function SettingsTab() {
     }
   }
 
-  if (!providers) {
-    return <div className="text-muted-foreground py-8">Loading\u2026</div>;
+  if (!accounts) {
+    return <div className="text-muted-foreground py-8">Loading…</div>;
   }
 
-  const hasGithub = providers.includes("github");
-  const hasGoogle = providers.includes("google");
-  const hasTelegram = providers.includes("telegram");
-  const canDisconnect = providers.length > 1;
+  const connectedProviders = new Set(accounts.map((a) => a.provider));
+  const hasGithub = connectedProviders.has("github");
+  const hasGoogle = connectedProviders.has("google");
+  const hasTelegram = connectedProviders.has("telegram");
+  const canDisconnect = accounts.length > 1;
+
+  const showTelegramLinkHint = !IN_TELEGRAM && !hasTelegram;
+  const showWebLinkAction = IN_TELEGRAM && (!hasGithub || !hasGoogle);
 
   return (
     <div className="space-y-4 mt-4">
@@ -106,66 +114,79 @@ export function SettingsTab() {
           <CardTitle className="text-sm font-medium">Linked Accounts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {providers.map((provider: string) => (
-            <div key={provider} className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />
-              <span className="text-sm">{PROVIDER_LABELS[provider] ?? provider}</span>
-              <Badge variant="secondary" className="text-xs">
-                Connected
-              </Badge>
-              {canDisconnect && (
+          {accounts.length === 0 && (
+            <p className="text-sm text-muted-foreground">No accounts linked yet.</p>
+          )}
+          {accounts.map((account) => {
+            const config = PROVIDER_CONFIG[account.provider];
+            const Icon = config?.Icon;
+            const label = config?.label ?? account.provider;
+            return (
+              <div
+                key={account.provider}
+                className="flex items-center justify-between rounded-lg border border-border/50 px-4 py-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">{label}</div>
+                    {account.identifier && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {account.identifier}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {canDisconnect && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:text-destructive shrink-0"
+                    disabled={disconnecting === account.provider}
+                    onClick={() => handleDisconnect(account.provider)}
+                  >
+                    {disconnecting === account.provider ? "…" : "Disconnect"}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+          {showTelegramLinkHint && (
+            <div className="flex items-center gap-3 rounded-lg border border-dashed border-border/50 px-4 py-3">
+              <SiTelegram className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <p className="text-xs text-muted-foreground">
+                Open pub.blue in Telegram to link your Telegram account.
+              </p>
+            </div>
+          )}
+          {showWebLinkAction && (
+            <div className="rounded-lg border border-dashed border-border/50 px-4 py-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Link your GitHub or Google account to access your pubs from the web too.
+              </p>
+              {linkError ? <p className="text-xs text-destructive">{linkError}</p> : null}
+              {linkUrl ? (
+                <Button variant="outline" size="sm" onClick={() => telegramOpenLink(linkUrl)}>
+                  <ExternalLink className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  Open link page
+                </Button>
+              ) : (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="h-6 px-1.5 text-muted-foreground hover:text-destructive"
-                  disabled={disconnecting === provider}
-                  onClick={() => handleDisconnect(provider)}
-                  aria-label={`Disconnect ${PROVIDER_LABELS[provider] ?? provider}`}
+                  disabled={linkLoading}
+                  onClick={handleCreateLink}
                 >
-                  {disconnecting === provider ? (
-                    <span className="text-xs">…</span>
-                  ) : (
-                    <Unlink className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
+                  <Link2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  {linkLoading ? "Generating…" : "Generate link"}
                 </Button>
               )}
             </div>
-          ))}
-          {providers.length === 0 && (
-            <p className="text-sm text-muted-foreground">No accounts linked yet.</p>
           )}
         </CardContent>
       </Card>
 
       <LiveModelSettingsCard />
-
-      {IN_TELEGRAM && (!hasGithub || !hasGoogle) && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Link Another Account</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Link your GitHub or Google account to access your pubs from the web too.
-            </p>
-            {linkError ? <p className="text-sm text-destructive">{linkError}</p> : null}
-            {linkUrl ? (
-              <div className="space-y-2">
-                <p className="text-sm">Open this link in a browser to complete linking:</p>
-                <Button variant="outline" size="sm" onClick={() => telegramOpenLink(linkUrl)}>
-                  <ExternalLink className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                  Open link page
-                </Button>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" disabled={linkLoading} onClick={handleCreateLink}>
-                <Link2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                {linkLoading ? "Generating\u2026" : "Generate link"}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {canUseDeveloperMode && (
         <Card className="border-border/50">
@@ -204,33 +225,16 @@ export function SettingsTab() {
         </CardContent>
       </Card>
 
-      {!IN_TELEGRAM && !hasTelegram && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Link Telegram</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Open pub.blue from within Telegram to link your Telegram account.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {!IN_TELEGRAM && (
-        <Card className="border-border/50">
-          <CardContent className="pt-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => void handleSignOut()}
-            >
-              <LogOut className="h-4 w-4 mr-1.5" aria-hidden="true" />
-              Sign out
-            </Button>
-          </CardContent>
-        </Card>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          onClick={() => void handleSignOut()}
+        >
+          <LogOut className="h-4 w-4 mr-1.5" aria-hidden="true" />
+          Sign out
+        </Button>
       )}
 
       <Card className="border-destructive/30">
