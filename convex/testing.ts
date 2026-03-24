@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { TableNames } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
-import { AUTH_TABLES, USER_OWNED_TABLES } from "./user-data";
+import { AUTH_TABLES, USER_OWNED_TABLES } from "./user_data";
 import { generateApiKey, hashApiKey, keyPreviewFromKey } from "./utils";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;

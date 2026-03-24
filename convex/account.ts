@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { mutation } from "./_generated/server";
-import { USER_OWNED_TABLES } from "./user-data";
+import { USER_OWNED_TABLES } from "./user_data";
 
 async function deleteUserOwnedRows(ctx: MutationCtx, userId: Id<"users">) {
   for (const { table, index } of USER_OWNED_TABLES) {

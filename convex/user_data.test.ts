@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AUTH_TABLES, USER_OWNED_TABLES } from "./user-data";
+import { AUTH_TABLES, USER_OWNED_TABLES } from "./user_data";
 
 describe("USER_OWNED_TABLES", () => {
   it("has no duplicate entries", () => {

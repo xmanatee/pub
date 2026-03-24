@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { USER_OWNED_TABLES } from "./user-data";
+import { USER_OWNED_TABLES } from "./user_data";
 
 function generateToken(): string {
   const bytes = new Uint8Array(32);
