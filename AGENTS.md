@@ -125,6 +125,7 @@ Biome handles linting and formatting:
 
 Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list. Key ones:
 - `VITE_CONVEX_URL` — Convex cloud endpoint
+- `VITE_SANDBOX_ORIGIN` — sandbox iframe origin; required for canvas isolation + pub-fs (`/__sandbox__` for dev, `https://sandbox.pub.blue` for prod); unset disables sandbox mode
 - `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY` — observability
 - Auth secrets (`AUTH_GITHUB_*`, `AUTH_GOOGLE_*`) are set in the Convex dashboard, not in `.env`
 
