@@ -32,6 +32,9 @@
     if (swReady) return;
     swReady = true;
     cleanupHandshake();
+    // Clear any cached files from a previous session before new content arrives
+    var ctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (ctrl) ctrl.postMessage({ type: "clear-cache" });
     parent.postMessage({ type: "sandbox-ready", source: SANDBOX_SOURCE }, "*");
   }
 

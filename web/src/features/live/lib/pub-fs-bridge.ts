@@ -5,11 +5,15 @@
  * postMessage), sends them over WebRTC to the CLI agent, and streams
  * responses back through the MessagePort directly to the SW.
  *
+ * Binary chunks carry a tagged header (requestId + data) so multiple reads
+ * can transfer concurrently without interleaving corruption.
+ *
  * Supports GET (read/stream), PUT (write), and DELETE operations.
  */
 
 import { CHANNELS, STREAM_CHUNK_SIZE } from "@shared/bridge-protocol-core";
 import {
+  decodeTaggedChunk,
   makePubFsCancelMessage,
   makePubFsDeleteMessage,
   makePubFsReadMessage,
@@ -28,7 +32,6 @@ interface PendingRequest {
 
 export class PubFsBridge {
   private pending = new Map<string, PendingRequest>();
-  private activeRequestId: string | null = null;
   private bridgeRef: React.RefObject<BrowserBridge | null>;
   private getReadyBridge: () => Promise<BrowserBridge | null>;
   private iframeWindow: Window | null = null;
@@ -139,7 +142,6 @@ export class PubFsBridge {
     }
     const pending = this.pending.get(requestId);
     if (pending) pending.sent = true;
-    // Send body in chunks
     const bytes = new Uint8Array(body);
     for (let offset = 0; offset < bytes.length; offset += STREAM_CHUNK_SIZE) {
       const sent = bridge.sendBinary(
@@ -148,7 +150,6 @@ export class PubFsBridge {
       );
       if (!sent) {
         this.pending.delete(requestId);
-        this.activeRequestId = null;
         port.postMessage({
           type: "error",
           code: "CHANNEL_NOT_READY",
@@ -181,16 +182,16 @@ export class PubFsBridge {
     const { message, binaryData } = cm;
 
     if (message.type === "binary" && binaryData) {
-      if (!this.activeRequestId) return;
-      const pending = this.pending.get(this.activeRequestId);
+      const tagged = decodeTaggedChunk(binaryData);
+      if (!tagged) return;
+      const pending = this.pending.get(tagged.requestId);
       if (!pending) return;
-      pending.port.postMessage({ type: "chunk", data: binaryData }, [binaryData]);
+      pending.port.postMessage({ type: "chunk", data: tagged.data }, [tagged.data]);
       return;
     }
 
     const metadata = parsePubFsMetadataMessage(message);
     if (metadata) {
-      this.activeRequestId = metadata.requestId;
       const pending = this.pending.get(metadata.requestId);
       if (!pending) return;
       pending.port.postMessage({
@@ -205,7 +206,6 @@ export class PubFsBridge {
 
     const doneRequestId = parsePubFsDoneMessage(message);
     if (doneRequestId) {
-      if (this.activeRequestId === doneRequestId) this.activeRequestId = null;
       const pending = this.pending.get(doneRequestId);
       if (!pending) return;
       pending.port.postMessage({ type: "done" });
@@ -215,7 +215,6 @@ export class PubFsBridge {
 
     const error = parsePubFsErrorMessage(message);
     if (error) {
-      if (this.activeRequestId === error.requestId) this.activeRequestId = null;
       const pending = this.pending.get(error.requestId);
       if (!pending) return;
       pending.port.postMessage({ type: "error", code: error.code, message: error.message });
@@ -241,7 +240,6 @@ export class PubFsBridge {
       }
     }
     this.pending.clear();
-    this.activeRequestId = null;
     this.iframeWindow = null;
   }
 }

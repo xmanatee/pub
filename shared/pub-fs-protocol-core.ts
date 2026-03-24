@@ -209,3 +209,32 @@ export function parsePubFsCancelMessage(msg: BridgeMessage): PubFsCancelRequest 
   if (msg.type !== "event" || msg.data !== PUB_FS_CANCEL_EVENT) return null;
   return parsePubFsCancelRequest(msg.meta);
 }
+
+// ---------------------------------------------------------------------------
+// Tagged binary chunks — self-identifying binary data for concurrent reads
+// Format: [2-byte uint16 BE: requestId length][requestId UTF-8][chunk data]
+// ---------------------------------------------------------------------------
+
+export function encodeTaggedChunk(requestId: string, data: Uint8Array): Uint8Array {
+  const idBytes = new TextEncoder().encode(requestId);
+  if (idBytes.length > 0xffff) throw new RangeError("requestId too long for tagged chunk header");
+  const result = new Uint8Array(2 + idBytes.length + data.length);
+  result[0] = (idBytes.length >> 8) & 0xff;
+  result[1] = idBytes.length & 0xff;
+  result.set(idBytes, 2);
+  result.set(data, 2 + idBytes.length);
+  return result;
+}
+
+export function decodeTaggedChunk(
+  buffer: ArrayBuffer,
+): { requestId: string; data: ArrayBuffer } | null {
+  if (buffer.byteLength < 2) return null;
+  const view = new DataView(buffer);
+  const idLen = view.getUint16(0);
+  if (buffer.byteLength < 2 + idLen) return null;
+  const requestId = new TextDecoder().decode(new Uint8Array(buffer, 2, idLen));
+  if (requestId.length === 0) return null;
+  const data = buffer.slice(2 + idLen);
+  return { requestId, data };
+}

@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeEventMessage } from "./bridge-protocol-core";
 import {
+  decodeTaggedChunk,
+  encodeTaggedChunk,
   makePubFsCancelMessage,
   makePubFsDeleteMessage,
   makePubFsDoneMessage,
@@ -226,6 +228,74 @@ describe("parsePubFsDeleteRequest", () => {
 
   it("rejects missing path", () => {
     expect(parsePubFsDeleteRequest({ requestId: "d1" })).toBeNull();
+  });
+});
+
+describe("tagged binary chunks", () => {
+  function decode(encoded: Uint8Array) {
+    const result = decodeTaggedChunk(encoded.buffer as ArrayBuffer);
+    expect(result).not.toBeNull();
+    return result as NonNullable<typeof result>;
+  }
+
+  it("round-trips requestId and data", () => {
+    const requestId = "lq8z2m4-0-a1b2";
+    const data = new Uint8Array([10, 20, 30, 40, 50]);
+    const decoded = decode(encodeTaggedChunk(requestId, data));
+    expect(decoded.requestId).toBe(requestId);
+    expect(new Uint8Array(decoded.data)).toEqual(data);
+  });
+
+  it("handles empty data payload", () => {
+    const decoded = decode(encodeTaggedChunk("r1", new Uint8Array(0)));
+    expect(decoded.requestId).toBe("r1");
+    expect(decoded.data.byteLength).toBe(0);
+  });
+
+  it("handles large requestId", () => {
+    const id = "x".repeat(300);
+    const data = new Uint8Array([1]);
+    const decoded = decode(encodeTaggedChunk(id, data));
+    expect(decoded.requestId).toBe(id);
+    expect(new Uint8Array(decoded.data)).toEqual(data);
+  });
+
+  it("rejects buffer shorter than 2 bytes", () => {
+    expect(decodeTaggedChunk(new ArrayBuffer(0))).toBeNull();
+    expect(decodeTaggedChunk(new ArrayBuffer(1))).toBeNull();
+  });
+
+  it("rejects buffer with length exceeding available bytes", () => {
+    const buf = new ArrayBuffer(4);
+    new DataView(buf).setUint16(0, 100);
+    expect(decodeTaggedChunk(buf)).toBeNull();
+  });
+
+  it("rejects zero-length requestId", () => {
+    const buf = new ArrayBuffer(4);
+    new DataView(buf).setUint16(0, 0);
+    expect(decodeTaggedChunk(buf)).toBeNull();
+  });
+
+  it("preserves binary data integrity for 48KB chunks", () => {
+    const chunkSize = 48 * 1024;
+    const data = new Uint8Array(chunkSize);
+    for (let i = 0; i < chunkSize; i++) data[i] = i & 0xff;
+    const decoded = decode(encodeTaggedChunk("req-42", data));
+    expect(new Uint8Array(decoded.data)).toEqual(data);
+  });
+
+  it("correctly demultiplexes interleaved chunks from different requests", () => {
+    const d1 = decode(encodeTaggedChunk("req-a", new Uint8Array([1, 2, 3])));
+    const d2 = decode(encodeTaggedChunk("req-b", new Uint8Array([4, 5, 6])));
+    const d3 = decode(encodeTaggedChunk("req-a", new Uint8Array([7, 8, 9])));
+
+    expect(d1.requestId).toBe("req-a");
+    expect(d2.requestId).toBe("req-b");
+    expect(d3.requestId).toBe("req-a");
+    expect(new Uint8Array(d1.data)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(new Uint8Array(d2.data)).toEqual(new Uint8Array([4, 5, 6]));
+    expect(new Uint8Array(d3.data)).toEqual(new Uint8Array([7, 8, 9]));
   });
 });
 

@@ -16,6 +16,7 @@ import {
   STREAM_CHUNK_SIZE,
 } from "../../../../shared/bridge-protocol-core";
 import {
+  encodeTaggedChunk,
   makePubFsDoneMessage,
   makePubFsErrorMessage,
   makePubFsMetadataMessage,
@@ -28,7 +29,6 @@ import { getMimeType } from "../runtime/file-payload.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 
 interface ActiveRead {
-  requestId: string;
   stream: ReadStream;
 }
 
@@ -40,6 +40,9 @@ interface ActiveWrite {
   receivedSize: number;
 }
 
+const DRAIN_THRESHOLD = STREAM_CHUNK_SIZE * 5;
+const BACKPRESSURE_TIMEOUT_MS = 30_000;
+
 export function createPubFsHandler(params: {
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
@@ -48,8 +51,8 @@ export function createPubFsHandler(params: {
 }) {
   const activeReads = new Map<string, ActiveRead>();
   const activeWrite: { current: ActiveWrite | null } = { current: null };
-  const opQueue: BridgeMessage[] = [];
-  let processing = false;
+  const writeQueue: BridgeMessage[] = [];
+  let processingWrites = false;
 
   function sendMessage(dc: AdapterDataChannel, msg: BridgeMessage): void {
     dc.sendMessage(encodeMessage(msg));
@@ -71,7 +74,7 @@ export function createPubFsHandler(params: {
     active.stream.destroy();
   }
 
-  // --- READ ---
+  // --- READ (concurrent, tagged binary chunks) ---
 
   async function handleRead(msg: BridgeMessage): Promise<void> {
     const request = parsePubFsReadMessage(msg);
@@ -143,17 +146,16 @@ export function createPubFsHandler(params: {
       end: effectiveEnd,
       highWaterMark: STREAM_CHUNK_SIZE,
     });
-    activeReads.set(requestId, { requestId, stream: readStream });
-
-    const DRAIN_THRESHOLD = STREAM_CHUNK_SIZE * 5;
-    const DRAIN_TIMEOUT_MS = 10_000;
+    activeReads.set(requestId, { stream: readStream });
 
     try {
       for await (const chunk of readStream) {
         if (!activeReads.has(requestId)) return;
-        dc.sendMessageBinary(chunk instanceof Buffer ? chunk : Buffer.from(chunk));
+        const raw = chunk instanceof Buffer ? chunk : Buffer.from(chunk);
+        const tagged = encodeTaggedChunk(requestId, raw);
+        dc.sendMessageBinary(Buffer.from(tagged.buffer, tagged.byteOffset, tagged.byteLength));
         if (dc.bufferedAmount > DRAIN_THRESHOLD) {
-          const drained = await dc.waitForDrain(DRAIN_THRESHOLD, DRAIN_TIMEOUT_MS);
+          const drained = await dc.waitForDrain(DRAIN_THRESHOLD, BACKPRESSURE_TIMEOUT_MS);
           if (!activeReads.has(requestId)) return;
           if (!drained) {
             activeReads.delete(requestId);
@@ -178,7 +180,7 @@ export function createPubFsHandler(params: {
     }
   }
 
-  // --- WRITE ---
+  // --- WRITE (serialized via writeQueue) ---
 
   async function handleWrite(msg: BridgeMessage): Promise<void> {
     const request = parsePubFsWriteMessage(msg);
@@ -188,8 +190,12 @@ export function createPubFsHandler(params: {
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
 
+    if (activeWrite.current) {
+      sendError(dc, requestId, "WRITE_ERROR", "Another write is already in progress.");
+      return;
+    }
+
     if (size === 0) {
-      // Zero-byte file: write immediately
       try {
         const resolvedPath = resolve(filePath);
         mkdirSync(dirname(resolvedPath), { recursive: true });
@@ -206,7 +212,6 @@ export function createPubFsHandler(params: {
       return;
     }
 
-    // Set up to receive binary chunks
     activeWrite.current = {
       requestId,
       path: filePath,
@@ -248,7 +253,7 @@ export function createPubFsHandler(params: {
     }
   }
 
-  // --- DELETE ---
+  // --- DELETE (serialized with writes) ---
 
   async function handleDelete(msg: BridgeMessage): Promise<void> {
     const request = parsePubFsDeleteMessage(msg);
@@ -276,31 +281,32 @@ export function createPubFsHandler(params: {
     }
   }
 
-  // --- Queue (serializes all operations to avoid binary chunk interleaving) ---
+  // --- Write/delete queue (serialized to prevent interleaving write chunks) ---
 
-  async function processQueue(): Promise<void> {
-    if (processing) return;
-    processing = true;
-    while (opQueue.length > 0) {
-      const next = opQueue.shift()!;
-      if (next.type === "event" && next.data === "pub-fs.read") await handleRead(next);
-      else if (next.type === "event" && next.data === "pub-fs.write") await handleWrite(next);
+  async function processWriteQueue(): Promise<void> {
+    if (processingWrites) return;
+    processingWrites = true;
+    while (writeQueue.length > 0) {
+      const next = writeQueue.shift()!;
+      if (next.type === "event" && next.data === "pub-fs.write") await handleWrite(next);
       else if (next.type === "event" && next.data === "pub-fs.delete") await handleDelete(next);
     }
-    processing = false;
+    processingWrites = false;
   }
 
   return {
     onMessage(message: BridgeMessage): void {
       if (message.type === "event") {
-        if (
-          message.data === "pub-fs.read" ||
-          message.data === "pub-fs.write" ||
-          message.data === "pub-fs.delete"
-        ) {
-          opQueue.push(message);
-          void processQueue().catch((error) =>
-            params.markError("pub-fs queue processing failed", error),
+        if (message.data === "pub-fs.read") {
+          void handleRead(message).catch((error) =>
+            params.markError("pub-fs read failed", error),
+          );
+          return;
+        }
+        if (message.data === "pub-fs.write" || message.data === "pub-fs.delete") {
+          writeQueue.push(message);
+          void processWriteQueue().catch((error) =>
+            params.markError("pub-fs write queue failed", error),
           );
           return;
         }
@@ -310,17 +316,14 @@ export function createPubFsHandler(params: {
           return;
         }
       }
-      if (message.type === "binary") {
-        handleWriteChunk(Buffer.from(message.data ?? "", "base64"));
+      if (message.type === "binary" && message.data) {
+        handleWriteChunk(Buffer.from(message.data, "base64"));
         return;
       }
     },
-    onBinaryMessage(data: Buffer): void {
-      handleWriteChunk(data);
-    },
     reset(): void {
-      opQueue.length = 0;
-      processing = false;
+      writeQueue.length = 0;
+      processingWrites = false;
       activeWrite.current = null;
       for (const [, active] of activeReads) {
         active.stream.destroy();

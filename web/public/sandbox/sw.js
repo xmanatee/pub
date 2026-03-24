@@ -2,13 +2,19 @@
  * Pub FS Service Worker — intercepts /__pub_files__/* and proxies file
  * operations (GET/PUT/DELETE) to the host machine via MessagePort relay.
  *
- * GET  → stream file bytes from host (Range/206 support)
- * PUT  → write request body to host path
- * DELETE → delete file on host
+ * GET  → check in-memory cache first, then stream from host (Range/206 support)
+ * PUT  → write request body to host path (invalidates cache)
+ * DELETE → delete file on host (invalidates cache)
+ *
+ * Full-file responses are cached in memory so subsequent range requests
+ * (e.g. video seeking) are served instantly without a WebRTC roundtrip.
  */
 
 var PUB_FS_PREFIX = "/__pub_files__/";
 var RESPONSE_TIMEOUT_MS = 30000;
+
+// In-memory file cache: path → { buffer: ArrayBuffer, mime: string, totalSize: number }
+var fileCache = Object.create(null);
 
 self.addEventListener("install", function () {
   self.skipWaiting();
@@ -58,17 +64,78 @@ async function handleRequest(event) {
   var filePath = extractPath(new URL(event.request.url));
   if (!filePath) return new Response("Missing file path", { status: 400 });
 
+  var method = event.request.method;
+
+  if (method === "GET" || method === "HEAD") {
+    var cached = fileCache[filePath];
+    if (cached) return serveCachedResponse(cached, event.request);
+  }
+
   var client = await getClient(event.clientId);
   if (!client) return new Response("No requesting client", { status: 502 });
 
-  var method = event.request.method;
   if (method === "GET" || method === "HEAD") return handleGet(event, client, filePath);
   if (method === "PUT") return handlePut(event, client, filePath);
   if (method === "DELETE") return handleDelete(client, filePath);
   return new Response("Method not allowed", { status: 405 });
 }
 
-// --- GET (streaming with Range support) ---
+// --- Cache ---
+
+function resolveRange(range, totalSize) {
+  if (!range) return null;
+  var start, end;
+  if (range.start !== undefined && range.end !== undefined) {
+    start = range.start;
+    end = Math.min(range.end, totalSize - 1);
+  } else if (range.start !== undefined) {
+    start = range.start;
+    end = totalSize - 1;
+  } else if (range.end !== undefined) {
+    start = Math.max(0, totalSize - range.end);
+    end = totalSize - 1;
+  } else {
+    return null;
+  }
+  if (start > end || start >= totalSize) return "unsatisfiable";
+  return { start: start, end: end };
+}
+
+function serveCachedResponse(cached, request) {
+  var rawRange = parseRangeHeader(request.headers.get("range"));
+  var resolved = resolveRange(rawRange, cached.totalSize);
+  if (resolved === "unsatisfiable") {
+    return new Response("Range Not Satisfiable", { status: 416 });
+  }
+  var headers = {
+    "Content-Type": cached.mime || "application/octet-stream",
+    "Accept-Ranges": "bytes",
+  };
+  if (resolved) {
+    headers["Content-Range"] =
+      "bytes " + resolved.start + "-" + resolved.end + "/" + cached.totalSize;
+    headers["Content-Length"] = String(resolved.end - resolved.start + 1);
+  } else {
+    headers["Content-Length"] = String(cached.totalSize);
+  }
+  if (request.method === "HEAD") {
+    return new Response(null, {
+      status: resolved ? 206 : 200,
+      statusText: resolved ? "Partial Content" : "OK",
+      headers: headers,
+    });
+  }
+  var body = resolved
+    ? cached.buffer.slice(resolved.start, resolved.end + 1)
+    : cached.buffer.slice(0);
+  return new Response(body, {
+    status: resolved ? 206 : 200,
+    statusText: resolved ? "Partial Content" : "OK",
+    headers: headers,
+  });
+}
+
+// --- GET (streaming with Range support + cache population) ---
 
 async function handleGet(event, client, filePath) {
   var range = parseRangeHeader(event.request.headers.get("range"));
@@ -86,6 +153,8 @@ async function handleGet(event, client, filePath) {
   return new Promise(function (resolve) {
     var resolved = false;
     var controller = null;
+    var cacheChunks = null;
+    var cacheMeta = null;
 
     var timer = setTimeout(function () {
       port.onmessage = null;
@@ -98,6 +167,7 @@ async function handleGet(event, client, filePath) {
     var body = new ReadableStream({
       start: function (c) { controller = c; },
       cancel: function () {
+        cacheChunks = null;
         port.postMessage({ type: "cancel" });
         port.onmessage = null;
       },
@@ -110,6 +180,11 @@ async function handleGet(event, client, filePath) {
       if (msg.type === "metadata") {
         clearTimeout(timer);
         resolved = true;
+        cacheMeta = msg;
+        // Cache full-file responses (rangeStart=0 and rangeEnd=totalSize-1)
+        if (msg.rangeStart === 0 && msg.rangeEnd === msg.totalSize - 1) {
+          cacheChunks = [];
+        }
         resolve(new Response(event.request.method === "HEAD" ? null : body, {
           status: range ? 206 : 200,
           statusText: range ? "Partial Content" : "OK",
@@ -119,19 +194,28 @@ async function handleGet(event, client, filePath) {
       }
 
       if (msg.type === "chunk") {
-        if (controller && msg.data) controller.enqueue(new Uint8Array(msg.data));
+        if (controller && msg.data) {
+          var chunk = new Uint8Array(msg.data);
+          controller.enqueue(chunk);
+          if (cacheChunks) cacheChunks.push(chunk.slice());
+        }
         return;
       }
 
       if (msg.type === "done") {
         if (controller) controller.close();
         port.onmessage = null;
+        if (cacheChunks && cacheMeta) {
+          assembleCache(filePath, cacheMeta, cacheChunks);
+        }
+        cacheChunks = null;
         return;
       }
 
       if (msg.type === "error") {
         clearTimeout(timer);
         port.onmessage = null;
+        cacheChunks = null;
         if (resolved) {
           if (controller) controller.error(new Error(msg.message || "Read error"));
         } else {
@@ -145,9 +229,27 @@ async function handleGet(event, client, filePath) {
   });
 }
 
-// --- PUT (write file) ---
+function assembleCache(filePath, meta, chunks) {
+  var totalLen = 0;
+  for (var i = 0; i < chunks.length; i++) totalLen += chunks[i].length;
+  var buffer = new ArrayBuffer(totalLen);
+  var view = new Uint8Array(buffer);
+  var offset = 0;
+  for (var j = 0; j < chunks.length; j++) {
+    view.set(chunks[j], offset);
+    offset += chunks[j].length;
+  }
+  fileCache[filePath] = {
+    buffer: buffer,
+    mime: meta.mime || "application/octet-stream",
+    totalSize: meta.totalSize,
+  };
+}
+
+// --- PUT (write file, invalidates cache) ---
 
 async function handlePut(event, client, filePath) {
+  delete fileCache[filePath];
   var bodyBuffer = await event.request.arrayBuffer();
   var port = sendToClient(client, {
     type: "pub-fs-request",
@@ -165,9 +267,10 @@ async function handlePut(event, client, filePath) {
   });
 }
 
-// --- DELETE ---
+// --- DELETE (invalidates cache) ---
 
 async function handleDelete(client, filePath) {
+  delete fileCache[filePath];
   var port = sendToClient(client, {
     type: "pub-fs-request",
     method: "DELETE",
@@ -213,9 +316,13 @@ function buildGetHeaders(metadata, range) {
 }
 
 self.addEventListener("message", function (event) {
-  if (event.data && event.data.type === "keepalive") {
+  if (!event.data) return;
+  if (event.data.type === "keepalive") {
     if (event.source && typeof event.source.postMessage === "function") {
       event.source.postMessage({ type: "keepalive-ack" });
     }
+  }
+  if (event.data.type === "clear-cache") {
+    fileCache = Object.create(null);
   }
 });
