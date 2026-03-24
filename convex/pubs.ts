@@ -220,11 +220,13 @@ export const duplicateByUser = mutation({
       userId,
       slug,
       content: pub.content,
+      previewHtml: pub.previewHtml,
       title: pub.title ? `${pub.title} (copy)` : undefined,
       description: pub.description,
       isPublic: false,
       createdAt: now,
       updatedAt: now,
+      lastViewedAt: now,
       viewCount: 0,
     });
 

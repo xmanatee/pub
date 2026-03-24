@@ -142,7 +142,15 @@ export function PubsTab() {
         liveSlugs={liveSlugs}
         onToggleVisibility={(id) => toggleVisibility({ id })}
         onDelete={(id) => deletePub({ id })}
-        onDuplicate={developerModeEnabled ? (id) => duplicatePub({ id }) : undefined}
+        onDuplicate={
+          developerModeEnabled
+            ? (id) => {
+                duplicatePub({ id }).catch((error) => {
+                  console.error("Failed to duplicate pub", error);
+                });
+              }
+            : undefined
+        }
         developerMode={developerModeEnabled}
       />
       {status === "CanLoadMore" && (
