@@ -31,7 +31,7 @@ describe("USER_OWNED_TABLES", () => {
       }
     }
 
-    const registered = new Set(USER_OWNED_TABLES.map((t) => t.table));
+    const registered = new Set<string>(USER_OWNED_TABLES.map((t) => t.table));
     for (const table of tablesWithUserId) {
       expect(
         registered.has(table),
@@ -55,9 +55,9 @@ describe("USER_OWNED_TABLES", () => {
 
 describe("AUTH_TABLES", () => {
   it("has no overlap with USER_OWNED_TABLES", () => {
-    const userOwned = new Set(USER_OWNED_TABLES.map((t) => t.table));
+    const userOwned = new Set<string>(USER_OWNED_TABLES.map((t) => t.table));
     for (const authTable of AUTH_TABLES) {
-      expect(userOwned.has(authTable as string), `"${authTable}" is in both lists`).toBe(false);
+      expect(userOwned.has(authTable), `"${authTable}" is in both lists`).toBe(false);
     }
   });
 });
