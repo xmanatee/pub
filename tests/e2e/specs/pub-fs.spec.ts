@@ -2,13 +2,15 @@
  * E2E tests for the pub-fs Service Worker virtual filesystem.
  *
  * Validates that generated HTML can access host files via /__pub_files__/ URLs:
- * - GET: read files (text, image)
+ * - GET: read files (text, image, large binary)
+ * - GET: range requests + progressive cache
  * - PUT: write files
  * - GET after PUT: write then read back
  * - 404: nonexistent file
  *
  * Uses real OpenClaw + CLI daemon with the full WebRTC live session.
  */
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -241,4 +243,92 @@ test("pub-fs GET: nonexistent file returns 404", async ({ page }) => {
 
   const canvasFrame = page.frameLocator("iframe").first();
   await expect(canvasFrame.locator("#result")).toHaveText("status:404", { timeout: 30_000 });
+});
+
+// ---------------------------------------------------------------------------
+// GET: large file streaming with integrity + range request from cache
+// ---------------------------------------------------------------------------
+
+test("pub-fs GET: streams 1 MB file and serves range from cache", async ({ page }) => {
+  const fileSize = 1024 * 1024;
+  const fileData = Buffer.alloc(fileSize);
+  for (let i = 0; i < fileSize; i++) fileData[i] = i & 0xff;
+  const filePath = join(testFilesDir, "large.bin");
+  writeFileSync(filePath, fileData);
+
+  const rangeStart = 64 * 1024;
+  const rangeEnd = 128 * 1024 - 1;
+  const fullHash = createHash("sha256").update(fileData).digest("hex");
+  const rangeHash = createHash("sha256")
+    .update(fileData.subarray(rangeStart, rangeEnd + 1))
+    .digest("hex");
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><title>Pub FS Large + Range Test</title></head>
+<body>
+  <div id="result">loading</div>
+  <script type="application/pub-command-manifest+json">
+  { "manifestId": "pub-fs-large-test", "functions": [] }
+  </script>
+  <script>
+    function hexHash(buf) {
+      return crypto.subtle.digest("SHA-256", buf).then(function(h) {
+        var a = new Uint8Array(h), s = "";
+        for (var i = 0; i < a.length; i++) s += ("0" + a[i].toString(16)).slice(-2);
+        return s;
+      });
+    }
+    var url = "/__pub_files__${filePath}";
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error("Full: HTTP " + r.status);
+        return r.arrayBuffer();
+      })
+      .then(function(buf) {
+        return hexHash(buf).then(function(h) { return { size: buf.byteLength, hash: h }; });
+      })
+      .then(function(full) {
+        return fetch(url, { headers: { "Range": "bytes=${rangeStart}-${rangeEnd}" } })
+          .then(function(r) {
+            if (r.status !== 206) throw new Error("Range: HTTP " + r.status);
+            return r.arrayBuffer();
+          })
+          .then(function(buf) {
+            return hexHash(buf).then(function(h) {
+              return full.size + ":" + full.hash + ":" + buf.byteLength + ":" + h;
+            });
+          });
+      })
+      .then(function(r) {
+        document.getElementById("result").textContent = "ok:" + r;
+      })
+      .catch(function(e) {
+        document.getElementById("result").textContent = "error:" + e.message;
+      });
+  </script>
+</body>
+</html>`;
+
+  const user = seedUser("PubFS Large User");
+  const { convexProxyUrl } = getState();
+  const api = new ApiClient({ user });
+
+  await api.createPub({ slug: "pub-fs-large", content: html });
+
+  cli = new CliFixture(user, convexProxyUrl);
+  await cli.startDaemon("pub-fs-large-bot");
+
+  await injectAuth(page, user);
+  await page.goto("/p/pub-fs-large");
+
+  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+  await waitForConnection(page);
+
+  const rangeSize = rangeEnd - rangeStart + 1;
+  const canvasFrame = page.frameLocator("iframe").first();
+  await expect(canvasFrame.locator("#result")).toHaveText(
+    `ok:${fileSize}:${fullHash}:${rangeSize}:${rangeHash}`,
+    { timeout: 60_000 },
+  );
 });
