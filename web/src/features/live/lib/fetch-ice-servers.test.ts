@@ -51,6 +51,6 @@ describe("fetchIceServers", () => {
   it("throws when VITE_CONVEX_URL is missing", async () => {
     vi.stubEnv("VITE_CONVEX_URL", "");
 
-    await expect(fetchIceServers()).rejects.toThrow("VITE_CONVEX_URL is not configured");
+    await expect(fetchIceServers()).rejects.toThrow("Missing VITE_CONVEX_URL");
   });
 });

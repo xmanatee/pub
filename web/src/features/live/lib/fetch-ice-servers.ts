@@ -1,7 +1,7 @@
+import { getConvexUrl } from "~/lib/convex-url";
+
 function getConvexSiteUrl(): string {
-  const cloudUrl = import.meta.env.VITE_CONVEX_URL as string;
-  if (!cloudUrl) throw new Error("VITE_CONVEX_URL is not configured");
-  return cloudUrl.replace(/\.convex\.cloud$/, ".convex.site");
+  return getConvexUrl().replace(/\.convex\.cloud$/, ".convex.site");
 }
 
 export async function fetchIceServers(): Promise<RTCIceServer[]> {
