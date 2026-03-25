@@ -217,4 +217,128 @@ describe("PubFsBridge", () => {
     expect(dataChunksB).toHaveLength(1);
     expect(dataChunksB[0]).toEqual(new Uint8Array([4, 5, 6]));
   });
+
+  it("forwards cancel from SW port to CLI via WebRTC", async () => {
+    const send = vi.fn<(channel: string, message: unknown) => boolean>(() => true);
+    const sendBinary = vi.fn<(channel: string, data: ArrayBuffer) => boolean>(() => true);
+    const fakeBridge = { send, sendBinary } as unknown as BrowserBridge;
+
+    bridge = new PubFsBridge({ current: fakeBridge }, async () => fakeBridge);
+
+    const requestChannel = new MessageChannel();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "pub-fs-request",
+          method: "GET",
+          requestId: "req-cancel-1",
+          path: "/tmp/video.mp4",
+        },
+        ports: [requestChannel.port1],
+      }),
+    );
+    await flushTasks();
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[1]).toMatchObject({ data: "pub-fs.read" });
+
+    // Simulate SW sending cancel on the MessagePort
+    requestChannel.port2.postMessage({ type: "cancel" });
+    await flushTasks();
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1]?.[0]).toBe(CHANNELS.PUB_FS);
+    expect(send.mock.calls[1]?.[1]).toMatchObject({
+      type: "event",
+      data: "pub-fs.cancel",
+      meta: { requestId: "req-cancel-1" },
+    });
+  });
+
+  it("cancel before bridge ready cleans up without forwarding to CLI", async () => {
+    let resolveReady!: (bridge: BrowserBridge | null) => void;
+    const send = vi.fn<(channel: string, message: unknown) => boolean>(() => true);
+    const sendBinary = vi.fn<(channel: string, data: ArrayBuffer) => boolean>(() => true);
+    const fakeBridge = { send, sendBinary } as unknown as BrowserBridge;
+
+    bridge = new PubFsBridge(
+      { current: fakeBridge },
+      () =>
+        new Promise((resolve) => {
+          resolveReady = resolve;
+        }),
+    );
+
+    const requestChannel = new MessageChannel();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "pub-fs-request",
+          method: "GET",
+          requestId: "req-early-cancel",
+          path: "/tmp/video.mp4",
+        },
+        ports: [requestChannel.port1],
+      }),
+    );
+
+    // Cancel before bridge is ready (request not yet sent to CLI)
+    requestChannel.port2.postMessage({ type: "cancel" });
+    await flushTasks();
+
+    // No cancel forwarded to CLI because request was never sent
+    expect(send).not.toHaveBeenCalled();
+
+    // Even after bridge becomes ready, the cancelled request should not be sent
+    resolveReady(fakeBridge);
+    await flushTasks();
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("cleans up port listener when request completes with done", async () => {
+    const send = vi.fn<(channel: string, message: unknown) => boolean>(() => true);
+    const sendBinary = vi.fn<(channel: string, data: ArrayBuffer) => boolean>(() => true);
+    const fakeBridge = { send, sendBinary } as unknown as BrowserBridge;
+
+    bridge = new PubFsBridge({ current: fakeBridge }, async () => fakeBridge);
+
+    const requestChannel = new MessageChannel();
+    const messages: unknown[] = [];
+    requestChannel.port2.onmessage = (e) => messages.push(e.data);
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "pub-fs-request",
+          method: "GET",
+          requestId: "req-done-1",
+          path: "/tmp/file.txt",
+        },
+        ports: [requestChannel.port1],
+      }),
+    );
+    await flushTasks();
+
+    // Complete the request with done
+    const doneMsg = {
+      id: "d1",
+      type: "event" as const,
+      data: "pub-fs.done",
+      meta: { requestId: "req-done-1" },
+    };
+    bridge.handleChannelMessage({ channel: "pub-fs", message: doneMsg, timestamp: Date.now() });
+    await flushTasks();
+
+    expect(messages).toContainEqual({ type: "done" });
+
+    // Cancel after done should NOT forward to CLI (pending already cleaned up)
+    const sendCountBefore = send.mock.calls.length;
+    requestChannel.port2.postMessage({ type: "cancel" });
+    await flushTasks();
+
+    expect(send.mock.calls.length).toBe(sendCountBefore);
+  });
 });

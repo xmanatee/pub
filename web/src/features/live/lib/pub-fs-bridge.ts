@@ -8,6 +8,9 @@
  * Binary chunks carry a tagged header (requestId + data) so multiple reads
  * can transfer concurrently without interleaving corruption.
  *
+ * The MessagePort is bidirectional: the bridge sends data/metadata/done/error
+ * to the SW, and the SW sends cancel messages back through the same port.
+ *
  * Supports GET (read/stream), PUT (write), and DELETE operations.
  */
 
@@ -51,6 +54,30 @@ export class PubFsBridge {
     this.iframeWindow = win;
   }
 
+  // --- Pending request lifecycle ---
+
+  private setupPortCancel(requestId: string, port: MessagePort): void {
+    port.onmessage = (ev: MessageEvent) => {
+      if (ev.data?.type === "cancel") {
+        const pending = this.removePending(requestId);
+        if (!pending) return;
+        if (pending.sent) {
+          this.bridgeRef.current?.send(CHANNELS.PUB_FS, makePubFsCancelMessage({ requestId }));
+        }
+      }
+    };
+  }
+
+  private removePending(requestId: string): PendingRequest | undefined {
+    const pending = this.pending.get(requestId);
+    if (!pending) return undefined;
+    pending.port.onmessage = null;
+    this.pending.delete(requestId);
+    return pending;
+  }
+
+  // --- Request dispatch ---
+
   private handleWindowMessage(event: MessageEvent): void {
     const data = event.data;
     if (!data || data.type !== "pub-fs-request") return;
@@ -89,8 +116,13 @@ export class PubFsBridge {
     port: MessagePort,
   ): Promise<void> {
     this.pending.set(requestId, { requestId, port, sent: false });
+    this.setupPortCancel(requestId, port);
     const bridge = await this.resolveReadyBridge(port);
-    if (!bridge || !this.pending.has(requestId)) return;
+    if (!bridge) {
+      this.removePending(requestId);
+      return;
+    }
+    if (!this.pending.has(requestId)) return;
     const sent = bridge.send(
       CHANNELS.PUB_FS,
       makePubFsReadMessage({
@@ -101,7 +133,7 @@ export class PubFsBridge {
       }),
     );
     if (!sent) {
-      this.pending.delete(requestId);
+      this.removePending(requestId);
       port.postMessage({
         type: "error",
         code: "CHANNEL_NOT_READY",
@@ -125,14 +157,19 @@ export class PubFsBridge {
       return;
     }
     this.pending.set(requestId, { requestId, port, sent: false });
+    this.setupPortCancel(requestId, port);
     const bridge = await this.resolveReadyBridge(port);
-    if (!bridge || !this.pending.has(requestId)) return;
+    if (!bridge) {
+      this.removePending(requestId);
+      return;
+    }
+    if (!this.pending.has(requestId)) return;
     const started = bridge.send(
       CHANNELS.PUB_FS,
       makePubFsWriteMessage({ requestId, path, size: body.byteLength }),
     );
     if (!started) {
-      this.pending.delete(requestId);
+      this.removePending(requestId);
       port.postMessage({
         type: "error",
         code: "CHANNEL_NOT_READY",
@@ -149,7 +186,7 @@ export class PubFsBridge {
         bytes.slice(offset, offset + STREAM_CHUNK_SIZE).buffer,
       );
       if (!sent) {
-        this.pending.delete(requestId);
+        this.removePending(requestId);
         port.postMessage({
           type: "error",
           code: "CHANNEL_NOT_READY",
@@ -162,11 +199,16 @@ export class PubFsBridge {
 
   private async handleDelete(requestId: string, path: string, port: MessagePort): Promise<void> {
     this.pending.set(requestId, { requestId, port, sent: false });
+    this.setupPortCancel(requestId, port);
     const bridge = await this.resolveReadyBridge(port);
-    if (!bridge || !this.pending.has(requestId)) return;
+    if (!bridge) {
+      this.removePending(requestId);
+      return;
+    }
+    if (!this.pending.has(requestId)) return;
     const sent = bridge.send(CHANNELS.PUB_FS, makePubFsDeleteMessage({ requestId, path }));
     if (!sent) {
-      this.pending.delete(requestId);
+      this.removePending(requestId);
       port.postMessage({
         type: "error",
         code: "CHANNEL_NOT_READY",
@@ -177,6 +219,8 @@ export class PubFsBridge {
     const pending = this.pending.get(requestId);
     if (pending) pending.sent = true;
   }
+
+  // --- Response routing ---
 
   handleChannelMessage(cm: ChannelMessage): void {
     const { message, binaryData } = cm;
@@ -206,19 +250,17 @@ export class PubFsBridge {
 
     const doneRequestId = parsePubFsDoneMessage(message);
     if (doneRequestId) {
-      const pending = this.pending.get(doneRequestId);
+      const pending = this.removePending(doneRequestId);
       if (!pending) return;
       pending.port.postMessage({ type: "done" });
-      this.pending.delete(doneRequestId);
       return;
     }
 
     const error = parsePubFsErrorMessage(message);
     if (error) {
-      const pending = this.pending.get(error.requestId);
+      const pending = this.removePending(error.requestId);
       if (!pending) return;
       pending.port.postMessage({ type: "error", code: error.code, message: error.message });
-      this.pending.delete(error.requestId);
       return;
     }
   }
@@ -230,6 +272,7 @@ export class PubFsBridge {
     }
     const bridge = this.bridgeRef.current;
     for (const [requestId, pending] of this.pending) {
+      pending.port.onmessage = null;
       pending.port.postMessage({
         type: "error",
         code: "BRIDGE_DESTROYED",

@@ -116,7 +116,7 @@ export const CHANNELS = {
   PUB_FS: "pub-fs",
 } as const;
 
-export const STREAM_CHUNK_SIZE = 48 * 1024;
+export const STREAM_CHUNK_SIZE = 64 * 1024;
 export const STREAM_ORPHAN_TIMEOUT_MS = 30_000;
 
 let idCounter = 0;

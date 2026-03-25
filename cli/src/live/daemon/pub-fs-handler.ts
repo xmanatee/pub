@@ -40,7 +40,8 @@ interface ActiveWrite {
   receivedSize: number;
 }
 
-const DRAIN_THRESHOLD = STREAM_CHUNK_SIZE * 5;
+const SEND_HIGH_WATER = 1024 * 1024;
+const SEND_LOW_WATER = 256 * 1024;
 const BACKPRESSURE_TIMEOUT_MS = 30_000;
 
 export function createPubFsHandler(params: {
@@ -154,8 +155,8 @@ export function createPubFsHandler(params: {
         const raw = chunk instanceof Buffer ? chunk : Buffer.from(chunk);
         const tagged = encodeTaggedChunk(requestId, raw);
         dc.sendMessageBinary(Buffer.from(tagged.buffer, tagged.byteOffset, tagged.byteLength));
-        if (dc.bufferedAmount > DRAIN_THRESHOLD) {
-          const drained = await dc.waitForDrain(DRAIN_THRESHOLD, BACKPRESSURE_TIMEOUT_MS);
+        if (dc.bufferedAmount > SEND_HIGH_WATER) {
+          const drained = await dc.waitForDrain(SEND_LOW_WATER, BACKPRESSURE_TIMEOUT_MS);
           if (!activeReads.has(requestId)) return;
           if (!drained) {
             activeReads.delete(requestId);

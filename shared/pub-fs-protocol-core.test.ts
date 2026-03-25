@@ -277,8 +277,8 @@ describe("tagged binary chunks", () => {
     expect(decodeTaggedChunk(buf)).toBeNull();
   });
 
-  it("preserves binary data integrity for 48KB chunks", () => {
-    const chunkSize = 48 * 1024;
+  it("preserves binary data integrity for 64KB chunks", () => {
+    const chunkSize = 64 * 1024;
     const data = new Uint8Array(chunkSize);
     for (let i = 0; i < chunkSize; i++) data[i] = i & 0xff;
     const decoded = decode(encodeTaggedChunk("req-42", data));
