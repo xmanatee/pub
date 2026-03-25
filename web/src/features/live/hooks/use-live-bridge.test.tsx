@@ -38,6 +38,10 @@ vi.mock("~/features/live/lib/webrtc-browser", () => ({
   BrowserBridge: MockBrowserBridge,
 }));
 
+vi.mock("~/features/live/lib/fetch-ice-servers", () => ({
+  fetchIceServers: async () => [{ urls: "stun:stun.l.google.com:19302" }],
+}));
+
 import { useLiveBridge } from "./use-live-bridge";
 
 (

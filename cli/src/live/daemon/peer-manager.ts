@@ -1,7 +1,7 @@
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { LiveConnectionState } from "../../../../shared/live-runtime-state-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
-import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
+import type { IceServer } from "../../../../shared/webrtc-transport-core";
 import type { PubApiClient } from "../../core/api/client.js";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
@@ -17,7 +17,7 @@ const RECOVERY_TIMEOUT_MS = 30_000;
 
 export function createPeerManager(params: {
   state: DaemonState;
-  apiClient: Pick<PubApiClient, "signalAnswer">;
+  apiClient: Pick<PubApiClient, "signalAnswer" | "getIceServers">;
   daemonSessionId: string;
   agentName?: string;
   debugLog: (message: string, error?: unknown) => void;
@@ -107,8 +107,8 @@ export function createPeerManager(params: {
     });
   }
 
-  function createPeer(): void {
-    const nextPeer = createPeerConnection({ iceServers: [...WEBRTC_STUN_URLS] });
+  function createPeer(iceServers: IceServer[]): void {
+    const nextPeer = createPeerConnection({ iceServers });
     state.peer = nextPeer;
     setConnectionState("connecting");
     state.channels = new Map();
@@ -203,7 +203,12 @@ export function createPeerManager(params: {
         );
         await clearActiveLiveSession("incoming-live-recovery");
         debugLog(`[profile] cleared old session in ${Date.now() - t0}ms`);
-        createPeer();
+
+        const tIce = Date.now();
+        const iceServers = await apiClient.getIceServers();
+        debugLog(`[profile] ICE servers fetched in ${Date.now() - tIce}ms`);
+
+        createPeer(iceServers);
         if (!state.peer) throw new Error("PeerConnection not initialized");
 
         const tAnswer = Date.now();

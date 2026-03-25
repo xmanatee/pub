@@ -16,8 +16,14 @@ interface DataChannelOptions {
   protocol?: string;
 }
 
+interface IceServerEntry {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
 interface PeerConnectionOptions {
-  iceServers?: readonly string[];
+  iceServers?: readonly IceServerEntry[];
   iceAdditionalHostAddresses?: readonly string[];
   iceUseIpv4?: boolean;
   iceUseIpv6?: boolean;
@@ -96,7 +102,14 @@ export class AdapterPeerConnection {
   private localDescriptionCb: ((sdp: string, type: string) => void) | null = null;
 
   constructor(config?: PeerConnectionOptions) {
-    const iceServers: RTCIceServer[] = (config?.iceServers ?? []).map((url) => ({ urls: url }));
+    const iceServers: RTCIceServer[] = (config?.iceServers ?? []).flatMap((entry) => {
+      const urlList = typeof entry.urls === "string" ? [entry.urls] : entry.urls;
+      return urlList.map((url) => ({
+        urls: url,
+        username: entry.username,
+        credential: entry.credential,
+      }));
+    });
     this.pc = new RTCPeerConnection({
       iceServers,
       iceAdditionalHostAddresses: config?.iceAdditionalHostAddresses

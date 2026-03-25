@@ -1,6 +1,5 @@
 import * as dgram from "node:dgram";
 import { afterEach, describe, expect, it } from "vitest";
-import { WEBRTC_STUN_URLS } from "../../../../shared/webrtc-transport-core";
 import {
   type AdapterDataChannel,
   type AdapterPeerConnection,
@@ -15,7 +14,10 @@ const LOOPBACK_PEER_CONFIG = {
   iceUseIpv6: false,
 } as const;
 const STUN_LOOPBACK_PEER_CONFIG = {
-  iceServers: [...WEBRTC_STUN_URLS],
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
   iceAdditionalHostAddresses: ["127.0.0.1"],
   iceUseIpv6: false,
 } as const;
@@ -306,7 +308,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
     "generates offer with STUN servers via onGatheringStateChange",
     async () => {
       const peer = createPeerConnection({
-        iceServers: ["stun:stun.l.google.com:19302"],
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         iceAdditionalHostAddresses: ["127.0.0.1"],
         iceUseIpv6: false,
       });

@@ -16,3 +16,11 @@ export function getPublicUrl(): string {
   if (!url) throw new Error("PUB_PUBLIC_URL is not set");
   return url;
 }
+
+export function getTurnKeyId(): string | undefined {
+  return process.env.TURN_KEY_ID || undefined;
+}
+
+export function getTurnKeyApiToken(): string | undefined {
+  return process.env.TURN_KEY_API_TOKEN || undefined;
+}

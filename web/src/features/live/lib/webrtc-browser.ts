@@ -32,7 +32,6 @@ import {
   parseDeliveryReceiptMessage,
   parseErrorMessage,
   parseStatusMessage,
-  STUN_SERVERS,
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
 
@@ -141,8 +140,8 @@ export class BrowserBridge {
     return [...this.iceCandidates];
   }
 
-  async createOffer(): Promise<string> {
-    const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+  async createOffer(iceServers: RTCIceServer[]): Promise<string> {
+    const pc = new RTCPeerConnection({ iceServers });
     this.pc = pc;
     this.setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "connecting" });
     this.setupPeerCallbacks();

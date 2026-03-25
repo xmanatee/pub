@@ -45,7 +45,10 @@ function createTestPeerManager() {
 
   const manager = createPeerManager({
     state,
-    apiClient: { signalAnswer: vi.fn(async () => {}) },
+    apiClient: {
+      signalAnswer: vi.fn(async () => {}),
+      getIceServers: vi.fn(async () => [{ urls: "stun:stun.l.google.com:19302" }]),
+    },
     daemonSessionId: "test-session",
     debugLog: vi.fn(),
     markError: vi.fn(),
@@ -62,7 +65,7 @@ function createTestPeerManager() {
     pubFsHandlerReset: vi.fn(),
   });
 
-  manager.createPeer();
+  manager.createPeer([{ urls: "stun:stun.l.google.com:19302" }]);
 
   return { mockPeer, state, handleConnectionClosed, ensureAgentReady, flushQueuedAcks };
 }
