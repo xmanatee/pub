@@ -23,7 +23,7 @@ const HTTP_PORT = Number(process.env.CONVEX_SITE_PORT ?? 3211);
 const WS_PORT = Number(process.env.CONVEX_API_PORT ?? 3210);
 const PROXY_PORT = Number(process.env.PROXY_PORT ?? 3212);
 
-let transportPolicy = process.env.FORCE_TURN_RELAY === "1" ? "relay" : "all";
+let transportPolicy = "all";
 
 /** Routes that are Convex HTTP actions (site port). Everything else goes to the API port. */
 function isSiteRoute(url) {
