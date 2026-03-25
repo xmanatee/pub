@@ -58,14 +58,36 @@ export default async function globalSetup() {
     AUTH_GOOGLE_SECRET: "test-google-secret",
     IS_TEST: "true",
   };
+
+  // Configure TURN server if available (set via docker-compose env)
+  if (process.env.TURN_HOST) {
+    const turnHost = process.env.TURN_HOST;
+    const turnPort = process.env.TURN_PORT ?? "3478";
+    const turnUser = process.env.TURN_USER;
+    const turnPass = process.env.TURN_PASS;
+    if (turnUser && turnPass) {
+      envVars.TURN_STATIC_SERVERS = JSON.stringify([
+        { urls: `stun:${turnHost}:${turnPort}` },
+        {
+          urls: [
+            `turn:${turnHost}:${turnPort}?transport=udp`,
+            `turn:${turnHost}:${turnPort}?transport=tcp`,
+          ],
+          username: turnUser,
+          credential: turnPass,
+        },
+      ]);
+      console.log(`[e2e] TURN server configured at ${turnHost}:${turnPort}`);
+    }
+  }
   for (const [key, value] of Object.entries(envVars)) {
-    try {
-      execSync(
-        `npx convex env set ${key} "${value}" --admin-key "${adminKey}" --url "${convexUrl}"`,
-        { encoding: "utf-8", timeout: 15_000, stdio: "pipe" },
-      );
-    } catch {
-      // May already be set
+    const result = spawnSync(
+      "npx",
+      ["convex", "env", "set", key, "--admin-key", adminKey, "--url", convexUrl],
+      { input: value, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] },
+    );
+    if (result.status !== 0 && !result.stderr?.includes("already set")) {
+      console.warn(`[e2e] Warning: failed to set ${key}: ${result.stderr}`);
     }
   }
 

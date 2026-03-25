@@ -9,6 +9,7 @@ import {
   RTCPeerConnection,
   type RTCIceServer,
 } from "werift";
+import type { IceServer } from "../../../../shared/webrtc-transport-core";
 
 interface DataChannelOptions {
   ordered?: boolean;
@@ -16,14 +17,8 @@ interface DataChannelOptions {
   protocol?: string;
 }
 
-interface IceServerEntry {
-  urls: string | string[];
-  username?: string;
-  credential?: string;
-}
-
 interface PeerConnectionOptions {
-  iceServers?: readonly IceServerEntry[];
+  iceServers?: readonly IceServer[];
   iceAdditionalHostAddresses?: readonly string[];
   iceUseIpv4?: boolean;
   iceUseIpv6?: boolean;
@@ -102,15 +97,16 @@ export class AdapterPeerConnection {
   private localDescriptionCb: ((sdp: string, type: string) => void) | null = null;
 
   constructor(config?: PeerConnectionOptions) {
+    // werift requires urls as a single string per entry, not an array.
+    // The backend normalizes protocols (filtering unsupported ones like turns:),
+    // so this layer only needs to flatten multi-URL entries into individual ones.
     const iceServers: RTCIceServer[] = (config?.iceServers ?? []).flatMap((entry) => {
       const urlList = typeof entry.urls === "string" ? [entry.urls] : entry.urls;
-      return urlList
-        .filter((url) => !url.startsWith("turns:"))
-        .map((url) => ({
-          urls: url,
-          username: entry.username,
-          credential: entry.credential,
-        }));
+      return urlList.map((url) => ({
+        urls: url,
+        username: entry.username,
+        credential: entry.credential,
+      }));
     });
     this.pc = new RTCPeerConnection({
       iceServers,

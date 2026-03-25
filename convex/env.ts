@@ -24,3 +24,8 @@ export function getTurnKeyId(): string | undefined {
 export function getTurnKeyApiToken(): string | undefined {
   return process.env.TURN_KEY_API_TOKEN || undefined;
 }
+
+/** Static ICE servers JSON (for e2e tests with local coturn). Takes precedence over Cloudflare. */
+export function getTurnStaticServers(): string | undefined {
+  return process.env.TURN_STATIC_SERVERS || undefined;
+}

@@ -31,6 +31,20 @@ services:
         echo "$$KEY" > /shared/admin-key
     restart: "no"
 
+  turn-server:
+    image: coturn/coturn:4.6-alpine
+    command:
+      - -n
+      - --realm=pub-e2e
+      - --listening-port=3478
+      - --min-port=49152
+      - --max-port=49200
+      - --user=e2e-user:e2e-pass
+      - --lt-cred-mech
+      - --no-tls
+      - --no-dtls
+      - --log-file=stdout
+
   test-runner:
     build:
       context: ../..
@@ -43,6 +57,8 @@ services:
         condition: service_healthy
       admin-key-gen:
         condition: service_completed_successfully
+      turn-server:
+        condition: service_started
     volumes:
       - shared-data:/shared:ro
       - test-results:/app/test-results
@@ -54,6 +70,10 @@ services:
       - CONVEX_HOST=convex-backend
       - BASE_URL=http://localhost:3000
       - IS_TEST=true
+      - TURN_HOST=turn-server
+      - TURN_PORT=3478
+      - TURN_USER=e2e-user
+      - TURN_PASS=e2e-pass
 
 volumes:
   convex-data:

@@ -6,6 +6,25 @@ import {
   createPeerConnection,
 } from "./webrtc-adapter.js";
 
+// Cloudflare TURN API response format (real-world shape, post-normalization)
+const CLOUDFLARE_ICE_SERVERS_CONFIG = {
+  iceServers: [
+    { urls: ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"] },
+    {
+      urls: [
+        "turn:turn.cloudflare.com:3478?transport=udp",
+        "turn:turn.cloudflare.com:3478?transport=tcp",
+        "turn:turn.cloudflare.com:53?transport=udp",
+        "turn:turn.cloudflare.com:80?transport=tcp",
+      ],
+      username: "test-user",
+      credential: "test-cred",
+    },
+  ],
+  iceAdditionalHostAddresses: ["127.0.0.1"] as string[],
+  iceUseIpv6: false,
+};
+
 const PEER_EVENT_TIMEOUT_MS = 7_500;
 const PEER_NEGOTIATION_TIMEOUT_MS = 25_000;
 const LOOPBACK_PEER_CONFIG = {
@@ -61,6 +80,26 @@ function waitForPeerEvent<T>(
     });
   });
 }
+
+describe("ICE server format handling", () => {
+  it("creates a peer connection with Cloudflare multi-URL format", () => {
+    const peer = createPeerConnection(CLOUDFLARE_ICE_SERVERS_CONFIG);
+    expect(peer).toBeDefined();
+    void peer.close();
+  });
+
+  it("creates a peer connection with single-URL string format", () => {
+    const peer = createPeerConnection(STUN_LOOPBACK_PEER_CONFIG);
+    expect(peer).toBeDefined();
+    void peer.close();
+  });
+
+  it("creates a peer connection with empty ICE servers", () => {
+    const peer = createPeerConnection(LOOPBACK_PEER_CONFIG);
+    expect(peer).toBeDefined();
+    void peer.close();
+  });
+});
 
 describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
   let peerA: AdapterPeerConnection;

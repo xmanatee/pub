@@ -1,6 +1,6 @@
-import type { IceServer } from "../shared/webrtc-transport-core";
+import { type IceServer, normalizeIceServers } from "../shared/webrtc-transport-core";
 import { httpAction } from "./_generated/server";
-import { getTurnKeyApiToken, getTurnKeyId } from "./env";
+import { getTurnKeyApiToken, getTurnKeyId, getTurnStaticServers } from "./env";
 import { corsHeaders } from "./http/shared";
 import { rateLimiter } from "./rateLimits";
 
@@ -10,15 +10,21 @@ interface CloudflareResponse {
 
 const TURN_CREDENTIAL_TTL = 86400;
 
-const STUN_FALLBACK: IceServer[] = [
+const STUN_SERVERS: IceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
 ];
 
 async function generateIceServers(): Promise<IceServer[]> {
+  // Static servers take precedence (used in e2e tests with local coturn)
+  const staticServers = getTurnStaticServers();
+  if (staticServers) {
+    return normalizeIceServers(JSON.parse(staticServers) as IceServer[]);
+  }
+
   const keyId = getTurnKeyId();
   const apiToken = getTurnKeyApiToken();
-  if (!keyId || !apiToken) return STUN_FALLBACK;
+  if (!keyId || !apiToken) return STUN_SERVERS;
 
   const url = `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`;
   const response = await fetch(url, {
@@ -40,7 +46,7 @@ async function generateIceServers(): Promise<IceServer[]> {
     throw new Error("Cloudflare TURN API returned empty iceServers");
   }
 
-  return [...data.iceServers, ...STUN_FALLBACK];
+  return normalizeIceServers(data.iceServers);
 }
 
 export const getIceServers = httpAction(async (ctx, request) => {
@@ -64,7 +70,7 @@ export const getIceServers = httpAction(async (ctx, request) => {
   try {
     const iceServers = await generateIceServers();
     const hasTurn = iceServers.some((s) =>
-      (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => u.startsWith("turn")),
+      (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => u.startsWith("turn:")),
     );
     return new Response(JSON.stringify({ iceServers }), {
       status: 200,
@@ -75,14 +81,11 @@ export const getIceServers = httpAction(async (ctx, request) => {
       },
     });
   } catch (error) {
-    console.error("[turn]", error instanceof Error ? error.message : error);
-    return new Response(JSON.stringify({ iceServers: STUN_FALLBACK }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
-        ...corsHeaders(),
-      },
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[turn]", message);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 503,
+      headers: { "Content-Type": "application/json", ...corsHeaders() },
     });
   }
 });
