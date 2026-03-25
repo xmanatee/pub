@@ -3,6 +3,10 @@ import { homedir } from "node:os";
 import * as path from "node:path";
 import type { ConfigDirCandidate, ConfigLocation } from "./types.js";
 
+export class AmbiguousConfigDirectoryError extends Error {}
+
+export class MissingConfigDirectoryError extends Error {}
+
 export function trimToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -104,7 +108,7 @@ export function resolveConfigLocation(env: NodeJS.ProcessEnv = process.env): Con
   const existing = candidates.filter((candidate) => candidate.exists);
 
   if (existing.length > 1) {
-    throw new Error(
+    throw new AmbiguousConfigDirectoryError(
       [
         "Ambiguous Pub config directories detected.",
         "Remove redundant config directories so only one remains.",
@@ -114,7 +118,7 @@ export function resolveConfigLocation(env: NodeJS.ProcessEnv = process.env): Con
   }
 
   if (existing.length === 0) {
-    throw new Error(
+    throw new MissingConfigDirectoryError(
       [
         "No Pub config directory found.",
         "Create exactly one of these directories and retry:",

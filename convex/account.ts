@@ -39,11 +39,7 @@ export const disconnectProvider = mutation({
 
     const currentSessionId = await getAuthSessionId(ctx);
     await deleteAuthAccountsAndDependents(ctx, [account]);
-    await deleteUserSessionsAndDependents(
-      ctx,
-      userId,
-      currentSessionId ? [currentSessionId] : [],
-    );
+    await deleteUserSessionsAndDependents(ctx, userId, currentSessionId ? [currentSessionId] : []);
   },
 });
 

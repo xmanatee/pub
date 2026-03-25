@@ -1,16 +1,22 @@
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it } from "vitest";
 import { registerChannelTools } from "./tools.js";
 
+const LIST_TOOLS_METHOD = "tools/list";
+const CALL_TOOL_METHOD = "tools/call";
+
 type MockServer = {
-  setRequestHandler: (schema: { method: string }, handler: (request: unknown) => Promise<unknown>) => void;
+  setRequestHandler: (schema: unknown, handler: (request: unknown) => Promise<unknown>) => void;
 };
 
 function createMockServer() {
   const handlers = new Map<string, (request: unknown) => Promise<unknown>>();
   const server: MockServer = {
-    setRequestHandler(schema, handler) {
-      handlers.set(schema.method, handler);
+    setRequestHandler(_schema, handler) {
+      if (!handlers.has(LIST_TOOLS_METHOD)) {
+        handlers.set(LIST_TOOLS_METHOD, handler);
+        return;
+      }
+      handlers.set(CALL_TOOL_METHOD, handler);
     },
   };
   return { server, handlers };
@@ -21,7 +27,7 @@ describe("registerChannelTools", () => {
     const { server, handlers } = createMockServer();
     registerChannelTools(server as never, () => true);
 
-    const listTools = handlers.get(ListToolsRequestSchema.method);
+    const listTools = handlers.get(LIST_TOOLS_METHOD);
     expect(listTools).toBeDefined();
 
     const result = (await listTools?.({})) as {
@@ -34,7 +40,7 @@ describe("registerChannelTools", () => {
     const { server, handlers } = createMockServer();
     registerChannelTools(server as never, () => false);
 
-    const callTool = handlers.get(CallToolRequestSchema.method);
+    const callTool = handlers.get(CALL_TOOL_METHOD);
     const result = (await callTool?.({
       params: { name: "reply", arguments: { text: "hello" } },
     })) as {
@@ -50,7 +56,7 @@ describe("registerChannelTools", () => {
     const { server, handlers } = createMockServer();
     registerChannelTools(server as never, () => false);
 
-    const callTool = handlers.get(CallToolRequestSchema.method);
+    const callTool = handlers.get(CALL_TOOL_METHOD);
     const result = (await callTool?.({
       params: { name: "write_canvas", arguments: { html: "<html></html>" } },
     })) as {

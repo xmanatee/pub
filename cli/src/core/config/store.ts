@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getConfigPath } from "./location.js";
+import { getConfigPath, MissingConfigDirectoryError } from "./location.js";
 import { compactPubConfig } from "./mutate.js";
 import type { PubBridgeConfig, PubConfig, PubCoreConfig, PubTelegramConfig } from "./types.js";
 
@@ -14,12 +14,13 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function readCoreConfig(root: Record<string, unknown>): PubCoreConfig | undefined {
   const core = asRecord(root.core);
-  const apiKey = typeof root.apiKey === "string" ? root.apiKey : undefined;
-  const baseUrl = typeof root.baseUrl === "string" ? root.baseUrl : undefined;
+  if (!core) return undefined;
 
   const normalized: PubCoreConfig = {
-    apiKey: typeof core?.apiKey === "string" ? core.apiKey : apiKey,
-    baseUrl: typeof core?.baseUrl === "string" ? core.baseUrl : baseUrl,
+    apiKey: typeof core.apiKey === "string" ? core.apiKey : undefined,
+    baseUrl: typeof core.baseUrl === "string" ? core.baseUrl : undefined,
+    telemetry: typeof core.telemetry === "boolean" ? core.telemetry : undefined,
+    sentryDsn: typeof core.sentryDsn === "string" ? core.sentryDsn : undefined,
   };
 
   return Object.values(normalized).some((value) => value !== undefined) ? normalized : undefined;
@@ -50,8 +51,9 @@ export function readPubConfig(env: NodeJS.ProcessEnv = process.env): PubConfig |
   let configPath: string;
   try {
     configPath = getConfigPath(env);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof MissingConfigDirectoryError) return null;
+    throw error;
   }
   if (!fs.existsSync(configPath)) return null;
   const raw = fs.readFileSync(configPath, "utf-8");

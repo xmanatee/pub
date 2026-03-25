@@ -71,16 +71,33 @@ describe("config", () => {
     expect(readPubConfig()).toEqual({ core: { apiKey: "pub_test" } });
   });
 
-  it("normalizes legacy top-level apiKey into core.apiKey", () => {
+  it("reads all supported core config fields from the canonical core section", () => {
     const dir = makeHomeConfigDir();
     fs.writeFileSync(
       path.join(dir, "config.json"),
-      `${JSON.stringify({ apiKey: "pub_legacy", bridge: { mode: "claude-code" } }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          core: {
+            apiKey: "pub_test",
+            baseUrl: "https://custom.convex.site",
+            telemetry: false,
+            sentryDsn: "https://dsn.example/1",
+          },
+          bridge: { mode: "claude-code" },
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
 
     expect(readPubConfig()).toEqual({
-      core: { apiKey: "pub_legacy" },
+      core: {
+        apiKey: "pub_test",
+        baseUrl: "https://custom.convex.site",
+        telemetry: false,
+        sentryDsn: "https://dsn.example/1",
+      },
       bridge: { mode: "claude-code" },
     });
   });
@@ -166,5 +183,11 @@ describe("config", () => {
 
   it("readPubConfig returns null when no config directory exists", () => {
     expect(readPubConfig()).toBeNull();
+  });
+
+  it("readPubConfig throws when config directories are ambiguous", () => {
+    makeOpenClawConfigDir();
+    makeHomeConfigDir();
+    expect(() => readPubConfig()).toThrow("Ambiguous Pub config directories detected.");
   });
 });

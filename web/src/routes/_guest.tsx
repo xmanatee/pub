@@ -1,5 +1,4 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
 import { requireGuest } from "~/lib/route-guards";
 
 export const Route = createFileRoute("/_guest")({
@@ -7,16 +6,8 @@ export const Route = createFileRoute("/_guest")({
   component: GuestLayout,
 });
 
-function GuestLayout() {
-  const { isLoading } = useConvexAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-muted-foreground text-sm">Loading…</div>
-      </div>
-    );
-  }
-
+export function GuestLayout() {
+  // Guest routes must render immediately. Route guards already redirect once auth
+  // resolves, and blocking here can stall the landing/login pages on slow auth init.
   return <Outlet />;
 }

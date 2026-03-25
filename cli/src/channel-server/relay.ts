@@ -7,6 +7,14 @@ import {
   encodeRelayMessage,
 } from "../live/bridge/providers/claude-channel/relay-protocol.js";
 
+function unlinkSocketIfPresent(socketPath: string): void {
+  try {
+    fs.unlinkSync(socketPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
 export function createRelayServer(params: {
   socketPath: string;
   onInbound: (msg: RelayInbound) => void;
@@ -55,9 +63,7 @@ export function createRelayServer(params: {
 
   return {
     async listen(): Promise<void> {
-      try {
-        fs.unlinkSync(params.socketPath);
-      } catch {}
+      unlinkSocketIfPresent(params.socketPath);
 
       await new Promise<void>((resolve, reject) => {
         server.once("error", reject);
@@ -75,9 +81,7 @@ export function createRelayServer(params: {
       activeConnection?.destroy();
       activeConnection = null;
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      try {
-        fs.unlinkSync(params.socketPath);
-      } catch {}
+      unlinkSocketIfPresent(params.socketPath);
     },
   };
 }

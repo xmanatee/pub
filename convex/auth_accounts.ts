@@ -25,7 +25,10 @@ export function resolveLinkedProviderIdentifier(
 }
 
 export function collectAuthRateLimitIdentifiers(
-  accounts: readonly Pick<AuthAccountDocLike, "providerAccountId" | "emailVerified" | "phoneVerified">[],
+  accounts: readonly Pick<
+    AuthAccountDocLike,
+    "providerAccountId" | "emailVerified" | "phoneVerified"
+  >[],
 ): string[] {
   const identifiers = new Set<string>();
   for (const account of accounts) {

@@ -40,13 +40,19 @@ function isSiteRoute(url) {
  * When transform is null, the response is piped through unchanged.
  */
 function proxyRequest(req, res, port, transform) {
+  const proxyHeaders = { ...req.headers };
+  delete proxyHeaders.host;
+  delete proxyHeaders.connection;
+  proxyHeaders.connection = "close";
+
   const proxyReq = httpRequest(
     {
       hostname: CONVEX_HOST,
       port,
       path: req.url,
       method: req.method,
-      headers: req.headers,
+      headers: proxyHeaders,
+      agent: false,
     },
     (proxyRes) => {
       if (!transform) {
@@ -65,7 +71,13 @@ function proxyRequest(req, res, port, transform) {
       });
     },
   );
-  proxyReq.on("error", () => res.writeHead(502).end());
+  proxyReq.on("error", () => {
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    res.writeHead(502).end();
+  });
   req.pipe(proxyReq);
 }
 

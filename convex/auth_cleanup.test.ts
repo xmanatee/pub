@@ -4,12 +4,10 @@ import { selectSessionIdsToDelete } from "./auth_cleanup";
 
 describe("selectSessionIdsToDelete", () => {
   it("removes explicitly kept sessions", () => {
-    expect(
-      selectSessionIdsToDelete(
-        ["a", "b", "c"] as never[],
-        ["b"] as never[],
-      ),
-    ).toEqual(["a", "c"]);
+    expect(selectSessionIdsToDelete(["a", "b", "c"] as never[], ["b"] as never[])).toEqual([
+      "a",
+      "c",
+    ]);
   });
 });
 
