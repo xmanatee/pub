@@ -15,7 +15,6 @@ import {
   parseSessionDescription,
   type SessionDescriptionPayload,
 } from "@shared/webrtc-negotiation-core";
-import type { IceServer } from "@shared/webrtc-transport-core";
 import { resolveAckChannel } from "./ack-routing";
 import type { BridgeMessage } from "./bridge-protocol";
 import {
@@ -35,6 +34,7 @@ import {
   parseStatusMessage,
   shouldAcknowledgeMessage,
 } from "./bridge-protocol";
+import type { IceConfig } from "./fetch-ice-servers";
 
 export type BridgeState = "connecting" | "connected" | "disconnected" | "failed" | "closed";
 
@@ -141,8 +141,11 @@ export class BrowserBridge {
     return [...this.iceCandidates];
   }
 
-  async createOffer(iceServers: IceServer[]): Promise<string> {
-    const pc = new RTCPeerConnection({ iceServers: iceServers as RTCIceServer[] });
+  async createOffer(iceConfig: IceConfig): Promise<string> {
+    const pc = new RTCPeerConnection({
+      iceServers: iceConfig.iceServers as RTCIceServer[],
+      iceTransportPolicy: iceConfig.transportPolicy,
+    });
     this.pc = pc;
     this.setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "connecting" });
     this.setupPeerCallbacks();

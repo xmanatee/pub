@@ -2,7 +2,7 @@ import { IDLE_LIVE_RUNTIME_STATE } from "@shared/live-runtime-state-core";
 import { useEffect, useRef, useState } from "react";
 import { type DeliveryReceiptPayload } from "~/features/live/lib/bridge-protocol";
 import { profileMark } from "~/features/live/lib/connection-profiler";
-import { fetchIceServers } from "~/features/live/lib/fetch-ice-servers";
+import { fetchIceConfig } from "~/features/live/lib/fetch-ice-servers";
 import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { trackError } from "~/lib/analytics";
@@ -94,8 +94,8 @@ export function useLiveBridge({
 
     void (async () => {
       try {
-        const iceServers = await fetchIceServers();
-        const offer = await bridge.createOffer(iceServers);
+        const iceConfig = await fetchIceConfig();
+        const offer = await bridge.createOffer(iceConfig);
         profileMark("offer-created");
         await storeBrowserOfferRef.current({ slug, offer });
         profileMark("offer-stored");
