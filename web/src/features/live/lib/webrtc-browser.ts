@@ -11,7 +11,7 @@ import {
 } from "@shared/live-runtime-state-core";
 import { createMessageDedup } from "@shared/message-dedup-core";
 import {
-  createBrowserOffer,
+  encodeSessionDescription,
   parseSessionDescription,
   type SessionDescriptionPayload,
 } from "@shared/webrtc-negotiation-core";
@@ -53,6 +53,24 @@ type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) =
 type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 
 const DEDUP_MAX_SIZE = 10_000;
+const ICE_GATHERING_TIMEOUT_MS = 5_000;
+
+/** Wait for ICE gathering to complete or timeout. */
+function waitForGathering(pc: RTCPeerConnection): Promise<void> {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      pc.removeEventListener("icegatheringstatechange", onStateChange);
+      resolve();
+    };
+    const onStateChange = () => {
+      if (pc.iceGatheringState === "complete") done();
+    };
+    pc.addEventListener("icegatheringstatechange", onStateChange);
+    const timer = setTimeout(done, ICE_GATHERING_TIMEOUT_MS);
+  });
+}
 
 function toSessionDescription(
   description:
@@ -155,20 +173,25 @@ export class BrowserBridge {
     this.openChannel(CHANNELS.RENDER_ERROR);
     this.openChannel(CHANNELS.COMMAND);
 
-    return await createBrowserOffer({
-      createOffer: async () => {
-        const offer = await pc.createOffer();
-        const normalized = toSessionDescription(offer);
-        if (!normalized) {
-          throw new Error("Browser offer is missing sdp/type");
-        }
-        return normalized;
-      },
-      setLocalDescription: async (description) => {
-        await pc.setLocalDescription(description as RTCSessionDescriptionInit);
-      },
-      getLocalDescription: () => toSessionDescription(pc.localDescription),
+    const offer = await pc.createOffer();
+    const normalized = toSessionDescription(offer);
+    if (!normalized) throw new Error("Browser offer is missing sdp/type");
+
+    await pc.setLocalDescription(normalized as RTCSessionDescriptionInit);
+
+    // Wait for ICE gathering to produce relay candidates before returning the
+    // offer. Without this, the offer goes out with only host candidates, and
+    // ICE checks spend ~20s timing out on host/STUN pairs before TURN succeeds.
+    const hasRelay = iceConfig.iceServers.some((s) => {
+      const urls = typeof s.urls === "string" ? [s.urls] : s.urls;
+      return urls.some((u) => u.startsWith("turn:") || u.startsWith("turns:"));
     });
+    if (hasRelay) {
+      await waitForGathering(pc);
+    }
+
+    const description = toSessionDescription(pc.localDescription);
+    return encodeSessionDescription(description ?? normalized);
   }
 
   async applyAnswer(agentAnswer: string): Promise<void> {
