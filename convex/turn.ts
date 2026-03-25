@@ -15,16 +15,10 @@ const STUN_FALLBACK: IceServer[] = [
   { urls: "stun:stun1.l.google.com:19302" },
 ];
 
-async function generateIceServers(): Promise<{ servers: IceServer[]; source: "turn" | "stun" }> {
+async function generateIceServers(): Promise<IceServer[]> {
   const keyId = getTurnKeyId();
   const apiToken = getTurnKeyApiToken();
-  if (!keyId || !apiToken) {
-    console.warn("[turn] TURN not configured, using STUN fallback", {
-      hasKeyId: !!keyId,
-      hasApiToken: !!apiToken,
-    });
-    return { servers: STUN_FALLBACK, source: "stun" };
-  }
+  if (!keyId || !apiToken) return STUN_FALLBACK;
 
   const url = `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`;
   const response = await fetch(url, {
@@ -46,26 +40,8 @@ async function generateIceServers(): Promise<{ servers: IceServer[]; source: "tu
     throw new Error("Cloudflare TURN API returned empty iceServers");
   }
 
-  return { servers: data.iceServers, source: "turn" };
+  return data.iceServers;
 }
-
-export const debugTurnConfig = httpAction(async () => {
-  const keyId = process.env.TURN_KEY_ID;
-  const apiToken = process.env.TURN_KEY_API_TOKEN;
-  const allKeys = Object.keys(process.env).sort();
-  return new Response(
-    JSON.stringify({
-      hasKeyId: !!keyId,
-      keyIdLength: keyId?.length ?? 0,
-      keyIdPrefix: keyId?.slice(0, 4) ?? null,
-      hasApiToken: !!apiToken,
-      apiTokenLength: apiToken?.length ?? 0,
-      apiTokenPrefix: apiToken?.slice(0, 4) ?? null,
-      envKeys: allKeys,
-    }),
-    { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } },
-  );
-});
 
 export const getIceServers = httpAction(async (ctx, request) => {
   const ip =
@@ -86,21 +62,20 @@ export const getIceServers = httpAction(async (ctx, request) => {
   }
 
   try {
-    const { servers, source } = await generateIceServers();
-    console.info(`[turn] Returning ${servers.length} ICE server(s) from ${source}`);
-    const cacheMaxAge = source === "turn" ? TURN_CREDENTIAL_TTL / 2 : 3600;
-    return new Response(JSON.stringify({ iceServers: servers }), {
+    const iceServers = await generateIceServers();
+    const hasTurn = iceServers.some((s) =>
+      (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => u.startsWith("turn")),
+    );
+    return new Response(JSON.stringify({ iceServers }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": `public, max-age=${cacheMaxAge}`,
+        "Cache-Control": `public, max-age=${hasTurn ? TURN_CREDENTIAL_TTL / 2 : 3600}`,
         ...corsHeaders(),
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("[turn] Failed to generate ICE servers:", message);
-    console.warn("[turn] Falling back to STUN after TURN failure");
+    console.error("[turn]", error instanceof Error ? error.message : error);
     return new Response(JSON.stringify({ iceServers: STUN_FALLBACK }), {
       status: 200,
       headers: {
