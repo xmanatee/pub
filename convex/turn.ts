@@ -40,7 +40,7 @@ async function generateIceServers(): Promise<IceServer[]> {
     throw new Error("Cloudflare TURN API returned empty iceServers");
   }
 
-  return data.iceServers;
+  return [...data.iceServers, ...STUN_FALLBACK];
 }
 
 export const getIceServers = httpAction(async (ctx, request) => {

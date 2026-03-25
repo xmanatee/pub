@@ -104,11 +104,13 @@ export class AdapterPeerConnection {
   constructor(config?: PeerConnectionOptions) {
     const iceServers: RTCIceServer[] = (config?.iceServers ?? []).flatMap((entry) => {
       const urlList = typeof entry.urls === "string" ? [entry.urls] : entry.urls;
-      return urlList.map((url) => ({
-        urls: url,
-        username: entry.username,
-        credential: entry.credential,
-      }));
+      return urlList
+        .filter((url) => !url.startsWith("turns:"))
+        .map((url) => ({
+          urls: url,
+          username: entry.username,
+          credential: entry.credential,
+        }));
     });
     this.pc = new RTCPeerConnection({
       iceServers,
