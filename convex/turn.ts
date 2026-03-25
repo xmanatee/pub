@@ -10,11 +10,16 @@ interface CloudflareResponse {
 
 const TURN_CREDENTIAL_TTL = 86400;
 
+const STUN_FALLBACK: IceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+];
+
 async function generateIceServers(): Promise<IceServer[]> {
   const keyId = getTurnKeyId();
   const apiToken = getTurnKeyApiToken();
   if (!keyId || !apiToken) {
-    throw new Error("TURN server not configured: TURN_KEY_ID and TURN_KEY_API_TOKEN are required");
+    return STUN_FALLBACK;
   }
 
   const url = `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`;
