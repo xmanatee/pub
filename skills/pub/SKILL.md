@@ -7,7 +7,7 @@ homepage: https://pub.blue
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.5"
+  version: "5.2.6"
   openclaw:
     homepage: https://pub.blue
     primaryEnv: PUB_API_KEY
@@ -28,7 +28,7 @@ Use this skill when the user asks about creating adaptive interfaces, publishing
 
 ## Required CLI Version
 
-Use **pub CLI 0.8.0+**.
+Use **pub CLI 0.9.19+**.
 
 Source: <https://github.com/xmanatee/pub> (MIT license)
 
@@ -114,10 +114,11 @@ pub start --agent-name "<agent-name>"
 
 Notes:
 - Bridge mode comes from saved config (`pub config --auto` or `pub config --set bridge.mode=...`).
-- Supported bridge modes: `openclaw`, `claude-code`, `claude-sdk`, and `openclaw-like`.
+- Supported bridge modes: `openclaw`, `claude-code`, `claude-sdk`, `claude-channel`, and `openclaw-like`.
 - Enable verbose live daemon logging with `pub config --set bridge.verbose=true` when startup or bridge delivery is hard to diagnose.
 - Standalone binary installs fall back to `claude-code` when the Claude Agent SDK package is not locally importable.
 - `bridge.mode=claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
+- `bridge.mode=claude-channel` expects a running relay socket. Start it with `pub channel-server` and override the socket path with `claude-channel.socketPath` or `PUB_CHANNEL_SOCKET_PATH` when needed.
 - Canvas command-manifest `agent` executors require a local agent runtime:
   `provider: "claude-code"` needs `claude-code.path` or `CLAUDE_CODE_PATH`;
   `provider: "openclaw"` needs `openclaw.path` and `openclaw.sessionId` or matching env vars.

@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
+import { resolveLinkedProviderIdentifier } from "./auth_accounts";
 
 export interface TelegramUser {
   id: number;
@@ -30,12 +31,9 @@ export const getLinkedProviders = query({
       .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
       .collect();
 
-    const user = await ctx.db.get(userId);
-
     return accounts.map((a) => ({
       provider: a.provider,
-      identifier:
-        ((a as Record<string, unknown>).emailVerified as string | undefined) ?? user?.name,
+      identifier: resolveLinkedProviderIdentifier(a),
     }));
   },
 });

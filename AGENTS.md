@@ -21,15 +21,15 @@ pnpm test             # vitest run (root + web)
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
 
-# Screenshot tests (Playwright, web/tests/e2e/)
+# Screenshot tests (Playwright, tests/e2e/)
 pnpm test:e2e                        # Run all e2e + screenshot tests
-pnpm test:e2e -- --grep "dashboard"  # Run only dashboard screenshot tests
+pnpm test:e2e -- --grep "pubs"       # Run only pubs screenshot tests
 UPDATE_SNAPSHOTS=1 pnpm test:e2e     # Update screenshot baselines
 ```
 
 ### Worktree Setup for Screenshot Tests
 
-Screenshot tests (`web/tests/e2e/`) require Convex codegen and the TanStack Router route tree, which are gitignored. In a worktree, copy them from the main worktree before running:
+Screenshot tests (`tests/e2e/`) require Convex codegen and the TanStack Router route tree, which are gitignored. In a worktree, copy them from the main worktree before running:
 
 ```bash
 mkdir -p convex/_generated
@@ -88,6 +88,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **`pub`** — Commander.js CLI (`curl -fsSL pub.blue/install.sh | bash`)
 - **Pub commands**: `config`, `create`, `get`, `list`, `update`, `delete`
 - **Live commands**: `start`, `stop`, `status`, `write`, `doctor`
+- **Bridge utility command**: `channel-server` starts the MCP relay for `bridge.mode=claude-channel`
 - `create [file]` — supports `--slug`; always creates private pubs (use `update --public` to change visibility); title/description extracted from OG meta tags in the HTML
 - `update <slug>` — supports `--file`, `--public`/`--private`, `--slug <newSlug>` for rename; title/description re-extracted from content on update
 - `get --content` outputs raw content to stdout (pipeable)

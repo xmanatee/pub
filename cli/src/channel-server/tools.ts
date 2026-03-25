@@ -3,6 +3,13 @@ import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { generateMessageId } from "../../../shared/bridge-protocol-core";
 import type { RelayOutbound } from "../live/bridge/providers/claude-channel/relay-protocol.js";
 
+function deliveryUnavailableError(kind: string) {
+  return {
+    content: [{ type: "text" as const, text: `Error: ${kind} bridge is not connected.` }],
+    isError: true,
+  };
+}
+
 export function registerChannelTools(
   server: Server,
   sendOutbound: (msg: RelayOutbound) => boolean,
@@ -44,11 +51,12 @@ export function registerChannelTools(
       if (typeof text !== "string" || text.length === 0) {
         return { content: [{ type: "text", text: "Error: text is required." }], isError: true };
       }
-      sendOutbound({
+      const delivered = sendOutbound({
         type: "outbound",
         channel: "chat",
         msg: { id: generateMessageId(), type: "text", data: text },
       });
+      if (!delivered) return deliveryUnavailableError("chat");
       return { content: [{ type: "text", text: "Sent." }] };
     }
 
@@ -57,11 +65,12 @@ export function registerChannelTools(
       if (typeof html !== "string" || html.length === 0) {
         return { content: [{ type: "text", text: "Error: html is required." }], isError: true };
       }
-      sendOutbound({
+      const delivered = sendOutbound({
         type: "outbound",
         channel: "canvas",
         msg: { id: generateMessageId(), type: "html", data: html },
       });
+      if (!delivered) return deliveryUnavailableError("canvas");
       return { content: [{ type: "text", text: "Canvas updated." }] };
     }
 
