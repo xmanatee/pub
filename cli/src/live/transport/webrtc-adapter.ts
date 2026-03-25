@@ -98,7 +98,7 @@ export class AdapterPeerConnection {
 
   constructor(config?: PeerConnectionOptions) {
     // werift requires urls as a single string per entry, not an array.
-    // The backend normalizes protocols (filtering unsupported ones like turns:),
+    // The API client normalizes protocols (filtering unsupported ones like turns:),
     // so this layer only needs to flatten multi-URL entries into individual ones.
     const iceServers: RTCIceServer[] = (config?.iceServers ?? []).flatMap((entry) => {
       const urlList = typeof entry.urls === "string" ? [entry.urls] : entry.urls;

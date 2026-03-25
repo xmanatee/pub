@@ -69,14 +69,12 @@ export const getIceServers = httpAction(async (ctx, request) => {
 
   try {
     const iceServers = await generateIceServers();
-    const hasTurn = iceServers.some((s) =>
-      (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => u.startsWith("turn:")),
-    );
+    const hasCredentials = iceServers.some((s) => !!s.credential);
     return new Response(JSON.stringify({ iceServers }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": `public, max-age=${hasTurn ? TURN_CREDENTIAL_TTL / 2 : 3600}`,
+        "Cache-Control": `public, max-age=${hasCredentials ? TURN_CREDENTIAL_TTL / 2 : 3600}`,
         ...corsHeaders(),
       },
     });

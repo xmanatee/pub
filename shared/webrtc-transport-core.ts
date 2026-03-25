@@ -4,14 +4,14 @@ export interface IceServer {
   credential?: string;
 }
 
-/** Protocols supported by all WebRTC clients (browser + werift). */
+/** Protocols supported by werift (browser supports all including turns:). */
 const SUPPORTED_ICE_PROTOCOLS = ["stun:", "turn:"] as const;
 
 /**
- * Normalize ICE servers for cross-client compatibility.
+ * Normalize ICE servers for werift compatibility.
  *
- * - Filters out unsupported protocols (e.g. `turns:` — werift lacks TLS TURN support)
- * - Drops entries that have no usable URLs after filtering
+ * Filters out `turns:` (TURN over TLS) which werift does not support.
+ * Browser clients should NOT use this — they support all protocols natively.
  */
 export function normalizeIceServers(servers: IceServer[]): IceServer[] {
   return servers
