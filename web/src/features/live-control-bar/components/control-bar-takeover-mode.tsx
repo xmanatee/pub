@@ -54,9 +54,9 @@ export function ControlBarTakeoverMode({
       <ControlBarLabel>{statusText}</ControlBarLabel>
       <ControlBarIconAction
         icon={<LayoutDashboard />}
-        label="Dashboard"
+        label="Pubs"
         onClick={onExit}
-        tooltip="Dashboard"
+        tooltip="Pubs"
       />
       <ControlBarIconAction
         icon={<RefreshCw />}

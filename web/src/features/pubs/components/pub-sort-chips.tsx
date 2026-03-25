@@ -1,4 +1,4 @@
-import { type PubSortKey, SORT_OPTIONS } from "~/features/dashboard/lib/sort-pubs";
+import { type PubSortKey, SORT_OPTIONS } from "~/features/pubs/lib/sort-pubs";
 import { cn } from "~/lib/utils";
 
 export function PubSortChips({

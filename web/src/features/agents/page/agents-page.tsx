@@ -3,16 +3,16 @@ import type { Id } from "@backend/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { Key, Plus, Terminal, Trash2 } from "lucide-react";
 import * as React from "react";
+import { CopyButton } from "~/components/copy-button";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { CopyButton } from "~/features/dashboard/components/copy-button";
 import { trackApiKeyCopied, trackApiKeyCreated, trackApiKeyDeleted } from "~/lib/analytics";
 import { telegramConfirm } from "~/lib/telegram";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
 
-export function ApiKeysTab() {
+export function AgentsPage() {
   const keys = useQuery(api.apiKeys.list);
   const createKey = useMutation(api.apiKeys.create);
   const deleteKey = useMutation(api.apiKeys.deleteKey);
@@ -42,7 +42,7 @@ export function ApiKeysTab() {
   }
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="px-4 sm:px-6 py-8 space-y-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border border-border/50 px-4 py-2">
         <Terminal className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span>Install CLI:</span>
@@ -99,7 +99,7 @@ export function ApiKeysTab() {
       )}
 
       {!keys ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <div className="text-muted-foreground">Loading...</div>
       ) : keys.length === 0 ? (
         <Card className="border-border/50 border-dashed">
           <CardContent className="flex flex-col items-center py-16">

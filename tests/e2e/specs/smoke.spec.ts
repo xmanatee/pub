@@ -8,7 +8,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("unauthenticated user is redirected to login", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/pubs");
     await page.waitForURL(/login/);
     expect(page.url()).toContain("/login");
   });

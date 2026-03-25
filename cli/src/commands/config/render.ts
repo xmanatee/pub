@@ -74,7 +74,7 @@ function printSetupInstructions(resolved: ResolvedPubSettings): void {
 
   if (needsApiKey) {
     console.log("  pub config --api-key <KEY>");
-    console.log("    Get your key at https://pub.blue/dashboard");
+    console.log("    Get your key at https://pub.blue/agents");
   }
 
   if (needsBridge) {

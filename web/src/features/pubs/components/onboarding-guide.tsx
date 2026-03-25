@@ -2,9 +2,9 @@ import { api } from "@backend/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { Check, Circle, Key, Play, Terminal } from "lucide-react";
 import * as React from "react";
+import { CopyButton } from "~/components/copy-button";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { CopyButton } from "~/features/dashboard/components/copy-button";
 import { trackApiKeyCopied, trackApiKeyCreated } from "~/lib/analytics";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
@@ -42,6 +42,11 @@ export function OnboardingGuide() {
     { label: "Generate an API key", done: hasKey, active: !hasKey },
     { label: "Install the Pub CLI", done: isAgentOnline, active: hasKey && !isAgentOnline },
     { label: "Configure your key", done: isAgentOnline, active: hasKey && !isAgentOnline },
+    {
+      label: "Detect your local agent",
+      done: isAgentOnline,
+      active: hasKey && !isAgentOnline,
+    },
     { label: "Start your agent", done: isAgentOnline, active: hasKey && !isAgentOnline },
     { label: "Go live", done: false, active: isAgentOnline },
   ];
@@ -71,7 +76,7 @@ export function OnboardingGuide() {
               </p>
               <Button size="sm" disabled={generating} onClick={handleGenerateKey}>
                 <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                {generating ? "Generating…" : "Generate API key"}
+                {generating ? "Generating..." : "Generate API key"}
               </Button>
             </div>
           )}
@@ -112,7 +117,7 @@ export function OnboardingGuide() {
             <div className="rounded-lg border border-border/50 p-4 space-y-3">
               <p className="text-sm font-medium">Step 3: Configure your key</p>
               <p className="text-sm text-muted-foreground">
-                Set your API key (from the Agents and Keys tab):
+                Set your API key (from the Agents page):
               </p>
               <CommandBlock command="pub config --set apiKey=YOUR_API_KEY" />
             </div>
@@ -121,21 +126,26 @@ export function OnboardingGuide() {
           {hasKey && (
             <>
               <div className="rounded-lg border border-border/50 p-4 space-y-3">
-                <p className="text-sm font-medium">Step 4: Start your agent</p>
+                <p className="text-sm font-medium">Step 4: Detect your local agent</p>
+                <CommandBlock command="pub config --auto" />
+              </div>
+
+              <div className="rounded-lg border border-border/50 p-4 space-y-3">
+                <p className="text-sm font-medium">Step 5: Start your agent</p>
                 <CommandBlock command="pub start --agent-name my-agent" />
               </div>
 
               <div className="rounded-lg border border-border/50 p-4 space-y-3">
-                <p className="text-sm font-medium">Step 5: Go live</p>
+                <p className="text-sm font-medium">Step 6: Go live</p>
                 {isAgentOnline ? (
                   <p className="text-sm text-muted-foreground">
                     Your agent is online! Use the{" "}
-                    <Play className="inline h-3.5 w-3.5" aria-hidden="true" /> button on the Pubs
-                    tab to start a live session.
+                    <Play className="inline h-3.5 w-3.5" aria-hidden="true" /> button to start a
+                    live session.
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Once your agent is online, you'll see a play button on the Pubs tab.
+                    Once your agent is online, you'll see a play button to start a live session.
                   </p>
                 )}
               </div>

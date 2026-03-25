@@ -5,10 +5,10 @@ import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { OnboardingGuide } from "~/features/dashboard/components/onboarding-guide";
-import { PubSortChips } from "~/features/dashboard/components/pub-sort-chips";
-import { PubsGrid } from "~/features/dashboard/components/pubs-grid";
-import type { PubSortKey } from "~/features/dashboard/lib/sort-pubs";
+import { OnboardingGuide } from "~/features/pubs/components/onboarding-guide";
+import { PubSortChips } from "~/features/pubs/components/pub-sort-chips";
+import { PubsGrid } from "~/features/pubs/components/pubs-grid";
+import type { PubSortKey } from "~/features/pubs/lib/sort-pubs";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackError } from "~/lib/analytics";
 
@@ -19,7 +19,7 @@ function mutationErrorMessage(error: unknown): string {
   return "Failed to start live";
 }
 
-export function PubsTab() {
+export function PubsPage() {
   const [sortKey, setSortKey] = React.useState<PubSortKey>("lastViewed");
   const {
     results: pubs,
@@ -59,7 +59,7 @@ export function PubsTab() {
       const message = mutationErrorMessage(error);
       const normalizedError = error instanceof Error ? error : new Error(message);
       trackError(normalizedError, {
-        area: "dashboard",
+        area: "pubs",
         feature: "start_live",
       });
     } finally {
@@ -68,14 +68,18 @@ export function PubsTab() {
   }
 
   if (status === "LoadingFirstPage") {
-    return <div className="text-muted-foreground py-8">Loading&hellip;</div>;
+    return (
+      <div className="px-4 sm:px-6 py-8">
+        <div className="text-muted-foreground py-8">Loading&hellip;</div>
+      </div>
+    );
   }
 
   const isNewUser = pubs.length === 0 && (keys?.length ?? 0) === 0;
 
   if (isNewUser) {
     return (
-      <div className="mt-4">
+      <div className="px-4 sm:px-6 py-8">
         <OnboardingGuide />
       </div>
     );
@@ -83,7 +87,7 @@ export function PubsTab() {
 
   const disabled = agentOnline !== true || startingLive;
   const ariaLabel = startingLive
-    ? "Starting live…"
+    ? "Starting live..."
     : agentOnline === undefined
       ? "Checking agent availability"
       : disabled
@@ -114,7 +118,7 @@ export function PubsTab() {
 
   if (pubs.length === 0) {
     return (
-      <div className="mt-4">
+      <div className="px-4 sm:px-6 py-8">
         <Card className="border-border/50 border-dashed">
           <CardContent className="flex flex-col items-center py-16">
             <div className="rounded-full bg-muted p-4 mb-4">
@@ -122,11 +126,8 @@ export function PubsTab() {
             </div>
             <p className="font-medium mb-1">No pubs yet</p>
             <p className="text-sm text-muted-foreground mb-6">
-              Use the CLI or API to create your first pub.
+              Start a live session and your agent will create pubs automatically.
             </p>
-            <div className="rounded-lg bg-navy text-white px-4 py-3 font-mono text-sm">
-              <span className="text-primary">$</span> pub create index.html
-            </div>
           </CardContent>
         </Card>
         {goLiveButton}
@@ -135,7 +136,7 @@ export function PubsTab() {
   }
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="px-4 sm:px-6 py-8 space-y-4">
       <PubSortChips value={sortKey} onChange={setSortKey} />
       <PubsGrid
         pubs={pubs}

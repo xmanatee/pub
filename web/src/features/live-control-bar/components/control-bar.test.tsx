@@ -245,12 +245,12 @@ describe("ControlBar", () => {
     const html = await renderControlBar({}, { visible: true });
     expect(html).toContain("Chat view");
     expect(html).toContain("Settings");
-    expect(html).toContain("Dashboard");
+    expect(html).toContain("Pubs");
   });
 
   it("excludes extended options addon when hook reports not visible", async () => {
     const html = await renderControlBar({}, { visible: false });
-    expect(html).not.toContain("Dashboard");
+    expect(html).not.toContain("Chat view");
   });
 
   it("shows extended options and preview as separate addons simultaneously", async () => {
@@ -259,7 +259,7 @@ describe("ControlBar", () => {
       { visible: true },
     );
     expect(html).toContain("Chat view");
-    expect(html).toContain("Dashboard");
+    expect(html).toContain("Pubs");
     expect(html).toContain("Hello from agent");
     expect(html).toContain('aria-label="Open chat"');
   });
@@ -270,7 +270,7 @@ describe("ControlBar", () => {
       preview: { text: "Hello from agent", source: "agent" },
     });
     expect(html).toContain("Hello from agent");
-    expect(html).not.toContain("Dashboard");
+    expect(html).not.toContain("Chat view");
   });
 
   it("keeps the bar expanded while a preview is visible even if the canvas is collapsed", async () => {

@@ -1,8 +1,7 @@
 import type { Id } from "@backend/_generated/dataModel";
-import { FileText, Key, Play, Settings } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { PubCard } from "~/features/dashboard/components/pub-card";
-import type { PubGridItem } from "~/features/dashboard/components/pubs-grid";
+import { Play } from "lucide-react";
+import { PubCard } from "~/features/pubs/components/pub-card";
+import type { PubGridItem } from "~/features/pubs/components/pubs-grid";
 
 const noop = () => {};
 const fakeId = (n: number) => `fake_${n}` as Id<"pubs">;
@@ -69,41 +68,27 @@ function PubCardGrid({ pubs, liveSlugs }: { pubs: PubGridItem[]; liveSlugs: Set<
   );
 }
 
-export function DashboardDebugPage() {
+export function PubsDebugPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="space-y-10 px-4 py-8">
-        <h1 className="text-xl font-semibold">Dashboard Debug</h1>
+        <h1 className="text-xl font-semibold">Pubs Debug</h1>
 
-        <section data-testid="batch-dashboard-tabs" className="bg-white p-6">
-          <div className="mb-5 text-center text-sm font-semibold">Dashboard Tabs</div>
-          <Tabs defaultValue="keys">
-            <TabsList>
-              <TabsTrigger value="pubs">
-                <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                Pubs
-              </TabsTrigger>
-              <TabsTrigger value="keys">
-                <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                Agents and Keys
-                <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
-                  3
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="settings">
-                <Settings className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                Settings
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <section data-testid="batch-pubs-nav" className="bg-white p-6">
+          <div className="mb-5 text-center text-sm font-semibold">App Nav Preview</div>
+          <nav className="flex items-center gap-1">
+            <span className="text-sm font-medium text-foreground px-2 py-1 rounded-md">Pubs</span>
+            <span className="text-sm text-muted-foreground px-2 py-1 rounded-md">Agents</span>
+            <span className="text-sm text-muted-foreground px-2 py-1 rounded-md">Explore</span>
+          </nav>
         </section>
 
-        <section data-testid="batch-dashboard-cards" className="bg-white p-6">
+        <section data-testid="batch-pubs-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
           <PubCardGrid pubs={SAMPLE_PUBS} liveSlugs={LIVE_SLUGS} />
         </section>
 
-        <section data-testid="batch-dashboard-gallery" className="bg-white p-6">
+        <section data-testid="batch-pubs-gallery" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">
             Full Gallery — Cards with Live Tags
           </div>

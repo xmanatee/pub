@@ -9,34 +9,34 @@ import {
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 4000 } });
 
-test.describe("Dashboard screenshots", () => {
+test.describe("Pubs screenshots", () => {
   test.beforeEach(async ({ page }) => {
-    await openDebugPage(page, "/debug/dashboard", "Dashboard Debug");
+    await openDebugPage(page, "/debug/pubs", "Pubs Debug");
     await freezeAnimations(page);
   });
 
-  test("tabs with agent count", async ({ page }) => {
-    const section = page.getByTestId("batch-dashboard-tabs");
+  test("nav preview", async ({ page }) => {
+    const section = page.getByTestId("batch-pubs-nav");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-tabs-agent-and-keys.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/pubs-nav.png`);
   });
 
   test("pub cards", async ({ page }) => {
-    const section = page.getByTestId("batch-dashboard-cards");
+    const section = page.getByTestId("batch-pubs-cards");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-cards.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/pubs-cards.png`);
   });
 
   test("go live button", async ({ page }) => {
     const button = page.getByRole("button", { name: "Go live" });
     await expect(button).toBeVisible();
-    await stableScreenshot(button, `${SCREENSHOT_DIR}/dashboard-go-live-button.png`);
+    await stableScreenshot(button, `${SCREENSHOT_DIR}/pubs-go-live-button.png`);
   });
 
   test("full gallery with live", async ({ page }) => {
-    const section = page.getByTestId("batch-dashboard-gallery");
+    const section = page.getByTestId("batch-pubs-gallery");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/dashboard-gallery.png`, {
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/pubs-gallery.png`, {
       maxDiffRatio: ANIMATED_TOLERANCE,
     });
   });

@@ -23,9 +23,9 @@ export function ControlBarOptionalLiveMode({
       </ControlBarLabel>
       <ControlBarIconAction
         icon={<LayoutDashboard />}
-        label="Dashboard"
+        label="Pubs"
         onClick={onExit}
-        tooltip="Dashboard"
+        tooltip="Pubs"
       />
       <ControlBarIconAction
         icon={<Play />}

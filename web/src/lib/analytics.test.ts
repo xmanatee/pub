@@ -22,7 +22,6 @@ import {
   trackApiKeyCreated,
   trackApiKeyDeleted,
   trackCtaClicked,
-  trackDashboardTabChanged,
   trackError,
   trackProviderDisconnected,
   trackPubDeleted,
@@ -51,10 +50,6 @@ const EVENT_CATALOG: Record<string, { fn: () => void; props?: string[] }> = {
   api_key_created: { fn: () => trackApiKeyCreated({ name: "n" }), props: ["name"] },
   api_key_deleted: { fn: () => trackApiKeyDeleted({ name: "n" }), props: ["name"] },
   api_key_copied: { fn: () => trackApiKeyCopied() },
-  dashboard_tab_changed: {
-    fn: () => trackDashboardTabChanged({ tab: "pubs" }),
-    props: ["tab"],
-  },
   cta_clicked: {
     fn: () => trackCtaClicked({ cta: "c", location: "l" }),
     props: ["cta", "location"],
@@ -100,7 +95,6 @@ describe("analytics event catalog", () => {
       trackApiKeyCreated,
       trackApiKeyDeleted,
       trackApiKeyCopied,
-      trackDashboardTabChanged,
       trackCtaClicked,
       trackError,
       trackAccountDeleted,

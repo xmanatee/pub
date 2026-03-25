@@ -16,8 +16,20 @@ test.describe("Auth flow", () => {
     await expect(page.getByRole("button", { name: /Google/i })).toBeVisible({ timeout: 15_000 });
   });
 
-  test("dashboard redirects unauthenticated users to /login", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("pubs page redirects unauthenticated users to /login", async ({ page }) => {
+    await page.goto("/pubs");
+    await page.waitForURL("**/login", { timeout: 10_000 });
+    expect(page.url()).toContain("/login");
+  });
+
+  test("agents page redirects unauthenticated users to /login", async ({ page }) => {
+    await page.goto("/agents");
+    await page.waitForURL("**/login", { timeout: 10_000 });
+    expect(page.url()).toContain("/login");
+  });
+
+  test("settings page redirects unauthenticated users to /login", async ({ page }) => {
+    await page.goto("/settings");
     await page.waitForURL("**/login", { timeout: 10_000 });
     expect(page.url()).toContain("/login");
   });

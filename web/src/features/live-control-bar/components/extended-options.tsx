@@ -40,7 +40,7 @@ export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptions
         onClick={onClose}
       >
         <LayoutDashboard className="size-4" />
-        Dashboard
+        Pubs
       </Button>
     </div>
   );

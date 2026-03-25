@@ -72,7 +72,7 @@ export function TelegramNotLinkedPage({ createAccount, onDone }: Props) {
             className="w-full text-muted-foreground"
             onClick={onDone}
           >
-            Continue to dashboard
+            Continue to pubs
           </Button>
         </div>
       </CenteredCard>

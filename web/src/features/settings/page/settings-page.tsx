@@ -10,7 +10,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
-import { LiveModelSettingsCard } from "~/features/dashboard/components/live-model-settings-card";
+import { LiveModelSettingsCard } from "~/features/settings/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
 import {
@@ -31,7 +31,7 @@ const PROVIDER_CONFIG: Record<
   telegram: { label: "Telegram", Icon: SiTelegram },
 };
 
-export function SettingsTab() {
+export function SettingsPage() {
   const accounts = useQuery(api.telegram.getLinkedProviders);
   const createLinkToken = useMutation(api.linking.createLinkToken);
   const disconnectProvider = useMutation(api.account.disconnectProvider);
@@ -95,7 +95,11 @@ export function SettingsTab() {
   }
 
   if (!accounts) {
-    return <div className="text-muted-foreground py-8">Loading…</div>;
+    return (
+      <div className="px-4 sm:px-6 py-8">
+        <div className="text-muted-foreground py-8">Loading...</div>
+      </div>
+    );
   }
 
   const connectedProviders = new Set(accounts.map((a) => a.provider));
@@ -108,7 +112,7 @@ export function SettingsTab() {
   const showWebLinkAction = IN_TELEGRAM && (!hasGithub || !hasGoogle);
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="px-4 sm:px-6 py-8 space-y-4">
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Linked Accounts</CardTitle>
@@ -145,7 +149,7 @@ export function SettingsTab() {
                     disabled={disconnecting === account.provider}
                     onClick={() => void handleDisconnect(account.provider)}
                   >
-                    {disconnecting === account.provider ? "…" : "Disconnect"}
+                    {disconnecting === account.provider ? "..." : "Disconnect"}
                   </Button>
                 )}
               </div>
@@ -178,7 +182,7 @@ export function SettingsTab() {
                   onClick={handleCreateLink}
                 >
                   <Link2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                  {linkLoading ? "Generating…" : "Generate link"}
+                  {linkLoading ? "Generating..." : "Generate link"}
                 </Button>
               )}
             </div>
@@ -265,7 +269,7 @@ export function SettingsTab() {
               onClick={() => void handleDeleteAccount()}
             >
               <X className="h-4 w-4 mr-1" aria-hidden="true" />
-              {deleting ? "Deleting…" : "Delete account"}
+              {deleting ? "Deleting..." : "Delete account"}
             </Button>
           </div>
         </CardContent>

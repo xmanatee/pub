@@ -52,7 +52,7 @@ export function LiveModelSettingsCard() {
     } catch (error) {
       const message = mutationErrorMessage(error);
       trackError(error instanceof Error ? error : new Error(message), {
-        area: "dashboard",
+        area: "settings",
         feature: "live_model_preference",
         profile,
       });
@@ -106,7 +106,7 @@ export function LiveModelSettingsCard() {
           Changes apply on the next live connect. Existing live sessions keep their current model.
         </p>
 
-        {saving ? <p className="text-xs text-muted-foreground">Saving…</p> : null}
+        {saving ? <p className="text-xs text-muted-foreground">Saving...</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>

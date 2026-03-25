@@ -1,3 +1,4 @@
+import { Settings } from "lucide-react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { BatchSection } from "~/devtools/components/batch-section";
@@ -8,12 +9,35 @@ function HeaderNonTma() {
       <div className="px-4 sm:px-6 h-14 flex items-center justify-between">
         <PubWordmark iconSize={22} className="text-foreground" />
         <nav className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="pointer-coarse:h-11">
+          <span className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            GitHub
+          </span>
+          <Button size="sm" className="pointer-coarse:h-11">
             Sign in
           </Button>
-          <Button size="sm" className="pointer-coarse:h-11">
-            Get started
-          </Button>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function HeaderAuthenticated() {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div className="px-4 sm:px-6 h-14 flex items-center justify-between">
+        <PubWordmark iconSize={22} className="text-foreground" />
+        <nav aria-label="Main navigation" className="flex items-center gap-0.5 sm:gap-1">
+          <span className="text-sm font-medium text-foreground px-2 py-1 rounded-md">Pubs</span>
+          <span className="text-sm text-muted-foreground px-2 py-1 rounded-md">
+            Agents
+            <span className="ml-1.5 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
+              2
+            </span>
+          </span>
+          <span className="text-sm text-muted-foreground px-2 py-1 rounded-md">Explore</span>
+          <span className="text-sm text-muted-foreground px-2 py-1 rounded-md">
+            <Settings className="h-4 w-4" aria-hidden="true" />
+          </span>
         </nav>
       </div>
     </header>
@@ -64,8 +88,12 @@ export function HeaderDebugPage() {
           testId="batch-header-tma-state"
           items={[
             {
-              label: "non-tma",
+              label: "non-tma-guest",
               content: <HeaderNonTma />,
+            },
+            {
+              label: "non-tma-authenticated",
+              content: <HeaderAuthenticated />,
             },
             {
               label: "fullscreen-tma",

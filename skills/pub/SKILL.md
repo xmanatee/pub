@@ -51,7 +51,7 @@ pub config --api-key pub_KEY
 echo "pub_KEY" | pub config --api-key-stdin
 ```
 
-Key source: <https://pub.blue/dashboard>
+Key source: <https://pub.blue/agents>
 
 Pub resolves config from exactly one existing directory:
 - `PUB_CONFIG_DIR`

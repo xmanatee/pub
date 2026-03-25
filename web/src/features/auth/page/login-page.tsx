@@ -22,10 +22,10 @@ export function LoginPage() {
       setAuthError(null);
       setPendingProvider(provider);
       trackSignInStarted(provider);
-      pushAuthDebug("oauth_start", { provider, redirectTo: "/dashboard" });
+      pushAuthDebug("oauth_start", { provider, redirectTo: "/pubs" });
 
       try {
-        const result = await signIn(provider, { redirectTo: "/dashboard" });
+        const result = await signIn(provider, { redirectTo: "/pubs" });
         pushAuthDebug("oauth_start_result", {
           provider,
           hasRedirect: Boolean(result.redirect),

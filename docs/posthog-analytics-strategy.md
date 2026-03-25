@@ -53,11 +53,10 @@ Rules:
 | `api_key_deleted` | `name` |
 | `api_key_copied` | none |
 
-#### Dashboard and landing
+#### Landing
 
 | Event | Properties |
 |---|---|
-| `dashboard_tab_changed` | `tab` (`pubs` \| `keys` \| `account`) |
 | `cta_clicked` | `cta`, `location` |
 
 #### Reliability
@@ -96,7 +95,7 @@ Create and maintain these dashboards in PostHog:
 2. Activation
 - `user_signed_in` -> `pub_viewed`
 - `api_key_created`
-- `dashboard_tab_changed` by `tab`
+- `$pageview` by path (`/pubs`, `/agents`, `/settings`)
 
 3. Content and sharing
 - `pub_viewed` by `isPublic`
@@ -111,7 +110,7 @@ Create and maintain these dashboards in PostHog:
 
 These are valid next steps, but are not currently emitted everywhere:
 
-- `pub_created` (with `source`: dashboard/cli/api)
+- `pub_created` (with `source`: web/cli/api)
 - `pub_updated`
 - `pub_raw_viewed`
 - Dedicated `mutation_error` PostHog event

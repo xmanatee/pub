@@ -587,7 +587,7 @@ export function usePubLiveModel({
     setLiveRequestedOverride(false);
     resetLiveSurface();
     if (liveEnabled) closeLive();
-    void navigate({ to: "/dashboard" });
+    void navigate({ to: "/pubs" });
   }, [closeLive, liveEnabled, navigate, resetLiveSurface]);
 
   const handleSelectedHostId = useCallback(

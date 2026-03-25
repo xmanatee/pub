@@ -13,6 +13,6 @@ export function requireAuth(auth: AuthState): void {
 
 export function requireGuest(auth: AuthState): void {
   if (!auth.isLoading && auth.isAuthenticated) {
-    throw redirect({ to: "/dashboard" });
+    throw redirect({ to: "/pubs" });
   }
 }

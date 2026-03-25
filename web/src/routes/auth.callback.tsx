@@ -4,7 +4,7 @@ export const Route = createFileRoute("/auth/callback")({
   beforeLoad: ({ context }) => {
     if (!context.auth.isLoading) {
       throw redirect({
-        to: context.auth.isAuthenticated ? "/dashboard" : "/login",
+        to: context.auth.isAuthenticated ? "/pubs" : "/login",
         replace: true,
       });
     }

@@ -2,7 +2,7 @@
 
 ## What is Pub
 
-Pub is a full-stack TypeScript app for adaptive interfaces powered by AI agents. Agents generate real-time UIs — apps, dashboards, interactive experiences — that adapt to what the user needs. A pub can have static content, a live mode, or both. It includes a web dashboard, a CLI tool, and a Claude Code skill.
+Pub is a full-stack TypeScript app for adaptive interfaces powered by AI agents. Agents generate real-time UIs — apps, dashboards, interactive experiences — that adapt to what the user needs. A pub can have static content, a live mode, or both. It includes a web app, a CLI tool, and a Claude Code skill.
 
 ## Commands
 
@@ -41,15 +41,20 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 
 ### Frontend (`web/src/`)
 - **Routing**: TanStack Router file-based routes in `web/src/routes/`
-  - `__root.tsx` — root layout (header, footer with Explore link, providers)
-  - `index.tsx` — landing page
-  - `login.tsx` — OAuth login (GitHub, Google)
-  - `dashboard.tsx` — protected; three tabs (Pubs, Agents and Keys, Settings); onboarding guide for new users; account management
+  - `__root.tsx` — root layout (header with AppNav for authenticated users, footer, providers)
+  - `_authenticated.tsx` — layout route guard (`beforeLoad: requireAuth`); all protected routes nest under this
+  - `_guest.tsx` — layout route guard (`beforeLoad: requireGuest`); redirects authenticated users to `/pubs`
+  - `_authenticated.pubs.tsx` — pubs list, sort, go-live FAB; onboarding guide for new users
+  - `_authenticated.agents.tsx` — API key management, CLI install command
+  - `_authenticated.settings.tsx` — linked accounts, live model, developer mode, telemetry, sign out, delete account
   - `explore.tsx` — public discovery feed; paginated list of public agent-built apps and experiences
   - `p.$slug.tsx` — unified pub page (no app chrome); handles content viewing and owner live mode; auth-aware for private pubs
+  - `_guest.index.tsx` — landing page
+  - `_guest.login.tsx` — OAuth login (GitHub, Google)
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
-  - `debug.auth.tsx` — Auth debug page (dev only, gated via `import.meta.env.DEV`)
+  - `debug.*.tsx` — debug pages (dev only)
+- **Navigation**: `AppNav` component in header provides Pubs, Agents, Explore links and Settings icon for authenticated users. Auth guards are handled entirely by layout routes (`_authenticated`, `_guest`); no `AuthGuard` component exists.
 - **Components**: Shadcn UI (`web/src/components/ui/`) built on Radix primitives; live session components in `web/src/features/live/components/`
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via React Query (`@convex-dev/react-query`)
@@ -71,7 +76,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
 - **Telegram** (`telegram.ts`): account linking via token-based flow
 - **Components** (`convex.config.ts`): registers `rateLimiter` component
-- **Visibility**: pubs are always created private; visibility can be changed via update or the dashboard toggle
+- **Visibility**: pubs are always created private; visibility can be changed via update or the pubs page toggle
 - **OG Metadata**: OG meta tags in HTML are the single source of truth for title/description. On create/update, the API extracts `og:title`/`og:description` (falling back to `<title>` and `<meta name="description">`) and stores them in DB fields. Content serving at `/serve/:slug` supplements missing OG tags without duplicating existing ones.
 
 ### Pub Limits

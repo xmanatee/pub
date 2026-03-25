@@ -9,6 +9,7 @@ import * as React from "react";
 import { PubWordmark } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { AppNav } from "~/features/app-shell/components/app-nav";
 import { TelegramNotLinkedPage } from "~/features/auth/page/telegram-not-linked-page";
 import { useTelegramAuth } from "~/hooks/use-telegram-auth";
 import { useTelegramBackButton } from "~/hooks/use-telegram-back-button";
@@ -143,12 +144,13 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             style={fullscreen ? { height: "var(--content-safe-top)" } : undefined}
           >
             <Link
-              to={isAuthenticated ? "/dashboard" : "/"}
+              to={isAuthenticated ? "/pubs" : "/"}
               aria-label="Pub home"
               className="hover:opacity-80 transition-opacity"
             >
               <PubWordmark iconSize={22} className="text-foreground" />
             </Link>
+            {!IN_TELEGRAM && !isLoading && isAuthenticated && <AppNav />}
             {!IN_TELEGRAM && !isLoading && !isAuthenticated && (
               <nav aria-label="Main navigation" className="flex items-center gap-3">
                 <a
@@ -174,19 +176,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <footer className="relative z-0 border-t border-border/50 bg-background">
           <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <PubWordmark
-                  iconSize={18}
-                  className="text-muted-foreground text-sm"
-                  aria-hidden="true"
-                />
-                <Link
-                  to="/explore"
-                  className="text-sm text-muted-foreground underline hover:text-foreground transition-colors"
-                >
-                  Explore
-                </Link>
-              </div>
+              <PubWordmark
+                iconSize={18}
+                className="text-muted-foreground text-sm"
+                aria-hidden="true"
+              />
               <p className="text-sm text-muted-foreground">
                 by{" "}
                 <a

@@ -22,9 +22,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import type { PubGridItem } from "~/features/pubs/components/pubs-grid";
 import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
 import { telegramConfirm, telegramOpenLink } from "~/lib/telegram";
-import type { PubGridItem } from "./pubs-grid";
 
 interface PubCardProps {
   pub: PubGridItem;

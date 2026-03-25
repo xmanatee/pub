@@ -67,7 +67,7 @@ function TwoAgentLayout({
           {agent.agentName === defaultAgentName ? " \u2605" : ""}
         </ControlBarTextAction>
       ))}
-      <DashboardButton onExit={onExit} />
+      <PubsButton onExit={onExit} />
     </ControlBarPanel>
   );
 }
@@ -113,18 +113,13 @@ function MultiAgentLayout({
         tooltip="Start live"
         variant="default"
       />
-      <DashboardButton onExit={onExit} />
+      <PubsButton onExit={onExit} />
     </ControlBarPanel>
   );
 }
 
-function DashboardButton({ onExit }: { onExit: () => void }) {
+function PubsButton({ onExit }: { onExit: () => void }) {
   return (
-    <ControlBarIconAction
-      icon={<LayoutDashboard />}
-      label="Dashboard"
-      onClick={onExit}
-      tooltip="Dashboard"
-    />
+    <ControlBarIconAction icon={<LayoutDashboard />} label="Pubs" onClick={onExit} tooltip="Pubs" />
   );
 }
