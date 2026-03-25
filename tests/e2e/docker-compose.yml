@@ -74,7 +74,6 @@ services:
       - TURN_PORT=3478
       - TURN_USER=e2e-user
       - TURN_PASS=e2e-pass
-      - FORCE_TURN_RELAY=1
 
 volumes:
   convex-data:

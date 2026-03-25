@@ -8,8 +8,12 @@
  * This is needed because the CLI's `getConvexCloudUrl()` only handles
  * `.convex.site` → `.convex.cloud` domain conversion, not localhost ports.
  *
- * When FORCE_TURN_RELAY=1, the proxy injects `transportPolicy: "relay"` into
- * the /api/v1/ice-servers response, forcing the browser to use TURN relay only.
+ * Transport policy can be set at runtime via admin API:
+ *   PUT  /admin/transport-policy  body: "relay" | "all"
+ *   GET  /admin/transport-policy
+ *
+ * When set to "relay", the proxy injects `transportPolicy: "relay"` into
+ * /api/v1/ice-servers responses, forcing the browser to use TURN relay only.
  */
 import { createServer, request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
@@ -18,7 +22,8 @@ const CONVEX_HOST = process.env.CONVEX_HOST ?? "localhost";
 const HTTP_PORT = Number(process.env.CONVEX_SITE_PORT ?? 3211);
 const WS_PORT = Number(process.env.CONVEX_API_PORT ?? 3210);
 const PROXY_PORT = Number(process.env.PROXY_PORT ?? 3212);
-const FORCE_TURN_RELAY = process.env.FORCE_TURN_RELAY === "1";
+
+let transportPolicy = process.env.FORCE_TURN_RELAY === "1" ? "relay" : "all";
 
 /** Routes that are Convex HTTP actions (site port). Everything else goes to the API port. */
 function isSiteRoute(url) {
@@ -64,11 +69,37 @@ function proxyRequest(req, res, port, transform) {
   req.pipe(proxyReq);
 }
 
-const server = createServer((req, res) => {
+function readBody(req) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString().trim()));
+  });
+}
+
+const server = createServer(async (req, res) => {
+  // Admin API: transport policy toggle
+  if (req.url === "/admin/transport-policy") {
+    if (req.method === "PUT") {
+      const body = await readBody(req);
+      if (body === "relay" || body === "all") {
+        transportPolicy = body;
+        res.writeHead(200).end(transportPolicy);
+      } else {
+        res.writeHead(400).end('Expected "relay" or "all"');
+      }
+      return;
+    }
+    if (req.method === "GET") {
+      res.writeHead(200).end(transportPolicy);
+      return;
+    }
+  }
+
   const port = isSiteRoute(req.url) ? HTTP_PORT : WS_PORT;
 
-  // Inject transportPolicy into ICE servers response to force TURN relay
-  if (FORCE_TURN_RELAY && req.url === "/api/v1/ice-servers" && req.method === "GET") {
+  // Inject transportPolicy into ICE servers response when set to relay
+  if (transportPolicy === "relay" && req.url === "/api/v1/ice-servers" && req.method === "GET") {
     proxyRequest(req, res, port, (body, status) => {
       if (status !== 200) return body;
       const data = JSON.parse(body);
@@ -97,6 +128,5 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(PROXY_PORT, "127.0.0.1", () => {
-  const mode = FORCE_TURN_RELAY ? " (TURN relay forced)" : "";
-  console.log(`[proxy] site(${HTTP_PORT}) api(${WS_PORT}) on 127.0.0.1:${PROXY_PORT} → ${CONVEX_HOST}${mode}`);
+  console.log(`[proxy] site(${HTTP_PORT}) api(${WS_PORT}) on 127.0.0.1:${PROXY_PORT} → ${CONVEX_HOST}`);
 });

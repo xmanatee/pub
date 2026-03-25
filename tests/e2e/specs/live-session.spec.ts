@@ -14,6 +14,7 @@ import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedExtraApiKey, seedUser } from "../fixtures/convex";
 import { addCanvasRule, addEchoRule, clearRules, setupDefaultRules } from "../fixtures/mock-llm";
+import { setTransportPolicy } from "../helpers/transport-policy";
 
 let cli: CliFixture;
 const extraClis: CliFixture[] = [];
@@ -992,4 +993,60 @@ test("agent picker + canvas update: commands work in new canvas", async ({ page 
   // Phase 2: Button command in new canvas v2 works
   await canvasFrame.locator("#run-cmd").click();
   await expect(canvasFrame.locator("#btn-result")).toHaveText("btn: v2", { timeout: 15_000 });
+});
+
+/**
+ * TURN relay tests.
+ *
+ * These tests force the browser to use iceTransportPolicy: "relay" via the
+ * test proxy. All browser WebRTC traffic must go through the local coturn
+ * TURN server. This verifies the TURN path works end-to-end.
+ */
+test.describe("TURN relay", () => {
+  test.beforeEach(async () => {
+    await setTransportPolicy("relay");
+  });
+
+  test.afterEach(async () => {
+    await setTransportPolicy("all");
+  });
+
+  test("chat roundtrip via TURN relay", async ({ page }) => {
+    const user = seedUser("TURN Chat User");
+    const { convexProxyUrl } = getState();
+    const api = new ApiClient({ user });
+
+    await api.createPub({ slug: "turn-chat" });
+    await addEchoRule("turn test", "echo: turn works");
+
+    cli = new CliFixture(user, convexProxyUrl);
+    await cli.startDaemon("turn-bot");
+
+    await injectAuth(page, user);
+    await page.goto("/p/turn-chat");
+
+    await waitForConnection(page);
+    await sendChat(page, "turn test");
+
+    await expect(page.getByText("echo: turn works")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("cli write via TURN relay", async ({ page }) => {
+    const user = seedUser("TURN Write User");
+    const { convexProxyUrl } = getState();
+    const api = new ApiClient({ user });
+
+    await api.createPub({ slug: "turn-write" });
+
+    cli = new CliFixture(user, convexProxyUrl);
+    await cli.startDaemon("turn-write-bot");
+
+    await injectAuth(page, user);
+    await page.goto("/p/turn-write");
+
+    await waitForConnection(page);
+    await retryWrite(cli, "turn relay message");
+
+    await expect(page.getByText("turn relay message")).toBeVisible({ timeout: 30_000 });
+  });
 });
