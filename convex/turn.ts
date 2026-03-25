@@ -1,4 +1,4 @@
-import { type IceServer, normalizeIceServers } from "../shared/webrtc-transport-core";
+import type { IceServer } from "../shared/webrtc-transport-core";
 import { httpAction } from "./_generated/server";
 import { getTurnKeyApiToken, getTurnKeyId, getTurnStaticServers } from "./env";
 import { corsHeaders } from "./http/shared";
@@ -19,7 +19,7 @@ async function generateIceServers(): Promise<IceServer[]> {
   // Static servers take precedence (used in e2e tests with local coturn)
   const staticServers = getTurnStaticServers();
   if (staticServers) {
-    return normalizeIceServers(JSON.parse(staticServers) as IceServer[]);
+    return JSON.parse(staticServers) as IceServer[];
   }
 
   const keyId = getTurnKeyId();
@@ -46,7 +46,7 @@ async function generateIceServers(): Promise<IceServer[]> {
     throw new Error("Cloudflare TURN API returned empty iceServers");
   }
 
-  return normalizeIceServers(data.iceServers);
+  return data.iceServers;
 }
 
 export const getIceServers = httpAction(async (ctx, request) => {

@@ -1,5 +1,5 @@
 import { type LiveInfo, parseLiveInfo } from "../../../../shared/live-api-core";
-import type { IceServer } from "../../../../shared/webrtc-transport-core";
+import { type IceServer, normalizeIceServers } from "../../../../shared/webrtc-transport-core";
 
 interface CreateResult {
   slug: string;
@@ -264,6 +264,6 @@ export class PubApiClient {
     if (!Array.isArray(data.iceServers) || data.iceServers.length === 0) {
       throw new PubApiError("ICE server response contains no servers", 502);
     }
-    return data.iceServers;
+    return normalizeIceServers(data.iceServers);
   }
 }
