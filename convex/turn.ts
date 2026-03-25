@@ -49,6 +49,24 @@ async function generateIceServers(): Promise<{ servers: IceServer[]; source: "tu
   return { servers: data.iceServers, source: "turn" };
 }
 
+export const debugTurnConfig = httpAction(async () => {
+  const keyId = process.env.TURN_KEY_ID;
+  const apiToken = process.env.TURN_KEY_API_TOKEN;
+  const allKeys = Object.keys(process.env).sort();
+  return new Response(
+    JSON.stringify({
+      hasKeyId: !!keyId,
+      keyIdLength: keyId?.length ?? 0,
+      keyIdPrefix: keyId?.slice(0, 4) ?? null,
+      hasApiToken: !!apiToken,
+      apiTokenLength: apiToken?.length ?? 0,
+      apiTokenPrefix: apiToken?.slice(0, 4) ?? null,
+      envKeys: allKeys,
+    }),
+    { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+  );
+});
+
 export const getIceServers = httpAction(async (ctx, request) => {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
