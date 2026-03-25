@@ -19,7 +19,11 @@ The iframe has full browser API access — camera, microphone, geolocation, clip
 
 - Always include `<meta name="viewport" content="width=device-width, initial-scale=1">`
 - Mobile-first — must work on phones (375px) and scale to desktop
-- Default to Tailwind CSS via CDN (`<script src="https://cdn.tailwindcss.com"></script>`) unless the task calls for something else
+- Default to [DaisyUI](https://daisyui.com/components/) + Tailwind CSS v4 via CDN unless the task calls for something else:
+  ```html
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  ```
 - Use CDN libraries when they serve the task (Chart.js, Three.js, D3, Lucide icons, Google Fonts, etc.)
 
 ### Quality

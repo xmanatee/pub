@@ -94,6 +94,15 @@ Notes:
 - `update` supports `--file`, `--public/--private`, `--slug`.
 - Content is optional: a pub can be live-only.
 
+## UI Components
+
+Default to [DaisyUI](https://daisyui.com/components/) + Tailwind via CDN:
+
+```html
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+```
+
 ## Going Live
 
 Live is browser-initiated: the user opens the pub page; owner live mode connects automatically once the daemon is online.
