@@ -593,31 +593,4 @@ describe("usePubLiveModel", () => {
 
     import.meta.env.VITE_SANDBOX_ORIGIN = prev;
   });
-
-  it("returns null sandboxUrl when VITE_SANDBOX_ORIGIN is not set", async () => {
-    const prev = import.meta.env.VITE_SANDBOX_ORIGIN;
-    delete import.meta.env.VITE_SANDBOX_ORIGIN;
-
-    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
-
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-
-    await act(async () => {
-      const currentRoot = root;
-      if (!currentRoot) throw new Error("root not initialized");
-      currentRoot.render(
-        <HookHarness
-          baseContentHtml="<html><body>static</body></html>"
-          contentState="ready"
-          onChange={(value) => states.push(value)}
-        />,
-      );
-    });
-
-    expect(states.at(-1)?.sandboxUrl).toBeNull();
-
-    import.meta.env.VITE_SANDBOX_ORIGIN = prev;
-  });
 });

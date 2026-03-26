@@ -5,12 +5,10 @@ import {
   CROSS_ORIGIN_SANDBOX_ATTR,
   DENIED_SANDBOX_TOKENS,
   IFRAME_ALLOW_ATTR,
-  SRCDOC_SANDBOX_ATTR,
 } from "./sandbox-policy-core";
 
 const CONVEX_SHARED_PATH = resolve(__dirname, "../convex/http/shared.ts");
 const CROSS_ORIGIN_TOKENS = CROSS_ORIGIN_SANDBOX_ATTR.split(" ");
-const SRCDOC_TOKENS = SRCDOC_SANDBOX_ATTR.split(" ");
 const PERMISSIONS_FEATURES = IFRAME_ALLOW_ATTR.split("; ");
 
 function parseFromConvexShared(pattern: RegExp): string[] {
@@ -24,31 +22,18 @@ function parseFromConvexShared(pattern: RegExp): string[] {
 }
 
 describe("sandbox tokens", () => {
-  it("cross-origin tokens are a strict superset of srcdoc tokens", () => {
-    const crossOrigin = new Set(CROSS_ORIGIN_TOKENS);
-    for (const token of SRCDOC_TOKENS) {
-      expect(crossOrigin.has(token)).toBe(true);
-    }
-  });
-
   it("cross-origin includes allow-same-origin", () => {
     expect(CROSS_ORIGIN_TOKENS).toContain("allow-same-origin");
   });
 
-  it("srcdoc does NOT include allow-same-origin", () => {
-    expect(SRCDOC_TOKENS).not.toContain("allow-same-origin");
-  });
-
-  it("no denied tokens in any set", () => {
+  it("no denied tokens", () => {
     for (const denied of DENIED_SANDBOX_TOKENS) {
       expect(CROSS_ORIGIN_TOKENS).not.toContain(denied);
-      expect(SRCDOC_TOKENS).not.toContain(denied);
     }
   });
 
   it("no duplicate tokens", () => {
     expect(new Set(CROSS_ORIGIN_TOKENS).size).toBe(CROSS_ORIGIN_TOKENS.length);
-    expect(new Set(SRCDOC_TOKENS).size).toBe(SRCDOC_TOKENS.length);
   });
 
   it("every token starts with allow-", () => {

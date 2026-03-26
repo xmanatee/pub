@@ -88,7 +88,7 @@ function PubRouteContent({
               onRenderError={isOwner ? session.handleRenderError : undefined}
               outboundCanvasBridgeMessage={isOwner ? session.outboundCanvasBridgeMessage : null}
               blobTone={liveBlob.tone}
-              sandboxUrl={isOwner ? session.sandboxUrl : null}
+              sandboxUrl={session.sandboxUrl}
               onIframeWindow={isOwner ? session.onIframeWindow : undefined}
               sandboxContentReady={
                 isOwner

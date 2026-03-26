@@ -296,12 +296,11 @@ export function usePubLiveModel({
   });
   pubFsMessageHandlerRef.current = handlePubFsChannelMessage;
 
-  const sandboxOrigin = import.meta.env.VITE_SANDBOX_ORIGIN as string | undefined;
+  const sandboxOrigin = import.meta.env.VITE_SANDBOX_ORIGIN as string;
   const sandboxUrl = useMemo(() => {
-    if (!liveMode || !sandboxOrigin) return null;
     const sessionId = (liveEnabled ? transportKey : `${slug}:owner`).replace(/[^a-zA-Z0-9-]/g, "_");
     return `${sandboxOrigin}/__canvas__/${sessionId}/`;
-  }, [liveEnabled, liveMode, slug, transportKey]);
+  }, [liveEnabled, slug, transportKey]);
 
   const audio = useControlBarAudio({
     disabled: runtimeState.connectionState !== "connected" || runtimeState.agentState !== "ready",

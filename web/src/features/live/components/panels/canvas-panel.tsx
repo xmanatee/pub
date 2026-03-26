@@ -1,8 +1,4 @@
-import {
-  CROSS_ORIGIN_SANDBOX_ATTR,
-  IFRAME_ALLOW_ATTR,
-  SRCDOC_SANDBOX_ATTR,
-} from "@shared/sandbox-policy-core";
+import { CROSS_ORIGIN_SANDBOX_ATTR, IFRAME_ALLOW_ATTR } from "@shared/sandbox-policy-core";
 import { useEffect, useRef, useState } from "react";
 import type { BlobTone } from "~/components/blob/blob-tone";
 import {
@@ -28,8 +24,7 @@ interface CanvasPanelProps {
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
   blobTone: BlobTone;
-  /** When set, use sandbox iframe (SW mode) instead of srcdoc. */
-  sandboxUrl?: string | null;
+  sandboxUrl: string;
   /** Callback to set the iframe's contentWindow for pub-fs bridge. */
   onIframeWindow?: (win: Window | null) => void;
   /** When false, delay sandbox HTML injection until the parent relay is ready. */
@@ -77,7 +72,6 @@ export function CanvasPanel({
   );
   const lastAcceptedOutboundMessageRef = useRef<CanvasBridgeOutboundMessage | null>(null);
   const lastReportedErrorRef = useRef<{ key: string; timestamp: number } | null>(null);
-  const sandboxMode = Boolean(sandboxUrl);
   const hasVisibleCanvasContent = Boolean(html && loadedHtml === html);
   latestOutboundCanvasBridgeMessageRef.current = outboundCanvasBridgeMessage ?? null;
 
@@ -112,22 +106,17 @@ export function CanvasPanel({
   // Expose iframe window for pub-fs bridge
   // biome-ignore lint/correctness/useExhaustiveDependencies: sandboxReady signals iframe is available
   useEffect(() => {
-    if (sandboxMode && iframeRef.current?.contentWindow) {
+    if (iframeRef.current?.contentWindow) {
       onIframeWindow?.(iframeRef.current.contentWindow);
     }
     return () => onIframeWindow?.(null);
-  }, [sandboxMode, onIframeWindow, sandboxReady]);
+  }, [onIframeWindow, sandboxReady]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
 
-      // Handle sandbox-ready signal (SW mode only)
-      if (
-        sandboxMode &&
-        event.data?.type === "sandbox-ready" &&
-        event.data?.source === SANDBOX_SOURCE
-      ) {
+      if (event.data?.type === "sandbox-ready" && event.data?.source === SANDBOX_SOURCE) {
         setSandboxReady(true);
         return;
       }
@@ -176,11 +165,11 @@ export function CanvasPanel({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [onCanvasBridgeMessage, onPreviewCaptured, onRenderError, sandboxMode]);
+  }, [onCanvasBridgeMessage, onPreviewCaptured, onRenderError]);
 
   // Inject content into sandbox iframe once it's ready
   useEffect(() => {
-    if (!sandboxMode || !sandboxReady || !sandboxContentReady || !html) return;
+    if (!sandboxReady || !sandboxContentReady || !html) return;
     const frame = iframeRef.current?.contentWindow;
     if (!frame) return;
     const injectedHtml = buildCanvasSrcDoc(html);
@@ -189,7 +178,7 @@ export function CanvasPanel({
       "*",
     );
     setLoadedHtml(html);
-  }, [sandboxMode, sandboxReady, sandboxContentReady, html]);
+  }, [sandboxReady, sandboxContentReady, html]);
 
   useEffect(() => {
     if (!capturePreview || !canvasBridgeReady) return;
@@ -218,34 +207,18 @@ export function CanvasPanel({
   return (
     <div className="absolute inset-0 overflow-hidden bg-background">
       {html ? (
-        sandboxMode && sandboxUrl ? (
-          <iframe
-            key={sandboxUrl}
-            ref={iframeRef}
-            src={sandboxUrl}
-            sandbox={CROSS_ORIGIN_SANDBOX_ATTR}
-            allow={IFRAME_ALLOW_ATTR}
-            className={cn(
-              "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
-              loadedHtml === html ? "opacity-100" : "opacity-0",
-            )}
-            title="Canvas"
-          />
-        ) : (
-          <iframe
-            key={html}
-            ref={iframeRef}
-            srcDoc={buildCanvasSrcDoc(html)}
-            sandbox={SRCDOC_SANDBOX_ATTR}
-            allow={IFRAME_ALLOW_ATTR}
-            className={cn(
-              "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
-              loadedHtml === html ? "opacity-100" : "opacity-0",
-            )}
-            title="Canvas"
-            onLoad={() => setLoadedHtml(html)}
-          />
-        )
+        <iframe
+          key={sandboxUrl}
+          ref={iframeRef}
+          src={sandboxUrl}
+          sandbox={CROSS_ORIGIN_SANDBOX_ATTR}
+          allow={IFRAME_ALLOW_ATTR}
+          className={cn(
+            "absolute inset-0 h-full w-full border-none transition-opacity duration-500 pointer-events-auto touch-auto",
+            loadedHtml === html ? "opacity-100" : "opacity-0",
+          )}
+          title="Canvas"
+        />
       ) : null}
       {blobPhase === "hidden" ? null : (
         <CanvasLiveBlob

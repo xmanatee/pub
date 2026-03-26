@@ -155,6 +155,8 @@ export function createMockLiveSession(
     takeoverLive: async () => {},
     transportStatus: "connected",
     viewMode: "canvas",
+    sandboxUrl: "/__sandbox__/__canvas__/mock/",
+    onIframeWindow: noop,
     pubFsBridgeReady: true,
     blobState: "idle",
     errorThrottle: {
