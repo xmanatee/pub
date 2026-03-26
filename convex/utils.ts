@@ -1,9 +1,12 @@
-export const MAX_CONTENT_SIZE = 300 * 1024; // 300KB
+export const MAX_FILE_SIZE = 300 * 1024; // 300KB per file
+export const MAX_FILES_PER_PUB = 50;
+export const MAX_TOTAL_PUB_SIZE = 1.5 * 1024 * 1024; // 1.5MB across all files
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_DESCRIPTION_LENGTH = 200;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
 export const MAX_PUBS_SUBSCRIBED = 200;
+export const SYSTEM_FILE_PREFIX = "_pub/";
 
 export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
@@ -105,4 +108,74 @@ export function extractOgMeta(html: string): { title?: string; description?: str
 
 export function hasOgTag(html: string, property: string): boolean {
   return new RegExp(`<meta\\s+[^>]*property\\s*=\\s*["']${property}["']`, "i").test(html);
+}
+
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+export function isValidFilePath(path: string): boolean {
+  if (!path || path.length > 256) return false;
+  if (path.startsWith("/") || path.startsWith("\\")) return false;
+  if (path.includes("..")) return false;
+  if (path.includes("//") || path.includes("\\")) return false;
+  for (let i = 0; i < path.length; i++) {
+    if (path.charCodeAt(i) < 0x20) return false;
+  }
+  if (path.startsWith(SYSTEM_FILE_PREFIX)) return false;
+  const segments = path.split("/");
+  return segments.every((s) => s.length > 0 && s.length <= 128 && !DANGEROUS_KEYS.has(s));
+}
+
+const MIME_MAP: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".xml": "application/xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
+  ".wasm": "application/wasm",
+};
+
+export function mimeFromPath(path: string): string {
+  const dot = path.lastIndexOf(".");
+  if (dot === -1) return "application/octet-stream";
+  const ext = path.slice(dot).toLowerCase();
+  return MIME_MAP[ext] ?? "application/octet-stream";
+}
+
+export function validateFiles(
+  files: Record<string, string>,
+): { ok: true } | { ok: false; error: string } {
+  const paths = Object.keys(files);
+
+  if (!paths.includes("index.html")) {
+    return { ok: false, error: "Missing required file: index.html" };
+  }
+  if (paths.length > MAX_FILES_PER_PUB) {
+    return { ok: false, error: `Too many files (max ${MAX_FILES_PER_PUB})` };
+  }
+
+  let totalSize = 0;
+  for (const [path, content] of Object.entries(files)) {
+    if (!isValidFilePath(path)) {
+      return { ok: false, error: `Invalid file path: ${path}` };
+    }
+    const size = new TextEncoder().encode(content).byteLength;
+    if (size > MAX_FILE_SIZE) {
+      return { ok: false, error: `File ${path} exceeds max size (${MAX_FILE_SIZE / 1024}KB)` };
+    }
+    totalSize += size;
+  }
+
+  if (totalSize > MAX_TOTAL_PUB_SIZE) {
+    return {
+      ok: false,
+      error: `Total size exceeds max (${(MAX_TOTAL_PUB_SIZE / 1024 / 1024).toFixed(1)}MB)`,
+    };
+  }
+
+  return { ok: true };
 }

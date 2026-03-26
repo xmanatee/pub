@@ -299,6 +299,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const handleIpcRequest = createDaemonIpcHandler({
     persistCanvasHtml: (html) => bridgeManager.persistCanvasHtml(html),
+    persistFiles: (files) => bridgeManager.persistFiles(files),
     getRuntimeState: () => state.runtimeState,
     getSignalingConnected: () => {
       const signalState = signaling.status();

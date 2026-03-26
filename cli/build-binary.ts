@@ -17,9 +17,33 @@ const TARGETS = [
   { bun: "bun-linux-arm64", suffix: "linux-arm64" },
 ] as const;
 
+type TargetSuffix = (typeof TARGETS)[number]["suffix"];
+
+function resolveTargets(): ReadonlyArray<(typeof TARGETS)[number]> {
+  const requested = process.env.PUB_CLI_BUILD_TARGETS?.trim();
+  if (!requested) return TARGETS;
+
+  const requestedSuffixes = requested
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value): value is TargetSuffix => value.length > 0);
+
+  const invalidSuffixes = requestedSuffixes.filter(
+    (suffix) => !TARGETS.some((target) => target.suffix === suffix),
+  );
+  if (invalidSuffixes.length > 0) {
+    throw new Error(
+      `Unknown PUB_CLI_BUILD_TARGETS value(s): ${invalidSuffixes.join(", ")}. ` +
+        `Expected one or more of: ${TARGETS.map((target) => target.suffix).join(", ")}`,
+    );
+  }
+
+  return TARGETS.filter((target) => requestedSuffixes.includes(target.suffix));
+}
+
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
-for (const target of TARGETS) {
+for (const target of resolveTargets()) {
   const outfile = path.join(OUT_DIR, `pub-${target.suffix}`);
   const cmd = `bun build --compile --target=${target.bun} --minify ${ENTRY} --outfile ${outfile}`;
   console.log(`Building ${target.suffix}...`);

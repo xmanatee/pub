@@ -7,7 +7,7 @@ import {
   generateSlug,
   INVALID_SLUG_MESSAGE,
   isValidSlug,
-  MAX_CONTENT_SIZE,
+  validateFiles,
 } from "../../utils";
 import {
   ApiError,
@@ -20,6 +20,12 @@ import {
   parseSlugFromRequest,
   rethrowPubLimitError,
 } from "../shared";
+
+const DEFAULT_INDEX_HTML = "";
+
+function toLegacyFiles(content: string): Record<string, string> {
+  return { "index.html": content };
+}
 
 export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void {
   // -- CORS preflight -------------------------------------------------------
@@ -36,7 +42,13 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const apiKey = getApiKey(request);
       if (!apiKey) return errorResponse("Missing API key", 401);
 
-      let body: { content?: string; slug?: string; title?: unknown; description?: unknown };
+      let body: {
+        files?: Record<string, string>;
+        content?: unknown;
+        slug?: string;
+        title?: unknown;
+        description?: unknown;
+      };
       try {
         body = await request.json();
       } catch {
@@ -50,14 +62,29 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         );
       }
 
-      if (body.content && body.content.length > MAX_CONTENT_SIZE) {
-        return errorResponse(`Content exceeds maximum size of ${MAX_CONTENT_SIZE / 1024}KB`, 400);
+      if (body.files && body.content !== undefined) {
+        return errorResponse("Provide either files or content, not both", 400);
       }
+
+      if (body.content !== undefined && typeof body.content !== "string") {
+        return errorResponse("Field content must be a string", 400);
+      }
+
+      const files =
+        body.files ??
+        (typeof body.content === "string"
+          ? toLegacyFiles(body.content)
+          : toLegacyFiles(DEFAULT_INDEX_HTML));
+
+      const validation = validateFiles(files);
+      if (!validation.ok) return errorResponse(validation.error, 400);
+
       if (body.slug && !isValidSlug(body.slug)) {
         return errorResponse(INVALID_SLUG_MESSAGE, 400);
       }
 
-      const { title, description } = body.content ? extractOgMeta(body.content) : {};
+      const indexHtml = files["index.html"];
+      const { title, description } = indexHtml ? extractOgMeta(indexHtml) : {};
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "createPub");
       if (auth instanceof Response) return auth;
@@ -69,17 +96,24 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           const existing = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug: finalSlug });
           if (existing) throw new ApiError("Slug already taken", 409);
 
-          try {
-            await ctx.runMutation(internal.pubs.createPub, {
+          const pubId = await ctx
+            .runMutation(internal.pubs.createPub, {
               userId: auth.userId,
               slug: finalSlug,
-              content: body.content,
               title,
               description,
+            })
+            .catch((error) => {
+              rethrowPubLimitError(error);
+              throw error;
             });
-          } catch (error) {
-            rethrowPubLimitError(error);
-          }
+
+          if (!pubId) throw new ApiError("Failed to create pub", 500);
+
+          await ctx.runMutation(internal.pubFiles.writeFiles, {
+            pubId,
+            files: Object.entries(files).map(([path, content]) => ({ path, content })),
+          });
 
           return { slug: finalSlug };
         },
@@ -128,6 +162,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
                 title: p.title,
                 description: p.description,
                 isPublic: p.isPublic,
+                fileCount: p.fileCount ?? 0,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
                 live: live ? { status: "active" } : null,
@@ -155,7 +190,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const pathAfterPubs = url.pathname.slice("/api/v1/pubs/".length).replace(/\/$/, "");
       const pathParts = pathAfterPubs.split("/");
 
-      // GET /api/v1/pubs/:slug
       if (pathParts.length !== 1) return errorResponse("Invalid path", 400);
 
       const slug = parseSlugFromRequest(request, "/api/v1/pubs/");
@@ -173,9 +207,19 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             slug,
           });
 
+          const pubFileRows = await ctx.runQuery(internal.pubFiles.listFilesWithContent, {
+            pubId: pub._id,
+          });
+          const files: Record<string, string> = {};
+          for (const f of pubFileRows) {
+            files[f.path] = f.content;
+          }
+
           return {
             slug: pub.slug,
-            content: pub.content,
+            content: files["index.html"],
+            files,
+            fileCount: pubFileRows.length,
             title: pub.title,
             description: pub.description,
             isPublic: pub.isPublic,
@@ -208,7 +252,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       if (slug instanceof Response) return slug;
 
       let body: {
-        content?: string;
+        files?: Record<string, string>;
+        content?: unknown;
         isPublic?: boolean;
         slug?: string;
         title?: unknown;
@@ -227,14 +272,27 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         );
       }
 
-      if (body.content && body.content.length > MAX_CONTENT_SIZE) {
-        return errorResponse(`Content exceeds maximum size of ${MAX_CONTENT_SIZE / 1024}KB`, 400);
+      if (body.files && body.content !== undefined) {
+        return errorResponse("Provide either files or content, not both", 400);
       }
+
+      if (body.content !== undefined && typeof body.content !== "string") {
+        return errorResponse("Field content must be a string", 400);
+      }
+
       if (body.slug !== undefined) {
         if (!isValidSlug(body.slug)) return errorResponse(INVALID_SLUG_MESSAGE, 400);
       }
 
-      const extracted = body.content ? extractOgMeta(body.content) : {};
+      const files =
+        body.files ?? (typeof body.content === "string" ? toLegacyFiles(body.content) : undefined);
+      if (files) {
+        const validation = validateFiles(files);
+        if (!validation.ok) return errorResponse(validation.error, 400);
+      }
+
+      const indexHtml = files?.["index.html"];
+      const extracted = indexHtml ? extractOgMeta(indexHtml) : {};
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "updatePub");
       if (auth instanceof Response) return auth;
@@ -251,9 +309,15 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             if (existing) throw new ApiError("Slug already taken", 409);
           }
 
+          if (files) {
+            await ctx.runMutation(internal.pubFiles.writeFiles, {
+              pubId: pub._id,
+              files: Object.entries(files).map(([path, content]) => ({ path, content })),
+            });
+          }
+
           await ctx.runMutation(internal.pubs.updatePub, {
             id: pub._id,
-            content: body.content,
             title: extracted.title,
             description: extracted.description,
             isPublic: body.isPublic,

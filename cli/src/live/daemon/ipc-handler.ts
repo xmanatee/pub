@@ -9,6 +9,7 @@ import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
 
 interface DaemonIpcHandlerParams {
   persistCanvasHtml: (html: string) => Promise<Record<string, unknown>>;
+  persistFiles: (files: Record<string, string>) => Promise<Record<string, unknown>>;
   getRuntimeState: () => LiveRuntimeStateSnapshot;
   getSignalingConnected: () => boolean | null;
   getActiveSlug: () => string | null;
@@ -146,6 +147,10 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
       case "close": {
         params.shutdown();
         return { ok: true };
+      }
+
+      case "write-files": {
+        return await params.persistFiles(req.params.files);
       }
 
       default: {

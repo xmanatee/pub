@@ -26,7 +26,7 @@ describe("PubApiClient", () => {
       );
 
       const result = await client.create({
-        content: "<h1>Hello</h1>",
+        files: { "index.html": "<h1>Hello</h1>" },
       });
 
       expect(result).toEqual(mockResponse);
@@ -50,7 +50,9 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await expect(client.create({ content: "test" })).rejects.toThrow("Invalid API key");
+      await expect(client.create({ files: { "index.html": "test" } })).rejects.toThrow(
+        "Invalid API key",
+      );
     });
   });
 
@@ -107,7 +109,8 @@ describe("PubApiClient", () => {
     it("fetches single pub by slug", async () => {
       const mockPub = {
         slug: "abc",
-        content: "<h1>Hello</h1>",
+        files: { "index.html": "<h1>Hello</h1>" },
+        fileCount: 1,
         isPublic: true,
         createdAt: 1000,
         updatedAt: 1000,

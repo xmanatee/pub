@@ -4,3 +4,7 @@ export function getConvexUrl(): string {
 
   throw new Error("Missing VITE_CONVEX_URL. Configure the web app before starting Pub.");
 }
+
+export function getConvexSiteUrl(): string {
+  return getConvexUrl().replace(/\.convex\.cloud$/, ".convex.site");
+}

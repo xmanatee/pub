@@ -19,6 +19,22 @@ async function deleteUserOwnedRows(ctx: MutationCtx, userId: Id<"users">) {
   }
 }
 
+async function deletePubFilesByUserPubs(ctx: MutationCtx, userId: Id<"users">) {
+  const pubs = await ctx.db
+    .query("pubs")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  for (const pub of pubs) {
+    const files = await ctx.db
+      .query("pubFiles")
+      .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
+      .collect();
+    for (const file of files) {
+      await ctx.db.delete(file._id);
+    }
+  }
+}
+
 export const disconnectProvider = mutation({
   args: { provider: v.string() },
   handler: async (ctx, { provider }) => {
@@ -54,6 +70,7 @@ export const deleteAccount = mutation({
       .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
       .collect();
 
+    await deletePubFilesByUserPubs(ctx, userId);
     await deleteUserOwnedRows(ctx, userId);
     await deleteAuthAccountsAndDependents(ctx, accounts);
     await deleteUserSessionsAndDependents(ctx, userId);

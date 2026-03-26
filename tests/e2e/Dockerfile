@@ -15,11 +15,15 @@ COPY . .
 # Generate Convex types (offline, placeholder URL — may partially fail, that's OK)
 RUN npx convex codegen --admin-key "build-placeholder" --url "http://placeholder:3210" 2>/dev/null || true
 
-# Build CLI binaries (all platforms)
-RUN cd cli && bun run build-binary.ts
-
 # Copy the correct binary for the target architecture
 ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      export PUB_CLI_BUILD_TARGETS="linux-arm64"; \
+    else \
+      export PUB_CLI_BUILD_TARGETS="linux-x64"; \
+    fi && \
+    cd cli && bun run build-binary.ts
+
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       cp cli/dist-bin/pub-linux-arm64 cli/dist-bin/pub-target; \
     else \

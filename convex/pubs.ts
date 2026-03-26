@@ -1,36 +1,34 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import type { GenericDatabaseReader } from "convex/server";
+import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { deleteConnectionsForSlug } from "./connections";
 import { listFreshOnlineHosts } from "./presence";
-import {
-  escapeHtmlAttr,
-  extractOgMeta,
-  generateSlug,
-  hasOgTag,
-  MAX_PUBS,
-  MAX_PUBS_SUBSCRIBED,
-} from "./utils";
+import { generateSlug, MAX_PUBS, MAX_PUBS_SUBSCRIBED } from "./utils";
+
+async function deletePubFiles(db: GenericDatabaseWriter<DataModel>, pubId: Id<"pubs">) {
+  const files = await db
+    .query("pubFiles")
+    .withIndex("by_pub", (q) => q.eq("pubId", pubId))
+    .collect();
+  for (const file of files) {
+    await db.delete(file._id);
+  }
+}
 
 function getPubLimit(user: { isSubscribed?: boolean }): number {
   return user.isSubscribed ? MAX_PUBS_SUBSCRIBED : MAX_PUBS;
 }
 
 export function buildPubPatch(fields: {
-  content?: string;
   title?: string;
   description?: string;
   isPublic?: boolean;
   slug?: string;
 }) {
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
-  if (fields.content !== undefined) {
-    patch.content = fields.content;
-    patch.previewHtml = undefined;
-  }
   if (fields.title !== undefined) patch.title = fields.title;
   if (fields.description !== undefined) patch.description = fields.description;
   if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
@@ -46,48 +44,32 @@ async function countUserPubs(db: GenericDatabaseReader<DataModel>, userId: Id<"u
   return pubs.length;
 }
 
-function mapPub(
-  pub: {
-    _id: Id<"pubs">;
-    slug: string;
-    content?: string;
-    previewHtml?: string;
-    title?: string;
-    description?: string;
-    isPublic: boolean;
-    createdAt: number;
-    updatedAt: number;
-    lastViewedAt?: number;
-    viewCount?: number;
-  },
-  includeContent = false,
-) {
-  const dto: {
-    _id: Id<"pubs">;
-    slug: string;
-    previewHtml?: string;
-    title?: string;
-    description?: string;
-    isPublic: boolean;
-    createdAt: number;
-    updatedAt: number;
-    lastViewedAt?: number;
-    viewCount: number;
-    content?: string;
-  } = {
+function mapPub(pub: {
+  _id: Id<"pubs">;
+  slug: string;
+  previewHtml?: string;
+  title?: string;
+  description?: string;
+  isPublic: boolean;
+  fileCount?: number;
+  createdAt: number;
+  updatedAt: number;
+  lastViewedAt?: number;
+  viewCount?: number;
+}) {
+  return {
     _id: pub._id,
     slug: pub.slug,
     previewHtml: pub.previewHtml,
     title: pub.title,
     description: pub.description,
     isPublic: pub.isPublic,
+    fileCount: pub.fileCount ?? 0,
     createdAt: pub.createdAt,
     updatedAt: pub.updatedAt,
     lastViewedAt: pub.lastViewedAt,
     viewCount: pub.viewCount ?? 0,
   };
-  if (includeContent) dto.content = pub.content;
-  return dto;
 }
 
 export const getBySlug = query({
@@ -104,7 +86,14 @@ export const getBySlug = query({
 
     if (!pub.isPublic && !isOwner) return null;
 
-    return { ...mapPub(pub, true), isOwner };
+    const mapped = mapPub(pub);
+
+    const indexFile = await ctx.db
+      .query("pubFiles")
+      .withIndex("by_pub_path", (q) => q.eq("pubId", pub._id).eq("path", "index.html"))
+      .unique();
+
+    return { ...mapped, content: indexFile?.content, isOwner };
   },
 });
 
@@ -146,7 +135,7 @@ export const listByUser = query({
 
     return {
       ...result,
-      page: result.page.map((pub) => mapPub(pub, false)),
+      page: result.page.map((pub) => mapPub(pub)),
     };
   },
 });
@@ -219,16 +208,31 @@ export const duplicateByUser = mutation({
     const newId = await ctx.db.insert("pubs", {
       userId,
       slug,
-      content: pub.content,
       previewHtml: pub.previewHtml,
       title: pub.title ? `${pub.title} (copy)` : undefined,
       description: pub.description,
       isPublic: false,
+      fileCount: pub.fileCount,
       createdAt: now,
       updatedAt: now,
       lastViewedAt: now,
       viewCount: 0,
     });
+
+    const files = await ctx.db
+      .query("pubFiles")
+      .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
+      .collect();
+    for (const file of files) {
+      await ctx.db.insert("pubFiles", {
+        pubId: newId,
+        path: file.path,
+        content: file.content,
+        size: file.size,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     return { _id: newId, slug };
   },
@@ -243,6 +247,7 @@ export const deleteByUser = mutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
+    await deletePubFiles(ctx.db, id);
     await deleteConnectionsForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
@@ -322,7 +327,6 @@ export const createPub = internalMutation({
   args: {
     userId: v.id("users"),
     slug: v.string(),
-    content: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
   },
@@ -334,10 +338,9 @@ export const createPub = internalMutation({
       throw new Error(`Pub limit reached (${limit})`);
     }
 
-    const id = await ctx.db.insert("pubs", {
+    return ctx.db.insert("pubs", {
       userId: args.userId,
       slug: args.slug,
-      content: args.content,
       title: args.title,
       description: args.description,
       isPublic: false,
@@ -345,21 +348,18 @@ export const createPub = internalMutation({
       updatedAt: Date.now(),
       viewCount: 0,
     });
-
-    return id;
   },
 });
 
 export const updatePub = internalMutation({
   args: {
     id: v.id("pubs"),
-    content: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
     slug: v.optional(v.string()),
   },
-  handler: async (ctx, { id, content, title, description, isPublic, slug }) => {
+  handler: async (ctx, { id, title, description, isPublic, slug }) => {
     const pub = await ctx.db.get(id);
     if (!pub) throw new Error("Pub not found");
 
@@ -375,7 +375,7 @@ export const updatePub = internalMutation({
       }
     }
 
-    const patch = buildPubPatch({ content, title, description, isPublic, slug });
+    const patch = buildPubPatch({ title, description, isPublic, slug });
     await ctx.db.patch(id, patch);
   },
 });
@@ -386,6 +386,7 @@ export const deletePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
+    await deletePubFiles(ctx.db, id);
     await deleteConnectionsForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
@@ -423,63 +424,37 @@ export const listByUserInternal = internalQuery({
   },
 });
 
-function buildOgTagsForInjection(fields: { title?: string; description?: string }): string {
-  const tags: string[] = [];
-  if (fields.title) {
-    tags.push(`<meta property="og:title" content="${escapeHtmlAttr(fields.title)}" />`);
-  }
-  if (fields.description) {
-    tags.push(`<meta property="og:description" content="${escapeHtmlAttr(fields.description)}" />`);
-  }
-  return tags.join("\n  ");
-}
-
-function injectIntoHead(content: string, injection: string): string {
-  const match = content.match(/<\/head\s*>/i);
-  if (match?.index !== undefined) {
-    return content.slice(0, match.index) + injection + content.slice(match.index);
-  }
-  return `<head>${injection}</head>${content}`;
-}
-
-export const backfillOgMeta = internalMutation({
+export const migrateContentToFiles = internalMutation({
   args: {},
   handler: async (ctx) => {
     const pubs = await ctx.db.query("pubs").collect();
-    let extracted = 0;
-    let injected = 0;
+    let migrated = 0;
+    let skipped = 0;
 
+    const now = Date.now();
     for (const pub of pubs) {
-      if (!pub.content) continue;
-
-      const patch: Record<string, unknown> = {};
-
-      const meta = extractOgMeta(pub.content);
-      if (!pub.title && meta.title) patch.title = meta.title;
-      if (!pub.description && meta.description) patch.description = meta.description;
-      if (patch.title || patch.description) extracted++;
-
-      const effectiveTitle = (patch.title as string | undefined) ?? pub.title;
-      const effectiveDescription = (patch.description as string | undefined) ?? pub.description;
-      const missingTitle = effectiveTitle && !hasOgTag(pub.content, "og:title");
-      const missingDesc = effectiveDescription && !hasOgTag(pub.content, "og:description");
-
-      if (missingTitle || missingDesc) {
-        const ogTags = buildOgTagsForInjection({
-          title: missingTitle ? effectiveTitle : undefined,
-          description: missingDesc ? effectiveDescription : undefined,
-        });
-        patch.content = injectIntoHead(pub.content, ogTags);
-        patch.previewHtml = undefined;
-        injected++;
+      if (pub.fileCount && pub.fileCount > 0) {
+        skipped++;
+        continue;
+      }
+      if (!pub.content) {
+        skipped++;
+        continue;
       }
 
-      if (Object.keys(patch).length > 0) {
-        patch.updatedAt = Date.now();
-        await ctx.db.patch(pub._id, patch);
-      }
+      await ctx.db.insert("pubFiles", {
+        pubId: pub._id,
+        path: "index.html",
+        content: pub.content,
+        size: new TextEncoder().encode(pub.content).byteLength,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await ctx.db.patch(pub._id, { fileCount: 1, content: undefined });
+      migrated++;
     }
 
-    return { total: pubs.length, extracted, injected };
+    return { total: pubs.length, migrated, skipped };
   },
 });

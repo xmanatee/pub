@@ -150,6 +150,33 @@ export function parseSlugFromRequest(request: Request, prefix: string): string |
   return slug;
 }
 
+export function parseServeRequest(request: Request): { slug: string; filePath: string } | Response {
+  const url = new URL(request.url);
+  const afterServe = url.pathname.slice("/serve/".length);
+  const slashIndex = afterServe.indexOf("/");
+
+  let rawSlug: string;
+  let filePath: string;
+
+  if (slashIndex === -1) {
+    rawSlug = afterServe.replace(/\/$/, "");
+    filePath = "index.html";
+  } else {
+    rawSlug = afterServe.slice(0, slashIndex);
+    filePath = afterServe.slice(slashIndex + 1).replace(/\/$/, "") || "index.html";
+  }
+
+  let slug: string;
+  try {
+    slug = decodeURIComponent(rawSlug);
+  } catch {
+    return errorResponse("Invalid slug encoding", 400);
+  }
+  if (!isValidSlug(slug)) return errorResponse("Invalid slug format", 400);
+
+  return { slug, filePath };
+}
+
 async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {
   const user = await ctx.runQuery(internal.apiKeys.getUserByApiKey, { key: apiKey });
   if (!user) throw new ApiError("Invalid API key", 401);

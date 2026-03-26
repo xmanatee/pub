@@ -113,7 +113,7 @@ export function createBridgeManager(params: {
   async function fetchSessionContent(slug: string): Promise<SessionContent> {
     debugLog(`bridge session content fetch start slug=${slug}`);
     const pub = await apiClient.get(slug);
-    const content = typeof pub.content === "string" ? pub.content : "";
+    const content = pub.files?.["index.html"] ?? "";
     debugLog(`bridge session content fetch complete slug=${slug} contentBytes=${content.length}`);
     return { title: pub.title, description: pub.description, isPublic: pub.isPublic, content };
   }
@@ -349,13 +349,29 @@ export function createBridgeManager(params: {
     const slug = state.bridgeSlug;
     if (!slug) return { ok: false, error: "No active live session." };
     try {
-      await apiClient.update({ slug, content: html });
+      await apiClient.update({ slug, files: { "index.html": html } });
       commandHandler.bindFromHtml(html);
       return { ok: true, delivered: true };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       markError(`failed to persist canvas HTML for "${slug}"`, error);
       return { ok: false, error: `Canvas update failed: ${errMsg}` };
+    }
+  }
+
+  async function persistFiles(files: Record<string, string>): Promise<Record<string, unknown>> {
+    const slug = state.bridgeSlug;
+    if (!slug) return { ok: false, error: "No active live session." };
+    const fileCount = Object.keys(files).length;
+    try {
+      await apiClient.update({ slug, files });
+      const indexHtml = files["index.html"];
+      if (indexHtml) commandHandler.bindFromHtml(indexHtml);
+      return { ok: true, fileCount };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      markError(`failed to write files for "${slug}"`, error);
+      return { ok: false, error: `File write failed: ${errMsg}` };
     }
   }
 
@@ -368,6 +384,7 @@ export function createBridgeManager(params: {
     ensureAgentReady,
     markAgentStreaming,
     persistCanvasHtml,
+    persistFiles,
     stopBridge,
   };
 }

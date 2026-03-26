@@ -52,8 +52,19 @@ export type WriteRequest = {
   };
 };
 
+export type WriteFilesRequest = {
+  method: "write-files";
+  params: {
+    files: Record<string, string>;
+  };
+};
+
 type WriteResponse = IpcSuccessResponse<{
   delivered?: boolean;
+}> | IpcErrorResponse;
+
+type WriteFilesResponse = IpcSuccessResponse<{
+  fileCount: number;
 }> | IpcErrorResponse;
 
 export type StatusRequest = {
@@ -79,6 +90,7 @@ type CloseResponse = IpcSuccessResponse | IpcErrorResponse;
 
 export type IpcRequest =
   | WriteRequest
+  | WriteFilesRequest
   | StatusRequest
   | ActiveSlugRequest
   | CloseRequest;
@@ -88,6 +100,7 @@ export type IpcResponseMap = {
   close: CloseResponse;
   status: StatusResponse;
   write: WriteResponse;
+  "write-files": WriteFilesResponse;
 };
 
 export type IpcResponseFor<T extends keyof IpcResponseMap> = IpcResponseMap[T];
@@ -138,6 +151,18 @@ export function parseIpcRequest(input: unknown): IpcRequest | null {
     };
   }
 
+  if (method === "write-files") {
+    const files = readRecord(params.files);
+    if (!files) return null;
+    const filesMap: Record<string, string> = {};
+    for (const [key, value] of Object.entries(files)) {
+      const strValue = readString(value);
+      if (strValue === undefined) return null;
+      filesMap[key] = strValue;
+    }
+    return { method, params: { files: filesMap } };
+  }
+
   if (method === "status" || method === "active-slug" || method === "close") {
     return { method, params: {} };
   }
@@ -163,6 +188,12 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const delivered = record.delivered === undefined ? undefined : readBoolean(record.delivered);
     if (record.delivered !== undefined && delivered === undefined) return null;
     return { ok: true, delivered } as IpcResponseFor<T>;
+  }
+
+  if (method === "write-files") {
+    const fileCount = readFiniteNumber(record.fileCount);
+    if (fileCount === undefined) return null;
+    return { ok: true, fileCount } as IpcResponseFor<T>;
   }
 
   if (method === "status") {

@@ -7,10 +7,14 @@ function createHandlerHarness(overrides?: {
   writeReadinessError?: string | null;
 }) {
   const persistCanvasHtml = vi.fn(async () => ({ ok: true, delivered: true }) as Record<string, unknown>);
+  const persistFiles = vi.fn(
+    async () => ({ ok: true, fileCount: 1, delivered: true }) as Record<string, unknown>,
+  );
   const openDataChannel = vi.fn();
 
   const handler = createDaemonIpcHandler({
     persistCanvasHtml,
+    persistFiles,
     getRuntimeState: () => ({
       connectionState: "connected",
       agentState: "ready",
@@ -38,7 +42,7 @@ function createHandlerHarness(overrides?: {
     writeAckMaxAttempts: 2,
   });
 
-  return { handler, persistCanvasHtml, openDataChannel };
+  return { handler, persistCanvasHtml, persistFiles, openDataChannel };
 }
 
 function canvasWriteRequest(html: string): IpcRequest {

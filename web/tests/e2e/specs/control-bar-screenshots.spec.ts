@@ -20,6 +20,7 @@ test.describe("Control bar screenshots", () => {
     await setupPage(page);
     const section = page.getByTestId("batch-blob-state");
     await expect(section).toBeVisible();
+    await page.waitForTimeout(300);
     await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-blob-state.png`, {
       maxDiffRatio: ANIMATED_TOLERANCE,
     });
@@ -76,6 +77,7 @@ test.describe("Control bar screenshots", () => {
     await setupPage(page);
     const section = page.getByTestId("batch-multiline");
     await expect(section).toBeVisible();
+    await page.waitForTimeout(300);
     await stableScreenshot(section, `${SCREENSHOT_DIR}/control-bar-multiline.png`, {
       maxDiffRatio: ANIMATED_TOLERANCE,
     });

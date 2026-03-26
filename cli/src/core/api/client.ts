@@ -19,6 +19,7 @@ interface Pub {
   title?: string;
   description?: string;
   isPublic: boolean;
+  fileCount: number;
   createdAt: number;
   updatedAt: number;
   live: {
@@ -124,16 +125,16 @@ export class PubApiClient {
 
   // -- Pub CRUD -------------------------------------------------------------
 
-  async create(opts: { content?: string; slug?: string }): Promise<CreateResult> {
+  async create(opts: { files: Record<string, string>; slug?: string }): Promise<CreateResult> {
     return this.request<CreateResult>("/api/v1/pubs", {
       method: "POST",
       body: JSON.stringify(opts),
     });
   }
 
-  async get(slug: string): Promise<Pub & { content?: string }> {
+  async get(slug: string): Promise<Pub & { files?: Record<string, string> }> {
     const data = await this.request<{
-      pub: Pub & { content?: string };
+      pub: Pub & { files?: Record<string, string> };
     }>(`/api/v1/pubs/${encodeURIComponent(slug)}`);
     return data.pub;
   }
@@ -159,7 +160,7 @@ export class PubApiClient {
 
   async update(opts: {
     slug: string;
-    content?: string;
+    files?: Record<string, string>;
     isPublic?: boolean;
     newSlug?: string;
   }): Promise<UpdateResult> {

@@ -9,8 +9,8 @@ import {
   hasOgTag,
   isValidSlug,
   keyPreviewFromKey,
-  MAX_CONTENT_SIZE,
   MAX_DESCRIPTION_LENGTH,
+  MAX_FILE_SIZE,
   MAX_KEY_NAME_LENGTH,
   MAX_PUBS,
   MAX_PUBS_SUBSCRIBED,
@@ -274,7 +274,7 @@ describe("hasOgTag", () => {
 
 describe("constants", () => {
   it("limits are reasonable", () => {
-    expect(MAX_CONTENT_SIZE).toBe(300 * 1024);
+    expect(MAX_FILE_SIZE).toBe(300 * 1024);
     expect(MAX_TITLE_LENGTH).toBe(256);
     expect(MAX_DESCRIPTION_LENGTH).toBe(200);
     expect(MAX_KEY_NAME_LENGTH).toBe(128);

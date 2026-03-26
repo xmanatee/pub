@@ -43,6 +43,7 @@ export default defineSchema({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     isPublic: v.boolean(),
+    fileCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
     lastViewedAt: v.optional(v.number()),
@@ -55,6 +56,17 @@ export default defineSchema({
     .index("by_user_updatedAt", ["userId", "updatedAt"])
     .index("by_user_createdAt", ["userId", "createdAt"])
     .index("by_user_viewCount", ["userId", "viewCount"]),
+
+  pubFiles: defineTable({
+    pubId: v.id("pubs"),
+    path: v.string(),
+    content: v.string(),
+    size: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_pub", ["pubId"])
+    .index("by_pub_path", ["pubId", "path"]),
 
   hosts: defineTable({
     userId: v.id("users"),

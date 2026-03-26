@@ -10,6 +10,7 @@ import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { usePreviewCapture } from "~/features/preview-capture/use-preview-capture";
 import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
+import { getConvexSiteUrl } from "~/lib/convex-url";
 import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-context";
 import { PubSourceView } from "./pub-source-view";
 
@@ -43,7 +44,11 @@ function PubRouteContent({
 }: {
   slug: string;
   pub:
-    | (UsePubLiveModelOptions["pub"] & { updatedAt?: number; previewHtml?: string })
+    | (UsePubLiveModelOptions["pub"] & {
+        updatedAt?: number;
+        previewHtml?: string;
+        fileCount?: number;
+      })
     | null
     | undefined;
   baseContentHtml: string | null;
@@ -53,7 +58,14 @@ function PubRouteContent({
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
   const viewMode = liveMode ? session.viewMode : "canvas";
-  const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
+  const isMultifile = (pub?.fileCount ?? 0) > 1;
+  const staticServeUrl =
+    !liveMode && isMultifile ? `${getConvexSiteUrl()}/serve/${encodeURIComponent(slug)}/` : null;
+  const effectiveCanvasHtml = staticServeUrl
+    ? null
+    : liveMode
+      ? (session.canvasHtml ?? null)
+      : (baseContentHtml ?? null);
   const liveBlob = createLiveBlobPresentation(session.blobState);
 
   const { capturePreview, handlePreviewCaptured } = usePreviewCapture({
@@ -82,6 +94,7 @@ function PubRouteContent({
           >
             <CanvasPanel
               html={effectiveCanvasHtml}
+              serveUrl={staticServeUrl}
               capturePreview={capturePreview}
               onCanvasBridgeMessage={isOwner ? session.onCanvasBridgeMessage : undefined}
               onPreviewCaptured={isOwner ? handlePreviewCaptured : undefined}
