@@ -19,6 +19,16 @@ import { createServer } from "node:http";
 const rules = [];
 /** @type {Array<{timestamp: string, lastUserText: string, matchedRule: string | null}>} */
 const requestLog = [];
+const DEFAULT_MODEL_IDS = ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"];
+
+function buildModel(id) {
+  return {
+    type: "model",
+    id,
+    display_name: id,
+    created_at: "2025-01-01T00:00:00Z",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Rule matching
@@ -322,6 +332,24 @@ async function handleRequest(req, res) {
 
   if (url === "/v1/messages" && method === "POST") {
     await handleMessages(req, res);
+    return;
+  }
+
+  if (url === "/v1/models" && method === "GET") {
+    console.error("[mock-llm] GET /v1/models");
+    json(res, 200, {
+      data: DEFAULT_MODEL_IDS.map((id) => buildModel(id)),
+      has_more: false,
+      first_id: DEFAULT_MODEL_IDS[0],
+      last_id: DEFAULT_MODEL_IDS.at(-1),
+    });
+    return;
+  }
+
+  if (url.startsWith("/v1/models/") && method === "GET") {
+    const modelId = decodeURIComponent(url.slice("/v1/models/".length));
+    console.error(`[mock-llm] GET /v1/models/${modelId}`);
+    json(res, 200, buildModel(modelId));
     return;
   }
 

@@ -6,37 +6,35 @@
  */
 import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
+import { ALL_BRIDGE_MODES, activeModes, createBridgeTestConfig } from "../fixtures/bridge-configs";
+import { clearBridgeRules, setupBridgeDefaultRules } from "../fixtures/bridge-test-helpers";
 import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
-import { clearRules, setupDefaultRules } from "../fixtures/mock-llm";
 
-let cli: CliFixture;
+// ---------------------------------------------------------------------------
+// Test 1: Canvas render error — no CLI/bridge needed (static pub)
+// ---------------------------------------------------------------------------
 
-test.beforeEach(async () => {
-  clearAll();
-  await setupDefaultRules();
-});
+test.describe("canvas render error", () => {
+  test.beforeEach(async () => {
+    clearAll();
+  });
 
-test.afterEach(async () => {
-  cli?.cleanup();
-  await clearRules();
-});
+  /**
+   * Canvas JS error is caught by the bridge error handler.
+   * Verifies: canvas throws → window error event → bridge postMessage → parent.
+   *
+   * The error is triggered after the static owner canvas is ready. This keeps
+   * the test on the local render-error path instead of depending on live
+   * session startup.
+   */
+  test("canvas render error surfaces as system message", async ({ page }) => {
+    const user = seedUser("Canvas Error User");
+    const api = new ApiClient({ user });
+    const sentinel = "E2E_CANVAS_RENDER_ERROR";
 
-/**
- * Test 1: Canvas JS error is caught by the bridge error handler.
- * Verifies: canvas throws → window error event → bridge postMessage → parent.
- *
- * The error is triggered after the static owner canvas is ready. This keeps
- * the test on the local render-error path instead of depending on live
- * session startup.
- */
-test("canvas render error surfaces as system message", async ({ page }) => {
-  const user = seedUser("Canvas Error User");
-  const api = new ApiClient({ user });
-  const sentinel = "E2E_CANVAS_RENDER_ERROR";
-
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html>
 <head><title>Canvas Error Test</title></head>
 <body>
@@ -52,42 +50,61 @@ test("canvas render error surfaces as system message", async ({ page }) => {
 </body>
 </html>`;
 
-  await api.createPub({ slug: "canvas-error-e2e", content: html });
+    await api.createPub({ slug: "canvas-error-e2e", content: html });
 
-  await injectAuth(page, user);
-  await page.goto("/p/canvas-error-e2e");
+    await injectAuth(page, user);
+    await page.goto("/p/canvas-error-e2e");
 
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#throw")).toBeVisible({ timeout: 30_000 });
-  await expect
-    .poll(async () =>
-      canvasFrame
-        .locator("body")
-        .evaluate(() => typeof (window as Window & { pub?: unknown }).pub === "object"),
-    )
-    .toBe(true);
-  await canvasFrame.locator("#throw").click();
+    const canvasFrame = page.frameLocator("iframe").first();
+    await expect(canvasFrame.locator("#throw")).toBeVisible({ timeout: 30_000 });
+    await expect
+      .poll(async () =>
+        canvasFrame
+          .locator("body")
+          .evaluate(() => typeof (window as Window & { pub?: unknown }).pub === "object"),
+      )
+      .toBe(true);
+    await canvasFrame.locator("#throw").click();
 
-  await page.getByRole("menuitem", { name: "Chat view" }).dispatchEvent("click");
+    await page.getByRole("menuitem", { name: "Chat view" }).dispatchEvent("click");
 
-  // Render errors are stored as durable system messages; the canvas preview
-  // is only a notification layer on top of this state.
-  await expect(page.getByText(`Error: ${sentinel}`, { exact: true })).toBeVisible({
-    timeout: 15_000,
+    // Render errors are stored as durable system messages; the canvas preview
+    // is only a notification layer on top of this state.
+    await expect(page.getByText(`Error: ${sentinel}`, { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
 
-/**
- * Test 2: Command execution failure surfaces in the canvas.
- * Verifies: canvas auto-invokes command → daemon executes → shell fails →
- * error result returned to canvas via WebRTC.
- */
-test("command failure surfaces in canvas", async ({ page }) => {
-  const user = seedUser("Command Error User");
-  const { convexProxyUrl } = getState();
-  const api = new ApiClient({ user });
+// ---------------------------------------------------------------------------
+// Test 2: Command failure — all bridge modes (shell commands only)
+// ---------------------------------------------------------------------------
 
-  const html = `<!DOCTYPE html>
+for (const mode of activeModes(ALL_BRIDGE_MODES)) {
+  test.describe(`[${mode}] command failure`, () => {
+    let cli: CliFixture;
+
+    test.beforeEach(async () => {
+      clearAll();
+      await setupBridgeDefaultRules(mode);
+    });
+
+    test.afterEach(async () => {
+      cli?.cleanup();
+      await clearBridgeRules(mode);
+    });
+
+    /**
+     * Command execution failure surfaces in the canvas.
+     * Verifies: canvas auto-invokes command → daemon executes → shell fails →
+     * error result returned to canvas via WebRTC.
+     */
+    test("command failure surfaces in canvas", async ({ page }) => {
+      const user = seedUser("Command Error User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
+
+      const html = `<!DOCTYPE html>
 <html>
 <head><title>Command Error Test</title></head>
 <body>
@@ -118,16 +135,18 @@ test("command failure surfaces in canvas", async ({ page }) => {
 </body>
 </html>`;
 
-  await api.createPub({ slug: "cmd-error-e2e", content: html });
+      await api.createPub({ slug: "cmd-error-e2e", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("cmd-error-bot");
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("cmd-error-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/cmd-error-e2e");
+      await injectAuth(page, user);
+      await page.goto("/p/cmd-error-e2e");
 
-  // The canvas auto-invokes the failing command. Verify the error result
-  // appears in the iframe — confirms the full error pipeline works.
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#cmd-result")).toContainText("error:", { timeout: 30_000 });
-});
+      // The canvas auto-invokes the failing command. Verify the error result
+      // appears in the iframe — confirms the full error pipeline works.
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#cmd-result")).toContainText("error:", { timeout: 30_000 });
+    });
+  });
+}

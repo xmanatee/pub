@@ -28,7 +28,11 @@ describe("buildClaudeArgs", () => {
     expect(args).toContain("hello");
     expect(args).toContain("--output-format");
     expect(args).toContain("stream-json");
-    expect(args).toContain("--dangerously-skip-permissions");
+    if (process.getuid?.() === 0) {
+      expect(args).not.toContain("--dangerously-skip-permissions");
+    } else {
+      expect(args).toContain("--dangerously-skip-permissions");
+    }
   });
 
   it("adds --resume when sessionId is provided", () => {

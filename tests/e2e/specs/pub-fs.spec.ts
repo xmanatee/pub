@@ -8,7 +8,7 @@
  * - GET after PUT: write then read back
  * - 404: nonexistent file
  *
- * Uses real OpenClaw + CLI daemon with the full WebRTC live session.
+ * Multi-bridge: tests run with all bridge modes via the full WebRTC live session.
  */
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -16,13 +16,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
+import { ALL_BRIDGE_MODES, activeModes, createBridgeTestConfig } from "../fixtures/bridge-configs";
+import { clearBridgeRules, setupBridgeDefaultRules } from "../fixtures/bridge-test-helpers";
 import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
-import { setupDefaultRules } from "../fixtures/mock-llm";
-
-let cli: CliFixture;
-let testFilesDir: string;
 
 async function waitForConnection(page: Page) {
   const textbox = page.getByRole("textbox", { name: "Message" });
@@ -31,26 +29,32 @@ async function waitForConnection(page: Page) {
   await textbox.fill("");
 }
 
-test.beforeEach(async () => {
-  clearAll();
-  await setupDefaultRules();
-  testFilesDir = mkdtempSync(join(tmpdir(), "pub-fs-test-"));
-});
+for (const mode of activeModes(ALL_BRIDGE_MODES)) {
+  test.describe(`[${mode}]`, () => {
+    let cli: CliFixture;
+    let testFilesDir: string;
 
-test.afterEach(async () => {
-  cli?.cleanup();
-});
+    test.beforeEach(async () => {
+      clearAll();
+      await setupBridgeDefaultRules(mode);
+      testFilesDir = mkdtempSync(join(tmpdir(), "pub-fs-test-"));
+    });
 
-// ---------------------------------------------------------------------------
-// GET: read a text file
-// ---------------------------------------------------------------------------
+    test.afterEach(async () => {
+      cli?.cleanup();
+      await clearBridgeRules(mode);
+    });
 
-test("pub-fs GET: fetch text file returns correct content", async ({ page }) => {
-  const testContent = "hello from pub-fs test";
-  const testFilePath = join(testFilesDir, "test.txt");
-  writeFileSync(testFilePath, testContent);
+    // ---------------------------------------------------------------------------
+    // GET: read a text file
+    // ---------------------------------------------------------------------------
 
-  const html = `<!DOCTYPE html>
+    test("pub-fs GET: fetch text file returns correct content", async ({ page }) => {
+      const testContent = "hello from pub-fs test";
+      const testFilePath = join(testFilesDir, "test.txt");
+      writeFileSync(testFilePath, testContent);
+
+      const html = `<!DOCTYPE html>
 <html>
 <head><title>Pub FS GET Test</title></head>
 <body>
@@ -71,40 +75,40 @@ test("pub-fs GET: fetch text file returns correct content", async ({ page }) => 
 </body>
 </html>`;
 
-  const user = seedUser("PubFS GET User");
-  const { convexProxyUrl } = getState();
-  const api = new ApiClient({ user });
+      const user = seedUser("PubFS GET User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-get", content: html });
+      await api.createPub({ slug: "pub-fs-get", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("pub-fs-get-bot");
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("pub-fs-get-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/pub-fs-get");
+      await injectAuth(page, user);
+      await page.goto("/p/pub-fs-get");
 
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-  await waitForConnection(page);
+      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#result")).toHaveText(`ok:${testContent}`, {
-    timeout: 30_000,
-  });
-});
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#result")).toHaveText(`ok:${testContent}`, {
+        timeout: 30_000,
+      });
+    });
 
-// ---------------------------------------------------------------------------
-// GET: inline image via <img src>
-// ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // GET: inline image via <img src>
+    // ---------------------------------------------------------------------------
 
-test("pub-fs GET: inline image loads successfully", async ({ page }) => {
-  const pngBytes = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-    "base64",
-  );
-  const imagePath = join(testFilesDir, "pixel.png");
-  writeFileSync(imagePath, pngBytes);
+    test("pub-fs GET: inline image loads successfully", async ({ page }) => {
+      const pngBytes = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      const imagePath = join(testFilesDir, "pixel.png");
+      writeFileSync(imagePath, pngBytes);
 
-  const html = `<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html>
 <head><title>Pub FS Image Test</title></head>
 <body>
@@ -125,33 +129,33 @@ test("pub-fs GET: inline image loads successfully", async ({ page }) => {
 </body>
 </html>`;
 
-  const user = seedUser("PubFS Image User");
-  const { convexProxyUrl } = getState();
-  const api = new ApiClient({ user });
+      const user = seedUser("PubFS Image User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-img", content: html });
+      await api.createPub({ slug: "pub-fs-img", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("pub-fs-img-bot");
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("pub-fs-img-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/pub-fs-img");
+      await injectAuth(page, user);
+      await page.goto("/p/pub-fs-img");
 
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-  await waitForConnection(page);
+      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#result")).toHaveText("loaded:1x1", { timeout: 30_000 });
-});
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#result")).toHaveText("loaded:1x1", { timeout: 30_000 });
+    });
 
-// ---------------------------------------------------------------------------
-// PUT then GET: write a file, read it back
-// ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // PUT then GET: write a file, read it back
+    // ---------------------------------------------------------------------------
 
-test("pub-fs PUT+GET: write file then read back", async ({ page }) => {
-  const writePath = join(testFilesDir, "written.txt");
+    test("pub-fs PUT+GET: write file then read back", async ({ page }) => {
+      const writePath = join(testFilesDir, "written.txt");
 
-  const html = `<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html>
 <head><title>Pub FS PUT Test</title></head>
 <body>
@@ -177,36 +181,36 @@ test("pub-fs PUT+GET: write file then read back", async ({ page }) => {
 </body>
 </html>`;
 
-  const user = seedUser("PubFS PUT User");
-  const { convexProxyUrl } = getState();
-  const api = new ApiClient({ user });
+      const user = seedUser("PubFS PUT User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-put", content: html });
+      await api.createPub({ slug: "pub-fs-put", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("pub-fs-put-bot");
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("pub-fs-put-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/pub-fs-put");
+      await injectAuth(page, user);
+      await page.goto("/p/pub-fs-put");
 
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-  await waitForConnection(page);
+      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#result")).toHaveText("ok:hello from PUT", {
-    timeout: 30_000,
-  });
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#result")).toHaveText("ok:hello from PUT", {
+        timeout: 30_000,
+      });
 
-  // Verify the file was actually written on the host
-  expect(readFileSync(writePath, "utf-8")).toBe("hello from PUT");
-});
+      // Verify the file was actually written on the host
+      expect(readFileSync(writePath, "utf-8")).toBe("hello from PUT");
+    });
 
-// ---------------------------------------------------------------------------
-// GET 404: nonexistent file
-// ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // GET 404: nonexistent file
+    // ---------------------------------------------------------------------------
 
-test("pub-fs GET: nonexistent file returns 404", async ({ page }) => {
-  const html = `<!DOCTYPE html>
+    test("pub-fs GET: nonexistent file returns 404", async ({ page }) => {
+      const html = `<!DOCTYPE html>
 <html>
 <head><title>Pub FS 404 Test</title></head>
 <body>
@@ -226,44 +230,43 @@ test("pub-fs GET: nonexistent file returns 404", async ({ page }) => {
 </body>
 </html>`;
 
-  const user = seedUser("PubFS 404 User");
-  const { convexProxyUrl } = getState();
-  const api = new ApiClient({ user });
+      const user = seedUser("PubFS 404 User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-404", content: html });
+      await api.createPub({ slug: "pub-fs-404", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("pub-fs-404-bot");
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("pub-fs-404-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/pub-fs-404");
+      await injectAuth(page, user);
+      await page.goto("/p/pub-fs-404");
 
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-  await waitForConnection(page);
+      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#result")).toHaveText("status:404", { timeout: 30_000 });
-});
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#result")).toHaveText("status:404", { timeout: 30_000 });
+    });
 
-// ---------------------------------------------------------------------------
-// GET: large file streaming with integrity + range request from cache
-// ---------------------------------------------------------------------------
+    test("pub-fs GET: streams 1 MB file and serves range from cache", async ({ page }) => {
+      const fileSize = 1024 * 1024;
+      const fileData = Buffer.alloc(fileSize);
+      for (let i = 0; i < fileSize; i++) {
+        fileData[i] = i & 0xff;
+      }
 
-test("pub-fs GET: streams 1 MB file and serves range from cache", async ({ page }) => {
-  const fileSize = 1024 * 1024;
-  const fileData = Buffer.alloc(fileSize);
-  for (let i = 0; i < fileSize; i++) fileData[i] = i & 0xff;
-  const filePath = join(testFilesDir, "large.bin");
-  writeFileSync(filePath, fileData);
+      const filePath = join(testFilesDir, "large.bin");
+      writeFileSync(filePath, fileData);
 
-  const rangeStart = 64 * 1024;
-  const rangeEnd = 128 * 1024 - 1;
-  const fullHash = createHash("sha256").update(fileData).digest("hex");
-  const rangeHash = createHash("sha256")
-    .update(fileData.subarray(rangeStart, rangeEnd + 1))
-    .digest("hex");
+      const rangeStart = 64 * 1024;
+      const rangeEnd = 128 * 1024 - 1;
+      const fullHash = createHash("sha256").update(fileData).digest("hex");
+      const rangeHash = createHash("sha256")
+        .update(fileData.subarray(rangeStart, rangeEnd + 1))
+        .digest("hex");
 
-  const html = `<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html>
 <head><title>Pub FS Large + Range Test</title></head>
 <body>
@@ -310,25 +313,27 @@ test("pub-fs GET: streams 1 MB file and serves range from cache", async ({ page 
 </body>
 </html>`;
 
-  const user = seedUser("PubFS Large User");
-  const { convexProxyUrl } = getState();
-  const api = new ApiClient({ user });
+      const user = seedUser("PubFS Large User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
 
-  await api.createPub({ slug: "pub-fs-large", content: html });
+      await api.createPub({ slug: "pub-fs-large", content: html });
 
-  cli = new CliFixture(user, convexProxyUrl);
-  await cli.startDaemon("pub-fs-large-bot");
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("pub-fs-large-bot");
 
-  await injectAuth(page, user);
-  await page.goto("/p/pub-fs-large");
+      await injectAuth(page, user);
+      await page.goto("/p/pub-fs-large");
 
-  await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-  await waitForConnection(page);
+      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
-  const rangeSize = rangeEnd - rangeStart + 1;
-  const canvasFrame = page.frameLocator("iframe").first();
-  await expect(canvasFrame.locator("#result")).toHaveText(
-    `ok:${fileSize}:${fullHash}:${rangeSize}:${rangeHash}`,
-    { timeout: 60_000 },
-  );
-});
+      const rangeSize = rangeEnd - rangeStart + 1;
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#result")).toHaveText(
+        `ok:${fileSize}:${fullHash}:${rangeSize}:${rangeHash}`,
+        { timeout: 60_000 },
+      );
+    });
+  });
+}

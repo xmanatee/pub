@@ -1,0 +1,160 @@
+/**
+ * Shared utilities for live session E2E tests.
+ * Extracted from live-session.spec.ts to keep specs focused on test logic.
+ */
+import { expect, type Page } from "@playwright/test";
+import type { CliFixture } from "../fixtures/cli";
+
+export async function retryWrite(
+  fixture: CliFixture,
+  message: string,
+  maxAttempts = 10,
+): Promise<void> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      fixture.write(message);
+      return;
+    } catch (e) {
+      if (i === maxAttempts - 1 || !String(e).includes("not ready yet")) throw e;
+      await new Promise((r) => setTimeout(r, 3_000));
+    }
+  }
+}
+
+/**
+ * Ensure the page is in live mode, then wait for the WebRTC connection by
+ * filling a dummy message and checking the send button becomes enabled.
+ */
+export async function waitForConnection(page: Page) {
+  const textbox = page.getByRole("textbox", { name: "Message" });
+  const connectButton = page.getByRole("button", { name: "Connect agent" });
+  const reconnectButton = page.getByRole("button", { name: "Reconnect" });
+  const sendButton = page.getByLabel("Send message");
+  const deadline = Date.now() + 60_000;
+
+  await expect(textbox.or(connectButton)).toBeVisible({ timeout: 30_000 });
+
+  while (Date.now() < deadline) {
+    if (await connectButton.isVisible()) {
+      await expect(connectButton).toBeEnabled();
+      await connectButton.dispatchEvent("click");
+    }
+
+    if (await reconnectButton.isVisible()) {
+      await expect(reconnectButton).toBeEnabled();
+      await reconnectButton.dispatchEvent("click");
+    }
+
+    if (await textbox.isVisible()) {
+      await textbox.fill("_");
+      if (await sendButton.isEnabled()) {
+        await textbox.fill("");
+        return;
+      }
+    }
+
+    await page.waitForTimeout(1_000);
+  }
+
+  await expect(sendButton).toBeEnabled({ timeout: 1 });
+}
+
+/**
+ * Send a chat message via the control bar. Uses .fill() to bypass canvas
+ * iframe hit-test interception.
+ */
+export async function sendChat(page: Page, text: string) {
+  const textbox = page.getByRole("textbox", { name: "Message" });
+  const sendButton = page.getByLabel("Send message");
+  await textbox.fill(text);
+  await expect(sendButton).toBeEnabled({ timeout: 60_000 });
+  await sendButton.dispatchEvent("click");
+}
+
+// ---------------------------------------------------------------------------
+// Shared HTML templates for command tests
+// ---------------------------------------------------------------------------
+
+export const AUTO_INVOKE_HTML = `<!DOCTYPE html>
+<html>
+<head><title>Auto Command</title></head>
+<body>
+  <div id="auto-result">pending</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "auto-cmd",
+    "functions": [
+      {
+        "name": "cwd",
+        "description": "Returns the current working directory",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "pwd" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.command('cwd', {}).then(function(r) {
+      document.getElementById('auto-result').textContent = 'cwd: ' + r;
+    }).catch(function(e) {
+      document.getElementById('auto-result').textContent = 'error: ' + e.message;
+    });
+    function runCommand() {
+      pub.command('cwd', {}).then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;
+
+export const MULTI_AUTO_INVOKE_HTML = `<!DOCTYPE html>
+<html>
+<head><title>Multi Auto Command</title></head>
+<body>
+  <div id="result-a">pending-a</div>
+  <div id="result-b">pending-b</div>
+  <button id="run-cmd" onclick="runCommand()">Run</button>
+  <div id="btn-result">waiting</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "multi-cmd",
+    "functions": [
+      {
+        "name": "cwd",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "pwd" }
+      },
+      {
+        "name": "whoami",
+        "returns": "text",
+        "executor": { "kind": "shell", "script": "whoami" }
+      }
+    ]
+  }
+  </script>
+  <script>
+    pub.command('cwd', {}).then(function(r) {
+      document.getElementById('result-a').textContent = 'cwd: ' + r;
+    }).catch(function(e) {
+      document.getElementById('result-a').textContent = 'error-a: ' + e.message;
+    });
+    pub.command('whoami', {}).then(function(r) {
+      document.getElementById('result-b').textContent = 'user: ' + r;
+    }).catch(function(e) {
+      document.getElementById('result-b').textContent = 'error-b: ' + e.message;
+    });
+    function runCommand() {
+      pub.command('cwd', {}).then(function(r) {
+        document.getElementById('btn-result').textContent = 'btn: ' + r;
+      }).catch(function(e) {
+        document.getElementById('btn-result').textContent = 'error: ' + e.message;
+      });
+    }
+  </script>
+</body>
+</html>`;

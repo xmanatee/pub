@@ -2,7 +2,8 @@
  * CLI fixture for E2E tests.
  * Manages the `pub` CLI daemon lifecycle, config, and commands.
  *
- * Uses real OpenClaw in `openclaw` bridge mode, pointed at a mock LLM server.
+ * Bridge-mode parameterized: accepts a BridgeTestConfig that controls
+ * which bridge mode the daemon uses and which env vars are set.
  *
  * Cleanup strategy:
  *  1. Try `pub stop` (graceful IPC shutdown)
@@ -18,20 +19,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { killProcess } from "../helpers/cleanup";
+import type { BridgeTestConfig } from "./bridge-configs";
 import type { TestUser } from "./convex";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CLI_BUILD_DIR = resolve(__dirname, "../../../cli");
-
-interface CliConfig {
-  core: { apiKey: string; baseUrl: string };
-  bridge: {
-    mode: string;
-    verbose: boolean;
-  };
-}
 
 interface DaemonInfo {
   pid: number;
@@ -44,30 +38,31 @@ export class CliFixture {
   private cliBin: string;
   private user: TestUser;
   private convexSiteUrl: string;
+  private bridge: BridgeTestConfig;
   private daemonPid: number | null = null;
   private socketPath: string | null = null;
   private isolatedSocketPath: string;
-  private openclawSessionId: string;
 
-  constructor(user: TestUser, convexSiteUrl: string) {
+  constructor(user: TestUser, convexSiteUrl: string, bridge: BridgeTestConfig) {
     this.user = user;
     this.convexSiteUrl = convexSiteUrl;
+    this.bridge = bridge;
     this.configDir = mkdtempSync(join(tmpdir(), "pub-e2e-config-"));
     this.isolatedSocketPath = join(tmpdir(), `pub-agent-e2e-${randomUUID().slice(0, 8)}.sock`);
-    this.openclawSessionId = `e2e-${randomUUID()}`;
     this.cliBin = getCliBinaryPath();
     this.writeConfig();
   }
 
   private writeConfig(): void {
-    const config: CliConfig = {
+    const config = {
       core: {
         apiKey: this.user.apiKey,
         baseUrl: this.convexSiteUrl,
       },
       bridge: {
-        mode: "openclaw",
+        mode: this.bridge.mode,
         verbose: true,
+        ...this.bridge.configExtra,
       },
     };
     writeFileSync(join(this.configDir, "config.json"), JSON.stringify(config, null, 2));
@@ -82,12 +77,7 @@ export class CliFixture {
       PUB_SKIP_UPDATE_CHECK: "1",
       PUB_CLI_BIN: this.cliBin,
       PUB_AGENT_SOCKET: this.isolatedSocketPath,
-      // OpenClaw env vars — point at pre-configured state dir with mock LLM provider.
-      // Each fixture gets a unique session ID to avoid conversation history leaking between tests.
-      OPENCLAW_PATH: process.env.OPENCLAW_PATH ?? "/usr/local/bin/openclaw",
-      OPENCLAW_STATE_DIR: process.env.OPENCLAW_STATE_DIR ?? "/home/node/.openclaw",
-      OPENCLAW_WORKSPACE: process.env.OPENCLAW_WORKSPACE ?? "/home/node/.openclaw/workspace",
-      OPENCLAW_SESSION_ID: this.openclawSessionId,
+      ...this.bridge.envExtra,
     };
   }
 
@@ -125,10 +115,7 @@ export class CliFixture {
       child.on("error", reject);
     });
 
-    // Read daemon info file to track PID and socket
     this.readDaemonInfo();
-
-    // Verify daemon is actually running
     await this.waitForStatus("connected", 60_000);
   }
 
@@ -140,9 +127,7 @@ export class CliFixture {
       const info: DaemonInfo = JSON.parse(raw);
       this.daemonPid = info.pid;
       this.socketPath = info.socketPath;
-    } catch {
-      // Info file not found — daemon may use a different path
-    }
+    } catch {}
   }
 
   /** Wait for daemon status to contain a specific keyword. */
@@ -152,9 +137,7 @@ export class CliFixture {
       try {
         const status = this.getStatus();
         if (status.includes(keyword)) return;
-      } catch {
-        // Daemon not ready yet — retry
-      }
+      } catch {}
       await new Promise((r) => setTimeout(r, 1_000));
     }
     throw new Error(`Timed out waiting for status to contain "${keyword}" after ${timeoutMs}ms`);
@@ -176,9 +159,7 @@ export class CliFixture {
   stop(): void {
     try {
       this.run(["stop"], 15_000);
-    } catch {
-      // Daemon might already be stopped
-    }
+    } catch {}
   }
 
   /** Force-kill the daemon process if still alive. */
@@ -193,29 +174,13 @@ export class CliFixture {
    * Safe to call multiple times. Safe to call after test failures.
    */
   cleanup(): void {
-    // 1. Try graceful stop
     this.stop();
-
-    // 2. Force-kill if still alive
     this.forceKill();
 
-    // 3. Clean up socket files
     for (const sock of [this.socketPath, this.isolatedSocketPath]) {
-      if (sock) {
-        try {
-          rmSync(sock, { force: true });
-        } catch {
-          // Socket may have been removed by daemon shutdown
-        }
-      }
+      if (sock) rmSync(sock, { force: true });
     }
-
-    // 4. Remove temp config dir
-    try {
-      rmSync(this.configDir, { recursive: true, force: true });
-    } catch {
-      // Dir may have been partially removed
-    }
+    rmSync(this.configDir, { recursive: true, force: true });
   }
 }
 

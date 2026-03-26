@@ -54,6 +54,7 @@ type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 
 const DEDUP_MAX_SIZE = 10_000;
 const INITIAL_RELAY_CANDIDATE_WAIT_MS = 250;
+const INITIAL_CONNECTION_TIMEOUT_MS = 15_000;
 
 /**
  * Give TURN a brief head start without blocking the whole offer on full ICE
@@ -125,6 +126,7 @@ export class BrowserBridge {
   private pendingCandidates: string[] = [];
   private runtimeState: LiveRuntimeStateSnapshot = { ...IDLE_LIVE_RUNTIME_STATE };
   private onProfileMark: ((label: string) => void) | null = null;
+  private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
 
   markOfferSent(): void {
     this.offerSent = true;
@@ -180,6 +182,7 @@ export class BrowserBridge {
     this.pc = pc;
     this.setRuntimeState({ ...IDLE_LIVE_RUNTIME_STATE, connectionState: "connecting" });
     this.setupPeerCallbacks();
+    this.armInitialConnectionTimeout();
 
     this.openChannel(CONTROL_CHANNEL);
     this.openChannel(CHANNELS.CHAT);
@@ -332,6 +335,7 @@ export class BrowserBridge {
   }
 
   close(): void {
+    this.clearInitialConnectionTimeout();
     this.setState("closed");
     for (const dc of this.channels.values()) {
       dc.close();
@@ -510,6 +514,11 @@ export class BrowserBridge {
   private setState(newState: BridgeState): void {
     if (this.state === newState || this.state === "closed") return;
     if (newState === "connecting") {
+      this.armInitialConnectionTimeout();
+    } else {
+      this.clearInitialConnectionTimeout();
+    }
+    if (newState === "connecting") {
       this.setRuntimeState({
         ...this.runtimeState,
         connectionState: "connecting",
@@ -539,6 +548,33 @@ export class BrowserBridge {
     }
     this.state = newState;
     this.onStateChange?.(newState);
+  }
+
+  private armInitialConnectionTimeout(): void {
+    this.clearInitialConnectionTimeout();
+    this.connectionTimeout = setTimeout(() => {
+      if (this.state !== "connecting") return;
+      console.warn("Peer connection timed out before reaching a connected state");
+      this.disposePeerConnection();
+      this.setState("disconnected");
+    }, INITIAL_CONNECTION_TIMEOUT_MS);
+  }
+
+  private clearInitialConnectionTimeout(): void {
+    if (!this.connectionTimeout) return;
+    clearTimeout(this.connectionTimeout);
+    this.connectionTimeout = null;
+  }
+
+  private disposePeerConnection(): void {
+    for (const dc of this.channels.values()) {
+      dc.close();
+    }
+    this.channels.clear();
+    this.activeBinaryStreams.clear();
+    this.pendingBinaryMeta.clear();
+    this.pc?.close();
+    this.pc = null;
   }
 
   private setRuntimeState(nextState: LiveRuntimeStateSnapshot): void {

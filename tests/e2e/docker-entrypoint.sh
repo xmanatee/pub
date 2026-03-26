@@ -21,10 +21,12 @@ echo "[e2e] Admin key loaded."
 VITE_PID=""
 PROXY_PID=""
 MOCK_LLM_PID=""
+MOCK_RELAY_PID=""
 cleanup() {
   [ -n "$VITE_PID" ] && kill "$VITE_PID" 2>/dev/null || true
   [ -n "$PROXY_PID" ] && kill "$PROXY_PID" 2>/dev/null || true
   [ -n "$MOCK_LLM_PID" ] && kill "$MOCK_LLM_PID" 2>/dev/null || true
+  [ -n "$MOCK_RELAY_PID" ] && kill "$MOCK_RELAY_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -33,7 +35,6 @@ echo "[e2e] Starting mock LLM server..."
 node tests/e2e/mock-llm/server.mjs &
 MOCK_LLM_PID=$!
 
-# Wait for mock LLM to be ready
 for i in $(seq 1 30); do
   if curl -sf http://localhost:4100/admin/health > /dev/null 2>&1; then
     echo "[e2e] Mock LLM server ready."
@@ -46,11 +47,40 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
+# --- Start mock relay server (claude-channel bridge) ---
+echo "[e2e] Starting mock relay server..."
+export MOCK_RELAY_SOCKET="${MOCK_RELAY_SOCKET:-/tmp/pub-mock-relay.sock}"
+node tests/e2e/mock-relay/server.mjs &
+MOCK_RELAY_PID=$!
+
+for i in $(seq 1 30); do
+  if curl -sf http://localhost:4101/admin/health > /dev/null 2>&1; then
+    echo "[e2e] Mock relay server ready."
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "[e2e] ERROR: Mock relay server did not start within 30s."
+    exit 1
+  fi
+  sleep 1
+done
+
 # --- Set OpenClaw env vars for all child processes ---
 export OPENCLAW_STATE_DIR="/home/node/.openclaw"
 export OPENCLAW_WORKSPACE="/home/node/.openclaw/workspace"
 export OPENCLAW_LOCAL="1"
 export HOME="/home/node"
+
+# --- Claude Code / Claude SDK env vars (point at mock LLM) ---
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://localhost:4100}"
+export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-test-key-not-real}"
+export DISABLE_TELEMETRY="1"
+export DISABLE_AUTOUPDATER="1"
+export DISABLE_ERROR_REPORTING="1"
+
+# --- Mock command (openclaw-like bridge) ---
+export MOCK_COMMAND_RULES_FILE="${MOCK_COMMAND_RULES_FILE:-/tmp/mock-command-rules.json}"
+export MOCK_COMMAND_PATH="${MOCK_COMMAND_PATH:-/app/tests/e2e/mock-bridge-command/command.mjs}"
 
 # --- Start test proxy (combines HTTP + WS ports) ---
 echo "[e2e] Starting test proxy..."

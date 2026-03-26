@@ -27,6 +27,10 @@ function parseConfiguredMaxTurns(value: string | undefined): number | undefined 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function shouldSkipClaudePermissionsPrompt(): boolean {
+  return process.getuid?.() !== 0;
+}
+
 export function buildClaudeArgs(
   prompt: string,
   sessionId: string | null,
@@ -34,14 +38,10 @@ export function buildClaudeArgs(
   opts?: { maxTurns?: number },
   bridgeConfig?: PubBridgeConfig,
 ): string[] {
-  const args = [
-    "-p",
-    prompt,
-    "--output-format",
-    "stream-json",
-    "--verbose",
-    "--dangerously-skip-permissions",
-  ];
+  const args = ["-p", prompt, "--output-format", "stream-json", "--verbose"];
+  if (shouldSkipClaudePermissionsPrompt()) {
+    args.push("--dangerously-skip-permissions");
+  }
   if (sessionId) args.push("--resume", sessionId);
   const configuredMaxTurns = getConfiguredClaudeCodeMaxTurns(env, bridgeConfig);
   const maxTurns = opts?.maxTurns ?? parseConfiguredMaxTurns(configuredMaxTurns);

@@ -4,7 +4,12 @@
  * Provides helpers to configure the mock LLM server's response rules
  * during tests. The server runs as a background process in the Docker
  * container (started by docker-entrypoint.sh).
+ *
+ * Bridge-mode aware: tool names differ by bridge mode.
+ *   - openclaw → "exec"
+ *   - claude-code / claude-sdk → "Bash"
  */
+import type { BridgeMode } from "./bridge-configs";
 
 const MOCK_LLM_URL = process.env.MOCK_LLM_URL ?? "http://localhost:4100";
 
@@ -16,7 +21,7 @@ interface ToolCall {
 interface AddRuleParams {
   /** Substring to match in the last user message */
   match: string;
-  /** Tool calls to return (OpenClaw's `exec` tool) */
+  /** Tool calls to return */
   toolCalls?: ToolCall[];
   /** Text response (when no tool execution needed) */
   text?: string;
@@ -24,6 +29,19 @@ interface AddRuleParams {
   afterToolText?: string;
   /** Delay in ms before responding (simulates slow LLM) */
   delayMs?: number;
+}
+
+/** Resolve the tool name used by a given bridge mode's LLM backend. */
+export function toolNameForMode(mode: BridgeMode): string {
+  switch (mode) {
+    case "openclaw":
+      return "exec";
+    case "claude-code":
+    case "claude-sdk":
+      return "Bash";
+    default:
+      throw new Error(`Bridge mode "${mode}" does not use the mock LLM — no tool name available`);
+  }
 }
 
 /** Add a response rule to the mock LLM server. */
@@ -51,13 +69,14 @@ export async function clearRules(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Add a rule that makes the agent execute a shell command via `pub write`.
- * This is the most common pattern: user says X → agent runs `pub write "Y"`.
+ * Add a rule that makes the agent execute `pub write` via its tool.
+ * Tool name varies by bridge mode: "exec" (openclaw), "Bash" (claude-code/claude-sdk).
  */
-export function addEchoRule(match: string, reply: string): Promise<void> {
+export function addEchoRule(match: string, reply: string, mode: BridgeMode): Promise<void> {
+  const tool = toolNameForMode(mode);
   return addRule({
     match,
-    toolCalls: [{ name: "exec", input: { command: `pub write "${reply}"` } }],
+    toolCalls: [{ name: tool, input: { command: `pub write "${reply}"` } }],
     afterToolText: "done",
   });
 }
@@ -65,9 +84,14 @@ export function addEchoRule(match: string, reply: string): Promise<void> {
 /**
  * Add a rule that makes the agent update the canvas with HTML content.
  * The HTML is base64-encoded, decoded to a temp file, then sent via `pub write -c canvas -f`.
- * All commands are chained with && to ensure sequential execution.
  */
-export function addCanvasRule(match: string, html: string, chatReply?: string): Promise<void> {
+export function addCanvasRule(
+  match: string,
+  html: string,
+  mode: BridgeMode,
+  chatReply?: string,
+): Promise<void> {
+  const tool = toolNameForMode(mode);
   const tmpFile = `/tmp/mock-canvas-${Date.now()}.html`;
   const b64 = Buffer.from(html).toString("base64");
 
@@ -78,20 +102,21 @@ export function addCanvasRule(match: string, html: string, chatReply?: string): 
 
   return addRule({
     match,
-    toolCalls: [{ name: "exec", input: { command: parts.join(" && ") } }],
+    toolCalls: [{ name: tool, input: { command: parts.join(" && ") } }],
     afterToolText: "done",
   });
 }
 
 /**
- * Add the default "pong" rule for OpenClaw's connectivity probe.
- * Returns a text response instead of tool_use because the self-probe
- * already simulates pong via IPC — OpenClaw doesn't need to execute anything.
+ * Add the default "pong" rule for the bridge connectivity probe.
+ * Returns a text response (no tool_use) — the self-probe simulates pong via IPC.
  */
-export function addPongRule(): Promise<void> {
+export function addPongRule(mode: BridgeMode): Promise<void> {
+  const tool = toolNameForMode(mode);
   return addRule({
     match: 'pub write "pong"',
-    text: "Connectivity probe acknowledged.",
+    toolCalls: [{ name: tool, input: { command: 'pub write "pong"' } }],
+    afterToolText: "Connectivity probe acknowledged.",
   });
 }
 
@@ -111,8 +136,8 @@ export function addBriefingRule(): Promise<void> {
  * - Pong probe response
  * - Session briefing acknowledgment
  */
-export async function setupDefaultRules(): Promise<void> {
+export async function setupDefaultRules(mode: BridgeMode): Promise<void> {
   await clearRules();
   await addBriefingRule();
-  await addPongRule();
+  await addPongRule(mode);
 }

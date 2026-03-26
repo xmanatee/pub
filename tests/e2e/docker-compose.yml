@@ -74,6 +74,18 @@ services:
       - TURN_PORT=3478
       - TURN_USER=e2e-user
       - TURN_PASS=e2e-pass
+      - FORCE_TURN_RELAY=1
+      # Mock LLM (shared by openclaw, claude-code, claude-sdk bridges)
+      - MOCK_LLM_URL=http://localhost:4100
+      # Claude Code / Claude SDK bridges → point at mock LLM
+      - ANTHROPIC_BASE_URL=http://localhost:4100
+      - ANTHROPIC_API_KEY=test-key-not-real
+      # Mock relay (claude-channel bridge)
+      - MOCK_RELAY_SOCKET=/tmp/pub-mock-relay.sock
+      - MOCK_RELAY_URL=http://localhost:4101
+      # Mock command (openclaw-like bridge)
+      - MOCK_COMMAND_RULES_FILE=/tmp/mock-command-rules.json
+      - MOCK_COMMAND_PATH=/app/tests/e2e/mock-bridge-command/command.mjs
 
 volumes:
   convex-data:

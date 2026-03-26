@@ -7,6 +7,10 @@ interface ClaudeArgsSettings {
   liveModelProfile?: LiveModelProfile;
 }
 
+function shouldSkipClaudePermissionsPrompt(): boolean {
+  return process.getuid?.() !== 0;
+}
+
 export async function runClaudeCodePreflight(
   claudePath: string,
   envInput: NodeJS.ProcessEnv = process.env,
@@ -33,14 +37,10 @@ export function buildClaudeArgsFromSettings(
   bridgeSettings: ClaudeArgsSettings,
   opts?: { maxTurns?: number; model?: string },
 ): string[] {
-  const args = [
-    "-p",
-    prompt,
-    "--output-format",
-    "stream-json",
-    "--verbose",
-    "--dangerously-skip-permissions",
-  ];
+  const args = ["-p", prompt, "--output-format", "stream-json", "--verbose"];
+  if (shouldSkipClaudePermissionsPrompt()) {
+    args.push("--dangerously-skip-permissions");
+  }
   if (sessionId) args.push("--resume", sessionId);
   const model =
     opts?.model?.trim() ||

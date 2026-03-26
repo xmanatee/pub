@@ -63,6 +63,9 @@ COPY tests/e2e/openclaw-config/openclaw.json /home/node/.openclaw/openclaw.json
 COPY tests/e2e/openclaw-config/workspace/ /home/node/.openclaw/workspace/
 COPY tests/e2e/openclaw-config/agents/ /home/node/.openclaw/agents/
 
+# Install Claude Code CLI (for claude-code and claude-sdk bridge testing)
+RUN npm install -g @anthropic-ai/claude-code
+
 # Install Playwright browser
 RUN npx playwright install chromium
 
