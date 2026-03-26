@@ -91,7 +91,7 @@ export function createDaemonLifecycle(params: {
 
   function handleConnectionClosed(reason: string): void {
     const hadSession =
-      state.runtimeState.connectionState !== "idle" || state.activeSlug !== null;
+      state.runtimeState.connectionState !== "idle" || state.signalingSlug !== null;
     if (!hadSession) return;
     logAlways(`connection closed: ${reason}`);
     onConnectionClosed(reason);

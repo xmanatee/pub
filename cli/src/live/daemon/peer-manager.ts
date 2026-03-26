@@ -69,7 +69,9 @@ export function createPeerManager(params: {
 
     currentPeer.onStateChange((peerState: string) => {
       if (state.stopped || currentPeer !== state.peer) return;
-      debugLog(`peer state: ${peerState}${state.activeSlug ? ` slug=${state.activeSlug}` : ""}`);
+      debugLog(
+        `peer state: ${peerState}${state.signalingSlug ? ` slug=${state.signalingSlug}` : ""}`,
+      );
       if (peerState === "connected") {
         setConnectionState("connected");
         flushQueuedAcks();
@@ -159,9 +161,9 @@ export function createPeerManager(params: {
   }
 
   async function clearActiveLiveSession(reason: string): Promise<void> {
-    const slug = state.activeSlug;
+    const slug = state.signalingSlug;
     debugLog(`clearing active live session: ${reason}${slug ? ` (${slug})` : ""}`);
-    state.activeSlug = null;
+    state.signalingSlug = null;
     setConnectionState("idle");
     commandHandlerStop();
     pubFsHandlerReset();
@@ -171,7 +173,7 @@ export function createPeerManager(params: {
 
   function startLocalCandidateFlush(slug: string): void {
     clearLocalCandidateTimers();
-    state.localCandidateInterval = setInterval(async () => {
+    const flushLocalCandidates = async () => {
       if (state.localCandidates.length <= state.lastSentCandidateCount) return;
       const nextCandidates = state.localCandidates.slice(state.lastSentCandidateCount);
       state.lastSentCandidateCount = state.localCandidates.length;
@@ -180,6 +182,15 @@ export function createPeerManager(params: {
         .catch((error) => {
           debugLog("failed to publish local ICE candidates", error);
         });
+    };
+
+    void flushLocalCandidates().catch((error) => {
+      debugLog("failed to publish initial local ICE candidates", error);
+    });
+    state.localCandidateInterval = setInterval(() => {
+      void flushLocalCandidates().catch((error) => {
+        debugLog("failed to publish local ICE candidates", error);
+      });
     }, LOCAL_CANDIDATE_FLUSH_MS);
 
     state.localCandidateStopTimer = setTimeout(() => {
@@ -215,7 +226,7 @@ export function createPeerManager(params: {
         const answer = await createAnswer(state.peer, browserOffer, OFFER_TIMEOUT_MS);
         debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
         state.lastAppliedBrowserOffer = browserOffer;
-        state.activeSlug = slug;
+        state.signalingSlug = slug;
         state.activeLiveModelProfile = modelProfile ?? null;
 
         const tSignal = Date.now();

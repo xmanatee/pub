@@ -47,10 +47,10 @@ describe("persistCanvasHtml", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("targets bridgeSlug even when activeSlug differs", async () => {
+  it("targets bridgeSlug even when signalingSlug differs", async () => {
     const { manager, state, updateMock } = createBridgeManagerHarness();
     state.bridgeSlug = "pub-a";
-    state.activeSlug = "pub-b";
+    state.signalingSlug = "pub-b";
 
     const result = await manager.persistCanvasHtml("<h1>hello</h1>");
 

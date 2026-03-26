@@ -56,6 +56,7 @@ interface SessionBriefingContext {
   description?: string;
   isPublic: boolean;
   contentFilePath?: string;
+  workspaceDir?: string;
 }
 
 export function buildInboundPrompt(slug: string, userText: string): string {
@@ -105,6 +106,11 @@ export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext):
     );
   } else {
     lines.push("- Canvas is currently empty.");
+  }
+  if (ctx.workspaceDir) {
+    lines.push(
+      `- Session workspace: \`${ctx.workspaceDir}\` (prefer canvas file URLs like \`/__pub_files__/./output.png\` so each pub stays isolated)`,
+    );
   }
 
   if (COMMAND_PROTOCOL_GUIDE.length > 0) {

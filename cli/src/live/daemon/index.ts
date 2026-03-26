@@ -5,7 +5,7 @@ import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-pr
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
-import { latestCliVersionPath } from "../runtime/daemon-files.js";
+import { latestCliVersionPath, liveSessionFilesDir } from "../runtime/daemon-files.js";
 import { createBridgeManager } from "./bridge-manager.js";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
@@ -122,7 +122,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       CONTROL_CHANNEL,
       makeStatusMessage({
         ...state.runtimeState,
-        slug: state.activeSlug ?? undefined,
+        slug: state.signalingSlug ?? undefined,
         channels: [...state.channels.keys()],
         ...(options?.continued ? { continued: true } : {}),
       }),
@@ -133,14 +133,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     );
 
     if (!delivered && options?.requireDelivery) {
-      throw new Error(`Failed to deliver runtime state for "${state.activeSlug ?? "unknown"}"`);
+      throw new Error(`Failed to deliver runtime state for "${state.signalingSlug ?? "unknown"}"`);
     }
 
     return delivered;
   };
 
   pubFsHandler = createPubFsHandler({
-    debugLog: lifecycle.debugLog,
+    getSessionRootDir: () => (state.bridgeSlug ? liveSessionFilesDir(state.bridgeSlug) : null),
     markError: lifecycle.markError,
     openDataChannel: channelManager.openDataChannel,
     waitForChannelOpen: channelManager.waitForChannelOpen,
@@ -193,7 +193,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     debugLog: lifecycle.debugLog,
     markError: lifecycle.markError,
     isStopped: () => state.stopped,
-    getActiveSlug: () => state.activeSlug,
+    getActiveSlug: () => state.signalingSlug,
     getLastAppliedBrowserOffer: () => state.lastAppliedBrowserOffer,
     getLastBrowserCandidateCount: () => state.lastBrowserCandidateCount,
     setLastBrowserCandidateCount: (count) => {
@@ -304,7 +304,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const signalState = signaling.status();
       return signalState.known ? signalState.open : null;
     },
-    getActiveSlug: () => state.activeSlug,
+    getActiveSlug: () => state.signalingSlug,
     getUptimeSeconds: () => Math.floor((Date.now() - startTime) / 1000),
     getChannels: () => [...state.channels.keys()],
     getLastError: () => state.lastError,
@@ -344,7 +344,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   async function cleanup(): Promise<void> {
     lifecycle.debugLog(
-      `daemon cleanup start activeSlug=${state.activeSlug ?? "none"} connectionState=${state.runtimeState.connectionState} agentState=${state.runtimeState.agentState} executorState=${state.runtimeState.executorState}`,
+      `daemon cleanup start signalingSlug=${state.signalingSlug ?? "none"} connectionState=${state.runtimeState.connectionState} agentState=${state.runtimeState.agentState} executorState=${state.runtimeState.executorState}`,
     );
 
     lifecycle.clearAllTimers();

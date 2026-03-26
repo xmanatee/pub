@@ -12,7 +12,7 @@ import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
-import { writeLiveSessionContentFile } from "../runtime/daemon-files.js";
+import { ensureLiveSessionDirs, writeLiveSessionContentFile } from "../runtime/daemon-files.js";
 import { type DaemonState, setDaemonAgentActivity, setDaemonAgentState } from "./state.js";
 
 const SLOW_AGENT_PREPARATION_LOG_MS = 10_000;
@@ -155,11 +155,12 @@ export function createBridgeManager(params: {
   }
 
   async function startBridge(slug: string): Promise<void> {
-    if (state.stopped || state.activeSlug !== slug) return;
+    if (state.stopped || state.signalingSlug !== slug) return;
     await teardownBridgeRunner();
     const abort = new AbortController();
     state.bridgeAbort = abort;
     debugLog(`bridge runner start slug=${slug}`);
+    const sessionPaths = ensureLiveSessionDirs(slug);
 
     // Fetch content without binding the manifest — binding must happen AFTER
     // the bridge runner is set so that agent commands can reach the runner.
@@ -176,11 +177,16 @@ export function createBridgeManager(params: {
       description: sessionContent.description,
       isPublic: sessionContent.isPublic,
       contentFilePath,
+      workspaceDir: sessionPaths.filesDir,
     });
 
+    const runnerBridgeSettingsBase: BridgeSettings = {
+      ...bridgeSettings,
+      attachmentDir: sessionPaths.attachmentsDir,
+    };
     const runnerBridgeSettings = state.activeLiveModelProfile
-      ? { ...bridgeSettings, liveModelProfile: state.activeLiveModelProfile }
-      : bridgeSettings;
+      ? { ...runnerBridgeSettingsBase, liveModelProfile: state.activeLiveModelProfile }
+      : runnerBridgeSettingsBase;
     const runnerConfig = {
       slug,
       sessionBriefing,
@@ -215,7 +221,7 @@ export function createBridgeManager(params: {
     });
     debugLog(`bridge runner created slug=${slug}`);
 
-    if (state.stopped || state.activeSlug !== slug || abort.signal.aborted) {
+    if (state.stopped || state.signalingSlug !== slug || abort.signal.aborted) {
       await runner.stop();
       return;
     }
@@ -241,12 +247,12 @@ export function createBridgeManager(params: {
       state.stopped ||
       !isLiveConnectionReady(state.runtimeState) ||
       state.agentPreparing ||
-      !state.activeSlug
+      !state.signalingSlug
     ) {
       return;
     }
 
-    const slug = state.activeSlug;
+    const slug = state.signalingSlug;
 
     if (state.bridgeRunner && state.bridgeSlug === slug) {
       if (state.bridgeRunner.status().running) {
@@ -273,12 +279,12 @@ export function createBridgeManager(params: {
       await stopBridge();
     }
 
-    const isStale = () => state.stopped || state.activeSlug !== slug;
+    const isStale = () => state.stopped || state.signalingSlug !== slug;
 
     const slowPreparationTimer = setTimeout(() => {
       if (
         state.agentPreparing &&
-        state.activeSlug === slug &&
+        state.signalingSlug === slug &&
         isLiveConnectionReady(state.runtimeState) &&
         state.runtimeState.agentState !== "ready"
       ) {

@@ -7,6 +7,8 @@ import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-bro
 import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { trackError } from "~/lib/analytics";
 
+const LOCAL_ICE_FLUSH_INTERVAL_MS = 100;
+
 interface UseLiveBridgeOptions {
   slug: string;
   enabled: boolean;
@@ -73,14 +75,8 @@ export function useLiveBridge({
     lastAgentCandidateCountRef.current = 0;
     lastHandledAnswerRef.current = null;
     let disposed = false;
-    bridge.setOnStateChange((s) => {
-      console.debug("[bridge] state →", s);
-      setBridgeState(s);
-    });
-    bridge.setOnRuntimeStateChange((rs) => {
-      console.debug("[bridge] runtime →", rs);
-      setRuntimeState(rs);
-    });
+    bridge.setOnStateChange(setBridgeState);
+    bridge.setOnRuntimeStateChange(setRuntimeState);
     bridge.setOnControlError((error) => {
       onSystemMessageRef.current?.({
         content: error.message,
@@ -120,7 +116,12 @@ export function useLiveBridge({
             flushedCandidates.push(...next);
             await storeBrowserCandidatesRef.current({ slug, candidates: next });
           } catch (error) {
-            console.warn("Failed to store local ICE candidates", error);
+            trackError(
+              error instanceof Error
+                ? error
+                : new Error("Failed to store local ICE candidates"),
+              { context: "live-bridge" },
+            );
             onSystemMessageRef.current?.({
               content: "Realtime signaling is unstable. Local connection updates are failing.",
               dedupeKey: "local-ice-store-failed",
@@ -131,7 +132,7 @@ export function useLiveBridge({
 
         localIceFlushIntervalRef.current = setInterval(() => {
           void flushLocalCandidates();
-        }, 500);
+        }, LOCAL_ICE_FLUSH_INTERVAL_MS);
 
         localIceStopTimeoutRef.current = setTimeout(() => {
           if (localIceFlushIntervalRef.current) {
@@ -216,7 +217,12 @@ export function useLiveBridge({
       if (nextCandidates.length > 0) {
         lastAgentCandidateCountRef.current = agentCandidates.length;
         void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
-          console.warn("Failed to add remote ICE candidates", error);
+          trackError(
+            error instanceof Error
+              ? error
+              : new Error("Failed to add remote ICE candidates"),
+            { context: "live-bridge" },
+          );
           onSystemMessageRef.current?.({
             content: "Connection updates from the agent were rejected. Stream quality may degrade.",
             dedupeKey: "remote-ice-add-failed",

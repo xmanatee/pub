@@ -3,8 +3,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  ensureLiveSessionDirs,
   liveInfoDir,
+  liveSessionAttachmentsDir,
   liveSessionContentPath,
+  liveSessionDir,
+  liveSessionFilesDir,
   readLatestCliVersion,
   readLogTail,
   writeLiveSessionContentFile,
@@ -60,20 +64,30 @@ describe("daemon-files", () => {
   });
 
   describe("session content files", () => {
-    it("uses .html extension", () => {
+    it("uses a per-session directory", () => {
       const dir = makeTempDir();
-      const htmlPath = liveSessionContentPath("alpha", dir);
-      expect(htmlPath.endsWith(".session-content.html")).toBe(true);
+      expect(liveSessionDir("alpha", dir)).toBe(path.join(dir, "sessions", "alpha"));
+      expect(liveSessionFilesDir("alpha", dir)).toBe(path.join(dir, "sessions", "alpha", "files"));
+      expect(liveSessionAttachmentsDir("alpha", dir)).toBe(
+        path.join(dir, "sessions", "alpha", "attachments"),
+      );
+      expect(liveSessionContentPath("alpha", dir)).toBe(
+        path.join(dir, "sessions", "alpha", "session-content.html"),
+      );
     });
 
-    it("sanitizes slug and writes content", () => {
+    it("sanitizes slug, creates session directories, and writes content", () => {
       const dir = makeTempDir();
+      const sessionPaths = ensureLiveSessionDirs("weird/slug", dir);
       const writtenPath = writeLiveSessionContentFile({
         slug: "weird/slug",
         content: "<h1>Hello</h1>",
         rootDir: dir,
       });
-      expect(path.basename(writtenPath)).toBe("weird-slug.session-content.html");
+      expect(sessionPaths.sessionDir).toBe(path.join(dir, "sessions", "weird-slug"));
+      expect(fs.existsSync(sessionPaths.filesDir)).toBe(true);
+      expect(fs.existsSync(sessionPaths.attachmentsDir)).toBe(true);
+      expect(path.basename(writtenPath)).toBe("session-content.html");
       expect(fs.readFileSync(writtenPath, "utf-8")).toBe("<h1>Hello</h1>");
     });
   });

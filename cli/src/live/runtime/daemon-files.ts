@@ -22,12 +22,50 @@ function sanitizeSlugForFilename(slug: string): string {
   return sanitized.length > 0 ? sanitized : "live";
 }
 
-export function liveSessionContentPath(
+export function liveSessionsDir(rootDir?: string): string {
+  const dir = path.join(rootDir ?? liveInfoDir(), "sessions");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+export function liveSessionDir(slug: string, rootDir?: string): string {
+  const safeSlug = sanitizeSlugForFilename(slug);
+  return path.join(liveSessionsDir(rootDir), safeSlug);
+}
+
+export function liveSessionFilesDir(slug: string, rootDir?: string): string {
+  return path.join(liveSessionDir(slug, rootDir), "files");
+}
+
+export function liveSessionAttachmentsDir(slug: string, rootDir?: string): string {
+  return path.join(liveSessionDir(slug, rootDir), "attachments");
+}
+
+export function liveSessionContentPath(slug: string, rootDir?: string): string {
+  return path.join(liveSessionDir(slug, rootDir), "session-content.html");
+}
+
+export function ensureLiveSessionDirs(
   slug: string,
   rootDir?: string,
-): string {
-  const safeSlug = sanitizeSlugForFilename(slug);
-  return path.join(rootDir ?? liveInfoDir(), `${safeSlug}.session-content.html`);
+): {
+  attachmentsDir: string;
+  contentPath: string;
+  filesDir: string;
+  sessionDir: string;
+} {
+  const sessionDir = liveSessionDir(slug, rootDir);
+  const filesDir = liveSessionFilesDir(slug, rootDir);
+  const attachmentsDir = liveSessionAttachmentsDir(slug, rootDir);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.mkdirSync(filesDir, { recursive: true });
+  fs.mkdirSync(attachmentsDir, { recursive: true });
+  return {
+    attachmentsDir,
+    contentPath: liveSessionContentPath(slug, rootDir),
+    filesDir,
+    sessionDir,
+  };
 }
 
 export function writeLiveSessionContentFile(params: {
@@ -35,10 +73,9 @@ export function writeLiveSessionContentFile(params: {
   content: string;
   rootDir?: string;
 }): string {
-  const filePath = liveSessionContentPath(params.slug, params.rootDir);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, params.content, "utf-8");
-  return filePath;
+  const sessionPaths = ensureLiveSessionDirs(params.slug, params.rootDir);
+  fs.writeFileSync(sessionPaths.contentPath, params.content, "utf-8");
+  return sessionPaths.contentPath;
 }
 
 export function latestCliVersionPath(): string {

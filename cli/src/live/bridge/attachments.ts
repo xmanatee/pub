@@ -89,11 +89,9 @@ function stageAttachment(params: {
   mime?: string;
   streamId?: string;
   streamStatus: "single" | "complete" | "interrupted";
-  slug: string;
   bytes: Buffer;
 }): StagedAttachment {
-  const slugDir = join(params.attachmentRoot, sanitizeFilename(params.slug));
-  ensureDirectoryWritable(slugDir);
+  ensureDirectoryWritable(params.attachmentRoot);
 
   const mime = (params.mime || "application/octet-stream").trim();
   const resolvedName = resolveAttachmentFilename({
@@ -104,7 +102,7 @@ function stageAttachment(params: {
   });
 
   const collisionSafeName = `${Date.now()}-${sanitizeFilename(params.messageId)}-${resolvedName}`;
-  const targetPath = join(slugDir, collisionSafeName);
+  const targetPath = join(params.attachmentRoot, collisionSafeName);
   const tempPath = `${targetPath}.tmp-${process.pid}`;
 
   writeFileSync(tempPath, params.bytes, { mode: 0o600 });
@@ -191,7 +189,6 @@ export async function handleAttachmentEntry(params: HandleAttachmentEntryParams)
           mime: existing.mime,
           streamId: existing.streamId,
           streamStatus: "interrupted",
-          slug: params.slug,
           bytes: interruptedBytes,
         }),
       );
@@ -226,7 +223,6 @@ export async function handleAttachmentEntry(params: HandleAttachmentEntryParams)
       mime: stream.mime,
       streamId: stream.streamId,
       streamStatus: "complete",
-      slug: params.slug,
       bytes,
     });
     await stageAndDeliver(staged);
@@ -270,7 +266,6 @@ export async function handleAttachmentEntry(params: HandleAttachmentEntryParams)
     messageId: msg.id,
     mime: typeof msg.meta?.mime === "string" ? msg.meta.mime : undefined,
     streamStatus: "single",
-    slug: params.slug,
     bytes: payload,
   });
   await stageAndDeliver(staged);

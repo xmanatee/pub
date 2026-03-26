@@ -53,22 +53,35 @@ type TrackHandler = (track: MediaStreamTrack, streams: readonly MediaStream[]) =
 type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 
 const DEDUP_MAX_SIZE = 10_000;
-const ICE_GATHERING_TIMEOUT_MS = 5_000;
+const INITIAL_RELAY_CANDIDATE_WAIT_MS = 250;
 
-/** Wait for ICE gathering to complete or timeout. */
-function waitForGathering(pc: RTCPeerConnection): Promise<void> {
-  if (pc.iceGatheringState === "complete") return Promise.resolve();
+/**
+ * Give TURN a brief head start without blocking the whole offer on full ICE
+ * gathering. Full gathering adds a deterministic multi-second delay when TURN
+ * is configured; a short wait still captures early relay candidates while
+ * letting the rest trickle through normal candidate signaling.
+ */
+function waitForInitialRelayCandidate(
+  pc: RTCPeerConnection,
+  hasLocalCandidate: () => boolean,
+): Promise<void> {
+  if (hasLocalCandidate() || pc.iceGatheringState === "complete") return Promise.resolve();
   return new Promise((resolve) => {
     const done = () => {
       clearTimeout(timer);
       pc.removeEventListener("icegatheringstatechange", onStateChange);
+      pc.removeEventListener("icecandidate", onCandidate);
       resolve();
     };
     const onStateChange = () => {
-      if (pc.iceGatheringState === "complete") done();
+      if (pc.iceGatheringState === "complete" || hasLocalCandidate()) done();
+    };
+    const onCandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (event.candidate || hasLocalCandidate()) done();
     };
     pc.addEventListener("icegatheringstatechange", onStateChange);
-    const timer = setTimeout(done, ICE_GATHERING_TIMEOUT_MS);
+    pc.addEventListener("icecandidate", onCandidate);
+    const timer = setTimeout(done, INITIAL_RELAY_CANDIDATE_WAIT_MS);
   });
 }
 
@@ -179,15 +192,15 @@ export class BrowserBridge {
 
     await pc.setLocalDescription(normalized as RTCSessionDescriptionInit);
 
-    // Wait for ICE gathering to produce relay candidates before returning the
-    // offer. Without this, the offer goes out with only host candidates, and
-    // ICE checks spend ~20s timing out on host/STUN pairs before TURN succeeds.
+    // Give TURN a short head start, but do not block offer creation on full
+    // ICE gathering. Remaining candidates are sent through the regular
+    // browser-candidate signaling path.
     const hasRelay = iceConfig.iceServers.some((s) => {
       const urls = typeof s.urls === "string" ? [s.urls] : s.urls;
       return urls.some((u) => u.startsWith("turn:") || u.startsWith("turns:"));
     });
     if (hasRelay) {
-      await waitForGathering(pc);
+      await waitForInitialRelayCandidate(pc, () => this.iceCandidates.length > 0);
     }
 
     const description = toSessionDescription(pc.localDescription);

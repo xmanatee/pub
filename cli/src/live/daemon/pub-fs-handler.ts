@@ -3,12 +3,11 @@ import {
   createReadStream,
   existsSync,
   mkdirSync,
-  realpathSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import {
   type BridgeMessage,
   CHANNELS,
@@ -27,6 +26,11 @@ import {
 } from "../../../../shared/pub-fs-protocol-core";
 import { getMimeType } from "../runtime/file-payload.js";
 import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
+import {
+  assertPubFsWriteParent,
+  resolveExistingPubFsPath,
+  resolvePubFsRequestPath,
+} from "./pub-fs-paths.js";
 
 interface ActiveRead {
   stream: ReadStream;
@@ -34,7 +38,7 @@ interface ActiveRead {
 
 interface ActiveWrite {
   requestId: string;
-  path: string;
+  resolvedPath: string;
   expectedSize: number;
   chunks: Buffer[];
   receivedSize: number;
@@ -45,8 +49,8 @@ const SEND_LOW_WATER = 256 * 1024;
 const BACKPRESSURE_TIMEOUT_MS = 30_000;
 
 export function createPubFsHandler(params: {
-  debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
+  getSessionRootDir: () => string | null;
   openDataChannel: (channel: string) => AdapterDataChannel;
   waitForChannelOpen: (dc: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
 }) {
@@ -84,15 +88,17 @@ export function createPubFsHandler(params: {
     const { requestId, path, rangeStart, rangeEnd } = request;
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
+    const sessionRootDir = params.getSessionRootDir();
 
     let realPath: string;
     let fileSize: number;
     try {
-      if (!existsSync(path)) {
+      const resolvedPath = resolvePubFsRequestPath(path, sessionRootDir);
+      if (!existsSync(resolvedPath.path)) {
         sendError(dc, requestId, "NOT_FOUND", "File does not exist.");
         return;
       }
-      realPath = realpathSync(path);
+      realPath = resolveExistingPubFsPath(path, sessionRootDir);
       const stats = statSync(realPath);
       if (!stats.isFile()) {
         sendError(dc, requestId, "NOT_FOUND", "Path is not a file.");
@@ -190,6 +196,7 @@ export function createPubFsHandler(params: {
     const { requestId, path: filePath, size } = request;
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
+    const sessionRootDir = params.getSessionRootDir();
 
     if (activeWrite.current) {
       sendError(dc, requestId, "WRITE_ERROR", "Another write is already in progress.");
@@ -198,9 +205,10 @@ export function createPubFsHandler(params: {
 
     if (size === 0) {
       try {
-        const resolvedPath = resolve(filePath);
-        mkdirSync(dirname(resolvedPath), { recursive: true });
-        writeFileSync(resolvedPath, Buffer.alloc(0));
+        const resolvedPath = resolvePubFsRequestPath(filePath, sessionRootDir);
+        mkdirSync(dirname(resolvedPath.path), { recursive: true });
+        assertPubFsWriteParent(resolvedPath.path, resolvedPath.scope, sessionRootDir);
+        writeFileSync(resolvedPath.path, Buffer.alloc(0));
         sendMessage(dc, makePubFsDoneMessage(requestId));
       } catch (error) {
         sendError(
@@ -213,13 +221,25 @@ export function createPubFsHandler(params: {
       return;
     }
 
-    activeWrite.current = {
-      requestId,
-      path: filePath,
-      expectedSize: size,
-      chunks: [],
-      receivedSize: 0,
-    };
+    try {
+      const resolvedPath = resolvePubFsRequestPath(filePath, sessionRootDir);
+      mkdirSync(dirname(resolvedPath.path), { recursive: true });
+      assertPubFsWriteParent(resolvedPath.path, resolvedPath.scope, sessionRootDir);
+      activeWrite.current = {
+        requestId,
+        resolvedPath: resolvedPath.path,
+        expectedSize: size,
+        chunks: [],
+        receivedSize: 0,
+      };
+    } catch (error) {
+      sendError(
+        dc,
+        requestId,
+        "WRITE_ERROR",
+        error instanceof Error ? error.message : "Write failed.",
+      );
+    }
   }
 
   function handleWriteChunk(data: Buffer): void {
@@ -240,9 +260,8 @@ export function createPubFsHandler(params: {
 
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     try {
-      const resolvedPath = resolve(write.path);
-      mkdirSync(dirname(resolvedPath), { recursive: true });
-      writeFileSync(resolvedPath, Buffer.concat(write.chunks));
+      mkdirSync(dirname(write.resolvedPath), { recursive: true });
+      writeFileSync(write.resolvedPath, Buffer.concat(write.chunks));
       sendMessage(dc, makePubFsDoneMessage(write.requestId));
     } catch (error) {
       sendError(
@@ -263,14 +282,15 @@ export function createPubFsHandler(params: {
     const { requestId, path: filePath } = request;
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
+    const sessionRootDir = params.getSessionRootDir();
 
     try {
-      const resolvedPath = resolve(filePath);
-      if (!existsSync(resolvedPath)) {
+      const resolvedPath = resolvePubFsRequestPath(filePath, sessionRootDir);
+      if (!existsSync(resolvedPath.path)) {
         sendError(dc, requestId, "NOT_FOUND", "File does not exist.");
         return;
       }
-      unlinkSync(resolvedPath);
+      unlinkSync(resolveExistingPubFsPath(filePath, sessionRootDir));
       sendMessage(dc, makePubFsDoneMessage(requestId));
     } catch (error) {
       sendError(
