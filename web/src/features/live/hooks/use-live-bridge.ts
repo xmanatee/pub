@@ -117,9 +117,7 @@ export function useLiveBridge({
             await storeBrowserCandidatesRef.current({ slug, candidates: next });
           } catch (error) {
             trackError(
-              error instanceof Error
-                ? error
-                : new Error("Failed to store local ICE candidates"),
+              error instanceof Error ? error : new Error("Failed to store local ICE candidates"),
               { context: "live-bridge" },
             );
             onSystemMessageRef.current?.({
@@ -218,9 +216,7 @@ export function useLiveBridge({
         lastAgentCandidateCountRef.current = agentCandidates.length;
         void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
           trackError(
-            error instanceof Error
-              ? error
-              : new Error("Failed to add remote ICE candidates"),
+            error instanceof Error ? error : new Error("Failed to add remote ICE candidates"),
             { context: "live-bridge" },
           );
           onSystemMessageRef.current?.({
