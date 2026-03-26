@@ -79,7 +79,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_api_key", ["apiKeyId"]),
+    .index("by_api_key", ["apiKeyId"])
+    .index("by_api_key_session", ["apiKeyId", "daemonSessionId"]),
 
   connections: defineTable({
     userId: v.id("users"),

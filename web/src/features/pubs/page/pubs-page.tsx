@@ -75,12 +75,13 @@ export function PubsPage() {
     );
   }
 
-  const isNewUser = pubs.length === 0 && (keys?.length ?? 0) === 0;
+  const hasApiKeys = (keys?.length ?? 0) > 0;
+  const isNewUser = pubs.length === 0 && !hasApiKeys;
 
   if (isNewUser) {
     return (
       <div className="px-4 sm:px-6 py-8">
-        <OnboardingGuide />
+        <OnboardingGuide hasApiKeys={hasApiKeys} agentOnline={agentOnline} />
       </div>
     );
   }

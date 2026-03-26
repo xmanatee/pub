@@ -7,22 +7,21 @@ import { internalMutation, internalQuery, query } from "./_generated/server";
 
 export const HOST_STALENESS_THRESHOLD_MS = 90_000;
 
-function isFreshOnlineHost(
-  host: {
-    status: "online" | "offline";
-    lastHeartbeatAt: number;
-  } | null,
-  now: number,
-): boolean {
-  if (!host || host.status !== "online") return false;
+export function isFreshHost(host: { lastHeartbeatAt: number }, now: number): boolean {
   return now - host.lastHeartbeatAt < HOST_STALENESS_THRESHOLD_MS;
 }
 
-async function listHostsByApiKey(db: GenericDatabaseReader<DataModel>, apiKeyId: Id<"apiKeys">) {
+async function findHostBySession(
+  db: GenericDatabaseReader<DataModel>,
+  apiKeyId: Id<"apiKeys">,
+  daemonSessionId: string,
+) {
   return db
     .query("hosts")
-    .withIndex("by_api_key", (q) => q.eq("apiKeyId", apiKeyId))
-    .collect();
+    .withIndex("by_api_key_session", (q) =>
+      q.eq("apiKeyId", apiKeyId).eq("daemonSessionId", daemonSessionId),
+    )
+    .first();
 }
 
 export function listFreshOnlineHosts(
@@ -35,7 +34,7 @@ export function listFreshOnlineHosts(
   now: number,
 ) {
   return hosts
-    .filter((host) => isFreshOnlineHost(host, now))
+    .filter((host) => host.status === "online" && isFreshHost(host, now))
     .sort((a, b) => b.lastHeartbeatAt - a.lastHeartbeatAt);
 }
 
@@ -49,6 +48,11 @@ async function deleteConnectionsForHost(db: GenericDatabaseWriter<DataModel>, ho
   }
 }
 
+async function removeHost(db: GenericDatabaseWriter<DataModel>, hostId: Id<"hosts">) {
+  await deleteConnectionsForHost(db, hostId);
+  await db.delete(hostId);
+}
+
 export const goOnline = internalMutation({
   args: {
     userId: v.id("users"),
@@ -58,16 +62,22 @@ export const goOnline = internalMutation({
   },
   handler: async (ctx, { userId, apiKeyId, daemonSessionId, agentName }) => {
     const now = Date.now();
-    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
 
-    const otherSession = byApiKey.find(
-      (h) => h.daemonSessionId !== daemonSessionId && isFreshOnlineHost(h, now),
-    );
-    if (otherSession) {
-      throw new Error("API key already in use");
+    // Scan all hosts for this key to detect conflicts and clean up stale entries
+    const byApiKey = await ctx.db
+      .query("hosts")
+      .withIndex("by_api_key", (q) => q.eq("apiKeyId", apiKeyId))
+      .collect();
+
+    for (const host of byApiKey) {
+      if (host.daemonSessionId === daemonSessionId) continue;
+      if (host.status === "online" && isFreshHost(host, now)) {
+        throw new Error("API key already in use");
+      }
+      await removeHost(ctx.db, host._id);
     }
 
-    const existing = byApiKey.find((h) => h.daemonSessionId === daemonSessionId);
+    const existing = await findHostBySession(ctx.db, apiKeyId, daemonSessionId);
 
     if (existing) {
       const patch: {
@@ -108,11 +118,8 @@ export const goOnline = internalMutation({
 export const heartbeat = internalMutation({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
-    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
-    const host = byApiKey.find(
-      (h) => h.daemonSessionId === daemonSessionId && h.status === "online",
-    );
-    if (!host) throw new Error("Not online");
+    const host = await findHostBySession(ctx.db, apiKeyId, daemonSessionId);
+    if (!host || host.status !== "online") throw new Error("Not online");
 
     const now = Date.now();
     await ctx.db.patch(host._id, { lastHeartbeatAt: now, updatedAt: now });
@@ -122,12 +129,9 @@ export const heartbeat = internalMutation({
 export const goOffline = internalMutation({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
-    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
-    const host = byApiKey.find((h) => h.daemonSessionId === daemonSessionId);
+    const host = await findHostBySession(ctx.db, apiKeyId, daemonSessionId);
     if (!host) return;
-
-    await ctx.db.patch(host._id, { status: "offline", updatedAt: Date.now() });
-    await deleteConnectionsForHost(ctx.db, host._id);
+    await removeHost(ctx.db, host._id);
   },
 });
 
@@ -135,11 +139,10 @@ export const checkStaleness = internalMutation({
   args: { presenceId: v.id("hosts") },
   handler: async (ctx, { presenceId: hostId }) => {
     const host = await ctx.db.get(hostId);
-    if (!host || host.status === "offline") return;
+    if (!host) return;
 
     const now = Date.now();
-    const elapsed = now - host.lastHeartbeatAt;
-    if (elapsed < HOST_STALENESS_THRESHOLD_MS) {
+    if (isFreshHost(host, now)) {
       await ctx.scheduler.runAt(
         host.lastHeartbeatAt + HOST_STALENESS_THRESHOLD_MS,
         internal.presence.checkStaleness,
@@ -148,8 +151,7 @@ export const checkStaleness = internalMutation({
       return;
     }
 
-    await ctx.db.patch(hostId, { status: "offline", updatedAt: now });
-    await deleteConnectionsForHost(ctx.db, hostId);
+    await removeHost(ctx.db, hostId);
   },
 });
 
@@ -193,12 +195,8 @@ export const getOnlineAgentCount = query({
 export const getHostByApiKeySession = internalQuery({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
-    const byApiKey = await listHostsByApiKey(ctx.db, apiKeyId);
-    const now = Date.now();
-    const host = byApiKey.find(
-      (h) => h.daemonSessionId === daemonSessionId && isFreshOnlineHost(h, now),
-    );
-    if (!host) return null;
+    const host = await findHostBySession(ctx.db, apiKeyId, daemonSessionId);
+    if (!host || host.status !== "online" || !isFreshHost(host, Date.now())) return null;
     return {
       _id: host._id,
       userId: host.userId,

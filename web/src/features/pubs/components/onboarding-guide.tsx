@@ -1,5 +1,5 @@
 import { api } from "@backend/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { Check, Circle, Key, Play, Terminal } from "lucide-react";
 import * as React from "react";
 import { CopyButton } from "~/components/copy-button";
@@ -15,15 +15,18 @@ interface Step {
   active: boolean;
 }
 
-export function OnboardingGuide() {
-  const keys = useQuery(api.apiKeys.list);
+interface OnboardingGuideProps {
+  hasApiKeys: boolean;
+  agentOnline: boolean | undefined;
+}
+
+export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProps) {
   const createKey = useMutation(api.apiKeys.create);
-  const agentOnline = useQuery(api.presence.isCurrentUserAgentOnline);
 
   const [generatedKey, setGeneratedKey] = React.useState<string | null>(null);
   const [generating, setGenerating] = React.useState(false);
 
-  const hasKey = (keys?.length ?? 0) > 0 || generatedKey !== null;
+  const hasKey = hasApiKeys || generatedKey !== null;
 
   async function handleGenerateKey() {
     setGenerating(true);

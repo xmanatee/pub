@@ -5,7 +5,7 @@ import type { LiveInfo } from "../shared/live-api-core";
 import { type LiveModelProfile, resolveLiveModelProfile } from "../shared/live-model-profile";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { HOST_STALENESS_THRESHOLD_MS, listFreshOnlineHosts } from "./presence";
+import { isFreshHost, listFreshOnlineHosts } from "./presence";
 import { hashApiKey } from "./utils";
 
 const MAX_CANDIDATES = 50;
@@ -24,32 +24,6 @@ async function getModelProfileForUser(
 ): Promise<LiveModelProfile> {
   const user = await db.get(userId);
   return resolveLiveModelProfile(user?.liveModelProfile);
-}
-
-function connectionConflictsWithRequest(
-  conn: { activeSlug?: string; hostId: Id<"hosts"> },
-  request: { activeSlug: string; hostId: Id<"hosts"> },
-) {
-  return conn.activeSlug === request.activeSlug || conn.hostId === request.hostId;
-}
-
-function connectionMatchesRequest(
-  conn: { browserSessionId?: string; activeSlug?: string; hostId: Id<"hosts"> },
-  request: { browserSessionId: string; activeSlug: string; hostId: Id<"hosts"> },
-) {
-  return (
-    conn.activeSlug === request.activeSlug &&
-    conn.hostId === request.hostId &&
-    conn.browserSessionId === request.browserSessionId
-  );
-}
-
-function pickTargetHost(
-  hosts: Array<{ _id: Id<"hosts">; agentName?: string; lastHeartbeatAt: number }>,
-  preferredHostId?: Id<"hosts">,
-) {
-  if (!preferredHostId) return null;
-  return hosts.find((host) => host._id === preferredHostId) ?? null;
 }
 
 function mapConnectionInfo(
@@ -112,61 +86,20 @@ export const getConnectionBySlug = query({
 
 export const getConnectionForHost = internalQuery({
   args: {
-    apiKey: v.optional(v.string()),
-    daemonSessionId: v.optional(v.string()),
-    userId: v.optional(v.id("users")),
+    userId: v.id("users"),
     hostId: v.optional(v.id("hosts")),
   },
-  handler: async (ctx, { apiKey, daemonSessionId, userId, hostId }) => {
-    let resolvedUserId: Id<"users">;
-    let resolvedHostId: Id<"hosts"> | undefined = hostId;
+  handler: async (ctx, { userId, hostId }) => {
+    if (!hostId) return null;
 
-    const now = Date.now();
-
-    if (apiKey && daemonSessionId) {
-      const keyHash = await hashApiKey(apiKey);
-      const key = await ctx.db
-        .query("apiKeys")
-        .withIndex("by_key_hash", (q) => q.eq("keyHash", keyHash))
-        .unique();
-      if (!key) throw new Error("Invalid API key");
-
-      const byApiKey = await ctx.db
-        .query("hosts")
-        .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
-        .collect();
-
-      const host = byApiKey.find(
-        (entry) =>
-          entry.daemonSessionId === daemonSessionId &&
-          entry.status === "online" &&
-          now - entry.lastHeartbeatAt < HOST_STALENESS_THRESHOLD_MS,
-      );
-      if (!host) return null;
-
-      resolvedUserId = key.userId;
-      resolvedHostId = host._id;
-    } else if (userId) {
-      resolvedUserId = userId;
-    } else {
-      throw new Error("Missing authentication for connection query");
-    }
-
-    const conns = await ctx.db
+    const conn = await ctx.db
       .query("connections")
-      .withIndex("by_user", (q) => q.eq("userId", resolvedUserId))
-      .order("desc")
-      .collect();
+      .withIndex("by_host", (q) => q.eq("hostId", hostId))
+      .first();
+    if (!conn || conn.userId !== userId) return null;
 
-    const pending = conns.find(
-      (c) => c.hostId === resolvedHostId && c.browserOffer && !c.agentAnswer,
-    );
-    const active = pending ?? conns.find((c) => c.hostId === resolvedHostId);
-
-    if (!active) return null;
-
-    const modelProfile = await getModelProfileForUser(ctx.db, resolvedUserId);
-    return mapConnectionInfo(active, modelProfile);
+    const modelProfile = await getModelProfileForUser(ctx.db, userId);
+    return mapConnectionInfo(conn, modelProfile);
   },
 });
 
@@ -181,32 +114,39 @@ export const getConnectionForAgent = query({
       .unique();
     if (!key) throw new Error("Invalid API key");
 
-    const byApiKey = await ctx.db
+    const host = await ctx.db
       .query("hosts")
-      .withIndex("by_api_key", (q) => q.eq("apiKeyId", key._id))
-      .collect();
+      .withIndex("by_api_key_session", (q) =>
+        q.eq("apiKeyId", key._id).eq("daemonSessionId", daemonSessionId),
+      )
+      .first();
+    if (!host || !isFreshHost(host, now)) return null;
 
-    const host = byApiKey.find(
-      (entry) =>
-        entry.daemonSessionId === daemonSessionId &&
-        entry.status === "online" &&
-        now - entry.lastHeartbeatAt < HOST_STALENESS_THRESHOLD_MS,
-    );
-    if (!host) return null;
+    const conn = await ctx.db
+      .query("connections")
+      .withIndex("by_host", (q) => q.eq("hostId", host._id))
+      .first();
+    if (!conn) return null;
+
+    const modelProfile = await getModelProfileForUser(ctx.db, key.userId);
+    return mapConnectionInfo(conn, modelProfile);
+  },
+});
+
+export const listActiveConnections = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
 
     const conns = await ctx.db
       .query("connections")
-      .withIndex("by_user", (q) => q.eq("userId", key.userId))
-      .order("desc")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const pending = conns.find((c) => c.hostId === host._id && c.browserOffer && !c.agentAnswer);
-    const active = pending ?? conns.find((c) => c.hostId === host._id);
-
-    if (!active) return null;
-
-    const modelProfile = await getModelProfileForUser(ctx.db, key.userId);
-    return mapConnectionInfo(active, modelProfile);
+    return conns
+      .filter((c): c is typeof c & { activeSlug: string } => !!c.activeSlug)
+      .map((c) => ({ slug: c.activeSlug }));
   },
 });
 
@@ -233,49 +173,28 @@ export const requestConnection = mutation({
       .collect();
     const now = Date.now();
     const freshOnlineHosts = listFreshOnlineHosts(hosts, now);
-    if (freshOnlineHosts.length === 0) {
-      throw new Error("Agent offline");
-    }
-    const targetHost = pickTargetHost(freshOnlineHosts, hostId);
-    if (!targetHost) {
-      throw new Error("Selected agent unavailable");
-    }
+    if (freshOnlineHosts.length === 0) throw new Error("Agent offline");
 
-    const conflictRequest = { activeSlug: slug, hostId: targetHost._id };
-    const existing = await ctx.db
+    const targetHost = freshOnlineHosts.find((h) => h._id === hostId);
+    if (!targetHost) throw new Error("Selected agent unavailable");
+
+    await deleteConnectionsForSlug(ctx.db, slug);
+    const hostConn = await ctx.db
       .query("connections")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const request = { ...conflictRequest, browserSessionId };
-    let reusableConnId: Id<"connections"> | null = null;
-    for (const conn of existing) {
-      if (!connectionConflictsWithRequest(conn, conflictRequest)) continue;
-      if (reusableConnId === null && connectionMatchesRequest(conn, request)) {
-        reusableConnId = conn._id;
-        continue;
-      }
-      await ctx.db.delete(conn._id);
-    }
-
-    const connPatch = {
-      agentAnswer: undefined as string | undefined,
-      agentCandidates: [] as string[],
-      browserCandidates: [] as string[],
-      browserOffer,
-      browserSessionId,
-      createdAt: now,
-      hostId: targetHost._id,
-      activeSlug: slug,
-    };
-
-    if (reusableConnId) {
-      await ctx.db.patch(reusableConnId, connPatch);
-      return { _id: reusableConnId, slug };
-    }
+      .withIndex("by_host", (q) => q.eq("hostId", targetHost._id))
+      .first();
+    if (hostConn) await ctx.db.delete(hostConn._id);
 
     const id = await ctx.db.insert("connections", {
       userId,
-      ...connPatch,
+      hostId: targetHost._id,
+      activeSlug: slug,
+      browserSessionId,
+      browserOffer,
+      agentAnswer: undefined,
+      agentCandidates: [],
+      browserCandidates: [],
+      createdAt: now,
     });
 
     return { _id: id, slug };
@@ -313,26 +232,17 @@ export const takeoverConnection = mutation({
     const conn = await getConnectionByActiveSlug(ctx.db, slug);
     if (!conn || conn.userId !== userId) throw new Error("Connection not found");
 
-    const hosts = await ctx.db
-      .query("hosts")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const freshOnlineHosts = listFreshOnlineHosts(hosts, Date.now());
-    if (freshOnlineHosts.length === 0) throw new Error("Agent offline");
-    const targetHost = pickTargetHost(freshOnlineHosts, conn.hostId);
-    if (!targetHost) throw new Error("Agent offline");
+    const host = await ctx.db.get(conn.hostId);
+    if (!host || !isFreshHost(host, Date.now())) throw new Error("Agent offline");
 
-    const now = Date.now();
-    await ctx.db.insert("connections", {
-      userId: conn.userId,
-      hostId: targetHost._id,
-      activeSlug: slug,
+    await ctx.db.patch(conn._id, {
+      browserSessionId: sessionId,
+      browserOffer: undefined,
+      agentAnswer: undefined,
       agentCandidates: [],
       browserCandidates: [],
-      browserSessionId: sessionId,
-      createdAt: now,
+      createdAt: Date.now(),
     });
-    await ctx.db.delete(conn._id);
   },
 });
 
@@ -369,23 +279,6 @@ export const updateActiveSlug = mutation({
     }
 
     await ctx.db.patch(connectionId, { activeSlug });
-  },
-});
-
-export const listActiveConnections = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-
-    const conns = await ctx.db
-      .query("connections")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    return conns
-      .filter((c): c is typeof c & { activeSlug: string } => !!c.activeSlug)
-      .map((c) => ({ slug: c.activeSlug }));
   },
 });
 
