@@ -2,9 +2,13 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e/specs",
-  fullyParallel: true,
+  // This suite is dominated by tall-viewport visual tests and heavy debug pages.
+  // Running everything fully parallel with the default worker count can starve
+  // browser page creation under local load, leading to fixture setup timeouts.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  workers: 4,
   reporter: "html",
   use: {
     baseURL: "http://127.0.0.1:3000",

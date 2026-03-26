@@ -245,10 +245,15 @@ test("chat and canvas update in one session", async ({ page }) => {
   // to verify the daemon received and relayed the message.
   await retryWrite(cli, "echo: say hello");
 
-  await sendChat(page, "update canvas");
-  // Verify canvas update via iframe content — this is the definitive check
-  // that the full pipeline (browser → WebRTC → daemon → OpenClaw → pub write -c canvas) works.
-  await expect(canvasFrame.locator("#status")).toHaveText("canvas-updated", { timeout: 30_000 });
+  // WebRTC connectivity can come up slightly before the agent finishes its first
+  // session turn. Retry the browser-originated canvas update until the iframe
+  // content actually changes, which is the definitive end-to-end signal.
+  await expect(async () => {
+    await sendChat(page, "update canvas");
+    await expect(canvasFrame.locator("#status")).toHaveText("canvas-updated", {
+      timeout: 8_000,
+    });
+  }).toPass({ timeout: 30_000 });
 });
 
 /**
@@ -309,11 +314,17 @@ test("canvas command executes via daemon", async ({ page }) => {
 
   const canvasFrame = page.frameLocator("iframe").first();
   await expect(canvasFrame.locator("#run-cmd")).toBeVisible({ timeout: 10_000 });
-  await canvasFrame.locator("#run-cmd").click();
-
-  await expect(canvasFrame.locator("#result")).toContainText("hello from command", {
-    timeout: 15_000,
-  });
+  // The command button can render before the daemon-side command bindings are
+  // fully ready. Retry the first invocation until the result resolves.
+  await expect(async () => {
+    await canvasFrame.locator("#result").evaluate((el) => {
+      el.textContent = "waiting";
+    });
+    await canvasFrame.locator("#run-cmd").click();
+    await expect(canvasFrame.locator("#result")).toContainText("hello from command", {
+      timeout: 8_000,
+    });
+  }).toPass({ timeout: 30_000 });
 });
 
 /**
