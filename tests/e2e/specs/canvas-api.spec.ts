@@ -5,7 +5,7 @@
  * text and JSON return types. Agent commands require `invokeAgentCommand`
  * support, which is limited to LLM-backed bridges.
  */
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
 import {
   AGENT_COMMAND_MODES,
@@ -17,13 +17,7 @@ import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
 import { addRule } from "../fixtures/mock-llm";
-
-async function waitForConnection(page: Page) {
-  const textbox = page.getByRole("textbox", { name: "Message" });
-  await textbox.fill("_");
-  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
-  await textbox.fill("");
-}
+import { waitForConnection } from "../helpers/live-test-utils";
 
 const AGENT_COMMAND_HTML = `<!DOCTYPE html>
 <html>

@@ -16,8 +16,11 @@ interface CommandRule {
 function readRules(): CommandRule[] {
   try {
     return JSON.parse(readFileSync(RULES_FILE, "utf-8")) as CommandRule[];
-  } catch {
-    return [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
   }
 }
 

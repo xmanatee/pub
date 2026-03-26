@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import type { PubBridgeConfig } from "../../../../core/config/index.js";
 import { resolveCommandFromPath } from "../command-path.js";
+import { shouldSkipClaudePermissionsPrompt } from "./permissions.js";
 
 function getConfiguredClaudeCodePath(
   env: NodeJS.ProcessEnv = process.env,
@@ -25,10 +26,6 @@ function parseConfiguredMaxTurns(value: string | undefined): number | undefined 
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function shouldSkipClaudePermissionsPrompt(): boolean {
-  return process.getuid?.() !== 0;
 }
 
 export function buildClaudeArgs(

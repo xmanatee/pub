@@ -31,7 +31,11 @@ if (exactCommandMatch?.[1]) {
 let rules = [];
 try {
   rules = JSON.parse(readFileSync(rulesFile, "utf-8"));
-} catch {}
+} catch (error) {
+  if (error?.code !== "ENOENT") {
+    throw error;
+  }
+}
 
 for (const rule of rules) {
   if (prompt.includes(rule.match)) {

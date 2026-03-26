@@ -1,14 +1,11 @@
 import { spawn } from "node:child_process";
 import type { LiveModelProfile } from "../../../../../../shared/live-model-profile.js";
 import { resolveClaudeLiveModel } from "../claude-live-model.js";
+import { shouldSkipClaudePermissionsPrompt } from "./permissions.js";
 
 interface ClaudeArgsSettings {
   claudeCodeMaxTurns?: number;
   liveModelProfile?: LiveModelProfile;
-}
-
-function shouldSkipClaudePermissionsPrompt(): boolean {
-  return process.getuid?.() !== 0;
 }
 
 export async function runClaudeCodePreflight(

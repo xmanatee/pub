@@ -14,20 +14,14 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
 import { ALL_BRIDGE_MODES, activeModes, createBridgeTestConfig } from "../fixtures/bridge-configs";
 import { clearBridgeRules, setupBridgeDefaultRules } from "../fixtures/bridge-test-helpers";
 import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
-
-async function waitForConnection(page: Page) {
-  const textbox = page.getByRole("textbox", { name: "Message" });
-  await textbox.fill("_");
-  await expect(page.getByLabel("Send message")).toBeEnabled({ timeout: 60_000 });
-  await textbox.fill("");
-}
+import { waitForConnection } from "../helpers/live-test-utils";
 
 for (const mode of activeModes(ALL_BRIDGE_MODES)) {
   test.describe(`[${mode}]`, () => {
