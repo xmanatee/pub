@@ -5,9 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveSelectedHost } from "~/features/live/model/agent-selection";
 import type { SessionState } from "~/features/live/types/live-types";
 
-const SESSION_STORAGE_PREFIX = "pub-live-session:";
-function getOrCreateSessionId(slug: string): string {
-  const key = `${SESSION_STORAGE_PREFIX}${slug}`;
+const BROWSER_SESSION_STORAGE_KEY = "pub-live-browser-session";
+
+function getOrCreateSessionId(): string {
+  const key = BROWSER_SESSION_STORAGE_KEY;
   const existing = sessionStorage.getItem(key);
   if (existing) return existing;
   const id = crypto.randomUUID();
@@ -47,7 +48,7 @@ export function useLiveSessionModel(slug: string, defaultAgentName: string | nul
   const takeoverConnectionMutation = useMutation(api.connections.takeoverConnection);
   const closeConnectionMutation = useMutation(api.connections.closeConnectionByUser);
 
-  const browserSessionId = useMemo(() => getOrCreateSessionId(slug), [slug]);
+  const browserSessionId = useMemo(() => getOrCreateSessionId(), []);
   const [wasConnected, setWasConnected] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [selectedHostId, setSelectedHostId] = useState<Id<"hosts"> | null>(null);

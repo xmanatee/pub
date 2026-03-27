@@ -74,4 +74,42 @@ describe("BrowserBridge ack routing", () => {
       }),
     );
   });
+
+  it("uses the relay timeout when TURN servers are configured", async () => {
+    const bridge = new BrowserBridge() as unknown as {
+      connectionTimeoutMs: number;
+      createOffer: (iceConfig: {
+        iceServers: Array<{ urls: string | string[] }>;
+        transportPolicy?: RTCIceTransportPolicy;
+      }) => Promise<string>;
+      openChannel: (name: string) => void;
+      setupPeerCallbacks: () => void;
+      setRuntimeState: (state: unknown) => void;
+      armInitialConnectionTimeout: () => void;
+    };
+
+    const pc = {
+      iceGatheringState: "complete",
+      createOffer: vi.fn(async () => ({ sdp: "offer", type: "offer" })),
+      setLocalDescription: vi.fn(async () => {}),
+      localDescription: { sdp: "offer", type: "offer" },
+    };
+
+    vi.stubGlobal(
+      "RTCPeerConnection",
+      vi.fn(() => pc),
+    );
+    bridge.openChannel = vi.fn();
+    bridge.setupPeerCallbacks = vi.fn();
+    bridge.setRuntimeState = vi.fn();
+    bridge.armInitialConnectionTimeout = vi.fn();
+
+    await bridge.createOffer({
+      iceServers: [{ urls: "turn:turn.example.com:3478" }],
+      transportPolicy: "relay",
+    });
+
+    expect(bridge.connectionTimeoutMs).toBe(45_000);
+    vi.unstubAllGlobals();
+  });
 });

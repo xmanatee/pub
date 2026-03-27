@@ -167,4 +167,47 @@ describe("useLiveSessionModel", () => {
     expect(states.at(-1)?.availableAgents).toEqual([]);
     expect(states.at(-1)?.agentOnline).toBe(false);
   });
+
+  it("reuses the same browser session id after navigating to another pub in the same tab", async () => {
+    const states: Array<ReturnType<typeof useLiveSessionModel>> = [];
+
+    queryState.live = null;
+    queryState.availableAgents = [{ hostId: "presence-1", agentName: "Agent" }];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<HookHarness slug="pub-a" onChange={(value) => states.push(value)} />);
+    });
+
+    await act(async () => {
+      await states.at(-1)?.storeBrowserOffer({ slug: "pub-a", offer: "offer-a" });
+    });
+
+    expect(mutationMock).toHaveBeenCalledWith({
+      browserOffer: "offer-a",
+      browserSessionId: "session-a",
+      hostId: "presence-1",
+      slug: "pub-a",
+    });
+
+    mutationMock.mockClear();
+
+    await act(async () => {
+      root?.render(<HookHarness slug="pub-b" onChange={(value) => states.push(value)} />);
+    });
+
+    await act(async () => {
+      await states.at(-1)?.storeBrowserOffer({ slug: "pub-b", offer: "offer-b" });
+    });
+
+    expect(mutationMock).toHaveBeenCalledWith({
+      browserOffer: "offer-b",
+      browserSessionId: "session-a",
+      hostId: "presence-1",
+      slug: "pub-b",
+    });
+  });
 });

@@ -66,7 +66,8 @@ test.describe("canvas render error", () => {
       .toBe(true);
     await canvasFrame.locator("#throw").click();
 
-    await page.getByRole("menuitem", { name: "Chat view" }).dispatchEvent("click");
+    await expect(page.getByLabel("Open chat")).toBeVisible({ timeout: 15_000 });
+    await page.getByLabel("Open chat").click();
 
     // Render errors are stored as durable system messages; the canvas preview
     // is only a notification layer on top of this state.

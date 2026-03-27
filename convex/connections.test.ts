@@ -60,6 +60,23 @@ describe("resolveConnectionRequest", () => {
     ).toThrow("Selected agent is busy with another pub.");
   });
 
+  it("refreshes the host connection when the same browser session navigates to another pub", () => {
+    const result = resolveConnectionRequest({
+      browserSessionId: "session-a",
+      slugConnection: null,
+      hostConnection: {
+        _id: connectionId("conn-b"),
+        activeSlug: "other",
+        browserSessionId: "session-a",
+      },
+    });
+
+    expect(result).toEqual({
+      type: "refresh",
+      connectionId: connectionId("conn-b"),
+    });
+  });
+
   it("inserts a new connection when the slug and host are both free", () => {
     const result = resolveConnectionRequest({
       browserSessionId: "session-a",
