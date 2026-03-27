@@ -55,6 +55,7 @@ type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 const DEDUP_MAX_SIZE = 10_000;
 const INITIAL_RELAY_CANDIDATE_WAIT_MS = 250;
 const INITIAL_CONNECTION_TIMEOUT_MS = 15_000;
+const RELAY_CONNECTION_TIMEOUT_MS = 45_000;
 
 /**
  * Give TURN a brief head start without blocking the whole offer on full ICE
@@ -127,6 +128,7 @@ export class BrowserBridge {
   private runtimeState: LiveRuntimeStateSnapshot = { ...IDLE_LIVE_RUNTIME_STATE };
   private onProfileMark: ((label: string) => void) | null = null;
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+  private connectionTimeoutMs = INITIAL_CONNECTION_TIMEOUT_MS;
 
   markOfferSent(): void {
     this.offerSent = true;
@@ -175,6 +177,14 @@ export class BrowserBridge {
   }
 
   async createOffer(iceConfig: IceConfig): Promise<string> {
+    const hasRelay = iceConfig.iceServers.some((s) => {
+      const urls = typeof s.urls === "string" ? [s.urls] : s.urls;
+      return urls.some((u) => u.startsWith("turn:") || u.startsWith("turns:"));
+    });
+    this.connectionTimeoutMs = hasRelay
+      ? RELAY_CONNECTION_TIMEOUT_MS
+      : INITIAL_CONNECTION_TIMEOUT_MS;
+
     const pc = new RTCPeerConnection({
       iceServers: iceConfig.iceServers as RTCIceServer[],
       iceTransportPolicy: iceConfig.transportPolicy,
@@ -198,10 +208,6 @@ export class BrowserBridge {
     // Give TURN a short head start, but do not block offer creation on full
     // ICE gathering. Remaining candidates are sent through the regular
     // browser-candidate signaling path.
-    const hasRelay = iceConfig.iceServers.some((s) => {
-      const urls = typeof s.urls === "string" ? [s.urls] : s.urls;
-      return urls.some((u) => u.startsWith("turn:") || u.startsWith("turns:"));
-    });
     if (hasRelay) {
       await waitForInitialRelayCandidate(pc, () => this.iceCandidates.length > 0);
     }
@@ -557,7 +563,7 @@ export class BrowserBridge {
       console.warn("Peer connection timed out before reaching a connected state");
       this.disposePeerConnection();
       this.setState("disconnected");
-    }, INITIAL_CONNECTION_TIMEOUT_MS);
+    }, this.connectionTimeoutMs);
   }
 
   private clearInitialConnectionTimeout(): void {
