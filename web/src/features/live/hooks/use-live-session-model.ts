@@ -134,6 +134,7 @@ export function useLiveSessionModel(slug: string, defaultAgentName: string | nul
     clearSessionError,
     closeLive,
     connectionAttempt,
+    lastTakeoverAt: live?.takeoverAt,
     live,
     markBridgeConnected,
     resetSession,

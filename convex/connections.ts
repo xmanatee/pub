@@ -10,6 +10,21 @@ import { hashApiKey } from "./utils";
 
 const MAX_CANDIDATES = 50;
 
+type ConnectionSnapshot = {
+  _id: Id<"connections">;
+  activeSlug?: string;
+  browserSessionId?: string;
+};
+
+type ConnectionRequestResolution =
+  | {
+      type: "insert";
+    }
+  | {
+      type: "refresh";
+      connectionId: Id<"connections">;
+    };
+
 async function getConnectionByActiveSlug(db: GenericDatabaseReader<DataModel>, slug: string) {
   return db
     .query("connections")
@@ -58,6 +73,42 @@ export async function deleteConnectionsForSlug(db: GenericDatabaseWriter<DataMod
   }
 }
 
+export function resolveConnectionRequest(params: {
+  browserSessionId: string;
+  hostConnection: ConnectionSnapshot | null;
+  slugConnection: ConnectionSnapshot | null;
+}): ConnectionRequestResolution {
+  const { browserSessionId, hostConnection, slugConnection } = params;
+
+  if (slugConnection) {
+    if (slugConnection.browserSessionId && slugConnection.browserSessionId !== browserSessionId) {
+      throw new Error("Live session is active on another device. Take over to continue.");
+    }
+
+    if (hostConnection && hostConnection._id !== slugConnection._id) {
+      throw new Error("Selected agent is busy with another pub.");
+    }
+
+    return {
+      type: "refresh",
+      connectionId: slugConnection._id,
+    };
+  }
+
+  if (hostConnection) {
+    if (hostConnection.browserSessionId && hostConnection.browserSessionId !== browserSessionId) {
+      throw new Error("Selected agent is busy with another pub.");
+    }
+
+    return {
+      type: "refresh",
+      connectionId: hostConnection._id,
+    };
+  }
+
+  return { type: "insert" };
+}
+
 export const getConnectionBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
@@ -74,6 +125,7 @@ export const getConnectionBySlug = query({
       activeSlug: conn.activeSlug,
       hostId: conn.hostId,
       agentName: host?.agentName,
+      takeoverAt: conn.takeoverAt,
       browserOffer: conn.browserOffer,
       agentAnswer: conn.agentAnswer,
       agentCandidates: conn.agentCandidates,
@@ -178,24 +230,37 @@ export const requestConnection = mutation({
     const targetHost = freshOnlineHosts.find((h) => h._id === hostId);
     if (!targetHost) throw new Error("Selected agent unavailable");
 
-    await deleteConnectionsForSlug(ctx.db, slug);
+    const slugConn = await getConnectionByActiveSlug(ctx.db, slug);
     const hostConn = await ctx.db
       .query("connections")
       .withIndex("by_host", (q) => q.eq("hostId", targetHost._id))
       .first();
-    if (hostConn) await ctx.db.delete(hostConn._id);
 
-    const id = await ctx.db.insert("connections", {
+    const resolution = resolveConnectionRequest({
+      browserSessionId,
+      slugConnection: slugConn,
+      hostConnection: hostConn,
+    });
+
+    const nextState = {
       userId,
       hostId: targetHost._id,
       activeSlug: slug,
       browserSessionId,
+      takeoverAt: undefined,
       browserOffer,
       agentAnswer: undefined,
       agentCandidates: [],
       browserCandidates: [],
       createdAt: now,
-    });
+    };
+
+    if (resolution.type === "refresh") {
+      await ctx.db.patch(resolution.connectionId, nextState);
+      return { _id: resolution.connectionId, slug };
+    }
+
+    const id = await ctx.db.insert("connections", nextState);
 
     return { _id: id, slug };
   },
@@ -235,8 +300,10 @@ export const takeoverConnection = mutation({
     const host = await ctx.db.get(conn.hostId);
     if (!host || !isFreshHost(host, Date.now())) throw new Error("Agent offline");
 
+    const takeoverAt = conn.browserSessionId === sessionId ? conn.takeoverAt : Date.now();
     await ctx.db.patch(conn._id, {
       browserSessionId: sessionId,
+      takeoverAt,
       browserOffer: undefined,
       agentAnswer: undefined,
       agentCandidates: [],

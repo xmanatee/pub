@@ -86,6 +86,7 @@ export default defineSchema({
     userId: v.id("users"),
     hostId: v.id("hosts"),
     browserSessionId: v.optional(v.string()),
+    takeoverAt: v.optional(v.number()),
     browserOffer: v.optional(v.string()),
     agentAnswer: v.optional(v.string()),
     agentCandidates: v.array(v.string()),
