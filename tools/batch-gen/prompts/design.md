@@ -58,6 +58,9 @@ One sentence on motion personality (crisp, flowing, bouncy, cinematic, glitchy).
 Avoid generic AI-generated design hallmarks:
 - Safe muted palettes, Inter/Roboto, symmetric grids, drop shadows everywhere
 - Purple/blue gradients on white, identical cards, generic copy ("Welcome to...")
+- Branding, marketing copy, hero sections — the output is a tool, not a landing page
+- Emojis as UI elements or labels
+- AI features bolted on without clear purpose — if AI is part of the design, it must have complete context and be optional
 </anti_patterns>
 
 <guidance>

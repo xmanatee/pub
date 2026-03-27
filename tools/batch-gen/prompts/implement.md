@@ -16,7 +16,7 @@ Create two files in the current directory:
 - `<!DOCTYPE html>`, `<html lang="en">`, charset UTF-8.
 - `<meta name="viewport" content="width=device-width, initial-scale=1">`.
 - **Max 10 KB total file size.** This is a hard limit. Stay well under it.
-- External CDN scripts and Google Fonts via `<link>` are allowed (script-src permits `https:`).
+- External CDN scripts and Google Fonts via `<link>` are allowed.
 - No other external files.
 
 The page runs in a sandboxed cross-origin iframe with `allow-same-origin`, so it has access to:
@@ -181,19 +181,42 @@ waitForPub();
 This should feel like a finished product, not a prototype.
 
 - **Performance**: Smooth 60fps. `requestAnimationFrame` for render loops. Debounce resize handlers.
-- **Responsive**: Works from 320px to 1920px. No horizontal scrollbars. Touch-friendly tap targets (min 44px).
+- **Responsive**: Mobile-first — works from 320px to 1920px. No horizontal scrollbars. Touch-friendly tap targets (min 44px).
 - **Accessible**: Sufficient color contrast (WCAG AA). `prefers-reduced-motion` for heavy animations.
-- **Clean code**: Modern ES2020+. CSS custom properties. Semantic HTML. No comments.
+- **Clean code**: Modern ES2020+. Semantic HTML. No comments.
+- **Interactions**: One clear path per task. Auto-fill and pre-select when there is one obvious choice. Show results inline — avoid modals or navigation when the result fits in the current view. Every visible control must work.
+- **AI features**: Only when the UI provides enough context for useful output, always optional and secondary to the primary flow, always with a loading state.
 </quality_standards>
+
+<stack>
+DaisyUI 5 + Tailwind CSS 4 via CDN:
+```html
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+```
+- **Components**: daisyUI classes for all UI elements — `btn`, `card`, `input`, `select`, `table`, `alert`, `badge`, `tabs`, `menu`, `modal`, `drawer`, `collapse`, `stat`, `toast`, `loading`, `skeleton`, `steps`, `progress`, etc. Modifiers for color (`-primary`, `-error`), size (`-sm`, `-lg`), variant (`-outline`, `-ghost`).
+- **Colors**: daisyUI semantic tokens only — `primary`, `secondary`, `accent`, `neutral`, `base-100`/`200`/`300`, `info`, `success`, `warning`, `error`.
+- **Layout**: Tailwind utilities — `flex`, `grid`, `gap-*`, `p-*`, responsive prefixes (`sm:`, `md:`, `lg:`).
+- **CDN libraries**: Add others when the design calls for them (Chart.js, Three.js, D3, Lucide, Google Fonts, etc.)
+</stack>
 
 <frontend_aesthetics>
 You tend to converge toward generic outputs. Fight this:
 
 - Use the fonts from the design doc. Never default to Inter/Roboto/system fonts.
-- Commit fully to the design palette via CSS custom properties.
+- Commit fully to the design palette via daisyUI theme customization or CSS custom properties.
 - Use physical easing (`cubic-bezier`), not linear. One polished entrance animation beats ten scattered hover effects.
-- Create atmosphere with backgrounds — gradients, subtle patterns, or contextual effects.
 </frontend_aesthetics>
+
+<never>
+- Inline styles (`style="..."`)
+- Arbitrary Tailwind values (`text-[...]`, `w-[...]`, `bg-[#...]`)
+- `z-index` — restructure DOM order or use daisyUI layering components (`drawer`, `modal`, `dropdown`)
+- Emojis in UI text or labels
+- Hardcoded color values — use daisyUI semantic tokens or CSS custom properties from the design
+- Branding, marketing copy, or decorative hero sections
+- Placeholder content when real data is available via commands
+</never>
 
 <meta_json>
 ```json
@@ -212,7 +235,7 @@ Write both files using the Write tool.
 <implementation_strategy>
 **Work in this order. Write the ENTIRE file at once — do NOT iterate or rewrite.**
 
-1. **Set up the foundation** — CSS custom properties for the full palette and typography. A few reusable keyframes (fade-in, pulse, slide). This is 20 lines and applies everywhere.
+1. **Set up the foundation** — CSS custom properties for design-doc palette overrides and a few reusable keyframes (fade-in, pulse, slide). daisyUI handles component styling; custom properties are only for the design's specific colors and fonts.
 2. **Build the layout and core functionality** — the main HTML structure and the JS that makes it work. If it's a game, the game loop. If it uses commands, the manifest and call logic.
 3. **Apply the visual identity** — the design spec's palette, fonts, and texture, using the custom properties from step 1.
 4. **Add motion** — 2-3 key animations via CSS classes. Don't write bespoke animations for individual elements — use the shared keyframes.
@@ -221,7 +244,7 @@ Write both files using the Write tool.
 **Hard limit: 10 KB.** If the design spec describes more than fits in 10 KB, prioritize functionality and visual identity. Skip minor interactions and animation details. The design spec describes the *direction* — you implement the *essence*, not every detail.
 
 **Architectural rules:**
-- CSS custom properties for all colors and fonts — the theme is centralized, not scattered.
+- daisyUI component classes for UI; Tailwind utilities for layout. CSS custom properties for design-doc palette overrides.
 - Reusable CSS keyframes and transition classes — apply via `.fade-in`, `.pulse`, not inline per-element.
 - Concise JS. Event delegation, template literals, `requestAnimationFrame` for render loops.
 - CSS transitions/animations over JS-driven animation.

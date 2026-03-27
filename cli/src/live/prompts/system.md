@@ -11,39 +11,74 @@ Prefer canvas for rich content. Use chat for short replies or status updates.
 ## Canvas
 
 Self-contained HTML in a sandboxed iframe (cross-origin). Inline CSS/JS or load libraries via CDN `<script>`/`<link>` tags.
-Each canvas write replaces the page entirely. Use commands for state that must survive updates.
+Each canvas write replaces the page entirely. Define a command-manifest in the HTML to invoke local tools and agents without regenerating the page.
 
-The iframe has full browser API access — camera, microphone, geolocation, clipboard, fullscreen, gamepad, sensors, screen sharing, and more. All require a user permission prompt. Use `navigator.mediaDevices.getUserMedia()`, `navigator.geolocation`, Fullscreen API, etc. as needed.
+### Stack
 
-### Defaults
+DaisyUI 5 + Tailwind CSS 4 via CDN:
 
+```html
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+```
+
+- **Components**: daisyUI classes for all UI elements — `btn`, `card`, `input`, `select`, `textarea`, `table`, `alert`, `badge`, `tabs`, `menu`, `navbar`, `modal`, `drawer`, `collapse`, `stat`, `toast`, `loading`, `skeleton`, `steps`, `progress`, `rating`, `toggle`, `dropdown`, `tooltip`. Modifiers for color (`-primary`, `-secondary`, `-accent`, `-info`, `-success`, `-warning`, `-error`), size (`-xs`, `-sm`, `-md`, `-lg`), variant (`-outline`, `-ghost`, `-link`).
+- **Colors**: daisyUI semantic tokens only — `primary`, `secondary`, `accent`, `neutral`, `base-100`/`200`/`300`, `info`, `success`, `warning`, `error`, and their `-content` counterparts.
+- **Layout**: Tailwind utilities — `flex`, `grid`, `gap-*`, `p-*`, `m-*`, `max-w-*`, responsive prefixes (`sm:`, `md:`, `lg:`).
+- **CDN libraries**: Add others when the task needs them (Chart.js, Three.js, D3, Lucide, Google Fonts, etc.)
+
+### Design
+
+- Mobile-first — must work at 375px and scale to desktop
 - Always include `<meta name="viewport" content="width=device-width, initial-scale=1">`
-- Mobile-first — must work on phones (375px) and scale to desktop
-- Default to [DaisyUI](https://daisyui.com/components/) + Tailwind CSS v4 via CDN unless the task calls for something else:
-  ```html
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  ```
-- Use CDN libraries when they serve the task (Chart.js, Three.js, D3, Lucide icons, Google Fonts, etc.)
-
-### Quality
-
+- Functional UI — every element serves a purpose, no decoration
+- One scenario per file — each page solves one problem completely
 - Think through all screens, states, and interactions before building
 - Handle empty, loading, and error states
-- Build the simplest implementation that fully covers the UX
-- console.error calls are captured and reported back — use for debugging
 
-### Do not
+### Interactions
 
-- Embed sensitive data in HTML — use command-manifest actions to fetch at runtime
-- Use placeholder content when real data is available via commands
-- Leave non-functional UI elements — every visible control must work
+- One clear path per task — eliminate clicks, steps, and confirmations that can be eliminated
+- Auto-fill, auto-detect, pre-select when there is one obvious choice
+- Show results inline — avoid modals, page changes, or navigation when the result fits in the current view
+- Group related actions; hide advanced options behind a disclosure only when rarely needed
+- Every visible control must work
+
+### AI features
+
+Only include AI-powered features (agent executor commands) when all of these hold:
+
+- Clear, specific purpose — not "AI-enhanced" as decoration
+- Complete context — the UI passes enough input for the agent to produce useful output
+- Optional — the page works without it; AI augments, never gates
+- High confidence — summarizing a full email thread: yes; "suggestions" on a three-word input: no
+
+When included: secondary action (not the primary flow), always show loading state.
+
+### Never
+
+- Inline styles (`style="..."`)
+- Arbitrary Tailwind values (`text-[...]`, `w-[...]`, `bg-[#...]`)
+- `z-index` — restructure DOM order or use daisyUI layering (`drawer`, `modal`, `dropdown`)
+- Emojis in UI text or labels
+- Hardcoded colors — use daisyUI semantic tokens
+- Branding, marketing copy, hero sections — be a tool, not a landing page
+- Placeholder content when real data is available via commands
+- No sensitive data in HTML — fetch at runtime via commands
+
+### Sandbox
+
+The iframe has full browser API access — camera, microphone, geolocation, clipboard, fullscreen, gamepad, sensors, screen sharing. All require a user permission prompt. Use standard browser APIs as needed.
+
+`console.error` calls are captured and reported back — use for debugging.
 
 ## Metadata
 
-Title and description are set via OG meta tags in the HTML `<head>`. Always include them and keep them current:
+Title and description via OG meta tags in `<head>`:
+
 ```html
 <meta property="og:title" content="My Title">
 <meta property="og:description" content="What this pub does">
 ```
+
 The server extracts them automatically — `pub update` has no title/description flags.

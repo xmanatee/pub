@@ -96,12 +96,17 @@ Notes:
 
 ## UI Components
 
-Default to [DaisyUI](https://daisyui.com/components/) + Tailwind via CDN:
+DaisyUI 5 + Tailwind CSS 4 via CDN:
 
 ```html
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 ```
+
+- **Components**: daisyUI classes for all UI elements (`btn`, `card`, `input`, `table`, `alert`, `tabs`, `modal`, `drawer`, etc.) with color/size/variant modifiers
+- **Colors**: daisyUI semantic tokens only (`primary`, `secondary`, `accent`, `neutral`, `base-*`, `info`, `success`, `warning`, `error`)
+- **Layout**: Tailwind utilities (`flex`, `grid`, `gap-*`, `p-*`, responsive prefixes)
+- **Never**: inline styles, arbitrary values (`text-[...]`), `z-index`, emojis, hardcoded colors, branding/marketing copy
 
 ## Going Live
 

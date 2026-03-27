@@ -19,7 +19,7 @@ Read all available files. Start with `test-report.json` — errors there are con
 - Race conditions (e.g., calling `pub.commands` before `pub` is injected)
 - Invalid command manifest JSON — wrong structure, missing fields
 - Incorrect `{{paramName}}` template interpolations
-- Sandbox violations — `localStorage`, `sessionStorage`, `document.cookie`, cross-origin `fetch`
+- Sandbox violations — no `parent`, `top`, or `window.opener` access; no programmatic top-frame navigation
 
 ### 2. Command System (if tool-powered)
 - `waitForPub()` pattern used before calling commands
@@ -27,7 +27,16 @@ Read all available files. Start with `test-report.json` — errors there are con
 - Loading states shown while commands execute
 - Manifest uses correct executor kinds (`exec`, `shell`, `agent`) with proper fields
 
-### 3. Meta
+### 3. Style Rules
+- All UI elements use daisyUI component classes (`btn`, `card`, `input`, `table`, `alert`, etc.)
+- Colors use daisyUI semantic tokens only — no hardcoded hex/rgb/hsl values
+- No inline styles (`style="..."`)
+- No arbitrary Tailwind values (`text-[...]`, `w-[...]`, `bg-[#...]`)
+- No `z-index`
+- No emojis in UI text or labels
+- No branding, marketing copy, or decorative hero sections
+
+### 4. Meta
 - `meta.json` has valid `title` (≤100 chars), `slug` (kebab-case, 1-64 chars, `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`), `description` (≤200 chars)
 
 </review_checklist>
