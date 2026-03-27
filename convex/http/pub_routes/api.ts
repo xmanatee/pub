@@ -23,7 +23,7 @@ import {
 
 const DEFAULT_INDEX_HTML = "";
 
-function toLegacyFiles(content: string): Record<string, string> {
+function toSingleFileMap(content: string): Record<string, string> {
   return { "index.html": content };
 }
 
@@ -73,8 +73,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       const files =
         body.files ??
         (typeof body.content === "string"
-          ? toLegacyFiles(body.content)
-          : toLegacyFiles(DEFAULT_INDEX_HTML));
+          ? toSingleFileMap(body.content)
+          : toSingleFileMap(DEFAULT_INDEX_HTML));
 
       const validation = validateFiles(files);
       if (!validation.ok) return errorResponse(validation.error, 400);
@@ -285,7 +285,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       const files =
-        body.files ?? (typeof body.content === "string" ? toLegacyFiles(body.content) : undefined);
+        body.files ??
+        (typeof body.content === "string" ? toSingleFileMap(body.content) : undefined);
       if (files) {
         const validation = validateFiles(files);
         if (!validation.ok) return errorResponse(validation.error, 400);

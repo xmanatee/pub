@@ -21,13 +21,32 @@ export class ApiClient {
     };
   }
 
+  private normalizePubBody(data: {
+    slug?: string;
+    content?: string;
+    files?: Record<string, string>;
+    isPublic?: boolean;
+  }): Record<string, unknown> {
+    if (data.files) return data;
+    if (data.content === undefined) return data;
+    const { content, ...rest } = data;
+    return {
+      ...rest,
+      files: { "index.html": content },
+    };
+  }
+
   // — Pub CRUD —
 
-  async createPub(data: { slug?: string; content?: string }): Promise<Response> {
+  async createPub(data: {
+    slug?: string;
+    content?: string;
+    files?: Record<string, string>;
+  }): Promise<Response> {
     return fetch(`${this.baseUrl}/api/v1/pubs`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(this.normalizePubBody(data)),
     });
   }
 
@@ -45,12 +64,17 @@ export class ApiClient {
 
   async updatePub(
     slug: string,
-    data: { content?: string; isPublic?: boolean; slug?: string },
+    data: {
+      content?: string;
+      files?: Record<string, string>;
+      isPublic?: boolean;
+      slug?: string;
+    },
   ): Promise<Response> {
     return fetch(`${this.baseUrl}/api/v1/pubs/${encodeURIComponent(slug)}`, {
       method: "PATCH",
       headers: this.headers(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(this.normalizePubBody(data)),
     });
   }
 

@@ -1,7 +1,3 @@
-/**
- * Shared utilities for live session E2E tests.
- * Extracted from live-session.spec.ts to keep specs focused on test logic.
- */
 import { expect, type Page } from "@playwright/test";
 import type { CliFixture } from "../fixtures/cli";
 
@@ -21,10 +17,6 @@ export async function retryWrite(
   }
 }
 
-/**
- * Ensure the page is in live mode, then wait for the WebRTC connection by
- * filling a dummy message and checking the send button becomes enabled.
- */
 export async function waitForConnection(page: Page) {
   const textbox = page.getByRole("textbox", { name: "Message" });
   const connectButton = page.getByRole("button", { name: "Connect agent" });
@@ -59,10 +51,6 @@ export async function waitForConnection(page: Page) {
   await expect(sendButton).toBeEnabled({ timeout: 1 });
 }
 
-/**
- * Send a chat message via the control bar. Uses .fill() to bypass canvas
- * iframe hit-test interception.
- */
 export async function sendChat(page: Page, text: string) {
   const textbox = page.getByRole("textbox", { name: "Message" });
   const sendButton = page.getByLabel("Send message");
@@ -70,10 +58,6 @@ export async function sendChat(page: Page, text: string) {
   await expect(sendButton).toBeEnabled({ timeout: 60_000 });
   await sendButton.dispatchEvent("click");
 }
-
-// ---------------------------------------------------------------------------
-// Shared HTML templates for command tests
-// ---------------------------------------------------------------------------
 
 export const AUTO_INVOKE_HTML = `<!DOCTYPE html>
 <html>

@@ -1,16 +1,3 @@
-/**
- * CLI fixture for E2E tests.
- * Manages the `pub` CLI daemon lifecycle, config, and commands.
- *
- * Bridge-mode parameterized: accepts a BridgeTestConfig that controls
- * which bridge mode the daemon uses and which env vars are set.
- *
- * Cleanup strategy:
- *  1. Try `pub stop` (graceful IPC shutdown)
- *  2. If daemon PID is tracked, SIGTERM → wait → SIGKILL
- *  3. Remove socket file
- *  4. Remove temp config dir
- */
 import { execFileSync, execSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -30,7 +17,14 @@ const CLI_BUILD_DIR = resolve(__dirname, "../../../cli");
 interface DaemonInfo {
   pid: number;
   socketPath: string;
-  logPath: string;
+}
+
+function hasErrnoCode(error: unknown, code: string): boolean {
+  return (error as NodeJS.ErrnoException | undefined)?.code === code;
+}
+
+function isDaemonNotRunningError(error: unknown): boolean {
+  return String(error).includes("Agent daemon is not running.");
 }
 
 export class CliFixture {
@@ -127,20 +121,29 @@ export class CliFixture {
       const info: DaemonInfo = JSON.parse(raw);
       this.daemonPid = info.pid;
       this.socketPath = info.socketPath;
-    } catch {}
+    } catch (error) {
+      if (hasErrnoCode(error, "ENOENT")) return;
+      throw error;
+    }
   }
 
   /** Wait for daemon status to contain a specific keyword. */
   async waitForStatus(keyword: string, timeoutMs = 15_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
+    let lastError: unknown = null;
     while (Date.now() < deadline) {
       try {
         const status = this.getStatus();
         if (status.includes(keyword)) return;
-      } catch {}
+      } catch (error) {
+        lastError = error;
+      }
       await new Promise((r) => setTimeout(r, 1_000));
     }
-    throw new Error(`Timed out waiting for status to contain "${keyword}" after ${timeoutMs}ms`);
+    const suffix = lastError ? ` Last error: ${String(lastError)}` : "";
+    throw new Error(
+      `Timed out waiting for status to contain "${keyword}" after ${timeoutMs}ms.${suffix}`,
+    );
   }
 
   /** Get daemon status as raw string. */
@@ -159,7 +162,10 @@ export class CliFixture {
   stop(): void {
     try {
       this.run(["stop"], 15_000);
-    } catch {}
+    } catch (error) {
+      if (isDaemonNotRunningError(error)) return;
+      throw error;
+    }
   }
 
   /** Force-kill the daemon process if still alive. */
