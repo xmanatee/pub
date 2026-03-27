@@ -1,7 +1,7 @@
 import { api } from "@backend/_generated/api";
 import type { Id } from "@backend/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveSelectedHost } from "~/features/live/model/agent-selection";
 import type { SessionState } from "~/features/live/types/live-types";
 
@@ -21,9 +21,25 @@ function errorMessage(error: unknown): string {
   return "Connection request failed";
 }
 
+function useRetainedQueryValue<T>(value: T | undefined, resetKey: string): T | undefined {
+  const lastKeyRef = useRef(resetKey);
+  const retainedRef = useRef<T | undefined>(value);
+
+  if (lastKeyRef.current !== resetKey) {
+    lastKeyRef.current = resetKey;
+    retainedRef.current = value;
+  } else if (value !== undefined) {
+    retainedRef.current = value;
+  }
+
+  return value ?? retainedRef.current;
+}
+
 export function useLiveSessionModel(slug: string, defaultAgentName: string | null) {
-  const live = useQuery(api.connections.getConnectionBySlug, { slug });
-  const availableAgents = useQuery(api.presence.listAvailableForSlug, { slug });
+  const liveQuery = useQuery(api.connections.getConnectionBySlug, { slug });
+  const availableAgentsQuery = useQuery(api.presence.listAvailableForSlug, { slug });
+  const live = useRetainedQueryValue(liveQuery, slug);
+  const availableAgents = useRetainedQueryValue(availableAgentsQuery, slug);
   const agentOnline = availableAgents === undefined ? undefined : availableAgents.length > 0;
 
   const requestConnectionMutation = useMutation(api.connections.requestConnection);
