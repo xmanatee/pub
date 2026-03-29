@@ -36,7 +36,6 @@ interface BridgeProvider {
     options: { strictConfig: boolean },
   ): Promise<BridgeStartupProbeResult>;
   createRunner(config: BridgeRunnerConfig, abortSignal?: AbortSignal): Promise<BridgeRunner>;
-  prepareAutoDetectConfig?(bridgeConfig?: PubBridgeConfig): PubBridgeConfig | undefined;
 }
 
 interface BridgeStartupProbeResult {
@@ -111,14 +110,10 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
           openclawPath: runtime.openclawPath,
           openclawStateDir: env.OPENCLAW_STATE_DIR?.trim() || bridgeConfig?.openclawStateDir,
           sessionId: runtime.sessionId,
-          bridgeCwd: env.OPENCLAW_WORKSPACE?.trim(),
         },
       };
     },
     createRunner: createOpenClawBridgeRunner,
-    prepareAutoDetectConfig(bridgeConfig?: PubBridgeConfig) {
-      return bridgeConfig ? { ...bridgeConfig, bridgeCwd: undefined } : { bridgeCwd: undefined };
-    },
   },
   {
     mode: "claude-sdk" as const,
@@ -157,7 +152,6 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
             env,
             bridgeConfig?.claudeCodeMaxTurns,
           ),
-          bridgeCwd: runtime.cwd,
         },
       };
     },
@@ -194,7 +188,6 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
             env,
             bridgeConfig?.claudeCodeMaxTurns,
           ),
-          bridgeCwd: runtime.cwd,
         },
       };
     },
@@ -292,10 +285,7 @@ export async function autoDetectBridgeConfig(
   const attempts: BridgeAutoDetectAttempt[] = [];
 
   for (const provider of BRIDGE_PROVIDERS) {
-    const providerConfig = provider.prepareAutoDetectConfig
-      ? provider.prepareAutoDetectConfig(bridgeConfig)
-      : bridgeConfig;
-    const detection = provider.detect(env, providerConfig);
+    const detection = provider.detect(env, bridgeConfig);
     if (!detection.available) {
       attempts.push({
         mode: provider.mode,
@@ -307,7 +297,7 @@ export async function autoDetectBridgeConfig(
     }
 
     try {
-      const probe = await provider.startupProbe(env, providerConfig, { strictConfig: false });
+      const probe = await provider.startupProbe(env, bridgeConfig, { strictConfig: false });
       attempts.push({
         mode: provider.mode,
         available: true,

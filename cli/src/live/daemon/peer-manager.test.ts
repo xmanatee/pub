@@ -1,16 +1,28 @@
+import { encodeSessionDescription } from "../../../../shared/webrtc-negotiation-core";
 import { describe, expect, it, vi } from "vitest";
 import { createPeerManager } from "./peer-manager.js";
 import { createDaemonState } from "./state.js";
 
 type StateChangeCallback = (state: string) => void;
 type IceStateChangeCallback = (state: string) => void;
+type LocalDescriptionCallback = (sdp: string, type: string) => void;
+type GatheringStateChangeCallback = (state: string) => void;
 
 function makeMockPeer() {
   let stateChangeCb: StateChangeCallback | null = null;
   let iceStateChangeCb: IceStateChangeCallback | null = null;
+  let localDescriptionCb: LocalDescriptionCallback | null = null;
+  let gatheringStateCb: GatheringStateChangeCallback | null = null;
+  let localDescription: { sdp: string; type: string } | null = null;
 
   return {
     onLocalCandidate: vi.fn(),
+    onLocalDescription: vi.fn((cb: LocalDescriptionCallback) => {
+      localDescriptionCb = cb;
+    }),
+    onGatheringStateChange: vi.fn((cb: GatheringStateChangeCallback) => {
+      gatheringStateCb = cb;
+    }),
     onStateChange: vi.fn((cb: StateChangeCallback) => {
       stateChangeCb = cb;
     }),
@@ -21,9 +33,13 @@ function makeMockPeer() {
     close: vi.fn(async () => {}),
     createDataChannel: vi.fn(),
     addRemoteCandidate: vi.fn(async () => {}),
-    setRemoteDescription: vi.fn(async () => {}),
+    setRemoteDescription: vi.fn(async () => {
+      localDescription = { sdp: "answer-sdp", type: "answer" };
+      localDescriptionCb?.(localDescription.sdp, localDescription.type);
+      gatheringStateCb?.("complete");
+    }),
     createAnswer: vi.fn(async () => "answer"),
-    getLocalDescription: vi.fn(() => null),
+    localDescription: vi.fn(() => localDescription),
     emitStateChange: (state: string) => stateChangeCb?.(state),
     emitIceStateChange: (state: string) => iceStateChangeCb?.(state),
   };
@@ -42,6 +58,7 @@ function createTestPeerManager() {
   const handleConnectionClosed = vi.fn();
   const ensureAgentReady = vi.fn(async () => {});
   const flushQueuedAcks = vi.fn();
+  const commandHandlerBeginManifestLoad = vi.fn();
 
   const manager = createPeerManager({
     state,
@@ -61,13 +78,22 @@ function createTestPeerManager() {
     handleConnectionClosed,
     clearLocalCandidateTimers: vi.fn(),
     stopPingPong: vi.fn(),
+    commandHandlerBeginManifestLoad,
     commandHandlerStop: vi.fn(),
     pubFsHandlerReset: vi.fn(),
   });
 
   manager.createPeer([{ urls: "stun:stun.l.google.com:19302" }]);
 
-  return { mockPeer, state, handleConnectionClosed, ensureAgentReady, flushQueuedAcks };
+  return {
+    manager,
+    mockPeer,
+    state,
+    handleConnectionClosed,
+    ensureAgentReady,
+    flushQueuedAcks,
+    commandHandlerBeginManifestLoad,
+  };
 }
 
 describe("peer-manager state transitions", () => {
@@ -108,5 +134,18 @@ describe("peer-manager state transitions", () => {
     handleConnectionClosed.mockClear();
     mockPeer.emitIceStateChange("failed");
     expect(handleConnectionClosed).toHaveBeenCalledWith("ice-state:failed");
+  });
+
+  it("marks commands as loading as soon as a new live session starts negotiating", async () => {
+    const { manager, commandHandlerBeginManifestLoad, state } = createTestPeerManager();
+
+    const browserOffer = encodeSessionDescription({
+      sdp: "browser-offer-sdp",
+      type: "offer",
+    });
+    await manager.handleIncomingLive("demo-slug", browserOffer);
+
+    expect(state.signalingSlug).toBe("demo-slug");
+    expect(commandHandlerBeginManifestLoad).toHaveBeenCalledTimes(1);
   });
 });

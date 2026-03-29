@@ -1,9 +1,8 @@
 /**
  * Pub FS protocol — shared types for the Service Worker virtual filesystem.
  *
- * Enables generated HTML to access host files via `<video src="/__pub_files__/./video.mp4">`.
- * Prefer `/__pub_files__/./...` for files inside the current pub workspace;
- * absolute host paths still work when explicitly needed.
+ * Enables generated HTML to access files in the active pub workspace via
+ * `<video src="/__pub_files__/_/video.mp4">`.
  * Bytes flow: CLI → WebRTC "pub-fs" channel → main page → MessagePort → SW → Response.
  */
 

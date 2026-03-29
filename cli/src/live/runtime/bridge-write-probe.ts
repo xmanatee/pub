@@ -91,11 +91,7 @@ export async function runAgentWritePongProbe(params: {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       serverClosed = true;
     }
-    try {
-      fs.unlinkSync(socketPath);
-    } catch {
-      // best-effort cleanup for tmp socket
-    }
+    fs.rmSync(socketPath, { force: true });
   };
 
   try {

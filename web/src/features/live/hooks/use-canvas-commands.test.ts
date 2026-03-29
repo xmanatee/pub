@@ -38,6 +38,7 @@ interface HookHarnessProps {
   ) => Promise<boolean>;
   ensureChannel: (channel: string, timeoutMs?: number) => Promise<boolean>;
   canvasScopeKey?: string;
+  commandsPaused?: boolean;
   runtimeState?: LiveRuntimeStateSnapshot;
   liveMode: boolean;
   sessionKey?: string;
@@ -58,6 +59,7 @@ function HookHarness({
   sendWithAckOnChannel,
   ensureChannel,
   canvasScopeKey = "canvas-1",
+  commandsPaused = false,
   runtimeState = {
     agentActivity: "idle",
     agentState: "idle",
@@ -71,6 +73,7 @@ function HookHarness({
     sendWithAckOnChannel,
     ensureChannel,
     canvasScopeKey,
+    commandsPaused,
     runtimeState,
     liveMode,
     sessionKey,
@@ -201,7 +204,7 @@ describe("useCanvasCommands", () => {
   // Command dispatch – happy path
   // --------------------------------------------------------------------------
 
-  it("dispatches commands immediately when executor is ready", async () => {
+  it("dispatches commands immediately once the transport is connected", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
@@ -209,7 +212,7 @@ describe("useCanvasCommands", () => {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
-        executorState: "ready",
+        executorState: "loading",
       }),
       liveMode: true,
     });
@@ -271,11 +274,11 @@ describe("useCanvasCommands", () => {
   // Queue-then-drain: the core startup flow
   // --------------------------------------------------------------------------
 
-  it("queues commands until the executor becomes ready", async () => {
+  it("queues commands until the transport becomes connected", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
-    // Phase 1: executor is not ready yet
+    // Phase 1: transport is not connected yet
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({ connectionState: "idle" }),
@@ -289,24 +292,12 @@ describe("useCanvasCommands", () => {
     expect(latestHook?.command).toMatchObject({ phase: "idle" });
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
 
-    // Phase 2: connected but executor still loading
+    // Phase 2: transport connects; daemon owns executor readiness from here.
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
         executorState: "loading",
-      }),
-      liveMode: true,
-    });
-
-    expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
-
-    // Phase 3: executor finishes loading
-    await renderHarness(r, {
-      ...ops,
-      runtimeState: createRuntimeState({
-        connectionState: "connected",
-        executorState: "ready",
       }),
       liveMode: true,
     });
@@ -319,7 +310,7 @@ describe("useCanvasCommands", () => {
     expect(ops.sendWithAckOnChannel).toHaveBeenCalled();
   });
 
-  it("queues multiple commands and drains all of them when the executor is ready", async () => {
+  it("queues multiple commands and drains all of them when the transport connects", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
@@ -342,7 +333,7 @@ describe("useCanvasCommands", () => {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
-        executorState: "ready",
+        executorState: "loading",
       }),
       liveMode: true,
     });
@@ -355,7 +346,7 @@ describe("useCanvasCommands", () => {
   // Realistic startup sequence: closed → connecting → connected
   // --------------------------------------------------------------------------
 
-  it("handles realistic startup: closed → connecting → executor ready with queued commands", async () => {
+  it("handles realistic startup: closed → connecting → connected with queued commands", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
@@ -386,24 +377,12 @@ describe("useCanvasCommands", () => {
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
     expect(latestHook?.command.phase).toBe("idle");
 
-    // Step 4: WebRTC connected but executor still loading
+    // Step 4: WebRTC connected; daemon can accept the invoke even if it is still loading.
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
         executorState: "loading",
-      }),
-      liveMode: true,
-    });
-
-    expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
-
-    // Step 5: executor becomes ready
-    await renderHarness(r, {
-      ...ops,
-      runtimeState: createRuntimeState({
-        connectionState: "connected",
-        executorState: "ready",
       }),
       liveMode: true,
     });
@@ -479,7 +458,7 @@ describe("useCanvasCommands", () => {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
-        executorState: "ready",
+        executorState: "loading",
       }),
       liveMode: true,
       canvasScopeKey: "slug:2",
@@ -493,7 +472,7 @@ describe("useCanvasCommands", () => {
   // Session key change preserves pending queue
   // --------------------------------------------------------------------------
 
-  it("pending commands survive sessionKey change and drain when executor ready", async () => {
+  it("pending commands survive sessionKey change and drain when the transport connects", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
@@ -523,12 +502,12 @@ describe("useCanvasCommands", () => {
     // Command should still be pending, not dispatched yet
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
 
-    // Executor becomes ready — queued command should drain
+    // Transport connects — queued command should drain
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
-        executorState: "ready",
+        executorState: "loading",
       }),
       liveMode: true,
       sessionKey: "slug:agent-1:0",
@@ -542,7 +521,7 @@ describe("useCanvasCommands", () => {
     });
   });
 
-  it("active commands interrupted on sessionKey change while pending commands preserved", async () => {
+  it("active commands interrupted on sessionKey change while paused commands preserved", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
@@ -566,13 +545,14 @@ describe("useCanvasCommands", () => {
       activeCallId: "call-active",
     });
 
-    // Transition to not-ready state: queue a second command (stays pending)
+    // Pause command dispatch: queue a second command while keeping the first active.
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
         executorState: "loading",
       }),
+      commandsPaused: true,
       liveMode: true,
       sessionKey: "slug:agent-1:0",
     });
@@ -588,6 +568,7 @@ describe("useCanvasCommands", () => {
         connectionState: "connected",
         executorState: "loading",
       }),
+      commandsPaused: true,
       liveMode: true,
       sessionKey: "slug:agent-2:0",
     });
@@ -599,14 +580,15 @@ describe("useCanvasCommands", () => {
     expect(interruptMsg).toBeDefined();
     expect(interruptMsg?.payload.ok).toBe(false);
 
-    // Executor becomes ready on new session — pending command drains
+    // Resume on new session — pending command drains
     ops.sendWithAckOnChannel.mockClear();
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
         connectionState: "connected",
-        executorState: "ready",
+        executorState: "loading",
       }),
+      commandsPaused: false,
       liveMode: true,
       sessionKey: "slug:agent-2:0",
     });

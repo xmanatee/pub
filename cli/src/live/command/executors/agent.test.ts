@@ -8,8 +8,9 @@ import {
 
 const baseBridgeSettings = {
   verbose: false,
-  bridgeCwd: "/tmp/pub-bridge",
-  attachmentDir: "/tmp/pub-attachments",
+  workspaceDir: process.cwd(),
+  attachmentDir: process.cwd(),
+  artifactsDir: process.cwd(),
   commandDefaultTimeoutMs: 15_000,
   commandMaxOutputBytes: 256 * 1024,
   commandMaxConcurrent: 6,

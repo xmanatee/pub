@@ -30,6 +30,7 @@ export function buildSdkSessionOptionsFromSettings(
   return {
     model: opts?.model?.trim() || liveModel || DEFAULT_MODEL,
     claudePath: bridgeSettings.claudeCodePath,
+    workspaceDir: bridgeSettings.workspaceDir,
     sdkEnv: buildSdkEnv(baseEnv),
   };
 }

@@ -11,6 +11,14 @@ import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
 
+export type ActiveLiveSessionPaths = {
+  liveSessionId: string;
+  pubId: string;
+  workspaceCanvasDir: string;
+  attachmentDir: string;
+  artifactsDir: string;
+};
+
 export type PendingOutboundAck = {
   channel: string;
   messageId: string;
@@ -56,6 +64,7 @@ export type DaemonState = {
   pongTimeout: ReturnType<typeof setTimeout> | null;
   lastError: string | null;
   bridgeRunner: BridgeRunner | null;
+  activeLiveSession: ActiveLiveSessionPaths | null;
 };
 
 export function createDaemonState(): DaemonState {
@@ -87,6 +96,7 @@ export function createDaemonState(): DaemonState {
     pongTimeout: null,
     lastError: null,
     bridgeRunner: null,
+    activeLiveSession: null,
   };
 }
 

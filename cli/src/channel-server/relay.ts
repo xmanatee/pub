@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
+import * as path from "node:path";
 import {
   type RelayInbound,
   type RelayOutbound,
@@ -64,6 +65,7 @@ export function createRelayServer(params: {
   return {
     async listen(): Promise<void> {
       unlinkSocketIfPresent(params.socketPath);
+      fs.mkdirSync(path.dirname(params.socketPath), { recursive: true, mode: 0o700 });
 
       await new Promise<void>((resolve, reject) => {
         server.once("error", reject);

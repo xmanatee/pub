@@ -3,15 +3,15 @@ import type { PubBridgeConfig, BridgeSettings, ClaudeBridgeSettings } from "../.
 import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
 import {
   buildSdkSessionOptions,
-  resolveAutoDetectClaudeSdkCwd,
+  resolveAutoDetectClaudeSdkWorkspaceDir,
 } from "./discovery.js";
 import {
   buildSdkSessionOptionsFromSettings,
   loadClaudeSdk,
 } from "./runtime.js";
 
-function getStrictClaudeSdkCwd(bridgeConfig: ClaudeBridgeSettings): string {
-  return bridgeConfig.bridgeCwd;
+function getStrictClaudeSdkWorkspaceDir(bridgeConfig: ClaudeBridgeSettings): string {
+  return bridgeConfig.workspaceDir;
 }
 
 function createProbeAbortError(): Error {
@@ -56,8 +56,8 @@ export async function runClaudeSdkBridgeStartupProbe(
   const { model, claudePath } = sessionOptions;
   const cwd =
     strictConfig && bridgeConfig
-      ? getStrictClaudeSdkCwd(bridgeConfig as ClaudeBridgeSettings)
-      : resolveAutoDetectClaudeSdkCwd(env, bridgeConfig);
+      ? getStrictClaudeSdkWorkspaceDir(bridgeConfig as ClaudeBridgeSettings)
+      : resolveAutoDetectClaudeSdkWorkspaceDir(env);
 
   const sdk = loadClaudeSdk();
 

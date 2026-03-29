@@ -160,7 +160,12 @@ export async function downloadAndReplace(tag: string, target: string): Promise<v
       if (!fs.existsSync(execPath) && fs.existsSync(backupPath)) {
         fs.renameSync(backupPath, execPath);
       }
-    } catch {}
+    } catch (restoreError) {
+      const updateError = error instanceof Error ? error.message : String(error);
+      const rollbackError =
+        restoreError instanceof Error ? restoreError.message : String(restoreError);
+      throw new Error(`Update failed (${updateError}) and rollback failed (${rollbackError})`);
+    }
     throw error;
   } finally {
     if (fs.existsSync(tmpPath)) {

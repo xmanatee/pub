@@ -20,6 +20,7 @@ const {
   setViewModeMock,
   sharedPreviewState,
   sharedState,
+  sharedTransportState,
   storeBrowserCandidatesMock,
   storeBrowserOfferMock,
   takeoverLiveMock,
@@ -57,6 +58,12 @@ const {
       browserSessionId?: string;
     } | null,
     selectedHostId: "presence-1" as string | null,
+  },
+  sharedTransportState: {
+    agentActivity: "idle" as "idle" | "thinking" | "streaming",
+    agentState: "idle" as "idle" | "preparing" | "ready",
+    connectionState: "idle" as "idle" | "connecting" | "connected" | "disconnected" | "failed",
+    executorState: "idle" as "idle" | "loading" | "ready",
   },
   storeBrowserCandidatesMock: vi.fn(async () => ({})),
   storeBrowserOfferMock: vi.fn(async () => ({})),
@@ -181,12 +188,7 @@ vi.mock("~/features/live/hooks/use-live-transport", () => ({
   useLiveTransport: () => ({
     bridgeRef: { current: null },
     ensureChannel: vi.fn(async () => true),
-    runtimeState: {
-      agentActivity: "idle",
-      agentState: "idle",
-      connectionState: "idle",
-      executorState: "idle",
-    },
+    runtimeState: sharedTransportState,
     sendAudio: vi.fn(),
     sendChat: vi.fn(),
     sendFile: vi.fn(),
@@ -268,6 +270,10 @@ describe("usePubLiveModel", () => {
     sharedState.availableAgents = [{ hostId: "presence-1", agentName: "Agent" }];
     sharedState.live = null;
     sharedState.selectedHostId = "presence-1";
+    sharedTransportState.agentActivity = "idle";
+    sharedTransportState.agentState = "idle";
+    sharedTransportState.connectionState = "idle";
+    sharedTransportState.executorState = "idle";
     addSystemMessageMock.mockReset();
     clearFilesMock.mockReset();
     clearMessagesMock.mockReset();
@@ -593,5 +599,38 @@ describe("usePubLiveModel", () => {
     expect(states.at(-1)?.sandboxUrl).toBe("https://sandbox.test/__canvas__/email-tinder_owner/");
 
     import.meta.env.VITE_SANDBOX_ORIGIN = prev;
+  });
+
+  it("only reports connected when agent traffic is sendable", async () => {
+    const states: Array<ReturnType<typeof usePubLiveModel>> = [];
+
+    sharedTransportState.connectionState = "connected";
+    sharedTransportState.agentState = "preparing";
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    const currentValue = states.at(-1);
+    if (!currentValue) throw new Error("hook value not captured");
+    expect(currentValue.connected).toBe(false);
+
+    sharedTransportState.agentState = "ready";
+
+    await act(async () => {
+      const currentRoot = root;
+      if (!currentRoot) throw new Error("root not initialized");
+      currentRoot.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    const nextValue = states.at(-1);
+    if (!nextValue) throw new Error("hook value not captured after rerender");
+    expect(nextValue.connected).toBe(true);
   });
 });

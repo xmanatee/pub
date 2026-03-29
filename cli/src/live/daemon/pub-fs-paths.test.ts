@@ -25,9 +25,10 @@ describe("pub-fs-paths", () => {
     return dir;
   }
 
-  it("resolves absolute paths unchanged", () => {
-    const resolved = resolvePubFsRequestPath("/tmp/example.txt", null);
-    expect(resolved).toEqual({ path: path.resolve("/tmp/example.txt"), scope: "absolute" });
+  it("rejects paths outside the session workspace contract", () => {
+    expect(() => resolvePubFsRequestPath("/tmp/example.txt", null)).toThrow(
+      'start with "/./"',
+    );
   });
 
   it("resolves session-relative paths inside the active workspace", () => {

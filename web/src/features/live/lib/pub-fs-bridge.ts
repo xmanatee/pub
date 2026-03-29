@@ -109,6 +109,27 @@ export class PubFsBridge {
     return null;
   }
 
+  private async ensurePubFsChannelReady(bridge: BrowserBridge): Promise<boolean> {
+    const candidate = bridge as {
+      openChannel?: (name: string) => unknown;
+      isChannelOpen?: (name: string) => boolean;
+    };
+    if (
+      typeof candidate.openChannel !== "function" ||
+      typeof candidate.isChannelOpen !== "function"
+    ) {
+      return true;
+    }
+
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      candidate.openChannel(CHANNELS.PUB_FS);
+      if (candidate.isChannelOpen(CHANNELS.PUB_FS)) return true;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return candidate.isChannelOpen(CHANNELS.PUB_FS);
+  }
+
   private async handleGet(
     requestId: string,
     path: string,
@@ -120,6 +141,15 @@ export class PubFsBridge {
     const bridge = await this.resolveReadyBridge(port);
     if (!bridge) {
       this.removePending(requestId);
+      return;
+    }
+    if (!(await this.ensurePubFsChannelReady(bridge))) {
+      this.removePending(requestId);
+      port.postMessage({
+        type: "error",
+        code: "CHANNEL_NOT_READY",
+        message: "Pub FS channel is not ready.",
+      });
       return;
     }
     if (!this.pending.has(requestId)) return;
@@ -163,6 +193,15 @@ export class PubFsBridge {
       this.removePending(requestId);
       return;
     }
+    if (!(await this.ensurePubFsChannelReady(bridge))) {
+      this.removePending(requestId);
+      port.postMessage({
+        type: "error",
+        code: "CHANNEL_NOT_READY",
+        message: "Pub FS channel is not ready.",
+      });
+      return;
+    }
     if (!this.pending.has(requestId)) return;
     const started = bridge.send(
       CHANNELS.PUB_FS,
@@ -203,6 +242,15 @@ export class PubFsBridge {
     const bridge = await this.resolveReadyBridge(port);
     if (!bridge) {
       this.removePending(requestId);
+      return;
+    }
+    if (!(await this.ensurePubFsChannelReady(bridge))) {
+      this.removePending(requestId);
+      port.postMessage({
+        type: "error",
+        code: "CHANNEL_NOT_READY",
+        message: "Pub FS channel is not ready.",
+      });
       return;
     }
     if (!this.pending.has(requestId)) return;

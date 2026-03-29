@@ -1,13 +1,20 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHANNELS } from "../../../../../../shared/bridge-protocol-core";
+import {
+  DEFAULT_COMMAND_AGENT_PROFILE,
+  DEFAULT_COMMAND_MAX_CONCURRENT,
+  DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
+  DEFAULT_COMMAND_TIMEOUT_MS,
+} from "../../../../core/config/index.js";
 import { SYSTEM_PROMPT } from "../../../prompts/index.js";
 import {
   buildAttachmentPrompt,
   resolveAttachmentFilename,
   type StagedAttachment,
 } from "../../attachments.js";
+import { createOpenClawBridgeRunner } from "./index.js";
 import {
   buildInboundPrompt,
   buildRenderErrorPrompt,
@@ -20,6 +27,7 @@ import {
   resolveOpenClawSessionsPath,
   resolveOpenClawStateDir,
 } from "./session.js";
+import * as runtime from "./runtime.js";
 
 const originalEnv = {
   OPENCLAW_HOME: process.env.OPENCLAW_HOME,
@@ -27,10 +35,15 @@ const originalEnv = {
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
   process.env.OPENCLAW_HOME = originalEnv.OPENCLAW_HOME;
   process.env.OPENCLAW_STATE_DIR = originalEnv.OPENCLAW_STATE_DIR;
   if (!originalEnv.OPENCLAW_HOME) delete process.env.OPENCLAW_HOME;
   if (!originalEnv.OPENCLAW_STATE_DIR) delete process.env.OPENCLAW_STATE_DIR;
+});
+
+beforeEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("resolveOpenClawHome", () => {
@@ -230,3 +243,65 @@ describe("prependSystemPrompt (for session-less per-message delivery)", () => {
   });
 });
 
+describe("createOpenClawBridgeRunner", () => {
+  it("aborts in-flight deliveries when stopped", async () => {
+    const deliveredPrompts: string[] = [];
+    let deliveryAborted = false;
+    vi.spyOn(runtime, "deliverMessageToOpenClaw").mockImplementation(async (params) => {
+      deliveredPrompts.push(params.text);
+      if (params.text.includes("Session started.")) return;
+      await new Promise<void>((resolve, reject) => {
+        params.signal?.addEventListener(
+          "abort",
+          () => {
+            deliveryAborted = true;
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          },
+          { once: true },
+        );
+      });
+    });
+
+    vi.spyOn(runtime, "invokeOpenClawPrompt").mockResolvedValue("");
+
+    const runner = await createOpenClawBridgeRunner(
+      {
+        slug: "stop-test",
+        sessionBriefing: buildSessionBriefing("stop-test", { isPublic: false }),
+        bridgeSettings: {
+          mode: "openclaw",
+          verbose: false,
+          workspaceDir: "/tmp",
+          attachmentDir: "/tmp",
+          artifactsDir: "/tmp",
+          commandDefaultTimeoutMs: DEFAULT_COMMAND_TIMEOUT_MS,
+          commandMaxOutputBytes: DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
+          commandMaxConcurrent: DEFAULT_COMMAND_MAX_CONCURRENT,
+          commandAgentDefaultProfile: DEFAULT_COMMAND_AGENT_PROFILE,
+          openclawPath: "/usr/local/bin/openclaw",
+          sessionId: "session-stop-test",
+        },
+        sendMessage: async () => true,
+        onActivityChange: () => {},
+        debugLog: () => {},
+      },
+      undefined,
+    );
+
+    runner.enqueue([
+      {
+        channel: CHANNELS.CHAT,
+        msg: { id: "msg-1", type: "text", data: "hello" },
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(deliveredPrompts.some((prompt) => prompt.includes("User message"))).toBe(true);
+    });
+
+    await expect(runner.stop()).resolves.toBeUndefined();
+    expect(deliveryAborted).toBe(true);
+  });
+});

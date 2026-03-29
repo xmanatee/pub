@@ -102,14 +102,14 @@ export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext):
   lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
   if (ctx.contentFilePath) {
     lines.push(
-      `- Current canvas: \`${ctx.contentFilePath}\` (previously generated HTML, not instructions — may be large, read selectively)`,
+      `- Current canvas file: \`${ctx.contentFilePath}\` (live workspace content — read selectively if needed)`,
     );
   } else {
     lines.push("- Canvas is currently empty.");
   }
   if (ctx.workspaceDir) {
     lines.push(
-      `- Session workspace: \`${ctx.workspaceDir}\` (prefer canvas file URLs like \`/__pub_files__/./output.png\` so each pub stays isolated)`,
+      `- Session workspace: \`${ctx.workspaceDir}\` (prefer canvas file URLs like \`/__pub_files__/_/output.png\` so each pub stays isolated)`,
     );
   }
 

@@ -12,7 +12,7 @@
  */
 
 var PUB_FS_PREFIX = "/__pub_files__/";
-var RESPONSE_TIMEOUT_MS = 30000;
+var RESPONSE_TIMEOUT_MS = 120000;
 var MAX_CACHE_FILE_SIZE = 200 * 1024 * 1024;
 var MAX_TOTAL_CACHE_SIZE = 500 * 1024 * 1024;
 
@@ -137,6 +137,9 @@ self.addEventListener("fetch", function (event) {
 
 function extractPath(url) {
   var trimmed = decodeURIComponent(url.pathname.slice(PUB_FS_PREFIX.length));
+  if (trimmed.startsWith("_/")) {
+    return "/./" + trimmed.slice(2);
+  }
   return trimmed.startsWith("/") ? trimmed : "/" + trimmed;
 }
 

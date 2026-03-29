@@ -32,14 +32,14 @@ export async function runOpenClawPreflight(
 const OPENCLAW_DELIVER_TIMEOUT_MS = 120_000;
 
 interface OpenClawDeliverySettings {
-  bridgeCwd: string;
+  workspaceDir: string;
 }
 
 export async function invokeOpenClawPrompt(params: {
   openclawPath: string;
   sessionId: string;
   text: string;
-  bridgeCwd: string;
+  workspaceDir: string;
   env?: NodeJS.ProcessEnv;
   local?: boolean;
   signal?: AbortSignal;
@@ -56,7 +56,7 @@ export async function invokeOpenClawPrompt(params: {
   const invocation = getOpenClawInvocation(params.openclawPath, args);
   try {
     const result = await execFileAsync(invocation.cmd, invocation.args, {
-      cwd: params.bridgeCwd,
+      cwd: params.workspaceDir,
       timeout: params.timeoutMs ?? OPENCLAW_DELIVER_TIMEOUT_MS,
       env: params.env ?? process.env,
       signal: params.signal,
@@ -68,7 +68,13 @@ export async function invokeOpenClawPrompt(params: {
 }
 
 export async function deliverMessageToOpenClaw(
-  params: { openclawPath: string; sessionId: string; text: string; local?: boolean },
+  params: {
+    openclawPath: string;
+    sessionId: string;
+    text: string;
+    local?: boolean;
+    signal?: AbortSignal;
+  },
   env: NodeJS.ProcessEnv = process.env,
   deliverySettings: OpenClawDeliverySettings,
 ): Promise<void> {
@@ -76,8 +82,9 @@ export async function deliverMessageToOpenClaw(
     openclawPath: params.openclawPath,
     sessionId: params.sessionId,
     text: params.text,
-    bridgeCwd: deliverySettings.bridgeCwd,
+    workspaceDir: deliverySettings.workspaceDir,
     env,
     local: params.local,
+    signal: params.signal,
   });
 }

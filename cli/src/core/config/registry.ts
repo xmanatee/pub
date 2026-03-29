@@ -1,6 +1,5 @@
 import { BRIDGE_MODES, type BridgeMode } from "../../live/bridge/providers/types.js";
 import { parsePositiveInteger } from "../utils/number.js";
-import { trimToUndefined } from "./location.js";
 import {
   type CommandAgentProfile,
   DEFAULT_BASE_URL,
@@ -10,6 +9,11 @@ import {
   type PubConfig,
   type PubTelegramConfig,
 } from "./types.js";
+
+function trimToUndefined(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
 
 export type ConfigSection = "core" | "bridge" | "telegram";
 export type ConfigValueType =
@@ -98,12 +102,6 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
   }),
   bridgeVar("bridge.verbose", "verbose", "boolean", {
     description: "Enable verbose live daemon logging.",
-  }),
-  bridgeVar("bridge.cwd", "bridgeCwd", "string", {
-    description: "Working directory used by the live bridge runtime.",
-  }),
-  bridgeVar("bridge.attachmentDir", "attachmentDir", "string", {
-    description: "Attachment staging directory for live bridge payloads.",
   }),
   bridgeVar("openclaw.path", "openclawPath", "string", {
     description: "OpenClaw executable path.",

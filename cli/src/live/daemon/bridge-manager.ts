@@ -1,18 +1,26 @@
+import { randomUUID } from "node:crypto";
+import * as path from "node:path";
 import {
   type BridgeMessage,
   CONTROL_CHANNEL,
   makeErrorMessage,
 } from "../../../../shared/bridge-protocol-core";
 import {
-  type LiveAgentActivity,
   canSendAgentTraffic,
   isLiveConnectionReady,
+  type LiveAgentActivity,
 } from "../../../../shared/live-runtime-state-core";
 import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
 import { buildSessionBriefing } from "../bridge/shared.js";
-import { ensureLiveSessionDirs, writeLiveSessionContentFile } from "../runtime/daemon-files.js";
+import {
+  applyWorkspaceFiles,
+  hydrateSessionWorkspace,
+  readWorkspaceFiles,
+  removeLiveSessionDirs,
+  writeCanvasMirror,
+} from "../runtime/daemon-files.js";
 import { type DaemonState, setDaemonAgentActivity, setDaemonAgentState } from "./state.js";
 
 const SLOW_AGENT_PREPARATION_LOG_MS = 10_000;
@@ -104,7 +112,8 @@ export function createBridgeManager(params: {
   }
 
   interface SessionContent {
-    content: string;
+    pubId: string;
+    files: Record<string, string>;
     isPublic: boolean;
     title?: string;
     description?: string;
@@ -113,14 +122,26 @@ export function createBridgeManager(params: {
   async function fetchSessionContent(slug: string): Promise<SessionContent> {
     debugLog(`bridge session content fetch start slug=${slug}`);
     const pub = await apiClient.get(slug);
-    const content = pub.files?.["index.html"] ?? "";
-    debugLog(`bridge session content fetch complete slug=${slug} contentBytes=${content.length}`);
-    return { title: pub.title, description: pub.description, isPublic: pub.isPublic, content };
+    if (!pub.id) {
+      throw new Error(`Pub API did not return an id for "${slug}".`);
+    }
+    const files = pub.files ?? {};
+    const content = files["index.html"] ?? "";
+    debugLog(
+      `bridge session content fetch complete slug=${slug} fileCount=${Object.keys(files).length} contentBytes=${content.length}`,
+    );
+    return {
+      pubId: pub.id,
+      title: pub.title,
+      description: pub.description,
+      isPublic: pub.isPublic,
+      files,
+    };
   }
 
-  function bindSessionManifest(content: string): void {
+  function bindSessionManifest(content: string | undefined): void {
     commandHandler.beginManifestLoad();
-    if (content.length > 0) commandHandler.bindFromHtml(content);
+    if (content && content.length > 0) commandHandler.bindFromHtml(content);
     else commandHandler.clearBindings();
   }
 
@@ -128,7 +149,8 @@ export function createBridgeManager(params: {
     commandHandler.beginManifestLoad();
     try {
       const sessionContent = await fetchSessionContent(slug);
-      if (sessionContent.content.length > 0) commandHandler.bindFromHtml(sessionContent.content);
+      const indexHtml = sessionContent.files["index.html"];
+      if (indexHtml && indexHtml.length > 0) commandHandler.bindFromHtml(indexHtml);
       else commandHandler.clearBindings();
       return sessionContent;
     } catch (error) {
@@ -138,6 +160,7 @@ export function createBridgeManager(params: {
   }
 
   async function teardownBridgeRunner(): Promise<void> {
+    const activeLiveSession = state.activeLiveSession;
     state.bridgeSlug = null;
     state.bridgeOutboundBuffer.length = 0;
     if (state.bridgeAbort) {
@@ -152,6 +175,17 @@ export function createBridgeManager(params: {
       }
       state.bridgeRunner = null;
     }
+    state.activeLiveSession = null;
+    if (activeLiveSession) {
+      try {
+        removeLiveSessionDirs(activeLiveSession.liveSessionId);
+      } catch (error) {
+        debugLog(
+          `failed to remove live session dirs for "${activeLiveSession.liveSessionId}"`,
+          error,
+        );
+      }
+    }
   }
 
   async function startBridge(slug: string): Promise<void> {
@@ -160,29 +194,37 @@ export function createBridgeManager(params: {
     const abort = new AbortController();
     state.bridgeAbort = abort;
     debugLog(`bridge runner start slug=${slug}`);
-    const sessionPaths = ensureLiveSessionDirs(slug);
-
-    // Fetch content without binding the manifest — binding must happen AFTER
-    // the bridge runner is set so that agent commands can reach the runner.
     const sessionContent = await fetchSessionContent(slug);
-    const contentFilePath =
-      sessionContent.content.length > 0
-        ? writeLiveSessionContentFile({ slug, content: sessionContent.content })
-        : undefined;
+    const liveSessionId = randomUUID();
+    const sessionPaths = hydrateSessionWorkspace({
+      liveSessionId,
+      pubId: sessionContent.pubId,
+      files: sessionContent.files,
+    });
+    state.activeLiveSession = {
+      liveSessionId,
+      pubId: sessionContent.pubId,
+      workspaceCanvasDir: sessionPaths.workspaceCanvasDir,
+      attachmentDir: sessionPaths.attachmentDir,
+      artifactsDir: sessionPaths.artifactsDir,
+    };
+    const contentFilePath = path.join(sessionPaths.workspaceCanvasDir, "index.html");
     debugLog(
-      `bridge briefing load complete slug=${slug} contentBytes=${sessionContent.content.length} hasContentFile=${String(Boolean(contentFilePath))}`,
+      `bridge briefing load complete slug=${slug} liveSessionId=${liveSessionId} fileCount=${Object.keys(sessionContent.files).length}`,
     );
     const sessionBriefing = buildSessionBriefing(slug, {
       title: sessionContent.title,
       description: sessionContent.description,
       isPublic: sessionContent.isPublic,
-      contentFilePath,
-      workspaceDir: sessionPaths.filesDir,
+      contentFilePath: sessionContent.files["index.html"] ? contentFilePath : undefined,
+      workspaceDir: sessionPaths.workspaceCanvasDir,
     });
 
     const runnerBridgeSettingsBase: BridgeSettings = {
       ...bridgeSettings,
-      attachmentDir: sessionPaths.attachmentsDir,
+      workspaceDir: sessionPaths.workspaceCanvasDir,
+      attachmentDir: sessionPaths.attachmentDir,
+      artifactsDir: sessionPaths.artifactsDir,
     };
     const runnerBridgeSettings = state.activeLiveModelProfile
       ? { ...runnerBridgeSettingsBase, liveModelProfile: state.activeLiveModelProfile }
@@ -229,7 +271,7 @@ export function createBridgeManager(params: {
     state.bridgeSlug = slug;
 
     // Bind the manifest NOW — bridge runner is set, so agent commands will resolve.
-    bindSessionManifest(sessionContent.content);
+    bindSessionManifest(sessionContent.files["index.html"]);
   }
 
   async function flushOutboundBuffer(): Promise<void> {
@@ -347,9 +389,13 @@ export function createBridgeManager(params: {
 
   async function persistCanvasHtml(html: string): Promise<Record<string, unknown>> {
     const slug = state.bridgeSlug;
-    if (!slug) return { ok: false, error: "No active live session." };
+    const activeLiveSession = state.activeLiveSession;
+    if (!slug || !activeLiveSession) return { ok: false, error: "No active live session." };
     try {
-      await apiClient.update({ slug, files: { "index.html": html } });
+      const files = applyWorkspaceFiles(activeLiveSession.workspaceCanvasDir, {
+        "index.html": html,
+      });
+      await publishWorkspaceFiles(slug, activeLiveSession, files);
       commandHandler.bindFromHtml(html);
       return { ok: true, delivered: true };
     } catch (error) {
@@ -361,18 +407,29 @@ export function createBridgeManager(params: {
 
   async function persistFiles(files: Record<string, string>): Promise<Record<string, unknown>> {
     const slug = state.bridgeSlug;
-    if (!slug) return { ok: false, error: "No active live session." };
-    const fileCount = Object.keys(files).length;
+    const activeLiveSession = state.activeLiveSession;
+    if (!slug || !activeLiveSession) return { ok: false, error: "No active live session." };
     try {
-      await apiClient.update({ slug, files });
-      const indexHtml = files["index.html"];
+      const snapshot = applyWorkspaceFiles(activeLiveSession.workspaceCanvasDir, files);
+      await publishWorkspaceFiles(slug, activeLiveSession, snapshot);
+      const indexHtml = snapshot["index.html"];
       if (indexHtml) commandHandler.bindFromHtml(indexHtml);
-      return { ok: true, fileCount };
+      return { ok: true, fileCount: Object.keys(snapshot).length };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       markError(`failed to write files for "${slug}"`, error);
       return { ok: false, error: `File write failed: ${errMsg}` };
     }
+  }
+
+  async function publishWorkspaceFiles(
+    slug: string,
+    activeLiveSession: NonNullable<DaemonState["activeLiveSession"]>,
+    files = readWorkspaceFiles(activeLiveSession.workspaceCanvasDir),
+  ): Promise<Record<string, string>> {
+    await apiClient.update({ slug, files });
+    writeCanvasMirror(activeLiveSession.pubId, files);
+    return files;
   }
 
   function clearAgentPreparation(): void {

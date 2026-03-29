@@ -32,7 +32,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "VITE_CONVEX_URL=https://example.convex.cloud pnpm dev",
+    command: "env -u NO_COLOR VITE_CONVEX_URL=https://example.convex.cloud pnpm dev",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: false,
     timeout: 120_000,

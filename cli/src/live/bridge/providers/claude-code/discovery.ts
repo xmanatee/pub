@@ -74,9 +74,8 @@ export function resolveClaudeCodePath(
   return "claude";
 }
 
-export function resolveAutoDetectClaudeBridgeCwd(
+export function resolveAutoDetectClaudeWorkspaceDir(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
 ): string {
-  return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
+  return env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }

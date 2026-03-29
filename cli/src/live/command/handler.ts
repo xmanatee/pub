@@ -1,3 +1,4 @@
+import { isAbsolute, join, normalize, relative } from "node:path";
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import {
   COMMAND_PROTOCOL_VERSION,
@@ -24,12 +25,36 @@ import {
 import { interpolateTemplate, toCommandReturnValue } from "./template.js";
 
 export function createLiveCommandHandler(params: CommandHandlerParams) {
-  const runtime = getCommandRuntimeConfig(params.bridgeSettings);
   const boundFunctions = new Map<string, CommandFunctionSpec>();
   const running = new Map<string, RunningCommand>();
   const recentResults = new Map<string, RecentCommandResult>();
   let executorState: LiveExecutorState = "idle";
   let pendingUntilManifest: BridgeMessage[] = [];
+
+  function currentBridgeSettings() {
+    return params.getRuntimeBridgeSettings?.() ?? params.bridgeSettings;
+  }
+
+  function currentRuntime() {
+    return getCommandRuntimeConfig(currentBridgeSettings());
+  }
+
+  function resolveWorkspaceCwd(requestedCwd: string | undefined, args: Record<string, unknown>): string {
+    const workspaceDir = currentBridgeSettings().workspaceDir;
+    if (!requestedCwd) return workspaceDir;
+    const interpolated = interpolateTemplate(requestedCwd, args).trim();
+    if (interpolated.length === 0) return workspaceDir;
+    if (isAbsolute(interpolated)) {
+      throw new Error("Command executor cwd must be relative to the active pub workspace.");
+    }
+    const normalizedWorkspace = normalize(workspaceDir);
+    const resolved = normalize(join(normalizedWorkspace, interpolated));
+    const rel = relative(normalizedWorkspace, resolved);
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      throw new Error("Command executor cwd escapes the active pub workspace.");
+    }
+    return resolved;
+  }
 
   function setExecutorState(nextState: LiveExecutorState): void {
     if (executorState === nextState) return;
@@ -46,6 +71,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
   function beginManifestLoad(): void {
     boundFunctions.clear();
+    if (executorState === "loading") {
+      params.debugLog("commands continuing manifest load");
+      return;
+    }
     setExecutorState("loading");
     pendingUntilManifest = [];
     params.debugLog("commands awaiting manifest load");
@@ -79,6 +108,8 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     abortSignal: AbortSignal,
     requestedTimeoutMs?: number,
   ): Promise<unknown> {
+    const runtime = currentRuntime();
+    const bridgeSettings = currentBridgeSettings();
     const executor = spec.executor;
     if (!executor) {
       throw new Error(`Function "${spec.name}" is missing executor definition.`);
@@ -89,7 +120,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     if (executor.kind === "exec") {
       const command = interpolateTemplate(executor.command, args);
       const commandArgs = (executor.args ?? []).map((entry) => interpolateTemplate(entry, args));
-      const cwd = executor.cwd ? interpolateTemplate(executor.cwd, args) : undefined;
+      const cwd = resolveWorkspaceCwd(executor.cwd, args);
       const env = executor.env
         ? Object.fromEntries(
             Object.entries(executor.env).map(([key, value]) => [
@@ -112,7 +143,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
     if (executor.kind === "shell") {
       const script = interpolateTemplate(executor.script, args);
-      const cwd = executor.cwd ? interpolateTemplate(executor.cwd, args) : undefined;
+      const cwd = resolveWorkspaceCwd(executor.cwd, args);
       const result = await executeShellCommand({
         script,
         shell: executor.shell,
@@ -134,7 +165,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
       output,
       maxOutputBytes: runtime.maxOutputBytes,
       signal: abortSignal,
-      bridgeSettings: params.bridgeSettings,
+      bridgeSettings,
       getBridgeRunner: params.getBridgeRunner,
     });
   }
@@ -185,6 +216,7 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     message: ReturnType<typeof parseCommandInvokeMessage>,
   ): Promise<void> {
     if (!message) return;
+    const runtime = currentRuntime();
     const existing = recentResults.get(message.callId);
     if (existing && existing.expiresAt > Date.now()) {
       await sendResult(existing.payload);

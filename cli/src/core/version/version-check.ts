@@ -19,31 +19,26 @@ interface UpdateCheckResult {
   requiresUpgrade: boolean;
 }
 
-function cachePath(): string | null {
-  try {
-    return path.join(getConfigDir(), "latest-version.json");
-  } catch {
-    return null;
-  }
+function cachePath(): string {
+  return path.join(getConfigDir(), "latest-version.json");
 }
 
 function readCache(): VersionCache | null {
-  const cacheFile = cachePath();
-  if (!cacheFile) return null;
   try {
-    return JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as VersionCache;
-  } catch {
+    return JSON.parse(fs.readFileSync(cachePath(), "utf-8")) as VersionCache;
+  } catch (_error) {
     return null;
   }
 }
 
 function writeCache(cache: VersionCache): void {
-  const cacheFile = cachePath();
-  if (!cacheFile) return;
   try {
+    const cacheFile = cachePath();
     fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
     fs.writeFileSync(cacheFile, JSON.stringify(cache));
-  } catch {}
+  } catch (_error) {
+    return;
+  }
 }
 
 export function isMinorOrMajorBump(latest: string, current: string): boolean {
@@ -76,7 +71,7 @@ async function fetchAndCache(): Promise<VersionCache | null> {
     };
     writeCache(cache);
     return cache;
-  } catch {
+  } catch (_error) {
     return null;
   }
 }

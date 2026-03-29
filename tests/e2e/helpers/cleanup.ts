@@ -2,7 +2,7 @@
  * Process and resource cleanup utilities for E2E tests.
  * Ensures no zombie daemons, stale sockets, or temp dirs survive test runs.
  */
-import { readdirSync, rmSync, unlinkSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -47,32 +47,24 @@ export function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** Remove stale pub-agent socket files from /tmp. */
+/** Remove stale pub-agent socket files from the system temp dir. */
 export function cleanupSocketFiles(): void {
   const tmp = tmpdir();
   const files = readdirSync(tmp);
   for (const f of files) {
     if (f.startsWith("pub-agent") && f.endsWith(".sock")) {
-      try {
-        unlinkSync(join(tmp, f));
-      } catch {
-        // File may have been removed between readdir and unlink
-      }
+      rmSync(join(tmp, f), { force: true });
     }
   }
 }
 
-/** Remove stale pub-e2e-config temp dirs from /tmp. */
+/** Remove stale Pub E2E temp homes from /tmp. */
 export function cleanupTempConfigDirs(): void {
   const tmp = tmpdir();
   const entries = readdirSync(tmp);
   for (const entry of entries) {
-    if (entry.startsWith("pub-e2e-config-")) {
-      try {
-        rmSync(join(tmp, entry), { recursive: true, force: true });
-      } catch {
-        // Dir may have been removed between readdir and rmSync
-      }
+    if (entry.startsWith("pub-e2e-home-")) {
+      rmSync(join(tmp, entry), { recursive: true, force: true });
     }
   }
 }

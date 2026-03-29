@@ -5,7 +5,7 @@ import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-pr
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
-import { latestCliVersionPath, liveSessionFilesDir } from "../runtime/daemon-files.js";
+import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import { createBridgeManager } from "./bridge-manager.js";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
@@ -49,6 +49,15 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
+    getRuntimeBridgeSettings: () =>
+      state.activeLiveSession
+        ? {
+            ...config.bridgeSettings,
+            workspaceDir: state.activeLiveSession.workspaceCanvasDir,
+            attachmentDir: state.activeLiveSession.attachmentDir,
+            artifactsDir: state.activeLiveSession.artifactsDir,
+          }
+        : config.bridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
     markError: (message, error) => lifecycle.markError(message, error),
     getBridgeRunner: () => state.bridgeRunner,
@@ -140,7 +149,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   };
 
   pubFsHandler = createPubFsHandler({
-    getSessionRootDir: () => (state.bridgeSlug ? liveSessionFilesDir(state.bridgeSlug) : null),
+    getSessionRootDir: () => state.activeLiveSession?.workspaceCanvasDir ?? null,
     markError: lifecycle.markError,
     openDataChannel: channelManager.openDataChannel,
     waitForChannelOpen: channelManager.waitForChannelOpen,
@@ -177,6 +186,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     handleConnectionClosed: lifecycle.handleConnectionClosed,
     clearLocalCandidateTimers: lifecycle.clearLocalCandidateTimers,
     stopPingPong: lifecycle.stopPingPong,
+    commandHandlerBeginManifestLoad: () => commandHandler.beginManifestLoad(),
     commandHandlerStop: () => commandHandler.stop(),
     pubFsHandlerReset: () => pubFsHandler.reset(),
   });
@@ -331,6 +341,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const ipcServer = createDaemonIpcServer(handleIpcRequest, (error) => {
     lifecycle.debugLog("IPC server error", error);
   });
+  const socketDir = path.dirname(socketPath);
+  if (!fs.existsSync(socketDir)) fs.mkdirSync(socketDir, { recursive: true });
   ipcServer.listen(socketPath);
 
   const infoDir = path.dirname(infoPath);

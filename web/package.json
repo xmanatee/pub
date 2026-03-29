@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "env -u NO_COLOR playwright test",
     "lint": "tsc --noEmit && bash ../scripts/no-raw-anchor.sh src/",
     "typecheck": "tsc --noEmit"
   },

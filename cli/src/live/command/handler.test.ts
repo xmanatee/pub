@@ -9,6 +9,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitUntil(predicate: () => boolean, timeoutMs = 1_000): Promise<void> {
+  const startedAt = Date.now();
+  while (!predicate()) {
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(`Condition not met within ${timeoutMs}ms`);
+    }
+    await sleep(10);
+  }
+}
+
 function buildHandler(overrides?: {
   getBridgeRunner?: () => BridgeRunner | null;
   onExecutorStateChange?: (state: "idle" | "loading" | "ready") => void;
@@ -18,8 +28,9 @@ function buildHandler(overrides?: {
     bridgeSettings: {
       mode: "openclaw",
       verbose: false,
-      bridgeCwd: "/tmp/pub-bridge",
-      attachmentDir: "/tmp/pub-attachments",
+      workspaceDir: process.cwd(),
+      attachmentDir: process.cwd(),
+      artifactsDir: process.cwd(),
       commandDefaultTimeoutMs: 15_000,
       commandMaxOutputBytes: 256 * 1024,
       commandMaxConcurrent: 6,
@@ -115,6 +126,57 @@ describe("createLiveCommandHandler", () => {
     handler.bindFromHtml("");
 
     expect(executorStates).toEqual(["loading", "ready", "idle"]);
+  });
+
+  it("keeps queued early commands across repeated manifest-load starts", async () => {
+    const executorStates: Array<"idle" | "loading" | "ready"> = [];
+    const { handler, sentMessages } = buildHandler({
+      onExecutorStateChange: (state) => executorStates.push(state),
+    });
+
+    handler.beginManifestLoad();
+
+    const pendingInvoke = handler.onMessage(
+      makeEventMessage("command.invoke", {
+        v: 1,
+        callId: "call-queued",
+        name: "echoValue",
+        args: { value: "queued-ok" },
+      }),
+    );
+
+    await sleep(10);
+    expect(sentMessages).toHaveLength(0);
+
+    handler.beginManifestLoad();
+
+    handler.bindFromHtml(
+      buildManifestHtml([
+        {
+          name: "echoValue",
+          returns: "text",
+          executor: {
+            kind: "exec",
+            command: process.execPath,
+            args: ["-e", "process.stdout.write(process.argv[1] ?? '')", "{{value}}"],
+          },
+        },
+      ]),
+    );
+
+    await pendingInvoke;
+    await waitUntil(() => {
+      return commandResults(sentMessages).some((entry) => entry.callId === "call-queued");
+    });
+
+    const results = commandResults(sentMessages).filter((entry) => entry.callId === "call-queued");
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      callId: "call-queued",
+      ok: true,
+      value: "queued-ok",
+    });
+    expect(executorStates).toEqual(["loading", "ready"]);
   });
 
   it("skips functions missing executor during bind", async () => {

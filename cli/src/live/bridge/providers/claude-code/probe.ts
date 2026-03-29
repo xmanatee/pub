@@ -4,7 +4,7 @@ import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
 import PROBE_PROMPT from "./prompts/probe.md";
 import {
   buildClaudeArgs,
-  resolveAutoDetectClaudeBridgeCwd,
+  resolveAutoDetectClaudeWorkspaceDir,
   resolveClaudeCodePath,
 } from "./discovery.js";
 import {
@@ -16,8 +16,8 @@ function getStrictClaudeCodePath(bridgeConfig: ClaudeBridgeSettings): string {
   return bridgeConfig.claudeCodePath;
 }
 
-function getStrictClaudeBridgeCwd(bridgeConfig: ClaudeBridgeSettings): string {
-  return bridgeConfig.bridgeCwd;
+function getStrictClaudeWorkspaceDir(bridgeConfig: ClaudeBridgeSettings): string {
+  return bridgeConfig.workspaceDir;
 }
 
 async function runClaudeCodeWritePongProbe(
@@ -45,8 +45,8 @@ async function runClaudeCodeWritePongProbe(
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 
       const cwd = options?.strictConfig
-        ? getStrictClaudeBridgeCwd(bridgeConfig as ClaudeBridgeSettings)
-        : resolveAutoDetectClaudeBridgeCwd(env, bridgeConfig);
+        ? getStrictClaudeWorkspaceDir(bridgeConfig as ClaudeBridgeSettings)
+        : resolveAutoDetectClaudeWorkspaceDir(env);
 
       await new Promise<void>((resolve, reject) => {
         const child = spawn(claudePath, args, {
@@ -97,8 +97,8 @@ export async function runClaudeCodeBridgeStartupProbe(
       : resolveClaudeCodePath(env, bridgeConfig);
   const cwd =
     strictConfig && bridgeConfig
-      ? getStrictClaudeBridgeCwd(bridgeConfig as ClaudeBridgeSettings)
-      : resolveAutoDetectClaudeBridgeCwd(env, bridgeConfig);
+      ? getStrictClaudeWorkspaceDir(bridgeConfig as ClaudeBridgeSettings)
+      : resolveAutoDetectClaudeWorkspaceDir(env);
   await runClaudeCodePreflight(claudePath, env);
   await runClaudeCodeWritePongProbe(claudePath, env, bridgeConfig, { strictConfig });
   return { claudePath, cwd };

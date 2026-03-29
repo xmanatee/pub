@@ -1,5 +1,6 @@
 import * as net from "node:net";
-import * as os from "node:os";
+import { join } from "node:path";
+import { resolvePubPaths } from "../../core/paths.js";
 import { type IpcRequest, type IpcResponseFor, parseIpcResponse } from "./ipc-protocol.js";
 
 export class DaemonUnavailableError extends Error {
@@ -12,10 +13,7 @@ export class DaemonUnavailableError extends Error {
 export function getAgentSocketPath(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.PUB_AGENT_SOCKET?.trim();
   if (override && override.length > 0) return override;
-
-  const userInfo = os.userInfo();
-  const suffix = userInfo.username ? `-${userInfo.username}` : "";
-  return `/tmp/pub-agent${suffix}.sock`;
+  return join(resolvePubPaths(env).socketRoot, "daemon.sock");
 }
 
 export async function ipcCall<T extends IpcRequest["method"]>(

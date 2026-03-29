@@ -53,11 +53,11 @@ Verify with `which <tool>` before depending on it.
    - Optional: `provider`, `profile` (`"fast"` / `"default"` / `"deep"`), `model`
 
 5. Host file access via `/__pub_files__/` URLs (standard HTTP semantics):
-   - **Read**: `<img src="/__pub_files__/./chart.png">`, `fetch("/__pub_files__/./data.json")`, `<video src="/__pub_files__/./video.mp4">`
-   - **Write**: `fetch("/__pub_files__/./output.png", { method: "PUT", body: blob })`
-   - **Delete**: `fetch("/__pub_files__/./output.png", { method: "DELETE" })`
-   - **Download**: `<a href="/__pub_files__/./report.pdf" download="report.pdf">Download</a>`
+   - **Read**: `<img src="/__pub_files__/_/chart.png">`, `fetch("/__pub_files__/_/data.json")`, `<video src="/__pub_files__/_/video.mp4">`
+   - **Write**: `fetch("/__pub_files__/_/output.png", { method: "PUT", body: blob })`
+   - **Delete**: `fetch("/__pub_files__/_/output.png", { method: "DELETE" })`
+   - **Download**: `<a href="/__pub_files__/_/report.pdf" download="report.pdf">Download</a>`
    - Works with `<img>`, `<video>`, `<audio>`, `<source>`, CSS `url()`, `fetch()`, etc.
    - Files are streamed on demand — no size limit. Video seeking works (Range request support).
-   - Prefer session-relative paths under `/__pub_files__/./...` so each pub stays isolated in its own workspace on the host.
-   - Absolute host paths still work when needed (for example `/tmp/output.png` or `/home/user/file.mp4`).
+   - All paths must stay under `/__pub_files__/_/...`, which maps to the active pub workspace.
+   - Use that workspace for session-local canvas files and generated assets. Treat anything outside it as inaccessible.

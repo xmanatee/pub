@@ -3,7 +3,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 export const PUB_FS_SESSION_PATH_PREFIX = "/./";
 
-type PubFsPathScope = "absolute" | "session";
+type PubFsPathScope = "session";
 
 function canonicalizePath(pathValue: string): string {
   try {
@@ -28,7 +28,9 @@ export function resolvePubFsRequestPath(
   sessionRootDir: string | null,
 ): { path: string; scope: PubFsPathScope } {
   if (!rawPath.startsWith(PUB_FS_SESSION_PATH_PREFIX)) {
-    return { path: resolve(rawPath), scope: "absolute" };
+    throw new Error(
+      `Pub FS paths must stay inside the active session workspace and start with "${PUB_FS_SESSION_PATH_PREFIX}".`,
+    );
   }
 
   if (!sessionRootDir) {
@@ -46,10 +48,6 @@ export function resolveExistingPubFsPath(
   sessionRootDir: string | null,
 ): string {
   const resolved = resolvePubFsRequestPath(rawPath, sessionRootDir);
-  if (resolved.scope === "absolute") {
-    return realpathSync(resolved.path);
-  }
-
   const realPath = realpathSync(resolved.path);
   assertPathWithinRoot(realPath, sessionRootDir!, "Resolved file path");
   return realPath;
@@ -60,7 +58,6 @@ export function assertPubFsWriteParent(
   scope: PubFsPathScope,
   sessionRootDir: string | null,
 ): void {
-  if (scope !== "session") return;
   if (!sessionRootDir) {
     throw new Error("No active pub workspace is available for session-relative pub-fs paths.");
   }

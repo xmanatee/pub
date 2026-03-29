@@ -22,8 +22,9 @@ describe("createClaudeChannelBridgeRunner", () => {
         bridgeSettings: {
           mode: "claude-code",
           verbose: false,
-          bridgeCwd: "/tmp",
+          workspaceDir: "/tmp",
           attachmentDir: "/tmp",
+          artifactsDir: "/tmp/artifacts",
           commandDefaultTimeoutMs: 15_000,
           commandMaxOutputBytes: 256 * 1024,
           commandMaxConcurrent: 6,

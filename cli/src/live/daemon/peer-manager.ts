@@ -34,6 +34,7 @@ export function createPeerManager(params: {
   handleConnectionClosed: (reason: string) => void;
   clearLocalCandidateTimers: () => void;
   stopPingPong: () => void;
+  commandHandlerBeginManifestLoad: () => void;
   commandHandlerStop: () => void;
   pubFsHandlerReset: () => void;
 }) {
@@ -52,6 +53,7 @@ export function createPeerManager(params: {
     handleConnectionClosed,
     clearLocalCandidateTimers,
     stopPingPong,
+    commandHandlerBeginManifestLoad,
     commandHandlerStop,
     pubFsHandlerReset,
   } = params;
@@ -228,6 +230,7 @@ export function createPeerManager(params: {
         state.lastAppliedBrowserOffer = browserOffer;
         state.signalingSlug = slug;
         state.activeLiveModelProfile = modelProfile ?? null;
+        commandHandlerBeginManifestLoad();
 
         const tSignal = Date.now();
         await apiClient.signalAnswer({ slug, daemonSessionId, answer, agentName });

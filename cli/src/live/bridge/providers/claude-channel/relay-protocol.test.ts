@@ -90,8 +90,9 @@ describe("decodeRelayMessage rejects invalid input", () => {
 });
 
 describe("defaultChannelSocketPath", () => {
-  it("returns a path under /tmp", () => {
+  it("returns a Pub-managed socket path", () => {
     const p = defaultChannelSocketPath();
-    expect(p).toMatch(/^\/tmp\/pub-channel-\d+\.sock$/);
+    expect(p).toContain("/pub/");
+    expect(p.endsWith("/channel.sock")).toBe(true);
   });
 });

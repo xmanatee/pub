@@ -7,9 +7,9 @@ import {
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
   DEFAULT_COMMAND_TIMEOUT_MS,
   type DetachedAgentProvider,
-  getConfigDir,
   type PubBridgeConfig,
 } from "../../../core/config/index.js";
+import { resolvePubPaths } from "../../../core/paths.js";
 import type { BridgeMode } from "./types.js";
 
 function trimToUndefined(value: string | undefined): string | undefined {
@@ -93,25 +93,14 @@ export function buildBridgeSettings(
   env: NodeJS.ProcessEnv = process.env,
 ): BridgeSettings {
   const projectRoot = trimToUndefined(env.PUB_PROJECT_ROOT) || process.cwd();
-  const openclawWorkspace = trimToUndefined(env.OPENCLAW_WORKSPACE);
-  const bridgeCwd =
-    trimToUndefined(bridgeConfig.bridgeCwd) ||
-    (mode === "openclaw" ? openclawWorkspace : projectRoot);
-
-  if (!bridgeCwd) {
-    throw new Error(
-      mode === "openclaw"
-        ? "OpenClaw workspace is not configured. Set OPENCLAW_WORKSPACE or save bridge.cwd."
-        : "Bridge cwd is not configured.",
-    );
-  }
+  const paths = resolvePubPaths(env);
 
   const base = {
     mode,
     verbose: bridgeConfig.verbose === true,
-    bridgeCwd,
-    attachmentDir:
-      trimToUndefined(bridgeConfig.attachmentDir) || join(getConfigDir(env), "attachments"),
+    workspaceDir: projectRoot,
+    attachmentDir: join(paths.runtimeRoot, "attachments"),
+    artifactsDir: join(paths.runtimeRoot, "artifacts"),
     commandDefaultTimeoutMs: positiveIntOr(
       bridgeConfig.commandDefaultTimeoutMs,
       DEFAULT_COMMAND_TIMEOUT_MS,

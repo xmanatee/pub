@@ -45,8 +45,9 @@ describe("buildSdkSessionOptions", () => {
     const opts = buildSdkSessionOptionsFromSettings({
       mode: "claude-sdk",
       verbose: false,
-      bridgeCwd: "/tmp/project",
+      workspaceDir: "/tmp/project",
       attachmentDir: "/tmp/attachments",
+      artifactsDir: "/tmp/artifacts",
       commandDefaultTimeoutMs: 15_000,
       commandMaxOutputBytes: 256 * 1024,
       commandMaxConcurrent: 6,

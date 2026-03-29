@@ -109,7 +109,8 @@ describe("BrowserBridge ack routing", () => {
       transportPolicy: "relay",
     });
 
-    expect(bridge.connectionTimeoutMs).toBe(45_000);
+    expect(bridge.connectionTimeoutMs).toBe(90_000);
+    expect(bridge.openChannel).toHaveBeenCalledWith("pub-fs");
     vi.unstubAllGlobals();
   });
 });

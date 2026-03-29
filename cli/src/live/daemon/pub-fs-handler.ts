@@ -47,6 +47,8 @@ interface ActiveWrite {
 const SEND_HIGH_WATER = 1024 * 1024;
 const SEND_LOW_WATER = 256 * 1024;
 const BACKPRESSURE_TIMEOUT_MS = 30_000;
+const SESSION_ROOT_WAIT_TIMEOUT_MS = 25_000;
+const SESSION_ROOT_POLL_MS = 50;
 
 export function createPubFsHandler(params: {
   markError: (message: string, error?: unknown) => void;
@@ -56,8 +58,6 @@ export function createPubFsHandler(params: {
 }) {
   const activeReads = new Map<string, ActiveRead>();
   const activeWrite: { current: ActiveWrite | null } = { current: null };
-  const writeQueue: BridgeMessage[] = [];
-  let processingWrites = false;
 
   function sendMessage(dc: AdapterDataChannel, msg: BridgeMessage): void {
     dc.sendMessage(encodeMessage(msg));
@@ -79,6 +79,16 @@ export function createPubFsHandler(params: {
     active.stream.destroy();
   }
 
+  async function waitForSessionRootDir(): Promise<string | null> {
+    const deadline = Date.now() + SESSION_ROOT_WAIT_TIMEOUT_MS;
+    let sessionRootDir = params.getSessionRootDir();
+    while (!sessionRootDir && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, SESSION_ROOT_POLL_MS));
+      sessionRootDir = params.getSessionRootDir();
+    }
+    return sessionRootDir;
+  }
+
   // --- READ (concurrent, tagged binary chunks) ---
 
   async function handleRead(msg: BridgeMessage): Promise<void> {
@@ -88,7 +98,7 @@ export function createPubFsHandler(params: {
     const { requestId, path, rangeStart, rangeEnd } = request;
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
-    const sessionRootDir = params.getSessionRootDir();
+    const sessionRootDir = await waitForSessionRootDir();
 
     let realPath: string;
     let fileSize: number;
@@ -196,7 +206,7 @@ export function createPubFsHandler(params: {
     const { requestId, path: filePath, size } = request;
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
-    const sessionRootDir = params.getSessionRootDir();
+    const sessionRootDir = await waitForSessionRootDir();
 
     if (activeWrite.current) {
       sendError(dc, requestId, "WRITE_ERROR", "Another write is already in progress.");
@@ -282,7 +292,7 @@ export function createPubFsHandler(params: {
     const { requestId, path: filePath } = request;
     const dc = params.openDataChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
-    const sessionRootDir = params.getSessionRootDir();
+    const sessionRootDir = await waitForSessionRootDir();
 
     try {
       const resolvedPath = resolvePubFsRequestPath(filePath, sessionRootDir);
@@ -302,33 +312,16 @@ export function createPubFsHandler(params: {
     }
   }
 
-  // --- Write/delete queue (serialized to prevent interleaving write chunks) ---
-
-  async function processWriteQueue(): Promise<void> {
-    if (processingWrites) return;
-    processingWrites = true;
-    while (writeQueue.length > 0) {
-      const next = writeQueue.shift()!;
-      if (next.type === "event" && next.data === "pub-fs.write") await handleWrite(next);
-      else if (next.type === "event" && next.data === "pub-fs.delete") await handleDelete(next);
-    }
-    processingWrites = false;
-  }
-
   return {
-    onMessage(message: BridgeMessage): void {
+    async onMessage(message: BridgeMessage): Promise<void> {
       if (message.type === "event") {
         if (message.data === "pub-fs.read") {
-          void handleRead(message).catch((error) =>
-            params.markError("pub-fs read failed", error),
-          );
+          await handleRead(message);
           return;
         }
         if (message.data === "pub-fs.write" || message.data === "pub-fs.delete") {
-          writeQueue.push(message);
-          void processWriteQueue().catch((error) =>
-            params.markError("pub-fs write queue failed", error),
-          );
+          if (message.data === "pub-fs.write") await handleWrite(message);
+          else await handleDelete(message);
           return;
         }
         if (message.data === "pub-fs.cancel") {
@@ -343,8 +336,6 @@ export function createPubFsHandler(params: {
       }
     },
     reset(): void {
-      writeQueue.length = 0;
-      processingWrites = false;
       activeWrite.current = null;
       for (const [, active] of activeReads) {
         active.stream.destroy();

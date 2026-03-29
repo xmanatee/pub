@@ -17,8 +17,7 @@ describe("config", () => {
   let tmpDir: string;
   const originalEnv = {
     HOME: process.env.HOME,
-    OPENCLAW_HOME: process.env.OPENCLAW_HOME,
-    PUB_CONFIG_DIR: process.env.PUB_CONFIG_DIR,
+    PUB_HOME: process.env.PUB_HOME,
     PUB_API_KEY: process.env.PUB_API_KEY,
     PUB_BASE_URL: process.env.PUB_BASE_URL,
     CLAUDE_CODE_PATH: process.env.CLAUDE_CODE_PATH,
@@ -27,8 +26,7 @@ describe("config", () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-test-"));
     process.env.HOME = tmpDir;
-    delete process.env.OPENCLAW_HOME;
-    delete process.env.PUB_CONFIG_DIR;
+    delete process.env.PUB_HOME;
     delete process.env.PUB_API_KEY;
     delete process.env.PUB_BASE_URL;
     delete process.env.CLAUDE_CODE_PATH;
@@ -37,8 +35,7 @@ describe("config", () => {
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     process.env.HOME = originalEnv.HOME;
-    process.env.OPENCLAW_HOME = originalEnv.OPENCLAW_HOME;
-    process.env.PUB_CONFIG_DIR = originalEnv.PUB_CONFIG_DIR;
+    process.env.PUB_HOME = originalEnv.PUB_HOME;
     process.env.PUB_API_KEY = originalEnv.PUB_API_KEY;
     process.env.PUB_BASE_URL = originalEnv.PUB_BASE_URL;
     process.env.CLAUDE_CODE_PATH = originalEnv.CLAUDE_CODE_PATH;
@@ -49,13 +46,6 @@ describe("config", () => {
 
   function makeHomeConfigDir(): string {
     const dir = path.join(tmpDir, ".config", "pub");
-    fs.mkdirSync(dir, { recursive: true });
-    return dir;
-  }
-
-  function makeOpenClawConfigDir(): string {
-    process.env.OPENCLAW_HOME = path.join(tmpDir, "openclaw-home");
-    const dir = path.join(process.env.OPENCLAW_HOME, ".openclaw", "pub");
     fs.mkdirSync(dir, { recursive: true });
     return dir;
   }
@@ -153,41 +143,23 @@ describe("config", () => {
     expect(resolved.rawConfig.bridge?.claudeCodePath).toBe("/config/claude");
   });
 
-  it("uses PUB_CONFIG_DIR when set and it exists", () => {
-    const dir = path.join(tmpDir, "explicit-blue");
-    fs.mkdirSync(dir, { recursive: true });
-    process.env.PUB_CONFIG_DIR = dir;
-
-    expect(getConfigDir()).toBe(dir);
-  });
-
-  it("uses OPENCLAW_HOME/.openclaw/pub when it is the only existing location", () => {
-    const dir = makeOpenClawConfigDir();
-    expect(getConfigDir()).toBe(dir);
-  });
-
-  it("uses ~/.config/pub when it is the only existing location", () => {
+  it("uses ~/.config/pub by default", () => {
     const dir = makeHomeConfigDir();
     expect(getConfigDir()).toBe(dir);
   });
 
-  it("throws when two config directories exist", () => {
-    makeOpenClawConfigDir();
-    makeHomeConfigDir();
-    expect(() => resolveConfigLocation()).toThrow("Ambiguous Pub config directories detected.");
+  it("uses PUB_HOME/config when PUB_HOME is set", () => {
+    process.env.PUB_HOME = path.join(tmpDir, "pub-home");
+    expect(getConfigDir()).toBe(path.join(process.env.PUB_HOME, "config"));
   });
 
-  it("throws when no config directory exists", () => {
-    expect(() => resolveConfigLocation()).toThrow("No Pub config directory found.");
+  it("resolves config location deterministically even before the directory exists", () => {
+    const location = resolveConfigLocation();
+    expect(location.dir).toBe(path.join(tmpDir, ".config", "pub"));
+    expect(location.source).toBe("PUB_CONFIG_HOME");
   });
 
   it("readPubConfig returns null when no config directory exists", () => {
     expect(readPubConfig()).toBeNull();
-  });
-
-  it("readPubConfig throws when config directories are ambiguous", () => {
-    makeOpenClawConfigDir();
-    makeHomeConfigDir();
-    expect(() => readPubConfig()).toThrow("Ambiguous Pub config directories detected.");
   });
 });

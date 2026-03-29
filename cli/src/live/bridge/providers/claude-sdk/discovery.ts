@@ -33,9 +33,8 @@ export function buildSdkSessionOptions(
   };
 }
 
-export function resolveAutoDetectClaudeSdkCwd(
+export function resolveAutoDetectClaudeSdkWorkspaceDir(
   env: NodeJS.ProcessEnv = process.env,
-  bridgeConfig?: PubBridgeConfig,
 ): string {
-  return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
+  return env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }

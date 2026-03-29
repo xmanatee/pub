@@ -24,8 +24,6 @@ export type PubBridgeConfig = {
   openclawStateDir?: string;
   sessionId?: string;
   verbose?: boolean;
-  bridgeCwd?: string;
-  attachmentDir?: string;
   claudeCodePath?: string;
   claudeCodeMaxTurns?: number;
   commandDefaultTimeoutMs?: number;
@@ -58,8 +56,9 @@ export type PubConfig = {
 interface BridgeSettingsBase {
   mode: BridgeMode;
   verbose: boolean;
-  bridgeCwd: string;
+  workspaceDir: string;
   attachmentDir: string;
+  artifactsDir: string;
   commandDefaultTimeoutMs: number;
   commandMaxOutputBytes: number;
   commandMaxConcurrent: number;
@@ -129,14 +128,7 @@ export type ResolvedPubSettings = {
   valuesByKey: Record<string, ResolvedValue<unknown> | null>;
 };
 
-export type ConfigDirSource = "PUB_CONFIG_DIR" | "OPENCLAW_HOME" | "HOME_CONFIG";
-
-export type ConfigDirCandidate = {
-  dir: string;
-  exists: boolean;
-  source: ConfigDirSource;
-  description: string;
-};
+export type ConfigDirSource = "PUB_CONFIG_HOME";
 
 export type ConfigLocation = {
   dir: string;

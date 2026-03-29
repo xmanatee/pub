@@ -55,7 +55,10 @@ type DeliveryReceiptHandler = (receipt: DeliveryReceiptPayload) => void;
 const DEDUP_MAX_SIZE = 10_000;
 const INITIAL_CONNECTION_TIMEOUT_MS = 15_000;
 const RELAY_CANDIDATE_WAIT_MS = 5_000;
-const RELAY_CONNECTION_TIMEOUT_MS = 45_000;
+// Relay-only startup is materially slower under fullstack load. Keep the peer
+// connection timeout aligned with the end-to-end readiness budget so TURN does
+// not self-cancel while the rest of the live stack is still allowed to settle.
+const RELAY_CONNECTION_TIMEOUT_MS = 90_000;
 
 /**
  * Give TURN a brief head start without blocking the whole offer on full ICE
@@ -213,6 +216,7 @@ export class BrowserBridge {
     this.openChannel(CHANNELS.CHAT);
     this.openChannel(CHANNELS.RENDER_ERROR);
     this.openChannel(CHANNELS.COMMAND);
+    this.openChannel(CHANNELS.PUB_FS);
 
     const offer = await pc.createOffer();
     const normalized = toSessionDescription(offer);

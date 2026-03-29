@@ -1,5 +1,6 @@
 import type { BridgeMessage } from "../../../../../../shared/bridge-protocol-core";
 import type { LiveAgentActivity } from "../../../../../../shared/live-runtime-state-core";
+import { resolvePubPaths } from "../../../../core/paths.js";
 
 export type RelayInbound =
   | { type: "briefing"; slug: string; content: string }
@@ -48,7 +49,6 @@ export function decodeRelayMessage(line: string): RelayMessage | null {
   }
 }
 
-export function defaultChannelSocketPath(): string {
-  const uid = process.getuid?.() ?? process.pid;
-  return `/tmp/pub-channel-${uid}.sock`;
+export function defaultChannelSocketPath(env: NodeJS.ProcessEnv = process.env): string {
+  return `${resolvePubPaths(env).socketRoot}/channel.sock`;
 }

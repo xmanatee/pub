@@ -17,6 +17,7 @@ export const DEFAULT_RECENT_RESULT_TTL_MS = 120_000;
 
 export type CommandHandlerParams = {
   bridgeSettings: BridgeSettings;
+  getRuntimeBridgeSettings?: () => BridgeSettings;
   debugLog: (message: string, error?: unknown) => void;
   markError: (message: string, error?: unknown) => void;
   sendCommandMessage: (msg: BridgeMessage) => Promise<boolean>;

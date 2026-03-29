@@ -11,8 +11,8 @@ function getStrictOpenClawLikeCommand(bridgeConfig: OpenClawLikeBridgeSettings):
   return bridgeConfig.openclawLikeCommand;
 }
 
-function getStrictOpenClawLikeBridgeCwd(bridgeConfig: OpenClawLikeBridgeSettings): string {
-  return bridgeConfig.bridgeCwd;
+function getStrictOpenClawLikeWorkspaceDir(bridgeConfig: OpenClawLikeBridgeSettings): string {
+  return bridgeConfig.workspaceDir;
 }
 
 function resolveOpenClawLikeCommand(
@@ -22,16 +22,15 @@ function resolveOpenClawLikeCommand(
   return env.PUB_OPENCLAW_LIKE_COMMAND?.trim() || bridgeConfig?.openclawLikeCommand?.trim();
 }
 
-function resolveOpenClawLikeBridgeCwd(
-  bridgeConfig?: PubBridgeConfig | BridgeSettings,
+function resolveOpenClawLikeWorkspaceDir(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return bridgeConfig?.bridgeCwd?.trim() || env.PUB_PROJECT_ROOT?.trim() || process.cwd();
+  return env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }
 
 function formatOpenClawLikeProbeFailure(params: {
   command: string;
-  bridgeCwd: string;
+  workspaceDir: string;
   error: unknown;
 }): Error {
   const detail = params.error instanceof Error ? params.error.message : String(params.error);
@@ -43,7 +42,7 @@ function formatOpenClawLikeProbeFailure(params: {
         "",
         "Resolved runtime:",
         `- command: ${params.command}`,
-        `- bridge cwd: ${params.bridgeCwd}`,
+        `- workspace: ${params.workspaceDir}`,
         "",
         "Possible causes:",
         "- The configured command ignored the prompt or did not execute `pub write`.",
@@ -64,7 +63,7 @@ function formatOpenClawLikeProbeFailure(params: {
       "",
       "Resolved runtime:",
       `- command: ${params.command}`,
-      `- bridge cwd: ${params.bridgeCwd}`,
+      `- workspace: ${params.workspaceDir}`,
       "",
       "Troubleshooting tips:",
       "- Run `pub config` to verify the saved openclaw-like runtime settings.",
@@ -91,10 +90,10 @@ export async function runOpenClawLikeBridgeStartupProbe(
     throw new Error(`openclaw-like command not found on disk: ${command}`);
   }
 
-  const bridgeCwd =
+  const workspaceDir =
     strictConfig && bridgeConfig
-      ? getStrictOpenClawLikeBridgeCwd(bridgeConfig as OpenClawLikeBridgeSettings)
-      : resolveOpenClawLikeBridgeCwd(bridgeConfig, env);
+      ? getStrictOpenClawLikeWorkspaceDir(bridgeConfig as OpenClawLikeBridgeSettings)
+      : resolveOpenClawLikeWorkspaceDir(env);
 
   try {
     await runAgentWritePongProbe({
@@ -113,13 +112,13 @@ export async function runOpenClawLikeBridgeStartupProbe(
             ].join("\n"),
           },
           probeEnv,
-          { bridgeCwd },
+          { workspaceDir },
         );
       },
     });
   } catch (error) {
-    throw formatOpenClawLikeProbeFailure({ command, bridgeCwd, error });
+    throw formatOpenClawLikeProbeFailure({ command, workspaceDir, error });
   }
 
-  return { command, cwd: bridgeCwd };
+  return { command, cwd: workspaceDir };
 }

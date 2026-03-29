@@ -53,7 +53,7 @@ function toSdkToolInput(input: unknown): Record<string, unknown> | undefined {
 }
 
 function getClaudeCommandRuntime(bridgeSettings: BridgeSettings): {
-  bridgeCwd: string;
+  workspaceDir: string;
   claudeCodeMaxTurns?: number;
   claudePath: string;
   commandModelDefault?: string;
@@ -69,7 +69,7 @@ function getClaudeCommandRuntime(bridgeSettings: BridgeSettings): {
 
   return {
     claudePath,
-    bridgeCwd: bridgeSettings.bridgeCwd,
+    workspaceDir: bridgeSettings.workspaceDir,
     claudeCodeMaxTurns: bridgeSettings.claudeCodeMaxTurns,
     commandModelDefault: bridgeSettings.claudeCodeCommandModelDefault,
     commandModelFast: bridgeSettings.claudeCodeCommandModelFast,
@@ -244,7 +244,7 @@ async function executeDetachedClaudeAgentCommand(params: {
 
   const outputText = await new Promise<string>((resolve, reject) => {
     const child = spawn(runtime.claudePath, args, {
-      cwd: runtime.bridgeCwd,
+      cwd: runtime.workspaceDir,
       env: { ...process.env },
       signal: params.signal,
       stdio: ["ignore", "pipe", "pipe"],

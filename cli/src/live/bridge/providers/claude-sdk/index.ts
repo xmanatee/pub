@@ -33,7 +33,7 @@ export async function createClaudeSdkBridgeRunner(
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
 
   const loadedSdk = loadClaudeSdk();
-  const { model, claudePath, sdkEnv } = buildSdkSessionOptionsFromSettings(
+  const { model, claudePath, workspaceDir, sdkEnv } = buildSdkSessionOptionsFromSettings(
     config.bridgeSettings,
     process.env,
   );
@@ -67,7 +67,8 @@ export async function createClaudeSdkBridgeRunner(
       pathToClaudeCodeExecutable: claudePath,
       env: sdkEnv,
       canUseTool: async (_tool, input) => ({ behavior: "allow" as const, updatedInput: input }),
-    });
+      ...(workspaceDir ? ({ cwd: workspaceDir } as Record<string, unknown>) : {}),
+    } as Parameters<typeof loadedSdk.unstable_v2_createSession>[0]);
     activeSession = session;
     return session;
   }

@@ -13,7 +13,7 @@ import {
 function formatProbeFailure(params: {
   openclawPath: string;
   sessionId: string;
-  bridgeCwd: string;
+  workspaceDir: string;
   error: unknown;
 }): Error {
   const detail = params.error instanceof Error ? params.error.message : String(params.error);
@@ -26,7 +26,7 @@ function formatProbeFailure(params: {
       "Resolved runtime:",
       `- executable: ${params.openclawPath}`,
       `- sessionId: ${params.sessionId}`,
-      `- bridge cwd: ${params.bridgeCwd}`,
+      `- workspace: ${params.workspaceDir}`,
       "",
       "Troubleshooting:",
       "- Run `pub config` to verify saved OpenClaw runtime settings.",
@@ -53,8 +53,8 @@ export async function runOpenClawBridgeStartupProbe(
     throw new Error("OpenClaw runtime is not prepared. Run `pub config --auto` again.");
   }
 
-  const bridgeCwd = strictConfig
-    ? (bridgeConfig as OpenClawBridgeSettings).bridgeCwd
+  const workspaceDir = strictConfig
+    ? (bridgeConfig as OpenClawBridgeSettings).workspaceDir
     : resolveAutoDetectOpenClawCommandCwd(env);
 
   await runOpenClawPreflight(runtime.openclawPath, env);
@@ -88,7 +88,7 @@ export async function runOpenClawBridgeStartupProbe(
               local: true,
             },
             probeEnv,
-            { bridgeCwd },
+            { workspaceDir },
           );
           // Simulate pong to pass preflight immediately for self-probe.
           // The agent's ability to run this command is proof of aliveness.
@@ -109,7 +109,7 @@ export async function runOpenClawBridgeStartupProbe(
               local: true,
             },
             probeEnv,
-            { bridgeCwd },
+            { workspaceDir },
           );
         }
       },
@@ -118,7 +118,7 @@ export async function runOpenClawBridgeStartupProbe(
     throw formatProbeFailure({
       openclawPath: runtime.openclawPath,
       sessionId: runtime.sessionId,
-      bridgeCwd,
+      workspaceDir,
       error,
     });
   }

@@ -15,6 +15,9 @@ import { ensureChannelReady } from "~/features/live/lib/webrtc-channel";
 import type { LiveRenderErrorPayload, LiveViewMode } from "~/features/live/types/live-types";
 import { analyzeAudioBlob } from "~/features/live/utils/audio-waveform";
 
+// Match relay chat send readiness with the overall live startup budget so the
+// browser does not declare the channel dead while TURN is still converging.
+const CHAT_CHANNEL_READY_TIMEOUT_MS = 90_000;
 const CHAT_ACK_TIMEOUT_MS = 8_000;
 const RENDER_ERROR_ACK_TIMEOUT_MS = 4_000;
 const STREAM_ACK_TIMEOUT_MS = 10_000;
@@ -292,7 +295,11 @@ export function useLiveTransport({
           });
           return;
         }
-        const ready = await ensureChannelReady(bridge, CHANNELS.CHAT);
+        const ready = await ensureChannelReady(
+          bridge,
+          CHANNELS.CHAT,
+          CHAT_CHANNEL_READY_TIMEOUT_MS,
+        );
         if (!ready) {
           markMessageFailedIfPending(msg.id);
           emitSystemMessage({

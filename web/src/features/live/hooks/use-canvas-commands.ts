@@ -1,7 +1,4 @@
-import {
-  canSendCommandTraffic,
-  type LiveRuntimeStateSnapshot,
-} from "@shared/live-runtime-state-core";
+import { type LiveRuntimeStateSnapshot } from "@shared/live-runtime-state-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type BridgeMessage, CHANNELS } from "~/features/live/lib/bridge-protocol";
 import {
@@ -429,7 +426,7 @@ export function useCanvasCommands({
         return;
       }
 
-      if (commandsPaused || !canSendCommandTraffic(runtimeState)) {
+      if (commandsPaused || runtimeState.connectionState !== "connected") {
         pendingBridgeQueueRef.current.push(message);
         return;
       }
@@ -444,7 +441,7 @@ export function useCanvasCommands({
     const queued = pendingBridgeQueueRef.current.splice(0);
     const stillPending: CanvasBridgeCommandMessage[] = [];
     for (const message of queued) {
-      if (!canSendCommandTraffic(runtimeState)) {
+      if (runtimeState.connectionState !== "connected") {
         stillPending.push(message);
         continue;
       }

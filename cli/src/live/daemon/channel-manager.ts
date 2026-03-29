@@ -5,6 +5,7 @@ import {
   CONTROL_CHANNEL,
   decodeMessage,
   encodeMessage,
+  generateMessageId,
   makeAckMessage,
   makeDeliveryReceiptMessage,
   parseAckMessage,
@@ -32,6 +33,15 @@ export function createDaemonChannelManager(params: {
 }) {
   const { state, debugLog, markError, onCommandMessage, onPubFsMessage, onChannelClosed } = params;
   const dedup = createMessageDedup(DEDUP_MAX_SIZE);
+  let pubFsWriteLane = Promise.resolve();
+
+  function enqueuePubFsWriteLane(msg: BridgeMessage, errorContext: string): void {
+    pubFsWriteLane = pubFsWriteLane
+      .then(() => onPubFsMessage(msg))
+      .catch((error) => {
+        markError(errorContext, error);
+      });
+  }
 
   function emitDeliveryStatus(params: {
     channel: string;
@@ -260,6 +270,13 @@ export function createDaemonChannelManager(params: {
             return;
           }
           if (name === CHANNELS.PUB_FS) {
+            if (
+              msg.type === "event" &&
+              (msg.data === "pub-fs.write" || msg.data === "pub-fs.delete")
+            ) {
+              enqueuePubFsWriteLane(msg, "pub-fs message handler failed");
+              return;
+            }
             void onPubFsMessage(msg).catch((error) => {
               markError("pub-fs message handler failed", error);
             });
@@ -279,6 +296,21 @@ export function createDaemonChannelManager(params: {
         const activeStream = state.inboundStreams.get(name);
         if (pendingMeta) state.pendingInboundBinaryMeta.delete(name);
         if (name === CHANNELS.COMMAND) return;
+        if (name === CHANNELS.PUB_FS) {
+          if (pendingMeta) {
+            markError("pub-fs binary chunk must not be preceded by bridge binary metadata");
+          }
+          enqueuePubFsWriteLane(
+            {
+              id: generateMessageId(),
+              type: "binary",
+              data: data.toString("base64"),
+              meta: { size: data.length },
+            },
+            "pub-fs binary handler failed",
+          );
+          return;
+        }
 
         const binMsg: BridgeMessage = pendingMeta
           ? {
@@ -308,12 +340,6 @@ export function createDaemonChannelManager(params: {
         }
         if (shouldAcknowledgeMessage(name, binMsg)) {
           queueAck(binMsg.id, name);
-        }
-        if (name === CHANNELS.PUB_FS) {
-          void onPubFsMessage(binMsg).catch((error) => {
-            markError("pub-fs binary handler failed", error);
-          });
-          return;
         }
         state.bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
         if (!activeStream) {

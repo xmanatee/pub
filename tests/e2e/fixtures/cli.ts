@@ -1,6 +1,6 @@
 import { execFileSync, execSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,7 @@ function isDaemonNotRunningError(error: unknown): boolean {
 }
 
 export class CliFixture {
+  private pubHome: string;
   private configDir: string;
   private cliBin: string;
   private user: TestUser;
@@ -41,7 +42,8 @@ export class CliFixture {
     this.user = user;
     this.convexSiteUrl = convexSiteUrl;
     this.bridge = bridge;
-    this.configDir = mkdtempSync(join(tmpdir(), "pub-e2e-config-"));
+    this.pubHome = mkdtempSync(join(tmpdir(), "pub-e2e-home-"));
+    this.configDir = join(this.pubHome, "config");
     this.isolatedSocketPath = join(tmpdir(), `pub-agent-e2e-${randomUUID().slice(0, 8)}.sock`);
     this.cliBin = getCliBinaryPath();
     this.writeConfig();
@@ -59,13 +61,14 @@ export class CliFixture {
         ...this.bridge.configExtra,
       },
     };
+    mkdirSync(this.configDir, { recursive: true });
     writeFileSync(join(this.configDir, "config.json"), JSON.stringify(config, null, 2));
   }
 
   private env(): NodeJS.ProcessEnv {
     return {
       ...process.env,
-      PUB_CONFIG_DIR: this.configDir,
+      PUB_HOME: this.pubHome,
       PUB_API_KEY: this.user.apiKey,
       PUB_BASE_URL: this.convexSiteUrl,
       PUB_SKIP_UPDATE_CHECK: "1",
@@ -81,7 +84,7 @@ export class CliFixture {
       encoding: "utf-8",
       timeout: timeoutMs,
       env: this.env(),
-      cwd: this.configDir,
+      cwd: this.pubHome,
     }).trim();
   }
 
@@ -89,7 +92,7 @@ export class CliFixture {
   async startDaemon(agentName = "e2e-agent"): Promise<void> {
     const child = spawn(this.cliBin, ["start", "--agent-name", agentName], {
       env: this.env(),
-      cwd: this.configDir,
+      cwd: this.pubHome,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -115,7 +118,7 @@ export class CliFixture {
 
   /** Read daemon info from the info file written by the daemon process. */
   private readDaemonInfo(): void {
-    const infoPath = join(this.configDir, "lives", "agent.json");
+    const infoPath = join(this.pubHome, "runtime", "daemon", "info", "agent.json");
     try {
       const raw = readFileSync(infoPath, "utf-8");
       const info: DaemonInfo = JSON.parse(raw);
@@ -186,7 +189,7 @@ export class CliFixture {
     for (const sock of [this.socketPath, this.isolatedSocketPath]) {
       if (sock) rmSync(sock, { force: true });
     }
-    rmSync(this.configDir, { recursive: true, force: true });
+    rmSync(this.pubHome, { recursive: true, force: true });
   }
 }
 

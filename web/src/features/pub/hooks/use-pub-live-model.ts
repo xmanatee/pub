@@ -615,7 +615,7 @@ export function usePubLiveModel({
     collapseControlBar,
     closeLive: handleClose,
     command,
-    connected: viewState.transportStatus === "connected",
+    connected: canSendAgentTraffic(runtimeState),
     contentState: effectiveContentState,
     controlBarCollapsed,
     controlBarState: viewState.controlBarState,

@@ -58,8 +58,6 @@ describe("setPubConfigValue", () => {
 
   it("sets openclaw string keys", () => {
     const stringKeys: Array<{ key: string; field: keyof PubBridgeConfig }> = [
-      { key: "bridge.cwd", field: "bridgeCwd" },
-      { key: "bridge.attachmentDir", field: "attachmentDir" },
       { key: "openclaw.path", field: "openclawPath" },
       { key: "openclaw.stateDir", field: "openclawStateDir" },
       { key: "openclaw.sessionId", field: "sessionId" },
@@ -149,7 +147,7 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(27);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(25);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");

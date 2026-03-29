@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getConfigPath, MissingConfigDirectoryError } from "./location.js";
+import { getConfigPath } from "./location.js";
 import { compactPubConfig } from "./mutate.js";
 import type { PubBridgeConfig, PubConfig, PubCoreConfig, PubTelegramConfig } from "./types.js";
 
@@ -48,13 +48,7 @@ function normalizePubConfig(input: unknown): PubConfig {
 }
 
 export function readPubConfig(env: NodeJS.ProcessEnv = process.env): PubConfig | null {
-  let configPath: string;
-  try {
-    configPath = getConfigPath(env);
-  } catch (error) {
-    if (error instanceof MissingConfigDirectoryError) return null;
-    throw error;
-  }
+  const configPath = getConfigPath(env);
   if (!fs.existsSync(configPath)) return null;
   const raw = fs.readFileSync(configPath, "utf-8");
   return normalizePubConfig(JSON.parse(raw));

@@ -16,7 +16,7 @@
     "test:cli": "pnpm --filter pub-cli test",
     "test": "pnpm test:root && pnpm test:web && pnpm test:cli",
     "test:watch": "pnpm --filter pub-web test:watch",
-    "test:e2e": "pnpm --filter pub-web test:e2e",
+    "test:e2e": "env -u NO_COLOR pnpm --filter pub-web test:e2e",
     "test:e2e:fullstack": "docker compose -f tests/e2e/docker-compose.yml run --build --rm test-runner; docker compose -f tests/e2e/docker-compose.yml down -v",
 
     "lint:root": "biome check convex docs shared skills tests scripts web *.json *.ts && tsc --noEmit",
@@ -50,6 +50,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@sentry/cli",
+      "core-js",
       "esbuild",
       "protobufjs"
     ]

@@ -6,14 +6,14 @@ import { buildBridgeProcessEnv, buildBridgeSettings } from "./bridge-runtime.js"
 
 describe("bridge-runtime", () => {
   const originalEnv = {
-    PUB_CONFIG_DIR: process.env.PUB_CONFIG_DIR,
+    PUB_HOME: process.env.PUB_HOME,
     PUB_PROJECT_ROOT: process.env.PUB_PROJECT_ROOT,
   };
 
   afterEach(() => {
-    process.env.PUB_CONFIG_DIR = originalEnv.PUB_CONFIG_DIR;
+    process.env.PUB_HOME = originalEnv.PUB_HOME;
     process.env.PUB_PROJECT_ROOT = originalEnv.PUB_PROJECT_ROOT;
-    if (!originalEnv.PUB_CONFIG_DIR) delete process.env.PUB_CONFIG_DIR;
+    if (!originalEnv.PUB_HOME) delete process.env.PUB_HOME;
     if (!originalEnv.PUB_PROJECT_ROOT) delete process.env.PUB_PROJECT_ROOT;
   });
 
@@ -32,8 +32,8 @@ describe("bridge-runtime", () => {
   });
 
   it("builds concrete runtime defaults for claude bridges", () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
-    process.env.PUB_CONFIG_DIR = tempDir;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-home-"));
+    process.env.PUB_HOME = tempDir;
     process.env.PUB_PROJECT_ROOT = "/tmp/pub-project";
 
     const bridgeSettings = buildBridgeSettings(
@@ -44,16 +44,17 @@ describe("bridge-runtime", () => {
       buildBridgeProcessEnv(),
     );
 
-    expect(bridgeSettings.bridgeCwd).toBe("/tmp/pub-project");
-    expect(bridgeSettings.attachmentDir).toContain("/attachments");
+    expect(bridgeSettings.workspaceDir).toBe("/tmp/pub-project");
+    expect(bridgeSettings.attachmentDir).toContain("/runtime/attachments");
+    expect(bridgeSettings.artifactsDir).toContain("/runtime/artifacts");
     expect(bridgeSettings.commandDefaultTimeoutMs).toBe(15_000);
     expect(bridgeSettings.commandAgentDefaultProfile).toBe("default");
     expect(bridgeSettings.verbose).toBe(false);
   });
 
   it("uses saved bridge.verbose for runtime verbosity", () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
-    process.env.PUB_CONFIG_DIR = tempDir;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-home-"));
+    process.env.PUB_HOME = tempDir;
     process.env.PUB_PROJECT_ROOT = "/tmp/pub-project";
 
     const bridgeSettings = buildBridgeSettings(
@@ -69,12 +70,11 @@ describe("bridge-runtime", () => {
   });
 
   it("keeps optional local agent runtimes available across bridge modes", () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-home-"));
 
     const bridgeSettings = buildBridgeSettings(
       "openclaw-like",
       {
-        bridgeCwd: "/tmp/shared-runtime",
         claudeCodePath: "/usr/local/bin/claude",
         openclawLikeCommand: "/tmp/openclaw-like-command",
         openclawPath: "/usr/local/bin/openclaw",
@@ -82,20 +82,20 @@ describe("bridge-runtime", () => {
       },
       {
         ...process.env,
-        PUB_CONFIG_DIR: tempDir,
+        PUB_HOME: tempDir,
         PUB_PROJECT_ROOT: "/tmp/pub-project",
       },
     );
 
     expect(bridgeSettings.mode).toBe("openclaw-like");
-    expect(bridgeSettings.bridgeCwd).toBe("/tmp/shared-runtime");
+    expect(bridgeSettings.workspaceDir).toBe("/tmp/pub-project");
     expect(bridgeSettings.claudeCodePath).toBe("/usr/local/bin/claude");
     expect(bridgeSettings.openclawPath).toBe("/usr/local/bin/openclaw");
     expect(bridgeSettings.sessionId).toBe("session-2");
   });
 
   it("reads detached agent command profile and model overrides from env", () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-"));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-home-"));
 
     const bridgeSettings = buildBridgeSettings(
       "claude-code",
@@ -104,7 +104,7 @@ describe("bridge-runtime", () => {
       },
       {
         ...process.env,
-        PUB_CONFIG_DIR: tempDir,
+        PUB_HOME: tempDir,
         PUB_PROJECT_ROOT: "/tmp/pub-project",
         PUB_COMMAND_AGENT_DEFAULT_PROFILE: "fast",
         PUB_COMMAND_AGENT_DETACHED_PROVIDER: "claude-sdk",
@@ -117,16 +117,19 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.claudeCodeCommandModelFast).toBe("claude-fast");
   });
 
-  it("requires explicit OpenClaw workspace in runtime settings", () => {
-    expect(() =>
-      buildBridgeSettings(
-        "openclaw",
-        {
-          openclawPath: "/usr/local/bin/openclaw",
-          sessionId: "session-1",
-        },
-        buildBridgeProcessEnv(),
-      ),
-    ).toThrow(/OpenClaw workspace is not configured/);
+  it("uses the project root as the base workspace for OpenClaw runtime settings", () => {
+    const bridgeSettings = buildBridgeSettings(
+      "openclaw",
+      {
+        openclawPath: "/usr/local/bin/openclaw",
+        sessionId: "session-1",
+      },
+      {
+        ...buildBridgeProcessEnv(),
+        PUB_PROJECT_ROOT: "/tmp/pub-project",
+      },
+    );
+
+    expect(bridgeSettings.workspaceDir).toBe("/tmp/pub-project");
   });
 });

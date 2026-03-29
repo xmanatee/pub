@@ -216,6 +216,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           }
 
           return {
+            id: pub._id,
             slug: pub.slug,
             content: files["index.html"],
             files,

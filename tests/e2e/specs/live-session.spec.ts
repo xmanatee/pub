@@ -204,7 +204,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
 <head><title>Pub FS File Transfer Test</title></head>
 <body>
   <button id="run" type="button">Run</button>
-  <div id="result">idle</div>
+  <div id="result">booting</div>
   <script type="application/pub-command-manifest+json">
   {
     "manifestId": "pub-fs-transfer-test",
@@ -215,7 +215,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
         "returns": "text",
         "executor": {
           "kind": "shell",
-          "script": "INPUT=\\"{{path}}\\"\\nOUTPUT=\\"$(dirname \\"$INPUT\\")/upper-$(basename \\"$INPUT\\")\\"\\ntr '[:lower:]' '[:upper:]' < \\"$INPUT\\" > \\"$OUTPUT\\"\\nprintf '%s' \\"$OUTPUT\\""
+          "script": "INPUT=\\"{{path}}\\"\\nOUTPUT=\\"$(dirname \\"$INPUT\\")/upper-$(basename \\"$INPUT\\")\\"\\ntr '[:lower:]' '[:upper:]' < \\"$INPUT\\" > \\"$OUTPUT\\"\\nprintf '/_/%s' \\"$OUTPUT\\""
         }
       }
     ]
@@ -226,18 +226,22 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       var result = document.getElementById('result');
       result.textContent = 'running';
       try {
-        var writePath = '/__pub_files__/tmp/pub-fs-e2e-input.txt';
+        var writePath = '/__pub_files__/_/tmp/pub-fs-e2e-input.txt';
         var putRes = await fetch(writePath, { method: 'PUT', body: 'hello pub fs' });
-        if (!putRes.ok) throw new Error('PUT failed: ' + putRes.status);
+        if (!putRes.ok) {
+          var putBody = await putRes.text();
+          throw new Error('PUT failed: ' + putRes.status + ' ' + putBody);
+        }
         var readBack = await fetch(writePath).then(function(r) { return r.text(); });
         if (readBack !== 'hello pub fs') throw new Error('read-back mismatch: ' + readBack);
-        var processedPath = await pub.command('uppercaseFile', { path: '/tmp/pub-fs-e2e-input.txt' });
+        var processedPath = await pub.command('uppercaseFile', { path: 'tmp/pub-fs-e2e-input.txt' });
         var processed = await fetch('/__pub_files__' + processedPath).then(function(r) { return r.text(); });
         result.textContent = 'ok:' + processed.trim();
       } catch (e) {
         result.textContent = 'error:' + e.message;
       }
     });
+    document.getElementById('result').textContent = 'ready';
   </script>
 </body>
 </html>`;
@@ -255,6 +259,9 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
 
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#run")).toBeVisible({ timeout: 10_000 });
+      await expect(canvasFrame.locator("#result")).toHaveText("ready", {
+        timeout: 10_000,
+      });
       await canvasFrame.locator("#run").click();
 
       await expect(canvasFrame.locator("#result")).toHaveText("ok:HELLO PUB FS", {

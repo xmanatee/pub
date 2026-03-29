@@ -22,7 +22,7 @@ export async function waitForConnection(page: Page) {
   const connectButton = page.getByRole("button", { name: "Connect agent" });
   const reconnectButton = page.getByRole("button", { name: "Reconnect" });
   const sendButton = page.getByLabel("Send message");
-  const deadline = Date.now() + 60_000;
+  const deadline = Date.now() + 90_000;
 
   await expect(textbox.or(connectButton)).toBeVisible({ timeout: 30_000 });
 

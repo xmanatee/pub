@@ -7,7 +7,7 @@ const execFileAsync = promisify(execFile);
 const DELIVER_TIMEOUT_MS = 120_000;
 
 interface DeliverySettings {
-  bridgeCwd: string;
+  workspaceDir: string;
 }
 
 export async function deliverMessageToCommand(
@@ -17,7 +17,7 @@ export async function deliverMessageToCommand(
 ): Promise<void> {
   try {
     await execFileAsync(params.command, [params.text], {
-      cwd: settings.bridgeCwd,
+      cwd: settings.workspaceDir,
       timeout: DELIVER_TIMEOUT_MS,
       env,
     });

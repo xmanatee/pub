@@ -34,7 +34,7 @@ export async function createClaudeCodeBridgeRunner(
   const bridgeSettings = config.bridgeSettings;
 
   const claudePath = bridgeSettings.claudeCodePath;
-  const cwd = bridgeSettings.bridgeCwd;
+  const cwd = bridgeSettings.workspaceDir;
   const activeStreams = new Map<string, ActiveStream>();
 
   ensureDirectoryWritable(bridgeSettings.attachmentDir);

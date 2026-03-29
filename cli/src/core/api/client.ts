@@ -15,6 +15,7 @@ interface UpdateResult {
 }
 
 interface Pub {
+  id?: string;
   slug: string;
   title?: string;
   description?: string;
