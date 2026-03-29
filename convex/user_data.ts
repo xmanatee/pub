@@ -7,6 +7,7 @@ type UserOwnedTable = {
 
 export const USER_OWNED_TABLES = [
   { table: "pubs", index: "by_user" },
+  { table: "pubAccessTokens", index: "by_user" },
   { table: "apiKeys", index: "by_user" },
   { table: "connections", index: "by_user" },
   { table: "hosts", index: "by_user" },

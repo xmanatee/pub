@@ -150,22 +150,23 @@ export function parseSlugFromRequest(request: Request, prefix: string): string |
   return slug;
 }
 
-export function parseServeRequest(request: Request): { slug: string; filePath: string } | Response {
+function parseServePathParts(
+  request: Request,
+  prefix: string,
+  fixedParts: number,
+): { parts: string[]; filePath: string } | Response {
   const url = new URL(request.url);
-  const afterServe = url.pathname.slice("/serve/".length);
-  const slashIndex = afterServe.indexOf("/");
-
-  let rawSlug: string;
-  let filePath: string;
-
-  if (slashIndex === -1) {
-    rawSlug = afterServe.replace(/\/$/, "");
-    filePath = "index.html";
-  } else {
-    rawSlug = afterServe.slice(0, slashIndex);
-    filePath = afterServe.slice(slashIndex + 1).replace(/\/$/, "") || "index.html";
+  const afterPrefix = url.pathname.slice(prefix.length);
+  const normalized = afterPrefix.replace(/\/$/, "");
+  const parts = normalized.length > 0 ? normalized.split("/") : [];
+  if (parts.length < fixedParts) {
+    return errorResponse("Missing path", 400);
   }
+  const filePath = parts.slice(fixedParts).join("/") || "index.html";
+  return { parts, filePath };
+}
 
+function decodeServeSlug(rawSlug: string): string | Response {
   let slug: string;
   try {
     slug = decodeURIComponent(rawSlug);
@@ -173,8 +174,29 @@ export function parseServeRequest(request: Request): { slug: string; filePath: s
     return errorResponse("Invalid slug encoding", 400);
   }
   if (!isValidSlug(slug)) return errorResponse("Invalid slug format", 400);
+  return slug;
+}
 
-  return { slug, filePath };
+export function parseServeRequest(request: Request): { slug: string; filePath: string } | Response {
+  const parsed = parseServePathParts(request, "/serve/", 1);
+  if (parsed instanceof Response) return parsed;
+  const slug = decodeServeSlug(parsed.parts[0]);
+  if (slug instanceof Response) return slug;
+  return { slug, filePath: parsed.filePath };
+}
+
+export function parsePrivateServeRequest(
+  request: Request,
+): { slug: string; token: string; filePath: string } | Response {
+  const parsed = parseServePathParts(request, "/serve-private/", 2);
+  if (parsed instanceof Response) return parsed;
+  const slug = decodeServeSlug(parsed.parts[0]);
+  if (slug instanceof Response) return slug;
+  const token = parsed.parts[1];
+  if (!token) {
+    return errorResponse("Missing access token", 400);
+  }
+  return { slug, token, filePath: parsed.filePath };
 }
 
 async function authenticateApiKey(ctx: ActionCtx, apiKey: string) {

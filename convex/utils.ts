@@ -18,10 +18,14 @@ export function generateSlug(): string {
 }
 
 export function generateApiKey(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const key = generateHexToken(24);
   return `pub_${key}`;
+}
+
+export function generateHexToken(byteLength = 32): string {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function keyPreviewFromKey(key: string): string {

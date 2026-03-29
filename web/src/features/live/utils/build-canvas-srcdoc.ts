@@ -76,22 +76,30 @@ function buildCanvasBridgeScript(): string {
   ].join("");
 }
 
-function injectHead(html: string, script: string): string {
+function buildBaseTag(contentBaseUrl: string | null): string {
+  if (!contentBaseUrl) {
+    return '<base target="_blank">';
+  }
+  return `<base href="${contentBaseUrl}" target="_blank">`;
+}
+
+function injectHead(html: string, script: string, contentBaseUrl: string | null): string {
+  const baseTag = buildBaseTag(contentBaseUrl);
   if (/<head(\s|>)/i.test(html)) {
-    return html.replace(/<head(\s[^>]*)?>/i, (match) => `${match}<base target="_blank">${script}`);
+    return html.replace(/<head(\s[^>]*)?>/i, (match) => `${match}${baseTag}${script}`);
   }
 
   if (/<html(\s|>)/i.test(html)) {
-    return html.replace(
-      /<html(\s[^>]*)?>/i,
-      (match) => `${match}<head><base target="_blank">${script}</head>`,
-    );
+    return html.replace(/<html(\s[^>]*)?>/i, (match) => `${match}<head>${baseTag}${script}</head>`);
   }
 
-  return `<!doctype html><html><head><base target="_blank">${script}</head><body>${html}</body></html>`;
+  return `<!doctype html><html><head>${baseTag}${script}</head><body>${html}</body></html>`;
 }
 
 /** Inject the canvas bridge script (window.pub API) into agent HTML. */
-export function buildCanvasSrcDoc(html: string): string {
-  return injectHead(html, buildCanvasBridgeScript());
+export function buildCanvasSrcDoc(
+  html: string,
+  options: { contentBaseUrl: string | null },
+): string {
+  return injectHead(html, buildCanvasBridgeScript(), options.contentBaseUrl);
 }

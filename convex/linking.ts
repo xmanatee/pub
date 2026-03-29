@@ -5,12 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { USER_OWNED_TABLES } from "./user_data";
-
-function generateToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
+import { generateHexToken } from "./utils";
 
 const LINK_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
 
@@ -30,7 +25,7 @@ export const createLinkToken = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const token = generateToken();
+    const token = generateHexToken();
     const id = await ctx.db.insert("linkTokens", {
       userId,
       token,

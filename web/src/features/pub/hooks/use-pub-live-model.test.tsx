@@ -267,6 +267,7 @@ describe("usePubLiveModel", () => {
   let root: Root | null = null;
 
   beforeEach(() => {
+    vi.stubEnv("VITE_CONVEX_URL", "https://silent-guanaco-514.convex.cloud");
     sharedState.availableAgents = [{ hostId: "presence-1", agentName: "Agent" }];
     sharedState.live = null;
     sharedState.selectedHostId = "presence-1";
@@ -282,6 +283,10 @@ describe("usePubLiveModel", () => {
     dismissPreviewMock.mockReset();
     markBridgeConnectedMock.mockReset();
     mutationMock.mockReset();
+    mutationMock.mockImplementation(async () => ({
+      token: "owner-token",
+      expiresAt: Date.now() + 1_000,
+    }));
     navigateMock.mockReset();
     resetCanvasCommandsMock.mockReset();
     resetSessionMock.mockReset();
@@ -295,6 +300,7 @@ describe("usePubLiveModel", () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     const currentRoot = root;
     if (currentRoot) {
       await act(async () => {
@@ -597,6 +603,9 @@ describe("usePubLiveModel", () => {
     });
 
     expect(states.at(-1)?.sandboxUrl).toBe("https://sandbox.test/__canvas__/email-tinder_owner/");
+    expect(states.at(-1)?.contentBaseUrl).toBe(
+      "https://silent-guanaco-514.convex.site/serve-private/email-tinder/owner-token/",
+    );
 
     import.meta.env.VITE_SANDBOX_ORIGIN = prev;
   });

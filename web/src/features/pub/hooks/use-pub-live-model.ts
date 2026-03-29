@@ -24,6 +24,7 @@ import {
 import { derivePubViewState, isControlBarCollapsible } from "~/features/pub/model/pub-view-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackPubViewed } from "~/lib/analytics";
+import { getConvexSiteUrl } from "~/lib/convex-url";
 
 type PubSnapshot =
   | {
@@ -62,8 +63,17 @@ export function usePubLiveModel({
 }: UsePubLiveModelOptions) {
   const navigate = useNavigate();
   const recordPubView = useMutation(api.analytics.recordPubView);
+  const createOwnerContentAccessToken = useMutation(
+    api.pubAccessTokens.createOwnerContentAccessToken,
+  );
   const isOwner = pub?.isOwner === true;
   const liveMode = isOwner;
+  const contentAccessState =
+    pub === undefined ? "loading" : pub === null ? "missing" : isOwner ? "owner" : "public";
+  const publicContentBaseUrl = useMemo(
+    () => `${getConvexSiteUrl()}/serve/${encodeURIComponent(slug)}/`,
+    [slug],
+  );
   const baseManifest = useMemo(
     () => (baseContentHtml ? extractManifestFromHtml(baseContentHtml) : null),
     [baseContentHtml],
@@ -129,6 +139,9 @@ export function usePubLiveModel({
   const { addReceivedBinaryFile, clearFiles, files } = useLiveFiles();
 
   const [canvasHtml, setCanvasHtml] = useState<string | null>(baseContentHtml ?? null);
+  const [contentBaseUrl, setContentBaseUrl] = useState<string | null>(() =>
+    isOwner ? null : publicContentBaseUrl,
+  );
   const [canvasScopeVersion, setCanvasScopeVersion] = useState(1);
   const [collapsePreference, setCollapsePreference] = useState(
     () =>
@@ -317,6 +330,50 @@ export function usePubLiveModel({
   useEffect(() => {
     setCanvasHtml(baseContentHtml ?? null);
   }, [baseContentHtml]);
+
+  useEffect(() => {
+    if (contentAccessState === "loading") return;
+    if (contentAccessState === "missing") {
+      setContentBaseUrl(null);
+      return;
+    }
+    if (contentAccessState === "public") {
+      setContentBaseUrl(publicContentBaseUrl);
+      return;
+    }
+
+    let canceled = false;
+    setContentBaseUrl(null);
+    void createOwnerContentAccessToken({ slug })
+      .then((result) => {
+        if (canceled) return;
+        setContentBaseUrl(
+          `${getConvexSiteUrl()}/serve-private/${encodeURIComponent(slug)}/${encodeURIComponent(result.token)}/`,
+        );
+      })
+      .catch((error) => {
+        if (canceled) return;
+        const detail =
+          error instanceof Error && error.message.trim().length > 0
+            ? ` ${error.message.trim()}`
+            : "";
+        addSystemMessage({
+          content: `Failed to prepare content runtime.${detail}`,
+          dedupeKey: `content-runtime:${slug}`,
+          severity: "error",
+        });
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    addSystemMessage,
+    contentAccessState,
+    createOwnerContentAccessToken,
+    publicContentBaseUrl,
+    slug,
+  ]);
 
   const hadCanvasRef = useRef(Boolean(canvasHtml));
   useEffect(() => {
@@ -616,6 +673,7 @@ export function usePubLiveModel({
     closeLive: handleClose,
     command,
     connected: canSendAgentTraffic(runtimeState),
+    contentBaseUrl,
     contentState: effectiveContentState,
     controlBarCollapsed,
     controlBarState: viewState.controlBarState,

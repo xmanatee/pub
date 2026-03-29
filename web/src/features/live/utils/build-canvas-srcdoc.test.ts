@@ -1,31 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
 
+const OPTIONS = { contentBaseUrl: "https://content.example/serve/demo/" };
+
 describe("buildCanvasSrcDoc", () => {
   it("injects base/debug script into existing head", () => {
     const input = "<!doctype html><html><head><title>T</title></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
-    expect(output).toContain('<head><base target="_blank">');
+    const output = buildCanvasSrcDoc(input, OPTIONS);
+    expect(output).toContain(
+      '<head><base href="https://content.example/serve/demo/" target="_blank">',
+    );
     expect(output).toContain("<title>T</title>");
   });
 
   it("creates head when html tag exists without head", () => {
     const input = "<html><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
-    expect(output).toContain('<html><head><base target="_blank">');
+    const output = buildCanvasSrcDoc(input, OPTIONS);
+    expect(output).toContain(
+      '<html><head><base href="https://content.example/serve/demo/" target="_blank">',
+    );
     expect(output).toContain("<body>ok</body>");
   });
 
   it("wraps fragment content in a full document", () => {
     const input = "<div>fragment</div>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
     expect(output).toContain("<!doctype html>");
     expect(output).toContain("<body><div>fragment</div></body>");
   });
 
   it("always injects pub command helpers", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
 
     expect(output).toContain('emit("ready",{})');
     expect(output).toContain("api.command=invokeCommand");
@@ -40,14 +46,14 @@ describe("buildCanvasSrcDoc", () => {
 
   it("intercepts console.error", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
     expect(output).toContain("origConsoleError");
     expect(output).toContain('emit("console-error"');
   });
 
   it("includes preview capture handler", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
     expect(output).toContain("function capturePreview()");
     expect(output).toContain("preview.capture");
     expect(output).toContain("preview.captured");
@@ -55,7 +61,7 @@ describe("buildCanvasSrcDoc", () => {
 
   it("preview capture strips scripts and event handlers", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
     expect(output).toContain("querySelectorAll('script')");
     expect(output).toContain("querySelectorAll('noscript')");
     expect(output).toContain("removeAttribute(a[j].name)");
@@ -63,14 +69,14 @@ describe("buildCanvasSrcDoc", () => {
 
   it("preview capture extracts CSSOM rules", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
     expect(output).toContain("document.styleSheets");
     expect(output).toContain("cssRules");
   });
 
   it("preview capture converts canvas elements to images", () => {
     const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input);
+    const output = buildCanvasSrcDoc(input, OPTIONS);
     expect(output).toContain("toDataURL()");
     expect(output).toContain("replaceChild(img,cc[i])");
   });
@@ -78,7 +84,7 @@ describe("buildCanvasSrcDoc", () => {
 
 describe("buildCanvasSrcDoc idempotency", () => {
   it("uses swappable message handler to prevent listener accumulation", () => {
-    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>", OPTIONS);
     // Must remove old handler before adding new one
     expect(output).toContain("window.__pubBridgeHandler");
     expect(output).toContain('window.removeEventListener("message",window.__pubBridgeHandler)');
@@ -86,7 +92,7 @@ describe("buildCanvasSrcDoc idempotency", () => {
   });
 
   it("guards console.error wrapping to prevent chaining", () => {
-    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>", OPTIONS);
     // Must store original once, not re-capture the wrapped version
     expect(output).toContain("window.__pubOrigConsoleError");
     expect(output).toContain("if(!window.__pubOrigConsoleError)");
@@ -94,7 +100,7 @@ describe("buildCanvasSrcDoc idempotency", () => {
   });
 
   it("does not contain sandbox bootstrap or SW relay code", () => {
-    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>", OPTIONS);
     // Must NOT contain infrastructure that belongs exclusively in sandbox/index.html
     expect(output).not.toContain("sandbox-ready");
     expect(output).not.toContain("registerSW");
@@ -103,7 +109,7 @@ describe("buildCanvasSrcDoc idempotency", () => {
   });
 
   it("re-registers inject-content handler for subsequent document.write() cycles", () => {
-    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>");
+    const output = buildCanvasSrcDoc("<html><head></head><body>ok</body></html>", OPTIONS);
     expect(output).toContain("window.__pubInjectHandler");
     expect(output).toContain('window.removeEventListener("message",window.__pubInjectHandler)');
     expect(output).toContain("inject-content");

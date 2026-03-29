@@ -116,6 +116,7 @@ export function createMockLiveSession(
       phase: "idle",
     },
     connected: true,
+    contentBaseUrl: "https://example.test/serve/mock/",
     contentState: "ready",
     controlBarCollapsed: false,
     controlBarState: "idle",

@@ -8,6 +8,8 @@ import {
   getOgCardData,
   jsonResponse,
   mapLiveError,
+  parsePrivateServeRequest,
+  parseServeRequest,
   shouldTouchApiKey,
 } from "./http/shared";
 
@@ -107,6 +109,46 @@ describe("extractSlugFromPath", () => {
 
   it("returns empty for bare prefix", () => {
     expect(extractSlugFromPath("/serve/", "/serve/")).toBe("");
+  });
+});
+
+describe("parseServeRequest", () => {
+  it("parses slug and defaults to index.html", () => {
+    expect(parseServeRequest(new Request("https://example.com/serve/demo"))).toEqual({
+      slug: "demo",
+      filePath: "index.html",
+    });
+  });
+
+  it("parses nested asset paths", () => {
+    expect(parseServeRequest(new Request("https://example.com/serve/demo/assets/app.js"))).toEqual({
+      slug: "demo",
+      filePath: "assets/app.js",
+    });
+  });
+});
+
+describe("parsePrivateServeRequest", () => {
+  it("parses slug, token, and defaults to index.html", () => {
+    expect(
+      parsePrivateServeRequest(new Request("https://example.com/serve-private/demo/token123")),
+    ).toEqual({
+      slug: "demo",
+      token: "token123",
+      filePath: "index.html",
+    });
+  });
+
+  it("parses nested asset paths", () => {
+    expect(
+      parsePrivateServeRequest(
+        new Request("https://example.com/serve-private/demo/token123/assets/app.js"),
+      ),
+    ).toEqual({
+      slug: "demo",
+      token: "token123",
+      filePath: "assets/app.js",
+    });
   });
 });
 

@@ -51,8 +51,5 @@ export const DENIED_SANDBOX_TOKENS = [
  */
 export const CROSS_ORIGIN_SANDBOX_ATTR = `allow-same-origin ${BASE_SANDBOX_TOKENS.join(" ")}`;
 
-/** Sandbox attribute for same-origin srcDoc iframes. */
-export const SRCDOC_SANDBOX_ATTR = BASE_SANDBOX_TOKENS.join(" ");
-
 /** iframe `allow` attribute — semicolon-separated Permissions Policy features. */
 export const IFRAME_ALLOW_ATTR = PERMISSIONS_POLICY_FEATURES.join("; ");

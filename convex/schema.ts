@@ -68,6 +68,16 @@ export default defineSchema({
     .index("by_pub", ["pubId"])
     .index("by_pub_path", ["pubId", "path"]),
 
+  pubAccessTokens: defineTable({
+    pubId: v.id("pubs"),
+    userId: v.id("users"),
+    token: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_user_pub", ["userId", "pubId"]),
+
   hosts: defineTable({
     userId: v.id("users"),
     apiKeyId: v.id("apiKeys"),

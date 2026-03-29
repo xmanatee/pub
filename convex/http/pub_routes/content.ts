@@ -1,5 +1,6 @@
 import { httpRouter } from "convex/server";
 import { internal } from "../../_generated/api";
+import type { Doc } from "../../_generated/dataModel";
 import { httpAction } from "../../_generated/server";
 import { rateLimiter } from "../../rateLimits";
 import { escapeXml, mimeFromPath, SYSTEM_FILE_PREFIX, truncate } from "../../utils";
@@ -8,6 +9,7 @@ import {
   contentSecurityHeaders,
   getOgCardData,
   injectIntoHead,
+  parsePrivateServeRequest,
   parseServeRequest,
   parseSlugFromRequest,
   rateLimitResponse,
@@ -23,6 +25,59 @@ const SYSTEM_FILES: Record<string, { content: string; mime: string }> = {
   "_pub/api.js": { content: PUB_SDK_SOURCE, mime: "text/javascript; charset=utf-8" },
 };
 
+function serveSystemFile(filePath: string): Response | null {
+  if (!filePath.startsWith(SYSTEM_FILE_PREFIX)) return null;
+  const entry = SYSTEM_FILES[filePath];
+  if (!entry) return new Response("Not found", { status: 404 });
+  return new Response(entry.content, {
+    status: 200,
+    headers: {
+      "Content-Type": entry.mime,
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}
+
+async function buildContentResponse(
+  ctx: Parameters<Parameters<typeof httpAction>[0]>[0],
+  params: {
+    slug: string;
+    pub: Pick<Doc<"pubs">, "_id" | "slug" | "title" | "description">;
+    filePath: string;
+    indexCacheControl: string;
+    assetCacheControl: string;
+    includePublicOg: boolean;
+    recordPublicView: boolean;
+  },
+) {
+  const file = await ctx.runQuery(internal.pubFiles.getFile, {
+    pubId: params.pub._id,
+    path: params.filePath,
+  });
+  if (!file) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const isIndex = params.filePath === "index.html";
+  if (isIndex && params.recordPublicView) {
+    await ctx.runMutation(internal.analytics.recordView, { slug: params.slug });
+  }
+
+  const content =
+    isIndex && params.includePublicOg
+      ? injectIntoHead(file.content, buildSupplementalOgTags(params.pub, file.content))
+      : file.content;
+
+  return new Response(content, {
+    status: 200,
+    headers: {
+      "Content-Type": mimeFromPath(params.filePath),
+      "Cache-Control": isIndex ? params.indexCacheControl : params.assetCacheControl,
+      ...contentSecurityHeaders(),
+    },
+  });
+}
+
 export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): void {
   http.route({
     pathPrefix: "/serve/",
@@ -32,17 +87,8 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
       if (parsed instanceof Response) return parsed;
       const { slug, filePath } = parsed;
 
-      if (filePath.startsWith(SYSTEM_FILE_PREFIX)) {
-        const entry = SYSTEM_FILES[filePath];
-        if (!entry) return new Response("Not found", { status: 404 });
-        return new Response(entry.content, {
-          status: 200,
-          headers: {
-            "Content-Type": entry.mime,
-            "Cache-Control": "public, max-age=86400",
-          },
-        });
-      }
+      const systemFileResponse = serveSystemFile(filePath);
+      if (systemFileResponse) return systemFileResponse;
 
       const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
       const rl = await rateLimiter.limit(ctx, "servePub", { key: clientIp });
@@ -53,30 +99,51 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
         return new Response("Not found", { status: 404 });
       }
 
-      const file = await ctx.runQuery(internal.pubFiles.getFile, {
-        pubId: pub._id,
-        path: filePath,
+      return buildContentResponse(ctx, {
+        slug,
+        pub,
+        filePath,
+        indexCacheControl: "public, max-age=60",
+        assetCacheControl: "public, max-age=3600",
+        includePublicOg: true,
+        recordPublicView: true,
       });
-      if (!file) {
+    }),
+  });
+
+  http.route({
+    pathPrefix: "/serve-private/",
+    method: "GET",
+    handler: httpAction(async (ctx, request) => {
+      const parsed = parsePrivateServeRequest(request);
+      if (parsed instanceof Response) return parsed;
+      const { slug, token, filePath } = parsed;
+
+      const systemFileResponse = serveSystemFile(filePath);
+      if (systemFileResponse) return systemFileResponse;
+
+      const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      const rl = await rateLimiter.limit(ctx, "servePub", { key: clientIp });
+      if (!rl.ok) return rateLimitResponse(rl.retryAfter);
+
+      const access = await ctx.runQuery(internal.pubAccessTokens.getByToken, { token });
+      if (!access || access.expiresAt < Date.now()) {
         return new Response("Not found", { status: 404 });
       }
 
-      const isIndex = filePath === "index.html";
-      if (isIndex) {
-        await ctx.runMutation(internal.analytics.recordView, { slug });
+      const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
+      if (!pub || pub._id !== access.pubId) {
+        return new Response("Not found", { status: 404 });
       }
 
-      const content = isIndex
-        ? injectIntoHead(file.content, buildSupplementalOgTags(pub, file.content))
-        : file.content;
-
-      return new Response(content, {
-        status: 200,
-        headers: {
-          "Content-Type": mimeFromPath(filePath),
-          "Cache-Control": isIndex ? "public, max-age=60" : "public, max-age=3600",
-          ...contentSecurityHeaders(),
-        },
+      return buildContentResponse(ctx, {
+        slug,
+        pub,
+        filePath,
+        indexCacheControl: "private, max-age=60",
+        assetCacheControl: "private, max-age=3600",
+        includePublicOg: false,
+        recordPublicView: false,
       });
     }),
   });
