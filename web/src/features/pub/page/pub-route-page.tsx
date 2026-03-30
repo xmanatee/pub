@@ -7,6 +7,7 @@ import { SettingsPanel } from "~/features/live/components/panels/settings-panel"
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
+import { FullscreenPromptLayer } from "~/features/live-control-bar/components/fullscreen-prompt-layer";
 import { usePreviewCapture } from "~/features/preview-capture/use-preview-capture";
 import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
@@ -113,10 +114,14 @@ function PubRouteContent({
         </div>
 
         {isOwner ? (
-          <ControlBar
-            shellTone={liveBlob.controlBarTone}
-            statusButtonContent={liveBlob.statusButtonContent}
-          />
+          <>
+            {/* Must render before ControlBar so its layer sits below the transient layer */}
+            <FullscreenPromptLayer slug={slug} />
+            <ControlBar
+              shellTone={liveBlob.controlBarTone}
+              statusButtonContent={liveBlob.statusButtonContent}
+            />
+          </>
         ) : null}
       </div>
     </ControlBarProvider>

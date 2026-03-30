@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const STORAGE_KEYS = {
+  autoFullscreen: "pub:live:auto-fullscreen",
   autoOpenCanvas: "pub:live:auto-open-canvas",
   defaultAgentName: "pub:live:default-agent",
   voiceModeEnabled: "pub:live:voice-mode-enabled",
@@ -27,6 +28,9 @@ export function readStoredString(key: string, getItem: GetItem = defaultGetItem)
 }
 
 export function useLivePreferences() {
+  const [autoFullscreen, setAutoFullscreen] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.autoFullscreen, true),
+  );
   const [autoOpenCanvas, setAutoOpenCanvas] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.autoOpenCanvas, true),
   );
@@ -36,6 +40,10 @@ export function useLivePreferences() {
   const [defaultAgentName, setDefaultAgentName] = useState(() =>
     readStoredString(STORAGE_KEYS.defaultAgentName),
   );
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.autoFullscreen, autoFullscreen ? "1" : "0");
+  }, [autoFullscreen]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.autoOpenCanvas, autoOpenCanvas ? "1" : "0");
@@ -54,8 +62,10 @@ export function useLivePreferences() {
   }, [defaultAgentName]);
 
   return {
+    autoFullscreen,
     autoOpenCanvas,
     defaultAgentName,
+    setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
     voiceModeEnabled,

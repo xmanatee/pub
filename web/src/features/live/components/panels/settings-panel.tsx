@@ -8,6 +8,7 @@ import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 
 export function SettingsPanel() {
   const {
+    autoFullscreen,
     autoOpenCanvas,
     availableAgents,
     canUseDeveloperMode,
@@ -19,6 +20,7 @@ export function SettingsPanel() {
     hasCanvasContent,
     messages,
     selectedHostId,
+    setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
     setDeveloperModeEnabled,
@@ -57,6 +59,18 @@ export function SettingsPanel() {
               </div>
             </div>
             <Switch checked={autoOpenCanvas} onCheckedChange={setAutoOpenCanvas} />
+          </div>
+
+          <Separator />
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">Auto-fullscreen</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Prompt to enter fullscreen when opening a pub.
+              </div>
+            </div>
+            <Switch checked={autoFullscreen} onCheckedChange={setAutoFullscreen} />
           </div>
 
           <Separator />

@@ -85,8 +85,10 @@ export function usePubLiveModel({
   });
 
   const {
+    autoFullscreen,
     autoOpenCanvas,
     defaultAgentName,
+    setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
     setVoiceModeEnabled,
@@ -663,6 +665,7 @@ export function usePubLiveModel({
     audio,
     availableAgents,
     addSystemMessage,
+    autoFullscreen,
     autoOpenCanvas,
     agentState: runtimeState.agentState,
     defaultAgentName,
@@ -706,6 +709,7 @@ export function usePubLiveModel({
     handleRenderError,
     sessionState,
     selectedHostId,
+    setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
     toggleControlBar,
