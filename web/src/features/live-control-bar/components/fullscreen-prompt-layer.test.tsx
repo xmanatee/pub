@@ -16,6 +16,7 @@ import { FullscreenPromptLayer } from "./fullscreen-prompt-layer";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockFullscreen = {
+  isSupported: true,
   isFullscreen: false,
   requestFullscreen: vi.fn(),
   exitFullscreen: vi.fn(),
@@ -48,6 +49,7 @@ beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
+  mockFullscreen.isSupported = true;
   mockFullscreen.isFullscreen = false;
   mockFullscreen.requestFullscreen = vi.fn();
   mockFullscreen.exitFullscreen = vi.fn();
@@ -102,6 +104,12 @@ describe("FullscreenPromptLayer", () => {
 
   it("does not show in Telegram", async () => {
     mockInTelegram = true;
+    const el = await render();
+    expect(el.innerHTML).not.toContain("Enter fullscreen?");
+  });
+
+  it("does not show when fullscreen is not supported", async () => {
+    mockFullscreen.isSupported = false;
     const el = await render();
     expect(el.innerHTML).not.toContain("Enter fullscreen?");
   });

@@ -12,7 +12,7 @@ interface FullscreenPromptLayerProps {
 
 export function FullscreenPromptLayer({ slug }: FullscreenPromptLayerProps) {
   const { autoFullscreen } = useLiveSession();
-  const { isFullscreen, requestFullscreen } = useFullscreen();
+  const { isSupported, isFullscreen, requestFullscreen } = useFullscreen();
   const [dismissed, setDismissed] = useState(false);
   const lastSlugRef = useRef(slug);
 
@@ -23,7 +23,7 @@ export function FullscreenPromptLayer({ slug }: FullscreenPromptLayerProps) {
     }
   }, [slug]);
 
-  const shouldShow = !IN_TELEGRAM && autoFullscreen && !isFullscreen && !dismissed;
+  const shouldShow = isSupported && !IN_TELEGRAM && autoFullscreen && !isFullscreen && !dismissed;
 
   const handleDismiss = useCallback(() => setDismissed(true), []);
 

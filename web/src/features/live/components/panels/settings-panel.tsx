@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
+import { isFullscreenSupported } from "~/hooks/use-fullscreen";
 
 export function SettingsPanel() {
   const {
@@ -61,17 +62,21 @@ export function SettingsPanel() {
             <Switch checked={autoOpenCanvas} onCheckedChange={setAutoOpenCanvas} />
           </div>
 
-          <Separator />
+          {isFullscreenSupported() && (
+            <>
+              <Separator />
 
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium">Auto-fullscreen</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Prompt to enter fullscreen when opening a pub.
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium">Auto-fullscreen</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Prompt to enter fullscreen when opening a pub.
+                  </div>
+                </div>
+                <Switch checked={autoFullscreen} onCheckedChange={setAutoFullscreen} />
               </div>
-            </div>
-            <Switch checked={autoFullscreen} onCheckedChange={setAutoFullscreen} />
-          </div>
+            </>
+          )}
 
           <Separator />
 

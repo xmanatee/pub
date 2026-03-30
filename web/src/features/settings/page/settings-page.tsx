@@ -13,6 +13,7 @@ import { Switch } from "~/components/ui/switch";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { LiveModelSettingsCard } from "~/features/settings/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
+import { isFullscreenSupported } from "~/hooks/use-fullscreen";
 import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
 import {
   resetIdentity,
@@ -194,22 +195,24 @@ export function SettingsPage() {
 
       <LiveModelSettingsCard />
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Fullscreen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm">Auto-fullscreen</p>
-              <p className="text-xs text-muted-foreground">
-                Prompt to enter fullscreen when opening a pub you own.
-              </p>
+      {isFullscreenSupported() && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Fullscreen</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm">Auto-fullscreen</p>
+                <p className="text-xs text-muted-foreground">
+                  Prompt to enter fullscreen when opening a pub you own.
+                </p>
+              </div>
+              <Switch checked={autoFullscreen} onCheckedChange={setAutoFullscreen} />
             </div>
-            <Switch checked={autoFullscreen} onCheckedChange={setAutoFullscreen} />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {canUseDeveloperMode && (
         <Card className="border-border/50">
