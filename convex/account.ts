@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { mutation } from "./_generated/server";
 import { deleteAuthAccountsAndDependents, deleteUserSessionsAndDependents } from "./auth_cleanup";
+import { deletePubOwnedRows } from "./pubs";
 import { USER_OWNED_TABLES } from "./user_data";
 
 async function deleteUserOwnedRows(ctx: MutationCtx, userId: Id<"users">) {
@@ -19,19 +20,13 @@ async function deleteUserOwnedRows(ctx: MutationCtx, userId: Id<"users">) {
   }
 }
 
-async function deletePubFilesByUserPubs(ctx: MutationCtx, userId: Id<"users">) {
+async function deletePubOwnedRowsByUser(ctx: MutationCtx, userId: Id<"users">) {
   const pubs = await ctx.db
     .query("pubs")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   for (const pub of pubs) {
-    const files = await ctx.db
-      .query("pubFiles")
-      .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
-      .collect();
-    for (const file of files) {
-      await ctx.db.delete(file._id);
-    }
+    await deletePubOwnedRows(ctx.db, pub._id);
   }
 }
 
@@ -70,7 +65,7 @@ export const deleteAccount = mutation({
       .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
       .collect();
 
-    await deletePubFilesByUserPubs(ctx, userId);
+    await deletePubOwnedRowsByUser(ctx, userId);
     await deleteUserOwnedRows(ctx, userId);
     await deleteAuthAccountsAndDependents(ctx, accounts);
     await deleteUserSessionsAndDependents(ctx, userId);

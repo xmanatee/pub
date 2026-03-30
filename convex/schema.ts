@@ -75,7 +75,8 @@ export default defineSchema({
     expiresAt: v.number(),
   })
     .index("by_token", ["token"])
-    .index("by_user_pub", ["userId", "pubId"]),
+    .index("by_user_pub", ["userId", "pubId"])
+    .index("by_pub", ["pubId"]),
 
   hosts: defineTable({
     userId: v.id("users"),

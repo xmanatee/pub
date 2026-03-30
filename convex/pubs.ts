@@ -6,15 +6,19 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { deleteConnectionsForSlug } from "./connections";
 import { listFreshOnlineHosts } from "./presence";
+import { PUB_OWNED_TABLES } from "./user_data";
 import { generateSlug, MAX_PUBS, MAX_PUBS_SUBSCRIBED } from "./utils";
 
-async function deletePubFiles(db: GenericDatabaseWriter<DataModel>, pubId: Id<"pubs">) {
-  const files = await db
-    .query("pubFiles")
-    .withIndex("by_pub", (q) => q.eq("pubId", pubId))
-    .collect();
-  for (const file of files) {
-    await db.delete(file._id);
+export async function deletePubOwnedRows(db: GenericDatabaseWriter<DataModel>, pubId: Id<"pubs">) {
+  for (const { table, index } of PUB_OWNED_TABLES) {
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
+    const rows = await (db.query(table) as any)
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
+      .withIndex(index, (q: any) => q.eq("pubId", pubId))
+      .collect();
+    for (const row of rows) {
+      await db.delete(row._id);
+    }
   }
 }
 
@@ -42,6 +46,18 @@ async function countUserPubs(db: GenericDatabaseReader<DataModel>, userId: Id<"u
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   return pubs.length;
+}
+
+async function generateUniqueSlug(db: GenericDatabaseReader<DataModel>): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = generateSlug();
+    const existing = await db
+      .query("pubs")
+      .withIndex("by_slug", (q) => q.eq("slug", candidate))
+      .unique();
+    if (!existing) return candidate;
+  }
+  throw new Error("Could not generate unique slug");
 }
 
 function mapPub(pub: {
@@ -190,19 +206,7 @@ export const duplicateByUser = mutation({
     const count = await countUserPubs(ctx.db, userId);
     if (count >= limit) throw new Error(`Pub limit reached (${limit})`);
 
-    let slug: string | null = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = generateSlug();
-      const existing = await ctx.db
-        .query("pubs")
-        .withIndex("by_slug", (q) => q.eq("slug", candidate))
-        .unique();
-      if (!existing) {
-        slug = candidate;
-        break;
-      }
-    }
-    if (!slug) throw new Error("Could not generate unique slug");
+    const slug = await generateUniqueSlug(ctx.db);
 
     const now = Date.now();
     const newId = await ctx.db.insert("pubs", {
@@ -247,7 +251,7 @@ export const deleteByUser = mutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
-    await deletePubFiles(ctx.db, id);
+    await deletePubOwnedRows(ctx.db, id);
     await deleteConnectionsForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
@@ -274,19 +278,7 @@ export const createDraftForLive = mutation({
       throw new Error(`Pub limit reached (${limit})`);
     }
 
-    let slug: string | null = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = generateSlug();
-      const existing = await ctx.db
-        .query("pubs")
-        .withIndex("by_slug", (q) => q.eq("slug", candidate))
-        .unique();
-      if (!existing) {
-        slug = candidate;
-        break;
-      }
-    }
-    if (!slug) throw new Error("Could not generate unique slug");
+    const slug = await generateUniqueSlug(ctx.db);
 
     const now = Date.now();
     const id = await ctx.db.insert("pubs", {
@@ -386,7 +378,7 @@ export const deletePub = internalMutation({
     const pub = await ctx.db.get(id);
     if (!pub || pub.userId !== userId) throw new Error("Pub not found");
 
-    await deletePubFiles(ctx.db, id);
+    await deletePubOwnedRows(ctx.db, id);
     await deleteConnectionsForSlug(ctx.db, pub.slug);
     await ctx.db.delete(id);
   },
