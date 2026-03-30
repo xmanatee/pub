@@ -113,8 +113,10 @@ vi.mock("~/features/live/hooks/use-live-session-model", () => ({
 
 vi.mock("~/features/live/hooks/use-live-preferences", () => ({
   useLivePreferences: () => ({
+    autoFullscreen: true,
     autoOpenCanvas: false,
     defaultAgentName: null,
+    setAutoFullscreen: vi.fn(),
     setAutoOpenCanvas: vi.fn(),
     setDefaultAgentName: vi.fn(),
     setVoiceModeEnabled: vi.fn(),

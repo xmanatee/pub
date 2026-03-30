@@ -10,6 +10,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
+import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { LiveModelSettingsCard } from "~/features/settings/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
@@ -46,6 +47,7 @@ export function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  const { autoFullscreen, setAutoFullscreen } = useLivePreferences();
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
   const { telemetryEnabled, setTelemetryEnabled } = useTelemetryPreference();
 
@@ -191,6 +193,23 @@ export function SettingsPage() {
       </Card>
 
       <LiveModelSettingsCard />
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Fullscreen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm">Auto-fullscreen</p>
+              <p className="text-xs text-muted-foreground">
+                Prompt to enter fullscreen when opening a pub you own.
+              </p>
+            </div>
+            <Switch checked={autoFullscreen} onCheckedChange={setAutoFullscreen} />
+          </div>
+        </CardContent>
+      </Card>
 
       {canUseDeveloperMode && (
         <Card className="border-border/50">
