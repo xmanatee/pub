@@ -46,7 +46,7 @@ test.describe("Pub CRUD via API", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.pub.slug).toBe("get-test");
-    expect(body.pub.content).toBe("<p>content</p>");
+    expect(body.pub.files["index.html"]).toBe("<p>content</p>");
   });
 
   test("list pubs", async () => {
@@ -78,7 +78,7 @@ test.describe("Pub CRUD via API", () => {
     const get = await api.getPub("update-test");
     const body = await get.json();
     expect(body.pub.title).toBe("Updated");
-    expect(body.pub.content).toBe(updatedContent);
+    expect(body.pub.files["index.html"]).toBe(updatedContent);
   });
 
   test("rename pub slug", async () => {

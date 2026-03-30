@@ -21,12 +21,6 @@ import {
   rethrowPubLimitError,
 } from "../shared";
 
-const DEFAULT_INDEX_HTML = "";
-
-function toSingleFileMap(content: string): Record<string, string> {
-  return { "index.html": content };
-}
-
 export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void {
   // -- CORS preflight -------------------------------------------------------
 
@@ -44,7 +38,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
       let body: {
         files?: Record<string, string>;
-        content?: unknown;
         slug?: string;
         title?: unknown;
         description?: unknown;
@@ -62,19 +55,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         );
       }
 
-      if (body.files && body.content !== undefined) {
-        return errorResponse("Provide either files or content, not both", 400);
-      }
-
-      if (body.content !== undefined && typeof body.content !== "string") {
-        return errorResponse("Field content must be a string", 400);
-      }
-
-      const files =
-        body.files ??
-        (typeof body.content === "string"
-          ? toSingleFileMap(body.content)
-          : toSingleFileMap(DEFAULT_INDEX_HTML));
+      const files = body.files ?? { "index.html": "" };
 
       const validation = validateFiles(files);
       if (!validation.ok) return errorResponse(validation.error, 400);
@@ -218,7 +199,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
           return {
             id: pub._id,
             slug: pub.slug,
-            content: files["index.html"],
             files,
             fileCount: pubFileRows.length,
             title: pub.title,
@@ -254,7 +234,6 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
 
       let body: {
         files?: Record<string, string>;
-        content?: unknown;
         isPublic?: boolean;
         slug?: string;
         title?: unknown;
@@ -273,21 +252,11 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
         );
       }
 
-      if (body.files && body.content !== undefined) {
-        return errorResponse("Provide either files or content, not both", 400);
-      }
-
-      if (body.content !== undefined && typeof body.content !== "string") {
-        return errorResponse("Field content must be a string", 400);
-      }
-
       if (body.slug !== undefined) {
         if (!isValidSlug(body.slug)) return errorResponse(INVALID_SLUG_MESSAGE, 400);
       }
 
-      const files =
-        body.files ??
-        (typeof body.content === "string" ? toSingleFileMap(body.content) : undefined);
+      const files = body.files;
       if (files) {
         const validation = validateFiles(files);
         if (!validation.ok) return errorResponse(validation.error, 400);

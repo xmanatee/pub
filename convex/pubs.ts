@@ -423,38 +423,3 @@ export const listByUserInternal = internalQuery({
     };
   },
 });
-
-export const migrateContentToFiles = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const pubs = await ctx.db.query("pubs").collect();
-    let migrated = 0;
-    let skipped = 0;
-
-    const now = Date.now();
-    for (const pub of pubs) {
-      if (pub.fileCount && pub.fileCount > 0) {
-        skipped++;
-        continue;
-      }
-      if (!pub.content) {
-        skipped++;
-        continue;
-      }
-
-      await ctx.db.insert("pubFiles", {
-        pubId: pub._id,
-        path: "index.html",
-        content: pub.content,
-        size: new TextEncoder().encode(pub.content).byteLength,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      await ctx.db.patch(pub._id, { fileCount: 1, content: undefined });
-      migrated++;
-    }
-
-    return { total: pubs.length, migrated, skipped };
-  },
-});
