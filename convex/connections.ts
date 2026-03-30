@@ -17,13 +17,8 @@ type ConnectionSnapshot = {
 };
 
 type ConnectionRequestResolution =
-  | {
-      type: "insert";
-    }
-  | {
-      type: "refresh";
-      connectionId: Id<"connections">;
-    };
+  | { type: "insert" }
+  | { type: "refresh"; connectionId: Id<"connections">; staleConnectionId?: Id<"connections"> };
 
 async function getConnectionByActiveSlug(db: GenericDatabaseReader<DataModel>, slug: string) {
   return db
@@ -86,24 +81,18 @@ export function resolveConnectionRequest(params: {
     }
 
     if (hostConnection && hostConnection._id !== slugConnection._id) {
-      throw new Error("Selected agent is busy with another pub.");
+      return {
+        type: "refresh",
+        connectionId: hostConnection._id,
+        staleConnectionId: slugConnection._id,
+      };
     }
 
-    return {
-      type: "refresh",
-      connectionId: slugConnection._id,
-    };
+    return { type: "refresh", connectionId: slugConnection._id };
   }
 
   if (hostConnection) {
-    if (hostConnection.browserSessionId && hostConnection.browserSessionId !== browserSessionId) {
-      throw new Error("Selected agent is busy with another pub.");
-    }
-
-    return {
-      type: "refresh",
-      connectionId: hostConnection._id,
-    };
+    return { type: "refresh", connectionId: hostConnection._id };
   }
 
   return { type: "insert" };
@@ -256,6 +245,9 @@ export const requestConnection = mutation({
     };
 
     if (resolution.type === "refresh") {
+      if (resolution.staleConnectionId) {
+        await ctx.db.delete(resolution.staleConnectionId);
+      }
       await ctx.db.patch(resolution.connectionId, nextState);
       return { _id: resolution.connectionId, slug };
     }
