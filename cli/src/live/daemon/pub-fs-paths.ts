@@ -3,7 +3,10 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 export const PUB_FS_SESSION_PATH_PREFIX = "/./";
 
-type PubFsPathScope = "session";
+export const PUB_FS_HOST_PATH_SCOPE = "host";
+export const PUB_FS_SESSION_PATH_SCOPE = "session";
+
+type PubFsPathScope = typeof PUB_FS_HOST_PATH_SCOPE | typeof PUB_FS_SESSION_PATH_SCOPE;
 
 function canonicalizePath(pathValue: string): string {
   try {
@@ -27,20 +30,27 @@ export function resolvePubFsRequestPath(
   rawPath: string,
   sessionRootDir: string | null,
 ): { path: string; scope: PubFsPathScope } {
-  if (!rawPath.startsWith(PUB_FS_SESSION_PATH_PREFIX)) {
-    throw new Error(
-      `Pub FS paths must stay inside the active session workspace and start with "${PUB_FS_SESSION_PATH_PREFIX}".`,
-    );
+  if (rawPath.startsWith(PUB_FS_SESSION_PATH_PREFIX)) {
+    if (!sessionRootDir) {
+      throw new Error("No active pub workspace is available for session-relative pub-fs paths.");
+    }
+
+    const sessionRoot = canonicalizePath(sessionRootDir);
+    const resolvedPath = resolve(sessionRoot, rawPath.slice(PUB_FS_SESSION_PATH_PREFIX.length));
+    assertPathWithinRoot(resolvedPath, sessionRoot, "Requested path");
+    return { path: resolvedPath, scope: PUB_FS_SESSION_PATH_SCOPE };
   }
 
-  if (!sessionRootDir) {
-    throw new Error("No active pub workspace is available for session-relative pub-fs paths.");
+  if (isAbsolute(rawPath)) {
+    return {
+      path: canonicalizePath(rawPath),
+      scope: PUB_FS_HOST_PATH_SCOPE,
+    };
   }
 
-  const sessionRoot = canonicalizePath(sessionRootDir);
-  const resolvedPath = resolve(sessionRoot, rawPath.slice(PUB_FS_SESSION_PATH_PREFIX.length));
-  assertPathWithinRoot(resolvedPath, sessionRoot, "Requested path");
-  return { path: resolvedPath, scope: "session" };
+  throw new Error(
+    `Pub FS paths must be absolute host paths or stay inside the active session workspace using "${PUB_FS_SESSION_PATH_PREFIX}".`,
+  );
 }
 
 export function resolveExistingPubFsPath(
@@ -48,6 +58,9 @@ export function resolveExistingPubFsPath(
   sessionRootDir: string | null,
 ): string {
   const resolved = resolvePubFsRequestPath(rawPath, sessionRootDir);
+  if (resolved.scope === PUB_FS_HOST_PATH_SCOPE) {
+    return resolved.path;
+  }
   const realPath = realpathSync(resolved.path);
   assertPathWithinRoot(realPath, sessionRootDir!, "Resolved file path");
   return realPath;
@@ -58,6 +71,9 @@ export function assertPubFsWriteParent(
   scope: PubFsPathScope,
   sessionRootDir: string | null,
 ): void {
+  if (scope === PUB_FS_HOST_PATH_SCOPE) {
+    throw new Error("Pub FS writes must stay inside the active session workspace.");
+  }
   if (!sessionRootDir) {
     throw new Error("No active pub workspace is available for session-relative pub-fs paths.");
   }

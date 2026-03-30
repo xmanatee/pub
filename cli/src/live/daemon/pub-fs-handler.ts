@@ -296,6 +296,15 @@ export function createPubFsHandler(params: {
 
     try {
       const resolvedPath = resolvePubFsRequestPath(filePath, sessionRootDir);
+      if (resolvedPath.scope !== "session") {
+        sendError(
+          dc,
+          requestId,
+          "DELETE_ERROR",
+          "Pub FS deletes must stay inside the active session workspace.",
+        );
+        return;
+      }
       if (!existsSync(resolvedPath.path)) {
         sendError(dc, requestId, "NOT_FOUND", "File does not exist.");
         return;

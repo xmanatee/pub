@@ -53,11 +53,13 @@ Verify with `which <tool>` before depending on it.
    - Optional: `provider`, `profile` (`"fast"` / `"default"` / `"deep"`), `model`
 
 5. Host file access via `/__pub_files__/` URLs (standard HTTP semantics):
-   - **Read**: `<img src="/__pub_files__/_/chart.png">`, `fetch("/__pub_files__/_/data.json")`, `<video src="/__pub_files__/_/video.mp4">`
+   - **Read session files**: `<img src="/__pub_files__/_/chart.png">`, `fetch("/__pub_files__/_/data.json")`
+   - **Read host files directly**: if your real host path is `/Users/me/Videos/demo.mp4`, use `<video src="/__pub_files__/Users/me/Videos/demo.mp4">`
    - **Write**: `fetch("/__pub_files__/_/output.png", { method: "PUT", body: blob })`
    - **Delete**: `fetch("/__pub_files__/_/output.png", { method: "DELETE" })`
    - **Download**: `<a href="/__pub_files__/_/report.pdf" download="report.pdf">Download</a>`
    - Works with `<img>`, `<video>`, `<audio>`, `<source>`, CSS `url()`, `fetch()`, etc.
    - Files are streamed on demand — no size limit. Video seeking works (Range request support).
-   - All paths must stay under `/__pub_files__/_/...`, which maps to the active pub workspace.
-   - Use that workspace for session-local canvas files and generated assets. Treat anything outside it as inaccessible.
+   - `/__pub_files__/_/...` maps to the active pub workspace and supports read/write/delete.
+   - Direct absolute host paths under `/__pub_files__/...` are read-only and should be used for previews/downloads of real machine files.
+   - Do not copy large files into the workspace just to preview them. Prefer direct `/__pub_files__` streaming.

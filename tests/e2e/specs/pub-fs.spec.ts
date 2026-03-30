@@ -12,6 +12,9 @@
  * Multi-bridge: tests run with all bridge modes via the full WebRTC live session.
  */
 import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
 import { ALL_BRIDGE_MODES, activeModes, createBridgeTestConfig } from "../fixtures/bridge-configs";
@@ -359,6 +362,121 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
         `ok:${fileSize}:${fullHash}:${rangeSize}:${rangeHash}`,
         { timeout: 60_000 },
       );
+    });
+
+    test("pub-fs GET: streams direct host PDF and video files without staging", async ({
+      page,
+    }) => {
+      const hostDir = mkdtempSync(join(tmpdir(), "pub-host-media-"));
+      const pdfPath = join(hostDir, "sample.pdf");
+      const videoPath = join(hostDir, "sample.webm");
+      const videoBase64 =
+        "GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAL8EU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHWTbuMU6uEElTDZ1OsggEjTbuMU6uEHFO7a1OsggLm7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsCrXsYMPQkBNgIxMYXZmNjIuMy4xMDBXQYxMYXZmNjIuMy4xMDBEiYhAgEAAAAAAABZUrmvIrgEAAAAAAAA/14EBc8WIGGapbcuLRWqcgQAitZyDdW5kiIEAhoVWX1ZQOIOBASPjg4QCYloA4JCwgSC6gSCagQJVsIRVuYEBElTDZ/tzc59jwIBnyJlFo4dFTkNPREVSRIeMTGF2ZjYyLjMuMTAwc3PWY8CLY8WIGGapbcuLRWpnyKFFo4dFTkNPREVSRIeUTGF2YzYyLjExLjEwMCBsaWJ2cHhnyKFFo4hEVVJBVElPTkSHkzAwOjAwOjAwLjUyMDAwMDAwMAAfQ7Z1QT3ngQCjpIEAAIAwAgCdASogACAAAEcIhYWIhYSIAgIAB5DzycD+/6tQgKOVgQAoALEBAAEQMAAYABhYL/QACHAAo5WBAFAAsQEAARAwABgAGFgv9AAIcACjlYEAeACxAQABEDAAGAAYWC/0AAhwAKOVgQCgALEBAAEQMAAYABhYL/QACHAAo5WBAMgAsQEAARAwABgAGFgv9AAIcACjlYEA8ACxAQABEDAAGAAYWC/0AAhwABxTu2uRu4+zgQC3iveBAfGCAaPwgQM=";
+      const pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [3 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 44 >>
+stream
+BT /F1 18 Tf 36 110 Td (Pub FS PDF) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000335 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+405
+%%EOF
+`;
+      writeFileSync(pdfPath, pdfContent, "utf-8");
+      writeFileSync(videoPath, Buffer.from(videoBase64, "base64"));
+
+      const toPubFsUrl = (absolutePath: string) =>
+        `/__pub_files__${absolutePath.split("/").map(encodeURIComponent).join("/")}`;
+
+      const html = `<!DOCTYPE html>
+<html>
+<head><title>Pub FS Host Media Test</title></head>
+<body>
+  <video id="video" preload="metadata" src="${toPubFsUrl(videoPath)}"></video>
+  <div id="video-result">loading</div>
+  <div id="pdf-result">loading</div>
+  <script type="application/pub-command-manifest+json">
+  { "manifestId": "pub-fs-host-media-test", "functions": [] }
+  </script>
+  <script>
+    var video = document.getElementById("video");
+    video.onloadedmetadata = function() {
+      document.getElementById("video-result").textContent =
+        "ok:" + video.videoWidth + "x" + video.videoHeight;
+    };
+    video.onerror = function() {
+      document.getElementById("video-result").textContent = "error:video";
+    };
+
+    fetch("${toPubFsUrl(pdfPath)}")
+      .then(function(r) {
+        return Promise.all([r.ok, r.headers.get("content-type") || "", r.arrayBuffer()]);
+      })
+      .then(function(parts) {
+        var ok = parts[0], contentType = parts[1], bytes = new Uint8Array(parts[2]);
+        var prefix = "";
+        for (var i = 0; i < Math.min(bytes.length, 4); i++) prefix += String.fromCharCode(bytes[i]);
+        document.getElementById("pdf-result").textContent =
+          ok && contentType.indexOf("application/pdf") !== -1 && prefix === "%PDF"
+            ? "ok:pdf"
+            : "error:pdf";
+      })
+      .catch(function() {
+        document.getElementById("pdf-result").textContent = "error:pdf";
+      });
+  </script>
+</body>
+</html>`;
+
+      const user = seedUser("PubFS Host Media User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
+
+      try {
+        await api.createPub({ slug: "pub-fs-host-media", content: html });
+
+        cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+        await cli.startDaemon("pub-fs-host-media-bot");
+
+        await injectAuth(page, user);
+        await page.goto("/p/pub-fs-host-media");
+
+        await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+        await waitForConnection(page);
+
+        const canvasFrame = page.frameLocator("iframe").first();
+        await expect(canvasFrame.locator("#pdf-result")).toHaveText("ok:pdf", {
+          timeout: 30_000,
+        });
+        await expect(canvasFrame.locator("#video-result")).toHaveText("ok:32x32", {
+          timeout: 30_000,
+        });
+      } finally {
+        rmSync(hostDir, { recursive: true, force: true });
+      }
     });
   });
 }

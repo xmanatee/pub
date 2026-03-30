@@ -78,6 +78,31 @@ export class CliFixture {
     };
   }
 
+  private async waitForLiveApiReady(timeoutMs = 15_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    let lastFailure = "Timed out waiting for live API auth readiness.";
+
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(new URL("/api/v1/agent/live", this.convexSiteUrl), {
+          headers: {
+            Authorization: `Bearer ${this.user.apiKey}`,
+          },
+        });
+        if (res.ok) {
+          return;
+        }
+        const body = await res.text();
+        lastFailure = `Live API readiness check failed with HTTP ${res.status}: ${body}`;
+      } catch (error) {
+        lastFailure = `Live API readiness check failed: ${String(error)}`;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    throw new Error(lastFailure);
+  }
+
   /** Run a CLI command synchronously. Returns stdout. */
   run(args: string[], timeoutMs = 30_000): string {
     return execFileSync(this.cliBin, args, {
@@ -90,6 +115,7 @@ export class CliFixture {
 
   /** Start the daemon in the background. Waits for it to be ready. */
   async startDaemon(agentName = "e2e-agent"): Promise<void> {
+    await this.waitForLiveApiReady();
     const child = spawn(this.cliBin, ["start", "--agent-name", agentName], {
       env: this.env(),
       cwd: this.pubHome,

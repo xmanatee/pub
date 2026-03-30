@@ -3,8 +3,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  PUB_FS_HOST_PATH_SCOPE,
   assertPubFsWriteParent,
   PUB_FS_SESSION_PATH_PREFIX,
+  PUB_FS_SESSION_PATH_SCOPE,
   resolveExistingPubFsPath,
   resolvePubFsRequestPath,
 } from "./pub-fs-paths.js";
@@ -25,10 +27,12 @@ describe("pub-fs-paths", () => {
     return dir;
   }
 
-  it("rejects paths outside the session workspace contract", () => {
-    expect(() => resolvePubFsRequestPath("/tmp/example.txt", null)).toThrow(
-      'start with "/./"',
-    );
+  it("resolves absolute host paths without a live workspace", () => {
+    const resolved = resolvePubFsRequestPath("/tmp/example.txt", null);
+    expect(resolved).toEqual({
+      path: path.resolve("/tmp/example.txt"),
+      scope: PUB_FS_HOST_PATH_SCOPE,
+    });
   });
 
   it("resolves session-relative paths inside the active workspace", () => {
@@ -36,7 +40,7 @@ describe("pub-fs-paths", () => {
     const resolved = resolvePubFsRequestPath(`${PUB_FS_SESSION_PATH_PREFIX}images/chart.png`, sessionRoot);
     expect(resolved).toEqual({
       path: path.join(fs.realpathSync(sessionRoot), "images", "chart.png"),
-      scope: "session",
+      scope: PUB_FS_SESSION_PATH_SCOPE,
     });
   });
 
@@ -53,6 +57,12 @@ describe("pub-fs-paths", () => {
     );
   });
 
+  it("rejects relative host paths without the session prefix", () => {
+    expect(() => resolvePubFsRequestPath("tmp/example.txt", null)).toThrow(
+      "absolute host paths or stay inside the active session workspace",
+    );
+  });
+
   it("verifies existing files stay within the workspace after realpath", () => {
     const sessionRoot = makeTempDir();
     const filePath = path.join(sessionRoot, "note.txt");
@@ -62,12 +72,25 @@ describe("pub-fs-paths", () => {
     );
   });
 
+  it("resolves existing host files directly", () => {
+    const dir = makeTempDir();
+    const filePath = path.join(dir, "movie.mp4");
+    fs.writeFileSync(filePath, "hello", "utf-8");
+    expect(resolveExistingPubFsPath(filePath, null)).toBe(fs.realpathSync(filePath));
+  });
+
   it("verifies write parents stay within the workspace after realpath", () => {
     const sessionRoot = makeTempDir();
     const nestedDir = path.join(sessionRoot, "nested");
     fs.mkdirSync(nestedDir, { recursive: true });
     expect(() =>
-      assertPubFsWriteParent(path.join(nestedDir, "out.txt"), "session", sessionRoot),
+      assertPubFsWriteParent(path.join(nestedDir, "out.txt"), PUB_FS_SESSION_PATH_SCOPE, sessionRoot),
     ).not.toThrow();
+  });
+
+  it("rejects writes outside the active session workspace", () => {
+    expect(() =>
+      assertPubFsWriteParent("/tmp/out.txt", PUB_FS_HOST_PATH_SCOPE, null),
+    ).toThrow("Pub FS writes must stay inside the active session workspace.");
   });
 });

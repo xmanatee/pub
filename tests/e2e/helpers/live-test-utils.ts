@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { CliFixture } from "../fixtures/cli";
 
 export async function retryWrite(
@@ -23,38 +23,58 @@ export async function waitForConnection(page: Page) {
   const reconnectButton = page.getByRole("button", { name: "Reconnect" });
   const sendButton = page.getByLabel("Send message");
   const deadline = Date.now() + 90_000;
+  const isVisible = async (locator: Locator) => locator.isVisible().catch(() => false);
+  const isEnabled = async (locator: Locator) => locator.isEnabled().catch(() => false);
+  let controlsHiddenSince = 0;
 
-  await expect(textbox.or(connectButton)).toBeVisible({ timeout: 30_000 });
+  await expect(textbox.or(connectButton).or(reconnectButton)).toBeVisible({ timeout: 60_000 });
 
   while (Date.now() < deadline) {
-    if (await connectButton.isVisible()) {
+    const connectVisible = await isVisible(connectButton);
+    const reconnectVisible = await isVisible(reconnectButton);
+
+    if (connectVisible) {
       await expect(connectButton).toBeEnabled();
       await connectButton.dispatchEvent("click");
     }
 
-    if (await reconnectButton.isVisible()) {
+    if (reconnectVisible) {
       await expect(reconnectButton).toBeEnabled();
       await reconnectButton.dispatchEvent("click");
     }
 
-    if (await textbox.isVisible()) {
+    if (await isVisible(textbox)) {
       await textbox.fill("_");
-      if (await sendButton.isEnabled()) {
+      if (!(await isVisible(sendButton)) || (await isEnabled(sendButton))) {
         await textbox.fill("");
         return;
       }
     }
 
+    if (!connectVisible && !reconnectVisible) {
+      if (controlsHiddenSince === 0) {
+        controlsHiddenSince = Date.now();
+      } else if (Date.now() - controlsHiddenSince >= 3_000) {
+        return;
+      }
+    } else {
+      controlsHiddenSince = 0;
+    }
+
     await page.waitForTimeout(1_000);
   }
 
-  await expect(sendButton).toBeEnabled({ timeout: 1 });
+  throw new Error(
+    `Live connection did not become ready. textbox=${await isVisible(textbox)} connect=${await isVisible(connectButton)} reconnect=${await isVisible(reconnectButton)} send=${await isVisible(sendButton)}`,
+  );
 }
 
 export async function sendChat(page: Page, text: string) {
   const textbox = page.getByRole("textbox", { name: "Message" });
   const sendButton = page.getByLabel("Send message");
+  await expect(textbox).toBeVisible({ timeout: 60_000 });
   await textbox.fill(text);
+  await expect(sendButton).toBeVisible({ timeout: 60_000 });
   await expect(sendButton).toBeEnabled({ timeout: 60_000 });
   await sendButton.dispatchEvent("click");
 }
