@@ -96,6 +96,7 @@ vi.mock("~/features/live/hooks/use-live-session-model", () => ({
     clearSessionError: clearSessionErrorMock,
     closeLive: closeLiveMock,
     connectionAttempt: 0,
+    connectionLoaded: true,
     lastTakeoverAt: undefined,
     live: sharedState.live,
     markBridgeConnected: markBridgeConnectedMock,

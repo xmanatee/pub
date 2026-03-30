@@ -1,5 +1,5 @@
 import { api } from "@backend/_generated/api";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import { CanvasPanel } from "~/features/live/components/panels/canvas-panel";
@@ -15,9 +15,10 @@ import { PubSourceView } from "./pub-source-view";
 
 export function PubRoutePage({ slug, showSource }: { slug: string; showSource?: boolean }) {
   const pub = useQuery(api.pubs.getBySlug, { slug });
+  const { isLoading: authLoading } = useConvexAuth();
   const { developerModeEnabled } = useDeveloperMode();
   const { html: baseContentHtml, status: contentState } = useContentHtml(pub?.content, {
-    loading: pub === undefined,
+    loading: pub === undefined || (authLoading && pub?.isPublic === true),
   });
 
   if (showSource && developerModeEnabled && pub) {

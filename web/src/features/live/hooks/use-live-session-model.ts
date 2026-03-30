@@ -5,6 +5,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveSelectedHost } from "~/features/live/model/agent-selection";
 import type { SessionState } from "~/features/live/types/live-types";
 
+/**
+ * Latch that tracks whether a Convex query has resolved at least once for a
+ * given key. Resets when the key changes; once latched it stays true even if
+ * the raw query flickers back to `undefined` during re-subscription.
+ */
+function useQueryLoadedLatch(rawValue: unknown, resetKey: string): boolean {
+  const ref = useRef({ key: resetKey, loaded: rawValue !== undefined });
+  if (ref.current.key !== resetKey) {
+    ref.current = { key: resetKey, loaded: rawValue !== undefined };
+  } else if (rawValue !== undefined) {
+    ref.current.loaded = true;
+  }
+  return ref.current.loaded;
+}
+
 const BROWSER_SESSION_STORAGE_KEY = "pub-live-browser-session";
 
 function getOrCreateSessionId(): string {
@@ -42,6 +57,7 @@ export function useLiveSessionModel(slug: string, defaultAgentName: string | nul
   const live = useRetainedQueryValue(liveQuery, slug);
   const availableAgents = useRetainedQueryValue(availableAgentsQuery, slug);
   const agentOnline = availableAgents === undefined ? undefined : availableAgents.length > 0;
+  const connectionLoaded = useQueryLoadedLatch(liveQuery, slug);
 
   const requestConnectionMutation = useMutation(api.connections.requestConnection);
   const storeBrowserCandidatesMutation = useMutation(api.connections.storeBrowserCandidates);
@@ -151,6 +167,7 @@ export function useLiveSessionModel(slug: string, defaultAgentName: string | nul
     clearSessionError,
     closeLive,
     connectionAttempt,
+    connectionLoaded,
     lastTakeoverAt: live?.takeoverAt,
     live,
     markBridgeConnected,

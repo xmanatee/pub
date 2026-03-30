@@ -36,6 +36,7 @@ services:
     command:
       - -n
       - --realm=pub-e2e
+      - --listening-ip=0.0.0.0
       - --listening-port=3478
       - --min-port=49152
       - --max-port=49200
@@ -44,6 +45,12 @@ services:
       - --no-tls
       - --no-dtls
       - --log-file=stdout
+    healthcheck:
+      test: ["CMD-SHELL", "echo | nc -u -w1 127.0.0.1 3478"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
 
   test-runner:
     build:
@@ -58,7 +65,7 @@ services:
       admin-key-gen:
         condition: service_completed_successfully
       turn-server:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - shared-data:/shared:ro
       - test-results:/app/test-results

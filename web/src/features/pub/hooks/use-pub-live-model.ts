@@ -99,6 +99,7 @@ export function usePubLiveModel({
     clearSessionError,
     closeLive,
     connectionAttempt,
+    connectionLoaded,
     lastTakeoverAt,
     live,
     markBridgeConnected,
@@ -189,6 +190,7 @@ export function usePubLiveModel({
 
   const enabled =
     liveEnabled &&
+    connectionLoaded &&
     agentOnline === true &&
     selectedHostId !== null &&
     (sessionState === "inactive" || sessionState === "active");
