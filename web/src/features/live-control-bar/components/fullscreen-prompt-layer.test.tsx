@@ -2,7 +2,10 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ControlBarHost, ControlBarProvider } from "~/components/control-bar/control-bar-controller";
+import {
+  ControlBarHost,
+  ControlBarProvider,
+} from "~/components/control-bar/control-bar-controller";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { FullscreenPromptLayer } from "./fullscreen-prompt-layer";
 
