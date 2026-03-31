@@ -1,32 +1,38 @@
 import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
+import type { GenericDatabaseWriter } from "convex/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { DataModel, Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 import { deleteAuthAccountsAndDependents, deleteUserSessionsAndDependents } from "./auth_cleanup";
 import { deletePubOwnedRows } from "./pubs";
 import { USER_OWNED_TABLES } from "./user_data";
 
-async function deleteUserOwnedRows(ctx: MutationCtx, userId: Id<"users">) {
+export async function deleteUserOwnedRows(
+  db: GenericDatabaseWriter<DataModel>,
+  userId: Id<"users">,
+) {
   for (const { table, index } of USER_OWNED_TABLES) {
     // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
-    const rows = await (ctx.db.query(table) as any)
+    const rows = await (db.query(table) as any)
       // biome-ignore lint/suspicious/noExplicitAny: dynamic table iteration
       .withIndex(index, (q: any) => q.eq("userId", userId))
       .collect();
     for (const row of rows) {
-      await ctx.db.delete(row._id);
+      await db.delete(row._id);
     }
   }
 }
 
-async function deletePubOwnedRowsByUser(ctx: MutationCtx, userId: Id<"users">) {
-  const pubs = await ctx.db
+export async function deletePubOwnedRowsByUser(
+  db: GenericDatabaseWriter<DataModel>,
+  userId: Id<"users">,
+) {
+  const pubs = await db
     .query("pubs")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   for (const pub of pubs) {
-    await deletePubOwnedRows(ctx.db, pub._id);
+    await deletePubOwnedRows(db, pub._id);
   }
 }
 
@@ -65,8 +71,8 @@ export const deleteAccount = mutation({
       .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
       .collect();
 
-    await deletePubOwnedRowsByUser(ctx, userId);
-    await deleteUserOwnedRows(ctx, userId);
+    await deletePubOwnedRowsByUser(ctx.db, userId);
+    await deleteUserOwnedRows(ctx.db, userId);
     await deleteAuthAccountsAndDependents(ctx, accounts);
     await deleteUserSessionsAndDependents(ctx, userId);
     await ctx.db.delete(userId);

@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AUTH_TABLES, PUB_OWNED_TABLES, USER_OWNED_TABLES } from "./user_data";
 
+const testingSrc = readFileSync(resolve(__dirname, "testing.ts"), "utf-8");
+
 const schema = readFileSync(resolve(__dirname, "schema.ts"), "utf-8");
 
 function findTablesWithField(field: string, excludeTable: string): string[] {
@@ -95,5 +97,19 @@ describe("ownership registries", () => {
     for (const authTable of AUTH_TABLES) {
       expect(userOwned.has(authTable), `"${authTable}" is in both lists`).toBe(false);
     }
+  });
+});
+
+describe("clearAll coverage", () => {
+  it("imports USER_OWNED_TABLES for clearing", () => {
+    expect(testingSrc).toContain("USER_OWNED_TABLES");
+  });
+
+  it("imports PUB_OWNED_TABLES for clearing", () => {
+    expect(testingSrc).toContain("PUB_OWNED_TABLES");
+  });
+
+  it("imports AUTH_TABLES for clearing", () => {
+    expect(testingSrc).toContain("AUTH_TABLES");
   });
 });

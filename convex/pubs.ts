@@ -192,53 +192,60 @@ export const toggleVisibility = mutation({
   },
 });
 
+export async function duplicatePubCore(
+  db: GenericDatabaseWriter<DataModel>,
+  userId: Id<"users">,
+  pubId: Id<"pubs">,
+): Promise<{ _id: Id<"pubs">; slug: string }> {
+  const pub = await db.get(pubId);
+  if (!pub || pub.userId !== userId) throw new Error("Pub not found");
+
+  const user = await db.get(userId);
+  const limit = getPubLimit(user ?? {});
+  const count = await countUserPubs(db, userId);
+  if (count >= limit) throw new Error(`Pub limit reached (${limit})`);
+
+  const slug = await generateUniqueSlug(db);
+
+  const now = Date.now();
+  const newId = await db.insert("pubs", {
+    userId,
+    slug,
+    previewHtml: pub.previewHtml,
+    title: pub.title ? `${pub.title} (copy)` : undefined,
+    description: pub.description,
+    isPublic: false,
+    fileCount: pub.fileCount,
+    createdAt: now,
+    updatedAt: now,
+    lastViewedAt: now,
+    viewCount: 0,
+  });
+
+  const files = await db
+    .query("pubFiles")
+    .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
+    .collect();
+  for (const file of files) {
+    await db.insert("pubFiles", {
+      pubId: newId,
+      path: file.path,
+      content: file.content,
+      size: file.size,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  return { _id: newId, slug };
+}
+
 export const duplicateByUser = mutation({
   args: { id: v.id("pubs") },
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
-
-    const pub = await ctx.db.get(id);
-    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
-
-    const user = await ctx.db.get(userId);
-    const limit = getPubLimit(user ?? {});
-    const count = await countUserPubs(ctx.db, userId);
-    if (count >= limit) throw new Error(`Pub limit reached (${limit})`);
-
-    const slug = await generateUniqueSlug(ctx.db);
-
-    const now = Date.now();
-    const newId = await ctx.db.insert("pubs", {
-      userId,
-      slug,
-      previewHtml: pub.previewHtml,
-      title: pub.title ? `${pub.title} (copy)` : undefined,
-      description: pub.description,
-      isPublic: false,
-      fileCount: pub.fileCount,
-      createdAt: now,
-      updatedAt: now,
-      lastViewedAt: now,
-      viewCount: 0,
-    });
-
-    const files = await ctx.db
-      .query("pubFiles")
-      .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
-      .collect();
-    for (const file of files) {
-      await ctx.db.insert("pubFiles", {
-        pubId: newId,
-        path: file.path,
-        content: file.content,
-        size: file.size,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    return { _id: newId, slug };
+    return duplicatePubCore(ctx.db, userId, id);
   },
 });
 

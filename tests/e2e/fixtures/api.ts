@@ -102,8 +102,9 @@ export class ApiClient {
 
   // — Content serving —
 
-  async servePub(slug: string): Promise<Response> {
-    return fetch(`${this.baseUrl}/serve/${encodeURIComponent(slug)}`);
+  async servePub(slug: string, filePath?: string): Promise<Response> {
+    const base = `${this.baseUrl}/serve/${encodeURIComponent(slug)}`;
+    return fetch(filePath ? `${base}/${filePath}` : base);
   }
 
   async getOgImage(slug: string): Promise<Response> {

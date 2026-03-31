@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import type { TableNames } from "./_generated/dataModel";
-import { internalMutation } from "./_generated/server";
-import { AUTH_TABLES, USER_OWNED_TABLES } from "./user_data";
+import { internalMutation, internalQuery } from "./_generated/server";
+import { deletePubOwnedRowsByUser, deleteUserOwnedRows } from "./account";
+import { duplicatePubCore } from "./pubs";
+import { AUTH_TABLES, PUB_OWNED_TABLES, USER_OWNED_TABLES } from "./user_data";
 import { generateApiKey, hashApiKey, keyPreviewFromKey } from "./utils";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -12,16 +14,18 @@ function assertTestEnv() {
   }
 }
 
+const CLEARABLE_TABLES: TableNames[] = [
+  ...USER_OWNED_TABLES.map((t) => t.table),
+  ...PUB_OWNED_TABLES.map((t) => t.table),
+  ...AUTH_TABLES,
+  "users",
+];
+
 export const clearAll = internalMutation({
   args: {},
   handler: async (ctx) => {
     assertTestEnv();
-    const tables: TableNames[] = [
-      ...USER_OWNED_TABLES.map((t) => t.table),
-      ...AUTH_TABLES,
-      "users",
-    ];
-    for (const table of tables) {
+    for (const table of CLEARABLE_TABLES) {
       const docs = await ctx.db.query(table).collect();
       for (const doc of docs) {
         await ctx.db.delete(doc._id);
@@ -79,5 +83,75 @@ export const seedExtraApiKey = internalMutation({
       createdAt: Date.now(),
     });
     return { apiKey: rawKey, apiKeyId };
+  },
+});
+
+export const deleteUserAccount = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    assertTestEnv();
+    await deletePubOwnedRowsByUser(ctx.db, userId);
+    await deleteUserOwnedRows(ctx.db, userId);
+    await ctx.db.delete(userId);
+  },
+});
+
+export const duplicatePub = internalMutation({
+  args: { userId: v.id("users"), pubId: v.id("pubs") },
+  handler: async (ctx, { userId, pubId }) => {
+    assertTestEnv();
+    return duplicatePubCore(ctx.db, userId, pubId);
+  },
+});
+
+export const getUserDataCounts = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    assertTestEnv();
+
+    const user = await ctx.db.get(userId);
+
+    const pubs = await ctx.db
+      .query("pubs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    let pubFiles = 0;
+    let pubAccessTokens = 0;
+    for (const pub of pubs) {
+      const files = await ctx.db
+        .query("pubFiles")
+        .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
+        .collect();
+      pubFiles += files.length;
+      const tokens = await ctx.db
+        .query("pubAccessTokens")
+        .withIndex("by_pub", (q) => q.eq("pubId", pub._id))
+        .collect();
+      pubAccessTokens += tokens.length;
+    }
+
+    const apiKeys = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const hosts = await ctx.db
+      .query("hosts")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const connections = await ctx.db
+      .query("connections")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    return {
+      exists: !!user,
+      pubs: pubs.length,
+      pubFiles,
+      pubAccessTokens,
+      apiKeys: apiKeys.length,
+      hosts: hosts.length,
+      connections: connections.length,
+    };
   },
 });
