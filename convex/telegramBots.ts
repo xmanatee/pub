@@ -17,11 +17,11 @@ export const upsertBotToken = internalMutation({
 
     const existing = await ctx.db
       .query("telegramBots")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_username", (q) => q.eq("userId", userId).eq("botUsername", botUsername))
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { botToken, botUsername, updatedAt: now });
+      await ctx.db.patch(existing._id, { botToken, updatedAt: now });
     } else {
       await ctx.db.insert("telegramBots", {
         userId,
@@ -34,23 +34,23 @@ export const upsertBotToken = internalMutation({
   },
 });
 
-export const getBotTokenByUserId = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const record = await ctx.db
-      .query("telegramBots")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-    return record?.botToken ?? null;
+export const getAllBotTokens = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const records = await ctx.db.query("telegramBots").collect();
+    return records.map((r) => r.botToken);
   },
 });
 
-export const deleteBotToken = internalMutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+export const deleteBotTokenByUsername = internalMutation({
+  args: {
+    userId: v.id("users"),
+    botUsername: v.string(),
+  },
+  handler: async (ctx, { userId, botUsername }) => {
     const existing = await ctx.db
       .query("telegramBots")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_username", (q) => q.eq("userId", userId).eq("botUsername", botUsername))
       .unique();
     if (existing) {
       await ctx.db.delete(existing._id);

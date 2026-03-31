@@ -249,8 +249,11 @@ export class PubApiClient {
     });
   }
 
-  async deleteBotToken(): Promise<void> {
-    await this.request("/api/v1/agent/telegram-bot", { method: "DELETE" });
+  async deleteBotToken(opts: { botUsername: string }): Promise<void> {
+    await this.request("/api/v1/agent/telegram-bot", {
+      method: "DELETE",
+      body: JSON.stringify(opts),
+    });
   }
 
   // -- ICE servers ------------------------------------------------------------

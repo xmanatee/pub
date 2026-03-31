@@ -31,7 +31,9 @@ export async function reconcileTelegramConfigChange(params: {
 
     await telegramSetMenuButton(previousToken, { type: "default" });
     console.log("Telegram menu button reset to default.");
-    await createTelegramApiClient(apiClientSettings).deleteBotToken();
+    await createTelegramApiClient(apiClientSettings).deleteBotToken({
+      botUsername: params.previous!.botUsername!,
+    });
     console.log("Bot token removed from server.");
     delete params.next.botToken;
     delete params.next.botUsername;

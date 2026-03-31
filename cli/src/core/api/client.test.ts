@@ -391,7 +391,7 @@ describe("PubApiClient", () => {
       );
     });
 
-    it("deleteBotToken sends DELETE to agent/telegram-bot", async () => {
+    it("deleteBotToken sends DELETE to agent/telegram-bot with botUsername", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ deleted: true }), {
           status: 200,
@@ -399,10 +399,13 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.deleteBotToken();
+      await client.deleteBotToken({ botUsername: "mybot" });
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/telegram-bot", baseUrl),
-        expect.objectContaining({ method: "DELETE" }),
+        expect.objectContaining({
+          method: "DELETE",
+          body: JSON.stringify({ botUsername: "mybot" }),
+        }),
       );
     });
   });

@@ -122,5 +122,7 @@ export default defineSchema({
     botUsername: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_username", ["userId", "botUsername"]),
 });

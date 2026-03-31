@@ -19,24 +19,27 @@ function isMissingAccountError(error: unknown): boolean {
   return MISSING_ACCOUNT_PATTERNS.some((p) => p.test(message));
 }
 
+async function validateAgainstRegisteredBots(initData: string, botTokens: string[]): Promise<void> {
+  if (botTokens.length === 0) {
+    throw new Error("No Telegram bot connected");
+  }
+  for (const token of botTokens) {
+    try {
+      await validateInitData(initData, token);
+      return;
+    } catch {}
+  }
+  throw new Error("Invalid initData signature");
+}
+
 const telegram = ConvexCredentials<DataModel>({
   id: "telegram",
   authorize: async (credentials, ctx) => {
     const initData = credentials.initData as string | undefined;
     if (!initData) throw new Error("Missing initData");
 
-    const slug = credentials.slug as string | undefined;
-    if (slug) {
-      const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
-      if (pub) {
-        const botToken = await ctx.runQuery(internal.telegramBots.getBotTokenByUserId, {
-          userId: pub.userId,
-        });
-        if (botToken) {
-          await validateInitData(initData, botToken);
-        }
-      }
-    }
+    const botTokens = await ctx.runQuery(internal.telegramBots.getAllBotTokens);
+    await validateAgainstRegisteredBots(initData, botTokens);
 
     const user = parseInitDataUser(initData);
     const accountId = String(user.id);

@@ -3,12 +3,7 @@ import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { trackError, trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import {
-  getTelegramInitData,
-  getTelegramStartParam,
-  IN_TELEGRAM,
-  parseStartParam,
-} from "~/lib/telegram";
+import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
 
 const TELEGRAM_INIT_DATA_RETRY_MS = 250;
 const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
@@ -16,12 +11,6 @@ const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
 export function isNotLinkedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("TELEGRAM_ACCOUNT_NOT_LINKED");
-}
-
-function getSlugFromStartParam(): string | undefined {
-  const startParam = getTelegramStartParam();
-  const parsed = startParam ? parseStartParam(startParam) : null;
-  return parsed?.path?.replace("/p/", "") || undefined;
 }
 
 export interface TelegramAuthState {
@@ -72,9 +61,7 @@ export function useTelegramAuth(): TelegramAuthState {
         initDataLength: initData.length,
       });
 
-      const slug = getSlugFromStartParam();
-
-      void signIn("telegram", slug ? { initData, slug } : { initData })
+      void signIn("telegram", { initData })
         .then(() => {
           trackSignIn("telegram");
           pushAuthDebug("telegram_signin_success");
@@ -118,12 +105,7 @@ export function useTelegramAuth(): TelegramAuthState {
     const initData = initDataRef.current ?? getTelegramInitData();
     if (!initData) throw new Error("Telegram initData not available");
 
-    const slug = getSlugFromStartParam();
-    await signIn("telegram", {
-      initData,
-      createAccount: "true",
-      ...(slug ? { slug } : {}),
-    });
+    await signIn("telegram", { initData, createAccount: "true" });
     setTelegramNotLinked(false);
   }, [signIn]);
 

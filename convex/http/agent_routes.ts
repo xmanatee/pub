@@ -229,10 +229,21 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
       const auth = await authenticateAgentAndRateLimit(ctx, request, "telegramBotUpdate");
       if (auth instanceof Response) return auth;
 
+      let body: { botUsername?: unknown };
+      try {
+        body = await request.json();
+      } catch {
+        return errorResponse("Invalid JSON body", 400);
+      }
+
+      const botUsername = typeof body.botUsername === "string" ? body.botUsername.trim() : "";
+      if (!botUsername) return errorResponse("Missing botUsername", 400);
+
       return executeAction(
         async () => {
-          await ctx.runMutation(internal.telegramBots.deleteBotToken, {
+          await ctx.runMutation(internal.telegramBots.deleteBotTokenByUsername, {
             userId: auth.userId,
+            botUsername,
           });
         },
         () => jsonResponse({ deleted: true }),
