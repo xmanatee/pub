@@ -1,7 +1,6 @@
 import { api } from "@backend/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { SiGithub, SiGoogle, SiTelegram } from "@icons-pack/react-simple-icons";
-import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { ExternalLink, Link2, LogOut, X } from "lucide-react";
 import type * as React from "react";
@@ -39,7 +38,6 @@ export function SettingsPage() {
   const disconnectProvider = useMutation(api.account.disconnectProvider);
   const deleteAccount = useMutation(api.account.deleteAccount);
   const { signOut } = useAuthActions();
-  const navigate = useNavigate();
 
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -81,7 +79,7 @@ export function SettingsPage() {
     trackSignOut();
     resetIdentity();
     await signOut();
-    navigate({ to: "/", replace: true });
+    window.location.href = "/";
   }
 
   async function handleDeleteAccount() {
@@ -90,7 +88,7 @@ export function SettingsPage() {
       trackAccountDeleted();
       resetIdentity();
       await deleteAccount();
-      navigate({ to: "/", replace: true });
+      window.location.href = "/";
     } catch (error) {
       setDeleting(false);
       throw error;
@@ -252,15 +250,25 @@ export function SettingsPage() {
       </Card>
 
       {!IN_TELEGRAM && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => void handleSignOut()}
-        >
-          <LogOut className="h-4 w-4 mr-1.5" aria-hidden="true" />
-          Sign out
-        </Button>
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Session</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Sign out of your current session on this device.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => void handleSignOut()}
+            >
+              <LogOut className="h-4 w-4 mr-1.5" aria-hidden="true" />
+              Sign out
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       <Card className="border-destructive/30">
