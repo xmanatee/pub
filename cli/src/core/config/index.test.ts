@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { PATH_ENV_VARS } from "../paths.js";
 import {
   DEFAULT_BASE_URL,
   getApiClientSettings,
@@ -13,34 +14,26 @@ import {
   writePubConfig,
 } from "./index.js";
 
+const CONFIG_TEST_ENV_VARS = [...PATH_ENV_VARS, "PUB_API_KEY", "PUB_BASE_URL", "CLAUDE_CODE_PATH"];
+
 describe("config", () => {
   let tmpDir: string;
-  const originalEnv = {
-    HOME: process.env.HOME,
-    PUB_HOME: process.env.PUB_HOME,
-    PUB_API_KEY: process.env.PUB_API_KEY,
-    PUB_BASE_URL: process.env.PUB_BASE_URL,
-    CLAUDE_CODE_PATH: process.env.CLAUDE_CODE_PATH,
-  };
+  const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
+    for (const key of CONFIG_TEST_ENV_VARS) savedEnv[key] = process.env[key];
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pub-config-test-"));
     process.env.HOME = tmpDir;
-    delete process.env.PUB_HOME;
-    delete process.env.PUB_API_KEY;
-    delete process.env.PUB_BASE_URL;
-    delete process.env.CLAUDE_CODE_PATH;
+    for (const key of CONFIG_TEST_ENV_VARS) {
+      if (key !== "HOME") delete process.env[key];
+    }
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    process.env.HOME = originalEnv.HOME;
-    process.env.PUB_HOME = originalEnv.PUB_HOME;
-    process.env.PUB_API_KEY = originalEnv.PUB_API_KEY;
-    process.env.PUB_BASE_URL = originalEnv.PUB_BASE_URL;
-    process.env.CLAUDE_CODE_PATH = originalEnv.CLAUDE_CODE_PATH;
-    for (const key of Object.keys(originalEnv) as Array<keyof typeof originalEnv>) {
-      if (!originalEnv[key]) delete process.env[key];
+    for (const key of CONFIG_TEST_ENV_VARS) {
+      if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
+      else delete process.env[key];
     }
   });
 

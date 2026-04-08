@@ -1,6 +1,21 @@
 import * as path from "node:path";
 import { homedir } from "node:os";
 
+/**
+ * Every environment variable that {@link resolvePubPaths} reads.
+ * Tests that override HOME must clear all of these to avoid ambient leakage.
+ * A structural test in paths.test.ts enforces that this list stays complete.
+ */
+export const PATH_ENV_VARS = [
+  "HOME",
+  "USERPROFILE",
+  "PUB_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_STATE_HOME",
+  "XDG_RUNTIME_DIR",
+] as const;
+
 function trimToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
