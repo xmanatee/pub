@@ -23,6 +23,27 @@ const SESSION_BRIEFING_MAX_TURNS = 2;
 
 const CAPABILITIES: BridgeCapabilities = { conversational: true };
 
+export type ClaudeExitContext = {
+  exitCode: number;
+  terminalReason: string | null;
+  capturedSessionId: string | null;
+  stderr: string;
+};
+
+/**
+ * Evaluates whether a non-zero Claude Code exit is fatal.
+ * Returns an error message to throw, or null if the exit is non-fatal.
+ *
+ * `max_turns` with a captured session is non-fatal: the session was
+ * established and subsequent prompts can resume it.
+ */
+export function evaluateClaudeExit(ctx: ClaudeExitContext): string | null {
+  if (ctx.terminalReason === "max_turns" && ctx.capturedSessionId) {
+    return null;
+  }
+  return ctx.stderr || `exit code ${ctx.exitCode}`;
+}
+
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
   abortSignal?: AbortSignal,
@@ -85,6 +106,7 @@ export async function createClaudeCodeBridgeRunner(
 
     const rl = createInterface({ input: child.stdout, crlfDelay: Number.POSITIVE_INFINITY });
     let capturedSessionId: string | null = null;
+    let terminalReason: string | null = null;
     const assistantChunks: string[] = [];
     const onAbort = () => {
       child.kill("SIGINT");
@@ -112,9 +134,15 @@ export async function createClaudeCodeBridgeRunner(
       };
 
       if (parsed.type === "result") {
-        const result = event as { session_id?: string };
+        const result = event as {
+          session_id?: string;
+          terminal_reason?: string;
+        };
         if (typeof result.session_id === "string" && result.session_id.length > 0) {
           capturedSessionId = result.session_id;
+        }
+        if (typeof result.terminal_reason === "string") {
+          terminalReason = result.terminal_reason;
         }
       } else {
         const text =
@@ -145,8 +173,19 @@ export async function createClaudeCodeBridgeRunner(
     }
 
     if (exitCode !== null && exitCode !== 0 && !stopped) {
-      const detail = stderrChunks.join("").trim() || `exit code ${exitCode}`;
-      throw new Error(`Claude Code exited with error: ${detail}`);
+      const stderr = stderrChunks.join("").trim();
+      debugLog(
+        `claude exited with code ${exitCode} terminal_reason=${terminalReason ?? "unknown"} session=${capturedSessionId ?? "none"} stderr=${stderr.length > 0 ? stderr.slice(0, 200) : "(empty)"}`,
+      );
+      const errorDetail = evaluateClaudeExit({
+        exitCode,
+        terminalReason,
+        capturedSessionId,
+        stderr,
+      });
+      if (errorDetail) {
+        throw new Error(`Claude Code exited with error: ${errorDetail}`);
+      }
     }
     return assistantChunks.join("").trim();
   }
