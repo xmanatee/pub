@@ -47,7 +47,7 @@ export function PubCard({
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
-        <div className="aspect-[1200/630] overflow-hidden">
+        <div className="aspect-[1200/430] overflow-hidden">
           <PubPreviewCard
             slug={pub.slug}
             title={pub.title}
