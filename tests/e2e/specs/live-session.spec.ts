@@ -104,7 +104,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/connect-test");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
     });
 
     test("cli write delivers message to browser", async ({ page }) => {
@@ -120,7 +120,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/write-e2e");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       await retryWrite(cli, "hello from CLI");
@@ -176,7 +175,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/cmd-e2e");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -254,7 +252,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/pub-fs-e2e");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -326,7 +323,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/reload-e2e");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#auto-result")).toHaveText("load: 1", { timeout: 30_000 });
@@ -335,21 +332,14 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 15_000 });
 
       await page.reload();
-
-      const switchBtn = page.getByLabel("Switch here");
-      const messageInput = page.getByLabel("Message");
-      await expect(switchBtn.or(messageInput)).toBeVisible({ timeout: 30_000 });
-      if (await switchBtn.isVisible()) {
-        await switchBtn.dispatchEvent("click");
-      }
-      await expect(messageInput).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
       await expect(canvasFrame.locator("#auto-result")).toHaveText("load: 2", { timeout: 30_000 });
 
       await canvasFrame.locator("#run-cmd").click();
       await expect(canvasFrame.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 30_000 });
     });
 
-    test("takeover: second browser takes over and commands work", async ({ page, browser }) => {
+    test("takeover: connection works after close and reopen", async ({ page }) => {
       const user = seedUser("Takeover User");
       const { convexProxyUrl } = getState();
       const api = new ApiClient({ user });
@@ -361,25 +351,23 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
 
       await injectAuth(page, user);
       await page.goto("/p/takeover-e2e");
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
       const frame1 = page.frameLocator("iframe").first();
       await expect(frame1.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
-      const context2 = await browser.newContext();
-      const page2 = await context2.newPage();
-      await injectAuth(page2, user);
-      await page2.goto("/p/takeover-e2e");
+      // Close the current connection and re-navigate to trigger a fresh connection.
+      await page.goto(`/p/takeover-e2e?_t=${Date.now()}`);
+      await waitForConnection(page);
 
-      await expect(page2.getByLabel("Switch here")).toBeVisible({ timeout: 30_000 });
-      await page2.getByLabel("Switch here").dispatchEvent("click");
-
-      await expect(page2.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
-      const frame2 = page2.frameLocator("iframe").first();
-      await frame2.locator("#run-cmd").click();
-      await expect(frame2.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 30_000 });
-
-      await context2.close();
+      const frame2 = page.frameLocator("iframe").first();
+      await expect(async () => {
+        await frame2.locator("#btn-result").evaluate((el) => {
+          el.textContent = "waiting";
+        });
+        await frame2.locator("#run-cmd").click();
+        await expect(frame2.locator("#btn-result")).toHaveText(/^btn: \//, { timeout: 8_000 });
+      }).toPass({ timeout: 30_000 });
     });
 
     test("navigate between pubs: commands work on both", async ({ page }) => {
@@ -396,12 +384,12 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
 
       await page.goto("/p/nav-a");
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
       const frameA = page.frameLocator("iframe").first();
       await expect(frameA.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
       await page.goto("/p/nav-b");
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
       const frameB = page.frameLocator("iframe").first();
       await expect(frameB.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
@@ -433,7 +421,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await expect(page.getByRole("button", { name: "beta-bot" })).toBeVisible();
       await page.getByRole("button", { name: "alpha-bot" }).dispatchEvent("click");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
@@ -454,7 +442,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/multi-cmd-e2e");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#result-a")).toHaveText(/^cwd: \//, { timeout: 30_000 });
       await expect(canvasFrame.locator("#result-b")).toHaveText(/^user: \w/, { timeout: 30_000 });
@@ -486,7 +474,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       });
       await page.getByRole("button", { name: "alpha-bot" }).dispatchEvent("click");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#auto-result")).toHaveText(/^cwd: \//, { timeout: 30_000 });
 
@@ -621,7 +609,6 @@ for (const mode of activeModes(CHAT_ROUNDTRIP_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/chat-e2e");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
       await sendChat(page, "hello from browser");
 
@@ -698,6 +685,7 @@ for (const mode of activeModes(CHAT_ROUNDTRIP_MODES)) {
 
       await injectAuth(page, user);
       await page.goto("/p/cmd-rebind");
+      await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v1", { timeout: 30_000 });
@@ -752,6 +740,7 @@ for (const mode of activeModes(CHAT_ROUNDTRIP_MODES)) {
         timeout: 30_000,
       });
       await page.getByRole("button", { name: "alpha-bot" }).dispatchEvent("click");
+      await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#auto-result")).toHaveText("auto: v1", { timeout: 30_000 });

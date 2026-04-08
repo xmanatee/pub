@@ -63,7 +63,7 @@ test.describe("Multi-file pub", () => {
     const indexRes = await api.servePub("serve-multi");
     expect(indexRes.status).toBe(200);
     const indexHtml = await indexRes.text();
-    expect(indexHtml).toContain("<h1>Multi File</h1>");
+    expect(indexHtml).toContain('<h1 id="heading">Multi File</h1>');
     expect(indexRes.headers.get("content-type")).toContain("text/html");
 
     const cssRes = await api.servePub("serve-multi", "style.css");

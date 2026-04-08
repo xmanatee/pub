@@ -22,23 +22,66 @@ export async function waitForConnection(page: Page) {
   const connectButton = page.getByRole("button", { name: "Connect agent" });
   const reconnectButton = page.getByRole("button", { name: "Reconnect" });
   const sendButton = page.getByLabel("Send message");
+  const dismissButton = page.getByRole("button", { name: "Dismiss", exact: true });
+  const statusButton = page.getByRole("button", { name: "Toggle control bar", exact: true });
+  const switchHereButton = page.getByRole("button", { name: "Switch here" });
+  const reclaimButton = page.getByRole("button", { name: /^Reclaim/ });
   const deadline = Date.now() + 90_000;
   const isVisible = async (locator: Locator) => locator.isVisible().catch(() => false);
   const isEnabled = async (locator: Locator) => locator.isEnabled().catch(() => false);
-  let controlsHiddenSince = 0;
 
-  await expect(textbox.or(connectButton).or(reconnectButton)).toBeVisible({ timeout: 60_000 });
+  // Wait for the control bar to appear (any recognizable element).
+  // Use .first() to avoid strict-mode violations when multiple elements match.
+  await expect(
+    textbox
+      .or(connectButton)
+      .or(reconnectButton)
+      .or(dismissButton)
+      .or(statusButton)
+      .or(switchHereButton)
+      .or(reclaimButton)
+      .first(),
+  ).toBeVisible({ timeout: 60_000 });
 
   while (Date.now() < deadline) {
-    const connectVisible = await isVisible(connectButton);
-    const reconnectVisible = await isVisible(reconnectButton);
+    // Dismiss fullscreen prompt if it covers the control bar.
+    if (await isVisible(dismissButton)) {
+      await dismissButton.dispatchEvent("click");
+      await page.waitForTimeout(500);
+      continue;
+    }
 
-    if (connectVisible) {
+    // Expand collapsed control bar.
+    if (await isVisible(statusButton)) {
+      if (!(await isVisible(textbox)) && !(await isVisible(connectButton))) {
+        await statusButton.dispatchEvent("click");
+        await page.waitForTimeout(500);
+        continue;
+      }
+    }
+
+    // Takeover: click "Switch here" or "Reclaim" to take over the connection.
+    if (await isVisible(switchHereButton)) {
+      await switchHereButton.click();
+      await page.waitForTimeout(2_000);
+      continue;
+    }
+    if (await isVisible(reclaimButton)) {
+      if (await isEnabled(reclaimButton)) {
+        await reclaimButton.click();
+        await page.waitForTimeout(2_000);
+      } else {
+        await page.waitForTimeout(2_000);
+      }
+      continue;
+    }
+
+    if (await isVisible(connectButton)) {
       await expect(connectButton).toBeEnabled();
       await connectButton.dispatchEvent("click");
     }
 
-    if (reconnectVisible) {
+    if (await isVisible(reconnectButton)) {
       await expect(reconnectButton).toBeEnabled();
       await reconnectButton.dispatchEvent("click");
     }
@@ -49,16 +92,6 @@ export async function waitForConnection(page: Page) {
         await textbox.fill("");
         return;
       }
-    }
-
-    if (!connectVisible && !reconnectVisible) {
-      if (controlsHiddenSince === 0) {
-        controlsHiddenSince = Date.now();
-      } else if (Date.now() - controlsHiddenSince >= 3_000) {
-        return;
-      }
-    } else {
-      controlsHiddenSince = 0;
     }
 
     await page.waitForTimeout(1_000);

@@ -1,0 +1,8 @@
+node_modules
+web/node_modules
+cli/node_modules
+cli/dist-bin
+web/dist
+.worktrees
+test-results
+playwright-report

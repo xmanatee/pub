@@ -21,6 +21,7 @@ import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
 import { addRule, clearRules } from "../fixtures/mock-llm";
+import { waitForConnection } from "../helpers/live-test-utils";
 
 /** Canvas HTML that fires a real shell command (pwd) immediately on load and renders the result. */
 const AUTO_INVOKE_HTML = `<!DOCTYPE html>
@@ -91,7 +92,7 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await page.goto("/p/early-cmd");
 
       // Wait for agent auto-selection
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
       // The canvas auto-fired `pwd` on load. Once WebRTC connects and the
       // queued command is dispatched, the real shell output should appear in the iframe.
@@ -153,7 +154,7 @@ for (const mode of activeModes(LLM_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/slow-brief");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
+      await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
       await expect(canvasFrame.locator("#result")).toHaveText(/^cwd: \//, {

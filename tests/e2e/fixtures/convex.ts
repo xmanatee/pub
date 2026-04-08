@@ -63,6 +63,11 @@ export function seedUser(name = "E2E User"): TestUser {
   return { ...parsed, name };
 }
 
+/** Insert N empty pubs directly (bypasses HTTP rate limiter). */
+export function seedPubs(userId: string, count: number, slugPrefix: string): void {
+  runMutation("testing:seedPubs", { userId, count, slugPrefix });
+}
+
 /** Create an extra API key for an existing user. Returns a TestUser with the new key. */
 export function seedExtraApiKey(base: TestUser): TestUser {
   const result = runMutation("testing:seedExtraApiKey", { userId: base.userId });

@@ -86,6 +86,28 @@ export const seedExtraApiKey = internalMutation({
   },
 });
 
+export const seedPubs = internalMutation({
+  args: {
+    userId: v.id("users"),
+    count: v.number(),
+    slugPrefix: v.string(),
+  },
+  handler: async (ctx, { userId, count, slugPrefix }) => {
+    assertTestEnv();
+    const now = Date.now();
+    for (let i = 0; i < count; i++) {
+      await ctx.db.insert("pubs", {
+        userId,
+        slug: `${slugPrefix}-${i}`,
+        isPublic: false,
+        createdAt: now,
+        updatedAt: now,
+        viewCount: 0,
+      });
+    }
+  },
+});
+
 export const deleteUserAccount = internalMutation({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {

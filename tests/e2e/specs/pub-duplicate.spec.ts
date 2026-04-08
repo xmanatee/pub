@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
-import { clearAll, runMutation, seedUser } from "../fixtures/convex";
+import { clearAll, runMutation, seedPubs, seedUser } from "../fixtures/convex";
 
 function withOgMeta(title: string) {
   return `<!DOCTYPE html>
@@ -104,10 +104,7 @@ test.describe("Pub duplication", () => {
   test("duplicate at limit is rejected", async () => {
     const user = seedUser();
     const api = new ApiClient({ user });
-
-    for (let i = 0; i < 10; i++) {
-      expect((await api.createPub({ slug: `dup-lim-${i}` })).status).toBe(201);
-    }
+    seedPubs(user.userId, 10, "dup-lim");
 
     const source = await (await api.getPub("dup-lim-0")).json();
 

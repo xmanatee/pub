@@ -85,7 +85,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/pub-fs-get");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -145,7 +144,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/pub-fs-img");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -201,7 +199,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/pub-fs-put");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -251,7 +248,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/pub-fs-404");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -349,7 +345,6 @@ for (const mode of activeModes(ALL_BRIDGE_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/pub-fs-large");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const rangeSize = rangeEnd - rangeStart + 1;
@@ -464,7 +459,6 @@ startxref
         await injectAuth(page, user);
         await page.goto("/p/pub-fs-host-media");
 
-        await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
         await waitForConnection(page);
 
         const canvasFrame = page.frameLocator("iframe").first();

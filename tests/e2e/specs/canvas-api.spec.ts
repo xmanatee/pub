@@ -102,7 +102,6 @@ for (const mode of activeModes(AGENT_COMMAND_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/agent-text-cmd");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();
@@ -128,7 +127,6 @@ for (const mode of activeModes(AGENT_COMMAND_MODES)) {
       await injectAuth(page, user);
       await page.goto("/p/agent-json-cmd");
 
-      await expect(page.getByLabel("Message")).toBeVisible({ timeout: 30_000 });
       await waitForConnection(page);
 
       const canvasFrame = page.frameLocator("iframe").first();

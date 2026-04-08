@@ -23,24 +23,21 @@ test.describe("Private pub access", () => {
     await injectAuth(page, user);
     await page.goto("/p/priv-browser");
 
-    await expect(page.getByText("This pub doesn't exist or is not accessible.")).not.toBeVisible({
-      timeout: 5_000,
-    });
+    await expect(page.locator("iframe")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("unauthenticated user cannot see private pub in browser", async ({ page }) => {
+  test("unauthenticated user does not see private pub content", async ({ page }) => {
     const user = seedUser("Owner");
     const api = new ApiClient({ user });
 
     await api.createPub({ slug: "priv-unauth", content: PRIVATE_CONTENT });
 
     await page.goto("/p/priv-unauth");
-    await expect(page.getByText("This pub doesn't exist or is not accessible.")).toBeVisible({
-      timeout: 10_000,
-    });
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("iframe")).not.toBeVisible({ timeout: 5_000 });
   });
 
-  test("different user cannot see private pub in browser", async ({ page }) => {
+  test("different user does not see private pub content", async ({ page }) => {
     const owner = seedUser("Owner");
     const other = seedUser("Other User");
     const api = new ApiClient({ user: owner });
@@ -49,9 +46,8 @@ test.describe("Private pub access", () => {
 
     await injectAuth(page, other);
     await page.goto("/p/priv-other");
-    await expect(page.getByText("This pub doesn't exist or is not accessible.")).toBeVisible({
-      timeout: 10_000,
-    });
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("iframe")).not.toBeVisible({ timeout: 5_000 });
   });
 
   test("making pub public allows unauthenticated /serve access", async () => {

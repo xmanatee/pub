@@ -98,9 +98,9 @@ export class ApiError extends Error {
 
 export function mapLiveError(error: unknown): { message: string; status: number } | null {
   const message = error instanceof Error ? error.message : String(error);
-  if (message === "Connection not found") return { message, status: 404 };
-  if (message === "Connection assigned to another agent") return { message, status: 409 };
-  if (message === "Agent went offline") return { message, status: 409 };
+  if (message.includes("Connection not found")) return { message, status: 404 };
+  if (message.includes("Connection assigned to another agent")) return { message, status: 409 };
+  if (message.includes("Agent went offline")) return { message, status: 409 };
   return null;
 }
 
@@ -114,7 +114,7 @@ export function rethrowLiveApiError(error: unknown): never {
 export function rethrowPubLimitError(error: unknown): never {
   if (error instanceof ApiError) throw error;
   const message = error instanceof Error ? error.message : String(error);
-  if (message.startsWith("Pub limit reached")) throw new ApiError(message, 429);
+  if (message.includes("Pub limit reached")) throw new ApiError(message, 429);
   throw error;
 }
 

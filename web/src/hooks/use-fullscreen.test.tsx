@@ -21,7 +21,6 @@ describe("isFullscreenSupported", () => {
     try {
       expect(isFullscreenSupported()).toBe(true);
     } finally {
-      // biome-ignore lint/performance/noDelete: restoring jsdom default
       delete (document.documentElement as unknown as Record<string, unknown>).requestFullscreen;
     }
   });
@@ -46,9 +45,7 @@ describe("useFullscreen", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
-    // biome-ignore lint/performance/noDelete: restoring jsdom default
     delete (document.documentElement as unknown as Record<string, unknown>).requestFullscreen;
-    // biome-ignore lint/performance/noDelete: restoring jsdom default
     delete (document as unknown as Record<string, unknown>).exitFullscreen;
   });
 

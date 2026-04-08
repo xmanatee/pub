@@ -195,6 +195,13 @@ describe("mapLiveError", () => {
     });
   });
 
+  it("matches Convex-wrapped error messages", () => {
+    const wrapped = new Error(
+      "[Request ID: abc123] Server Error\nUncaught Error: Connection not found",
+    );
+    expect(mapLiveError(wrapped)).toEqual({ message: wrapped.message, status: 404 });
+  });
+
   it("returns null for unknown failures", () => {
     expect(mapLiveError(new Error("Unexpected failure"))).toBeNull();
   });
