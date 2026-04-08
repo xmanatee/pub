@@ -5,9 +5,9 @@ import {
   CROSS_ORIGIN_SANDBOX_ATTR,
   DENIED_SANDBOX_TOKENS,
   IFRAME_ALLOW_ATTR,
-} from "./sandbox-policy-core";
+} from "./sandbox-policy";
 
-const CONVEX_SHARED_PATH = resolve(__dirname, "../convex/http/shared.ts");
+const CONVEX_SHARED_PATH = resolve(__dirname, "../../../../../convex/http/shared.ts");
 const CROSS_ORIGIN_TOKENS = CROSS_ORIGIN_SANDBOX_ATTR.split(" ");
 const PERMISSIONS_FEATURES = IFRAME_ALLOW_ATTR.split("; ");
 

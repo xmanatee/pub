@@ -2,18 +2,18 @@ import type {
   CommandCancelPayload,
   CommandInvokePayload,
   CommandResultPayload,
-} from "./command-protocol-core";
+} from "@shared/command-protocol-core";
 import {
   parseCommandCancelPayload,
   parseCommandInvokePayload,
   parseCommandResultPayload,
-} from "./command-protocol-core";
+} from "@shared/command-protocol-core";
 import {
   readFiniteNumber,
   readNonEmptyString,
   readRecord,
   readString,
-} from "./protocol-runtime-core";
+} from "@shared/protocol-runtime-core";
 
 export const CANVAS_TO_PARENT_SOURCE = "pub-canvas";
 export const PARENT_TO_CANVAS_SOURCE = "pub-parent";

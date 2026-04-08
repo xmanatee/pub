@@ -1,6 +1,6 @@
-import { CROSS_ORIGIN_SANDBOX_ATTR, IFRAME_ALLOW_ATTR } from "@shared/sandbox-policy-core";
 import { useEffect, useRef, useState } from "react";
 import type { BlobTone } from "~/components/blob/blob-tone";
+import { CROSS_ORIGIN_SANDBOX_ATTR, IFRAME_ALLOW_ATTR } from "~/features/live/lib/sandbox-policy";
 import {
   PARENT_TO_CANVAS_SOURCE,
   parseCanvasBridgeInboundMessage,

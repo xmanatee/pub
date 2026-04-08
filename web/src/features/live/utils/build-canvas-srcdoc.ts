@@ -1,11 +1,11 @@
 import {
-  CANVAS_TO_PARENT_SOURCE,
-  PARENT_TO_CANVAS_SOURCE,
-} from "@shared/canvas-bridge-protocol-core";
-import {
   COMMAND_PROTOCOL_VERSION,
   DEFAULT_COMMAND_TIMEOUT_MS,
 } from "@shared/command-protocol-core";
+import {
+  CANVAS_TO_PARENT_SOURCE,
+  PARENT_TO_CANVAS_SOURCE,
+} from "~/features/live/lib/canvas-bridge-protocol";
 
 const COMMAND_RESULT_GRACE_MS = 5_000;
 const COMMAND_RESULT_GUARD_MS = 5 * 60_000;

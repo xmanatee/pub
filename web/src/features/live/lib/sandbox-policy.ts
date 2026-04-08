@@ -5,7 +5,7 @@
  *   1. Cross-origin sandbox iframe (canvas-panel) — full tokens + allow-same-origin
  *   2. CSP sandbox directive (convex /serve/:slug) — full tokens + allow-same-origin
  *
- * Convex cannot import from shared/ at runtime, so convex/http/shared.ts duplicates the
+ * Convex cannot import this at runtime, so convex/http/shared.ts duplicates the
  * CSP and Permissions-Policy strings. Tests verify they stay in sync.
  */
 

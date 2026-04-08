@@ -4,9 +4,9 @@ import {
   PARENT_TO_CANVAS_SOURCE,
   parseCanvasBridgeInboundMessage,
   parseCanvasBridgeOutboundMessage,
-} from "./canvas-bridge-protocol-core";
+} from "./canvas-bridge-protocol";
 
-describe("canvas-bridge-protocol-core", () => {
+describe("canvas-bridge-protocol", () => {
   it("parses canvas ready envelopes", () => {
     expect(
       parseCanvasBridgeInboundMessage({

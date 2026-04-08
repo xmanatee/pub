@@ -6,8 +6,8 @@ import { getPublicUrl, getSiteUrl } from "../env";
 import { rateLimiter } from "../rateLimits";
 import { escapeHtmlAttr, hasOgTag, isValidSlug } from "../utils";
 
-// Sandbox tokens and permissions features are canonical in shared/sandbox-policy-core.ts.
-// A test in sandbox-policy-core.test.ts reads this file and verifies both lists stay in sync.
+// Sandbox tokens and permissions features are canonical in web/src/features/live/lib/sandbox-policy.ts.
+// A test in sandbox-policy.test.ts reads this file and verifies both lists stay in sync.
 const CONTENT_CSP = [
   "default-src 'none'",
   "base-uri 'none'",

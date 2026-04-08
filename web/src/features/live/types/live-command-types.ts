@@ -1,9 +1,9 @@
 export type {
   CanvasBridgeCommandMessage,
   CanvasBridgeOutboundMessage,
-} from "@shared/canvas-bridge-protocol-core";
+} from "~/features/live/lib/canvas-bridge-protocol";
 
 export {
   PARENT_TO_CANVAS_SOURCE,
   parseCanvasBridgeInboundMessage,
-} from "@shared/canvas-bridge-protocol-core";
+} from "~/features/live/lib/canvas-bridge-protocol";
