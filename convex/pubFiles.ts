@@ -29,7 +29,6 @@ export const writeFiles = internalMutation({
 
     await ctx.db.patch(pubId, {
       fileCount: files.length,
-      previewHtml: undefined,
       updatedAt: now,
     });
   },

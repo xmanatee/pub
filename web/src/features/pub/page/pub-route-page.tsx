@@ -8,7 +8,6 @@ import { useContentHtml } from "~/features/live/hooks/use-content-html";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { FullscreenPromptLayer } from "~/features/live-control-bar/components/fullscreen-prompt-layer";
-import { usePreviewCapture } from "~/features/preview-capture/use-preview-capture";
 import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { LiveSessionProvider, useLiveSession } from "../contexts/live-session-context";
@@ -47,7 +46,6 @@ function PubRouteContent({
   pub:
     | (UsePubLiveModelOptions["pub"] & {
         updatedAt?: number;
-        previewHtml?: string;
         fileCount?: number;
       })
     | null
@@ -61,15 +59,6 @@ function PubRouteContent({
   const viewMode = liveMode ? session.viewMode : "canvas";
   const effectiveCanvasHtml = liveMode ? (session.canvasHtml ?? null) : (baseContentHtml ?? null);
   const liveBlob = createLiveBlobPresentation(session.blobState);
-
-  const { capturePreview, handlePreviewCaptured } = usePreviewCapture({
-    slug,
-    liveMode,
-    command: session.command,
-    hasCanvasContent: session.hasCanvasContent,
-    pubUpdatedAt: pub?.updatedAt,
-    hasPreviewHtml: !!pub?.previewHtml,
-  });
 
   return (
     <ControlBarProvider>
@@ -89,9 +78,7 @@ function PubRouteContent({
             <CanvasPanel
               html={effectiveCanvasHtml}
               contentBaseUrl={session.contentBaseUrl}
-              capturePreview={capturePreview}
               onCanvasBridgeMessage={session.onCanvasBridgeMessage}
-              onPreviewCaptured={isOwner ? handlePreviewCaptured : undefined}
               onRenderError={isOwner ? session.handleRenderError : undefined}
               outboundCanvasBridgeMessage={session.outboundCanvasBridgeMessage}
               blobTone={liveBlob.tone}

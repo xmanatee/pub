@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   escapeHtmlAttr,
   escapeXml,
-  extractOgMeta,
+  extractPubMeta,
   generateApiKey,
   generateSlug,
   hashApiKey,
   hasOgTag,
+  isValidCssColor,
   isValidSlug,
   keyPreviewFromKey,
   MAX_DESCRIPTION_LENGTH,
@@ -157,23 +158,23 @@ describe("truncate", () => {
   });
 });
 
-describe("extractOgMeta", () => {
+describe("extractPubMeta", () => {
   it("extracts og:title and og:description", () => {
     const html = `<html><head>
       <meta property="og:title" content="My Title">
       <meta property="og:description" content="My description">
     </head><body></body></html>`;
-    expect(extractOgMeta(html)).toEqual({ title: "My Title", description: "My description" });
+    expect(extractPubMeta(html)).toEqual({ title: "My Title", description: "My description" });
   });
 
   it("falls back to <title> when no og:title", () => {
     const html = "<html><head><title>Page Title</title></head><body></body></html>";
-    expect(extractOgMeta(html)).toEqual({ title: "Page Title" });
+    expect(extractPubMeta(html)).toEqual({ title: "Page Title" });
   });
 
   it("falls back to meta name=description when no og:description", () => {
     const html = '<html><head><meta name="description" content="Fallback desc"></head></html>';
-    expect(extractOgMeta(html)).toEqual({ description: "Fallback desc" });
+    expect(extractPubMeta(html)).toEqual({ description: "Fallback desc" });
   });
 
   it("prefers og:title over <title>", () => {
@@ -181,7 +182,7 @@ describe("extractOgMeta", () => {
       <title>Fallback</title>
       <meta property="og:title" content="OG Title">
     </head>`;
-    expect(extractOgMeta(html).title).toBe("OG Title");
+    expect(extractPubMeta(html).title).toBe("OG Title");
   });
 
   it("prefers og:description over meta name=description", () => {
@@ -189,55 +190,126 @@ describe("extractOgMeta", () => {
       <meta name="description" content="Fallback">
       <meta property="og:description" content="OG Desc">
     </head>`;
-    expect(extractOgMeta(html).description).toBe("OG Desc");
+    expect(extractPubMeta(html).description).toBe("OG Desc");
   });
 
   it("handles content attribute before property attribute", () => {
     const html = '<meta content="Reversed Title" property="og:title">';
-    expect(extractOgMeta(html).title).toBe("Reversed Title");
+    expect(extractPubMeta(html).title).toBe("Reversed Title");
   });
 
   it("handles single quotes in attributes", () => {
     const html = "<meta property='og:title' content='Single Quoted'>";
-    expect(extractOgMeta(html).title).toBe("Single Quoted");
+    expect(extractPubMeta(html).title).toBe("Single Quoted");
   });
 
   it("returns empty object for HTML with no meta tags", () => {
     const html = "<html><body><p>Hello</p></body></html>";
-    expect(extractOgMeta(html)).toEqual({});
+    expect(extractPubMeta(html)).toEqual({});
   });
 
   it("returns empty object for empty string", () => {
-    expect(extractOgMeta("")).toEqual({});
+    expect(extractPubMeta("")).toEqual({});
   });
 
   it("truncates long titles", () => {
     const longTitle = "A".repeat(300);
     const html = `<meta property="og:title" content="${longTitle}">`;
-    const result = extractOgMeta(html);
+    const result = extractPubMeta(html);
     expect(result.title?.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
   });
 
   it("truncates long descriptions", () => {
     const longDesc = "B".repeat(300);
     const html = `<meta property="og:description" content="${longDesc}">`;
-    const result = extractOgMeta(html);
+    const result = extractPubMeta(html);
     expect(result.description?.length).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
   });
 
   it("trims whitespace from extracted values", () => {
     const html = '<meta property="og:title" content="  Spaced Title  ">';
-    expect(extractOgMeta(html).title).toBe("Spaced Title");
+    expect(extractPubMeta(html).title).toBe("Spaced Title");
   });
 
   it("handles <title> with whitespace", () => {
     const html = "<title>  Trimmed  </title>";
-    expect(extractOgMeta(html).title).toBe("Trimmed");
+    expect(extractPubMeta(html).title).toBe("Trimmed");
   });
 
   it("ignores empty <title>", () => {
     const html = "<title>   </title>";
-    expect(extractOgMeta(html)).toEqual({});
+    expect(extractPubMeta(html)).toEqual({});
+  });
+
+  it("extracts theme-color from meta tag", () => {
+    const html = '<meta name="theme-color" content="#3b82f6">';
+    expect(extractPubMeta(html).themeColor).toBe("#3b82f6");
+  });
+
+  it("rejects invalid theme-color values", () => {
+    const html = '<meta name="theme-color" content="url(evil)">';
+    expect(extractPubMeta(html).themeColor).toBeUndefined();
+  });
+
+  it("accepts named CSS colors for theme-color", () => {
+    const html = '<meta name="theme-color" content="cornflowerblue">';
+    expect(extractPubMeta(html).themeColor).toBe("cornflowerblue");
+  });
+
+  it("accepts rgb() theme-color", () => {
+    const html = '<meta name="theme-color" content="rgb(59, 130, 246)">';
+    expect(extractPubMeta(html).themeColor).toBe("rgb(59, 130, 246)");
+  });
+
+  it("prefers theme-color without media attribute", () => {
+    const html = `
+      <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111827">
+      <meta name="theme-color" content="#3b82f6">
+    `;
+    expect(extractPubMeta(html).themeColor).toBe("#3b82f6");
+  });
+
+  it("falls back to theme-color with media if no default exists", () => {
+    const html = '<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111827">';
+    expect(extractPubMeta(html).themeColor).toBe("#111827");
+  });
+
+  it("extracts apple-touch-icon href", () => {
+    const html = '<link rel="apple-touch-icon" href="/icons/icon-180.png">';
+    expect(extractPubMeta(html).iconUrl).toBe("/icons/icon-180.png");
+  });
+
+  it("falls back to link rel=icon when no apple-touch-icon", () => {
+    const html = '<link rel="icon" href="/favicon.svg">';
+    expect(extractPubMeta(html).iconUrl).toBe("/favicon.svg");
+  });
+
+  it("prefers apple-touch-icon over icon", () => {
+    const html = `
+      <link rel="icon" href="/favicon.svg">
+      <link rel="apple-touch-icon" href="/apple-icon.png">
+    `;
+    expect(extractPubMeta(html).iconUrl).toBe("/apple-icon.png");
+  });
+
+  it("extracts icon with href before rel", () => {
+    const html = '<link href="/icon.png" rel="icon">';
+    expect(extractPubMeta(html).iconUrl).toBe("/icon.png");
+  });
+
+  it("returns all metadata fields together", () => {
+    const html = `<html><head>
+      <meta property="og:title" content="Full Test">
+      <meta property="og:description" content="All fields">
+      <meta name="theme-color" content="#ff0000">
+      <link rel="apple-touch-icon" href="/icon.png">
+    </head></html>`;
+    expect(extractPubMeta(html)).toEqual({
+      title: "Full Test",
+      description: "All fields",
+      themeColor: "#ff0000",
+      iconUrl: "/icon.png",
+    });
   });
 });
 
@@ -286,5 +358,44 @@ describe("constants", () => {
     expect(SLUG_PATTERN.test("abc")).toBe(true);
     expect(SLUG_PATTERN.test("a-b_c.d")).toBe(true);
     expect(SLUG_PATTERN.test("-invalid")).toBe(false);
+  });
+});
+
+describe("isValidCssColor", () => {
+  it("accepts 3-digit hex", () => {
+    expect(isValidCssColor("#f00")).toBe(true);
+  });
+
+  it("accepts 6-digit hex", () => {
+    expect(isValidCssColor("#3b82f6")).toBe(true);
+  });
+
+  it("accepts named colors", () => {
+    expect(isValidCssColor("red")).toBe(true);
+    expect(isValidCssColor("cornflowerblue")).toBe(true);
+  });
+
+  it("accepts rgb()", () => {
+    expect(isValidCssColor("rgb(59, 130, 246)")).toBe(true);
+  });
+
+  it("accepts hsl()", () => {
+    expect(isValidCssColor("hsl(217, 91%, 60%)")).toBe(true);
+  });
+
+  it("rejects url()", () => {
+    expect(isValidCssColor("url(evil)")).toBe(false);
+  });
+
+  it("rejects expression()", () => {
+    expect(isValidCssColor("expression(alert(1))")).toBe(false);
+  });
+
+  it("rejects empty string", () => {
+    expect(isValidCssColor("")).toBe(false);
+  });
+
+  it("rejects garbage", () => {
+    expect(isValidCssColor("not-a-color-at-all")).toBe(false);
   });
 });

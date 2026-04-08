@@ -2,7 +2,7 @@ import { api } from "@backend/_generated/api";
 import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery } from "convex/react";
 import { FileText } from "lucide-react";
-import { PubPreviewIframe } from "~/components/pub-preview-iframe";
+import { PubPreviewCard } from "~/components/pub-preview-card";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 
@@ -43,25 +43,17 @@ export function ExplorePage() {
           {pubs.map((pub) => (
             <Link key={pub.slug} to="/p/$slug" params={{ slug: pub.slug }} className="group">
               <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20">
-                <div className="aspect-[1200/630] overflow-hidden bg-white relative">
-                  {pub.previewHtml ? (
-                    <PubPreviewIframe previewHtml={pub.previewHtml} title={pub.title || pub.slug} />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-muted/30">
-                      <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
-                    </div>
-                  )}
-                  {pub.description && (
-                    <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="px-3 py-2 text-xs text-white leading-snug">{pub.description}</p>
-                    </div>
-                  )}
+                <div className="aspect-[1200/630] overflow-hidden">
+                  <PubPreviewCard
+                    slug={pub.slug}
+                    title={pub.title}
+                    description={pub.description}
+                    themeColor={pub.themeColor}
+                    iconUrl={pub.iconUrl}
+                  />
                 </div>
-                <CardContent className="px-4 py-3">
-                  <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                    {pub.title || pub.slug}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                <CardContent className="px-4 py-2">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(pub.createdAt).toLocaleDateString()}
                   </p>
                 </CardContent>

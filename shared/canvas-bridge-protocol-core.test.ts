@@ -148,36 +148,12 @@ describe("canvas-bridge-protocol-core", () => {
     ).toBeNull();
   });
 
-  it("parses preview.captured envelopes", () => {
+  it("rejects unknown preview.captured type after removal", () => {
     expect(
       parseCanvasBridgeInboundMessage({
         source: CANVAS_TO_PARENT_SOURCE,
         type: "preview.captured",
         payload: { html: "<html><body>snapshot</body></html>" },
-      }),
-    ).toEqual({
-      source: CANVAS_TO_PARENT_SOURCE,
-      type: "preview.captured",
-      payload: { html: "<html><body>snapshot</body></html>" },
-    });
-  });
-
-  it("rejects preview.captured with empty html", () => {
-    expect(
-      parseCanvasBridgeInboundMessage({
-        source: CANVAS_TO_PARENT_SOURCE,
-        type: "preview.captured",
-        payload: { html: "" },
-      }),
-    ).toBeNull();
-  });
-
-  it("rejects preview.captured with missing payload", () => {
-    expect(
-      parseCanvasBridgeInboundMessage({
-        source: CANVAS_TO_PARENT_SOURCE,
-        type: "preview.captured",
-        payload: {},
       }),
     ).toBeNull();
   });

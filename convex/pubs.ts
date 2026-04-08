@@ -29,12 +29,16 @@ function getPubLimit(user: { isSubscribed?: boolean }): number {
 export function buildPubPatch(fields: {
   title?: string;
   description?: string;
+  themeColor?: string;
+  iconUrl?: string;
   isPublic?: boolean;
   slug?: string;
 }) {
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
   if (fields.title !== undefined) patch.title = fields.title;
   if (fields.description !== undefined) patch.description = fields.description;
+  if (fields.themeColor !== undefined) patch.themeColor = fields.themeColor;
+  if (fields.iconUrl !== undefined) patch.iconUrl = fields.iconUrl;
   if (fields.isPublic !== undefined) patch.isPublic = fields.isPublic;
   if (fields.slug !== undefined) patch.slug = fields.slug;
   return patch;
@@ -63,9 +67,10 @@ async function generateUniqueSlug(db: GenericDatabaseReader<DataModel>): Promise
 function mapPub(pub: {
   _id: Id<"pubs">;
   slug: string;
-  previewHtml?: string;
   title?: string;
   description?: string;
+  themeColor?: string;
+  iconUrl?: string;
   isPublic: boolean;
   fileCount?: number;
   createdAt: number;
@@ -76,9 +81,10 @@ function mapPub(pub: {
   return {
     _id: pub._id,
     slug: pub.slug,
-    previewHtml: pub.previewHtml,
     title: pub.title,
     description: pub.description,
+    themeColor: pub.themeColor,
+    iconUrl: pub.iconUrl,
     isPublic: pub.isPublic,
     fileCount: pub.fileCount ?? 0,
     createdAt: pub.createdAt,
@@ -169,9 +175,10 @@ export const listPublic = query({
       ...result,
       page: result.page.map((p) => ({
         slug: p.slug,
-        previewHtml: p.previewHtml,
         title: p.title,
         description: p.description,
+        themeColor: p.themeColor,
+        iconUrl: p.iconUrl,
         createdAt: p.createdAt,
       })),
     };
@@ -211,9 +218,10 @@ export async function duplicatePubCore(
   const newId = await db.insert("pubs", {
     userId,
     slug,
-    previewHtml: pub.previewHtml,
     title: pub.title ? `${pub.title} (copy)` : undefined,
     description: pub.description,
+    themeColor: pub.themeColor,
+    iconUrl: pub.iconUrl,
     isPublic: false,
     fileCount: pub.fileCount,
     createdAt: now,
@@ -301,33 +309,14 @@ export const createDraftForLive = mutation({
   },
 });
 
-export const savePreviewHtml = mutation({
-  args: {
-    slug: v.string(),
-    previewHtml: v.string(),
-    updatedAt: v.number(),
-  },
-  handler: async (ctx, { slug, previewHtml, updatedAt }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const pub = await ctx.db
-      .query("pubs")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-    if (!pub || pub.userId !== userId) throw new Error("Pub not found");
-    if (pub.updatedAt !== updatedAt) return;
-
-    await ctx.db.patch(pub._id, { previewHtml });
-  },
-});
-
 export const createPub = internalMutation({
   args: {
     userId: v.id("users"),
     slug: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    themeColor: v.optional(v.string()),
+    iconUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
@@ -342,6 +331,8 @@ export const createPub = internalMutation({
       slug: args.slug,
       title: args.title,
       description: args.description,
+      themeColor: args.themeColor,
+      iconUrl: args.iconUrl,
       isPublic: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -355,10 +346,12 @@ export const updatePub = internalMutation({
     id: v.id("pubs"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    themeColor: v.optional(v.string()),
+    iconUrl: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
     slug: v.optional(v.string()),
   },
-  handler: async (ctx, { id, title, description, isPublic, slug }) => {
+  handler: async (ctx, { id, title, description, themeColor, iconUrl, isPublic, slug }) => {
     const pub = await ctx.db.get(id);
     if (!pub) throw new Error("Pub not found");
 
@@ -374,7 +367,7 @@ export const updatePub = internalMutation({
       }
     }
 
-    const patch = buildPubPatch({ title, description, isPublic, slug });
+    const patch = buildPubPatch({ title, description, themeColor, iconUrl, isPublic, slug });
     await ctx.db.patch(id, patch);
   },
 });

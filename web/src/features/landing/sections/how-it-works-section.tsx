@@ -2,7 +2,7 @@ import { api } from "@backend/_generated/api";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { ArrowRight, FileText } from "lucide-react";
-import { PubPreviewIframe } from "~/components/pub-preview-iframe";
+import { PubPreviewCard } from "~/components/pub-preview-card";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 
@@ -62,36 +62,19 @@ export function HowItWorksSection() {
                   params={{ slug: pub.slug }}
                   className="group overflow-hidden rounded-2xl border border-border/50 bg-background/85 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
                 >
-                  <div
-                    className="relative overflow-hidden bg-white"
-                    style={{ aspectRatio: "1200 / 630" }}
-                  >
-                    {pub.previewHtml ? (
-                      <PubPreviewIframe
-                        previewHtml={pub.previewHtml}
-                        title={pub.title || pub.slug}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-muted/30">
-                        <FileText
-                          className="h-10 w-10 text-muted-foreground/40"
-                          aria-hidden="true"
-                        />
-                      </div>
-                    )}
+                  <div className="overflow-hidden" style={{ aspectRatio: "1200 / 630" }}>
+                    <PubPreviewCard
+                      slug={pub.slug}
+                      title={pub.title}
+                      description={pub.description}
+                      themeColor={pub.themeColor}
+                      iconUrl={pub.iconUrl}
+                    />
                   </div>
-                  <div className="space-y-2 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="truncate font-medium transition-colors group-hover:text-primary">
-                        {pub.title || pub.slug}
-                      </p>
-                      <span className="shrink-0 rounded-full bg-primary/8 px-2 py-1 text-xs font-medium text-primary">
-                        Public pub
-                      </span>
-                    </div>
-                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                      {pub.description || "A better shape for a familiar workflow."}
-                    </p>
+                  <div className="p-4">
+                    <span className="shrink-0 rounded-full bg-primary/8 px-2 py-1 text-xs font-medium text-primary">
+                      Public pub
+                    </span>
                   </div>
                 </Link>
               ))}

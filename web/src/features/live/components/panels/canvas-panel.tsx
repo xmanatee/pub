@@ -19,9 +19,7 @@ const SANDBOX_SOURCE = "pub-sandbox";
 interface CanvasPanelProps {
   html: string | null;
   contentBaseUrl: string | null;
-  capturePreview?: boolean;
   onCanvasBridgeMessage?: (message: CanvasBridgeCommandMessage) => void;
-  onPreviewCaptured?: (html: string) => void;
   onRenderError?: (error: LiveRenderErrorPayload) => void;
   outboundCanvasBridgeMessage?: CanvasBridgeOutboundMessage | null;
   blobTone: BlobTone;
@@ -51,9 +49,7 @@ function reportDedupedRenderError(
 export function CanvasPanel({
   html,
   contentBaseUrl,
-  capturePreview,
   onCanvasBridgeMessage,
-  onPreviewCaptured,
   onRenderError,
   outboundCanvasBridgeMessage,
   blobTone,
@@ -131,11 +127,6 @@ export function CanvasPanel({
         return;
       }
 
-      if (message.type === "preview.captured") {
-        onPreviewCaptured?.(message.payload.html);
-        return;
-      }
-
       if (message.type === "console-error") {
         reportDedupedRenderError(
           message.payload.message,
@@ -167,7 +158,7 @@ export function CanvasPanel({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [onCanvasBridgeMessage, onPreviewCaptured, onRenderError]);
+  }, [onCanvasBridgeMessage, onRenderError]);
 
   // Inject content into sandbox iframe once it's ready
   useEffect(() => {
@@ -181,13 +172,6 @@ export function CanvasPanel({
     );
     setLoadedHtml(html);
   }, [contentBaseUrl, sandboxReady, sandboxContentReady, html]);
-
-  useEffect(() => {
-    if (!capturePreview || !canvasBridgeReady) return;
-    const frame = iframeRef.current?.contentWindow;
-    if (!frame) return;
-    frame.postMessage({ source: PARENT_TO_CANVAS_SOURCE, type: "preview.capture" }, "*");
-  }, [capturePreview, canvasBridgeReady]);
 
   useEffect(() => {
     if (!outboundCanvasBridgeMessage) return;

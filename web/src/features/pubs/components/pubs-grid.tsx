@@ -4,9 +4,10 @@ import { PubCard } from "./pub-card";
 export interface PubGridItem {
   _id: Id<"pubs">;
   slug: string;
-  previewHtml?: string;
   title?: string;
   description?: string;
+  themeColor?: string;
+  iconUrl?: string;
   isPublic: boolean;
   createdAt: number;
   updatedAt: number;

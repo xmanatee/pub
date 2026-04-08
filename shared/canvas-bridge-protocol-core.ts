@@ -55,19 +55,12 @@ export type CanvasBridgeConsoleErrorMessage = {
   payload: { message: string };
 };
 
-export type CanvasBridgePreviewCapturedMessage = {
-  source: typeof CANVAS_TO_PARENT_SOURCE;
-  type: "preview.captured";
-  payload: { html: string };
-};
-
 export type CanvasBridgeCommandMessage = CanvasBridgeInvokeMessage | CanvasBridgeCancelMessage;
 
 export type CanvasBridgeInboundMessage =
   | CanvasBridgeReadyMessage
   | CanvasBridgeErrorMessage
   | CanvasBridgeConsoleErrorMessage
-  | CanvasBridgePreviewCapturedMessage
   | CanvasBridgeInvokeMessage
   | CanvasBridgeCancelMessage;
 
@@ -119,14 +112,6 @@ export function parseCanvasBridgeInboundMessage(input: unknown): CanvasBridgeInb
     const message = readNonEmptyString(payload.message);
     if (!message) return null;
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload: { message } };
-  }
-
-  if (type === "preview.captured") {
-    const payload = readRecord(record.payload);
-    if (!payload) return null;
-    const html = readNonEmptyString(payload.html);
-    if (!html) return null;
-    return { source: CANVAS_TO_PARENT_SOURCE, type, payload: { html } };
   }
 
   if (type === "command.invoke") {

@@ -51,34 +51,11 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain('emit("console-error"');
   });
 
-  it("includes preview capture handler", () => {
+  it("does not include preview capture code", () => {
     const input = "<html><head></head><body>ok</body></html>";
     const output = buildCanvasSrcDoc(input, OPTIONS);
-    expect(output).toContain("function capturePreview()");
-    expect(output).toContain("preview.capture");
-    expect(output).toContain("preview.captured");
-  });
-
-  it("preview capture strips scripts and event handlers", () => {
-    const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input, OPTIONS);
-    expect(output).toContain("querySelectorAll('script')");
-    expect(output).toContain("querySelectorAll('noscript')");
-    expect(output).toContain("removeAttribute(a[j].name)");
-  });
-
-  it("preview capture extracts CSSOM rules", () => {
-    const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input, OPTIONS);
-    expect(output).toContain("document.styleSheets");
-    expect(output).toContain("cssRules");
-  });
-
-  it("preview capture converts canvas elements to images", () => {
-    const input = "<html><head></head><body>ok</body></html>";
-    const output = buildCanvasSrcDoc(input, OPTIONS);
-    expect(output).toContain("toDataURL()");
-    expect(output).toContain("replaceChild(img,cc[i])");
+    expect(output).not.toContain("capturePreview");
+    expect(output).not.toContain("preview.captured");
   });
 });
 

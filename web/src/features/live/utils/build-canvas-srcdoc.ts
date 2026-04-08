@@ -40,20 +40,8 @@ function buildCanvasBridgeScript(): string {
     'function ensurePubApi(){var api=(window.pub&&typeof window.pub==="object")?window.pub:{};api.command=invokeCommand;api.cancelCommand=cancelCommand;api.commands=new Proxy({},{get:function(t,name){if(typeof name!=="string"){return undefined;}return function(args,options){return invokeCommand(name,args,{timeoutMs:options&&options.timeoutMs});};}});window.pub=api;}',
     "ensurePubApi();",
 
-    "function capturePreview(){",
-    "var c=document.documentElement.cloneNode(true);",
-    "var rules=[];",
-    "for(var i=0;i<document.styleSheets.length;i++){try{var r=document.styleSheets[i].cssRules;if(r)for(var j=0;j<r.length;j++)rules.push(r[j].cssText);}catch(e){}}",
-    "var oc=document.querySelectorAll('canvas'),cc=c.querySelectorAll('canvas');",
-    "for(var i=0;i<oc.length&&i<cc.length;i++){try{var img=document.createElement('img');img.src=oc[i].toDataURL();img.width=oc[i].width;img.height=oc[i].height;img.style.cssText=oc[i].style.cssText;img.className=oc[i].className;cc[i].parentNode.replaceChild(img,cc[i]);}catch(e){}}",
-    "for(var el of c.querySelectorAll('script'))el.remove();",
-    "for(var el of c.querySelectorAll('noscript'))el.remove();",
-    "var all=c.querySelectorAll('*');for(var i=0;i<all.length;i++){var a=all[i].attributes;for(var j=a.length-1;j>=0;j--){if(a[j].name.lastIndexOf('on',0)===0)all[i].removeAttribute(a[j].name);}}",
-    "if(rules.length>0){var h=c.querySelector('head');if(!h){h=document.createElement('head');c.insertBefore(h,c.firstChild);}var st=document.createElement('style');st.textContent=rules.join('\\n');h.appendChild(st);}",
-    "emit('preview.captured',{html:c.outerHTML});}",
-
     // Swap handler — window persists across document.write(), so remove the old one first.
-    `var handler=function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}if(data.type==="preview.capture"){capturePreview();return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type==="command.result"){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}}};`,
+    `var handler=function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type==="command.result"){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}}};`,
     'if(window.__pubBridgeHandler){window.removeEventListener("message",window.__pubBridgeHandler);}',
     'window.__pubBridgeHandler=handler;window.addEventListener("message",handler);',
 

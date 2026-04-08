@@ -3,7 +3,7 @@ import { internal } from "../../_generated/api";
 import { httpAction } from "../../_generated/server";
 import { getPublicUrl } from "../../env";
 import {
-  extractOgMeta,
+  extractPubMeta,
   generateSlug,
   INVALID_SLUG_MESSAGE,
   isValidSlug,
@@ -65,7 +65,9 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       const indexHtml = files["index.html"];
-      const { title, description } = indexHtml ? extractOgMeta(indexHtml) : {};
+      const { title, description, themeColor, iconUrl } = indexHtml
+        ? extractPubMeta(indexHtml)
+        : {};
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "createPub");
       if (auth instanceof Response) return auth;
@@ -83,6 +85,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
               slug: finalSlug,
               title,
               description,
+              themeColor,
+              iconUrl,
             })
             .catch((error) => {
               rethrowPubLimitError(error);
@@ -263,7 +267,7 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
       }
 
       const indexHtml = files?.["index.html"];
-      const extracted = indexHtml ? extractOgMeta(indexHtml) : {};
+      const extracted = indexHtml ? extractPubMeta(indexHtml) : {};
 
       const auth = await authenticateAndRateLimit(ctx, apiKey, "updatePub");
       if (auth instanceof Response) return auth;
@@ -291,6 +295,8 @@ export function registerPubApiRoutes(http: ReturnType<typeof httpRouter>): void 
             id: pub._id,
             title: extracted.title,
             description: extracted.description,
+            themeColor: extracted.themeColor,
+            iconUrl: extracted.iconUrl,
             isPublic: body.isPublic,
             slug: body.slug,
           });

@@ -3,6 +3,8 @@ export const MAX_FILES_PER_PUB = 50;
 export const MAX_TOTAL_PUB_SIZE = 1.5 * 1024 * 1024; // 1.5MB across all files
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_DESCRIPTION_LENGTH = 200;
+export const MAX_THEME_COLOR_LENGTH = 32;
+export const MAX_ICON_URL_LENGTH = 512;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
 export const MAX_PUBS_SUBSCRIBED = 200;
@@ -84,8 +86,52 @@ function extractMetaContent(html: string, attrName: string, attrValue: string): 
   return undefined;
 }
 
-export function extractOgMeta(html: string): { title?: string; description?: string } {
-  const result: { title?: string; description?: string } = {};
+const CSS_COLOR_PATTERN =
+  /^(#([0-9a-f]{3}|[0-9a-f]{6})|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)|hsl\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*\)|[a-z]{3,20})$/i;
+
+export function isValidCssColor(value: string): boolean {
+  return CSS_COLOR_PATTERN.test(value.trim());
+}
+
+export interface PubMeta {
+  title?: string;
+  description?: string;
+  themeColor?: string;
+  iconUrl?: string;
+}
+
+function extractLinkHref(html: string, rel: string): string | undefined {
+  const pattern = new RegExp(
+    `<link\\s+[^>]*rel\\s*=\\s*["']${rel}["'][^>]*href\\s*=\\s*["']([^"']*)["']`,
+    "i",
+  );
+  const match = html.match(pattern);
+  if (match?.[1]) return match[1].trim();
+
+  const reversed = new RegExp(
+    `<link\\s+[^>]*href\\s*=\\s*["']([^"']*)["'][^>]*rel\\s*=\\s*["']${rel}["']`,
+    "i",
+  );
+  const match2 = html.match(reversed);
+  return match2?.[1]?.trim();
+}
+
+function extractThemeColor(html: string): string | undefined {
+  const allMatches = html.matchAll(/<meta\s+[^>]*name\s*=\s*["']theme-color["'][^>]*>/gi);
+  let fallback: string | undefined;
+  for (const m of allMatches) {
+    const tag = m[0];
+    const hasMedia = /\bmedia\s*=/i.test(tag);
+    const content = tag.match(/content\s*=\s*["']([^"']*)["']/i)?.[1]?.trim();
+    if (!content || !isValidCssColor(content)) continue;
+    if (!hasMedia) return truncate(content, MAX_THEME_COLOR_LENGTH);
+    fallback ??= truncate(content, MAX_THEME_COLOR_LENGTH);
+  }
+  return fallback;
+}
+
+export function extractPubMeta(html: string): PubMeta {
+  const result: PubMeta = {};
 
   const ogTitle = extractMetaContent(html, "property", "og:title");
   if (ogTitle) {
@@ -105,6 +151,16 @@ export function extractOgMeta(html: string): { title?: string; description?: str
     if (metaDesc) {
       result.description = truncate(metaDesc, MAX_DESCRIPTION_LENGTH);
     }
+  }
+
+  const themeColor = extractThemeColor(html);
+  if (themeColor) {
+    result.themeColor = themeColor;
+  }
+
+  const iconUrl = extractLinkHref(html, "apple-touch-icon") ?? extractLinkHref(html, "icon");
+  if (iconUrl) {
+    result.iconUrl = truncate(iconUrl, MAX_ICON_URL_LENGTH);
   }
 
   return result;

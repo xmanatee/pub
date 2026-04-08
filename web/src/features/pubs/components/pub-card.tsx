@@ -5,14 +5,13 @@ import {
   Copy,
   ExternalLink,
   Eye,
-  FileText,
   Globe,
   Lock,
   MoreVertical,
   Radio,
   Trash2,
 } from "lucide-react";
-import { PubPreviewIframe } from "~/components/pub-preview-iframe";
+import { PubPreviewCard } from "~/components/pub-preview-card";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
@@ -48,60 +47,44 @@ export function PubCard({
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
-        <div className="aspect-[1200/630] overflow-hidden bg-white relative">
-          {pub.previewHtml ? (
-            <PubPreviewIframe previewHtml={pub.previewHtml} title={pub.title || pub.slug} />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center bg-muted/30">
-              <FileText className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
-            </div>
-          )}
-          {pub.description && (
-            <div className="absolute inset-0 flex items-end bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-              <p className="px-3 py-2 text-xs text-white leading-snug">{pub.description}</p>
-            </div>
-          )}
+        <div className="aspect-[1200/630] overflow-hidden">
+          <PubPreviewCard
+            slug={pub.slug}
+            title={pub.title}
+            description={pub.description}
+            themeColor={pub.themeColor}
+            iconUrl={pub.iconUrl}
+          />
         </div>
       </Link>
-      <CardContent className="px-3 py-2.5">
+      <CardContent className="px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Link
-                to="/p/$slug"
-                params={{ slug: pub.slug }}
-                className="font-medium text-sm hover:text-primary transition-colors truncate"
-              >
-                {pub.title || pub.slug}
-              </Link>
-              {isLive && (
-                <Radio
-                  className="h-3.5 w-3.5 text-emerald-500 animate-pulse shrink-0"
-                  aria-label="Live"
-                />
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-              {pub.isPublic ? (
-                <Globe className="h-3 w-3 text-emerald-600 shrink-0" aria-label="Public" />
-              ) : (
-                <Lock className="h-3 w-3 text-amber-600 shrink-0" aria-label="Private" />
-              )}
-              <span>{new Date(pub.createdAt).toLocaleDateString()}</span>
-              {pub.viewCount > 0 && (
-                <>
-                  <span className="text-border">&middot;</span>
-                  <span className="inline-flex items-center gap-0.5 tabular-nums">
-                    <Eye className="h-3 w-3" aria-hidden="true" />
-                    {pub.viewCount}
-                  </span>
-                </>
-              )}
-            </div>
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 text-xs text-muted-foreground">
+            {pub.isPublic ? (
+              <Globe className="h-3 w-3 text-emerald-600 shrink-0" aria-label="Public" />
+            ) : (
+              <Lock className="h-3 w-3 text-amber-600 shrink-0" aria-label="Private" />
+            )}
+            <span>{new Date(pub.createdAt).toLocaleDateString()}</span>
+            {pub.viewCount > 0 && (
+              <>
+                <span className="text-border">&middot;</span>
+                <span className="inline-flex items-center gap-0.5 tabular-nums">
+                  <Eye className="h-3 w-3" aria-hidden="true" />
+                  {pub.viewCount}
+                </span>
+              </>
+            )}
+            {isLive && (
+              <Radio
+                className="h-3.5 w-3.5 text-emerald-500 animate-pulse shrink-0"
+                aria-label="Live"
+              />
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Actions">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Actions">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
