@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildClaudeArgs, buildClaudeArgsFromSettings, resolveClaudeCodePath } from "./index.js";
+import {
+  buildClaudeArgs,
+  buildClaudeArgsFromSettings,
+  evaluateClaudeExit,
+  resolveClaudeCodePath,
+} from "./index.js";
 
 const envKeys = ["CLAUDE_CODE_PATH", "CLAUDE_CODE_MAX_TURNS"] as const;
 
@@ -86,6 +91,58 @@ describe("buildClaudeArgs", () => {
 
     expect(args).toContain("--model");
     expect(args).toContain("opus");
+  });
+});
+
+describe("evaluateClaudeExit", () => {
+  it("returns error for non-zero exit without max_turns", () => {
+    const result = evaluateClaudeExit({
+      exitCode: 1,
+      terminalReason: null,
+      capturedSessionId: null,
+      stderr: "",
+    });
+    expect(result).toBe("exit code 1");
+  });
+
+  it("returns stderr content when available", () => {
+    const result = evaluateClaudeExit({
+      exitCode: 1,
+      terminalReason: null,
+      capturedSessionId: null,
+      stderr: "something went wrong",
+    });
+    expect(result).toBe("something went wrong");
+  });
+
+  it("returns null for max_turns with captured session", () => {
+    const result = evaluateClaudeExit({
+      exitCode: 1,
+      terminalReason: "max_turns",
+      capturedSessionId: "abc-123",
+      stderr: "",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("returns error for max_turns without captured session", () => {
+    const result = evaluateClaudeExit({
+      exitCode: 1,
+      terminalReason: "max_turns",
+      capturedSessionId: null,
+      stderr: "",
+    });
+    expect(result).toBe("exit code 1");
+  });
+
+  it("returns error for non-max_turns terminal reason even with session", () => {
+    const result = evaluateClaudeExit({
+      exitCode: 1,
+      terminalReason: "error",
+      capturedSessionId: "abc-123",
+      stderr: "api error",
+    });
+    expect(result).toBe("api error");
   });
 });
 

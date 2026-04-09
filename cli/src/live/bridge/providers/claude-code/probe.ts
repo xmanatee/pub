@@ -12,16 +12,9 @@ import {
   runClaudeCodePreflight,
 } from "./runtime.js";
 
-function getStrictClaudeCodePath(bridgeConfig: ClaudeBridgeSettings): string {
-  return bridgeConfig.claudeCodePath;
-}
-
-function getStrictClaudeWorkspaceDir(bridgeConfig: ClaudeBridgeSettings): string {
-  return bridgeConfig.workspaceDir;
-}
-
 async function runClaudeCodeWritePongProbe(
   claudePath: string,
+  cwd: string,
   envInput: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig,
   options?: { strictConfig: boolean },
@@ -44,16 +37,12 @@ async function runClaudeCodeWritePongProbe(
           : buildClaudeArgs(prompt, null, env, undefined, bridgeConfig);
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 
-      const cwd = options?.strictConfig
-        ? getStrictClaudeWorkspaceDir(bridgeConfig as ClaudeBridgeSettings)
-        : resolveAutoDetectClaudeWorkspaceDir(env);
-
       await new Promise<void>((resolve, reject) => {
         const child = spawn(claudePath, args, {
           cwd,
           env,
           signal,
-          stdio: ["ignore", "pipe", "pipe"],
+          stdio: ["ignore", "ignore", "pipe"],
         });
         let stderr = "";
         child.stderr.on("data", (chunk: Buffer) => {
@@ -93,13 +82,13 @@ export async function runClaudeCodeBridgeStartupProbe(
   const strictConfig = options?.strictConfig === true;
   const claudePath =
     strictConfig && bridgeConfig
-      ? getStrictClaudeCodePath(bridgeConfig as ClaudeBridgeSettings)
+      ? (bridgeConfig as ClaudeBridgeSettings).claudeCodePath
       : resolveClaudeCodePath(env, bridgeConfig);
   const cwd =
     strictConfig && bridgeConfig
-      ? getStrictClaudeWorkspaceDir(bridgeConfig as ClaudeBridgeSettings)
+      ? (bridgeConfig as ClaudeBridgeSettings).workspaceDir
       : resolveAutoDetectClaudeWorkspaceDir(env);
   await runClaudeCodePreflight(claudePath, env);
-  await runClaudeCodeWritePongProbe(claudePath, env, bridgeConfig, { strictConfig });
+  await runClaudeCodeWritePongProbe(claudePath, cwd, env, bridgeConfig, { strictConfig });
   return { claudePath, cwd };
 }

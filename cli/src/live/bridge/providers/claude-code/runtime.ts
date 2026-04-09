@@ -8,14 +8,14 @@ interface ClaudeArgsSettings {
   liveModelProfile?: LiveModelProfile;
 }
 
-export async function runClaudeCodePreflight(
+export function runClaudeCodePreflight(
   claudePath: string,
   envInput: NodeJS.ProcessEnv = process.env,
 ): Promise<void> {
   const env = { ...envInput };
   delete env.CLAUDECODE;
-  return await new Promise((resolve, reject) => {
-    const child = spawn(claudePath, ["--version"], { timeout: 10_000, stdio: "pipe", env });
+  return new Promise((resolve, reject) => {
+    const child = spawn(claudePath, ["--version"], { timeout: 10_000, stdio: ["ignore", "ignore", "pipe"], env });
     let stderr = "";
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();

@@ -20,7 +20,7 @@ function mutationErrorMessage(error: unknown): string {
 }
 
 export function PubsPage() {
-  const [sortKey, setSortKey] = React.useState<PubSortKey>("lastViewed");
+  const [sortKey, setSortKey] = React.useState<PubSortKey>("mostViewed");
   const {
     results: pubs,
     status,
