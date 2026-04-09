@@ -28,6 +28,11 @@ for file in "$SHARED_DIR"/*.ts; do
     consumers+=(convex)
   fi
 
+  # relay — uses @shared/<name> alias
+  if grep -rq --include='*.ts' "from \"@shared/$name\"" relay/src/ 2>/dev/null; then
+    consumers+=(relay)
+  fi
+
   # Exempt internal utilities imported by other shared/ source files
   internal=0
   while IFS= read -r importer; do

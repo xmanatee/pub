@@ -12,6 +12,7 @@ export const USER_OWNED_TABLES = [
   { table: "hosts", index: "by_user" },
   { table: "linkTokens", index: "by_user" },
   { table: "telegramBots", index: "by_user" },
+  { table: "tunnels", index: "by_user" },
 ] as const satisfies readonly OwnershipEntry<"users">[];
 
 export const PUB_OWNED_TABLES = [

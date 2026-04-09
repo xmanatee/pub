@@ -33,6 +33,7 @@ export type {
   PubBridgeConfig,
   PubConfig,
   PubTelegramConfig,
+  PubTunnelConfig,
   ResolvedPubSettings,
 } from "./types.js";
 export {

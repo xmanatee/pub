@@ -25,7 +25,7 @@ import {
   parsePubFsWriteMessage,
 } from "../../../../shared/pub-fs-protocol-core";
 import { getMimeType } from "../runtime/file-payload.js";
-import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
+import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 import {
   assertPubFsWriteParent,
   resolveExistingPubFsPath,
@@ -53,18 +53,18 @@ const SESSION_ROOT_POLL_MS = 50;
 export function createPubFsHandler(params: {
   markError: (message: string, error?: unknown) => void;
   getSessionRootDir: () => string | null;
-  openDataChannel: (channel: string) => AdapterDataChannel;
-  waitForChannelOpen: (dc: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
+  openDataChannel: (channel: string) => DataChannelLike;
+  waitForChannelOpen: (dc: DataChannelLike, timeoutMs?: number) => Promise<void>;
 }) {
   const activeReads = new Map<string, ActiveRead>();
   const activeWrite: { current: ActiveWrite | null } = { current: null };
 
-  function sendMessage(dc: AdapterDataChannel, msg: BridgeMessage): void {
+  function sendMessage(dc: DataChannelLike, msg: BridgeMessage): void {
     dc.sendMessage(encodeMessage(msg));
   }
 
   function sendError(
-    dc: AdapterDataChannel,
+    dc: DataChannelLike,
     requestId: string,
     code: string,
     message: string,

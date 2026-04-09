@@ -5,7 +5,7 @@ import {
 } from "../../../../shared/bridge-protocol-core";
 import type { LiveRuntimeStateSnapshot } from "../../../../shared/live-runtime-state-core";
 import type { IpcRequest } from "../transport/ipc-protocol.js";
-import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
+import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 
 interface DaemonIpcHandlerParams {
   persistCanvasHtml: (html: string) => Promise<Record<string, unknown>>;
@@ -20,8 +20,8 @@ interface DaemonIpcHandlerParams {
   getBridgeStatus: () => unknown;
   getLogPath: () => string | null;
   getWriteReadinessError: () => string | null;
-  openDataChannel: (channel: string) => AdapterDataChannel;
-  waitForChannelOpen: (channel: AdapterDataChannel, timeoutMs?: number) => Promise<void>;
+  openDataChannel: (channel: string) => DataChannelLike;
+  waitForChannelOpen: (channel: DataChannelLike, timeoutMs?: number) => Promise<void>;
   waitForDeliveryAck: (messageId: string, channel: string, timeoutMs: number) => Promise<boolean>;
   settlePendingAck: (messageId: string, channel: string, received: boolean) => void;
   markAgentStreaming: () => void;
@@ -58,7 +58,7 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
         let lastError: string | null = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          let targetDc: AdapterDataChannel;
+          let targetDc: DataChannelLike;
           try {
             targetDc = params.openDataChannel(channel);
             await params.waitForChannelOpen(targetDc);

@@ -24,7 +24,20 @@ interface PeerConnectionOptions {
   iceUseIpv6?: boolean;
 }
 
-export class AdapterDataChannel {
+export interface DataChannelLike {
+  onMessage(cb: (data: string | Buffer) => void): void;
+  onOpen(cb: () => void): void;
+  onClosed(cb: () => void): void;
+  onError(cb: (error: string) => void): void;
+  sendMessage(msg: string): void;
+  sendMessageBinary(data: Buffer): void;
+  isOpen(): boolean;
+  close(): void;
+  readonly bufferedAmount: number;
+  waitForDrain(threshold: number, timeoutMs: number): Promise<boolean>;
+}
+
+export class AdapterDataChannel implements DataChannelLike {
   constructor(private readonly dc: RTCDataChannel) {}
 
   onMessage(cb: (data: string | Buffer) => void): void {

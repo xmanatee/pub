@@ -3,6 +3,7 @@ import type {
   PubBridgeConfig,
   PubConfig,
   PubTelegramConfig,
+  PubTunnelConfig,
 } from "../../core/config/index.js";
 import {
   compactPubConfig,
@@ -13,6 +14,7 @@ import {
   unsetPubConfigValue,
   writePubConfig,
 } from "../../core/config/index.js";
+import { detectDevServerConfig } from "../../core/config/app-config.js";
 import {
   autoDetectBridgeConfig,
   buildBridgeProcessEnv,
@@ -34,6 +36,7 @@ function clonePubConfig(config: PubConfig | null): PubConfig {
     core: config?.core ? { ...config.core } : undefined,
     bridge: config?.bridge ? { ...config.bridge } : undefined,
     telegram: config?.telegram ? { ...config.telegram } : undefined,
+    tunnel: config?.tunnel ? { ...config.tunnel } : undefined,
   };
 }
 
@@ -81,10 +84,17 @@ export function registerConfigCommand(program: Command): void {
           ...result.selected.configPatch,
           mode: result.selected.mode,
         };
+        const nextTunnel: PubTunnelConfig = { ...(saved.tunnel ?? {}) };
+        const detected = detectDevServerConfig();
+        if (detected) {
+          nextTunnel.devCommand = detected.devCommand;
+          nextTunnel.devPort = detected.devPort;
+        }
         const nextConfig = compactPubConfig({
           core: saved.core ? { ...saved.core } : undefined,
           bridge: nextBridge,
           telegram: saved.telegram ? { ...saved.telegram } : undefined,
+          tunnel: nextTunnel,
         });
         writePubConfig(nextConfig);
         printAutoDetectSummary([
@@ -98,6 +108,9 @@ export function registerConfigCommand(program: Command): void {
             return `${attempt.mode}: failed (${attempt.error || attempt.detail})`;
           }),
           `selected: ${result.selected.mode}`,
+          ...(detected
+            ? [`tunnel: detected dev server (${detected.devCommand}, port ${detected.devPort})`]
+            : ["tunnel: no dev server detected"]),
         ]);
         console.log("");
         console.log("Configuration saved.");

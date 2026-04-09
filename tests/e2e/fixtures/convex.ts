@@ -68,6 +68,13 @@ export function seedPubs(userId: string, count: number, slugPrefix: string): voi
   runMutation("testing:seedPubs", { userId, count, slugPrefix });
 }
 
+/** Get the first active tunnel token (for tunnel E2E tests). */
+export function getFirstTunnelToken(): string | null {
+  const result = runConvexCommand('run "testing:getFirstTunnelToken"');
+  const parsed = JSON.parse(result);
+  return typeof parsed === "string" ? parsed : null;
+}
+
 /** Create an extra API key for an existing user. Returns a TestUser with the new key. */
 export function seedExtraApiKey(base: TestUser): TestUser {
   const result = runMutation("testing:seedExtraApiKey", { userId: base.userId });

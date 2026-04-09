@@ -51,6 +51,7 @@ export function registerStartCommand(program: Command): void {
       const resolved = resolvePubSettings(context.env);
       const sentryDsn = resolved.valuesByKey.sentryDsn;
       const telemetry = resolved.valuesByKey.telemetry;
+      const tunnelConfig = resolved.rawConfig.tunnel;
 
       const child = spawn(process.execPath, [], {
         detached: true,
@@ -68,6 +69,7 @@ export function registerStartCommand(program: Command): void {
           PUB_DAEMON_LOG: logPath,
           ...(sentryDsn?.value ? { PUB_SENTRY_DSN: String(sentryDsn.value) } : {}),
           ...(telemetry && telemetry.value === false ? { PUB_TELEMETRY: "false" } : {}),
+          ...(tunnelConfig ? { PUB_DAEMON_TUNNEL_CONFIG: JSON.stringify(tunnelConfig) } : {}),
         },
       });
       fs.closeSync(daemonLogFd);

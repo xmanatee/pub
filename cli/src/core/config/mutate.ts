@@ -32,6 +32,7 @@ export function compactPubConfig(config: PubConfig): PubConfig {
   if (!hasConfigValues(config.core)) delete config.core;
   if (!hasConfigValues(config.bridge)) delete config.bridge;
   if (!hasConfigValues(config.telegram)) delete config.telegram;
+  if (!hasConfigValues(config.tunnel)) delete config.tunnel;
   return config;
 }
 

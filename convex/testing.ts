@@ -126,6 +126,15 @@ export const duplicatePub = internalMutation({
   },
 });
 
+export const getFirstTunnelToken = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    assertTestEnv();
+    const tunnel = await ctx.db.query("tunnels").first();
+    return tunnel?.token ?? null;
+  },
+});
+
 export const getUserDataCounts = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {

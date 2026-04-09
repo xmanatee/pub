@@ -2,7 +2,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { getConfigPath } from "./location.js";
 import { compactPubConfig } from "./mutate.js";
-import type { PubBridgeConfig, PubConfig, PubCoreConfig, PubTelegramConfig } from "./types.js";
+import type {
+  PubBridgeConfig,
+  PubConfig,
+  PubCoreConfig,
+  PubTelegramConfig,
+  PubTunnelConfig,
+} from "./types.js";
 
 function ensureConfigParentDir(configPath: string): void {
   fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 });
@@ -36,6 +42,11 @@ function readTelegramConfig(root: Record<string, unknown>): PubTelegramConfig | 
   return telegram ? (telegram as unknown as PubTelegramConfig) : undefined;
 }
 
+function readTunnelConfig(root: Record<string, unknown>): PubTunnelConfig | undefined {
+  const tunnel = asRecord(root.tunnel);
+  return tunnel ? (tunnel as unknown as PubTunnelConfig) : undefined;
+}
+
 function normalizePubConfig(input: unknown): PubConfig {
   const root = asRecord(input);
   if (!root) return {};
@@ -44,6 +55,7 @@ function normalizePubConfig(input: unknown): PubConfig {
     core: readCoreConfig(root),
     bridge: readBridgeConfig(root),
     telegram: readTelegramConfig(root),
+    tunnel: readTunnelConfig(root),
   });
 }
 

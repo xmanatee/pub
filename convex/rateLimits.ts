@@ -14,6 +14,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   presenceOffline: { kind: "token bucket", rate: 6, period: MINUTE, capacity: 6 },
   presenceHeartbeat: { kind: "token bucket", rate: 3, period: MINUTE, capacity: 3 },
   agentPollLive: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
+  registerTunnel: { kind: "token bucket", rate: 12, period: MINUTE, capacity: 6 },
+  closeTunnel: { kind: "token bucket", rate: 12, period: MINUTE, capacity: 6 },
+  validateTunnel: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 20 },
   telegramBotUpdate: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 2 },
   getIceServers: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 10 },
 });

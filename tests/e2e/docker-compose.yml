@@ -93,6 +93,10 @@ services:
       # Mock command (openclaw-like bridge)
       - MOCK_COMMAND_RULES_FILE=/tmp/mock-command-rules.json
       - MOCK_COMMAND_PATH=/app/tests/e2e/mock-bridge-command/command.mjs
+      # Tunnel relay (tunnel proxy E2E)
+      - TUNNEL_RELAY_URL=http://localhost:4102
+      - TUNNEL_RELAY_PORT=4102
+      - TUNNEL_RELAY_ADMIN_PORT=4103
 
 volumes:
   convex-data:

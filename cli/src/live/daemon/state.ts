@@ -9,7 +9,7 @@ import type {
 } from "../../../../shared/live-runtime-state-core";
 import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { BridgeRunner } from "../bridge/shared.js";
-import type { AdapterDataChannel, AdapterPeerConnection } from "../transport/webrtc-adapter.js";
+import type { AdapterPeerConnection, DataChannelLike } from "../transport/webrtc-adapter.js";
 
 export type ActiveLiveSessionPaths = {
   liveSessionId: string;
@@ -53,7 +53,7 @@ export type DaemonState = {
   pendingOutboundAcks: Map<string, PendingOutboundAck>;
   pendingDeliveryAcks: Map<string, PendingDeliveryAck>;
   peer: AdapterPeerConnection | null;
-  channels: Map<string, AdapterDataChannel>;
+  channels: Map<string, DataChannelLike>;
   pendingInboundBinaryMeta: Map<string, BridgeMessage>;
   inboundStreams: Map<string, { streamId: string; startedAt: number }>;
   heartbeatTimer: ReturnType<typeof setInterval> | null;
