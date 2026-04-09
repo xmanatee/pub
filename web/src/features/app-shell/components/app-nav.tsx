@@ -6,6 +6,7 @@ import { cn } from "~/lib/utils";
 
 const NAV_LINKS = [
   { to: "/pubs", label: "Pubs" },
+  { to: "/app", label: "App" },
   { to: "/agents", label: "Agents" },
   { to: "/explore", label: "Explore" },
 ] as const;

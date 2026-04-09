@@ -3,7 +3,7 @@ import {
   type LiveConnectionState,
 } from "../../../../shared/live-runtime-state-core";
 import { type PubApiClient, PubApiError } from "../../core/api/client.js";
-import type { BridgeSettings } from "../../core/config/index.js";
+import type { BridgeSettings, PubTunnelConfig } from "../../core/config/index.js";
 
 export type DaemonConfig = {
   cliVersion?: string;
@@ -13,6 +13,7 @@ export type DaemonConfig = {
   logPath?: string;
   bridgeSettings: BridgeSettings;
   agentName?: string;
+  tunnelConfig?: PubTunnelConfig;
 };
 
 export const OFFER_TIMEOUT_MS = 10_000;

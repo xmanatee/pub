@@ -1,0 +1,15 @@
+name = "pub-relay"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[durable_objects]
+bindings = [
+  { name = "TUNNEL", class_name = "TunnelObject" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TunnelObject"]
+
+[vars]
+CONVEX_SITE_URL = "https://silent-guanaco-514.convex.site"

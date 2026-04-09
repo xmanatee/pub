@@ -1,0 +1,5 @@
+# Local development overrides for wrangler dev.
+# Copy to .dev.vars and fill in values.
+# CONVEX_SITE_URL is already set in wrangler.toml [vars] for production.
+# Override here to point at a local or dev Convex deployment.
+# CONVEX_SITE_URL=http://localhost:3210

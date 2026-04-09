@@ -9,7 +9,8 @@
 
     "build:web": "pnpm --filter pub-web build",
     "build:cli": "pnpm --filter pub-cli build",
-    "build": "pnpm build:web && pnpm build:cli",
+    "build:relay": "pnpm --filter pub-relay build",
+    "build": "pnpm build:web && pnpm build:cli && pnpm build:relay",
 
     "test:root": "vitest run",
     "test:web": "pnpm --filter pub-web test",
@@ -22,7 +23,8 @@
     "lint:root": "biome check convex docs shared skills tests scripts web *.json *.ts && tsc --noEmit && bash scripts/validate-shared.sh",
     "lint:web": "pnpm --filter pub-web lint",
     "lint:cli": "pnpm --filter pub-cli lint",
-    "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:cli",
+    "lint:relay": "pnpm --filter pub-relay lint",
+    "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:cli && pnpm lint:relay",
     "lint:fix": "biome check --fix convex docs shared skills tests scripts web *.json *.ts",
     "format": "biome format --write convex docs shared skills tests scripts web *.json *.ts",
 
@@ -43,9 +45,11 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
     "@playwright/test": "^1.58.2",
+    "@types/ws": "^8.5.0",
     "knip": "^5.85.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "ws": "^8.18.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

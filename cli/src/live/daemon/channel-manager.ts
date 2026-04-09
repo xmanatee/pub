@@ -15,7 +15,7 @@ import {
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { createMessageDedup } from "../../../../shared/message-dedup-core";
 import { ORDERED_DATA_CHANNEL_OPTIONS } from "../../../../shared/webrtc-transport-core";
-import type { AdapterDataChannel } from "../transport/webrtc-adapter.js";
+import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 import type { DaemonState } from "./state.js";
 
 const DEDUP_MAX_SIZE = 10_000;
@@ -196,7 +196,7 @@ export function createDaemonChannelManager(params: {
     dedup.reset();
   }
 
-  function setupChannel(name: string, dc: AdapterDataChannel): void {
+  function setupChannel(name: string, dc: DataChannelLike): void {
     state.channels.set(name, dc);
     dc.onOpen(() => {
       debugLog(`datachannel "${name}" open`);
@@ -351,7 +351,7 @@ export function createDaemonChannelManager(params: {
     });
   }
 
-  function openDataChannel(name: string): AdapterDataChannel {
+  function openDataChannel(name: string): DataChannelLike {
     if (!state.peer) throw new Error("PeerConnection not initialized");
     const existing = state.channels.get(name);
     if (existing) return existing;
@@ -360,7 +360,7 @@ export function createDaemonChannelManager(params: {
     return dc;
   }
 
-  async function waitForChannelOpen(dc: AdapterDataChannel, timeoutMs = 5_000): Promise<void> {
+  async function waitForChannelOpen(dc: DataChannelLike, timeoutMs = 5_000): Promise<void> {
     if (dc.isOpen()) return;
     await new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -389,7 +389,7 @@ export function createDaemonChannelManager(params: {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       if (state.stopped || !isLiveConnectionReady(state.runtimeState)) return false;
 
-      let targetDc: AdapterDataChannel;
+      let targetDc: DataChannelLike;
       try {
         targetDc = state.channels.get(channel) ?? openDataChannel(channel);
         await waitForChannelOpen(targetDc);

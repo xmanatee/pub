@@ -19,6 +19,12 @@
     "cli": {
       "entry": ["src/index.ts", "src/app/live-daemon-entry.ts"],
       "project": ["src/**/*.ts"]
+    },
+    "relay": {
+      "project": ["src/**/*.ts"],
+      "paths": {
+        "@shared/*": ["../shared/*"]
+      }
     }
   }
 }

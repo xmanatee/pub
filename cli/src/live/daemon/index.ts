@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { TunnelConnection } from "../tunnel/client.js";
+import type { TunnelDataChannel } from "../tunnel/channel-adapter.js";
+import type { DevServer } from "../server/manager.js";
 import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { exitProcess } from "../../core/process/exit.js";
@@ -307,6 +310,80 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }, HEARTBEAT_INTERVAL_MS);
 
+  let devServer: DevServer | null = null;
+  let tunnelConnection: TunnelConnection | null = null;
+  const tunnelChannels = new Map<string, TunnelDataChannel>();
+
+  const devCommand = config.tunnelConfig?.devCommand;
+  const devPort = config.tunnelConfig?.devPort;
+
+  if (devCommand && devPort) {
+    const { startDevServer } = await import("../server/manager.js");
+    const { connectTunnel } = await import("../tunnel/client.js");
+    const { createHttpProxy } = await import("../tunnel/proxy.js");
+    const { createWsProxy } = await import("../tunnel/ws-proxy.js");
+    const { TunnelDataChannel: TDC } = await import("../tunnel/channel-adapter.js");
+
+    lifecycle.debugLog(`starting dev server: ${devCommand} (port ${devPort})`);
+    devServer = startDevServer({ devCommand, devPort });
+
+    try {
+      await devServer.ready;
+      lifecycle.debugLog(`dev server ready on port ${devPort}`);
+    } catch (error) {
+      lifecycle.markError("dev server failed to start", error);
+    }
+
+    const { token } = await apiClient.registerTunnel({ daemonSessionId });
+    const { DEFAULT_RELAY_URL } = await import("../../core/config/types.js");
+    const relayUrl = config.tunnelConfig?.relayUrl ?? DEFAULT_RELAY_URL;
+    lifecycle.debugLog(`tunnel active: ${relayUrl}/t/${token}/`);
+
+    const httpProxy = createHttpProxy(devPort);
+    const wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg));
+
+    function getOrCreateTunnelChannel(name: string): TunnelDataChannel {
+      let tc = tunnelChannels.get(name);
+      if (!tc) {
+        tc = new TDC(name, (msg) => tunnelConnection?.send(msg));
+        tunnelChannels.set(name, tc);
+        channelManager.setupChannel(name, tc);
+        tc.markOpen();
+      }
+      return tc;
+    }
+
+    tunnelConnection = connectTunnel({
+      relayUrl,
+      apiKey: process.env.PUB_DAEMON_API_KEY ?? "",
+      daemonSessionId,
+      onMessage: async (msg) => {
+        switch (msg.type) {
+          case "http-request":
+            await httpProxy.handle(msg, (m) => tunnelConnection?.send(m));
+            break;
+          case "ws-open":
+            wsProxy.handleOpen(msg);
+            break;
+          case "ws-data":
+            wsProxy.handleData(msg);
+            break;
+          case "ws-close":
+            wsProxy.handleClose(msg);
+            break;
+          case "channel": {
+            const tc = getOrCreateTunnelChannel(msg.channel);
+            tc.dispatchMessage(msg.message);
+            break;
+          }
+        }
+      },
+      onConnected: () => lifecycle.debugLog("tunnel connected"),
+      onDisconnected: () => lifecycle.debugLog("tunnel disconnected, reconnecting..."),
+      debugLog: verboseEnabled ? (msg) => lifecycle.debugLog(`[tunnel] ${msg}`) : undefined,
+    });
+  }
+
   const handleIpcRequest = createDaemonIpcHandler({
     persistCanvasHtml: (html) => bridgeManager.persistCanvasHtml(html),
     persistFiles: (files) => bridgeManager.persistFiles(files),
@@ -361,6 +438,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     );
 
     lifecycle.clearAllTimers();
+
+    for (const tc of tunnelChannels.values()) tc.close();
+    tunnelChannels.clear();
+
+    if (tunnelConnection) {
+      await tunnelConnection.close();
+      await apiClient.closeTunnel({ daemonSessionId }).catch((error) => {
+        lifecycle.debugLog("tunnel close failed during cleanup", error);
+      });
+    }
+
+    if (devServer) {
+      await devServer.stop();
+    }
 
     try {
       await signaling.stop();

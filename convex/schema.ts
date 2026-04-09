@@ -126,4 +126,14 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_username", ["userId", "botUsername"]),
+
+  tunnels: defineTable({
+    userId: v.id("users"),
+    hostId: v.id("hosts"),
+    token: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_host", ["hostId"])
+    .index("by_user", ["userId"]),
 });

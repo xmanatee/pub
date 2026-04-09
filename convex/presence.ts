@@ -48,8 +48,19 @@ async function deleteConnectionsForHost(db: GenericDatabaseWriter<DataModel>, ho
   }
 }
 
+async function deleteTunnelsForHost(db: GenericDatabaseWriter<DataModel>, hostId: Id<"hosts">) {
+  const tunnels = await db
+    .query("tunnels")
+    .withIndex("by_host", (q) => q.eq("hostId", hostId))
+    .collect();
+  for (const tunnel of tunnels) {
+    await db.delete(tunnel._id);
+  }
+}
+
 async function removeHost(db: GenericDatabaseWriter<DataModel>, hostId: Id<"hosts">) {
   await deleteConnectionsForHost(db, hostId);
+  await deleteTunnelsForHost(db, hostId);
   await db.delete(hostId);
 }
 

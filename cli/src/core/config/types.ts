@@ -4,6 +4,7 @@ import type { BridgeMode } from "../../live/bridge/providers/types.js";
 export { DEFAULT_COMMAND_TIMEOUT_MS } from "../../../../shared/command-protocol-core.js";
 
 export const DEFAULT_BASE_URL = "https://silent-guanaco-514.convex.site";
+export const DEFAULT_RELAY_URL = "https://pub-relay.mishaplots.workers.dev";
 export const DEFAULT_COMMAND_MAX_OUTPUT_BYTES = 256 * 1024;
 export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
 export const DEFAULT_COMMAND_AGENT_PROFILE = "default";
@@ -47,10 +48,17 @@ export type PubTelegramConfig = {
   hasMainWebApp?: boolean;
 };
 
+export type PubTunnelConfig = {
+  devCommand?: string;
+  devPort?: number;
+  relayUrl?: string;
+};
+
 export type PubConfig = {
   core?: PubCoreConfig;
   bridge?: PubBridgeConfig;
   telegram?: PubTelegramConfig;
+  tunnel?: PubTunnelConfig;
 };
 
 interface BridgeSettingsBase {

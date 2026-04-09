@@ -37,6 +37,9 @@ export async function runDaemonFromEnv(): Promise<void> {
     return exitProcess(1);
   }
 
+  const tunnelConfigRaw = process.env.PUB_DAEMON_TUNNEL_CONFIG;
+  const tunnelConfig = tunnelConfigRaw ? JSON.parse(tunnelConfigRaw) : undefined;
+
   const apiClient = new PubApiClient(baseUrl, apiKey);
   await startDaemon({
     apiClient,
@@ -46,5 +49,6 @@ export async function runDaemonFromEnv(): Promise<void> {
     cliVersion,
     bridgeSettings,
     agentName,
+    tunnelConfig,
   });
 }

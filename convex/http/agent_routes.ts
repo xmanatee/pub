@@ -251,6 +251,61 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     }),
   });
 
+  // POST /api/v1/agent/tunnel
+  http.route({
+    path: "/api/v1/agent/tunnel",
+    method: "POST",
+    handler: httpAction(async (ctx, request) => {
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "registerTunnel");
+      if (auth instanceof Response) return auth;
+
+      const body = await readPresenceBody(request);
+      if (body instanceof Response) return body;
+
+      return executeAction(
+        async () => {
+          const host = await ctx.runQuery(internal.presence.getHostByApiKeySession, {
+            apiKeyId: auth.apiKeyId,
+            daemonSessionId: body.daemonSessionId,
+          });
+          if (!host) throw new ApiError("Host not online", 409);
+
+          const result = await ctx.runMutation(internal.tunnels.registerTunnel, {
+            userId: auth.userId,
+            hostId: host._id,
+          });
+          return result;
+        },
+        (result) => jsonResponse(result, 201),
+      );
+    }),
+  });
+
+  // DELETE /api/v1/agent/tunnel
+  http.route({
+    path: "/api/v1/agent/tunnel",
+    method: "DELETE",
+    handler: httpAction(async (ctx, request) => {
+      const auth = await authenticateAgentAndRateLimit(ctx, request, "closeTunnel");
+      if (auth instanceof Response) return auth;
+
+      const body = await readPresenceBody(request);
+      if (body instanceof Response) return body;
+
+      return executeAction(
+        async () => {
+          const host = await ctx.runQuery(internal.presence.getHostByApiKeySession, {
+            apiKeyId: auth.apiKeyId,
+            daemonSessionId: body.daemonSessionId,
+          });
+          if (!host) return;
+          await ctx.runMutation(internal.tunnels.closeTunnel, { hostId: host._id });
+        },
+        () => jsonResponse({ closed: true }),
+      );
+    }),
+  });
+
   // DELETE /api/v1/agent/live
   http.route({
     path: "/api/v1/agent/live",

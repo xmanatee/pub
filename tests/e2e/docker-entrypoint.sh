@@ -22,11 +22,13 @@ VITE_PID=""
 PROXY_PID=""
 MOCK_LLM_PID=""
 MOCK_RELAY_PID=""
+TUNNEL_RELAY_PID=""
 cleanup() {
   [ -n "$VITE_PID" ] && kill "$VITE_PID" 2>/dev/null || true
   [ -n "$PROXY_PID" ] && kill "$PROXY_PID" 2>/dev/null || true
   [ -n "$MOCK_LLM_PID" ] && kill "$MOCK_LLM_PID" 2>/dev/null || true
   [ -n "$MOCK_RELAY_PID" ] && kill "$MOCK_RELAY_PID" 2>/dev/null || true
+  [ -n "$TUNNEL_RELAY_PID" ] && kill "$TUNNEL_RELAY_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -60,6 +62,23 @@ for i in $(seq 1 30); do
   fi
   if [ "$i" -eq 30 ]; then
     echo "[e2e] ERROR: Mock relay server did not start within 30s."
+    exit 1
+  fi
+  sleep 1
+done
+
+# --- Start tunnel relay server (tunnel proxy E2E) ---
+echo "[e2e] Starting tunnel relay server..."
+node tests/e2e/mock-tunnel-relay/server.mjs &
+TUNNEL_RELAY_PID=$!
+
+for i in $(seq 1 30); do
+  if curl -sf http://localhost:4103/admin/health > /dev/null 2>&1; then
+    echo "[e2e] Tunnel relay server ready."
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "[e2e] ERROR: Tunnel relay server did not start within 30s."
     exit 1
   fi
   sleep 1

@@ -100,6 +100,36 @@ export class ApiClient {
     });
   }
 
+  // — Tunnel management —
+
+  async registerTunnel(data: { daemonSessionId: string }): Promise<Response> {
+    return fetch(`${this.baseUrl}/api/v1/agent/tunnel`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(data),
+    });
+  }
+
+  async closeTunnel(data: { daemonSessionId: string }): Promise<Response> {
+    return fetch(`${this.baseUrl}/api/v1/agent/tunnel`, {
+      method: "DELETE",
+      headers: this.headers(),
+      body: JSON.stringify(data),
+    });
+  }
+
+  async validateTunnelToken(token: string): Promise<Response> {
+    return fetch(`${this.baseUrl}/api/v1/tunnel/validate?token=${encodeURIComponent(token)}`);
+  }
+
+  async validateDaemon(daemonSessionId: string): Promise<Response> {
+    return fetch(`${this.baseUrl}/api/v1/tunnel/validate-daemon`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ daemonSessionId }),
+    });
+  }
+
   // — Content serving —
 
   async servePub(slug: string, filePath?: string): Promise<Response> {

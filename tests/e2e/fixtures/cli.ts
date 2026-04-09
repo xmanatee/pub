@@ -1,6 +1,14 @@
 import { execFileSync, execSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +35,12 @@ function isDaemonNotRunningError(error: unknown): boolean {
   return String(error).includes("Agent daemon is not running.");
 }
 
+export interface TunnelTestConfig {
+  devCommand: string;
+  devPort: number;
+  relayUrl: string;
+}
+
 export class CliFixture {
   private pubHome: string;
   private configDir: string;
@@ -34,14 +48,21 @@ export class CliFixture {
   private user: TestUser;
   private convexSiteUrl: string;
   private bridge: BridgeTestConfig;
+  private tunnelConfig: TunnelTestConfig | null;
   private daemonPid: number | null = null;
   private socketPath: string | null = null;
   private isolatedSocketPath: string;
 
-  constructor(user: TestUser, convexSiteUrl: string, bridge: BridgeTestConfig) {
+  constructor(
+    user: TestUser,
+    convexSiteUrl: string,
+    bridge: BridgeTestConfig,
+    tunnelConfig?: TunnelTestConfig,
+  ) {
     this.user = user;
     this.convexSiteUrl = convexSiteUrl;
     this.bridge = bridge;
+    this.tunnelConfig = tunnelConfig ?? null;
     this.pubHome = mkdtempSync(join(tmpdir(), "pub-e2e-home-"));
     this.configDir = join(this.pubHome, "config");
     this.isolatedSocketPath = join(tmpdir(), `pub-agent-e2e-${randomUUID().slice(0, 8)}.sock`);
@@ -50,7 +71,7 @@ export class CliFixture {
   }
 
   private writeConfig(): void {
-    const config = {
+    const config: Record<string, unknown> = {
       core: {
         apiKey: this.user.apiKey,
         baseUrl: this.convexSiteUrl,
@@ -61,6 +82,13 @@ export class CliFixture {
         ...this.bridge.configExtra,
       },
     };
+    if (this.tunnelConfig) {
+      config.tunnel = {
+        devCommand: this.tunnelConfig.devCommand,
+        devPort: this.tunnelConfig.devPort,
+        relayUrl: this.tunnelConfig.relayUrl,
+      };
+    }
     mkdirSync(this.configDir, { recursive: true });
     writeFileSync(join(this.configDir, "config.json"), JSON.stringify(config, null, 2));
   }
@@ -178,6 +206,23 @@ export class CliFixture {
   /** Get daemon status as raw string. */
   getStatus(): string {
     return this.run(["status"]);
+  }
+
+  /** Read daemon log file (for debugging failed tests). */
+  getDaemonLog(maxLines = 50): string | null {
+    const runtimeDir = join(this.pubHome, "runtime", "daemon", "logs");
+    try {
+      const files = readdirSync(runtimeDir)
+        .filter((f) => f.startsWith("agent-"))
+        .sort()
+        .reverse();
+      if (files.length === 0) return null;
+      const content = readFileSync(join(runtimeDir, files[0]), "utf-8");
+      const lines = content.split("\n");
+      return lines.slice(-maxLines).join("\n");
+    } catch {
+      return null;
+    }
   }
 
   /** Send a message via the CLI write command. */

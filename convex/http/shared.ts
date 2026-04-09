@@ -238,6 +238,9 @@ type AgentRateLimit =
   | "agentPollLive"
   | "signalLive"
   | "closeLive"
+  | "registerTunnel"
+  | "closeTunnel"
+  | "validateTunnel"
   | "telegramBotUpdate";
 
 async function safeAuthenticate(ctx: ActionCtx, apiKey: string) {

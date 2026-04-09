@@ -4,10 +4,12 @@ import {
   type CommandAgentProfile,
   DEFAULT_BASE_URL,
   DEFAULT_COMMAND_AGENT_PROFILE,
+  DEFAULT_RELAY_URL,
   type DetachedAgentProvider,
   type PubBridgeConfig,
   type PubConfig,
   type PubTelegramConfig,
+  type PubTunnelConfig,
 } from "./types.js";
 
 function trimToUndefined(value: string | undefined): string | undefined {
@@ -15,7 +17,7 @@ function trimToUndefined(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-export type ConfigSection = "core" | "bridge" | "telegram";
+export type ConfigSection = "core" | "bridge" | "telegram" | "tunnel";
 export type ConfigValueType =
   | "string"
   | "boolean"
@@ -59,6 +61,15 @@ function telegramVar(
   definition: Omit<ConfigVarDefinition, "key" | "section" | "field" | "type">,
 ): ConfigVarDefinition {
   return declareConfigVar({ key, section: "telegram", field, type, ...definition });
+}
+
+function tunnelVar(
+  key: string,
+  field: keyof PubTunnelConfig,
+  type: ConfigValueType,
+  definition: Omit<ConfigVarDefinition, "key" | "section" | "field" | "type">,
+): ConfigVarDefinition {
+  return declareConfigVar({ key, section: "tunnel", field, type, ...definition });
 }
 
 const CONFIG_VARS: ConfigVarDefinition[] = [
@@ -178,6 +189,19 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "Claude SDK detached model used for deep-profile agent commands.",
     env: ["CLAUDE_SDK_COMMAND_MODEL_DEEP"],
   }),
+  tunnelVar("tunnel.devCommand", "devCommand", "string", {
+    description: "Dev server command (e.g., 'pnpm dev').",
+    env: ["PUB_DEV_COMMAND"],
+  }),
+  tunnelVar("tunnel.devPort", "devPort", "integer", {
+    description: "Dev server port.",
+    env: ["PUB_DEV_PORT"],
+  }),
+  tunnelVar("tunnel.relayUrl", "relayUrl", "string", {
+    description: "Tunnel relay URL.",
+    env: ["PUB_RELAY_URL"],
+    defaultValue: DEFAULT_RELAY_URL,
+  }),
   telegramVar("telegram.botToken", "botToken", "string", {
     description: "Telegram bot token used for Mini App deep links.",
     secret: true,
@@ -291,6 +315,7 @@ function getSection(
 ): Record<string, unknown> | undefined {
   if (section === "core") return config.core as Record<string, unknown> | undefined;
   if (section === "bridge") return config.bridge as Record<string, unknown> | undefined;
+  if (section === "tunnel") return config.tunnel as Record<string, unknown> | undefined;
   return config.telegram as Record<string, unknown> | undefined;
 }
 
@@ -313,6 +338,12 @@ export function writePubConfigValue(
   if (definition.section === "bridge") {
     config.bridge ??= {};
     (config.bridge as Record<string, unknown>)[definition.field] = value;
+    return;
+  }
+
+  if (definition.section === "tunnel") {
+    config.tunnel ??= {};
+    (config.tunnel as Record<string, unknown>)[definition.field] = value;
     return;
   }
 

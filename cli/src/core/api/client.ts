@@ -240,6 +240,24 @@ export class PubApiClient {
     await this.request(path, { method: "DELETE" });
   }
 
+  // -- Tunnel management ----------------------------------------------------
+
+  async registerTunnel(opts: {
+    daemonSessionId: string;
+  }): Promise<{ token: string }> {
+    return this.request<{ token: string }>("/api/v1/agent/tunnel", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  async closeTunnel(opts: { daemonSessionId: string }): Promise<void> {
+    await this.request("/api/v1/agent/tunnel", {
+      method: "DELETE",
+      body: JSON.stringify(opts),
+    });
+  }
+
   // -- Telegram bot token ---------------------------------------------------
 
   async uploadBotToken(opts: { botToken: string; botUsername: string }): Promise<void> {

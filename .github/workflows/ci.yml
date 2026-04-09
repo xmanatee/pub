@@ -77,6 +77,29 @@ jobs:
         if: always()
         run: docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
 
+  relay:
+    name: Relay (Cloudflare Worker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:relay
+      - run: pnpm build:relay
+      - name: Deploy to Cloudflare
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: relay
+
   cli:
     name: CLI
     runs-on: ubuntu-latest
