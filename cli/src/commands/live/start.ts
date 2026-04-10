@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import type { Command } from "commander";
 import { resolvePubSettings } from "../../core/config/index.js";
-import type { PubTunnelConfig } from "../../core/config/types.js";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { resolvePubPaths } from "../../core/paths.js";
 import { CLI_VERSION } from "../../core/version/version.js";
@@ -52,17 +51,18 @@ export function registerStartCommand(program: Command): void {
       const sentryDsn = resolved.valuesByKey.sentryDsn;
       const telemetry = resolved.valuesByKey.telemetry;
 
-      let tunnelConfig: PubTunnelConfig | undefined = resolved.rawConfig.tunnel;
-      if (!tunnelConfig?.devCommand) {
-        const paths = resolvePubPaths(context.env);
-        const { tunnelConfig: autoConfig, scaffoldDir } = resolveDefaultTunnelConfig(
-          paths.workspaceRoot,
-        );
-        console.log(`Scaffolding default app to ${scaffoldDir}...`);
-        scaffoldDefaultApp(scaffoldDir);
-        tunnelConfig = autoConfig;
-        console.log("Default app ready.");
-      }
+      const tunnelConfig = resolved.rawConfig.tunnel?.devCommand
+        ? resolved.rawConfig.tunnel
+        : (() => {
+            const paths = resolvePubPaths(context.env);
+            const { tunnelConfig: autoConfig, scaffoldDir } = resolveDefaultTunnelConfig(
+              paths.workspaceRoot,
+            );
+            console.log(`Scaffolding default app to ${scaffoldDir}...`);
+            scaffoldDefaultApp(scaffoldDir);
+            console.log("Default app ready.");
+            return autoConfig;
+          })();
 
       const child = spawn(process.execPath, [], {
         detached: true,
@@ -80,7 +80,7 @@ export function registerStartCommand(program: Command): void {
           PUB_DAEMON_LOG: logPath,
           ...(sentryDsn?.value ? { PUB_SENTRY_DSN: String(sentryDsn.value) } : {}),
           ...(telemetry && telemetry.value === false ? { PUB_TELEMETRY: "false" } : {}),
-          ...(tunnelConfig ? { PUB_DAEMON_TUNNEL_CONFIG: JSON.stringify(tunnelConfig) } : {}),
+          PUB_DAEMON_TUNNEL_CONFIG: JSON.stringify(tunnelConfig),
         },
       });
       fs.closeSync(daemonLogFd);

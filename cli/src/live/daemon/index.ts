@@ -9,6 +9,7 @@ import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import type { DevServer } from "../server/manager.js";
 import type { TunnelDataChannel } from "../tunnel/channel-adapter.js";
 import type { TunnelConnection } from "../tunnel/client.js";
+import type { WsProxy } from "../tunnel/ws-proxy.js";
 import { createBridgeManager } from "./bridge-manager.js";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
@@ -312,6 +313,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   let devServer: DevServer | null = null;
   let tunnelConnection: TunnelConnection | null = null;
+  let wsProxy: WsProxy | null = null;
   const tunnelChannels = new Map<string, TunnelDataChannel>();
 
   const devCommand = config.tunnelConfig?.devCommand;
@@ -319,10 +321,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   if (devCommand && devPort) {
     const { startDevServer } = await import("../server/manager.js");
-    const { connectTunnel } = await import("../tunnel/client.js");
-    const { createHttpProxy } = await import("../tunnel/proxy.js");
-    const { createWsProxy } = await import("../tunnel/ws-proxy.js");
-    const { TunnelDataChannel: TDC } = await import("../tunnel/channel-adapter.js");
 
     lifecycle.debugLog(`starting dev server: ${devCommand} (port ${devPort})`);
     devServer = startDevServer({ devCommand, devPort });
@@ -332,61 +330,70 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.debugLog(`dev server ready on port ${devPort}`);
     } catch (error) {
       lifecycle.markError("dev server failed to start", error);
+      await devServer.stop();
+      devServer = null;
     }
 
-    const { token } = await apiClient.registerTunnel({ daemonSessionId });
-    const { DEFAULT_RELAY_URL } = await import("../../core/config/types.js");
-    const relayUrl = config.tunnelConfig?.relayUrl ?? DEFAULT_RELAY_URL;
-    lifecycle.debugLog(`tunnel active: ${relayUrl}/t/${token}/`);
+    if (devServer) {
+      const { connectTunnel } = await import("../tunnel/client.js");
+      const { createHttpProxy } = await import("../tunnel/proxy.js");
+      const { createWsProxy } = await import("../tunnel/ws-proxy.js");
+      const { TunnelDataChannel: TDC } = await import("../tunnel/channel-adapter.js");
 
-    const httpProxy = createHttpProxy(devPort);
-    const wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg));
+      const { token } = await apiClient.registerTunnel({ daemonSessionId });
+      const { DEFAULT_RELAY_URL } = await import("../../core/config/types.js");
+      const relayUrl = config.tunnelConfig?.relayUrl ?? DEFAULT_RELAY_URL;
+      lifecycle.debugLog(`tunnel active: ${relayUrl}/t/${token}/`);
 
-    function getOrCreateTunnelChannel(name: string): TunnelDataChannel {
-      let tc = tunnelChannels.get(name);
-      if (!tc) {
-        tc = new TDC(name, (msg) => tunnelConnection?.send(msg));
-        tunnelChannels.set(name, tc);
-        channelManager.setupChannel(name, tc);
-        tc.markOpen();
-      }
-      return tc;
-    }
+      const httpProxy = createHttpProxy(devPort);
+      wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg));
 
-    tunnelConnection = connectTunnel({
-      relayUrl,
-      apiKey: process.env.PUB_DAEMON_API_KEY ?? "",
-      daemonSessionId,
-      onMessage: async (msg) => {
-        switch (msg.type) {
-          case "http-request":
-            await httpProxy.handle(msg, (m) => tunnelConnection?.send(m));
-            break;
-          case "ws-open":
-            wsProxy.handleOpen(msg);
-            break;
-          case "ws-data":
-            wsProxy.handleData(msg);
-            break;
-          case "ws-close":
-            wsProxy.handleClose(msg);
-            break;
-          case "channel": {
-            const tc = getOrCreateTunnelChannel(msg.channel);
-            tc.dispatchMessage(msg.message);
-            break;
-          }
-          case "channel-binary": {
-            const tc = getOrCreateTunnelChannel(msg.channel);
-            tc.dispatchBinary(Buffer.from(msg.data, "base64"));
-            break;
-          }
+      function getOrCreateTunnelChannel(name: string): TunnelDataChannel {
+        let tc = tunnelChannels.get(name);
+        if (!tc) {
+          tc = new TDC(name, (msg) => tunnelConnection?.send(msg));
+          tunnelChannels.set(name, tc);
+          channelManager.setupChannel(name, tc);
+          tc.markOpen();
         }
-      },
-      onConnected: () => lifecycle.debugLog("tunnel connected"),
-      onDisconnected: () => lifecycle.debugLog("tunnel disconnected, reconnecting..."),
-      debugLog: verboseEnabled ? (msg) => lifecycle.debugLog(`[tunnel] ${msg}`) : undefined,
-    });
+        return tc;
+      }
+
+      tunnelConnection = connectTunnel({
+        relayUrl,
+        apiKey: process.env.PUB_DAEMON_API_KEY ?? "",
+        daemonSessionId,
+        onMessage: async (msg) => {
+          switch (msg.type) {
+            case "http-request":
+              await httpProxy.handle(msg, (m) => tunnelConnection?.send(m));
+              break;
+            case "ws-open":
+              wsProxy?.handleOpen(msg);
+              break;
+            case "ws-data":
+              wsProxy?.handleData(msg);
+              break;
+            case "ws-close":
+              wsProxy?.handleClose(msg);
+              break;
+            case "channel": {
+              const tc = getOrCreateTunnelChannel(msg.channel);
+              tc.dispatchMessage(msg.message);
+              break;
+            }
+            case "channel-binary": {
+              const tc = getOrCreateTunnelChannel(msg.channel);
+              tc.dispatchBinary(Buffer.from(msg.data, "base64"));
+              break;
+            }
+          }
+        },
+        onConnected: () => lifecycle.debugLog("tunnel connected"),
+        onDisconnected: () => lifecycle.debugLog("tunnel disconnected, reconnecting..."),
+        debugLog: verboseEnabled ? (msg) => lifecycle.debugLog(`[tunnel] ${msg}`) : undefined,
+      });
+    }
   }
 
   const handleIpcRequest = createDaemonIpcHandler({
@@ -444,6 +451,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     lifecycle.clearAllTimers();
 
+    wsProxy?.closeAll();
     for (const tc of tunnelChannels.values()) tc.close();
     tunnelChannels.clear();
 
