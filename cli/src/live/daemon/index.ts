@@ -311,6 +311,54 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
   }, HEARTBEAT_INTERVAL_MS);
 
+  const handleIpcRequest = createDaemonIpcHandler({
+    persistCanvasHtml: (html) => bridgeManager.persistCanvasHtml(html),
+    persistFiles: (files) => bridgeManager.persistFiles(files),
+    getRuntimeState: () => state.runtimeState,
+    getSignalingConnected: () => {
+      const signalState = signaling.status();
+      return signalState.known ? signalState.open : null;
+    },
+    getActiveSlug: () => state.signalingSlug,
+    getUptimeSeconds: () => Math.floor((Date.now() - startTime) / 1000),
+    getChannels: () => [...state.channels.keys()],
+    getLastError: () => state.lastError,
+    getBridgeMode: () => config.bridgeSettings.mode,
+    getBridgeStatus: () => state.bridgeRunner?.status() ?? null,
+    getLogPath: () => logPath ?? null,
+    getWriteReadinessError: () => getLiveWriteReadinessError(state.runtimeState.connectionState),
+    openDataChannel: channelManager.openDataChannel,
+    waitForChannelOpen: channelManager.waitForChannelOpen,
+    waitForDeliveryAck: channelManager.waitForDeliveryAck,
+    settlePendingAck: channelManager.settlePendingAck,
+    markAgentStreaming: () => bridgeManager.markAgentStreaming(),
+    markError: lifecycle.markError,
+    shutdown: () => {
+      void shutdown().catch((error) => {
+        lifecycle.logAlways("shutdown failed from IPC request", error);
+      });
+    },
+    writeAckTimeoutMs: 5_000,
+    writeAckMaxAttempts: 2,
+  });
+
+  const ipcServer = createDaemonIpcServer(handleIpcRequest, (error) => {
+    lifecycle.debugLog("IPC server error", error);
+  });
+  const socketDir = path.dirname(socketPath);
+  if (!fs.existsSync(socketDir)) fs.mkdirSync(socketDir, { recursive: true });
+  ipcServer.listen(socketPath);
+
+  const infoDir = path.dirname(infoPath);
+  if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
+  fs.writeFileSync(
+    infoPath,
+    JSON.stringify({ pid: process.pid, socketPath, logPath, startedAt: startTime, cliVersion }),
+  );
+
+  signaling.start();
+  lifecycle.startHealthCheckTimer();
+
   let devServer: DevServer | null = null;
   let tunnelConnection: TunnelConnection | null = null;
   let wsProxy: WsProxy | null = null;
@@ -398,54 +446,6 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       });
     }
   }
-
-  const handleIpcRequest = createDaemonIpcHandler({
-    persistCanvasHtml: (html) => bridgeManager.persistCanvasHtml(html),
-    persistFiles: (files) => bridgeManager.persistFiles(files),
-    getRuntimeState: () => state.runtimeState,
-    getSignalingConnected: () => {
-      const signalState = signaling.status();
-      return signalState.known ? signalState.open : null;
-    },
-    getActiveSlug: () => state.signalingSlug,
-    getUptimeSeconds: () => Math.floor((Date.now() - startTime) / 1000),
-    getChannels: () => [...state.channels.keys()],
-    getLastError: () => state.lastError,
-    getBridgeMode: () => config.bridgeSettings.mode,
-    getBridgeStatus: () => state.bridgeRunner?.status() ?? null,
-    getLogPath: () => logPath ?? null,
-    getWriteReadinessError: () => getLiveWriteReadinessError(state.runtimeState.connectionState),
-    openDataChannel: channelManager.openDataChannel,
-    waitForChannelOpen: channelManager.waitForChannelOpen,
-    waitForDeliveryAck: channelManager.waitForDeliveryAck,
-    settlePendingAck: channelManager.settlePendingAck,
-    markAgentStreaming: () => bridgeManager.markAgentStreaming(),
-    markError: lifecycle.markError,
-    shutdown: () => {
-      void shutdown().catch((error) => {
-        lifecycle.logAlways("shutdown failed from IPC request", error);
-      });
-    },
-    writeAckTimeoutMs: 5_000,
-    writeAckMaxAttempts: 2,
-  });
-
-  const ipcServer = createDaemonIpcServer(handleIpcRequest, (error) => {
-    lifecycle.debugLog("IPC server error", error);
-  });
-  const socketDir = path.dirname(socketPath);
-  if (!fs.existsSync(socketDir)) fs.mkdirSync(socketDir, { recursive: true });
-  ipcServer.listen(socketPath);
-
-  const infoDir = path.dirname(infoPath);
-  if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
-  fs.writeFileSync(
-    infoPath,
-    JSON.stringify({ pid: process.pid, socketPath, logPath, startedAt: startTime, cliVersion }),
-  );
-
-  lifecycle.startHealthCheckTimer();
-  signaling.start();
 
   async function cleanup(): Promise<void> {
     lifecycle.debugLog(
