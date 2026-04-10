@@ -22,10 +22,7 @@ export function killProcess(pid: number, timeoutMs = 5_000): boolean {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (!isProcessAlive(pid)) return true;
-    const waitUntil = Date.now() + 200;
-    while (Date.now() < waitUntil) {
-      /* busy-wait 200ms */
-    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
   }
 
   try {

@@ -78,10 +78,11 @@ test.describe("canvas render error", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 2: Command failure — all bridge modes (shell commands only)
+// Test 2: Command failure — single bridge mode (error propagation is
+// bridge-agnostic; bridge-specific command execution is covered elsewhere)
 // ---------------------------------------------------------------------------
 
-for (const mode of activeModes(ALL_BRIDGE_MODES)) {
+for (const mode of activeModes(ALL_BRIDGE_MODES).slice(0, 1)) {
   test.describe(`[${mode}] command failure`, () => {
     let cli: CliFixture;
 

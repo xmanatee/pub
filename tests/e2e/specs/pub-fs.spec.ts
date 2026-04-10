@@ -9,7 +9,9 @@
  * - GET: range requests + progressive cache
  * - 404: nonexistent workspace file
  *
- * Multi-bridge: tests run with all bridge modes via the full WebRTC live session.
+ * Single-bridge: pub-fs runs through a bridge-agnostic DataChannel handler,
+ * so one representative mode covers the full path. Bridge-specific transport
+ * is validated separately in live-session.spec.ts.
  */
 import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -24,7 +26,7 @@ import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
 import { waitForConnection } from "../helpers/live-test-utils";
 
-for (const mode of activeModes(ALL_BRIDGE_MODES)) {
+for (const mode of activeModes(ALL_BRIDGE_MODES).slice(0, 1)) {
   test.describe(`[${mode}]`, () => {
     let cli: CliFixture;
 

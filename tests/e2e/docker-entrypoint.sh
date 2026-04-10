@@ -32,57 +32,44 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --- Start mock LLM server (Anthropic Messages API stub) ---
+# --- Start mock servers in parallel ---
 echo "[e2e] Starting mock LLM server..."
 node tests/e2e/mock-llm/server.mjs &
 MOCK_LLM_PID=$!
 
-for i in $(seq 1 30); do
-  if curl -sf http://localhost:4100/admin/health > /dev/null 2>&1; then
-    echo "[e2e] Mock LLM server ready."
-    break
-  fi
-  if [ "$i" -eq 30 ]; then
-    echo "[e2e] ERROR: Mock LLM server did not start within 30s."
-    exit 1
-  fi
-  sleep 1
-done
-
-# --- Start mock relay server (claude-channel bridge) ---
 echo "[e2e] Starting mock relay server..."
 export MOCK_RELAY_SOCKET="${MOCK_RELAY_SOCKET:-/tmp/pub-mock-relay.sock}"
 node tests/e2e/mock-relay/server.mjs &
 MOCK_RELAY_PID=$!
 
-for i in $(seq 1 30); do
-  if curl -sf http://localhost:4101/admin/health > /dev/null 2>&1; then
-    echo "[e2e] Mock relay server ready."
-    break
-  fi
-  if [ "$i" -eq 30 ]; then
-    echo "[e2e] ERROR: Mock relay server did not start within 30s."
-    exit 1
-  fi
-  sleep 1
-done
-
-# --- Start tunnel relay server (tunnel proxy E2E) ---
 echo "[e2e] Starting tunnel relay server..."
 node tests/e2e/mock-tunnel-relay/server.mjs &
 TUNNEL_RELAY_PID=$!
 
-for i in $(seq 1 30); do
-  if curl -sf http://localhost:4103/admin/health > /dev/null 2>&1; then
-    echo "[e2e] Tunnel relay server ready."
-    break
-  fi
-  if [ "$i" -eq 30 ]; then
-    echo "[e2e] ERROR: Tunnel relay server did not start within 30s."
-    exit 1
-  fi
-  sleep 1
-done
+# --- Wait for all mock servers in parallel ---
+wait_for_health() {
+  local name="$1" url="$2"
+  for i in $(seq 1 30); do
+    if curl -sf "$url" > /dev/null 2>&1; then
+      echo "[e2e] $name ready."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "[e2e] ERROR: $name did not start within 30s."
+  return 1
+}
+
+wait_for_health "Mock LLM server" "http://localhost:4100/admin/health" &
+WAIT_LLM=$!
+wait_for_health "Mock relay server" "http://localhost:4101/admin/health" &
+WAIT_RELAY=$!
+wait_for_health "Tunnel relay server" "http://localhost:4103/admin/health" &
+WAIT_TUNNEL=$!
+
+wait "$WAIT_LLM" || exit 1
+wait "$WAIT_RELAY" || exit 1
+wait "$WAIT_TUNNEL" || exit 1
 
 # --- Set OpenClaw env vars for all child processes ---
 export OPENCLAW_STATE_DIR="/home/node/.openclaw"

@@ -6,7 +6,9 @@
  * queued command dispatched → daemon executes shell → result returns →
  * canvas renders the result in the DOM.
  *
- * Multi-bridge: tests run with all bridge modes (shell) and LLM modes (slow briefing).
+ * Basic early-invoke runs with one bridge mode (queue/dispatch is bridge-agnostic;
+ * bridge-specific command execution is covered by live-session tests).
+ * Slow briefing test runs with LLM modes since it tests LLM-specific delay handling.
  */
 import { expect, test } from "@playwright/test";
 import { ApiClient } from "../fixtures/api";
@@ -59,7 +61,7 @@ const AUTO_INVOKE_HTML = `<!DOCTYPE html>
 // Basic early-invoke test — all bridge modes (shell commands only)
 // ---------------------------------------------------------------------------
 
-for (const mode of activeModes(ALL_BRIDGE_MODES)) {
+for (const mode of activeModes(ALL_BRIDGE_MODES).slice(0, 1)) {
   test.describe(`[${mode}]`, () => {
     let cli: CliFixture;
 
