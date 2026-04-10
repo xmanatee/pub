@@ -16,14 +16,7 @@ describe("template sync", () => {
       const onDisk = fs.readFileSync(filePath, "utf-8");
       const embedded = TEMPLATE_FILES[relPath];
 
-      if (relPath === "package.json") {
-        const embeddedPkg = JSON.parse(embedded);
-        const diskPkg = JSON.parse(onDisk);
-        // Name differs: workspace uses "pub-default-app", scaffold uses "pub-app"
-        const { name: _eName, ...embeddedRest } = embeddedPkg;
-        const { name: _dName, ...diskRest } = diskPkg;
-        expect(embeddedRest, "package.json fields mismatch (excluding name)").toEqual(diskRest);
-      } else if (relPath.endsWith(".json")) {
+      if (relPath.endsWith(".json")) {
         expect(JSON.parse(embedded), `JSON mismatch: ${relPath}`).toEqual(JSON.parse(onDisk));
       } else {
         expect(embedded, `content mismatch: ${relPath}`).toBe(onDisk);

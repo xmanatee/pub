@@ -62,7 +62,7 @@ export function registerStartCommand(program: Command): void {
           paths.workspaceRoot,
         );
         console.log(`Scaffolding default app to ${scaffoldDir}...`);
-        await scaffoldDefaultApp(scaffoldDir);
+        scaffoldDefaultApp(scaffoldDir);
         tunnelConfig = autoConfig;
         console.log("Default app ready.");
       }

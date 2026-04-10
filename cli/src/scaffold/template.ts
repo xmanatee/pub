@@ -3,27 +3,25 @@
  * Keep in sync with packages/default-app/ — verified by template.test.ts.
  */
 export const TEMPLATE_FILES: Record<string, string> = {
-  "package.json": JSON.stringify(
+  "biome.json": JSON.stringify(
     {
-      name: "pub-app",
-      private: true,
-      version: "0.0.0",
-      type: "module",
-      scripts: {
-        dev: "vite",
-        build: "tsc -b && vite build",
-        preview: "vite preview",
+      $schema: "https://biomejs.dev/schemas/2.0.0/schema.json",
+      formatter: {
+        indentStyle: "space",
+        indentWidth: 2,
+        lineWidth: 100,
       },
-      dependencies: {
-        react: "^19.0.0",
-        "react-dom": "^19.0.0",
+      linter: {
+        rules: {
+          recommended: true,
+        },
       },
-      devDependencies: {
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
-        "@vitejs/plugin-react": "^4.4.1",
-        typescript: "^5.7.2",
-        vite: "^6.3.1",
+      assist: {
+        actions: {
+          source: {
+            organizeImports: "on",
+          },
+        },
       },
     },
     null,
@@ -44,17 +42,36 @@ export const TEMPLATE_FILES: Record<string, string> = {
 </html>
 `,
 
-  "src/main.tsx": `import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./App";
-import "./App.css";
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
-`,
+  "package.json": JSON.stringify(
+    {
+      name: "pub-app",
+      private: true,
+      version: "0.0.0",
+      type: "module",
+      scripts: {
+        dev: "vite",
+        build: "tsc -b && vite build",
+        lint: "biome check src",
+        format: "biome check --fix src",
+      },
+      dependencies: {
+        react: "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+      devDependencies: {
+        "@biomejs/biome": "^2.0.0",
+        "@tailwindcss/vite": "^4.1.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "@vitejs/plugin-react": "^4.4.1",
+        tailwindcss: "^4.1.0",
+        typescript: "^5.7.2",
+        vite: "^6.3.1",
+      },
+    },
+    null,
+    2,
+  ),
 
   "src/App.tsx": `import { useState } from "react";
 
@@ -62,126 +79,43 @@ export function App() {
   const [count, setCount] = useState(0);
 
   return (
-    <div className="container">
-      <div className="card">
-        <h1>Welcome to Pub</h1>
-        <p className="subtitle">Your adaptive interface is ready.</p>
-        <div className="counter">
-          <button type="button" onClick={() => setCount((c) => c + 1)}>
-            Count: {count}
-          </button>
-        </div>
-        <p className="hint">Edit <code>src/App.tsx</code> to get started.</p>
+    <div className="flex min-h-dvh items-center justify-center bg-neutral-950 p-8">
+      <div className="w-full max-w-sm rounded-xl border border-neutral-800 bg-neutral-900 p-10 text-center">
+        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-neutral-100">
+          Welcome to Pub
+        </h1>
+        <p className="mb-8 text-neutral-400">Your adaptive interface is ready.</p>
+        <button
+          type="button"
+          onClick={() => setCount((c) => c + 1)}
+          className="mb-8 rounded-lg bg-blue-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 active:scale-[0.98]"
+        >
+          Count: {count}
+        </button>
+        <p className="text-xs text-neutral-500">
+          Edit{" "}
+          <code className="rounded bg-neutral-800 px-1.5 py-0.5 text-[0.85em]">src/App.tsx</code>{" "}
+          to get started.
+        </p>
       </div>
     </div>
   );
 }
 `,
 
-  "src/App.css": `*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-:root {
-  --bg: #0a0a0a;
-  --card-bg: #141414;
-  --text: #ededed;
-  --text-muted: #888;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --border: #262626;
-  --radius: 12px;
-}
-
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100dvh;
-  -webkit-font-smoothing: antialiased;
-}
-
-.container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100dvh;
-  padding: 2rem;
-}
-
-.card {
-  text-align: center;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 3rem 2.5rem;
-  max-width: 420px;
-  width: 100%;
-}
-
-h1 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  color: var(--text-muted);
-  font-size: 1rem;
-  margin-bottom: 2rem;
-}
-
-.counter {
-  margin-bottom: 2rem;
-}
-
-button {
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 0.625rem 1.5rem;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-button:hover {
-  background: var(--accent-hover);
-}
-
-button:active {
-  transform: scale(0.98);
-}
-
-.hint {
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-
-code {
-  background: var(--border);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-  font-size: 0.85em;
-}
+  "src/index.css": `@import "tailwindcss";
 `,
 
-  "vite.config.ts": `import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+  "src/main.tsx": `import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+import "./index.css";
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: Number.parseInt(process.env.PORT || "5173"),
-  },
-});
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
 `,
 
   "tsconfig.json": JSON.stringify(
@@ -209,4 +143,16 @@ export default defineConfig({
     null,
     2,
   ),
+
+  "vite.config.ts": `import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [tailwindcss(), react()],
+  server: {
+    port: Number.parseInt(process.env.PORT || "5173"),
+  },
+});
+`,
 };

@@ -21,7 +21,7 @@ export function resolveDefaultTunnelConfig(workspaceRoot: string): {
   };
 }
 
-export async function scaffoldDefaultApp(targetDir: string): Promise<void> {
+export function scaffoldDefaultApp(targetDir: string): void {
   if (fs.existsSync(path.join(targetDir, "package.json"))) {
     return;
   }
