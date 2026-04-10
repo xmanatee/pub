@@ -19,6 +19,7 @@ export interface TunnelTransportState {
   sendChat: (text: string) => void;
   sendOnChannel: (channel: string, msg: BridgeMessage) => void;
   onChannelMessage: React.MutableRefObject<((channel: string, msg: BridgeMessage) => void) | null>;
+  onChannelBinary: React.MutableRefObject<((channel: string, data: Uint8Array) => void) | null>;
 }
 
 export function useTunnelTransport(tunnelWsUrl: string | null): TunnelTransportState {
@@ -26,6 +27,7 @@ export function useTunnelTransport(tunnelWsUrl: string | null): TunnelTransportS
   const [agentStatus, setAgentStatus] = useState<StatusPayload | null>(null);
   const clientRef = useRef<BrowserTunnelClient | null>(null);
   const onChannelMessage = useRef<((channel: string, msg: BridgeMessage) => void) | null>(null);
+  const onChannelBinary = useRef<((channel: string, data: Uint8Array) => void) | null>(null);
 
   useEffect(() => {
     if (!tunnelWsUrl) return;
@@ -46,6 +48,9 @@ export function useTunnelTransport(tunnelWsUrl: string | null): TunnelTransportS
         }
 
         onChannelMessage.current?.(channel, msg);
+      },
+      (channel, data) => {
+        onChannelBinary.current?.(channel, data);
       },
       setConnected,
     );
@@ -68,5 +73,5 @@ export function useTunnelTransport(tunnelWsUrl: string | null): TunnelTransportS
     clientRef.current?.sendChannel(channel, msg);
   }, []);
 
-  return { connected, agentStatus, sendChat, sendOnChannel, onChannelMessage };
+  return { connected, agentStatus, sendChat, sendOnChannel, onChannelMessage, onChannelBinary };
 }

@@ -55,7 +55,13 @@ export class TunnelDataChannel implements DataChannelLike {
     });
   }
 
-  sendMessageBinary(_data: Buffer): void {}
+  sendMessageBinary(data: Buffer): void {
+    this.send({
+      type: "channel-binary",
+      channel: this.channelName,
+      data: data.toString("base64"),
+    });
+  }
 
   isOpen(): boolean {
     return this.opened && !this.closed;
@@ -71,6 +77,11 @@ export class TunnelDataChannel implements DataChannelLike {
   dispatchMessage(message: BridgeMessage): void {
     const encoded = encodeMessage(message);
     for (const cb of this.messageCallbacks) cb(encoded);
+  }
+
+  /** Called by the tunnel message router when a binary channel message arrives. */
+  dispatchBinary(data: Buffer): void {
+    for (const cb of this.messageCallbacks) cb(data);
   }
 
   /** Called after the tunnel WS connects to mark all channels as open. */

@@ -38,6 +38,12 @@ export type ChannelMessage = {
   message: BridgeMessage;
 };
 
+export type ChannelBinaryMessage = {
+  type: "channel-binary";
+  channel: string;
+  data: string;
+};
+
 export type PingMessage = { type: "ping" };
 
 export type RelayToDaemonMessage =
@@ -46,6 +52,7 @@ export type RelayToDaemonMessage =
   | WsDataMessage
   | WsCloseMessage
   | ChannelMessage
+  | ChannelBinaryMessage
   | PingMessage;
 
 export type HttpResponseMessage = {
@@ -79,6 +86,7 @@ export type DaemonToRelayMessage =
   | WsDataMessage
   | WsCloseMessage
   | ChannelMessage
+  | ChannelBinaryMessage
   | PongMessage;
 
 export function encodeTunnelMessage(msg: RelayToDaemonMessage | DaemonToRelayMessage): string {
@@ -109,6 +117,8 @@ export function parseRelayToDaemonMessage(raw: string): RelayToDaemonMessage | n
       return parseWsCloseMessage(obj);
     case "channel":
       return parseChannelMessage(obj);
+    case "channel-binary":
+      return parseChannelBinaryMessage(obj);
     case "ping":
       return { type: "ping" };
     default:
@@ -134,6 +144,8 @@ export function parseDaemonToRelayMessage(raw: string): DaemonToRelayMessage | n
       return parseWsCloseMessage(obj);
     case "channel":
       return parseChannelMessage(obj);
+    case "channel-binary":
+      return parseChannelBinaryMessage(obj);
     case "pong":
       return { type: "pong" };
     default:
@@ -225,4 +237,11 @@ function parseChannelMessage(obj: Record<string, unknown>): ChannelMessage | nul
   const message = parseBridgeMessage(messageObj);
   if (!message) return null;
   return { type: "channel", channel, message };
+}
+
+function parseChannelBinaryMessage(obj: Record<string, unknown>): ChannelBinaryMessage | null {
+  const channel = readString(obj.channel);
+  const data = readString(obj.data);
+  if (!channel || !data) return null;
+  return { type: "channel-binary", channel, data };
 }

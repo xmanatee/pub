@@ -148,6 +148,7 @@ export class TunnelObject implements DurableObject {
         this.handleStreamingChunk(msg);
         break;
       case "channel":
+      case "channel-binary":
       case "ws-data":
       case "ws-close":
         this.browserWs?.send(raw);

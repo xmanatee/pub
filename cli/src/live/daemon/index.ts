@@ -376,6 +376,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
             tc.dispatchMessage(msg.message);
             break;
           }
+          case "channel-binary": {
+            const tc = getOrCreateTunnelChannel(msg.channel);
+            tc.dispatchBinary(Buffer.from(msg.data, "base64"));
+            break;
+          }
         }
       },
       onConnected: () => lifecycle.debugLog("tunnel connected"),

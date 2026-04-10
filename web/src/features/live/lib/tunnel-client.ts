@@ -1,6 +1,7 @@
 import { type BridgeMessage, parseBridgeMessage } from "@shared/bridge-protocol-core";
 
 export type TunnelChannelHandler = (channel: string, message: BridgeMessage) => void;
+export type TunnelBinaryHandler = (channel: string, data: Uint8Array) => void;
 
 export interface BrowserTunnelClient {
   sendChannel(channel: string, message: BridgeMessage): void;
@@ -14,6 +15,7 @@ const RECONNECT_MAX_MS = 15_000;
 export function createBrowserTunnelClient(
   relayWsUrl: string,
   onMessage: TunnelChannelHandler,
+  onBinaryMessage: TunnelBinaryHandler | undefined,
   onConnectedChange?: (connected: boolean) => void,
 ): BrowserTunnelClient {
   let ws: WebSocket | null = null;
@@ -34,9 +36,17 @@ export function createBrowserTunnelClient(
     ws.onmessage = (event) => {
       if (typeof event.data !== "string") return;
       const obj = safeJsonParse(event.data);
-      if (!obj || obj.type !== "channel" || typeof obj.channel !== "string" || !obj.message) return;
-      const msg = parseBridgeMessage(obj.message);
-      if (msg) onMessage(obj.channel as string, msg);
+      if (!obj || typeof obj.channel !== "string") return;
+
+      if (obj.type === "channel-binary" && typeof obj.data === "string") {
+        onBinaryMessage?.(obj.channel as string, base64ToUint8Array(obj.data as string));
+        return;
+      }
+
+      if (obj.type === "channel" && obj.message) {
+        const msg = parseBridgeMessage(obj.message);
+        if (msg) onMessage(obj.channel as string, msg);
+      }
     };
 
     ws.onclose = () => {
@@ -85,4 +95,11 @@ function safeJsonParse(raw: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function base64ToUint8Array(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
