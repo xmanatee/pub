@@ -73,9 +73,16 @@ function validateDownloadedBinary(binaryPath: string, expectedVersion: string): 
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (error) {
-    throw new Error(
-      `Downloaded binary failed validation: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    const execError = error as { signal?: string; stderr?: string };
+    let detail = error instanceof Error ? error.message : String(error);
+    if (execError.signal === "SIGKILL") {
+      detail +=
+        "\nThe binary was killed by the OS (SIGKILL). On macOS Apple Silicon, this means the binary is not ad-hoc code-signed.";
+    }
+    if (execError.stderr?.trim()) {
+      detail += `\nstderr: ${execError.stderr.trim()}`;
+    }
+    throw new Error(`Downloaded binary failed validation: ${detail}`);
   }
 
   const reportedVersion = output.trim();

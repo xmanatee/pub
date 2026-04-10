@@ -144,10 +144,14 @@ main() {
   curl -fSL --progress-bar -o "$tmp_path" "$url"
   chmod +x "$tmp_path"
 
-  if ! reported_version="$(PUB_SKIP_UPDATE_CHECK=1 "$tmp_path" --version 2>/dev/null)"; then
-    echo "Downloaded binary failed validation; aborting install." >&2
+  reported_version="$(PUB_SKIP_UPDATE_CHECK=1 "$tmp_path" --version 2>&1)" || {
+    validation_exit=$?
+    echo "Downloaded binary failed validation (exit $validation_exit)." >&2
+    if [ "$validation_exit" -eq 137 ]; then
+      echo "Binary was killed by the OS (SIGKILL) — likely not code-signed for this platform." >&2
+    fi
     exit 1
-  fi
+  }
   reported_version="$(printf '%s' "$reported_version" | tr -d '\r' | tail -n 1)"
   if [ "$reported_version" != "$version" ]; then
     echo "Downloaded binary reported version ${reported_version:-<empty>}; expected ${version}. Aborting install." >&2
