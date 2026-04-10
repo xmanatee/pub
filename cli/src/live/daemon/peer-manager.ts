@@ -240,7 +240,7 @@ export function createPeerManager(params: {
         startLocalCandidateFlush(slug);
       };
 
-      let timer: ReturnType<typeof setTimeout>;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("recovery timeout")), RECOVERY_TIMEOUT_MS);
       });
@@ -248,7 +248,7 @@ export function createPeerManager(params: {
       try {
         await Promise.race([recoveryBody(), timeout]);
       } finally {
-        clearTimeout(timer!);
+        clearTimeout(timer);
       }
     } catch (error) {
       markError("failed to handle incoming live request", error);

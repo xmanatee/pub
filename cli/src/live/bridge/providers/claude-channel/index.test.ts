@@ -5,9 +5,9 @@ import { BRIDGE_MODES } from "../types.js";
 describe("BridgeMode registry completeness", () => {
   it("parseBridgeModeValue accepts all BridgeMode values", () => {
     const definition = getConfigVar("bridge.mode");
-    expect(definition).not.toBeNull();
+    if (!definition) throw new Error("bridge.mode config var not registered");
     for (const mode of BRIDGE_MODES) {
-      expect(coerceConfigVarInput(definition!, mode)).toBe(mode);
+      expect(coerceConfigVarInput(definition, mode)).toBe(mode);
     }
   });
 });

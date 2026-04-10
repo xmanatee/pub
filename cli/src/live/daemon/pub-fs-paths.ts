@@ -58,8 +58,11 @@ export function resolveExistingPubFsPath(rawPath: string, sessionRootDir: string
   if (resolved.scope === PUB_FS_HOST_PATH_SCOPE) {
     return resolved.path;
   }
+  if (!sessionRootDir) {
+    throw new Error("Session root directory required for session-scoped paths");
+  }
   const realPath = realpathSync(resolved.path);
-  assertPathWithinRoot(realPath, sessionRootDir!, "Resolved file path");
+  assertPathWithinRoot(realPath, sessionRootDir, "Resolved file path");
   return realPath;
 }
 
