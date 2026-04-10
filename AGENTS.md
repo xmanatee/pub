@@ -45,6 +45,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `_authenticated.tsx` — layout route guard (`beforeLoad: requireAuth`); all protected routes nest under this
   - `_guest.tsx` — layout route guard (`beforeLoad: requireGuest`); redirects authenticated users to `/pubs`
   - `_authenticated.pubs.tsx` — pubs list, sort, go-live FAB; onboarding guide for new users
+  - `_authenticated.app.tsx` — tunnel view; displays active tunnel sessions with iframe + WebSocket transport
   - `_authenticated.agents.tsx` — API key management, CLI install command
   - `_authenticated.settings.tsx` — linked accounts, live model, developer mode, telemetry, sign out, delete account
   - `explore.tsx` — public discovery feed; paginated list of public agent-built apps and experiences
@@ -54,7 +55,7 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
   - `link.tsx` — Telegram account linking flow
   - `auth.callback.tsx` — OAuth callback handler
   - `debug.*.tsx` — debug pages (dev only)
-- **Navigation**: `AppNav` component in header provides Pubs, Agents, Explore links and Settings icon for authenticated users. Auth guards are handled entirely by layout routes (`_authenticated`, `_guest`); no `AuthGuard` component exists.
+- **Navigation**: `AppNav` component in header provides Pubs, App, Agents, Explore links and Settings icon for authenticated users. Auth guards are handled entirely by layout routes (`_authenticated`, `_guest`); no `AuthGuard` component exists.
 - **Components**: Shadcn UI (`web/src/components/ui/`) built on Radix primitives; live session components in `web/src/features/live/components/`
 - **Icons**: `lucide-react` for UI icons; `@icons-pack/react-simple-icons` for brand icons (GitHub, Google, etc.)
 - **State**: Convex queries/mutations via `convex/react` hooks; `@convex-dev/react-query` bridges Convex with TanStack Router loaders
@@ -71,7 +72,8 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - **API Keys** (`apiKeys.ts`): generate/revoke keys (prefix `pub_`), SHA-256 hashed
 - **Account** (`account.ts`): `disconnectProvider` (with guard: at least 1 provider must remain), `deleteAccount` (cascading delete of all user data)
 - **Cascade deletion** (`user_data.ts`): `USER_OWNED_TABLES` lists tables with `userId` FK (cascade on account delete), `PUB_OWNED_TABLES` lists tables with `pubId` FK (cascade on pub delete). New tables with these FKs must be added to the respective registry — structural tests in `user_data.test.ts` enforce this
-- **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close); OG image at `/og/:slug`; content serving at `/serve/:slug` with view tracking
+- **HTTP routes** (`http/pub_routes/`): REST API at `/api/v1/pubs` with live sub-resource; agent routes at `/api/v1/agent/` (online, heartbeat, offline, live poll, signal, close, tunnel register/close); tunnel validation at `/api/v1/tunnel/validate` and `/api/v1/tunnel/validate-daemon`; OG image at `/og/:slug`; content serving at `/serve/:slug` with view tracking
+- **Tunnels** (`tunnels.ts`): relay tunnel token management — `registerTunnel` (creates 24-byte hex token per host), `closeTunnel`, `getTunnelByToken` (validates host is online), `getActiveTunnelsForUser`; one tunnel per host, replaced on re-register
 - **Analytics** (`analytics.ts`): view recording — increments `viewCount` and updates `lastViewedAt` on the pub document
 - **Rate Limiting** (`rateLimits.ts`): per-key and per-IP limits via `@convex-dev/rate-limiter`
 - **Auth** (`auth.ts`): GitHub + Google OAuth via `@convex-dev/auth`
@@ -107,6 +109,14 @@ The CLI (`cli/`) has its own package.json — build with `cd cli && pnpm build` 
 - OpenClaw state dir resolution: `OPENCLAW_STATE_DIR` → `OPENCLAW_HOME/.openclaw` (or `~/.openclaw`)
 - Bridge cwd resolution: `pub config --auto` only accepts OpenClaw when `OPENCLAW_WORKSPACE` is set, and runtime OpenClaw uses `OPENCLAW_WORKSPACE` or saved `bridge.cwd`
 - Base URL is hardcoded to `https://silent-guanaco-514.convex.site`; override with `PUB_BASE_URL` env var
+
+### Relay (`relay/`)
+- **Cloudflare Worker + Durable Object** — proxies HTTP and WebSocket traffic between browser and CLI daemon through a tunnel
+- **Routes**: `/daemon` (daemon WebSocket upgrade), `/ws/{token}` (browser WebSocket), `/t/{token}/...` (HTTP proxy), `/health`
+- **Auth**: validates daemon credentials and tunnel tokens against Convex backend (`/api/v1/tunnel/validate*`)
+- **Tunnel Object** (`tunnel-object.ts`): Durable Object per host — routes HTTP requests/responses, WebSocket frames, and channel messages between daemon and browser; supports streaming HTTP responses
+- **Shared protocol**: `shared/tunnel-protocol-core.ts` defines all message types; `DEFAULT_RELAY_URL` is the canonical relay endpoint constant
+- **Config**: `relay/wrangler.toml` + `.dev.vars.example` for `CONVEX_SITE_URL`
 
 ### Content Serving
 - **`/p/:slug`** — SPA route → unified pub page (content + live mode toggle), auth-aware
@@ -148,6 +158,7 @@ Biome handles linting and formatting:
 Client-side vars use `VITE_` prefix. See `.env.local.example` for the full list. Key ones:
 - `VITE_CONVEX_URL` — Convex cloud endpoint
 - `VITE_SANDBOX_ORIGIN` — sandbox iframe origin; required for canvas isolation + pub-fs (`/__sandbox__` for dev, `https://sandbox.pub.blue` for prod)
+- `VITE_RELAY_URL` — relay tunnel proxy (defaults to `DEFAULT_RELAY_URL` from `shared/tunnel-protocol-core`)
 - `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY` — observability
 - Auth secrets (`AUTH_GITHUB_*`, `AUTH_GOOGLE_*`) are set in the Convex dashboard, not in `.env`
 

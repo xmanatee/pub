@@ -2,6 +2,8 @@ import type { BridgeMessage } from "./bridge-protocol-core";
 import { parseBridgeMessage } from "./bridge-protocol-core";
 import { readRecord, readString } from "./protocol-runtime-core";
 
+export const DEFAULT_RELAY_URL = "https://pub-relay.mishaplots.workers.dev";
+
 export type HttpRequestMessage = {
   type: "http-request";
   id: string;

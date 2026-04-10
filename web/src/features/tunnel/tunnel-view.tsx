@@ -1,9 +1,10 @@
 import { api } from "@backend/_generated/api";
+import { DEFAULT_RELAY_URL } from "@shared/tunnel-protocol-core";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { useTunnelTransport } from "~/features/live/hooks/use-tunnel-transport";
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "https://pub-relay.mishaplots.workers.dev";
+const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? DEFAULT_RELAY_URL;
 
 interface TunnelInfo {
   token: string;

@@ -1,4 +1,9 @@
-import { type BridgeMessage, parseBridgeMessage } from "@shared/bridge-protocol-core";
+import type { BridgeMessage } from "@shared/bridge-protocol-core";
+import {
+  type DaemonToRelayMessage,
+  encodeTunnelMessage,
+  parseDaemonToRelayMessage,
+} from "@shared/tunnel-protocol-core";
 
 export type TunnelChannelHandler = (channel: string, message: BridgeMessage) => void;
 export type TunnelBinaryHandler = (channel: string, data: Uint8Array) => void;
@@ -23,6 +28,17 @@ export function createBrowserTunnelClient(
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+  function handleDaemonMessage(msg: DaemonToRelayMessage): void {
+    switch (msg.type) {
+      case "channel":
+        onMessage(msg.channel, msg.message);
+        break;
+      case "channel-binary":
+        onBinaryMessage?.(msg.channel, base64ToUint8Array(msg.data));
+        break;
+    }
+  }
+
   function connect(): void {
     if (stopped) return;
 
@@ -35,18 +51,8 @@ export function createBrowserTunnelClient(
 
     ws.onmessage = (event) => {
       if (typeof event.data !== "string") return;
-      const obj = safeJsonParse(event.data);
-      if (!obj || typeof obj.channel !== "string") return;
-
-      if (obj.type === "channel-binary" && typeof obj.data === "string") {
-        onBinaryMessage?.(obj.channel as string, base64ToUint8Array(obj.data as string));
-        return;
-      }
-
-      if (obj.type === "channel" && obj.message) {
-        const msg = parseBridgeMessage(obj.message);
-        if (msg) onMessage(obj.channel as string, msg);
-      }
+      const msg = parseDaemonToRelayMessage(event.data);
+      if (msg) handleDaemonMessage(msg);
     };
 
     ws.onclose = () => {
@@ -54,7 +60,9 @@ export function createBrowserTunnelClient(
       scheduleReconnect();
     };
 
-    ws.onerror = () => {};
+    ws.onerror = () => {
+      onConnectedChange?.(false);
+    };
   }
 
   function scheduleReconnect(): void {
@@ -73,7 +81,7 @@ export function createBrowserTunnelClient(
 
     sendChannel(channel: string, message: BridgeMessage): void {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ type: "channel", channel, message }));
+      ws.send(encodeTunnelMessage({ type: "channel", channel, message }));
     },
 
     close(): void {
@@ -86,15 +94,6 @@ export function createBrowserTunnelClient(
       }
     },
   };
-}
-
-function safeJsonParse(raw: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null ? parsed : null;
-  } catch {
-    return null;
-  }
 }
 
 function base64ToUint8Array(b64: string): Uint8Array {
