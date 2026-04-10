@@ -3,6 +3,7 @@ import type {
   HttpResponseChunkMessage,
   HttpResponseMessage,
   HttpResponseStartMessage,
+  WsOpenMessage,
 } from "@shared/tunnel-protocol-core";
 import { encodeTunnelMessage, parseDaemonToRelayMessage } from "@shared/tunnel-protocol-core";
 
@@ -30,12 +31,21 @@ export class TunnelObject implements DurableObject {
     return this.state.getWebSockets("browser")[0] ?? null;
   }
 
+  private getProxyWsSockets(): WebSocket[] {
+    return this.state.getWebSockets("proxy-ws");
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/daemon") return this.handleDaemonUpgrade(request);
     if (url.pathname.startsWith("/ws/")) return this.handleBrowserWsUpgrade(request);
-    if (url.pathname.startsWith("/t/")) return this.handleHttpProxy(request, url);
+    if (url.pathname.startsWith("/t/")) {
+      if (request.headers.get("Upgrade") === "websocket") {
+        return this.handleProxyWsUpgrade(request, url);
+      }
+      return this.handleHttpProxy(request, url);
+    }
 
     return new Response("Not Found", { status: 404 });
   }
@@ -61,6 +71,31 @@ export class TunnelObject implements DurableObject {
     }
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1], ["browser"]);
+    return new Response(null, { status: 101, webSocket: pair[0] });
+  }
+
+  private handleProxyWsUpgrade(request: Request, url: URL): Response {
+    const daemonWs = this.getDaemonWs();
+    if (!daemonWs) {
+      return new Response("Tunnel not connected", { status: 502 });
+    }
+
+    const pathParts = url.pathname.split("/");
+    const proxyPath = `/${pathParts.slice(3).join("/")}`;
+    const id = crypto.randomUUID().slice(0, 8);
+
+    const headers: Record<string, string> = {};
+    for (const [k, v] of request.headers.entries()) {
+      const lower = k.toLowerCase();
+      if (lower === "host" || lower === "connection" || lower === "upgrade") continue;
+      headers[k] = v;
+    }
+
+    const msg: WsOpenMessage = { type: "ws-open", id, path: proxyPath, headers };
+    daemonWs.send(encodeTunnelMessage(msg));
+
+    const pair = new WebSocketPair();
+    this.state.acceptWebSocket(pair[1], [`proxy-ws`, `proxy-ws:${id}`]);
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -116,8 +151,15 @@ export class TunnelObject implements DurableObject {
 
     if (role === "daemon") {
       this.handleDaemonMessage(message);
-    } else {
+    } else if (role === "browser") {
       this.getDaemonWs()?.send(message);
+    } else if (role === "proxy-ws") {
+      const id = this.getProxyWsId(ws);
+      if (id) {
+        this.getDaemonWs()?.send(
+          encodeTunnelMessage({ type: "ws-data", id, data: message, binary: false }),
+        );
+      }
     }
   }
 
@@ -125,6 +167,14 @@ export class TunnelObject implements DurableObject {
     const role = this.getWsRole(ws);
     if (role === "daemon") {
       this.failAllPendingRequests("Tunnel disconnected");
+      for (const proxyWs of this.getProxyWsSockets()) {
+        proxyWs.close(1001, "Tunnel disconnected");
+      }
+    } else if (role === "proxy-ws") {
+      const id = this.getProxyWsId(ws);
+      if (id) {
+        this.getDaemonWs()?.send(encodeTunnelMessage({ type: "ws-close", id }));
+      }
     }
   }
 
@@ -146,15 +196,32 @@ export class TunnelObject implements DurableObject {
       case "http-response-chunk":
         this.handleStreamingChunk(msg);
         break;
+      case "ws-data":
+        this.forwardWsData(msg.id, msg.data);
+        break;
+      case "ws-close":
+        this.closeProxyWs(msg.id, msg.code, msg.reason);
+        break;
       case "channel":
       case "channel-binary":
-      case "ws-data":
-      case "ws-close":
         this.getBrowserWs()?.send(raw);
         break;
       case "pong":
         break;
     }
+  }
+
+  private forwardWsData(id: string, data: string): void {
+    this.findProxyWsById(id)?.send(data);
+  }
+
+  private closeProxyWs(id: string, code?: number, reason?: string): void {
+    this.findProxyWsById(id)?.close(code ?? 1000, reason);
+  }
+
+  private findProxyWsById(id: string): WebSocket | null {
+    const sockets = this.state.getWebSockets(`proxy-ws:${id}`);
+    return sockets[0] ?? null;
   }
 
   private resolveHttpResponse(msg: HttpResponseMessage): void {
@@ -209,10 +276,19 @@ export class TunnelObject implements DurableObject {
     this.pendingRequests.clear();
   }
 
-  private getWsRole(ws: WebSocket): "daemon" | "browser" | null {
+  private getWsRole(ws: WebSocket): "daemon" | "browser" | "proxy-ws" | null {
     const tags = this.state.getTags(ws);
     if (tags.includes("daemon")) return "daemon";
     if (tags.includes("browser")) return "browser";
+    if (tags.includes("proxy-ws")) return "proxy-ws";
+    return null;
+  }
+
+  private getProxyWsId(ws: WebSocket): string | null {
+    const tags = this.state.getTags(ws);
+    for (const tag of tags) {
+      if (tag.startsWith("proxy-ws:")) return tag.slice(9);
+    }
     return null;
   }
 }

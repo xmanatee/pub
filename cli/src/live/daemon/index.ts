@@ -348,7 +348,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const relayUrl = config.tunnelConfig?.relayUrl ?? DEFAULT_RELAY_URL;
       lifecycle.debugLog(`tunnel active: ${relayUrl}/t/${token}/`);
 
-      const httpProxy = createHttpProxy(devPort);
+      const httpProxy = createHttpProxy(devPort, `/t/${token}/`);
       wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg));
 
       function getOrCreateTunnelChannel(name: string): TunnelDataChannel {

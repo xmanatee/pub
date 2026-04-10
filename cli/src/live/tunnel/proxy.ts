@@ -10,7 +10,20 @@ export interface HttpProxy {
   handle(msg: HttpRequestMessage, send: (msg: DaemonToRelayMessage) => void): Promise<void>;
 }
 
-export function createHttpProxy(port: number): HttpProxy {
+function injectBaseTag(html: string, basePath: string): string {
+  const tag = `<base href="${basePath}">`;
+  const headIndex = html.indexOf("<head>");
+  if (headIndex !== -1) {
+    return html.slice(0, headIndex + 6) + tag + html.slice(headIndex + 6);
+  }
+  return tag + html;
+}
+
+function parseContentType(headers: Headers): string {
+  return (headers.get("content-type") ?? "").split(";")[0].trim();
+}
+
+export function createHttpProxy(port: number, basePath?: string): HttpProxy {
   return {
     async handle(msg, send) {
       const url = `http://localhost:${port}${msg.path}`;
@@ -48,10 +61,9 @@ export function createHttpProxy(port: number): HttpProxy {
         responseHeaders[k] = v;
       }
 
-      const contentType = response.headers.get("content-type") ?? "";
+      const mimeType = parseContentType(response.headers);
       const shouldStream =
-        STREAMING_CONTENT_TYPES.has(contentType.split(";")[0].trim()) ||
-        response.headers.has("transfer-encoding");
+        STREAMING_CONTENT_TYPES.has(mimeType) || response.headers.has("transfer-encoding");
 
       if (shouldStream && response.body) {
         send({
@@ -77,7 +89,12 @@ export function createHttpProxy(port: number): HttpProxy {
         return;
       }
 
-      const responseBody = new Uint8Array(await response.arrayBuffer());
+      let responseBody = new Uint8Array(await response.arrayBuffer());
+      if (basePath && mimeType === "text/html" && responseBody.byteLength > 0) {
+        const html = new TextDecoder().decode(responseBody);
+        responseBody = new TextEncoder().encode(injectBaseTag(html, basePath));
+        delete responseHeaders["content-length"];
+      }
       send({
         type: "http-response",
         id: msg.id,
