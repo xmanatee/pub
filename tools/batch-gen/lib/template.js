@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync } from "node:fs";
 
 export function buildPrompt(templatePath, placeholder, contentPath) {
   const template = readFileSync(templatePath, "utf-8");

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { createServer } from "http";
-import { resolve } from "path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const pubDir = process.argv[2];

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
 import { killActiveChild } from "./lib/claude.js";
 import { elapsed, log, warn } from "./lib/log.js";
 import { processIdea, runIdeation, scanForIdeas, showStatus } from "./lib/pipeline.js";

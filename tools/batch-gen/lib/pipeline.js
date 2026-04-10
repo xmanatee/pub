@@ -1,7 +1,7 @@
-import { spawn, spawnSync } from "child_process";
-import { createHash } from "crypto";
-import { existsSync, readdirSync, readFileSync } from "fs";
-import { join } from "path";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import pc from "picocolors";
 import { runClaude } from "./claude.js";
 import {

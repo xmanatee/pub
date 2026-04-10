@@ -1,5 +1,5 @@
-import { spawn } from "child_process";
-import { createWriteStream } from "fs";
+import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
 
 let activeChild = null;
 

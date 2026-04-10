@@ -323,7 +323,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     const { startDevServer } = await import("../server/manager.js");
 
     const devCwd = config.tunnelConfig?.devCwd;
-    lifecycle.debugLog(`starting dev server: ${devCommand} (port ${devPort}${devCwd ? ` cwd=${devCwd}` : ""})`);
+    lifecycle.debugLog(
+      `starting dev server: ${devCommand} (port ${devPort}${devCwd ? ` cwd=${devCwd}` : ""})`,
+    );
     devServer = startDevServer({ devCommand, devCwd, devPort });
 
     try {

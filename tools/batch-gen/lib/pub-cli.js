@@ -1,5 +1,5 @@
-import { spawnSync } from "child_process";
-import { readFileSync } from "fs";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fail as logFail, ok } from "./log.js";
 
 function run(args) {
