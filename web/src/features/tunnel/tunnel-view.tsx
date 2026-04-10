@@ -2,7 +2,10 @@ import { api } from "@backend/_generated/api";
 import { DEFAULT_RELAY_URL } from "@shared/tunnel-protocol-core";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
-import { useTunnelTransport } from "~/features/live/hooks/use-tunnel-transport";
+import { ChatPanel } from "~/features/live-chat/components/chat-panel";
+import { ControlBar } from "~/features/live-control-bar/components/control-bar";
+import { LiveSessionProvider } from "~/features/pub/contexts/live-session-context";
+import { useTunnelLiveModel } from "./hooks/use-tunnel-live-model";
 
 const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? DEFAULT_RELAY_URL;
 
@@ -31,7 +34,7 @@ export function TunnelView() {
           onSelect={setSelectedIndex}
         />
       ) : null}
-      <TunnelFrame tunnel={tunnel} />
+      <TunnelSession tunnel={tunnel} />
     </div>
   );
 }
@@ -76,14 +79,31 @@ function TunnelSelector({
   );
 }
 
-function TunnelFrame({ tunnel }: { tunnel: TunnelInfo }) {
-  const iframeSrc = `${RELAY_URL}/t/${tunnel.token}/`;
+function TunnelSession({ tunnel }: { tunnel: TunnelInfo }) {
   const tunnelWsUrl = useMemo(
     () => `${RELAY_URL.replace(/^http/, "ws")}/ws/${tunnel.token}`,
     [tunnel.token],
   );
+  const model = useTunnelLiveModel(tunnelWsUrl, tunnel.agentName);
 
-  const transport = useTunnelTransport(tunnelWsUrl);
+  return (
+    <LiveSessionProvider value={model}>
+      <div className="flex-1 min-h-0 flex flex-col relative">
+        {model.viewMode === "chat" ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ChatPanel />
+          </div>
+        ) : (
+          <TunnelFrame token={tunnel.token} />
+        )}
+        <ControlBar />
+      </div>
+    </LiveSessionProvider>
+  );
+}
+
+function TunnelFrame({ token }: { token: string }) {
+  const iframeSrc = `${RELAY_URL}/t/${token}/`;
 
   return (
     <div className="flex-1 min-h-0 relative">
@@ -93,11 +113,6 @@ function TunnelFrame({ tunnel }: { tunnel: TunnelInfo }) {
         allow="camera; microphone; display-capture; geolocation; fullscreen"
         title="Tunnel App"
       />
-      {transport.connected ? (
-        <div className="absolute bottom-4 right-4 px-2 py-1 rounded bg-green-500/20 text-green-600 text-xs">
-          Connected
-        </div>
-      ) : null}
     </div>
   );
 }
