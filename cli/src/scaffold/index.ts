@@ -14,6 +14,7 @@ export function resolveDefaultTunnelConfig(workspaceRoot: string): {
   return {
     tunnelConfig: {
       devCommand: "npx vite",
+      devCwd: scaffoldDir,
       devPort: DEFAULT_DEV_PORT,
       relayUrl: DEFAULT_RELAY_URL,
     },

@@ -7,6 +7,7 @@ import {
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
+const KEEPALIVE_INTERVAL_MS = 30_000;
 
 export interface TunnelConnection {
   send(msg: DaemonToRelayMessage): void;
@@ -32,6 +33,23 @@ export function connectTunnel(options: TunnelClientOptions): TunnelConnection {
   let stopped = false;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+
+  function clearKeepalive(): void {
+    if (keepaliveTimer) {
+      clearInterval(keepaliveTimer);
+      keepaliveTimer = null;
+    }
+  }
+
+  function startKeepalive(): void {
+    clearKeepalive();
+    keepaliveTimer = setInterval(() => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(encodeTunnelMessage({ type: "pong" }));
+      }
+    }, KEEPALIVE_INTERVAL_MS);
+  }
 
   function connect(): void {
     if (stopped) return;
@@ -44,6 +62,7 @@ export function connectTunnel(options: TunnelClientOptions): TunnelConnection {
 
     ws.onopen = () => {
       reconnectAttempt = 0;
+      startKeepalive();
       debugLog?.("connected");
       onConnected?.();
     };
@@ -71,6 +90,7 @@ export function connectTunnel(options: TunnelClientOptions): TunnelConnection {
     };
 
     ws.onclose = () => {
+      clearKeepalive();
       onDisconnected?.();
       scheduleReconnect();
     };
@@ -102,6 +122,7 @@ export function connectTunnel(options: TunnelClientOptions): TunnelConnection {
 
     async close(): Promise<void> {
       stopped = true;
+      clearKeepalive();
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) {
         ws.onopen = null;

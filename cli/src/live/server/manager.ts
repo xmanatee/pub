@@ -6,6 +6,7 @@ const PORT_READY_TIMEOUT_MS = 60_000;
 
 export interface DevServerConfig {
   devCommand: string;
+  devCwd?: string;
   devPort: number;
 }
 
@@ -21,6 +22,7 @@ export function startDevServer(config: DevServerConfig, logPath?: string): DevSe
   const logStream = logPath ? fs.createWriteStream(logPath, { flags: "a" }) : null;
 
   const child = spawn(cmd, args, {
+    cwd: config.devCwd,
     stdio: ["ignore", logStream ? "pipe" : "inherit", logStream ? "pipe" : "inherit"],
     shell: true,
     env: { ...process.env, PORT: String(config.devPort) },

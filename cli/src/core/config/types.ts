@@ -50,6 +50,7 @@ export type PubTelegramConfig = {
 
 export type PubTunnelConfig = {
   devCommand?: string;
+  devCwd?: string;
   devPort?: number;
   relayUrl?: string;
 };
