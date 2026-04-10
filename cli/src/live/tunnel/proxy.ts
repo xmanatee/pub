@@ -10,13 +10,10 @@ export interface HttpProxy {
   handle(msg: HttpRequestMessage, send: (msg: DaemonToRelayMessage) => void): Promise<void>;
 }
 
-function injectBaseTag(html: string, basePath: string): string {
-  const tag = `<base href="${basePath}">`;
-  const headIndex = html.indexOf("<head>");
-  if (headIndex !== -1) {
-    return html.slice(0, headIndex + 6) + tag + html.slice(headIndex + 6);
-  }
-  return tag + html;
+function rewriteRootPaths(html: string, basePath: string): string {
+  return html
+    .replace(/="\/(?!\/)/g, `="${basePath}`)
+    .replace(/from "\/(?!\/)/g, `from "${basePath}`);
 }
 
 function parseContentType(headers: Headers): string {
@@ -92,7 +89,7 @@ export function createHttpProxy(port: number, basePath?: string): HttpProxy {
       let responseBody = new Uint8Array(await response.arrayBuffer());
       if (basePath && mimeType === "text/html" && responseBody.byteLength > 0) {
         const html = new TextDecoder().decode(responseBody);
-        responseBody = new TextEncoder().encode(injectBaseTag(html, basePath));
+        responseBody = new TextEncoder().encode(rewriteRootPaths(html, basePath));
         delete responseHeaders["content-length"];
       }
       send({
