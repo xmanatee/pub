@@ -53,7 +53,7 @@ export function registerStartCommand(program: Command): void {
       const telemetry = resolved.valuesByKey.telemetry;
 
       let tunnelConfig: PubTunnelConfig | undefined = resolved.rawConfig.tunnel;
-      if (tunnelConfig && !tunnelConfig.devCommand) {
+      if (!tunnelConfig?.devCommand) {
         const paths = resolvePubPaths(context.env);
         const { tunnelConfig: autoConfig, scaffoldDir } = resolveDefaultTunnelConfig(
           paths.workspaceRoot,
