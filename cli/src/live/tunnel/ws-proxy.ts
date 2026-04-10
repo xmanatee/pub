@@ -13,7 +13,11 @@ export interface WsProxy {
   closeAll(): void;
 }
 
-export function createWsProxy(port: number, send: (msg: DaemonToRelayMessage) => void): WsProxy {
+export function createWsProxy(
+  port: number,
+  send: (msg: DaemonToRelayMessage) => void,
+  basePath?: string,
+): WsProxy {
   const connections = new Map<string, WebSocket>();
 
   return {
@@ -24,7 +28,8 @@ export function createWsProxy(port: number, send: (msg: DaemonToRelayMessage) =>
         connections.delete(msg.id);
       }
 
-      const url = `ws://localhost:${port}${msg.path}`;
+      const proxyPath = basePath ? `${basePath}${msg.path.slice(1)}` : msg.path;
+      const url = `ws://localhost:${port}${proxyPath}`;
       const ws = new WebSocket(url);
 
       ws.onopen = () => {

@@ -8,6 +8,7 @@ export interface DevServerConfig {
   devCommand: string;
   devCwd?: string;
   devPort: number;
+  tunnelBase?: string;
 }
 
 export interface DevServer {
@@ -25,7 +26,11 @@ export function startDevServer(config: DevServerConfig, logPath?: string): DevSe
     cwd: config.devCwd,
     stdio: ["ignore", logStream ? "pipe" : "inherit", logStream ? "pipe" : "inherit"],
     shell: true,
-    env: { ...process.env, PORT: String(config.devPort) },
+    env: {
+      ...process.env,
+      PORT: String(config.devPort),
+      ...(config.tunnelBase ? { TUNNEL_BASE: config.tunnelBase } : {}),
+    },
   });
 
   if (logStream) {

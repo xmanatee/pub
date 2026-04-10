@@ -10,20 +10,11 @@ export interface HttpProxy {
   handle(msg: HttpRequestMessage, send: (msg: DaemonToRelayMessage) => void): Promise<void>;
 }
 
-function rewriteRootPaths(html: string, basePath: string): string {
-  return html
-    .replace(/="\/(?!\/)/g, `="${basePath}`)
-    .replace(/from "\/(?!\/)/g, `from "${basePath}`);
-}
-
-function parseContentType(headers: Headers): string {
-  return (headers.get("content-type") ?? "").split(";")[0].trim();
-}
-
 export function createHttpProxy(port: number, basePath?: string): HttpProxy {
   return {
     async handle(msg, send) {
-      const url = `http://localhost:${port}${msg.path}`;
+      const proxyPath = basePath ? `${basePath}${msg.path.slice(1)}` : msg.path;
+      const url = `http://localhost:${port}${proxyPath}`;
 
       const headers = new Headers(msg.headers);
       headers.delete("host");
@@ -58,9 +49,9 @@ export function createHttpProxy(port: number, basePath?: string): HttpProxy {
         responseHeaders[k] = v;
       }
 
-      const mimeType = parseContentType(response.headers);
+      const contentType = (response.headers.get("content-type") ?? "").split(";")[0].trim();
       const shouldStream =
-        STREAMING_CONTENT_TYPES.has(mimeType) || response.headers.has("transfer-encoding");
+        STREAMING_CONTENT_TYPES.has(contentType) || response.headers.has("transfer-encoding");
 
       if (shouldStream && response.body) {
         send({
@@ -86,12 +77,7 @@ export function createHttpProxy(port: number, basePath?: string): HttpProxy {
         return;
       }
 
-      let responseBody = new Uint8Array(await response.arrayBuffer());
-      if (basePath && mimeType === "text/html" && responseBody.byteLength > 0) {
-        const html = new TextDecoder().decode(responseBody);
-        responseBody = new TextEncoder().encode(rewriteRootPaths(html, basePath));
-        delete responseHeaders["content-length"];
-      }
+      const responseBody = new Uint8Array(await response.arrayBuffer());
       send({
         type: "http-response",
         id: msg.id,

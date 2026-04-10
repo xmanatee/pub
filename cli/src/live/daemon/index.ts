@@ -321,12 +321,22 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   if (devCommand && devPort) {
     const { startDevServer } = await import("../server/manager.js");
+    const { connectTunnel } = await import("../tunnel/client.js");
+    const { createHttpProxy } = await import("../tunnel/proxy.js");
+    const { createWsProxy } = await import("../tunnel/ws-proxy.js");
+    const { TunnelDataChannel: TDC } = await import("../tunnel/channel-adapter.js");
+
+    const { token } = await apiClient.registerTunnel({ daemonSessionId });
+    const { DEFAULT_RELAY_URL } = await import("../../core/config/types.js");
+    const relayUrl = config.tunnelConfig?.relayUrl ?? DEFAULT_RELAY_URL;
+    const tunnelBase = `/t/${token}/`;
+    lifecycle.debugLog(`tunnel registered: ${relayUrl}${tunnelBase}`);
 
     const devCwd = config.tunnelConfig?.devCwd;
     lifecycle.debugLog(
       `starting dev server: ${devCommand} (port ${devPort}${devCwd ? ` cwd=${devCwd}` : ""})`,
     );
-    devServer = startDevServer({ devCommand, devCwd, devPort });
+    devServer = startDevServer({ devCommand, devCwd, devPort, tunnelBase });
 
     try {
       await devServer.ready;
@@ -338,18 +348,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     }
 
     if (devServer) {
-      const { connectTunnel } = await import("../tunnel/client.js");
-      const { createHttpProxy } = await import("../tunnel/proxy.js");
-      const { createWsProxy } = await import("../tunnel/ws-proxy.js");
-      const { TunnelDataChannel: TDC } = await import("../tunnel/channel-adapter.js");
-
-      const { token } = await apiClient.registerTunnel({ daemonSessionId });
-      const { DEFAULT_RELAY_URL } = await import("../../core/config/types.js");
-      const relayUrl = config.tunnelConfig?.relayUrl ?? DEFAULT_RELAY_URL;
-      lifecycle.debugLog(`tunnel active: ${relayUrl}/t/${token}/`);
-
-      const httpProxy = createHttpProxy(devPort, `/t/${token}/`);
-      wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg));
+      const httpProxy = createHttpProxy(devPort, tunnelBase);
+      wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg), tunnelBase);
 
       function getOrCreateTunnelChannel(name: string): TunnelDataChannel {
         let tc = tunnelChannels.get(name);
