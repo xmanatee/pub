@@ -16,12 +16,18 @@ interface PendingRequest {
 
 export class TunnelObject implements DurableObject {
   private state: DurableObjectState;
-  private daemonWs: WebSocket | null = null;
-  private browserWs: WebSocket | null = null;
   private pendingRequests = new Map<string, PendingRequest>();
 
   constructor(state: DurableObjectState, _env: unknown) {
     this.state = state;
+  }
+
+  private getDaemonWs(): WebSocket | null {
+    return this.state.getWebSockets("daemon")[0] ?? null;
+  }
+
+  private getBrowserWs(): WebSocket | null {
+    return this.state.getWebSockets("browser")[0] ?? null;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -38,9 +44,11 @@ export class TunnelObject implements DurableObject {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
+    for (const existing of this.state.getWebSockets("daemon")) {
+      existing.close(1000, "Replaced by new daemon connection");
+    }
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1], ["daemon"]);
-    this.daemonWs = pair[1];
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -48,7 +56,7 @@ export class TunnelObject implements DurableObject {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
-    if (!this.daemonWs) {
+    if (!this.getDaemonWs()) {
       return new Response("Tunnel not connected", { status: 502 });
     }
     const pair = new WebSocketPair();
@@ -57,7 +65,8 @@ export class TunnelObject implements DurableObject {
   }
 
   private async handleHttpProxy(request: Request, url: URL): Promise<Response> {
-    if (!this.daemonWs) {
+    const daemonWs = this.getDaemonWs();
+    if (!daemonWs) {
       return new Response("Tunnel not connected", { status: 502 });
     }
 
@@ -88,7 +97,7 @@ export class TunnelObject implements DurableObject {
       headers,
       body,
     };
-    this.daemonWs.send(encodeTunnelMessage(msg));
+    daemonWs.send(encodeTunnelMessage(msg));
 
     return new Promise<Response>((resolve) => {
       const timer = setTimeout(() => {
@@ -108,24 +117,14 @@ export class TunnelObject implements DurableObject {
     if (role === "daemon") {
       this.handleDaemonMessage(message);
     } else {
-      this.daemonWs?.send(message);
-    }
-  }
-
-  async webSocketOpen(ws: WebSocket): Promise<void> {
-    const role = this.getWsRole(ws);
-    if (role === "browser") {
-      this.browserWs = ws;
+      this.getDaemonWs()?.send(message);
     }
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
     const role = this.getWsRole(ws);
     if (role === "daemon") {
-      this.daemonWs = null;
       this.failAllPendingRequests("Tunnel disconnected");
-    } else if (role === "browser" && this.browserWs === ws) {
-      this.browserWs = null;
     }
   }
 
@@ -151,7 +150,7 @@ export class TunnelObject implements DurableObject {
       case "channel-binary":
       case "ws-data":
       case "ws-close":
-        this.browserWs?.send(raw);
+        this.getBrowserWs()?.send(raw);
         break;
       case "pong":
         break;
