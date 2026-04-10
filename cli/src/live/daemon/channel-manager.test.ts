@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
+import { CHANNELS } from "../../../../shared/bridge-protocol-core";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonState } from "./state.js";
 

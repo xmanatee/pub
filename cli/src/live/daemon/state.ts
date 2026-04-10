@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
-import { IDLE_LIVE_RUNTIME_STATE } from "../../../../shared/live-runtime-state-core";
+import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type {
   LiveAgentActivity,
   LiveAgentState,
@@ -7,7 +7,7 @@ import type {
   LiveExecutorState,
   LiveRuntimeStateSnapshot,
 } from "../../../../shared/live-runtime-state-core";
-import type { LiveModelProfile } from "../../../../shared/live-model-profile";
+import { IDLE_LIVE_RUNTIME_STATE } from "../../../../shared/live-runtime-state-core";
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterPeerConnection, DataChannelLike } from "../transport/webrtc-adapter.js";
 
@@ -111,10 +111,7 @@ export function setDaemonAgentState(state: DaemonState, agentState: LiveAgentSta
   state.runtimeState = { ...state.runtimeState, agentState };
 }
 
-export function setDaemonAgentActivity(
-  state: DaemonState,
-  agentActivity: LiveAgentActivity,
-): void {
+export function setDaemonAgentActivity(state: DaemonState, agentActivity: LiveAgentActivity): void {
   state.runtimeState = { ...state.runtimeState, agentActivity };
 }
 

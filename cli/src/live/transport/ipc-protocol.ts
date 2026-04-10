@@ -28,20 +28,22 @@ type IpcSuccessResponse<T extends object = Record<string, never>> = {
   ok: true;
 } & T;
 
-type StatusResponse = IpcSuccessResponse<{
-  agentActivity: LiveAgentActivity;
-  agentState: LiveAgentState;
-  connectionState: LiveConnectionState;
-  executorState: LiveExecutorState;
-  signalingConnected: boolean | null;
-  activeSlug: string | null;
-  uptime: number;
-  channels: string[];
-  lastError: string | null;
-  bridgeMode: string | null;
-  bridge: BridgeStatus | null;
-  logPath: string | null;
-}> | IpcErrorResponse;
+type StatusResponse =
+  | IpcSuccessResponse<{
+      agentActivity: LiveAgentActivity;
+      agentState: LiveAgentState;
+      connectionState: LiveConnectionState;
+      executorState: LiveExecutorState;
+      signalingConnected: boolean | null;
+      activeSlug: string | null;
+      uptime: number;
+      channels: string[];
+      lastError: string | null;
+      bridgeMode: string | null;
+      bridge: BridgeStatus | null;
+      logPath: string | null;
+    }>
+  | IpcErrorResponse;
 
 export type WriteRequest = {
   method: "write";
@@ -59,13 +61,17 @@ export type WriteFilesRequest = {
   };
 };
 
-type WriteResponse = IpcSuccessResponse<{
-  delivered?: boolean;
-}> | IpcErrorResponse;
+type WriteResponse =
+  | IpcSuccessResponse<{
+      delivered?: boolean;
+    }>
+  | IpcErrorResponse;
 
-type WriteFilesResponse = IpcSuccessResponse<{
-  fileCount: number;
-}> | IpcErrorResponse;
+type WriteFilesResponse =
+  | IpcSuccessResponse<{
+      fileCount: number;
+    }>
+  | IpcErrorResponse;
 
 export type StatusRequest = {
   method: "status";
@@ -77,9 +83,11 @@ export type ActiveSlugRequest = {
   params: Record<string, never>;
 };
 
-type ActiveSlugResponse = IpcSuccessResponse<{
-  slug: string | null;
-}> | IpcErrorResponse;
+type ActiveSlugResponse =
+  | IpcSuccessResponse<{
+      slug: string | null;
+    }>
+  | IpcErrorResponse;
 
 export type CloseRequest = {
   method: "close";
@@ -203,13 +211,10 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const executorState = readString(record.executorState) ?? null;
     const signalingConnected =
       record.signalingConnected === null ? null : readBoolean(record.signalingConnected);
-    const activeSlug =
-      record.activeSlug === null ? null : readString(record.activeSlug);
+    const activeSlug = record.activeSlug === null ? null : readString(record.activeSlug);
     const uptime = readFiniteNumber(record.uptime);
-    const lastError =
-      record.lastError === null ? null : readString(record.lastError);
-    const bridgeMode =
-      record.bridgeMode === null ? null : readString(record.bridgeMode);
+    const lastError = record.lastError === null ? null : readString(record.lastError);
+    const bridgeMode = record.bridgeMode === null ? null : readString(record.bridgeMode);
     if (
       !isLiveAgentActivity(agentActivity) ||
       !isLiveAgentState(agentState) ||

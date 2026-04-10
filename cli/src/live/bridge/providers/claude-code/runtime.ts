@@ -15,7 +15,11 @@ export function runClaudeCodePreflight(
   const env = { ...envInput };
   delete env.CLAUDECODE;
   return new Promise((resolve, reject) => {
-    const child = spawn(claudePath, ["--version"], { timeout: 10_000, stdio: ["ignore", "ignore", "pipe"], env });
+    const child = spawn(claudePath, ["--version"], {
+      timeout: 10_000,
+      stdio: ["ignore", "ignore", "pipe"],
+      env,
+    });
     let stderr = "";
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();

@@ -115,7 +115,9 @@ export function resolveMainAgentCommandProvider(params: {
   const activeMode = params.bridgeSettings.mode;
 
   if (activeMode === "openclaw-like") {
-    throw new Error("AGENT_MAIN_UNSUPPORTED: active bridge does not support main-session commands.");
+    throw new Error(
+      "AGENT_MAIN_UNSUPPORTED: active bridge does not support main-session commands.",
+    );
   }
 
   const activeProvider = activeMode as AgentCommandProvider;

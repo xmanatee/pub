@@ -4,7 +4,7 @@ import { type BridgeMessage, generateMessageId } from "../../../../shared/bridge
 import { failCli } from "../../core/errors/cli-error.js";
 import { readDirectory, validateFrozenFiles } from "../../core/files/index.js";
 import { getMimeType, TEXT_FILE_EXTENSIONS } from "../../live/runtime/file-payload.js";
-import { createCliCommandContext, type CliCommandContext } from "../shared/index.js";
+import { type CliCommandContext, createCliCommandContext } from "../shared/index.js";
 
 interface WriteCommandOptions {
   channel: string;

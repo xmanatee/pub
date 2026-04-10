@@ -1,15 +1,6 @@
-import {
-  getConfigVars,
-  readEnvOverride,
-  readPubConfigValue,
-} from "./registry.js";
+import { getConfigVars, readEnvOverride, readPubConfigValue } from "./registry.js";
 import { readPubConfig } from "./store.js";
-import type {
-  ApiClientSettings,
-  PubConfig,
-  ResolvedPubSettings,
-  ResolvedValue,
-} from "./types.js";
+import type { ApiClientSettings, PubConfig, ResolvedPubSettings, ResolvedValue } from "./types.js";
 
 function toResolvedValue(value: unknown, source: "config" | "default"): ResolvedValue<unknown> {
   return { value, source };

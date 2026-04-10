@@ -1,9 +1,5 @@
-export {
-  createCliCommandContext,
-} from "./context.js";
-export type {
-  CliCommandContext,
-} from "./context.js";
+export type { CliCommandContext } from "./context.js";
+export { createCliCommandContext } from "./context.js";
 export {
   readStdinText,
   readUtf8File,

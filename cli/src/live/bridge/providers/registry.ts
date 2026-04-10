@@ -213,10 +213,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
     ) {
       const result = await runClaudeChannelBridgeStartupProbe(env, bridgeConfig, options);
       return {
-        detailLines: [
-          `Channel relay socket: ${result.socketPath}`,
-          "Channel relay probe: OK",
-        ],
+        detailLines: [`Channel relay socket: ${result.socketPath}`, "Channel relay probe: OK"],
         configPatch: {
           mode: "claude-channel" as const,
           channelSocketPath: result.socketPath,

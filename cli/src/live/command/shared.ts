@@ -6,10 +6,10 @@ import type {
 } from "../../../../shared/command-protocol-core";
 import type { LiveExecutorState } from "../../../../shared/live-runtime-state-core";
 import {
+  type BridgeSettings,
   DEFAULT_COMMAND_MAX_CONCURRENT,
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
   DEFAULT_COMMAND_TIMEOUT_MS,
-  type BridgeSettings,
 } from "../../core/config/index.js";
 import type { BridgeRunner } from "../bridge/shared.js";
 
@@ -46,9 +46,7 @@ function readPositiveTimeoutMs(value: number | undefined): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-export function getCommandRuntimeConfig(
-  bridgeSettings: BridgeSettings,
-): CommandRuntimeConfig {
+export function getCommandRuntimeConfig(bridgeSettings: BridgeSettings): CommandRuntimeConfig {
   return {
     defaultTimeoutMs: bridgeSettings.commandDefaultTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
     maxOutputBytes: bridgeSettings.commandMaxOutputBytes ?? DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
@@ -80,5 +78,7 @@ export function resolveCommandTimeoutMs(params: {
   const specTimeoutMs = readPositiveTimeoutMs(params.spec.timeoutMs);
   const requestedTimeoutMs = readPositiveTimeoutMs(params.requestedTimeoutMs);
 
-  return requestedTimeoutMs ?? executorTimeoutMs ?? specTimeoutMs ?? params.runtime.defaultTimeoutMs;
+  return (
+    requestedTimeoutMs ?? executorTimeoutMs ?? specTimeoutMs ?? params.runtime.defaultTimeoutMs
+  );
 }

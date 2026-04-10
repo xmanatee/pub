@@ -15,10 +15,7 @@ import { buildDaemonSpawnStdio, waitForDaemonReady } from "../../live/runtime/da
 import { runStartPreflight } from "../../live/runtime/start-preflight.js";
 import { resolveDefaultTunnelConfig, scaffoldDefaultApp } from "../../scaffold/index.js";
 import { createCliCommandContext } from "../shared/index.js";
-import {
-  getLiveVerboseEnableCommand,
-  printDaemonStatus,
-} from "./support.js";
+import { getLiveVerboseEnableCommand, printDaemonStatus } from "./support.js";
 
 interface StartCommandOptions {
   agentName: string;

@@ -4,8 +4,8 @@ import { failCli } from "../errors/cli-error.js";
 import {
   EXCLUDED_DIRS,
   EXCLUDED_EXTENSIONS,
-  MAX_FILES_PER_PUB,
   MAX_FILE_SIZE,
+  MAX_FILES_PER_PUB,
   MAX_TOTAL_PUB_SIZE,
   SYSTEM_FILE_PREFIX,
 } from "./constants.js";
@@ -72,9 +72,7 @@ export function readDirectory(dirPath: string): Record<string, string> {
   }
 
   if (totalSize > MAX_TOTAL_PUB_SIZE) {
-    failCli(
-      `Total size exceeds max (${(MAX_TOTAL_PUB_SIZE / 1024 / 1024).toFixed(1)}MB).`,
-    );
+    failCli(`Total size exceeds max (${(MAX_TOTAL_PUB_SIZE / 1024 / 1024).toFixed(1)}MB).`);
   }
 
   return files;

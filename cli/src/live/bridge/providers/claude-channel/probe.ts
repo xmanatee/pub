@@ -1,4 +1,8 @@
-import type { BridgeSettings, ClaudeChannelBridgeSettings, PubBridgeConfig } from "../../../../core/config/index.js";
+import type {
+  BridgeSettings,
+  ClaudeChannelBridgeSettings,
+  PubBridgeConfig,
+} from "../../../../core/config/index.js";
 import { probeChannelSocket, resolveChannelSocketPath } from "./discovery.js";
 
 export async function runClaudeChannelBridgeStartupProbe(
@@ -8,8 +12,8 @@ export async function runClaudeChannelBridgeStartupProbe(
 ): Promise<{ socketPath: string }> {
   const socketPath =
     options?.strictConfig && bridgeConfig
-      ? (bridgeConfig as ClaudeChannelBridgeSettings).channelSocketPath ??
-        resolveChannelSocketPath(env, bridgeConfig)
+      ? ((bridgeConfig as ClaudeChannelBridgeSettings).channelSocketPath ??
+        resolveChannelSocketPath(env, bridgeConfig))
       : resolveChannelSocketPath(env, bridgeConfig);
 
   await probeChannelSocket(socketPath);

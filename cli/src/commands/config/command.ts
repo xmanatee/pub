@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { detectDevServerConfig } from "../../core/config/app-config.js";
 import type {
   PubBridgeConfig,
   PubConfig,
@@ -14,7 +15,6 @@ import {
   unsetPubConfigValue,
   writePubConfig,
 } from "../../core/config/index.js";
-import { detectDevServerConfig } from "../../core/config/app-config.js";
 import {
   autoDetectBridgeConfig,
   buildBridgeProcessEnv,

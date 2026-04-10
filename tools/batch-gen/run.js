@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
 import { Command } from "commander";
-import { loadState, saveState, idsInPhases } from "./lib/state.js";
-import { scanForIdeas, runIdeation, processIdea, showStatus } from "./lib/pipeline.js";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { killActiveChild } from "./lib/claude.js";
-import { elapsed, warn, log } from "./lib/log.js";
+import { elapsed, log, warn } from "./lib/log.js";
+import { processIdea, runIdeation, scanForIdeas, showStatus } from "./lib/pipeline.js";
+import { idsInPhases, loadState, saveState } from "./lib/state.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOCKFILE = join(__dirname, ".run.lock");

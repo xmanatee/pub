@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BRIDGE_MODES } from "../types.js";
 import { coerceConfigVarInput, getConfigVar } from "../../../../core/config/registry.js";
+import { BRIDGE_MODES } from "../types.js";
 
 describe("BridgeMode registry completeness", () => {
   it("parseBridgeModeValue accepts all BridgeMode values", () => {

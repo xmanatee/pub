@@ -19,8 +19,7 @@ function isPongWriteRequest(req: ProbeRequest): boolean {
 
 function generateProbeSocketPath(): string {
   const suffix = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  const socketDir =
-    process.platform !== "win32" && fs.existsSync("/tmp") ? "/tmp" : os.tmpdir();
+  const socketDir = process.platform !== "win32" && fs.existsSync("/tmp") ? "/tmp" : os.tmpdir();
   return path.join(socketDir, `pub-agent-probe-${suffix}.sock`);
 }
 

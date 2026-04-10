@@ -1,8 +1,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-  type RelayInbound,
   defaultChannelSocketPath,
+  type RelayInbound,
 } from "../live/bridge/providers/claude-channel/relay-protocol.js";
 import { createRelayServer } from "./relay.js";
 import { registerChannelTools } from "./tools.js";
@@ -41,8 +41,7 @@ export async function startChannelServer(opts: { socketPath?: string }): Promise
       if (msg.type === "briefing") {
         notify(server, msg.content, { slug: msg.slug, type: "briefing" });
       } else if (msg.type === "inbound") {
-        const content =
-          typeof msg.msg.data === "string" ? msg.msg.data : JSON.stringify(msg.msg);
+        const content = typeof msg.msg.data === "string" ? msg.msg.data : JSON.stringify(msg.msg);
         notify(server, content, { channel: msg.channel, messageId: msg.msg.id });
       }
     },

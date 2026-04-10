@@ -20,13 +20,13 @@
     "test:e2e": "env -u NO_COLOR pnpm --filter pub-web test:e2e",
     "test:e2e:fullstack": "docker compose -f tests/e2e/docker-compose.yml run --build --rm test-runner; docker compose -f tests/e2e/docker-compose.yml down -v",
 
-    "lint:root": "biome check convex docs shared skills tests scripts web *.json *.ts && tsc --noEmit && bash scripts/validate-shared.sh",
+    "lint:root": "biome check . && tsc --noEmit && bash scripts/validate-shared.sh",
     "lint:web": "pnpm --filter pub-web lint",
     "lint:cli": "pnpm --filter pub-cli lint",
     "lint:relay": "pnpm --filter pub-relay lint",
     "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:cli && pnpm lint:relay",
-    "lint:fix": "biome check --fix convex docs shared skills tests scripts web *.json *.ts",
-    "format": "biome format --write convex docs shared skills tests scripts web *.json *.ts",
+    "lint:fix": "biome check --fix .",
+    "format": "biome format --write .",
 
     "knip": "knip",
     "check": "pnpm build && pnpm lint && pnpm test && pnpm knip",

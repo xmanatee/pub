@@ -19,7 +19,8 @@
       "!**/test-results",
       "!**/playwright-report",
       "!**/.worktrees",
-      "!web/public/sandbox"
+      "!web/public/sandbox",
+      "!packages/default-app"
     ]
   },
   "linter": {

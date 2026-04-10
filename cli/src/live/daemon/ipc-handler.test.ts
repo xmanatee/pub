@@ -6,7 +6,9 @@ function createHandlerHarness(overrides?: {
   activeSlug?: string | null;
   writeReadinessError?: string | null;
 }) {
-  const persistCanvasHtml = vi.fn(async () => ({ ok: true, delivered: true }) as Record<string, unknown>);
+  const persistCanvasHtml = vi.fn(
+    async () => ({ ok: true, delivered: true }) as Record<string, unknown>,
+  );
   const persistFiles = vi.fn(
     async () => ({ ok: true, fileCount: 1, delivered: true }) as Record<string, unknown>,
   );

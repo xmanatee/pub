@@ -39,7 +39,10 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     return getCommandRuntimeConfig(currentBridgeSettings());
   }
 
-  function resolveWorkspaceCwd(requestedCwd: string | undefined, args: Record<string, unknown>): string {
+  function resolveWorkspaceCwd(
+    requestedCwd: string | undefined,
+    args: Record<string, unknown>,
+  ): string {
     const workspaceDir = currentBridgeSettings().workspaceDir;
     if (!requestedCwd) return workspaceDir;
     const interpolated = interpolateTemplate(requestedCwd, args).trim();

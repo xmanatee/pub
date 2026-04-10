@@ -13,10 +13,7 @@ export interface WsProxy {
   closeAll(): void;
 }
 
-export function createWsProxy(
-  port: number,
-  send: (msg: DaemonToRelayMessage) => void,
-): WsProxy {
+export function createWsProxy(port: number, send: (msg: DaemonToRelayMessage) => void): WsProxy {
   const connections = new Map<string, WebSocket>();
 
   return {
@@ -36,7 +33,12 @@ export function createWsProxy(
 
       ws.onmessage = (event: MessageEvent) => {
         if (event.data instanceof ArrayBuffer) {
-          send({ type: "ws-data", id: msg.id, data: uint8ToBase64(new Uint8Array(event.data)), binary: true });
+          send({
+            type: "ws-data",
+            id: msg.id,
+            data: uint8ToBase64(new Uint8Array(event.data)),
+            binary: true,
+          });
         } else {
           send({ type: "ws-data", id: msg.id, data: String(event.data), binary: false });
         }

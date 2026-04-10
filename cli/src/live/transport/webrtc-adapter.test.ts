@@ -33,10 +33,7 @@ const LOOPBACK_PEER_CONFIG = {
   iceUseIpv6: false,
 } as const;
 const STUN_LOOPBACK_PEER_CONFIG = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
   iceAdditionalHostAddresses: ["127.0.0.1"],
   iceUseIpv6: false,
 } as const;
@@ -343,69 +340,65 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
     PEER_NEGOTIATION_TIMEOUT_MS,
   );
 
-  it(
-    "generates offer with STUN servers via onGatheringStateChange",
-    async () => {
-      const peer = createPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        iceAdditionalHostAddresses: ["127.0.0.1"],
-        iceUseIpv6: false,
-      });
-      const cleanup = async () => {
-        try {
-          await peer.close();
-        } catch {
-          /* already closed */
-        }
-      };
-
+  it("generates offer with STUN servers via onGatheringStateChange", async () => {
+    const peer = createPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceAdditionalHostAddresses: ["127.0.0.1"],
+      iceUseIpv6: false,
+    });
+    const cleanup = async () => {
       try {
-        peer.createDataChannel("test", { ordered: true });
+        await peer.close();
+      } catch {
+        /* already closed */
+      }
+    };
 
-        const offer = await new Promise<{ sdp: string; type: string }>((resolve, reject) => {
-          let resolved = false;
-          const done = (sdp: string, type: string) => {
-            if (resolved) return;
-            resolved = true;
-            clearTimeout(timeout);
-            resolve({ sdp, type });
-          };
+    try {
+      peer.createDataChannel("test", { ordered: true });
 
-          peer.onLocalDescription((sdp, type) => done(sdp, type));
-          peer.onGatheringStateChange((state: string) => {
-            if (state === "complete" && !resolved) {
-              const desc = peer.localDescription();
-              if (desc) done(desc.sdp, desc.type);
-            }
-          });
+      const offer = await new Promise<{ sdp: string; type: string }>((resolve, reject) => {
+        let resolved = false;
+        const done = (sdp: string, type: string) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          resolve({ sdp, type });
+        };
 
-          const timeout = setTimeout(() => {
-            if (resolved) return;
+        peer.onLocalDescription((sdp, type) => done(sdp, type));
+        peer.onGatheringStateChange((state: string) => {
+          if (state === "complete" && !resolved) {
             const desc = peer.localDescription();
-            if (desc) {
-              done(desc.sdp, desc.type);
-            } else {
-              resolved = true;
-              reject(new Error("Timed out generating offer with STUN"));
-            }
-          }, 10_000);
-
-          void peer.setLocalDescription().catch((error) => {
-            if (resolved) return;
-            resolved = true;
-            clearTimeout(timeout);
-            reject(error);
-          });
+            if (desc) done(desc.sdp, desc.type);
+          }
         });
 
-        expect(offer.sdp).toContain("v=0");
-        expect(offer.type).toBe("offer");
-      } finally {
-        await cleanup();
-      }
-    },
-    15_000,
-  );
+        const timeout = setTimeout(() => {
+          if (resolved) return;
+          const desc = peer.localDescription();
+          if (desc) {
+            done(desc.sdp, desc.type);
+          } else {
+            resolved = true;
+            reject(new Error("Timed out generating offer with STUN"));
+          }
+        }, 10_000);
+
+        void peer.setLocalDescription().catch((error) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+
+      expect(offer.sdp).toContain("v=0");
+      expect(offer.type).toBe("offer");
+    } finally {
+      await cleanup();
+    }
+  }, 15_000);
 
   it(
     "bridge protocol messages round-trip over DataChannel",

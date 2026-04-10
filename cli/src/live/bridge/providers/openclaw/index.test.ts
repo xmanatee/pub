@@ -14,7 +14,6 @@ import {
   resolveAttachmentFilename,
   type StagedAttachment,
 } from "../../attachments.js";
-import { createOpenClawBridgeRunner } from "./index.js";
 import {
   buildInboundPrompt,
   buildRenderErrorPrompt,
@@ -22,12 +21,13 @@ import {
   prependSystemPrompt,
   readRenderErrorMessage,
 } from "../../shared.js";
+import { createOpenClawBridgeRunner } from "./index.js";
+import * as runtime from "./runtime.js";
 import {
   resolveOpenClawHome,
   resolveOpenClawSessionsPath,
   resolveOpenClawStateDir,
 } from "./session.js";
-import * as runtime from "./runtime.js";
 
 const originalEnv = {
   OPENCLAW_HOME: process.env.OPENCLAW_HOME,
@@ -238,8 +238,8 @@ describe("prependSystemPrompt (for session-less per-message delivery)", () => {
     expect(result).toContain("---");
     expect(result).toContain("Hello world");
     const parts = result.split("---");
-    expect(parts[0]!.trim()).toBe(SYSTEM_PROMPT);
-    expect(parts[1]!.trim()).toBe("Hello world");
+    expect(parts[0]?.trim()).toBe(SYSTEM_PROMPT);
+    expect(parts[1]?.trim()).toBe("Hello world");
   });
 });
 
@@ -250,7 +250,7 @@ describe("createOpenClawBridgeRunner", () => {
     vi.spyOn(runtime, "deliverMessageToOpenClaw").mockImplementation(async (params) => {
       deliveredPrompts.push(params.text);
       if (params.text.includes("Session started.")) return;
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((_resolve, reject) => {
         params.signal?.addEventListener(
           "abort",
           () => {

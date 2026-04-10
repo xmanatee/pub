@@ -8,7 +8,7 @@ import type {
   IpcResponseFor,
   SuccessfulIpcResponseFor,
 } from "../../live/transport/ipc-protocol.js";
-import { readFileBytes, readStdinText, readUtf8File, type ReadFileBytesResult } from "./io.js";
+import { type ReadFileBytesResult, readFileBytes, readStdinText, readUtf8File } from "./io.js";
 
 export type CliCommandContext = {
   readonly env: NodeJS.ProcessEnv;
@@ -27,9 +27,7 @@ export type CliCommandContext = {
   readFileBytes(filePath: string): ReadFileBytesResult;
 };
 
-export function createCliCommandContext(
-  env: NodeJS.ProcessEnv = process.env,
-): CliCommandContext {
+export function createCliCommandContext(env: NodeJS.ProcessEnv = process.env): CliCommandContext {
   const socketPath = getAgentSocketPath(env);
   let apiClient: PubApiClient | null = null;
 
@@ -74,7 +72,9 @@ export function createCliCommandContext(
       throw new Error(response.error);
     }
     if (!response.slug) {
-      throw new Error("Daemon is running but no live is active. Wait for browser to initiate live.");
+      throw new Error(
+        "Daemon is running but no live is active. Wait for browser to initiate live.",
+      );
     }
     return response.slug;
   }

@@ -12,12 +12,4 @@ export const EXCLUDED_DIRS = new Set([
   ".hg",
 ]);
 
-export const EXCLUDED_EXTENSIONS = new Set([
-  ".pyc",
-  ".pyo",
-  ".o",
-  ".so",
-  ".dylib",
-  ".exe",
-  ".dll",
-]);
+export const EXCLUDED_EXTENSIONS = new Set([".pyc", ".pyo", ".o", ".so", ".dylib", ".exe", ".dll"]);

@@ -70,7 +70,9 @@ describe("daemon-files", () => {
     it("separates persistent pub canvas, workspace canvas, attachments, and artifacts", () => {
       makeTempHome();
 
-      expect(liveWorkspaceSessionDir("alpha")).toContain(path.join("workspaces", "sessions", "alpha"));
+      expect(liveWorkspaceSessionDir("alpha")).toContain(
+        path.join("workspaces", "sessions", "alpha"),
+      );
       expect(liveWorkspaceCanvasDir("alpha")).toContain(
         path.join("workspaces", "sessions", "alpha", "canvas"),
       );
@@ -98,9 +100,9 @@ describe("daemon-files", () => {
       expect(fs.existsSync(sessionPaths.workspaceCanvasDir)).toBe(true);
       expect(fs.existsSync(sessionPaths.attachmentDir)).toBe(true);
       expect(fs.existsSync(sessionPaths.artifactsDir)).toBe(true);
-      expect(fs.readFileSync(path.join(sessionPaths.workspaceCanvasDir, "index.html"), "utf-8")).toBe(
-        "<h1>Hello</h1>",
-      );
+      expect(
+        fs.readFileSync(path.join(sessionPaths.workspaceCanvasDir, "index.html"), "utf-8"),
+      ).toBe("<h1>Hello</h1>");
       expect(readWorkspaceFiles(sessionPaths.workspaceCanvasDir)).toEqual({
         "assets/app.js": "console.log('ok');",
         "index.html": "<h1>Hello</h1>",

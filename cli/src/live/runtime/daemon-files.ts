@@ -72,10 +72,7 @@ export function readLatestCliVersion(versionPath = latestCliVersionPath()): stri
   }
 }
 
-export function writeLatestCliVersion(
-  version: string,
-  versionPath = latestCliVersionPath(),
-): void {
+export function writeLatestCliVersion(version: string, versionPath = latestCliVersionPath()): void {
   ensureDir(path.dirname(versionPath));
   fs.writeFileSync(versionPath, `${version.trim()}\n`, { mode: 0o600 });
 }

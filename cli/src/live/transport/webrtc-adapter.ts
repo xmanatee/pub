@@ -4,11 +4,7 @@
  * using werift types directly.
  */
 
-import {
-  RTCDataChannel,
-  RTCPeerConnection,
-  type RTCIceServer,
-} from "werift";
+import { RTCDataChannel, type RTCIceServer, RTCPeerConnection } from "werift";
 import type { IceServer } from "../../../../shared/webrtc-transport-core";
 
 interface DataChannelOptions {

@@ -1,5 +1,5 @@
-import { encodeSessionDescription } from "../../../../shared/webrtc-negotiation-core";
 import { describe, expect, it, vi } from "vitest";
+import { encodeSessionDescription } from "../../../../shared/webrtc-negotiation-core";
 import { createPeerManager } from "./peer-manager.js";
 import { createDaemonState } from "./state.js";
 

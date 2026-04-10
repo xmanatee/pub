@@ -1,14 +1,15 @@
-import type { PubBridgeConfig, BridgeSettings, OpenClawBridgeSettings } from "../../../../core/config/index.js";
+import type {
+  BridgeSettings,
+  OpenClawBridgeSettings,
+  PubBridgeConfig,
+} from "../../../../core/config/index.js";
 import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
 import {
+  type OpenClawRuntimeResolution,
   resolveAutoDetectOpenClawCommandCwd,
   resolveOpenClawRuntime,
-  type OpenClawRuntimeResolution,
 } from "./discovery.js";
-import {
-  deliverMessageToOpenClaw,
-  runOpenClawPreflight,
-} from "./runtime.js";
+import { deliverMessageToOpenClaw, runOpenClawPreflight } from "./runtime.js";
 
 function formatProbeFailure(params: {
   openclawPath: string;
@@ -60,8 +61,7 @@ export async function runOpenClawBridgeStartupProbe(
   await runOpenClawPreflight(runtime.openclawPath, env);
 
   const isSelfProbe =
-    env.OPENCLAW_SESSION_ID === runtime.sessionId ||
-    env.OPENCLAW_SESSION_KEY === runtime.sessionId;
+    env.OPENCLAW_SESSION_ID === runtime.sessionId || env.OPENCLAW_SESSION_KEY === runtime.sessionId;
 
   try {
     await runAgentWritePongProbe({
@@ -72,7 +72,7 @@ export async function runOpenClawBridgeStartupProbe(
         const prompt = [
           "[pub preflight] Connectivity probe.",
           "Run this exact command now:",
-          `PUB_AGENT_SOCKET=${socketPath} pub write \"pong\"`,
+          `PUB_AGENT_SOCKET=${socketPath} pub write "pong"`,
           "Do not explain. Just execute it.",
         ].join("\n");
 

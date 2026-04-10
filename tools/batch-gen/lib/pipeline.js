@@ -1,13 +1,31 @@
+import { spawn, spawnSync } from "child_process";
+import { createHash } from "crypto";
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
-import { createHash } from "crypto";
-import { spawn, spawnSync } from "child_process";
 import pc from "picocolors";
-import { log, ok, warn, fail as logFail, itemProgress, elapsed, phaseHeader, phaseDone, progressBar } from "./log.js";
-import { buildPrompt, buildPromptFromString } from "./template.js";
-import { loadState, saveState, setPhase, getPhase, countInPhase, countPastPhase, PHASES } from "./state.js";
 import { runClaude } from "./claude.js";
+import {
+  elapsed,
+  itemProgress,
+  log,
+  fail as logFail,
+  ok,
+  phaseDone,
+  phaseHeader,
+  progressBar,
+  warn,
+} from "./log.js";
 import { publishPub, updatePub } from "./pub-cli.js";
+import {
+  countInPhase,
+  countPastPhase,
+  getPhase,
+  loadState,
+  PHASES,
+  saveState,
+  setPhase,
+} from "./state.js";
+import { buildPrompt, buildPromptFromString } from "./template.js";
 
 function sha256(filePath) {
   const content = readFileSync(filePath);
@@ -268,9 +286,15 @@ export function showStatus(ctx) {
   const publishedPlus = countPastPhase(state, "published");
   const reviewedCount = countInPhase(state, "reviewed");
 
-  process.stdout.write(`  ${pc.bold("Ideation".padEnd(22))}  ${pc.green(`\u2713 ${total} ideas`)}\n`);
-  process.stdout.write(`  ${pc.bold("Build+Publish".padEnd(22))}  ${progressBar(publishedPlus, total)}\n`);
-  process.stdout.write(`  ${pc.bold("Test+Review".padEnd(22))}  ${progressBar(reviewedCount, total)}\n`);
+  process.stdout.write(
+    `  ${pc.bold("Ideation".padEnd(22))}  ${pc.green(`\u2713 ${total} ideas`)}\n`,
+  );
+  process.stdout.write(
+    `  ${pc.bold("Build+Publish".padEnd(22))}  ${progressBar(publishedPlus, total)}\n`,
+  );
+  process.stdout.write(
+    `  ${pc.bold("Test+Review".padEnd(22))}  ${progressBar(reviewedCount, total)}\n`,
+  );
 
   process.stdout.write(`\n  ${pc.dim("\u2500\u2500\u2500 breakdown \u2500\u2500\u2500")}\n`);
   for (const p of PHASES) {

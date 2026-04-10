@@ -22,9 +22,11 @@ export function registerDoctorCommand(program: Command): void {
     .option("--skip-canvas", "Skip canvas ping check")
     .action(async (opts: DoctorCommandOptions) => {
       const context = createCliCommandContext();
-      const slug = await context.resolveActiveSlug().catch((error: unknown) =>
-        failCli(`No active daemon. Run \`pub start\` first. (${errorMessage(error)})`),
-      );
+      const slug = await context
+        .resolveActiveSlug()
+        .catch((error: unknown) =>
+          failCli(`No active daemon. Run \`pub start\` first. (${errorMessage(error)})`),
+        );
       const apiClient = context.getApiClient();
 
       const fail = (message: string): never => failCli(`Doctor failed: ${message}`);
@@ -53,7 +55,9 @@ export function registerDoctorCommand(program: Command): void {
 
       const live = await apiClient
         .getLive()
-        .catch((error: unknown) => fail(`failed to fetch live info from API: ${formatApiError(error)}`));
+        .catch((error: unknown) =>
+          fail(`failed to fetch live info from API: ${formatApiError(error)}`),
+        );
       const activeLive = live ?? fail("API reports no active live session.");
       if (activeLive.slug !== slug) {
         fail(`API reports active live for "${activeLive.slug}" instead of "${slug}".`);

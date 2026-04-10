@@ -1,3 +1,4 @@
+import type { ConfigSection, ConfigVarDefinition } from "./registry.js";
 import {
   coerceConfigVarInput,
   deletePubConfigValue,
@@ -8,7 +9,6 @@ import {
   SUPPORTED_CONFIG_KEYS,
   writePubConfigValue,
 } from "./registry.js";
-import type { ConfigVarDefinition, ConfigSection } from "./registry.js";
 import type { PubConfig } from "./types.js";
 
 export function parseConfigAssignment(raw: string): { key: string; value: string } {

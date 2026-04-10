@@ -242,9 +242,7 @@ export class PubApiClient {
 
   // -- Tunnel management ----------------------------------------------------
 
-  async registerTunnel(opts: {
-    daemonSessionId: string;
-  }): Promise<{ token: string }> {
+  async registerTunnel(opts: { daemonSessionId: string }): Promise<{ token: string }> {
     return this.request<{ token: string }>("/api/v1/agent/tunnel", {
       method: "POST",
       body: JSON.stringify(opts),

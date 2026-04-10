@@ -1,16 +1,17 @@
 import { spawn } from "node:child_process";
-import type { PubBridgeConfig, ClaudeBridgeSettings, BridgeSettings } from "../../../../core/config/index.js";
+import type {
+  BridgeSettings,
+  ClaudeBridgeSettings,
+  PubBridgeConfig,
+} from "../../../../core/config/index.js";
 import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
-import PROBE_PROMPT from "./prompts/probe.md";
 import {
   buildClaudeArgs,
   resolveAutoDetectClaudeWorkspaceDir,
   resolveClaudeCodePath,
 } from "./discovery.js";
-import {
-  buildClaudeArgsFromSettings,
-  runClaudeCodePreflight,
-} from "./runtime.js";
+import PROBE_PROMPT from "./prompts/probe.md";
+import { buildClaudeArgsFromSettings, runClaudeCodePreflight } from "./runtime.js";
 
 async function runClaudeCodeWritePongProbe(
   claudePath: string,
@@ -29,11 +30,7 @@ async function runClaudeCodeWritePongProbe(
       const prompt = PROBE_PROMPT.replace("${socketPath}", socketPath).trimEnd();
       const args =
         options?.strictConfig && bridgeConfig
-          ? buildClaudeArgsFromSettings(
-              prompt,
-              null,
-              bridgeConfig as ClaudeBridgeSettings,
-            )
+          ? buildClaudeArgsFromSettings(prompt, null, bridgeConfig as ClaudeBridgeSettings)
           : buildClaudeArgs(prompt, null, env, undefined, bridgeConfig);
       if (!args.includes("--max-turns")) args.push("--max-turns", "2");
 

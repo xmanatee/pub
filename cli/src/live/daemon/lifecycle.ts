@@ -1,4 +1,8 @@
-import { CONTROL_CHANNEL, encodeMessage, makeEventMessage } from "../../../../shared/bridge-protocol-core";
+import {
+  CONTROL_CHANNEL,
+  encodeMessage,
+  makeEventMessage,
+} from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { errorMessage } from "../../core/errors/cli-error.js";
 import { readLatestCliVersion } from "../runtime/daemon-files.js";

@@ -22,9 +22,7 @@ function resolveOpenClawLikeCommand(
   return env.PUB_OPENCLAW_LIKE_COMMAND?.trim() || bridgeConfig?.openclawLikeCommand?.trim();
 }
 
-function resolveOpenClawLikeWorkspaceDir(
-  env: NodeJS.ProcessEnv = process.env,
-): string {
+function resolveOpenClawLikeWorkspaceDir(env: NodeJS.ProcessEnv = process.env): string {
   return env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }
 
@@ -107,7 +105,7 @@ export async function runOpenClawLikeBridgeStartupProbe(
             text: [
               "[pub preflight] Connectivity probe.",
               "Run this exact command now:",
-              `PUB_AGENT_SOCKET=${socketPath} pub write \"pong\"`,
+              `PUB_AGENT_SOCKET=${socketPath} pub write "pong"`,
               "Do not explain. Just execute it.",
             ].join("\n"),
           },

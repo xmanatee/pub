@@ -27,7 +27,11 @@ function printValue(label: string, value: string, source: string): void {
   console.log(`  ${label}: ${value} (${source})`);
 }
 
-function printSection(title: string, section: "core" | "bridge" | "telegram", resolved: ResolvedPubSettings): void {
+function printSection(
+  title: string,
+  section: "core" | "bridge" | "telegram",
+  resolved: ResolvedPubSettings,
+): void {
   const entries = getConfigVarsBySection(section)
     .map((definition) => ({
       definition,

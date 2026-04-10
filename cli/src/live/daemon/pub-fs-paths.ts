@@ -53,10 +53,7 @@ export function resolvePubFsRequestPath(
   );
 }
 
-export function resolveExistingPubFsPath(
-  rawPath: string,
-  sessionRootDir: string | null,
-): string {
+export function resolveExistingPubFsPath(rawPath: string, sessionRootDir: string | null): string {
   const resolved = resolvePubFsRequestPath(rawPath, sessionRootDir);
   if (resolved.scope === PUB_FS_HOST_PATH_SCOPE) {
     return resolved.path;

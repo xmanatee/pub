@@ -74,8 +74,6 @@ export function resolveClaudeCodePath(
   return "claude";
 }
 
-export function resolveAutoDetectClaudeWorkspaceDir(
-  env: NodeJS.ProcessEnv = process.env,
-): string {
+export function resolveAutoDetectClaudeWorkspaceDir(env: NodeJS.ProcessEnv = process.env): string {
   return env.PUB_PROJECT_ROOT?.trim() || process.cwd();
 }

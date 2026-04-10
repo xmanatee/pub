@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { TunnelConnection } from "../tunnel/client.js";
-import type { TunnelDataChannel } from "../tunnel/channel-adapter.js";
-import type { DevServer } from "../server/manager.js";
 import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
+import type { DevServer } from "../server/manager.js";
+import type { TunnelDataChannel } from "../tunnel/channel-adapter.js";
+import type { TunnelConnection } from "../tunnel/client.js";
 import { createBridgeManager } from "./bridge-manager.js";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";

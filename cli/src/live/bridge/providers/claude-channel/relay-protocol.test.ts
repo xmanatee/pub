@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  type RelayMessage,
   decodeRelayMessage,
   defaultChannelSocketPath,
   encodeRelayMessage,
+  type RelayMessage,
 } from "./relay-protocol.js";
 
 describe("encodeRelayMessage / decodeRelayMessage", () => {

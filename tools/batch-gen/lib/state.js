@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, renameSync, existsSync } from "fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "fs";
 
 const PHASES = [
   "pending",

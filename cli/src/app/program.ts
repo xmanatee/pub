@@ -10,7 +10,10 @@ export function buildProgram(): Command {
   const program = new Command();
   program.exitOverride();
 
-  program.name("pub").description("Adaptive interfaces, powered by your agent").version(CLI_VERSION);
+  program
+    .name("pub")
+    .description("Adaptive interfaces, powered by your agent")
+    .version(CLI_VERSION);
 
   registerConfigCommand(program);
   registerPubCommands(program);

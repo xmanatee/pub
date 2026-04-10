@@ -1,14 +1,12 @@
 import * as os from "node:os";
-import type { PubBridgeConfig, BridgeSettings, ClaudeBridgeSettings } from "../../../../core/config/index.js";
+import type {
+  BridgeSettings,
+  ClaudeBridgeSettings,
+  PubBridgeConfig,
+} from "../../../../core/config/index.js";
 import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
-import {
-  buildSdkSessionOptions,
-  resolveAutoDetectClaudeSdkWorkspaceDir,
-} from "./discovery.js";
-import {
-  buildSdkSessionOptionsFromSettings,
-  loadClaudeSdk,
-} from "./runtime.js";
+import { buildSdkSessionOptions, resolveAutoDetectClaudeSdkWorkspaceDir } from "./discovery.js";
+import { buildSdkSessionOptionsFromSettings, loadClaudeSdk } from "./runtime.js";
 
 function getStrictClaudeSdkWorkspaceDir(bridgeConfig: ClaudeBridgeSettings): string {
   return bridgeConfig.workspaceDir;
@@ -73,7 +71,7 @@ export async function runClaudeSdkBridgeStartupProbe(
       const prompt = [
         "This is a startup connectivity probe.",
         "Run this exact shell command now:",
-        `PUB_AGENT_SOCKET=${socketPath} pub write \"pong\"`,
+        `PUB_AGENT_SOCKET=${socketPath} pub write "pong"`,
         "Do not explain. Just execute it.",
       ].join("\n");
 

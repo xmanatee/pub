@@ -54,7 +54,12 @@ export function createHttpProxy(port: number): HttpProxy {
         response.headers.has("transfer-encoding");
 
       if (shouldStream && response.body) {
-        send({ type: "http-response-start", id: msg.id, status: response.status, headers: responseHeaders });
+        send({
+          type: "http-response-start",
+          id: msg.id,
+          status: response.status,
+          headers: responseHeaders,
+        });
         const reader = response.body.getReader();
         while (true) {
           const { done, value } = await reader.read();
@@ -62,7 +67,12 @@ export function createHttpProxy(port: number): HttpProxy {
             send({ type: "http-response-chunk", id: msg.id, data: "", done: true });
             break;
           }
-          send({ type: "http-response-chunk", id: msg.id, data: uint8ToBase64(value), done: false });
+          send({
+            type: "http-response-chunk",
+            id: msg.id,
+            data: uint8ToBase64(value),
+            done: false,
+          });
         }
         return;
       }

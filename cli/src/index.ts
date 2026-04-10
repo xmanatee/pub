@@ -39,7 +39,11 @@ if (process.env.PUB_DAEMON_MODE === "1") {
   });
 
   program.hook("postAction", (_, actionCommand) => {
-    if (updateCheck?.updateAvailable && !updateCheck.requiresUpgrade && actionCommand.name() !== "upgrade") {
+    if (
+      updateCheck?.updateAvailable &&
+      !updateCheck.requiresUpgrade &&
+      actionCommand.name() !== "upgrade"
+    ) {
       console.error(
         `\nUpdate available: v${updateCheck.latest} (current: v${CLI_VERSION}). Run \`pub upgrade\` to update.`,
       );

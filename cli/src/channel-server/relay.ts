@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import {
-  type RelayInbound,
-  type RelayOutbound,
   decodeRelayMessage,
   encodeRelayMessage,
+  type RelayInbound,
+  type RelayOutbound,
 } from "../live/bridge/providers/claude-channel/relay-protocol.js";
 
 function unlinkSocketIfPresent(socketPath: string): void {
@@ -38,10 +38,11 @@ export function createRelayServer(params: {
     let buffer = "";
     conn.on("data", (chunk: Buffer) => {
       buffer += chunk.toString("utf-8");
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) !== -1) {
+      let idx = buffer.indexOf("\n");
+      while (idx !== -1) {
         const line = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 1);
+
         if (line.trim().length === 0) continue;
         const msg = decodeRelayMessage(line);
         if (msg && (msg.type === "briefing" || msg.type === "inbound")) {
@@ -49,6 +50,7 @@ export function createRelayServer(params: {
         } else {
           params.debugLog(`ignoring malformed relay line: ${line.slice(0, 120)}`);
         }
+        idx = buffer.indexOf("\n");
       }
     });
 

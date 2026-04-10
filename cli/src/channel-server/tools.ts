@@ -1,5 +1,5 @@
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { generateMessageId } from "../../../shared/bridge-protocol-core";
 import type { RelayOutbound } from "../live/bridge/providers/claude-channel/relay-protocol.js";
 

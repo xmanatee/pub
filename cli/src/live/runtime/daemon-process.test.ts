@@ -1,7 +1,7 @@
+import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { ChildProcess } from "node:child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { ipcCallMock } = vi.hoisted(() => ({

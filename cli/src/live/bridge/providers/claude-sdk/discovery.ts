@@ -1,8 +1,5 @@
 import type { PubBridgeConfig } from "../../../../core/config/index.js";
-import {
-  isClaudeCodeAvailableInEnv,
-  resolveClaudeCodePath,
-} from "../claude-code/discovery.js";
+import { isClaudeCodeAvailableInEnv, resolveClaudeCodePath } from "../claude-code/discovery.js";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 

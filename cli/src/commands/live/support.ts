@@ -10,9 +10,9 @@ export function getLiveVerboseEnableCommand(): string {
   return "pub config --set bridge.verbose=true";
 }
 
-export function getConfiguredLiveVerboseState(
-  env: NodeJS.ProcessEnv = process.env,
-): { enabled: boolean } {
+export function getConfiguredLiveVerboseState(env: NodeJS.ProcessEnv = process.env): {
+  enabled: boolean;
+} {
   const resolved = resolvePubSettings(env);
   const verbose = getResolvedSettingValue<boolean>(resolved, "bridge.verbose");
   return {
@@ -68,9 +68,7 @@ export function printDaemonStatus(
   }
 }
 
-export function printLocalRuntimeSummary(
-  env: NodeJS.ProcessEnv = process.env,
-): void {
+export function printLocalRuntimeSummary(env: NodeJS.ProcessEnv = process.env): void {
   const saved = readPubConfig(env);
   const resolved = resolvePubSettings(env);
   const apiSource = resolved.core.apiKey
@@ -80,8 +78,7 @@ export function printLocalRuntimeSummary(
     : "not configured";
   const bridgeMode =
     getResolvedSettingValue<string>(resolved, "bridge.mode")?.value || "not configured";
-  const liveVerbose =
-    getResolvedSettingValue<boolean>(resolved, "bridge.verbose")?.value === true;
+  const liveVerbose = getResolvedSettingValue<boolean>(resolved, "bridge.verbose")?.value === true;
 
   console.log("Local runtime configuration:");
   console.log(`  API key source: ${apiSource}`);

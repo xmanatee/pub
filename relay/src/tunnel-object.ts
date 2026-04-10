@@ -62,7 +62,7 @@ export class TunnelObject implements DurableObject {
     }
 
     const pathParts = url.pathname.split("/");
-    const proxyPath = "/" + pathParts.slice(3).join("/") + url.search;
+    const proxyPath = `/${pathParts.slice(3).join("/")}${url.search}`;
     const id = crypto.randomUUID().slice(0, 8);
 
     const headers: Record<string, string> = {};

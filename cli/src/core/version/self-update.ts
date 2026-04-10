@@ -96,9 +96,7 @@ function resolveInstalledBinaryPath(execPath = process.execPath): string {
   return execPath;
 }
 
-export async function fetchLatestRelease(
-  fetchImpl: typeof fetch = fetch,
-): Promise<LatestRelease> {
+export async function fetchLatestRelease(fetchImpl: typeof fetch = fetch): Promise<LatestRelease> {
   let best: LatestRelease | null = null;
 
   for (let page = 1; page <= MAX_RELEASE_PAGES; page += 1) {

@@ -47,11 +47,7 @@ function detectPackageManager(): string {
     try {
       execSync(`${pm} --version`, { stdio: "ignore", timeout: 5_000 });
       return pm;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
-  throw new Error(
-    "No package manager found. Install pnpm or npm to scaffold the default app.",
-  );
+  throw new Error("No package manager found. Install pnpm or npm to scaffold the default app.");
 }

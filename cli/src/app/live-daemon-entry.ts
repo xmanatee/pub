@@ -8,7 +8,8 @@ import { startDaemon } from "../live/daemon/index.js";
 export async function runDaemonFromEnv(): Promise<void> {
   const sentryDsn = process.env.PUB_SENTRY_DSN;
   const cliVersion = process.env.PUB_CLI_VERSION;
-  const telemetryDisabled = process.env.PUB_TELEMETRY === "false" || process.env.PUB_TELEMETRY === "0";
+  const telemetryDisabled =
+    process.env.PUB_TELEMETRY === "false" || process.env.PUB_TELEMETRY === "0";
   if (sentryDsn && !telemetryDisabled) {
     initSentryCli({ dsn: sentryDsn, version: cliVersion });
   }

@@ -5,7 +5,7 @@
 export const TEMPLATE_FILES: Record<string, string> = {
   "biome.json": JSON.stringify(
     {
-      $schema: "https://biomejs.dev/schemas/2.0.0/schema.json",
+      $schema: "https://biomejs.dev/schemas/2.4.3/schema.json",
       formatter: {
         indentStyle: "space",
         indentWidth: 2,
@@ -19,7 +19,9 @@ export const TEMPLATE_FILES: Record<string, string> = {
       assist: {
         actions: {
           source: {
-            organizeImports: "on",
+            organizeImports: {
+              level: "on",
+            },
           },
         },
       },
@@ -59,14 +61,14 @@ export const TEMPLATE_FILES: Record<string, string> = {
         "react-dom": "^19.0.0",
       },
       devDependencies: {
-        "@biomejs/biome": "^2.0.0",
+        "@biomejs/biome": "^2.4.3",
         "@tailwindcss/vite": "^4.1.0",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
         "@vitejs/plugin-react": "^4.4.1",
         tailwindcss: "^4.1.0",
         typescript: "^5.7.2",
-        vite: "^6.3.1",
+        vite: "^7.3.1",
       },
     },
     null,

@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SUPPORTED_CONFIG_KEYS } from "../../core/config/index.js";
 import { parsePositiveInteger } from "../../core/utils/number.js";
-import { isClaudeCodeAvailableInEnv } from "../../live/bridge/providers/claude-code/index.js";
-import { isClaudeSdkAvailableInEnv } from "../../live/bridge/providers/claude-sdk/index.js";
-import { isOpenClawAvailable } from "../../live/bridge/providers/openclaw/index.js";
 import { buildDaemonSpawnStdio } from "../../live/runtime/daemon-process.js";
 
 vi.mock("../../live/bridge/providers/openclaw/index.js", () => ({

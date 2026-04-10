@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { chromium } from "playwright";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { createServer } from "http";
 import { resolve } from "path";
+import { chromium } from "playwright";
 
 const pubDir = process.argv[2];
 if (!pubDir) {
@@ -22,9 +22,7 @@ if (!existsSync(htmlPath)) {
   process.exit(1);
 }
 
-const mocks = existsSync(mocksPath)
-  ? JSON.parse(readFileSync(mocksPath, "utf-8"))
-  : {};
+const mocks = existsSync(mocksPath) ? JSON.parse(readFileSync(mocksPath, "utf-8")) : {};
 
 const html = readFileSync(htmlPath, "utf-8");
 const server = createServer((_req, res) => {
@@ -47,20 +45,23 @@ page.on("pageerror", (err) => {
 
 await page.addInitScript((mockData) => {
   window.pub = {
-    commands: new Proxy({}, {
-      get(_target, prop) {
-        if (typeof prop !== "string") return undefined;
-        return async function () {
-          if (prop in mockData) {
-            const mock = mockData[prop];
-            return mock.returns === "void" ? null : mock.value;
-          }
-          console.warn(`[pub-mock] Unknown command: ${prop}`);
-          return null;
-        };
+    commands: new Proxy(
+      {},
+      {
+        get(_target, prop) {
+          if (typeof prop !== "string") return undefined;
+          return async () => {
+            if (prop in mockData) {
+              const mock = mockData[prop];
+              return mock.returns === "void" ? null : mock.value;
+            }
+            console.warn(`[pub-mock] Unknown command: ${prop}`);
+            return null;
+          };
+        },
       },
-    }),
-    command: async function (name) {
+    ),
+    command: async (name) => {
       if (name in mockData) {
         const mock = mockData[name];
         return mock.returns === "void" ? null : mock.value;
@@ -96,17 +97,24 @@ await page.waitForTimeout(1000);
 await page.screenshot({ path: screenshotAfterPath, fullPage: true });
 
 const errors = consoleLogs.filter(
-  (l) => l.type === "error" || l.type === "uncaught-error" || l.type === "navigation-error"
+  (l) => l.type === "error" || l.type === "uncaught-error" || l.type === "navigation-error",
 );
 
-writeFileSync(reportPath, JSON.stringify({
-  timestamp: new Date().toISOString(),
-  errors: errors.length,
-  warnings: consoleLogs.filter((l) => l.type === "warning").length,
-  totalLogs: consoleLogs.length,
-  buttonsClicked,
-  consoleLogs,
-}, null, 2));
+writeFileSync(
+  reportPath,
+  JSON.stringify(
+    {
+      timestamp: new Date().toISOString(),
+      errors: errors.length,
+      warnings: consoleLogs.filter((l) => l.type === "warning").length,
+      totalLogs: consoleLogs.length,
+      buttonsClicked,
+      consoleLogs,
+    },
+    null,
+    2,
+  ),
+);
 
 await browser.close();
 server.close();
@@ -116,5 +124,7 @@ if (errors.length > 0) {
   for (const e of errors) console.error(`  [${e.type}] ${e.text}`);
   process.exit(1);
 } else {
-  console.log(`PASS: ${consoleLogs.filter((l) => l.type === "warning").length} warnings, ${buttonsClicked} buttons clicked`);
+  console.log(
+    `PASS: ${consoleLogs.filter((l) => l.type === "warning").length} warnings, ${buttonsClicked} buttons clicked`,
+  );
 }

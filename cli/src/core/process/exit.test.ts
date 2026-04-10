@@ -36,6 +36,9 @@ describe("process.exit guard", () => {
         }
       }
     }
-    expect(violations, "Raw process.exit() found — use exitProcess() from core/process/exit.ts").toEqual([]);
+    expect(
+      violations,
+      "Raw process.exit() found — use exitProcess() from core/process/exit.ts",
+    ).toEqual([]);
   });
 });

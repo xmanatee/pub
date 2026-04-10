@@ -43,9 +43,13 @@ export function elapsed(startMs) {
 }
 
 export function phaseHeader(num, title) {
-  process.stdout.write(`\n${pc.bold(pc.cyan(`\u2501\u2501\u2501 Phase ${num} `))}${pc.bold(`${title} \u2501\u2501\u2501`)}\n\n`);
+  process.stdout.write(
+    `\n${pc.bold(pc.cyan(`\u2501\u2501\u2501 Phase ${num} `))}${pc.bold(`${title} \u2501\u2501\u2501`)}\n\n`,
+  );
 }
 
 export function phaseDone(num, startMs) {
-  process.stdout.write(`\n  ${pc.green("\u2713")} Phase ${num} complete ${pc.dim(`(${elapsed(startMs)})`)}\n`);
+  process.stdout.write(
+    `\n  ${pc.green("\u2713")} Phase ${num} complete ${pc.dim(`(${elapsed(startMs)})`)}\n`,
+  );
 }

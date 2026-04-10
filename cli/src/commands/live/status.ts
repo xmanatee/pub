@@ -21,16 +21,16 @@ export function registerStatusCommand(program: Command): void {
       } catch (error) {
         liveVerboseError = errorMessage(error);
       }
-      const response = await context.callDaemon({ method: "status", params: {} }).catch(
-        (error: unknown) => {
+      const response = await context
+        .callDaemon({ method: "status", params: {} })
+        .catch((error: unknown) => {
           if (error instanceof DaemonUnavailableError) {
             console.log("Agent daemon is not running.");
             printLocalRuntimeSummary(context.env);
             return null;
           }
           failCli(`Failed to fetch daemon status: ${errorMessage(error)}`);
-        }
-      );
+        });
       if (!response) return;
       if (!response.ok) {
         failCli(`Failed to fetch daemon status: ${response.error}`);

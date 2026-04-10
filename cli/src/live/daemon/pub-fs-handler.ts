@@ -63,12 +63,7 @@ export function createPubFsHandler(params: {
     dc.sendMessage(encodeMessage(msg));
   }
 
-  function sendError(
-    dc: DataChannelLike,
-    requestId: string,
-    code: string,
-    message: string,
-  ): void {
+  function sendError(dc: DataChannelLike, requestId: string, code: string, message: string): void {
     sendMessage(dc, makePubFsErrorMessage({ requestId, code, message }));
   }
 

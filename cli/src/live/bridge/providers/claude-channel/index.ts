@@ -10,11 +10,11 @@ import {
   type BridgeStatus,
 } from "../../shared.js";
 import {
-  type RelayInbound,
-  type RelayOutbound,
   decodeRelayMessage,
   defaultChannelSocketPath,
   encodeRelayMessage,
+  type RelayInbound,
+  type RelayOutbound,
 } from "./relay-protocol.js";
 
 export { isChannelSocketAvailable, resolveChannelSocketPath } from "./discovery.js";
@@ -73,19 +73,24 @@ export async function createClaudeChannelBridgeRunner(
   let buffer = "";
   conn.on("data", (chunk: Buffer) => {
     buffer += chunk.toString("utf-8");
-    let idx: number;
-    while ((idx = buffer.indexOf("\n")) !== -1) {
+    let idx = buffer.indexOf("\n");
+    while (idx !== -1) {
       const line = buffer.slice(0, idx);
       buffer = buffer.slice(idx + 1);
-      if (line.trim().length === 0) continue;
+      if (line.trim().length === 0) {
+        idx = buffer.indexOf("\n");
+        continue;
+      }
       const msg = decodeRelayMessage(line);
       if (!msg) {
         debugLog(`ignoring malformed relay message: ${line.slice(0, 120)}`);
+        idx = buffer.indexOf("\n");
         continue;
       }
       if (msg.type === "outbound" || msg.type === "activity") {
         handleOutbound(msg);
       }
+      idx = buffer.indexOf("\n");
     }
   });
 

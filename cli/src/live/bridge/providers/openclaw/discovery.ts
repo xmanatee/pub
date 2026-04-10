@@ -118,9 +118,7 @@ export function resolveOpenClawRuntime(
   );
 }
 
-export function resolveAutoDetectOpenClawCommandCwd(
-  env: NodeJS.ProcessEnv = process.env,
-): string {
+export function resolveAutoDetectOpenClawCommandCwd(env: NodeJS.ProcessEnv = process.env): string {
   const envWorkspace = env.OPENCLAW_WORKSPACE?.trim();
   if (envWorkspace) return envWorkspace;
   throw new Error(

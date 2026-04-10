@@ -100,7 +100,10 @@ describe("persistCanvasHtml", () => {
     const result = await manager.persistCanvasHtml("<h1>hello</h1>");
 
     expect(result).toEqual({ ok: true, delivered: true });
-    expect(updateMock).toHaveBeenCalledWith({ slug: "pub-a", files: { "index.html": "<h1>hello</h1>" } });
+    expect(updateMock).toHaveBeenCalledWith({
+      slug: "pub-a",
+      files: { "index.html": "<h1>hello</h1>" },
+    });
   });
 
   it("reports API errors", async () => {
