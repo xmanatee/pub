@@ -1,7 +1,9 @@
 import * as fs from "node:fs";
 import type { Command } from "commander";
 import { resolvePubSettings } from "../../core/config/index.js";
+import type { PubTunnelConfig } from "../../core/config/types.js";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
+import { resolvePubPaths } from "../../core/paths.js";
 import { CLI_VERSION } from "../../core/version/version.js";
 import {
   liveInfoPath,
@@ -11,6 +13,7 @@ import {
 } from "../../live/runtime/daemon-files.js";
 import { buildDaemonSpawnStdio, waitForDaemonReady } from "../../live/runtime/daemon-process.js";
 import { runStartPreflight } from "../../live/runtime/start-preflight.js";
+import { resolveDefaultTunnelConfig, scaffoldDefaultApp } from "../../scaffold/index.js";
 import { createCliCommandContext } from "../shared/index.js";
 import {
   getLiveVerboseEnableCommand,
@@ -51,7 +54,18 @@ export function registerStartCommand(program: Command): void {
       const resolved = resolvePubSettings(context.env);
       const sentryDsn = resolved.valuesByKey.sentryDsn;
       const telemetry = resolved.valuesByKey.telemetry;
-      const tunnelConfig = resolved.rawConfig.tunnel;
+
+      let tunnelConfig: PubTunnelConfig | undefined = resolved.rawConfig.tunnel;
+      if (!tunnelConfig?.devCommand) {
+        const paths = resolvePubPaths(context.env);
+        const { tunnelConfig: autoConfig, scaffoldDir } = resolveDefaultTunnelConfig(
+          paths.workspaceRoot,
+        );
+        console.log(`Scaffolding default app to ${scaffoldDir}...`);
+        scaffoldDefaultApp(scaffoldDir);
+        tunnelConfig = autoConfig;
+        console.log("Default app ready.");
+      }
 
       const child = spawn(process.execPath, [], {
         detached: true,

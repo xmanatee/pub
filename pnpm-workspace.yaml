@@ -2,3 +2,4 @@ packages:
   - web
   - cli
   - relay
+  - packages/default-app

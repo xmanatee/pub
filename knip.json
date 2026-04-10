@@ -25,6 +25,9 @@
       "paths": {
         "@shared/*": ["../shared/*"]
       }
+    },
+    "packages/default-app": {
+      "project": ["src/**/*.{ts,tsx}"]
     }
   }
 }
