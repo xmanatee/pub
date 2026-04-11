@@ -24,6 +24,7 @@ export function resolveDefaultTunnelConfig(workspaceRoot: string): {
 
 export function scaffoldDefaultApp(targetDir: string): void {
   if (fs.existsSync(path.join(targetDir, "package.json"))) {
+    syncManagedConfig(targetDir);
     return;
   }
 
@@ -41,6 +42,16 @@ export function scaffoldDefaultApp(targetDir: string): void {
     stdio: "inherit",
     timeout: 120_000,
   });
+}
+
+function syncManagedConfig(targetDir: string): void {
+  const viteConfig = TEMPLATE_FILES["vite.config.ts"];
+  if (!viteConfig) return;
+  const viteConfigPath = path.join(targetDir, "vite.config.ts");
+  try {
+    if (fs.readFileSync(viteConfigPath, "utf-8") === viteConfig) return;
+  } catch {}
+  fs.writeFileSync(viteConfigPath, viteConfig);
 }
 
 function detectPackageManager(): string {

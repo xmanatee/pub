@@ -32,7 +32,7 @@ export function useTunnelLiveModel(
 ): LiveSessionContextType {
   const transport = useTunnelTransport(tunnelWsUrl);
   const [viewMode, setViewMode] = useState<LiveViewMode>("canvas");
-  const [collapsePreference, setCollapsePreference] = useState(true);
+  const [collapsePreference, setCollapsePreference] = useState(false);
 
   const chatDelivery = useLiveChatDelivery();
   const { clearFiles, files } = useLiveFiles();
