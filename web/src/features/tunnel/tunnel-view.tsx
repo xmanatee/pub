@@ -2,6 +2,7 @@ import { api } from "@backend/_generated/api";
 import { DEFAULT_RELAY_URL } from "@shared/tunnel-protocol-core";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
+import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { LiveSessionProvider } from "~/features/pub/contexts/live-session-context";
@@ -87,18 +88,20 @@ function TunnelSession({ tunnel }: { tunnel: TunnelInfo }) {
   const model = useTunnelLiveModel(tunnelWsUrl, tunnel.agentName);
 
   return (
-    <LiveSessionProvider value={model}>
-      <div className="flex-1 min-h-0 flex flex-col relative">
-        {model.viewMode === "chat" ? (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ChatPanel />
-          </div>
-        ) : (
-          <TunnelFrame token={tunnel.token} />
-        )}
-        <ControlBar />
-      </div>
-    </LiveSessionProvider>
+    <ControlBarProvider>
+      <LiveSessionProvider value={model}>
+        <div className="flex-1 min-h-0 flex flex-col relative">
+          {model.viewMode === "chat" ? (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ChatPanel />
+            </div>
+          ) : (
+            <TunnelFrame token={tunnel.token} />
+          )}
+          <ControlBar />
+        </div>
+      </LiveSessionProvider>
+    </ControlBarProvider>
   );
 }
 

@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { createBridgeTestConfig } from "../fixtures/bridge-configs";
 import { clearBridgeRules, setupBridgeDefaultRules } from "../fixtures/bridge-test-helpers";
+import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture, type TunnelTestConfig } from "../fixtures/cli";
 import { clearAll, getFirstTunnelToken, getState, seedUser } from "../fixtures/convex";
 import { createTestDevServerDir } from "../helpers/test-dev-server";
@@ -94,6 +95,24 @@ test.describe
       await page.goto(`${RELAY_URL}/t/${token}/`);
       await expect(page.locator("#heading")).toHaveText("Tunnel Dev Server", { timeout: 10_000 });
       await expect(page.locator("#status")).toHaveText("ok");
+    });
+
+    test("web app /app route renders tunnel view with control bar", async ({ page }) => {
+      const { user } = setupTunnelCli("Tunnel App Route User");
+      await cli.startDaemon("tunnel-app-bot");
+
+      const token = await waitForTunnelToken();
+      await expect(async () => {
+        const res = await fetch(`${RELAY_URL}/t/${token}/`);
+        expect(res.status).toBe(200);
+      }).toPass({ timeout: 15_000 });
+
+      const { baseUrl } = getState();
+      await injectAuth(page, user);
+      await page.goto(`${baseUrl}/app`);
+
+      await expect(page.locator("iframe[title='Tunnel App']")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("textbox")).toBeVisible({ timeout: 10_000 });
     });
 
     test("tunnel closes when daemon stops", async () => {
