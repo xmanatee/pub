@@ -31,7 +31,7 @@ export async function addBridgeEchoRule(
   reply: string,
 ): Promise<void> {
   if (isLlmMode(mode)) {
-    return addEchoRule(match, reply, mode);
+    return addEchoRule(match, reply);
   }
   if (mode === "claude-channel") {
     return addRelayEchoRule(match, reply);

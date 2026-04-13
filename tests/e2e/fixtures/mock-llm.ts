@@ -69,21 +69,19 @@ export async function clearRules(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Add a rule that makes the agent execute `pub write` via its tool.
- * Tool name varies by bridge mode: "exec" (openclaw), "Bash" (claude-code/claude-sdk).
+ * Add a rule that replies to the user with a chat message. Chat delivery is
+ * bridge-owned: the LLM returns the reply as assistant text, the bridge
+ * forwards it to the chat channel.
  */
-export function addEchoRule(match: string, reply: string, mode: BridgeMode): Promise<void> {
-  const tool = toolNameForMode(mode);
-  return addRule({
-    match,
-    toolCalls: [{ name: tool, input: { command: `pub write "${reply}"` } }],
-    afterToolText: "done",
-  });
+export function addEchoRule(match: string, reply: string): Promise<void> {
+  return addRule({ match, text: reply });
 }
 
 /**
  * Add a rule that makes the agent update the canvas with HTML content.
- * The HTML is base64-encoded, decoded to a temp file, then sent via `pub write -c canvas -f`.
+ * Canvas update is agent-driven (`pub write -c canvas -f`). Chat reply, if
+ * any, comes back as assistant text after the tool runs — the bridge owns
+ * chat delivery.
  */
 export function addCanvasRule(
   match: string,
@@ -94,16 +92,12 @@ export function addCanvasRule(
   const tool = toolNameForMode(mode);
   const tmpFile = `/tmp/mock-canvas-${Date.now()}.html`;
   const b64 = Buffer.from(html).toString("base64");
-
-  const parts = [`echo '${b64}' | base64 -d > ${tmpFile}`, `pub write -c canvas -f ${tmpFile}`];
-  if (chatReply) {
-    parts.push(`pub write "${chatReply}"`);
-  }
+  const command = `echo '${b64}' | base64 -d > ${tmpFile} && pub write -c canvas -f ${tmpFile}`;
 
   return addRule({
     match,
-    toolCalls: [{ name: tool, input: { command: parts.join(" && ") } }],
-    afterToolText: "done",
+    toolCalls: [{ name: tool, input: { command } }],
+    ...(chatReply ? { afterToolText: chatReply } : {}),
   });
 }
 
