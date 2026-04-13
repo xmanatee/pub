@@ -27,7 +27,7 @@ export function TunnelView() {
 
   const tunnel = tunnels[Math.min(selectedIndex, tunnels.length - 1)];
   return (
-    <div className="fixed inset-0 flex flex-col bg-background">
+    <div className="flex-1 flex flex-col bg-background">
       {tunnels.length > 1 ? (
         <TunnelSelector
           tunnels={tunnels}

@@ -107,6 +107,7 @@ test.describe("Tunnel full-stack E2E", () => {
     const { daemonWs, token, cleanup } = await setupTunnel();
     currentToken = token;
     setupHttpProxy(daemonWs);
+    await waitForRelayReady(token);
 
     await page.goto(`${RELAY_URL}/t/${token}/`);
     await expect(page.locator("#heading")).toHaveText("Tunnel Test App");
@@ -119,6 +120,7 @@ test.describe("Tunnel full-stack E2E", () => {
     const { daemonWs, token, cleanup } = await setupTunnel();
     currentToken = token;
     setupHttpProxy(daemonWs);
+    await waitForRelayReady(token);
 
     daemonWs.on("message", (raw: Buffer) => {
       const envelope = JSON.parse(raw.toString());
@@ -152,6 +154,7 @@ test.describe("Tunnel full-stack E2E", () => {
     const { daemonWs, token, cleanup } = await setupTunnel();
     currentToken = token;
     setupHttpProxy(daemonWs);
+    await waitForRelayReady(token);
 
     await page.goto(`${RELAY_URL}/t/${token}/`);
     await expect(page.locator("#status")).toHaveText("connected", { timeout: 10_000 });
@@ -179,6 +182,7 @@ test.describe("Tunnel full-stack E2E", () => {
     const { daemonWs, token, cleanup } = await setupTunnel();
     currentToken = token;
     setupHttpProxy(daemonWs);
+    await waitForRelayReady(token);
 
     daemonWs.on("message", (raw: Buffer) => {
       const envelope = JSON.parse(raw.toString());
@@ -225,6 +229,18 @@ test.describe("Tunnel full-stack E2E", () => {
   });
 
   // ── Helpers ────────────────────────────────────────────────────
+
+  async function waitForRelayReady(token: string) {
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(`${RELAY_URL}/t/${token}/`);
+        if (res.status === 200) return;
+      } catch {}
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    throw new Error("Relay did not become ready within 15s");
+  }
 
   async function setupTunnel() {
     const user = seedUser("Tunnel E2E");

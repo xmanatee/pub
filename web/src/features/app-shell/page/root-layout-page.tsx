@@ -1,6 +1,6 @@
 import { api } from "@backend/_generated/api";
 import * as Sentry from "@sentry/react";
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useMatches } from "@tanstack/react-router";
 import { useSignal } from "@telegram-apps/sdk-react";
 import { useConvexAuth, useQuery } from "convex/react";
 import posthog from "posthog-js";
@@ -18,6 +18,9 @@ import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
 import { IN_TELEGRAM, isFullscreen } from "~/lib/telegram";
+
+/** Routes that take over the full viewport — no header, footer, or main wrapper. */
+const FULLSCREEN_ROUTE_IDS: ReadonlySet<string> = new Set(["/_authenticated/app", "/p/$slug"]);
 
 initPostHog();
 
@@ -110,10 +113,20 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const fullscreen = useSignal(isFullscreen);
   const showHeader = !IN_TELEGRAM || fullscreen;
+  const matches = useMatches();
+  const isFullscreenRoute = matches.some((m) => FULLSCREEN_ROUTE_IDS.has(m.routeId));
 
   React.useEffect(() => {
     pushAuthDebug("root_auth_state", { isLoading, isAuthenticated });
   }, [isLoading, isAuthenticated]);
+
+  if (isFullscreenRoute) {
+    return (
+      <div className="pub-overlay flex flex-col h-screen w-full overflow-hidden bg-background">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div

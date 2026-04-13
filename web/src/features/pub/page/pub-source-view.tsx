@@ -20,7 +20,7 @@ export function PubSourceView({ slug, title, content }: PubSourceViewProps) {
   }, [content]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
+    <div className="flex-1 flex flex-col bg-background text-foreground">
       <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2">
         <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Back" asChild>
           <Link to="/p/$slug" params={{ slug }}>

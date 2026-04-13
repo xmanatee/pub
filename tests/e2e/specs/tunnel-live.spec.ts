@@ -107,12 +107,10 @@ test.describe
         expect(res.status).toBe(200);
       }).toPass({ timeout: 15_000 });
 
-      const { baseUrl } = getState();
       await injectAuth(page, user);
-      await page.goto(`${baseUrl}/app`);
+      await page.goto("/app");
 
-      await expect(page.getByText("No active tunnels")).not.toBeVisible({ timeout: 30_000 });
-      await expect(page.locator("iframe[title='Tunnel App']")).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("iframe[title='Tunnel App']")).toBeVisible({ timeout: 60_000 });
       await expect(page.getByRole("textbox")).toBeVisible({ timeout: 10_000 });
     });
 
