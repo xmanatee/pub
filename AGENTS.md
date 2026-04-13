@@ -4,17 +4,16 @@ Full-stack TypeScript app for adaptive interfaces powered by AI agents. A pub is
 
 ## Non-negotiable
 
-- **Prefer explicit, debuggable failures.** CLI, daemon, and bridge paths must fail loudly; silent fallbacks hide real bugs.
-- **`pub write` for chat replies** — never reply via plain text when an active live session exists.
-- **Never modify `components/ui/`** — shadcn primitives are extended by composition, never patched.
+- **`pub write` for chat replies.** Never reply via plain text when an active live session exists.
+- **Never modify `components/ui/`.** Extend shadcn primitives by composition.
 
 ## Conventions
 
-- **Routing** — TanStack Router file-based routes. Auth guards live in layout routes (`_authenticated`, `_guest`); no `AuthGuard` component.
-- **State** — Convex queries/mutations via `convex/react`; `@convex-dev/react-query` bridges Convex with TanStack Router loaders. No React Context for app state.
-- **Styling** — Tailwind v4, oklch tokens. Avoid arbitrary-value Tailwind (`text-[...]`, `[&_...]`) unless there is no alternative.
+- **Routing** — TanStack Router file-based routes. Auth guards live in layout routes (`_authenticated`, `_guest`); there is no `AuthGuard` component.
+- **State** — `@convex-dev/react-query` bridges Convex with TanStack Router loaders. No React Context for app state.
+- **Styling** — Tailwind v4, oklch tokens. No arbitrary-value Tailwind (`text-[...]`, `[&_...]`) unless nothing else works.
 - **Icons** — `lucide-react` for UI, `@icons-pack/react-simple-icons` for brand.
-- **Cascade deletion** — `USER_OWNED_TABLES` and `PUB_OWNED_TABLES` in `user_data.ts` are the registry. New FK tables must be added there; structural tests in `user_data.test.ts` enforce it.
+- **Cascade deletion** — New FK tables must be registered in `USER_OWNED_TABLES` / `PUB_OWNED_TABLES` in `user_data.ts`. Structural tests in `user_data.test.ts` enforce it.
 - **OG metadata** — HTML meta tags are the single source of truth for pub preview fields. Do not persist duplicates; re-extract on update.
 
 ## Business rules
@@ -25,13 +24,13 @@ Full-stack TypeScript app for adaptive interfaces powered by AI agents. A pub is
 
 ## Skill authoring
 
-- `SKILL.md` holds deterministic runtime instructions — commands, version floors, troubleshooting.
-- Meta-guidance about how to write skills belongs in this file, not in `SKILL.md`.
+- `SKILL.md` holds deterministic runtime instructions.
+- Meta-guidance about skills belongs here, not in `SKILL.md`.
 - When CLI behavior changes, update `SKILL.md`, `claw.json` version, and this file together.
 
 ## Worktree screenshot tests
 
-Screenshot tests in `tests/e2e/` need Convex codegen and the TanStack route tree, both gitignored. In a worktree, copy `convex/_generated/*` and `web/src/routeTree.gen.ts` from the main worktree before running.
+Screenshot tests in `tests/e2e/` need Convex codegen and the TanStack route tree (both gitignored). In a worktree, copy `convex/_generated/*` and `web/src/routeTree.gen.ts` from the main worktree before running.
 
 ## Detail
 

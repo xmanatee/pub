@@ -6,7 +6,7 @@ import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-cor
 import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
-import type { DevServer } from "../server/manager.js";
+import { type DevServer, killProcessGroup } from "../server/manager.js";
 import type { TunnelDataChannel } from "../tunnel/channel-adapter.js";
 import type { TunnelConnection } from "../tunnel/client.js";
 import type { WsProxy } from "../tunnel/ws-proxy.js";
@@ -351,10 +351,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const infoDir = path.dirname(infoPath);
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
-  fs.writeFileSync(
-    infoPath,
-    JSON.stringify({ pid: process.pid, socketPath, logPath, startedAt: startTime, cliVersion }),
-  );
+  function writeInfoFile(extra: { devServerPid?: number } = {}): void {
+    fs.writeFileSync(
+      infoPath,
+      JSON.stringify({
+        pid: process.pid,
+        socketPath,
+        logPath,
+        startedAt: startTime,
+        cliVersion,
+        ...extra,
+      }),
+    );
+  }
+  writeInfoFile();
 
   signaling.start();
   lifecycle.startHealthCheckTimer();
@@ -385,14 +395,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       `starting dev server: ${devCommand} (port ${devPort}${devCwd ? ` cwd=${devCwd}` : ""})`,
     );
     devServer = startDevServer({ devCommand, devCwd, devPort, tunnelBase });
+    writeInfoFile({ devServerPid: devServer.pid });
 
     try {
       await devServer.ready;
-      lifecycle.debugLog(`dev server ready on port ${devPort}`);
+      lifecycle.debugLog(`dev server ready on port ${devPort} (pid ${devServer.pid})`);
     } catch (error) {
       lifecycle.markError("dev server failed to start", error);
       await devServer.stop();
       devServer = null;
+      writeInfoFile();
     }
 
     if (devServer) {
@@ -537,5 +549,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   });
   process.on("unhandledRejection", (reason) => {
     lifecycle.markError("unhandled rejection in daemon", reason, { alwaysLog: true });
+    void shutdown(1).catch((shutdownError) => {
+      lifecycle.logAlways("shutdown failed after unhandled rejection", shutdownError);
+    });
+  });
+  // Last-ditch synchronous reaper. Runs on every process exit, including paths
+  // where async cleanup could not complete (uncaughtException re-thrown,
+  // process.exit from native code, etc.). Async signals like SIGKILL bypass
+  // this — preflight reap (stopRecordedDaemons) covers those.
+  process.on("exit", () => {
+    if (!devServer) return;
+    try {
+      killProcessGroup(devServer.pid, "SIGKILL");
+    } catch {
+      // process group may already be gone
+    }
   });
 }

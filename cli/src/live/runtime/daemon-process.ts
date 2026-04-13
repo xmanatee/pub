@@ -1,12 +1,14 @@
 import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import { errorMessage } from "../../core/errors/cli-error.js";
+import { killProcessGroup } from "../server/manager.js";
 import { ipcCall } from "../transport/ipc.js";
 import { liveInfoDir, liveInfoPath } from "./daemon-files.js";
 
 interface DaemonProcessInfo {
   pid: number;
   socketPath?: string;
+  devServerPid?: number;
 }
 
 function hasErrnoCode(error: unknown, code: string): boolean {
@@ -81,9 +83,24 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   return !isProcessAlive(pid);
 }
 
+function reapDevServerGroup(pid: number | undefined): void {
+  if (typeof pid !== "number" || !Number.isFinite(pid)) return;
+  if (!isProcessAlive(pid)) return;
+  try {
+    killProcessGroup(pid, "SIGKILL");
+  } catch {
+    // group may have already exited; nothing more to do
+  }
+}
+
 async function stopRecordedDaemon(info: DaemonProcessInfo): Promise<string | null> {
   const pid = info.pid;
-  if (!isProcessAlive(pid)) return null;
+  if (!isProcessAlive(pid)) {
+    // Daemon process is already dead, but its dev-server group may have
+    // outlived it (SIGKILL bypasses the daemon's own exit handler).
+    reapDevServerGroup(info.devServerPid);
+    return null;
+  }
 
   const socketPath = info.socketPath;
   if (socketPath) {
@@ -106,6 +123,7 @@ async function stopRecordedDaemon(info: DaemonProcessInfo): Promise<string | nul
 
   const stopped = await waitForProcessExit(pid, 8_000);
   if (!stopped) return `daemon ${pid}: did not exit after stop request`;
+  reapDevServerGroup(info.devServerPid);
   return null;
 }
 

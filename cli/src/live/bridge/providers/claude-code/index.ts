@@ -19,30 +19,7 @@ export {
 export { runClaudeCodeBridgeStartupProbe } from "./probe.js";
 export { buildClaudeArgsFromSettings } from "./runtime.js";
 
-const SESSION_BRIEFING_MAX_TURNS = 2;
-
 const CAPABILITIES: BridgeCapabilities = { conversational: true };
-
-export type ClaudeExitContext = {
-  exitCode: number;
-  terminalReason: string | null;
-  capturedSessionId: string | null;
-  stderr: string;
-};
-
-/**
- * Evaluates whether a non-zero Claude Code exit is fatal.
- * Returns an error message to throw, or null if the exit is non-fatal.
- *
- * `max_turns` with a captured session is non-fatal: the session was
- * established and subsequent prompts can resume it.
- */
-export function evaluateClaudeExit(ctx: ClaudeExitContext): string | null {
-  if (ctx.terminalReason === "max_turns" && ctx.capturedSessionId) {
-    return null;
-  }
-  return ctx.stderr || `exit code ${ctx.exitCode}`;
-}
 
 export async function createClaudeCodeBridgeRunner(
   config: BridgeRunnerConfig,
@@ -174,18 +151,11 @@ export async function createClaudeCodeBridgeRunner(
 
     if (exitCode !== null && exitCode !== 0 && !stopped) {
       const stderr = stderrChunks.join("").trim();
+      const detail = stderr || `exit code ${exitCode}`;
       debugLog(
         `claude exited with code ${exitCode} terminal_reason=${terminalReason ?? "unknown"} session=${capturedSessionId ?? "none"} stderr=${stderr.length > 0 ? stderr.slice(0, 200) : "(empty)"}`,
       );
-      const errorDetail = evaluateClaudeExit({
-        exitCode,
-        terminalReason,
-        capturedSessionId,
-        stderr,
-      });
-      if (errorDetail) {
-        throw new Error(`Claude Code exited with error: ${errorDetail}`);
-      }
+      throw new Error(`Claude Code exited with error: ${detail}`);
     }
     return assistantChunks.join("").trim();
   }
@@ -206,7 +176,7 @@ export async function createClaudeCodeBridgeRunner(
   }
 
   await queueSessionTask(async () => {
-    await runClaudeCodePrompt(sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
+    await runClaudeCodePrompt(sessionBriefing);
   });
   debugLog("session briefing delivered");
 
