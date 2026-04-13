@@ -9,7 +9,7 @@ import {
   resolveAutoDetectOpenClawCommandCwd,
   resolveOpenClawRuntime,
 } from "./discovery.js";
-import { deliverMessageToOpenClaw, runOpenClawPreflight } from "./runtime.js";
+import { invokeOpenClawPrompt, runOpenClawPreflight } from "./runtime.js";
 
 function formatProbeFailure(params: {
   openclawPath: string;
@@ -80,16 +80,14 @@ export async function runOpenClawBridgeStartupProbe(
           // If this is a self-probe (the agent running this command is the target),
           // we only deliver the notification message but skip the blocking wait.
           // The agent will see the message once this process completes.
-          await deliverMessageToOpenClaw(
-            {
-              openclawPath: runtime.openclawPath,
-              sessionId: runtime.sessionId,
-              text: prompt,
-              local: true,
-            },
-            probeEnv,
-            { workspaceDir },
-          );
+          await invokeOpenClawPrompt({
+            openclawPath: runtime.openclawPath,
+            sessionId: runtime.sessionId,
+            text: prompt,
+            workspaceDir,
+            env: probeEnv,
+            local: true,
+          });
           // Simulate pong to pass preflight immediately for self-probe.
           // The agent's ability to run this command is proof of aliveness.
           const { ipcCall } = await import("../../../transport/ipc.js");
@@ -101,16 +99,14 @@ export async function runOpenClawBridgeStartupProbe(
             },
           });
         } else {
-          await deliverMessageToOpenClaw(
-            {
-              openclawPath: runtime.openclawPath,
-              sessionId: runtime.sessionId,
-              text: prompt,
-              local: true,
-            },
-            probeEnv,
-            { workspaceDir },
-          );
+          await invokeOpenClawPrompt({
+            openclawPath: runtime.openclawPath,
+            sessionId: runtime.sessionId,
+            text: prompt,
+            workspaceDir,
+            env: probeEnv,
+            local: true,
+          });
         }
       },
     });

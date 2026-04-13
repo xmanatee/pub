@@ -14,13 +14,14 @@ export async function deliverMessageToCommand(
   params: { command: string; text: string },
   env: NodeJS.ProcessEnv = process.env,
   settings: DeliverySettings,
-): Promise<void> {
+): Promise<string> {
   try {
-    await execFileAsync(params.command, [params.text], {
+    const result = await execFileAsync(params.command, [params.text], {
       cwd: settings.workspaceDir,
       timeout: DELIVER_TIMEOUT_MS,
       env,
     });
+    return result.stdout.trim();
   } catch (error) {
     throw formatExecFailure("openclaw-like delivery failed", error);
   }

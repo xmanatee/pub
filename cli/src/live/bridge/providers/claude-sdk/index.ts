@@ -1,7 +1,5 @@
 import { errorMessage } from "../../../../core/errors/cli-error.js";
-import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
-import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
-import { createBridgeEntryQueue } from "../../queue.js";
+import { createBridgeScaffolding } from "../../scaffolding.js";
 import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
   BridgeCapabilities,
@@ -30,19 +28,15 @@ export async function createClaudeSdkBridgeRunner(
   if (config.bridgeSettings.mode !== "claude-sdk") {
     throw new Error("Claude SDK runtime is not prepared.");
   }
-  const { slug, sendMessage, debugLog, sessionBriefing } = config;
+  const { debugLog, sessionBriefing } = config;
 
   const loadedSdk = loadClaudeSdk();
   const { model, claudePath, workspaceDir, sdkEnv } = buildSdkSessionOptionsFromSettings(
     config.bridgeSettings,
     process.env,
   );
-  const activeStreams = new Map<string, ActiveStream>();
-  ensureDirectoryWritable(config.bridgeSettings.attachmentDir);
 
   let sessionId: string | undefined;
-  let forwardedMessageCount = 0;
-  let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
   let sessionRecreations = 0;
   const queueSessionTask = createSessionTaskQueue();
@@ -117,38 +111,17 @@ export async function createClaudeSdkBridgeRunner(
   }
 
   async function deliver(prompt: string): Promise<void> {
-    await queueSessionTask(async () => {
-      await deliverWithRecovery(prompt);
-    });
+    const reply = await queueSessionTask(() => deliverWithRecovery(prompt));
+    await scaffold.sendChatText(reply);
   }
+
+  const scaffold = createBridgeScaffolding(config, deliver);
 
   await sendAndStream(createSession(), sessionBriefing);
 
-  const handler = createEntryHandler({
-    slug,
-    attachmentRoot: config.bridgeSettings.attachmentDir,
-    activeStreams,
-    deliver,
-    onDeliveryUpdate: config.onDeliveryUpdate,
-    onForwarded: () => {
-      forwardedMessageCount += 1;
-    },
-    onError: (message) => {
-      lastError = message;
-    },
-    sendErrorToChat: createErrorChatSender(sendMessage),
-    debugLog,
-  });
-
-  const queue = createBridgeEntryQueue({
-    onProcessingStart: () => config.onActivityChange("thinking"),
-    onProcessingEnd: () => config.onActivityChange("idle"),
-    onBatch: handler.onBatch,
-  });
-
   return {
     capabilities: CAPABILITIES,
-    enqueue: (entries) => queue.enqueue(entries),
+    enqueue: (entries) => scaffold.queue.enqueue(entries),
     invokeAgentCommand: async ({ prompt, output }) =>
       await queueSessionTask(async () => {
         const text = await deliverWithRecovery(prompt);
@@ -161,15 +134,14 @@ export async function createClaudeSdkBridgeRunner(
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;
-      await queue.stop();
+      await scaffold.queue.stop();
       activeSession?.close();
     },
     status(): BridgeStatus {
       return {
         running: !stopped,
         sessionId,
-        lastError,
-        forwardedMessages: forwardedMessageCount,
+        ...scaffold.status(),
       };
     },
   };

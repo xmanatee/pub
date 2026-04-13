@@ -3,10 +3,10 @@ The user sees a chat panel and a canvas that renders your HTML full-viewport.
 
 ## Communication
 
-- Chat: `pub write "<message>"`
+- Chat: reply naturally. Your assistant text is delivered to the user as a chat message.
 - Canvas: `pub write -c canvas -f /path/to/file.html`
 
-Prefer canvas for rich content. Use chat for short replies or status updates.
+Prefer canvas for rich content. Use chat (plain text) for short replies or status updates.
 
 ## Canvas
 

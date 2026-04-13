@@ -247,9 +247,9 @@ describe("createOpenClawBridgeRunner", () => {
   it("aborts in-flight deliveries when stopped", async () => {
     const deliveredPrompts: string[] = [];
     let deliveryAborted = false;
-    vi.spyOn(runtime, "deliverMessageToOpenClaw").mockImplementation(async (params) => {
+    vi.spyOn(runtime, "invokeOpenClawPrompt").mockImplementation(async (params) => {
       deliveredPrompts.push(params.text);
-      if (params.text.includes("Session started.")) return;
+      if (params.text.includes("Session started.")) return "";
       await new Promise<void>((_resolve, reject) => {
         params.signal?.addEventListener(
           "abort",
@@ -262,9 +262,8 @@ describe("createOpenClawBridgeRunner", () => {
           { once: true },
         );
       });
+      return "";
     });
-
-    vi.spyOn(runtime, "invokeOpenClawPrompt").mockResolvedValue("");
 
     const runner = await createOpenClawBridgeRunner(
       {

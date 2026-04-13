@@ -1,8 +1,6 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
-import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
-import { createBridgeEntryQueue } from "../../queue.js";
+import { createBridgeScaffolding } from "../../scaffolding.js";
 import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
   BridgeCapabilities,
@@ -29,19 +27,15 @@ export async function createClaudeCodeBridgeRunner(
   if (config.bridgeSettings.mode !== "claude-code") {
     throw new Error("Claude Code runtime is not prepared.");
   }
-  const { slug, sendMessage, debugLog, sessionBriefing } = config;
+  const { debugLog, sessionBriefing } = config;
   const bridgeSettings = config.bridgeSettings;
 
   const claudePath = bridgeSettings.claudeCodePath;
   const cwd = bridgeSettings.workspaceDir;
-  const activeStreams = new Map<string, ActiveStream>();
 
-  ensureDirectoryWritable(bridgeSettings.attachmentDir);
   await runClaudeCodePreflight(claudePath, process.env);
 
   let sessionId: string | null = null;
-  let forwardedMessageCount = 0;
-  let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
   let activeChild: import("node:child_process").ChildProcess | null = null;
   const queueSessionTask = createSessionTaskQueue();
@@ -112,10 +106,7 @@ export async function createClaudeCodeBridgeRunner(
       };
 
       if (parsed.type === "result") {
-        const result = event as {
-          session_id?: string;
-          terminal_reason?: string;
-        };
+        const result = event as { session_id?: string; terminal_reason?: string };
         if (typeof result.session_id === "string" && result.session_id.length > 0) {
           capturedSessionId = result.session_id;
         }
@@ -162,41 +153,18 @@ export async function createClaudeCodeBridgeRunner(
   }
 
   async function deliver(prompt: string): Promise<void> {
-    await queueSessionTask(async () => {
-      await runClaudeCodePrompt(prompt);
-    });
+    const reply = await queueSessionTask(() => runClaudeCodePrompt(prompt));
+    await scaffold.sendChatText(reply);
   }
 
-  await queueSessionTask(async () => {
-    await runClaudeCodePrompt(sessionBriefing);
-  });
+  const scaffold = createBridgeScaffolding(config, deliver);
+
+  await runClaudeCodePrompt(sessionBriefing);
   debugLog("session briefing delivered");
-
-  const handler = createEntryHandler({
-    slug,
-    attachmentRoot: bridgeSettings.attachmentDir,
-    activeStreams,
-    deliver,
-    onDeliveryUpdate: config.onDeliveryUpdate,
-    onForwarded: () => {
-      forwardedMessageCount += 1;
-    },
-    onError: (message) => {
-      lastError = message;
-    },
-    sendErrorToChat: createErrorChatSender(sendMessage),
-    debugLog,
-  });
-
-  const queue = createBridgeEntryQueue({
-    onProcessingStart: () => config.onActivityChange("thinking"),
-    onProcessingEnd: () => config.onActivityChange("idle"),
-    onBatch: handler.onBatch,
-  });
 
   return {
     capabilities: CAPABILITIES,
-    enqueue: (entries) => queue.enqueue(entries),
+    enqueue: (entries) => scaffold.queue.enqueue(entries),
     invokeAgentCommand: async ({ prompt, output, signal }) =>
       await queueSessionTask(async () => {
         const text = await runClaudeCodePrompt(prompt, { signal });
@@ -210,14 +178,13 @@ export async function createClaudeCodeBridgeRunner(
       if (stopped) return;
       stopped = true;
       activeChild?.kill("SIGINT");
-      await queue.stop();
+      await scaffold.queue.stop();
     },
     status(): BridgeStatus {
       return {
         running: !stopped,
         sessionId: sessionId ?? undefined,
-        lastError,
-        forwardedMessages: forwardedMessageCount,
+        ...scaffold.status(),
       };
     },
   };

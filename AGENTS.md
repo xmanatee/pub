@@ -4,7 +4,7 @@ Full-stack TypeScript app for adaptive interfaces powered by AI agents. A pub is
 
 ## Non-negotiable
 
-- **`pub write` for chat replies.** Never reply via plain text when an active live session exists.
+- **Bridge owns chat delivery.** Providers forward the agent's assistant text to the chat channel via `sendMessage`. `pub write` is reserved for non-chat channels (canvas, attachments) and non-live scripting.
 - **Never modify `components/ui/`.** Extend shadcn primitives by composition.
 
 ## Conventions

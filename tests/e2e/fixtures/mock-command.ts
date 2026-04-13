@@ -44,9 +44,9 @@ export function clearCommandRules(): void {
 // Convenience helpers
 // ---------------------------------------------------------------------------
 
-/** Command echo: when prompt contains X, run `pub write "Y"`. */
+/** Command echo: when prompt contains X, print Y to stdout (bridge forwards to chat). */
 export function addCommandEchoRule(match: string, reply: string): void {
-  addCommandRule(match, [`pub write "${reply}"`]);
+  addCommandRule(match, [`echo "${reply}"`]);
 }
 
 /** Command canvas update: when prompt contains X, write HTML and send via canvas channel. */
@@ -58,7 +58,7 @@ export function addCommandCanvasRule(match: string, html: string, chatReply?: st
     `pub write -c canvas -f ${tmpFile}`,
   ];
   if (chatReply) {
-    commands.push(`pub write "${chatReply}"`);
+    commands.push(`echo "${chatReply}"`);
   }
   addCommandRule(match, commands);
 }

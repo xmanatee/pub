@@ -1,13 +1,12 @@
 import * as net from "node:net";
 import { generateMessageId } from "../../../../../../shared/bridge-protocol-core";
 import { errorMessage } from "../../../../core/errors/cli-error.js";
-import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
-import { createBridgeEntryQueue } from "../../queue.js";
-import {
-  type BridgeCapabilities,
-  type BridgeRunner,
-  type BridgeRunnerConfig,
-  type BridgeStatus,
+import { createBridgeScaffolding } from "../../scaffolding.js";
+import type {
+  BridgeCapabilities,
+  BridgeRunner,
+  BridgeRunnerConfig,
+  BridgeStatus,
 } from "../../shared.js";
 import {
   decodeRelayMessage,
@@ -52,8 +51,6 @@ export async function createClaudeChannelBridgeRunner(
   const { slug, sendMessage, debugLog, sessionBriefing } = config;
   const socketPath = config.bridgeSettings.channelSocketPath ?? defaultChannelSocketPath();
 
-  let forwardedMessageCount = 0;
-  let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
 
   const conn = await connectToRelay(socketPath);
@@ -69,6 +66,23 @@ export async function createClaudeChannelBridgeRunner(
       { once: true },
     );
   }
+
+  function sendToRelay(msg: RelayInbound): void {
+    if (stopped || conn.destroyed) {
+      throw new Error("Relay connection is not available");
+    }
+    conn.write(`${encodeRelayMessage(msg)}\n`);
+  }
+
+  async function deliver(prompt: string): Promise<void> {
+    sendToRelay({
+      type: "inbound",
+      channel: "chat",
+      msg: { id: generateMessageId(), type: "text", data: prompt },
+    });
+  }
+
+  const scaffold = createBridgeScaffolding(config, deliver);
 
   let buffer = "";
   conn.on("data", (chunk: Buffer) => {
@@ -97,12 +111,10 @@ export async function createClaudeChannelBridgeRunner(
   conn.on("close", () => {
     if (!stopped) {
       debugLog("relay connection closed unexpectedly");
-      lastError = "Relay connection closed";
     }
   });
 
   conn.on("error", (err) => {
-    lastError = err.message;
     debugLog(`relay connection error: ${err.message}`);
   });
 
@@ -121,60 +133,22 @@ export async function createClaudeChannelBridgeRunner(
     });
   }
 
-  function sendToRelay(msg: RelayInbound): void {
-    if (stopped || conn.destroyed) {
-      throw new Error("Relay connection is not available");
-    }
-    conn.write(`${encodeRelayMessage(msg)}\n`);
-  }
-
-  async function deliverToRelay(prompt: string): Promise<void> {
-    sendToRelay({
-      type: "inbound",
-      channel: "chat",
-      msg: { id: generateMessageId(), type: "text", data: prompt },
-    });
-  }
-
   sendToRelay({ type: "briefing", slug, content: sessionBriefing });
   debugLog("session briefing sent to channel server");
 
-  const handler = createEntryHandler({
-    slug,
-    attachmentRoot: config.bridgeSettings.attachmentDir,
-    activeStreams: new Map(),
-    deliver: deliverToRelay,
-    onDeliveryUpdate: config.onDeliveryUpdate,
-    onForwarded: () => {
-      forwardedMessageCount += 1;
-    },
-    onError: (message) => {
-      lastError = message;
-    },
-    sendErrorToChat: createErrorChatSender(sendMessage),
-    debugLog,
-  });
-
-  const queue = createBridgeEntryQueue({
-    onProcessingStart: () => config.onActivityChange("thinking"),
-    onProcessingEnd: () => config.onActivityChange("idle"),
-    onBatch: handler.onBatch,
-  });
-
   return {
     capabilities: CAPABILITIES,
-    enqueue: (entries) => queue.enqueue(entries),
+    enqueue: (entries) => scaffold.queue.enqueue(entries),
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;
-      await queue.stop();
+      await scaffold.queue.stop();
       conn.destroy();
     },
     status(): BridgeStatus {
       return {
         running: !stopped && !conn.destroyed,
-        lastError,
-        forwardedMessages: forwardedMessageCount,
+        ...scaffold.status(),
       };
     },
   };
