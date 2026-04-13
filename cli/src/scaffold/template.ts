@@ -158,7 +158,7 @@ const stripHmrClient = {
   transformIndexHtml: {
     order: "post" as const,
     handler(html: string) {
-      return html.replace(/<script type="module" src="\\/@vite\\/client"><\\/script>\\n?/, "");
+      return html.replace(/<script type="module" src="[^"]*@vite\\/client"><\\/script>\\s*\\n?/, "");
     },
   },
 };
