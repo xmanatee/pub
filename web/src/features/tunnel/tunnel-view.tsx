@@ -3,6 +3,7 @@ import { DEFAULT_RELAY_URL } from "@shared/tunnel-protocol-core";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
+import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { LiveSessionProvider } from "~/features/pub/contexts/live-session-context";
@@ -86,6 +87,7 @@ function TunnelSession({ tunnel }: { tunnel: TunnelInfo }) {
     [tunnel.token],
   );
   const model = useTunnelLiveModel(tunnelWsUrl, tunnel.agentName);
+  const liveBlob = createLiveBlobPresentation(model.blobState);
 
   return (
     <ControlBarProvider>
@@ -98,7 +100,10 @@ function TunnelSession({ tunnel }: { tunnel: TunnelInfo }) {
           ) : (
             <TunnelFrame token={tunnel.token} />
           )}
-          <ControlBar />
+          <ControlBar
+            shellTone={liveBlob.controlBarTone}
+            statusButtonContent={liveBlob.statusButtonContent}
+          />
         </div>
       </LiveSessionProvider>
     </ControlBarProvider>
