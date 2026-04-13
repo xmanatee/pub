@@ -1,6 +1,7 @@
 import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
 import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
 import { createBridgeEntryQueue } from "../../queue.js";
+import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
   BridgeCapabilities,
   BridgeRunner,
@@ -39,7 +40,7 @@ export async function createOpenClawBridgeRunner(
   let forwardedMessageCount = 0;
   let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
-  let sessionTaskChain = Promise.resolve();
+  const queueSessionTask = createSessionTaskQueue();
   const runnerAbort = new AbortController();
 
   if (abortSignal) {
@@ -55,15 +56,6 @@ export async function createOpenClawBridgeRunner(
 
   function isAbortError(error: unknown): boolean {
     return error instanceof Error && error.name === "AbortError";
-  }
-
-  function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
-    const next = sessionTaskChain.then(task);
-    sessionTaskChain = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
   }
 
   const useLocal = bridgeEnv.OPENCLAW_LOCAL === "1";

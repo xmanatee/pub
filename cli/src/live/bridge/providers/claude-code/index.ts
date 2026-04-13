@@ -3,6 +3,7 @@ import { createInterface } from "node:readline";
 import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
 import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
 import { createBridgeEntryQueue } from "../../queue.js";
+import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
   BridgeCapabilities,
   BridgeRunner,
@@ -43,7 +44,7 @@ export async function createClaudeCodeBridgeRunner(
   let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
   let activeChild: import("node:child_process").ChildProcess | null = null;
-  let sessionTaskChain = Promise.resolve();
+  const queueSessionTask = createSessionTaskQueue();
 
   if (abortSignal) {
     abortSignal.addEventListener(
@@ -158,15 +159,6 @@ export async function createClaudeCodeBridgeRunner(
       throw new Error(`Claude Code exited with error: ${detail}`);
     }
     return assistantChunks.join("").trim();
-  }
-
-  function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
-    const next = sessionTaskChain.then(task);
-    sessionTaskChain = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
   }
 
   async function deliver(prompt: string): Promise<void> {

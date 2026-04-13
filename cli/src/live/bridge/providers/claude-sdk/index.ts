@@ -2,6 +2,7 @@ import { errorMessage } from "../../../../core/errors/cli-error.js";
 import { type ActiveStream, ensureDirectoryWritable } from "../../attachments.js";
 import { createEntryHandler, createErrorChatSender } from "../../entry-handler.js";
 import { createBridgeEntryQueue } from "../../queue.js";
+import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
   BridgeCapabilities,
   BridgeRunner,
@@ -19,7 +20,6 @@ export { runClaudeSdkBridgeStartupProbe } from "./probe.js";
 export { buildSdkSessionOptionsFromSettings } from "./runtime.js";
 
 const MAX_SESSION_RECREATIONS = 2;
-const SESSION_BRIEFING_MAX_TURNS = 2;
 
 const CAPABILITIES: BridgeCapabilities = { conversational: true };
 
@@ -45,7 +45,7 @@ export async function createClaudeSdkBridgeRunner(
   let lastError: string | undefined;
   let stopped = abortSignal?.aborted ?? false;
   let sessionRecreations = 0;
-  let sessionTaskChain = Promise.resolve();
+  const queueSessionTask = createSessionTaskQueue();
 
   type SdkSession = ReturnType<typeof loadedSdk.unstable_v2_createSession>;
   let activeSession: SdkSession | null = null;
@@ -73,19 +73,10 @@ export async function createClaudeSdkBridgeRunner(
     return session;
   }
 
-  async function consumeStream(session: SdkSession, opts?: { maxTurns?: number }): Promise<string> {
+  async function consumeStream(session: SdkSession): Promise<string> {
     let collected = "";
-    let turnCount = 0;
-    const maxTurns = opts?.maxTurns;
     for await (const msg of session.stream()) {
       if (stopped) break;
-      if (maxTurns !== undefined && msg.type === "assistant") {
-        turnCount += 1;
-        if (turnCount > maxTurns) {
-          debugLog(`max turns reached (${maxTurns}), stopping stream`);
-          break;
-        }
-      }
       const text = readSdkAssistantText(msg);
       if (text.length > 0) collected += text;
       if (msg.type === "result") {
@@ -101,13 +92,9 @@ export async function createClaudeSdkBridgeRunner(
     return collected.trim();
   }
 
-  async function sendAndStream(
-    session: SdkSession,
-    prompt: string,
-    opts?: { maxTurns?: number },
-  ): Promise<string> {
+  async function sendAndStream(session: SdkSession, prompt: string): Promise<string> {
     await session.send(prompt);
-    return await consumeStream(session, opts);
+    return await consumeStream(session);
   }
 
   async function deliverWithRecovery(prompt: string): Promise<string> {
@@ -121,25 +108,12 @@ export async function createClaudeSdkBridgeRunner(
       if (stopped || sessionRecreations >= MAX_SESSION_RECREATIONS) throw error;
 
       sessionRecreations += 1;
-      try {
-        activeSession?.close();
-      } catch (closeError) {
-        debugLog(`failed to close previous SDK session: ${errorMessage(closeError)}`, closeError);
-      }
+      activeSession?.close();
 
       const newSession = createSession();
-      await sendAndStream(newSession, sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
+      await sendAndStream(newSession, sessionBriefing);
       return await sendAndStream(newSession, prompt);
     }
-  }
-
-  function queueSessionTask<T>(task: () => Promise<T>): Promise<T> {
-    const next = sessionTaskChain.then(task);
-    sessionTaskChain = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
   }
 
   async function deliver(prompt: string): Promise<void> {
@@ -148,7 +122,7 @@ export async function createClaudeSdkBridgeRunner(
     });
   }
 
-  await sendAndStream(createSession(), sessionBriefing, { maxTurns: SESSION_BRIEFING_MAX_TURNS });
+  await sendAndStream(createSession(), sessionBriefing);
 
   const handler = createEntryHandler({
     slug,

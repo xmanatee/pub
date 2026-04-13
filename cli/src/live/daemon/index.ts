@@ -352,8 +352,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const infoDir = path.dirname(infoPath);
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
   function writeInfoFile(devServerPid?: number): void {
+    const tmp = `${infoPath}.${process.pid}.tmp`;
     fs.writeFileSync(
-      infoPath,
+      tmp,
       JSON.stringify({
         pid: process.pid,
         socketPath,
@@ -363,6 +364,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         devServerPid,
       }),
     );
+    fs.renameSync(tmp, infoPath);
   }
   writeInfoFile();
 
@@ -399,15 +401,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
     try {
       await devServer.ready;
-      lifecycle.debugLog(`dev server ready on port ${devPort} (pid ${devServer.pid})`);
     } catch (error) {
-      lifecycle.markError("dev server failed to start", error);
+      lifecycle.markError("dev server failed to start", error, { alwaysLog: true });
       await devServer.stop();
       devServer = null;
-      writeInfoFile();
+      await shutdown(1);
+      return;
     }
+    lifecycle.debugLog(`dev server ready on port ${devPort} (pid ${devServer.pid})`);
 
-    if (devServer) {
+    {
       const httpProxy = createHttpProxy(devPort, tunnelBase);
       wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg), tunnelBase);
 
@@ -523,35 +526,24 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     lifecycle.debugLog("daemon cleanup complete");
   }
 
-  process.on("SIGTERM", () => {
-    lifecycle.logAlways("received SIGTERM");
-    void shutdown(0).catch((error) => {
-      lifecycle.logAlways("shutdown failed after SIGTERM", error);
+  function triggerShutdown(cause: string, exitCode: number): void {
+    void shutdown(exitCode).catch((error) => {
+      lifecycle.logAlways(`shutdown failed after ${cause}`, error);
     });
-  });
-  process.on("SIGINT", () => {
-    lifecycle.logAlways("received SIGINT");
-    void shutdown(0).catch((error) => {
-      lifecycle.logAlways("shutdown failed after SIGINT", error);
+  }
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
+    process.on(signal, () => {
+      lifecycle.logAlways(`received ${signal}`);
+      triggerShutdown(signal, 0);
     });
-  });
-  process.on("SIGHUP", () => {
-    lifecycle.logAlways("received SIGHUP");
-    void shutdown(0).catch((error) => {
-      lifecycle.logAlways("shutdown failed after SIGHUP", error);
-    });
-  });
+  }
   process.on("uncaughtException", (error) => {
     lifecycle.markError("uncaught exception in daemon", error, { alwaysLog: true });
-    void shutdown(1).catch((shutdownError) => {
-      lifecycle.logAlways("shutdown failed after uncaught exception", shutdownError);
-    });
+    triggerShutdown("uncaught exception", 1);
   });
   process.on("unhandledRejection", (reason) => {
     lifecycle.markError("unhandled rejection in daemon", reason, { alwaysLog: true });
-    void shutdown(1).catch((shutdownError) => {
-      lifecycle.logAlways("shutdown failed after unhandled rejection", shutdownError);
-    });
+    triggerShutdown("unhandled rejection", 1);
   });
   // Synchronous last-ditch reaper for paths where async cleanup didn't run
   // (uncaughtException re-thrown, native process.exit, etc.). SIGKILL on the

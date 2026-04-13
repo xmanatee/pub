@@ -61,18 +61,19 @@ export function createHttpProxy(port: number, basePath?: string): HttpProxy {
           headers: responseHeaders,
         });
         const reader = response.body.getReader();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            send({ type: "http-response-chunk", id: msg.id, data: "", done: true });
-            break;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            send({
+              type: "http-response-chunk",
+              id: msg.id,
+              data: uint8ToBase64(value),
+              done: false,
+            });
           }
-          send({
-            type: "http-response-chunk",
-            id: msg.id,
-            data: uint8ToBase64(value),
-            done: false,
-          });
+        } finally {
+          send({ type: "http-response-chunk", id: msg.id, data: "", done: true });
         }
         return;
       }

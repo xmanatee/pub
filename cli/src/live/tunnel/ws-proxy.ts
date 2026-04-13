@@ -13,6 +13,18 @@ export interface WsProxy {
   closeAll(): void;
 }
 
+function extractSubprotocols(headers: Record<string, string>): string[] {
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === "sec-websocket-protocol") {
+      return v
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
+  }
+  return [];
+}
+
 export function createWsProxy(
   port: number,
   send: (msg: DaemonToRelayMessage) => void,
@@ -30,7 +42,8 @@ export function createWsProxy(
 
       const proxyPath = basePath ? `${basePath}${msg.path.slice(1)}` : msg.path;
       const url = `ws://localhost:${port}${proxyPath}`;
-      const ws = new WebSocket(url);
+      const subprotocols = extractSubprotocols(msg.headers);
+      const ws = subprotocols.length > 0 ? new WebSocket(url, subprotocols) : new WebSocket(url);
 
       ws.onopen = () => {
         connections.set(msg.id, ws);

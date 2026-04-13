@@ -2,7 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import { errorMessage } from "../../core/errors/cli-error.js";
 import { killProcessGroup } from "../server/manager.js";
-import { ipcCall } from "../transport/ipc.js";
+import { DaemonUnavailableError, ipcCall } from "../transport/ipc.js";
 import { liveInfoDir, liveInfoPath } from "./daemon-files.js";
 
 interface DaemonProcessInfo {
@@ -88,36 +88,47 @@ function reapDevServerGroup(pid: number | undefined): void {
   killProcessGroup(pid, "SIGKILL");
 }
 
+async function requestDaemonStop(
+  pid: number,
+  socketPath: string | undefined,
+): Promise<string | null> {
+  if (socketPath) {
+    try {
+      await ipcCall(socketPath, { method: "close", params: {} });
+      return null;
+    } catch (error) {
+      // Socket gone or refused means the recorded pid is no longer our daemon.
+      // Do not escalate to SIGTERM — that pid may have been reused by an
+      // unrelated process.
+      if (error instanceof DaemonUnavailableError) return "stale";
+      // IPC reached a live daemon that refused; fall through to SIGTERM.
+    }
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+    return null;
+  } catch (error) {
+    return `daemon ${pid}: SIGTERM failed (${errorMessage(error)})`;
+  }
+}
+
 async function stopRecordedDaemon(info: DaemonProcessInfo): Promise<string | null> {
-  const pid = info.pid;
-  if (!isProcessAlive(pid)) {
-    // Daemon process is already dead, but its dev-server group may have
-    // outlived it (SIGKILL bypasses the daemon's own exit handler).
+  if (!isProcessAlive(info.pid)) {
+    // Daemon is dead; dev-server group may have outlived it (SIGKILL bypasses
+    // the daemon's exit handler).
     reapDevServerGroup(info.devServerPid);
     return null;
   }
 
-  const socketPath = info.socketPath;
-  if (socketPath) {
-    try {
-      await ipcCall(socketPath, { method: "close", params: {} });
-    } catch (error) {
-      try {
-        process.kill(pid, "SIGTERM");
-      } catch (killError) {
-        return `daemon ${pid}: IPC close failed (${errorMessage(error)}); SIGTERM failed (${errorMessage(killError)})`;
-      }
-    }
-  } else {
-    try {
-      process.kill(pid, "SIGTERM");
-    } catch (error) {
-      return `daemon ${pid}: no socketPath and SIGTERM failed (${errorMessage(error)})`;
-    }
+  const outcome = await requestDaemonStop(info.pid, info.socketPath);
+  if (outcome === "stale") {
+    reapDevServerGroup(info.devServerPid);
+    return null;
   }
+  if (outcome !== null) return outcome;
 
-  const stopped = await waitForProcessExit(pid, 8_000);
-  if (!stopped) return `daemon ${pid}: did not exit after stop request`;
+  const stopped = await waitForProcessExit(info.pid, 8_000);
+  if (!stopped) return `daemon ${info.pid}: did not exit after stop request`;
   reapDevServerGroup(info.devServerPid);
   return null;
 }
