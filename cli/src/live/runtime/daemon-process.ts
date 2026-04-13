@@ -84,13 +84,8 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
 }
 
 function reapDevServerGroup(pid: number | undefined): void {
-  if (typeof pid !== "number" || !Number.isFinite(pid)) return;
-  if (!isProcessAlive(pid)) return;
-  try {
-    killProcessGroup(pid, "SIGKILL");
-  } catch {
-    // group may have already exited; nothing more to do
-  }
+  if (typeof pid !== "number") return;
+  killProcessGroup(pid, "SIGKILL");
 }
 
 async function stopRecordedDaemon(info: DaemonProcessInfo): Promise<string | null> {

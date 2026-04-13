@@ -351,7 +351,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
 
   const infoDir = path.dirname(infoPath);
   if (!fs.existsSync(infoDir)) fs.mkdirSync(infoDir, { recursive: true });
-  function writeInfoFile(extra: { devServerPid?: number } = {}): void {
+  function writeInfoFile(devServerPid?: number): void {
     fs.writeFileSync(
       infoPath,
       JSON.stringify({
@@ -360,7 +360,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
         logPath,
         startedAt: startTime,
         cliVersion,
-        ...extra,
+        devServerPid,
       }),
     );
   }
@@ -395,7 +395,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       `starting dev server: ${devCommand} (port ${devPort}${devCwd ? ` cwd=${devCwd}` : ""})`,
     );
     devServer = startDevServer({ devCommand, devCwd, devPort, tunnelBase });
-    writeInfoFile({ devServerPid: devServer.pid });
+    writeInfoFile(devServer.pid);
 
     try {
       await devServer.ready;
@@ -553,16 +553,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.logAlways("shutdown failed after unhandled rejection", shutdownError);
     });
   });
-  // Last-ditch synchronous reaper. Runs on every process exit, including paths
-  // where async cleanup could not complete (uncaughtException re-thrown,
-  // process.exit from native code, etc.). Async signals like SIGKILL bypass
-  // this — preflight reap (stopRecordedDaemons) covers those.
+  // Synchronous last-ditch reaper for paths where async cleanup didn't run
+  // (uncaughtException re-thrown, native process.exit, etc.). SIGKILL on the
+  // daemon bypasses this; stopRecordedDaemons covers that case at preflight.
   process.on("exit", () => {
-    if (!devServer) return;
-    try {
-      killProcessGroup(devServer.pid, "SIGKILL");
-    } catch {
-      // process group may already be gone
-    }
+    if (devServer) killProcessGroup(devServer.pid, "SIGKILL");
   });
 }

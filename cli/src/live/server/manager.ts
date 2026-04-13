@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import { waitForPort } from "./port.js";
 
@@ -13,7 +13,6 @@ export interface DevServerConfig {
 }
 
 export interface DevServer {
-  process: ChildProcess;
   pid: number;
   port: number;
   ready: Promise<void>;
@@ -25,14 +24,22 @@ export interface DevServer {
  * (Windows). On POSIX this requires the child to have been spawned with
  * `detached: true`, which puts it in its own process group rooted at the
  * child's pid. We never kill by single pid: dev servers fork helpers (esbuild
- * workers, Vite plugin workers) and would orphan them.
+ * workers, Vite plugin workers) that would otherwise be orphaned.
+ *
+ * ESRCH (group already gone) is the success case for a "kill if alive"
+ * caller and is swallowed; all other errors propagate.
  */
 export function killProcessGroup(pid: number, signal: NodeJS.Signals): void {
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/T", "/F", "/PID", String(pid)], { stdio: "ignore" });
     return;
   }
-  process.kill(-pid, signal);
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
+    throw error;
+  }
 }
 
 function parseDevCommand(command: string): { cmd: string; args: string[] } {
@@ -81,11 +88,7 @@ export function startDevServer(config: DevServerConfig, logPath?: string): DevSe
       }
 
       const forceKillTimer = setTimeout(() => {
-        try {
-          killProcessGroup(pid, "SIGKILL");
-        } catch {
-          // process group may already be gone; resolve via the exit handler
-        }
+        killProcessGroup(pid, "SIGKILL");
       }, TERM_GRACE_MS);
 
       child.once("exit", () => {
@@ -94,14 +97,10 @@ export function startDevServer(config: DevServerConfig, logPath?: string): DevSe
         resolve();
       });
 
-      try {
-        killProcessGroup(pid, "SIGTERM");
-      } catch {
-        // race: child died between exitCode check and signal; exit handler resolves
-      }
+      killProcessGroup(pid, "SIGTERM");
     });
     return stopping;
   };
 
-  return { process: child, pid, port: config.devPort, ready, stop };
+  return { pid, port: config.devPort, ready, stop };
 }

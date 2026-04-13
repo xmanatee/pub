@@ -150,7 +150,6 @@ wait
 
       const reaped = await waitFor(() => !isAlive(grandchildPid), 8_000);
       expect(reaped).toBe(true);
-      // Sanity: no descendants of the original pid remain
       expect(descendantPids(dev.pid)).toEqual([]);
     },
   );
