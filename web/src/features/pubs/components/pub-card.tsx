@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { PubPreviewCard } from "~/components/pub-preview-card";
+import { PubPreviewFrame } from "~/components/pub-preview-frame";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
@@ -47,7 +48,7 @@ export function PubCard({
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
       <Link to="/p/$slug" params={{ slug: pub.slug }} className="block">
-        <div className="aspect-[1200/430] overflow-hidden">
+        <PubPreviewFrame>
           <PubPreviewCard
             slug={pub.slug}
             title={pub.title}
@@ -55,7 +56,7 @@ export function PubCard({
             themeColor={pub.themeColor}
             iconUrl={pub.iconUrl}
           />
-        </div>
+        </PubPreviewFrame>
       </Link>
       <CardContent className="px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">

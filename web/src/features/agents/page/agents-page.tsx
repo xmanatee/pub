@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Key, Plus, Terminal, Trash2 } from "lucide-react";
 import * as React from "react";
 import { CopyButton } from "~/components/copy-button";
+import { EmptyStateCard } from "~/components/empty-state-card";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -101,17 +102,11 @@ export function AgentsPage() {
       {!keys ? (
         <div className="text-muted-foreground">Loading...</div>
       ) : keys.length === 0 ? (
-        <Card className="border-border/50 border-dashed">
-          <CardContent className="flex flex-col items-center py-16">
-            <div className="rounded-full bg-muted p-4 mb-4">
-              <Key className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="font-medium mb-1">No API keys yet</p>
-            <p className="text-sm text-muted-foreground">
-              Create one to connect your agent via CLI or API.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={Key}
+          title="No API keys yet"
+          description="Create one to connect your agent via CLI or API."
+        />
       ) : (
         <div className="space-y-2">
           {keys.map((k) => (

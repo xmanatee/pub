@@ -3,21 +3,19 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
+import { EmptyStateCard } from "~/components/empty-state-card";
+import { PubCardGridSkeleton } from "~/components/pub-card-grid";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent } from "~/components/ui/card";
 import { OnboardingGuide } from "~/features/pubs/components/onboarding-guide";
 import { PubSortChips } from "~/features/pubs/components/pub-sort-chips";
 import { PubsGrid } from "~/features/pubs/components/pubs-grid";
+import { derivePubsPageState } from "~/features/pubs/lib/pubs-page-state";
 import type { PubSortKey } from "~/features/pubs/lib/sort-pubs";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { trackError } from "~/lib/analytics";
 
 const PAGE_SIZE = 20;
-
-function mutationErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) return error.message;
-  return "Failed to start live";
-}
+const LOAD_MORE_SKELETONS = 2;
 
 export function PubsPage() {
   const [sortKey, setSortKey] = React.useState<PubSortKey>("mostViewed");
@@ -44,44 +42,30 @@ export function PubsPage() {
     [lives],
   );
 
-  const canStartLive = agentOnline === true && !startingLive;
+  const state = derivePubsPageState({
+    status,
+    pubs,
+    apiKeysLoaded: keys !== undefined,
+    hasApiKeys: (keys?.length ?? 0) > 0,
+  });
 
   async function handleStartLive() {
-    if (!canStartLive) return;
     setStartingLive(true);
     try {
       const { slug } = await createDraftForLive({});
-      await navigate({
-        to: "/p/$slug",
-        params: { slug },
-      });
+      await navigate({ to: "/p/$slug", params: { slug } });
     } catch (error) {
-      const message = mutationErrorMessage(error);
-      const normalizedError = error instanceof Error ? error : new Error(message);
-      trackError(normalizedError, {
-        area: "pubs",
-        feature: "start_live",
-      });
+      const normalizedError = error instanceof Error ? error : new Error("Failed to start live");
+      trackError(normalizedError, { area: "pubs", feature: "start_live" });
     } finally {
       setStartingLive(false);
     }
   }
 
-  if (status === "LoadingFirstPage") {
+  if (state.kind === "onboarding") {
     return (
       <div className="px-4 sm:px-6 py-8">
-        <div className="text-muted-foreground py-8">Loading&hellip;</div>
-      </div>
-    );
-  }
-
-  const hasApiKeys = (keys?.length ?? 0) > 0;
-  const isNewUser = pubs.length === 0 && !hasApiKeys;
-
-  if (isNewUser) {
-    return (
-      <div className="px-4 sm:px-6 py-8">
-        <OnboardingGuide hasApiKeys={hasApiKeys} agentOnline={agentOnline} />
+        <OnboardingGuide hasApiKeys={false} agentOnline={agentOnline} />
       </div>
     );
   }
@@ -95,77 +79,69 @@ export function PubsPage() {
         ? "Agent offline"
         : "Go live";
 
-  const goLiveButton = (
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex items-center justify-end px-3"
-      style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
-    >
-      <button
-        type="button"
-        onClick={() => void handleStartLive()}
-        disabled={disabled}
-        className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl transition-opacity hover:opacity-90 disabled:opacity-50"
-        aria-label={ariaLabel}
-        title={ariaLabel}
-      >
-        {startingLive || agentOnline === undefined ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
-          <Play className="size-5 fill-current" />
-        )}
-      </button>
-    </div>
-  );
-
-  if (pubs.length === 0) {
-    return (
-      <div className="px-4 sm:px-6 py-8">
-        <Card className="border-border/50 border-dashed">
-          <CardContent className="flex flex-col items-center py-16">
-            <div className="rounded-full bg-muted p-4 mb-4">
-              <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="font-medium mb-1">No pubs yet</p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Start a live session and your agent will create pubs automatically.
-            </p>
-          </CardContent>
-        </Card>
-        {goLiveButton}
-      </div>
-    );
-  }
+  const body = (() => {
+    switch (state.kind) {
+      case "loading":
+        return <PubCardGridSkeleton />;
+      case "empty":
+        return (
+          <EmptyStateCard
+            icon={FileText}
+            title="No pubs yet"
+            description="Start a live session and your agent will create pubs automatically."
+          />
+        );
+      case "populated":
+        return (
+          <>
+            <PubsGrid
+              pubs={state.pubs}
+              liveSlugs={liveSlugs}
+              pending={state.isLoadingMore ? LOAD_MORE_SKELETONS : 0}
+              onToggleVisibility={(id) => toggleVisibility({ id })}
+              onDelete={(id) => deletePub({ id })}
+              onDuplicate={(id) => {
+                duplicatePub({ id }).catch((error) => {
+                  console.error("Failed to duplicate pub", error);
+                });
+              }}
+              developerMode={developerModeEnabled}
+            />
+            {state.canLoadMore && (
+              <div className="text-center pt-2">
+                <Button variant="outline" size="sm" onClick={() => loadMore(PAGE_SIZE)}>
+                  Load more
+                </Button>
+              </div>
+            )}
+          </>
+        );
+    }
+  })();
 
   return (
     <div className="px-4 sm:px-6 py-8 space-y-4">
       <PubSortChips value={sortKey} onChange={setSortKey} />
-      <PubsGrid
-        pubs={pubs}
-        liveSlugs={liveSlugs}
-        onToggleVisibility={(id) => toggleVisibility({ id })}
-        onDelete={(id) => deletePub({ id })}
-        onDuplicate={
-          developerModeEnabled
-            ? (id) => {
-                duplicatePub({ id }).catch((error) => {
-                  console.error("Failed to duplicate pub", error);
-                });
-              }
-            : undefined
-        }
-        developerMode={developerModeEnabled}
-      />
-      {status === "CanLoadMore" && (
-        <div className="text-center pt-2">
-          <Button variant="outline" size="sm" onClick={() => loadMore(PAGE_SIZE)}>
-            Load more
-          </Button>
-        </div>
-      )}
-      {status === "LoadingMore" && (
-        <div className="text-center pt-2 text-muted-foreground text-sm">Loading more&hellip;</div>
-      )}
-      {goLiveButton}
+      {body}
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex items-center justify-end px-3"
+        style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
+      >
+        <button
+          type="button"
+          onClick={() => void handleStartLive()}
+          disabled={disabled}
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl transition-opacity hover:opacity-90 disabled:opacity-50"
+          aria-label={ariaLabel}
+          title={ariaLabel}
+        >
+          {startingLive || agentOnline === undefined ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            <Play className="size-5 fill-current" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }

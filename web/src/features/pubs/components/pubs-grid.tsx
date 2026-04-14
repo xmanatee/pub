@@ -1,4 +1,6 @@
 import type { Id } from "@backend/_generated/dataModel";
+import { PubCardGrid } from "~/components/pub-card-grid";
+import { PubCardSkeleton } from "~/components/pub-card-skeleton";
 import { PubCard } from "./pub-card";
 
 export interface PubGridItem {
@@ -18,6 +20,7 @@ export interface PubGridItem {
 export function PubsGrid({
   pubs,
   liveSlugs,
+  pending = 0,
   onToggleVisibility,
   onDelete,
   onDuplicate,
@@ -25,13 +28,14 @@ export function PubsGrid({
 }: {
   pubs: PubGridItem[];
   liveSlugs: Set<string>;
+  pending?: number;
   onToggleVisibility: (id: Id<"pubs">) => void;
   onDelete: (id: Id<"pubs">) => void;
   onDuplicate?: (id: Id<"pubs">) => void;
   developerMode?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <PubCardGrid>
       {pubs.map((pub) => (
         <PubCard
           key={pub._id}
@@ -43,6 +47,9 @@ export function PubsGrid({
           developerMode={developerMode}
         />
       ))}
-    </div>
+      {Array.from({ length: pending }, (_, i) => (
+        <PubCardSkeleton key={`pending-${i}`} />
+      ))}
+    </PubCardGrid>
   );
 }

@@ -1,5 +1,6 @@
 import type { Id } from "@backend/_generated/dataModel";
 import { Play } from "lucide-react";
+import { PubCardGrid } from "~/components/pub-card-grid";
 import { PubCard } from "~/features/pubs/components/pub-card";
 import type { PubGridItem } from "~/features/pubs/components/pubs-grid";
 
@@ -52,10 +53,10 @@ const SAMPLE_PUBS: PubGridItem[] = [
 
 const LIVE_SLUGS = new Set<string>(["hello-world", "api-docs"]);
 
-function PubCardGrid({ pubs, liveSlugs }: { pubs: PubGridItem[]; liveSlugs: Set<string> }) {
+function SampleCards({ liveSlugs }: { liveSlugs: Set<string> }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {pubs.map((pub) => (
+    <PubCardGrid>
+      {SAMPLE_PUBS.map((pub) => (
         <PubCard
           key={pub._id}
           pub={pub}
@@ -64,7 +65,7 @@ function PubCardGrid({ pubs, liveSlugs }: { pubs: PubGridItem[]; liveSlugs: Set<
           onDelete={noop}
         />
       ))}
-    </div>
+    </PubCardGrid>
   );
 }
 
@@ -85,14 +86,14 @@ export function PubsDebugPage() {
 
         <section data-testid="batch-pubs-cards" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">Pub Cards — All Variants</div>
-          <PubCardGrid pubs={SAMPLE_PUBS} liveSlugs={LIVE_SLUGS} />
+          <SampleCards liveSlugs={LIVE_SLUGS} />
         </section>
 
         <section data-testid="batch-pubs-gallery" className="bg-white p-6">
           <div className="mb-5 text-center text-sm font-semibold">
             Full Gallery — Cards with Live Tags
           </div>
-          <PubCardGrid pubs={SAMPLE_PUBS} liveSlugs={new Set<string>(["hello-world"])} />
+          <SampleCards liveSlugs={new Set<string>(["hello-world"])} />
         </section>
       </div>
       <div
