@@ -1,4 +1,17 @@
+import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internalQuery } from "./_generated/server";
+
+export const findByProviderAccount = internalQuery({
+  args: { provider: v.string(), providerAccountId: v.string() },
+  handler: async (ctx, { provider, providerAccountId }) =>
+    ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (q) =>
+        q.eq("provider", provider).eq("providerAccountId", providerAccountId),
+      )
+      .unique(),
+});
 
 export type AuthAccountDocLike = {
   _id: Id<"authAccounts">;

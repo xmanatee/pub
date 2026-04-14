@@ -1,3 +1,4 @@
+import { isTelegramNotLinkedError } from "@backend/auth_errors";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import * as React from "react";
@@ -7,11 +8,6 @@ import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
 
 const TELEGRAM_INIT_DATA_RETRY_MS = 250;
 const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
-
-export function isNotLinkedError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes("TELEGRAM_ACCOUNT_NOT_LINKED");
-}
 
 export interface TelegramAuthState {
   telegramPending: boolean;
@@ -28,10 +24,7 @@ export function useTelegramAuth(): TelegramAuthState {
   const initDataRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!IN_TELEGRAM) {
-      setTelegramPending(false);
-      return;
-    }
+    if (!IN_TELEGRAM) return;
     if (isLoading) return;
     if (isAuthenticated) {
       setTelegramPending(false);
@@ -57,9 +50,7 @@ export function useTelegramAuth(): TelegramAuthState {
       initDataRef.current = initData;
       clearTimers();
       trackSignInStarted("telegram");
-      pushAuthDebug("telegram_signin_start", {
-        initDataLength: initData.length,
-      });
+      pushAuthDebug("telegram_signin_start", { initDataLength: initData.length });
 
       void signIn("telegram", { initData })
         .then(() => {
@@ -67,15 +58,15 @@ export function useTelegramAuth(): TelegramAuthState {
           pushAuthDebug("telegram_signin_success");
         })
         .catch((error) => {
-          if (isNotLinkedError(error)) {
+          if (isTelegramNotLinkedError(error)) {
             pushAuthDebug("telegram_not_linked");
             setTelegramNotLinked(true);
-          } else {
-            trackError(error instanceof Error ? error : new Error(String(error)), {
-              provider: "telegram",
-            });
-            pushAuthDebug("telegram_signin_error", error);
+            return;
           }
+          trackError(error instanceof Error ? error : new Error(String(error)), {
+            provider: "telegram",
+          });
+          pushAuthDebug("telegram_signin_error", error);
         })
         .finally(() => {
           if (!disposed) setTelegramPending(false);
@@ -86,13 +77,12 @@ export function useTelegramAuth(): TelegramAuthState {
     intervalId = window.setInterval(trySignIn, TELEGRAM_INIT_DATA_RETRY_MS);
     timeoutId = window.setTimeout(() => {
       clearTimers();
-      if (!attemptedRef.current) {
-        console.warn("Telegram sign-in skipped: initData not available");
-        pushAuthDebug("telegram_init_data_missing", {
-          timeoutMs: TELEGRAM_INIT_DATA_TIMEOUT_MS,
-        });
-        setTelegramPending(false);
-      }
+      if (attemptedRef.current) return;
+      console.warn("Telegram sign-in skipped: initData not available");
+      pushAuthDebug("telegram_init_data_missing", {
+        timeoutMs: TELEGRAM_INIT_DATA_TIMEOUT_MS,
+      });
+      setTelegramPending(false);
     }, TELEGRAM_INIT_DATA_TIMEOUT_MS);
 
     return () => {
@@ -102,10 +92,10 @@ export function useTelegramAuth(): TelegramAuthState {
   }, [isLoading, isAuthenticated, signIn]);
 
   const createTelegramAccount = React.useCallback(async () => {
-    const initData = initDataRef.current ?? getTelegramInitData();
-    if (!initData) throw new Error("Telegram initData not available");
+    const initData = initDataRef.current;
+    if (!initData) throw new Error("createTelegramAccount requires a prior sign-in attempt");
 
-    await signIn("telegram", { initData, createAccount: "true" });
+    await signIn("telegram", { initData, createAccount: true });
     setTelegramNotLinked(false);
   }, [signIn]);
 

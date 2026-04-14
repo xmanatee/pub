@@ -1,23 +1,12 @@
 import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
-import { convexAuth, createAccount, retrieveAccount } from "@convex-dev/auth/server";
+import { convexAuth, createAccount } from "@convex-dev/auth/server";
 import { validate as validateInitData } from "@telegram-apps/init-data-node/web";
 import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
+import { telegramNotLinkedError } from "./auth_errors";
 import { parseInitDataUser } from "./telegram";
-
-const MISSING_ACCOUNT_PATTERNS = [
-  /account.+not found/i,
-  /no account/i,
-  /does not exist/i,
-  /could not find/i,
-];
-
-function isMissingAccountError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return MISSING_ACCOUNT_PATTERNS.some((p) => p.test(message));
-}
 
 async function validateAgainstRegisteredBots(initData: string, botTokens: string[]): Promise<void> {
   if (botTokens.length === 0) {
@@ -42,33 +31,28 @@ const telegram = ConvexCredentials<DataModel>({
     await validateAgainstRegisteredBots(initData, botTokens);
 
     const user = parseInitDataUser(initData);
-    const accountId = String(user.id);
+    const providerAccountId = String(user.id);
 
-    try {
-      const { user: existingUser } = await retrieveAccount(ctx, {
-        provider: "telegram",
-        account: { id: accountId },
-      });
-      return { userId: existingUser._id };
-    } catch (error) {
-      if (!isMissingAccountError(error)) throw error;
+    const existing = await ctx.runQuery(internal.auth_accounts.findByProviderAccount, {
+      provider: "telegram",
+      providerAccountId,
+    });
+    if (existing) return { userId: existing.userId };
 
-      const shouldCreate = credentials.createAccount === "true";
-      if (!shouldCreate) {
-        throw new Error("TELEGRAM_ACCOUNT_NOT_LINKED");
-      }
-
-      const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
-      const profile: Record<string, string> = { name };
-      if (user.photo_url) profile.image = user.photo_url;
-
-      const { user: newUser } = await createAccount(ctx, {
-        provider: "telegram",
-        account: { id: accountId },
-        profile,
-      });
-      return { userId: newUser._id };
+    if (credentials.createAccount !== true) {
+      throw telegramNotLinkedError();
     }
+
+    const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
+    const profile: Record<string, string> = { name };
+    if (user.photo_url) profile.image = user.photo_url;
+
+    const { user: newUser } = await createAccount(ctx, {
+      provider: "telegram",
+      account: { id: providerAccountId },
+      profile,
+    });
+    return { userId: newUser._id };
   },
 });
 
