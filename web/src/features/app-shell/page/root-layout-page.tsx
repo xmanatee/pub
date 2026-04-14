@@ -13,11 +13,11 @@ import { AppNav } from "~/features/app-shell/components/app-nav";
 import { TelegramNotLinkedPage } from "~/features/auth/page/telegram-not-linked-page";
 import { useTelegramAuth } from "~/hooks/use-telegram-auth";
 import { useTelegramBackButton } from "~/hooks/use-telegram-back-button";
-import { useTelegramTheme } from "~/hooks/use-telegram-theme";
 import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
 import { IN_TELEGRAM, isFullscreen } from "~/lib/telegram";
+import { useThemeSync } from "~/lib/theme";
 
 /** Routes that take over the full viewport — no header, footer, or main wrapper. */
 const FULLSCREEN_ROUTE_IDS: ReadonlySet<string> = new Set(["/_authenticated/app", "/p/$slug"]);
@@ -50,7 +50,7 @@ export function RootRouteErrorPage({ error }: { error: Error }) {
 export function RootLayoutPage() {
   useIdentifyUser();
   useTelegramBackButton();
-  useTelegramTheme();
+  useThemeSync();
   const { telegramPending, telegramNotLinked, createTelegramAccount } = useTelegramAuth();
   const [showNotLinked, setShowNotLinked] = React.useState(false);
 

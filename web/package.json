@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "test": "pnpm test:live-core && pnpm test:live-ui && pnpm test:pub-models && pnpm test:pub-hook && pnpm test:pubs-lib && pnpm test:app-lib && pnpm test:app-routes",
     "test:live-core": "NODE_OPTIONS=--max-old-space-size=8192 vitest run src/features/live src/features/preview-capture",
-    "test:live-ui": "NODE_OPTIONS=--max-old-space-size=8192 vitest run src/components src/features/app-shell src/features/live-chat src/features/live-control-bar src/features/settings",
+    "test:live-ui": "NODE_OPTIONS=--max-old-space-size=8192 vitest run src/components src/features/app-shell src/features/landing src/features/live-chat src/features/live-control-bar src/features/settings",
     "test:pub-models": "NODE_OPTIONS=--max-old-space-size=8192 vitest run src/features/pub/model",
     "test:pub-hook": "NODE_OPTIONS=--max-old-space-size=8192 vitest run src/features/pub/hooks/use-pub-live-model.test.tsx",
     "test:pubs-lib": "NODE_OPTIONS=--max-old-space-size=8192 vitest run src/features/pubs/lib",

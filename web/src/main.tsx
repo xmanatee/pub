@@ -9,11 +9,13 @@ import { initAuthDebug } from "./lib/auth-debug";
 import { initDeveloperMode } from "./lib/developer-mode";
 import { initSentry } from "./lib/sentry";
 import { getTelegramStartParam, initTelegramSdk, parseStartParam } from "./lib/telegram";
+import { initTheme } from "./lib/theme";
 import { getRouter } from "./router";
 
 initDeveloperMode();
 initAuthDebug();
 initTelegramSdk();
+initTheme();
 
 const startParam = getTelegramStartParam();
 if (startParam) {

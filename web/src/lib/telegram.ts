@@ -104,7 +104,5 @@ export function initTelegramSdk(): void {
     void viewport.requestFullscreen();
   }
 
-  document.documentElement.classList.toggle("dark", miniApp.isDark());
-
   miniApp.ready.ifAvailable();
 }

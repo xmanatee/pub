@@ -26,7 +26,7 @@ const EXAMPLE_REQUESTS = [
 
 const HERO_BLOB_FADE = {
   background:
-    "radial-gradient(circle at top, rgba(255,255,255,0) 0%, rgba(255,255,255,0.02) 18%, rgba(255,255,255,0.12) 42%, rgba(255,255,255,0.42) 68%, rgba(255,255,255,0.82) 86%, rgba(255,255,255,0.98) 100%)",
+    "radial-gradient(circle at top, color-mix(in oklab, var(--background) 0%, transparent) 0%, color-mix(in oklab, var(--background) 2%, transparent) 18%, color-mix(in oklab, var(--background) 12%, transparent) 42%, color-mix(in oklab, var(--background) 42%, transparent) 68%, color-mix(in oklab, var(--background) 82%, transparent) 86%, color-mix(in oklab, var(--background) 98%, transparent) 100%)",
 };
 
 function ExamplePromptCarousel() {
