@@ -31,13 +31,18 @@ function useSystemIsDark(): boolean {
   );
 }
 
-function useTelegramIsDark(): boolean {
-  return useSignal(miniApp.isDark);
-}
-
-export function useThemeSync(): void {
-  const isDark = IN_TELEGRAM ? useTelegramIsDark() : useSystemIsDark();
+function useTelegramThemeSync(): void {
+  const isDark = useSignal(miniApp.isDark);
   useEffect(() => {
     applyDarkClass(isDark);
   }, [isDark]);
 }
+
+function useSystemThemeSync(): void {
+  const isDark = useSystemIsDark();
+  useEffect(() => {
+    applyDarkClass(isDark);
+  }, [isDark]);
+}
+
+export const useThemeSync: () => void = IN_TELEGRAM ? useTelegramThemeSync : useSystemThemeSync;
