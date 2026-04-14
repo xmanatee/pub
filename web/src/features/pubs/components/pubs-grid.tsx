@@ -1,6 +1,5 @@
 import type { Id } from "@backend/_generated/dataModel";
-import { PubCardGrid } from "~/components/pub-card-grid";
-import { PubCardSkeleton } from "~/components/pub-card-skeleton";
+import { PubCardGrid, PubCardSkeletons } from "~/components/pub-card-grid";
 import { PubCard } from "./pub-card";
 
 export interface PubGridItem {
@@ -47,9 +46,7 @@ export function PubsGrid({
           developerMode={developerMode}
         />
       ))}
-      {Array.from({ length: pending }, (_, i) => (
-        <PubCardSkeleton key={`pending-${i}`} />
-      ))}
+      <PubCardSkeletons count={pending} />
     </PubCardGrid>
   );
 }

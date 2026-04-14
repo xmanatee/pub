@@ -1,21 +1,20 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef } from "react";
-import {
-  useControlBarBaseLayer,
-  useControlBarChrome,
-  useControlBarLayer,
-} from "~/components/control-bar/control-bar-controller";
+import { useControlBarLayer } from "~/components/control-bar/control-bar-controller";
 import { controlBarNotificationsToAddons } from "~/components/control-bar/control-bar-parts";
 import { CONTROL_BAR_STYLES } from "~/components/control-bar/control-bar-styles";
 import type { ControlBarTone } from "~/components/control-bar/control-bar-tone";
 import { controlBarToneStyle } from "~/components/control-bar/control-bar-tone";
-import type {
-  ControlBarAddon,
-  ControlBarLayerConfig,
-  ControlBarNotificationConfig,
+import {
+  CONTROL_BAR_PRIORITY,
+  type ControlBarAddon,
+  type ControlBarLayerInput,
+  type ControlBarNotificationConfig,
 } from "~/components/control-bar/control-bar-types";
 import { Button } from "~/components/ui/button";
+import { AppNavMenu } from "~/features/app-shell/components/app-nav-menu";
+import { useHeaderNavVisible } from "~/features/app-shell/hooks/use-header-nav-visible";
 import type { LiveViewMode } from "~/features/live/types/live-types";
 import { useControlBarText } from "~/features/live-control-bar/hooks/use-control-bar-text";
 import { useExtendedOptionsVisibility } from "~/features/live-control-bar/hooks/use-extended-options-visibility";
@@ -30,7 +29,7 @@ import { ControlBarOptionalLiveMode } from "../components/control-bar-optional-l
 import { ControlBarRecordingMode } from "../components/control-bar-recording-mode";
 import { ControlBarTakeoverMode } from "../components/control-bar-takeover-mode";
 import { ControlBarVoiceMode } from "../components/control-bar-voice-mode";
-import { ExtendedOptions } from "../components/extended-options";
+import { LiveViewOptions } from "../components/live-view-options";
 
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
 const RECORDING_SHELL_CLASS = "border-destructive/40 bg-background/88";
@@ -124,6 +123,8 @@ export function useLiveControlBarBridge({
 
   const { fileInputRef, handleFile } = useFileUpload({ onSendFile: sendFile });
 
+  const headerNavVisible = useHeaderNavVisible();
+
   const handleViewSelect = useCallback(
     (mode: LiveViewMode) => {
       setViewMode(mode);
@@ -184,7 +185,13 @@ export function useLiveControlBarBridge({
       key: "extended-options",
       priority: 0,
       content: (
-        <ExtendedOptions viewMode={viewMode} onClose={closeLive} onSelect={handleViewSelect} />
+        <LiveViewOptions
+          viewMode={viewMode}
+          onSelect={handleViewSelect}
+          footer={
+            !headerNavVisible ? <AppNavMenu onNavigate={dismissExtendedOptions} /> : undefined
+          }
+        />
       ),
     });
   }
@@ -259,8 +266,23 @@ export function useLiveControlBarBridge({
 
   const rightActionForCanvasMode = viewMode === "canvas" ? undefined : rightAction;
 
-  useControlBarBaseLayer({
+  // The live layer carries the chrome (status button, backdrop, expansion). Higher-priority
+  // layers (fullscreen prompt, transient state) only override the fields they need; the
+  // controller's field-merge inherits everything else from this layer.
+  useControlBarLayer({
+    priority: CONTROL_BAR_PRIORITY.live,
     addons,
+    backdropOnClick: canCollapseBar ? toggleControlBar : undefined,
+    backdropVisible: canCollapseBar && isExpanded && viewMode === "canvas" && !preview,
+    expanded: isExpanded,
+    shellStyle: controlBarToneStyle(shellTone),
+    statusButton: statusButtonContent
+      ? {
+          ariaLabel: canCollapseBar ? "Toggle control bar" : "Toggle extended options",
+          content: statusButtonContent,
+          onClick: canCollapseBar ? toggleControlBar : toggleExtendedOptions,
+        }
+      : undefined,
     mainContent: optionalLive ? (
       <ControlBarOptionalLiveMode
         agentOnline={agentOnline === true}
@@ -287,40 +309,28 @@ export function useLiveControlBarBridge({
     rightAction: rightActionForCanvasMode,
   });
 
-  useControlBarChrome({
-    backdropOnClick: canCollapseBar ? toggleControlBar : undefined,
-    backdropVisible: canCollapseBar && isExpanded && viewMode === "canvas" && !preview,
-    expanded: isExpanded,
-    shellStyle: controlBarToneStyle(shellTone),
-    statusButton: statusButtonContent
-      ? {
-          ariaLabel: canCollapseBar ? "Toggle control bar" : "Toggle extended options",
-          content: statusButtonContent,
-          onClick: canCollapseBar ? toggleControlBar : toggleExtendedOptions,
-        }
-      : undefined,
+  const transient = resolveTransientLayer({
+    agents: availableAgents,
+    controlBarState,
+    defaultAgentName,
+    elapsed: audio.elapsed,
+    lastTakeoverAt,
+    onCancelRecording: audio.cancelRecording,
+    onExit: closeLive,
+    onPauseResume:
+      controlBarState === "recording-paused" ? audio.resumeRecording : audio.pauseRecording,
+    onReconnect: retryConnection,
+    onSelectAgent: setSelectedHostId,
+    onSendRecording: audio.sendRecording,
+    onSetDefaultAgent: setDefaultAgentName,
+    onStopVoiceMode: audio.stopVoiceMode,
+    onTakeover: takeoverLive,
+    rightAction: rightActionForCanvasMode,
+    waveform,
   });
 
   useControlBarLayer(
-    resolveTransientLayer({
-      agents: availableAgents,
-      controlBarState,
-      defaultAgentName,
-      elapsed: audio.elapsed,
-      lastTakeoverAt,
-      onCancelRecording: audio.cancelRecording,
-      onExit: closeLive,
-      onPauseResume:
-        controlBarState === "recording-paused" ? audio.resumeRecording : audio.pauseRecording,
-      onReconnect: retryConnection,
-      onSelectAgent: setSelectedHostId,
-      onSendRecording: audio.sendRecording,
-      onSetDefaultAgent: setDefaultAgentName,
-      onStopVoiceMode: audio.stopVoiceMode,
-      onTakeover: takeoverLive,
-      rightAction: rightActionForCanvasMode,
-      waveform,
-    }),
+    transient ? { ...transient, priority: CONTROL_BAR_PRIORITY.liveTransient } : null,
   );
 }
 
@@ -358,7 +368,7 @@ function resolveTransientLayer({
   onTakeover: ReturnType<typeof useLiveSession>["takeoverLive"];
   rightAction?: ReactNode;
   waveform: ReactNode;
-}): ControlBarLayerConfig | null {
+}): Omit<ControlBarLayerInput, "priority"> | null {
   if (controlBarState === "idle" || controlBarState === "connecting") return null;
 
   if (controlBarState === "agent-selection") {

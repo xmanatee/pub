@@ -1,5 +1,4 @@
 import { api } from "@backend/_generated/api";
-import { useNavigate } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Loader2, Play } from "lucide-react";
 import * as React from "react";
@@ -9,10 +8,10 @@ import { Button } from "~/components/ui/button";
 import { OnboardingGuide } from "~/features/pubs/components/onboarding-guide";
 import { PubSortChips } from "~/features/pubs/components/pub-sort-chips";
 import { PubsGrid } from "~/features/pubs/components/pubs-grid";
+import { useStartLive } from "~/features/pubs/hooks/use-start-live";
 import { derivePubsPageState } from "~/features/pubs/lib/pubs-page-state";
 import type { PubSortKey } from "~/features/pubs/lib/sort-pubs";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
-import { trackError } from "~/lib/analytics";
 
 const PAGE_SIZE = 20;
 const LOAD_MORE_SKELETONS = 2;
@@ -25,14 +24,11 @@ export function PubsPage() {
     loadMore,
   } = usePaginatedQuery(api.pubs.listByUser, { sortKey }, { initialNumItems: PAGE_SIZE });
 
-  const navigate = useNavigate();
-  const [startingLive, setStartingLive] = React.useState(false);
+  const { startLive, pending: startingLive, agentOnline } = useStartLive();
 
   const toggleVisibility = useMutation(api.pubs.toggleVisibility);
   const deletePub = useMutation(api.pubs.deleteByUser);
   const duplicatePub = useMutation(api.pubs.duplicateByUser);
-  const createDraftForLive = useMutation(api.pubs.createDraftForLive);
-  const agentOnline = useQuery(api.presence.isCurrentUserAgentOnline);
   const { developerModeEnabled } = useDeveloperMode();
   const keys = useQuery(api.apiKeys.list);
 
@@ -48,19 +44,6 @@ export function PubsPage() {
     apiKeysLoaded: keys !== undefined,
     hasApiKeys: (keys?.length ?? 0) > 0,
   });
-
-  async function handleStartLive() {
-    setStartingLive(true);
-    try {
-      const { slug } = await createDraftForLive({});
-      await navigate({ to: "/p/$slug", params: { slug } });
-    } catch (error) {
-      const normalizedError = error instanceof Error ? error : new Error("Failed to start live");
-      trackError(normalizedError, { area: "pubs", feature: "start_live" });
-    } finally {
-      setStartingLive(false);
-    }
-  }
 
   if (state.kind === "onboarding") {
     return (
@@ -129,7 +112,7 @@ export function PubsPage() {
       >
         <button
           type="button"
-          onClick={() => void handleStartLive()}
+          onClick={() => void startLive()}
           disabled={disabled}
           className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-background/88 shadow-lg backdrop-blur-xl transition-opacity hover:opacity-90 disabled:opacity-50"
           aria-label={ariaLabel}

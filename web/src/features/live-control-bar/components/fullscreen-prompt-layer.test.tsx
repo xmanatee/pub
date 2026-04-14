@@ -2,10 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  ControlBarHost,
-  ControlBarProvider,
-} from "~/components/control-bar/control-bar-controller";
+import { ControlBarSandbox } from "~/components/control-bar/control-bar-controller";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { FullscreenPromptLayer } from "./fullscreen-prompt-layer";
 
@@ -77,10 +74,9 @@ async function render(slug = "test-pub") {
   await act(async () => {
     currentRoot.render(
       <TooltipProvider>
-        <ControlBarProvider>
+        <ControlBarSandbox>
           <FullscreenPromptLayer slug={slug} />
-          <ControlBarHost />
-        </ControlBarProvider>
+        </ControlBarSandbox>
       </TooltipProvider>,
     );
   });
@@ -152,10 +148,9 @@ describe("FullscreenPromptLayer", () => {
     await act(async () => {
       currentRoot.render(
         <TooltipProvider>
-          <ControlBarProvider>
+          <ControlBarSandbox>
             <FullscreenPromptLayer slug="pub-a" />
-            <ControlBarHost />
-          </ControlBarProvider>
+          </ControlBarSandbox>
         </TooltipProvider>,
       );
     });
@@ -173,10 +168,9 @@ describe("FullscreenPromptLayer", () => {
     await act(async () => {
       currentRoot.render(
         <TooltipProvider>
-          <ControlBarProvider>
+          <ControlBarSandbox>
             <FullscreenPromptLayer slug="pub-b" />
-            <ControlBarHost />
-          </ControlBarProvider>
+          </ControlBarSandbox>
         </TooltipProvider>,
       );
     });

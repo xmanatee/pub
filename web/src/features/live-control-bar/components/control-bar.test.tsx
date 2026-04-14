@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
+import { ControlBarSandbox } from "~/components/control-bar/control-bar-controller";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import type { LiveSessionContextType } from "~/features/pub/contexts/live-session-context";
@@ -115,6 +115,15 @@ vi.mock("~/components/blob/blob", () => ({
   Blob: () => <div data-testid="mock-blob" />,
 }));
 
+let mockHeaderNavVisible = true;
+vi.mock("~/features/app-shell/hooks/use-header-nav-visible", () => ({
+  useHeaderNavVisible: () => mockHeaderNavVisible,
+}));
+
+vi.mock("~/features/app-shell/components/app-nav-menu", () => ({
+  AppNavMenu: () => <div data-testid="app-nav-menu">AppNavMenu</div>,
+}));
+
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -159,12 +168,12 @@ async function renderControlBar(
   await act(async () => {
     currentRoot.render(
       <TooltipProvider>
-        <ControlBarProvider>
+        <ControlBarSandbox>
           <ControlBar
             shellTone={liveBlob.controlBarTone}
             statusButtonContent={liveBlob.statusButtonContent}
           />
-        </ControlBarProvider>
+        </ControlBarSandbox>
       </TooltipProvider>,
     );
   });
@@ -188,6 +197,7 @@ describe("ControlBar", () => {
     mockSession.hasCommandManifest = false;
     mockSession.liveRequested = true;
     mockSession.optionalLive = false;
+    mockHeaderNavVisible = true;
   });
 
   it("shows record and voice actions in idle mode", async () => {
@@ -241,25 +251,31 @@ describe("ControlBar", () => {
     expect(html).not.toContain('aria-label="Close menu"');
   });
 
-  it("includes extended options addon when hook reports visible", async () => {
+  it("includes live view options when hook reports visible", async () => {
     const html = await renderControlBar({}, { visible: true });
     expect(html).toContain("Chat view");
     expect(html).toContain("Settings");
-    expect(html).toContain("Pubs");
+    expect(html).not.toContain("AppNavMenu");
   });
 
-  it("excludes extended options addon when hook reports not visible", async () => {
+  it("excludes live view options when hook reports not visible", async () => {
     const html = await renderControlBar({}, { visible: false });
     expect(html).not.toContain("Chat view");
   });
 
-  it("shows extended options and preview as separate addons simultaneously", async () => {
+  it("appends app nav menu inside live options when the top header is hidden", async () => {
+    mockHeaderNavVisible = false;
+    const html = await renderControlBar({}, { visible: true });
+    expect(html).toContain("Chat view");
+    expect(html).toContain("AppNavMenu");
+  });
+
+  it("shows live view options and preview as separate addons simultaneously", async () => {
     const html = await renderControlBar(
       { agentName: "Agent", preview: { text: "Hello from agent", source: "agent" } },
       { visible: true },
     );
     expect(html).toContain("Chat view");
-    expect(html).toContain("Pubs");
     expect(html).toContain("Hello from agent");
     expect(html).toContain('aria-label="Open chat"');
   });

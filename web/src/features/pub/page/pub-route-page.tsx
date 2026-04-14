@@ -1,6 +1,5 @@
 import { api } from "@backend/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import { CanvasPanel } from "~/features/live/components/panels/canvas-panel";
 import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
@@ -61,56 +60,53 @@ function PubRouteContent({
   const liveBlob = createLiveBlobPresentation(session.blobState);
 
   return (
-    <ControlBarProvider>
-      <div className="relative flex-1 flex flex-col text-foreground">
-        {liveMode && session.controlBarCollapsed ? null : session.hasCanvasContent ? (
-          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
-        ) : null}
+    <div className="relative flex-1 flex flex-col text-foreground">
+      {liveMode && session.controlBarCollapsed ? null : session.hasCanvasContent ? (
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
+      ) : null}
 
-        <div className="flex-1 min-h-0 relative">
-          <div
-            className={
-              viewMode === "canvas"
-                ? "absolute inset-0"
-                : "absolute inset-0 opacity-0 pointer-events-none"
+      <div className="flex-1 min-h-0 relative">
+        <div
+          className={
+            viewMode === "canvas"
+              ? "absolute inset-0"
+              : "absolute inset-0 opacity-0 pointer-events-none"
+          }
+        >
+          <CanvasPanel
+            html={effectiveCanvasHtml}
+            contentBaseUrl={session.contentBaseUrl}
+            onCanvasBridgeMessage={session.onCanvasBridgeMessage}
+            onRenderError={isOwner ? session.handleRenderError : undefined}
+            outboundCanvasBridgeMessage={session.outboundCanvasBridgeMessage}
+            blobTone={liveBlob.tone}
+            sandboxUrl={session.sandboxUrl}
+            onIframeWindow={isOwner ? session.onIframeWindow : undefined}
+            sandboxContentReady={
+              session.contentBaseUrl !== null &&
+              (isOwner
+                ? !session.liveRequested && !session.hasCommandManifest
+                  ? true
+                  : session.pubFsBridgeReady
+                : true)
             }
-          >
-            <CanvasPanel
-              html={effectiveCanvasHtml}
-              contentBaseUrl={session.contentBaseUrl}
-              onCanvasBridgeMessage={session.onCanvasBridgeMessage}
-              onRenderError={isOwner ? session.handleRenderError : undefined}
-              outboundCanvasBridgeMessage={session.outboundCanvasBridgeMessage}
-              blobTone={liveBlob.tone}
-              sandboxUrl={session.sandboxUrl}
-              onIframeWindow={isOwner ? session.onIframeWindow : undefined}
-              sandboxContentReady={
-                session.contentBaseUrl !== null &&
-                (isOwner
-                  ? !session.liveRequested && !session.hasCommandManifest
-                    ? true
-                    : session.pubFsBridgeReady
-                  : true)
-              }
-            />
-          </div>
-
-          {liveMode && viewMode === "chat" ? <ChatPanel /> : null}
-
-          {liveMode && viewMode === "settings" ? <SettingsPanel /> : null}
+          />
         </div>
 
-        {isOwner ? (
-          <>
-            {/* Must render before ControlBar so its layer sits below the transient layer */}
-            <FullscreenPromptLayer slug={slug} />
-            <ControlBar
-              shellTone={liveBlob.controlBarTone}
-              statusButtonContent={liveBlob.statusButtonContent}
-            />
-          </>
-        ) : null}
+        {liveMode && viewMode === "chat" ? <ChatPanel /> : null}
+
+        {liveMode && viewMode === "settings" ? <SettingsPanel /> : null}
       </div>
-    </ControlBarProvider>
+
+      {isOwner ? (
+        <>
+          <FullscreenPromptLayer slug={slug} />
+          <ControlBar
+            shellTone={liveBlob.controlBarTone}
+            statusButtonContent={liveBlob.statusButtonContent}
+          />
+        </>
+      ) : null}
+    </div>
   );
 }

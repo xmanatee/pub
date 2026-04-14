@@ -1,6 +1,6 @@
 import type { Id } from "@backend/_generated/dataModel";
 import { useState } from "react";
-import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
+import { ControlBarSandbox } from "~/components/control-bar/control-bar-controller";
 import { BatchSection } from "~/devtools/components/batch-section";
 import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
 import type {
@@ -99,7 +99,7 @@ function StaticControlBar({
   const liveBlob = createLiveBlobPresentation(blobState);
 
   return (
-    <ControlBarProvider>
+    <ControlBarSandbox>
       <LiveSessionProvider value={value}>
         <ControlBar
           initialInput={initialInput}
@@ -107,7 +107,7 @@ function StaticControlBar({
           statusButtonContent={liveBlob.statusButtonContent}
         />
       </LiveSessionProvider>
-    </ControlBarProvider>
+    </ControlBarSandbox>
   );
 }
 
@@ -324,14 +324,14 @@ export function ControlBarDebugPage() {
             </div>
           </div>
           <div className="relative mt-4 h-80" style={{ transform: "translateZ(0)" }}>
-            <ControlBarProvider>
+            <ControlBarSandbox>
               <LiveSessionProvider value={interactiveValue}>
                 <ControlBar
                   shellTone={interactiveBlob.controlBarTone}
                   statusButtonContent={interactiveBlob.statusButtonContent}
                 />
               </LiveSessionProvider>
-            </ControlBarProvider>
+            </ControlBarSandbox>
           </div>
         </details>
       </div>

@@ -3,8 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery } from "convex/react";
 import { FileText } from "lucide-react";
 import { EmptyStateCard } from "~/components/empty-state-card";
-import { PubCardGrid, PubCardGridSkeleton } from "~/components/pub-card-grid";
-import { PubCardSkeleton } from "~/components/pub-card-skeleton";
+import { PubCardGrid, PubCardGridSkeleton, PubCardSkeletons } from "~/components/pub-card-grid";
 import { PubPreviewCard } from "~/components/pub-preview-card";
 import { PubPreviewFrame } from "~/components/pub-preview-frame";
 import { Button } from "~/components/ui/button";
@@ -52,10 +51,7 @@ export function ExplorePage() {
               </Card>
             </Link>
           ))}
-          {status === "LoadingMore" &&
-            Array.from({ length: LOAD_MORE_SKELETONS }, (_, i) => (
-              <PubCardSkeleton key={`pending-${i}`} />
-            ))}
+          {status === "LoadingMore" ? <PubCardSkeletons count={LOAD_MORE_SKELETONS} /> : null}
         </PubCardGrid>
         {status === "CanLoadMore" && (
           <div className="text-center pt-2">

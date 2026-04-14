@@ -32,7 +32,7 @@ export function ControlBarSurface({
   const [addonsVisible, setAddonsVisible] = useState(sortedAddons.length > 0);
   const addonTimeoutRef = useRef<number | null>(null);
   const hasAddons = renderedAddons.length > 0;
-  const showStatusButton = statusButton && !statusButton.hidden;
+  const showStatusButton = !!statusButton;
 
   useEffect(() => {
     const currentRendered = renderedAddons;

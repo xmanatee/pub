@@ -1,4 +1,5 @@
-import { AppWindow, LayoutDashboard, type LucideIcon, MessageCircle, Settings } from "lucide-react";
+import { AppWindow, type LucideIcon, MessageCircle, Settings } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import type { LiveViewMode } from "~/features/live/types/live-types";
@@ -9,13 +10,14 @@ const VIEW_OPTIONS: { label: string; mode: LiveViewMode; icon: LucideIcon }[] = 
   { label: "Settings", mode: "settings", icon: Settings },
 ];
 
-interface ExtendedOptionsProps {
+interface LiveViewOptionsProps {
   viewMode: LiveViewMode;
-  onClose: () => void;
   onSelect: (mode: LiveViewMode) => void;
+  /** Appended beneath a separator. Used by the live bridge to surface app-nav when the top header is hidden. */
+  footer?: ReactNode;
 }
 
-export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptionsProps) {
+export function LiveViewOptions({ viewMode, onSelect, footer }: LiveViewOptionsProps) {
   const available = VIEW_OPTIONS.filter((o) => o.mode !== viewMode);
 
   return (
@@ -32,16 +34,12 @@ export function ExtendedOptions({ viewMode, onClose, onSelect }: ExtendedOptions
           {opt.label}
         </Button>
       ))}
-      <Separator className="my-0.5" />
-      <Button
-        variant="ghost"
-        className="h-10 w-full justify-start gap-2 rounded-xl px-3 text-sm font-medium"
-        role="menuitem"
-        onClick={onClose}
-      >
-        <LayoutDashboard className="size-4" />
-        Pubs
-      </Button>
+      {footer ? (
+        <>
+          <Separator className="my-0.5" />
+          {footer}
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import {
-  ControlBarHost,
-  useControlBarBaseLayer,
-  useControlBarChrome,
-} from "~/components/control-bar/control-bar-controller";
+import { useControlBarLayer } from "~/components/control-bar/control-bar-controller";
 import { ControlBarLabel, ControlBarPanel } from "~/components/control-bar/control-bar-parts";
 import { controlBarToneStyle } from "~/components/control-bar/control-bar-tone";
+import {
+  CONTROL_BAR_PRIORITY,
+  type ControlBarLayerInput,
+} from "~/components/control-bar/control-bar-types";
 import { Button } from "~/components/ui/button";
 import { trackCtaClicked } from "~/lib/analytics";
 
@@ -20,8 +20,11 @@ const LANDING_BAR_TONE = {
 };
 
 export function LandingControlBar() {
-  const baseLayer = useMemo(
+  const layer = useMemo<ControlBarLayerInput>(
     () => ({
+      priority: CONTROL_BAR_PRIORITY.landing,
+      expanded: true,
+      shellStyle: controlBarToneStyle(LANDING_BAR_TONE),
       mainContent: (
         <ControlBarPanel>
           <ControlBarLabel className="px-2 text-foreground">
@@ -41,11 +44,7 @@ export function LandingControlBar() {
     [],
   );
 
-  useControlBarBaseLayer(baseLayer);
-  useControlBarChrome({
-    expanded: true,
-    shellStyle: controlBarToneStyle(LANDING_BAR_TONE),
-  });
+  useControlBarLayer(layer);
 
-  return <ControlBarHost />;
+  return null;
 }

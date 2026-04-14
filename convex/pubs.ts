@@ -162,6 +162,20 @@ export const listByUser = query({
   },
 });
 
+export const getLastViewedByUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const pub = await ctx.db
+      .query("pubs")
+      .withIndex("by_user_lastViewedAt", (q) => q.eq("userId", userId))
+      .order("desc")
+      .first();
+    return pub ? mapPub(pub) : null;
+  },
+});
+
 export const listPublic = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, { paginationOpts }) => {

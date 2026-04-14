@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useControlBarLayer } from "~/components/control-bar/control-bar-controller";
-import type { ControlBarLayerConfig } from "~/components/control-bar/control-bar-types";
+import {
+  CONTROL_BAR_PRIORITY,
+  type ControlBarLayerInput,
+} from "~/components/control-bar/control-bar-types";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { useFullscreen } from "~/hooks/use-fullscreen";
 import { IN_TELEGRAM } from "~/lib/telegram";
@@ -32,10 +35,11 @@ export function FullscreenPromptLayer({ slug }: FullscreenPromptLayerProps) {
     setDismissed(true);
   }, [requestFullscreen]);
 
-  const layer: ControlBarLayerConfig | null = useMemo(
+  const layer: ControlBarLayerInput | null = useMemo(
     () =>
       shouldShow
         ? {
+            priority: CONTROL_BAR_PRIORITY.fullscreenPrompt,
             mainContent: (
               <ControlBarFullscreenPromptMode
                 onDismiss={handleDismiss}
