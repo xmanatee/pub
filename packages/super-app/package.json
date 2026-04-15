@@ -10,7 +10,8 @@
     "lint": "biome check src",
     "format": "biome check --fix src",
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:interact": "node scripts/smoke-interact.mjs"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",

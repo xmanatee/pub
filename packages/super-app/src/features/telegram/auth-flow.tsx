@@ -28,6 +28,35 @@ export function AuthFlow({ auth, onChange }: { auth: TelegramAuthState; onChange
 
   const label = busy ? <Loader2 className="animate-spin" /> : undefined;
 
+  if (auth.status === "not-configured") {
+    return (
+      <Shell title="Telegram not configured" error={null}>
+        <p className="text-xs text-muted-foreground">
+          Add your Telegram API credentials to{" "}
+          <code className="rounded bg-muted px-1">~/.pub-super-app/config.json</code>:
+        </p>
+        <pre className="rounded-md bg-muted p-3 text-xs">{`{
+  "telegram": {
+    "apiId": 1234567,
+    "apiHash": "your-api-hash"
+  }
+}`}</pre>
+        <p className="text-xs text-muted-foreground">
+          Get credentials from{" "}
+          <a
+            className="underline"
+            href="https://my.telegram.org/apps"
+            target="_blank"
+            rel="noreferrer"
+          >
+            my.telegram.org/apps
+          </a>
+          , then reload this page.
+        </p>
+      </Shell>
+    );
+  }
+
   if (auth.status === "logged-out") {
     return (
       <Shell title="Sign in to Telegram" error={error}>

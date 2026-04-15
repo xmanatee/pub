@@ -5,7 +5,13 @@
  */
 import type { CommandFunctionSpec } from "~/core/types";
 
+export interface TelegramConfig {
+  apiId: number;
+  apiHash: string;
+}
+
 export type TelegramAuthState =
+  | { status: "not-configured" }
   | { status: "logged-out" }
   | { status: "code-sent"; phone: string; phoneCodeHash: string }
   | { status: "needs-password" }

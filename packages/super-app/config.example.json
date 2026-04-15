@@ -1,0 +1,6 @@
+{
+  "telegram": {
+    "apiId": 1234567,
+    "apiHash": "your-telegram-api-hash-from-my.telegram.org/apps"
+  }
+}

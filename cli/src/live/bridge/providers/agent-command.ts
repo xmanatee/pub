@@ -14,28 +14,52 @@ import { loadClaudeSdk } from "./claude-sdk/runtime.js";
 type AgentCommandProvider = Exclude<CommandAgentProvider, "auto">;
 type DetachedAgentProvider = AgentCommandProvider;
 
-function readClaudeAssistantOutput(line: string): string | null {
-  if (!line.trim().startsWith("{")) return "";
+type ClaudeEvent =
+  | { kind: "result"; text: string }
+  | { kind: "assistant"; text: string }
+  | { kind: "other" }
+  | { kind: "malformed" };
+
+function readClaudeAssistantOutput(line: string): ClaudeEvent {
+  if (!line.trim().startsWith("{")) return { kind: "other" };
+  let event: {
+    delta?: { text?: unknown };
+    message?: { content?: unknown; role?: unknown };
+    text?: unknown;
+    type?: unknown;
+    result?: unknown;
+    subtype?: unknown;
+  };
   try {
-    const event = JSON.parse(line) as {
-      delta?: { text?: unknown };
-      message?: { content?: unknown; role?: unknown };
-      text?: unknown;
-      type?: unknown;
-    };
-    if (typeof event.text === "string") return event.text;
-    if (event.delta && typeof event.delta.text === "string") return event.delta.text;
-    if (
-      event.message &&
-      event.message.role === "assistant" &&
-      typeof event.message.content === "string"
-    ) {
-      return event.message.content;
-    }
-    return "";
+    event = JSON.parse(line);
   } catch {
-    return null;
+    return { kind: "malformed" };
   }
+  if (event.type === "result" && event.subtype === "success" && typeof event.result === "string") {
+    return { kind: "result", text: event.result };
+  }
+  if (typeof event.text === "string") return { kind: "assistant", text: event.text };
+  if (event.delta && typeof event.delta.text === "string") {
+    return { kind: "assistant", text: event.delta.text };
+  }
+  if (event.message && event.message.role === "assistant") {
+    const content = event.message.content;
+    if (typeof content === "string") return { kind: "assistant", text: content };
+    if (Array.isArray(content)) {
+      const text = content
+        .filter(
+          (c): c is { type: "text"; text: string } =>
+            typeof c === "object" &&
+            c !== null &&
+            (c as { type?: unknown }).type === "text" &&
+            typeof (c as { text?: unknown }).text === "string",
+        )
+        .map((c) => c.text)
+        .join("");
+      return { kind: "assistant", text };
+    }
+  }
+  return { kind: "other" };
 }
 
 function parseAgentOutput(outputText: string, output: "text" | "json"): unknown {
@@ -288,20 +312,20 @@ async function executeDetachedClaudeAgentCommand(params: {
         finish(() => reject(new Error(detail)));
         return;
       }
-      const lines = stdout.split(/\r?\n/);
-      let sawMalformedStructuredOutput = false;
-      const chunks = lines.flatMap((line) => {
-        const extracted = readClaudeAssistantOutput(line);
-        if (extracted === null) {
-          sawMalformedStructuredOutput = true;
-          return [];
-        }
-        return extracted.length > 0 ? [extracted] : [];
-      });
-      const joined = chunks.join("").trim();
-      finish(() =>
-        resolve(sawMalformedStructuredOutput || joined.length === 0 ? stdout.trim() : joined),
-      );
+      let resultText: string | null = null;
+      let sawMalformed = false;
+      const assistantChunks: string[] = [];
+      for (const line of stdout.split(/\r?\n/)) {
+        const event = readClaudeAssistantOutput(line);
+        if (event.kind === "result") resultText = event.text;
+        else if (event.kind === "assistant" && event.text.length > 0) assistantChunks.push(event.text);
+        else if (event.kind === "malformed") sawMalformed = true;
+      }
+      if (resultText !== null) finish(() => resolve(resultText!));
+      else {
+        const joined = assistantChunks.join("").trim();
+        finish(() => resolve(sawMalformed || joined.length === 0 ? stdout.trim() : joined));
+      }
     });
   });
 

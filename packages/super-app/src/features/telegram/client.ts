@@ -1,57 +1,71 @@
 /**
  * Browser-side gramjs client. Session is persisted in `localStorage` via
- * `StringSession`; API credentials come from `VITE_TELEGRAM_API_ID` /
- * `VITE_TELEGRAM_API_HASH`. The client is created lazily on first use and
- * kept on `globalThis` so Vite HMR doesn't drop the logged-in session.
+ * `StringSession`; API credentials are read from the super-app config file
+ * (`~/.pub-super-app/config.json` → `telegram.apiId` / `telegram.apiHash`).
+ * The client is created lazily on first use and kept on `globalThis` so
+ * Vite HMR doesn't drop the logged-in session.
  */
 import "~/core/node-polyfills";
 import { Api, TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
+import { getFeatureConfig } from "~/core/config";
 import type {
   TelegramAuthState,
+  TelegramConfig,
   TelegramDialog,
   TelegramMessage,
   TelegramPeerInfo,
 } from "./commands";
 
 const SESSION_KEY = "pub-super-app:telegram-session";
-const API_ID = Number(import.meta.env.VITE_TELEGRAM_API_ID ?? "0");
-const API_HASH = String(import.meta.env.VITE_TELEGRAM_API_HASH ?? "");
 
 interface Runtime {
   client: TelegramClient | null;
   pending: { phone: string; phoneCodeHash: string } | null;
   needsPassword: boolean;
+  creds: { apiId: number; apiHash: string } | null;
 }
 
 const key = Symbol.for("pub-super-app:tg-runtime");
 type Globals = typeof globalThis & { [k: symbol]: Runtime | undefined };
 if (!(globalThis as Globals)[key]) {
-  (globalThis as Globals)[key] = { client: null, pending: null, needsPassword: false };
+  (globalThis as Globals)[key] = {
+    client: null,
+    pending: null,
+    needsPassword: false,
+    creds: null,
+  };
 }
 const state: Runtime = (globalThis as Globals)[key] as Runtime;
 
 function loadSession(): string {
-  if (typeof localStorage === "undefined") return "";
   return localStorage.getItem(SESSION_KEY) ?? "";
 }
 
 function saveSession(s: string): void {
-  if (typeof localStorage === "undefined") return;
   localStorage.setItem(SESSION_KEY, s);
 }
 
 function clearSession(): void {
-  if (typeof localStorage === "undefined") return;
   localStorage.removeItem(SESSION_KEY);
 }
 
-function ensureCreds(): void {
-  if (!API_ID || !API_HASH) {
+async function loadCreds(): Promise<{ apiId: number; apiHash: string } | null> {
+  if (state.creds) return state.creds;
+  const cfg = (await getFeatureConfig({ data: { name: "telegram" } })) as TelegramConfig | null;
+  if (!cfg || typeof cfg.apiId !== "number" || !cfg.apiHash) return null;
+  state.creds = { apiId: cfg.apiId, apiHash: cfg.apiHash };
+  return state.creds;
+}
+
+async function requireCreds(): Promise<{ apiId: number; apiHash: string }> {
+  const creds = await loadCreds();
+  if (!creds) {
     throw new Error(
-      "Set VITE_TELEGRAM_API_ID and VITE_TELEGRAM_API_HASH (from https://my.telegram.org/apps).",
+      'Telegram not configured. Add { apiId, apiHash } under "telegram" in ~/.pub-super-app/config.json.',
     );
   }
+  return creds;
 }
 
 async function getClient(): Promise<TelegramClient> {
@@ -59,8 +73,8 @@ async function getClient(): Promise<TelegramClient> {
     if (!state.client.connected) await state.client.connect();
     return state.client;
   }
-  ensureCreds();
-  const client = new TelegramClient(new StringSession(loadSession()), API_ID, API_HASH, {
+  const { apiId, apiHash } = await requireCreds();
+  const client = new TelegramClient(new StringSession(loadSession()), apiId, apiHash, {
     connectionRetries: 3,
     useWSS: true,
   });
@@ -72,7 +86,8 @@ async function getClient(): Promise<TelegramClient> {
 // ---------- auth ----------
 
 async function authState(): Promise<TelegramAuthState> {
-  if (!API_ID || !API_HASH) return { status: "logged-out" };
+  const creds = await loadCreds();
+  if (!creds) return { status: "not-configured" };
   if (state.pending && !state.needsPassword) {
     return {
       status: "code-sent",
@@ -96,8 +111,9 @@ async function authState(): Promise<TelegramAuthState> {
 }
 
 async function sendCode(phone: string): Promise<TelegramAuthState> {
+  const { apiId, apiHash } = await requireCreds();
   const client = await getClient();
-  const result = await client.sendCode({ apiId: API_ID, apiHash: API_HASH }, phone);
+  const result = await client.sendCode({ apiId, apiHash }, phone);
   state.pending = { phone, phoneCodeHash: result.phoneCodeHash };
   state.needsPassword = false;
   return { status: "code-sent", phone, phoneCodeHash: result.phoneCodeHash };
@@ -131,9 +147,10 @@ async function verify(params: {
 }
 
 async function password(pw: string): Promise<TelegramAuthState> {
+  const { apiId, apiHash } = await requireCreds();
   const client = await getClient();
   await client.signInWithPassword(
-    { apiId: API_ID, apiHash: API_HASH },
+    { apiId, apiHash },
     {
       password: async () => pw,
       // Re-throw the real error instead of gramjs's generic AUTH_USER_CANCEL.
