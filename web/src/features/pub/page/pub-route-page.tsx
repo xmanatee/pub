@@ -1,10 +1,9 @@
 import { api } from "@backend/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
 import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
+import { LiveOverlayPanels } from "~/features/live/components/live-overlay-panels";
 import { CanvasPanel } from "~/features/live/components/panels/canvas-panel";
-import { SettingsPanel } from "~/features/live/components/panels/settings-panel";
 import { useContentHtml } from "~/features/live/hooks/use-content-html";
-import { ChatPanel } from "~/features/live-chat/components/chat-panel";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { FullscreenPromptLayer } from "~/features/live-control-bar/components/fullscreen-prompt-layer";
 import type { UsePubLiveModelOptions } from "~/features/pub/hooks/use-pub-live-model";
@@ -93,9 +92,7 @@ function PubRouteContent({
           />
         </div>
 
-        {liveMode && viewMode === "chat" ? <ChatPanel /> : null}
-
-        {liveMode && viewMode === "settings" ? <SettingsPanel /> : null}
+        {liveMode ? <LiveOverlayPanels viewMode={viewMode} /> : null}
       </div>
 
       {isOwner ? (

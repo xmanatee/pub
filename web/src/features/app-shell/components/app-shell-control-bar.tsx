@@ -5,16 +5,11 @@ import { Menu, Play, Plus, X } from "lucide-react";
 import * as React from "react";
 import { useControlBarLayer } from "~/components/control-bar/control-bar-controller";
 import { ControlBarPanel } from "~/components/control-bar/control-bar-parts";
-import {
-  CONTROL_BAR_PRIORITY,
-  type ControlBarAddon,
-} from "~/components/control-bar/control-bar-types";
+import { CONTROL_BAR_PRIORITY } from "~/components/control-bar/control-bar-types";
 import { Button } from "~/components/ui/button";
 import { useIsFullscreenRoute } from "~/features/app-shell/hooks/use-header-nav-visible";
 import { useStartLive } from "~/features/pubs/hooks/use-start-live";
 import { AppNavMenu } from "./app-nav-menu";
-
-const NO_ADDONS: ControlBarAddon[] = [];
 
 type NewState =
   | { kind: "ready"; label: "Create a new pub" }
@@ -29,11 +24,7 @@ function resolveNewState(agentOnline: boolean | undefined, pending: boolean): Ne
   return { kind: "ready", label: "Create a new pub" };
 }
 
-/**
- * Always-on shell layer for authenticated users. The live bar pushes a
- * higher-priority layer on top, so on `/p/$slug` and `/app` this stays mounted
- * but is not rendered.
- */
+/** The live bar pushes a higher-priority layer on `/p/$slug` and `/app`, hiding this one. */
 export function AppShellControlBar() {
   const matchRoute = useMatchRoute();
   const fullscreenRoute = useIsFullscreenRoute();
@@ -71,7 +62,7 @@ export function AppShellControlBar() {
             ),
           },
         ]
-      : NO_ADDONS,
+      : undefined,
     backdropVisible: menuOpen,
     backdropOnClick: menuOpen ? closeMenu : undefined,
     statusButton: {
@@ -88,19 +79,19 @@ export function AppShellControlBar() {
         <Button
           variant="ghost"
           type="button"
-          className="h-10 shrink-0 gap-2 rounded-full px-4 text-sm font-medium"
+          className="h-10 min-w-0 flex-1 justify-start gap-2 rounded-full px-4 text-sm font-medium"
           onClick={handleNew}
           disabled={newState.kind !== "ready"}
           aria-label={newState.label}
         >
-          <Plus className="size-4" aria-hidden="true" />
-          New
+          <Plus className="size-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">New</span>
         </Button>
         {showResume ? (
           <Button
             asChild
             variant="ghost"
-            className="h-10 min-w-0 flex-1 justify-start gap-2 rounded-full px-3 text-sm"
+            className="h-10 max-w-[60%] shrink-0 gap-2 rounded-full px-3 text-sm"
           >
             <Link to="/p/$slug" params={{ slug: lastPub.slug }}>
               <Play className="size-4 shrink-0" aria-hidden="true" />

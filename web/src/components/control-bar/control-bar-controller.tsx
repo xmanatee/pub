@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useContext,
   useLayoutEffect,
+  useMemo,
   useReducer,
   useRef,
 } from "react";
@@ -128,7 +129,7 @@ export function useControlBarLayer(layer: ControlBarLayerInput | null) {
 }
 
 function ControlBarHost({ layers }: { layers: readonly ControlBarLayerEntry[] }) {
-  const top = resolveLayer(layers.map((e) => e.layer));
+  const top = useMemo(() => resolveLayer(layers.map((e) => e.layer)), [layers]);
   if (!top) return null;
   return <RenderedHost top={top} />;
 }

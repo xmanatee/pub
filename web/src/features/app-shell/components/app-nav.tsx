@@ -1,7 +1,7 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { cn } from "~/lib/utils";
+import { AgentCountBadge } from "./agent-count-badge";
 import { APP_NAV_LINKS, type AppNavLink } from "./app-nav-links";
-import { NavBadge } from "./nav-badge";
 
 export function AppNav() {
   const matchRoute = useMatchRoute();
@@ -32,7 +32,7 @@ function HeaderLink({ link, active }: { link: AppNavLink; active: boolean }) {
       ) : (
         <>
           {link.label}
-          {link.badge ? <NavBadge badge={link.badge} className="ml-1.5" /> : null}
+          {link.badge === "agentCount" ? <AgentCountBadge className="ml-1.5" /> : null}
         </>
       )}
     </Link>

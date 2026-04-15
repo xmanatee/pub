@@ -7,15 +7,14 @@ import {
   Users,
 } from "lucide-react";
 
-export type AppNavBadge = "agentCount";
-
 export interface AppNavLink {
   to: "/pubs" | "/app" | "/agents" | "/explore" | "/settings";
   label: string;
   icon: LucideIcon;
   /** When true the header shows icon-only (label still announced via `sr-only`). */
   headerCompact?: boolean;
-  badge?: AppNavBadge;
+  /** Trailing badge type. Today only "agentCount"; widen the union when more arrive. */
+  badge?: "agentCount";
 }
 
 /**

@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useControlBarLayer } from "~/components/control-bar/control-bar-controller";
 import { controlBarNotificationsToAddons } from "~/components/control-bar/control-bar-parts";
 import { CONTROL_BAR_STYLES } from "~/components/control-bar/control-bar-styles";
@@ -9,7 +9,6 @@ import { controlBarToneStyle } from "~/components/control-bar/control-bar-tone";
 import {
   CONTROL_BAR_PRIORITY,
   type ControlBarAddon,
-  type ControlBarLayerInput,
   type ControlBarNotificationConfig,
 } from "~/components/control-bar/control-bar-types";
 import { Button } from "~/components/ui/button";
@@ -20,25 +19,12 @@ import { useControlBarText } from "~/features/live-control-bar/hooks/use-control
 import { useExtendedOptionsVisibility } from "~/features/live-control-bar/hooks/use-extended-options-visibility";
 import { useFileUpload } from "~/features/live-control-bar/hooks/use-file-upload";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
-import { ControlBarAgentSelectionMode } from "../components/control-bar-agent-selection-mode";
-import { ControlBarBusyMode } from "../components/control-bar-busy-mode";
-import { ControlBarDisconnectedMode } from "../components/control-bar-disconnected-mode";
 import { ControlBarInputRow } from "../components/control-bar-input-row";
-import { ControlBarOfflineMode } from "../components/control-bar-offline-mode";
 import { ControlBarOptionalLiveMode } from "../components/control-bar-optional-live-mode";
-import { ControlBarRecordingMode } from "../components/control-bar-recording-mode";
-import { ControlBarTakeoverMode } from "../components/control-bar-takeover-mode";
-import { ControlBarVoiceMode } from "../components/control-bar-voice-mode";
 import { LiveViewOptions } from "../components/live-view-options";
+import { resolveTransientLayer } from "./resolve-transient-layer";
 
 const WAVEFORM_BARS = Array.from({ length: 24 }, (_, i) => `bar-${i}`);
-const RECORDING_SHELL_CLASS = "border-destructive/40 bg-background/88";
-
-function formatTime(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
-}
 
 interface UseLiveControlBarBridgeOptions {
   initialInput?: string;
@@ -149,16 +135,20 @@ export function useLiveControlBarBridge({
     dismissPreview();
   }, [dismissPreview, setViewMode]);
 
-  const waveform = (
-    <div ref={audio.barsRef} className="flex h-7 w-full items-center gap-0.5 overflow-hidden">
-      {WAVEFORM_BARS.map((id) => (
-        <div
-          key={id}
-          className="min-w-0 flex-1 rounded-full bg-foreground/70 transition-all duration-75"
-          style={{ height: "4px" }}
-        />
-      ))}
-    </div>
+  // Stable across renders — only the imperative ref attaches per mount.
+  const waveform = useMemo(
+    () => (
+      <div ref={audio.barsRef} className="flex h-7 w-full items-center gap-0.5 overflow-hidden">
+        {WAVEFORM_BARS.map((id) => (
+          <div
+            key={id}
+            className="min-w-0 flex-1 rounded-full bg-foreground/70 transition-all duration-75"
+            style={{ height: "4px" }}
+          />
+        ))}
+      </div>
+    ),
+    [audio.barsRef],
   );
 
   const rightAction =
@@ -264,11 +254,8 @@ export function useLiveControlBarBridge({
 
   addons.push(...controlBarNotificationsToAddons(notifications));
 
-  const rightActionForCanvasMode = viewMode === "canvas" ? undefined : rightAction;
-
-  // The live layer carries the chrome (status button, backdrop, expansion). Higher-priority
-  // layers (fullscreen prompt, transient state) only override the fields they need; the
-  // controller's field-merge inherits everything else from this layer.
+  // The live layer owns the chrome (status button, backdrop, expansion). Higher-priority
+  // layers only override the fields they need; field-merge inherits everything else.
   useControlBarLayer({
     priority: CONTROL_BAR_PRIORITY.live,
     addons,
@@ -306,7 +293,7 @@ export function useLiveControlBarBridge({
         voiceModeEnabled={voiceModeEnabled}
       />
     ),
-    rightAction: rightActionForCanvasMode,
+    rightAction: rightAction,
   });
 
   const transient = resolveTransientLayer({
@@ -325,149 +312,11 @@ export function useLiveControlBarBridge({
     onSetDefaultAgent: setDefaultAgentName,
     onStopVoiceMode: audio.stopVoiceMode,
     onTakeover: takeoverLive,
-    rightAction: rightActionForCanvasMode,
+    rightAction: rightAction,
     waveform,
   });
 
   useControlBarLayer(
     transient ? { ...transient, priority: CONTROL_BAR_PRIORITY.liveTransient } : null,
   );
-}
-
-function resolveTransientLayer({
-  agents,
-  controlBarState,
-  defaultAgentName,
-  elapsed,
-  lastTakeoverAt,
-  onCancelRecording,
-  onExit,
-  onPauseResume,
-  onReconnect,
-  onSelectAgent,
-  onSendRecording,
-  onSetDefaultAgent,
-  onStopVoiceMode,
-  onTakeover,
-  rightAction,
-  waveform,
-}: {
-  agents: ReturnType<typeof useLiveSession>["availableAgents"];
-  controlBarState: ReturnType<typeof useLiveSession>["controlBarState"];
-  defaultAgentName: string | null;
-  elapsed: number;
-  lastTakeoverAt: number | undefined;
-  onCancelRecording: () => void;
-  onExit: () => void;
-  onPauseResume: () => void;
-  onReconnect: () => void;
-  onSelectAgent: ReturnType<typeof useLiveSession>["setSelectedHostId"];
-  onSendRecording: () => void;
-  onSetDefaultAgent: (name: string | null) => void;
-  onStopVoiceMode: () => void;
-  onTakeover: ReturnType<typeof useLiveSession>["takeoverLive"];
-  rightAction?: ReactNode;
-  waveform: ReactNode;
-}): Omit<ControlBarLayerInput, "priority"> | null {
-  if (controlBarState === "idle" || controlBarState === "connecting") return null;
-
-  if (controlBarState === "agent-selection") {
-    return {
-      mainContent: (
-        <ControlBarAgentSelectionMode
-          agents={agents}
-          defaultAgentName={defaultAgentName}
-          onExit={onExit}
-          onSelect={onSelectAgent}
-          onSetDefault={onSetDefaultAgent}
-        />
-      ),
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "offline") {
-    return {
-      mainContent: <ControlBarOfflineMode onExit={onExit} />,
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "disconnected") {
-    return {
-      mainContent: <ControlBarDisconnectedMode onExit={onExit} onReconnect={onReconnect} />,
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "needs-takeover" || controlBarState === "taken-over") {
-    return {
-      mainContent: (
-        <ControlBarTakeoverMode
-          lastTakeoverAt={lastTakeoverAt}
-          onExit={onExit}
-          onTakeover={onTakeover}
-          sessionState={controlBarState}
-        />
-      ),
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "starting-recording") {
-    return {
-      mainContent: <ControlBarBusyMode label="Starting recording..." />,
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "stopping-recording") {
-    return {
-      mainContent: <ControlBarBusyMode label="Finishing recording..." />,
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "recording" || controlBarState === "recording-paused") {
-    return {
-      className: RECORDING_SHELL_CLASS,
-      mainContent: (
-        <ControlBarRecordingMode
-          elapsedLabel={formatTime(elapsed)}
-          isPaused={controlBarState === "recording-paused"}
-          onCancelRecording={onCancelRecording}
-          onPauseResume={onPauseResume}
-          onSendRecording={onSendRecording}
-          waveformEl={waveform}
-        />
-      ),
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "starting-voice") {
-    return {
-      mainContent: <ControlBarBusyMode label="Starting voice mode..." />,
-      rightAction,
-    };
-  }
-
-  if (controlBarState === "stopping-voice") {
-    return {
-      mainContent: <ControlBarBusyMode label="Stopping voice mode..." />,
-      rightAction,
-    };
-  }
-
-  return {
-    className: RECORDING_SHELL_CLASS,
-    mainContent: (
-      <ControlBarVoiceMode
-        elapsedLabel={formatTime(elapsed)}
-        onStopVoiceMode={onStopVoiceMode}
-        waveformEl={waveform}
-      />
-    ),
-    rightAction,
-  };
 }

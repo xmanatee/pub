@@ -6,14 +6,16 @@ import "./control-bar-state.css";
 import type { ControlBarAddon, ControlBarSurfaceProps } from "./control-bar-types";
 
 const ADDON_TRANSITION_MS = 500;
+/** Stable empty-addon sentinel. Prevents fresh `[]` allocations from defeating `useMemo`. */
+const NO_ADDONS: readonly ControlBarAddon[] = [];
 
-function sameAddonKeys(left: ControlBarAddon[], right: ControlBarAddon[]) {
+function sameAddonKeys(left: readonly ControlBarAddon[], right: readonly ControlBarAddon[]) {
   if (left.length !== right.length) return false;
   return left.every((addon, index) => addon.key === right[index]?.key);
 }
 
 export function ControlBarSurface({
-  addons = [],
+  addons = NO_ADDONS,
   className,
   expanded,
   leftAction,
@@ -25,7 +27,10 @@ export function ControlBarSurface({
   const hasLeft = Boolean(leftAction);
   const hasRight = Boolean(rightAction);
   const sortedAddons = useMemo(
-    () => [...addons].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)),
+    () =>
+      addons.length === 0
+        ? NO_ADDONS
+        : [...addons].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)),
     [addons],
   );
   const [renderedAddons, setRenderedAddons] = useState(sortedAddons);
@@ -134,7 +139,7 @@ export function ControlBarSurface({
                   className={cn(
                     "transition-all duration-500 ease-in-out",
                     hasAddons && addonsVisible
-                      ? "max-h-60 translate-y-0 opacity-100"
+                      ? "max-h-[70vh] translate-y-0 opacity-100 overflow-y-auto"
                       : "pointer-events-none max-h-0 translate-y-4 opacity-0",
                   )}
                 >

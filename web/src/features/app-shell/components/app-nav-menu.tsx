@@ -1,7 +1,7 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
+import { AgentCountBadge } from "./agent-count-badge";
 import { APP_NAV_LINKS } from "./app-nav-links";
-import { NavBadge } from "./nav-badge";
 
 /**
  * Menu items for the global app navigation. The caller owns the wrapping
@@ -26,7 +26,7 @@ export function AppNavMenu({ onNavigate }: { onNavigate?: () => void }) {
             <Link to={link.to} aria-current={active ? "page" : undefined} onClick={onNavigate}>
               <Icon className="size-4" aria-hidden="true" />
               <span className="flex-1 text-left">{link.label}</span>
-              {link.badge ? <NavBadge badge={link.badge} /> : null}
+              {link.badge === "agentCount" ? <AgentCountBadge /> : null}
             </Link>
           </Button>
         );

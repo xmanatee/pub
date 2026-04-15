@@ -3,7 +3,7 @@ import { DEFAULT_RELAY_URL } from "@shared/tunnel-protocol-core";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { createLiveBlobPresentation } from "~/features/live/blob/live-blob-presentation";
-import { ChatPanel } from "~/features/live-chat/components/chat-panel";
+import { LiveOverlayPanels } from "~/features/live/components/live-overlay-panels";
 import { ControlBar } from "~/features/live-control-bar/components/control-bar";
 import { LiveSessionProvider } from "~/features/pub/contexts/live-session-context";
 import { useTunnelLiveModel } from "./hooks/use-tunnel-live-model";
@@ -91,13 +91,17 @@ function TunnelSession({ tunnel }: { tunnel: TunnelInfo }) {
   return (
     <LiveSessionProvider value={model}>
       <div className="flex-1 min-h-0 flex flex-col relative">
-        {model.viewMode === "chat" ? (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ChatPanel />
-          </div>
-        ) : (
+        {/* Iframe stays mounted across mode switches so connection state survives. */}
+        <div
+          className={
+            model.viewMode === "canvas"
+              ? "absolute inset-0"
+              : "absolute inset-0 opacity-0 pointer-events-none"
+          }
+        >
           <TunnelFrame token={tunnel.token} />
-        )}
+        </div>
+        <LiveOverlayPanels viewMode={model.viewMode} />
         <ControlBar
           shellTone={liveBlob.controlBarTone}
           statusButtonContent={liveBlob.statusButtonContent}
@@ -109,15 +113,12 @@ function TunnelSession({ tunnel }: { tunnel: TunnelInfo }) {
 
 function TunnelFrame({ token }: { token: string }) {
   const iframeSrc = `${RELAY_URL}/t/${token}/`;
-
   return (
-    <div className="flex-1 min-h-0 relative">
-      <iframe
-        src={iframeSrc}
-        className="absolute inset-0 w-full h-full border-0"
-        allow="camera; microphone; display-capture; geolocation; fullscreen"
-        title="Tunnel App"
-      />
-    </div>
+    <iframe
+      src={iframeSrc}
+      className="absolute inset-0 w-full h-full border-0"
+      allow="camera; microphone; display-capture; geolocation; fullscreen"
+      title="Tunnel App"
+    />
   );
 }

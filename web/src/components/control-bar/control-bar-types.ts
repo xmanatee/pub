@@ -43,7 +43,7 @@ export type ControlBarPriority = (typeof CONTROL_BAR_PRIORITY)[keyof typeof CONT
  * (e.g. `mainContent`) without clobbering the others.
  */
 export interface ControlBarLayerInput {
-  addons?: ControlBarAddon[];
+  addons?: readonly ControlBarAddon[];
   backdropOnClick?: () => void;
   backdropVisible?: boolean;
   className?: string;
@@ -61,7 +61,7 @@ export interface ControlBarLayerInput {
  * Defaults are applied here so the surface never has to second-guess.
  */
 export interface ResolvedControlBarLayer {
-  addons?: ControlBarAddon[];
+  addons?: readonly ControlBarAddon[];
   backdropOnClick?: () => void;
   backdropVisible: boolean;
   className?: string;
