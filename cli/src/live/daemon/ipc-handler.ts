@@ -4,6 +4,9 @@ import {
   shouldAcknowledgeMessage,
 } from "../../../../shared/bridge-protocol-core";
 import type { LiveRuntimeStateSnapshot } from "../../../../shared/live-runtime-state-core";
+import type { BridgeSettings } from "../../core/config/index.js";
+import type { BridgeRunner } from "../bridge/shared.js";
+import { executeCommandSpec } from "../command/run-spec.js";
 import type { IpcRequest } from "../transport/ipc-protocol.js";
 import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 
@@ -29,6 +32,9 @@ interface DaemonIpcHandlerParams {
   shutdown: () => void;
   writeAckTimeoutMs: number;
   writeAckMaxAttempts: number;
+  /** Resolves the current bridge settings (runtime-augmented when a session is active). */
+  getBridgeSettings: () => BridgeSettings;
+  getBridgeRunner?: () => BridgeRunner | null;
 }
 
 function unreachableIpcRequest(request: never): never {
@@ -151,6 +157,24 @@ export function createDaemonIpcHandler(params: DaemonIpcHandlerParams) {
 
       case "write-files": {
         return await params.persistFiles(req.params.files);
+      }
+
+      case "run-command-spec": {
+        const controller = new AbortController();
+        try {
+          const value = await executeCommandSpec(req.params.spec, req.params.args, {
+            bridgeSettings: params.getBridgeSettings(),
+            signal: controller.signal,
+            requestedTimeoutMs: req.params.requestedTimeoutMs,
+            getBridgeRunner: params.getBridgeRunner,
+          });
+          return { ok: true, value };
+        } catch (error) {
+          return {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
       }
 
       default: {

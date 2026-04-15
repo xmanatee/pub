@@ -1,16 +1,27 @@
-import { ChevronRight, File, FilePlus2, Folder, FolderPlus, Home, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  File,
+  FilePlus2,
+  Folder,
+  FolderPlus,
+  Home,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import * as React from "react";
-import type { FsEntry, FsListResult, FsReadResult } from "~/commands/results";
-import { EmptyState } from "~/components/shell/empty-state";
-import { ErrorState } from "~/components/shell/error-state";
-import { PageHeader } from "~/components/shell/page-header";
-import { Button } from "~/components/ui/button";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { Skeleton } from "~/components/ui/skeleton";
-import { SkeletonList } from "~/components/ui/skeleton-list";
-import { cn } from "~/lib/cn";
-import { fmtSize } from "~/lib/fmt";
-import { tryInvoke, useCommand } from "~/lib/pub";
+import { cn } from "~/core/cn";
+import { fmtSize } from "~/core/fmt";
+import { invoke, useAsync, withErrorAlert } from "~/core/pub";
+import { EmptyState } from "~/core/shell/empty-state";
+import { ErrorState } from "~/core/shell/error-state";
+import { PageHeader } from "~/core/shell/page-header";
+import { Button } from "~/core/ui/button";
+import { ScrollArea } from "~/core/ui/scroll-area";
+import { Skeleton } from "~/core/ui/skeleton";
+import { SkeletonList } from "~/core/ui/skeleton-list";
+import { files } from "./client";
+import type { FsEntry, FsReadResult } from "./commands";
+import * as cmd from "./commands";
 
 function Crumbs({ path, onNavigate }: { path: string; onNavigate: (p: string) => void }) {
   const parts = path.split("/").filter(Boolean);
@@ -38,11 +49,13 @@ function EntryRow({
   entry,
   active,
   onOpen,
+  onRename,
   onDelete,
 }: {
   entry: FsEntry;
   active: boolean;
   onOpen: () => void;
+  onRename: () => void;
   onDelete: () => void;
 }) {
   const Icon = entry.type === "dir" ? Folder : File;
@@ -71,31 +84,40 @@ function EntryRow({
           <span className="shrink-0 text-xs text-muted-foreground">{fmtSize(entry.size)}</span>
         ) : null}
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (confirm(`Delete ${entry.name}?`)) onDelete();
-        }}
-        className="opacity-0 transition-opacity group-hover:opacity-100"
-        aria-label="Delete"
-      >
-        <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
-      </button>
+      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button type="button" onClick={onRename} aria-label="Rename">
+          <Pencil className="size-3.5 text-muted-foreground hover:text-foreground" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm(`Delete ${entry.name}?`)) onDelete();
+          }}
+          aria-label="Delete"
+        >
+          <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
+        </button>
+      </div>
     </div>
   );
 }
 
 function FileViewer({ result }: { result: FsReadResult }) {
   if (result.encoding === "base64") {
+    const dataUrl = `data:${result.mime};base64,${result.content}`;
     if (result.mime.startsWith("image/")) {
-      return (
-        <img
-          src={`data:${result.mime};base64,${result.content}`}
-          alt={result.path}
-          className="max-w-full rounded-md"
-        />
-      );
+      return <img src={dataUrl} alt={result.path} className="max-w-full rounded-md" />;
+    }
+    if (result.mime.startsWith("video/")) {
+      // biome-ignore lint/a11y/useMediaCaption: user-provided video
+      return <video src={dataUrl} controls className="w-full rounded-md" />;
+    }
+    if (result.mime.startsWith("audio/")) {
+      // biome-ignore lint/a11y/useMediaCaption: user-provided audio
+      return <audio src={dataUrl} controls className="w-full" />;
+    }
+    if (result.mime === "application/pdf") {
+      return <iframe src={dataUrl} title={result.path} className="h-[70vh] w-full rounded-md" />;
     }
     return (
       <p className="text-xs text-muted-foreground">
@@ -112,14 +134,14 @@ function FileViewer({ result }: { result: FsReadResult }) {
 }
 
 export function FilesPage() {
-  const [path, setPath] = React.useState<string>(() => "~");
+  const [path, setPath] = React.useState("~");
   const [selected, setSelected] = React.useState<FsEntry | null>(null);
   const [showHidden, setShowHidden] = React.useState(false);
-  const list = useCommand<FsListResult>("fs.list", { path }, [path]);
-  const file = useCommand<FsReadResult>(
-    selected?.type === "file" ? "fs.read" : null,
-    selected ? { path: selected.path } : {},
-    [selected?.path],
+
+  const list = useAsync(() => files.list(path), [path]);
+  const file = useAsync(
+    () => (selected?.type === "file" ? files.read(selected.path) : Promise.resolve(null)),
+    [selected?.path, selected?.type],
   );
 
   const onOpen = (entry: FsEntry) => {
@@ -131,22 +153,34 @@ export function FilesPage() {
     }
   };
 
-  const onDelete = async (entry: FsEntry) => {
-    if (!(await tryInvoke("fs.rm", { path: entry.path }))) return;
-    if (selected?.path === entry.path) setSelected(null);
+  const afterWrite = (deleted?: FsEntry) => {
+    if (deleted && selected?.path === deleted.path) setSelected(null);
     list.reload();
+  };
+
+  const onDelete = async (entry: FsEntry) => {
+    if (await withErrorAlert(() => invoke(cmd.rm, { path: entry.path }))) afterWrite(entry);
+  };
+
+  const onRename = async (entry: FsEntry) => {
+    const next = prompt("Rename to", entry.name);
+    if (!next || next === entry.name) return;
+    const toPath = `${path}/${next}`;
+    if (await withErrorAlert(() => invoke(cmd.rename, { from: entry.path, to: toPath }))) {
+      afterWrite(entry);
+    }
   };
 
   const onMkdir = async () => {
     const name = prompt("Folder name");
     if (!name) return;
-    if (await tryInvoke("fs.mkdir", { path: `${path}/${name}` })) list.reload();
+    if (await withErrorAlert(() => invoke(cmd.mkdir, { path: `${path}/${name}` }))) list.reload();
   };
 
   const onCreateFile = async () => {
     const name = prompt("File name");
     if (!name) return;
-    if (await tryInvoke("fs.write", { path: `${path}/${name}`, content: "" })) list.reload();
+    if (await withErrorAlert(() => invoke(cmd.touch, { path: `${path}/${name}` }))) list.reload();
   };
 
   return (
@@ -178,34 +212,40 @@ export function FilesPage() {
       </div>
       <div className="grid flex-1 min-h-0 grid-cols-[minmax(280px,2fr)_3fr] divide-x">
         <div className="flex min-h-0 flex-col">
-          {list.status === "error" ? (
-            <ErrorState error={list.error} onRetry={list.reload} />
-          ) : list.status === "loading" || list.status === "idle" ? (
+          {list.state.status === "loading" ? (
             <SkeletonList count={8} itemClassName="h-7" className="space-y-1 p-3" />
+          ) : list.state.status === "error" ? (
+            <ErrorState error={list.state.error} onRetry={list.reload} />
           ) : (
             <ScrollArea className="h-full">
-              <div className="space-y-0.5 p-2">
-                {list.value.parent ? (
-                  <button
-                    type="button"
-                    onClick={() => setPath(list.value.parent!)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/60"
-                  >
-                    <Folder className="size-4" /> ..
-                  </button>
-                ) : null}
-                {list.value.entries
-                  .filter((e) => showHidden || !e.hidden)
-                  .map((entry) => (
-                    <EntryRow
-                      key={entry.path}
-                      entry={entry}
-                      active={selected?.path === entry.path}
-                      onOpen={() => onOpen(entry)}
-                      onDelete={() => onDelete(entry)}
-                    />
-                  ))}
-              </div>
+              {(() => {
+                const { parent, entries } = list.state.value;
+                return (
+                  <div className="space-y-0.5 p-2">
+                    {parent ? (
+                      <button
+                        type="button"
+                        onClick={() => setPath(parent)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/60"
+                      >
+                        <Folder className="size-4" /> ..
+                      </button>
+                    ) : null}
+                    {entries
+                      .filter((e) => showHidden || !e.hidden)
+                      .map((entry) => (
+                        <EntryRow
+                          key={entry.path}
+                          entry={entry}
+                          active={selected?.path === entry.path}
+                          onOpen={() => onOpen(entry)}
+                          onRename={() => onRename(entry)}
+                          onDelete={() => onDelete(entry)}
+                        />
+                      ))}
+                  </div>
+                );
+              })()}
             </ScrollArea>
           )}
         </div>
@@ -216,23 +256,23 @@ export function FilesPage() {
               title="Select a file"
               description="Open a file from the list to preview its contents."
             />
-          ) : file.status === "error" ? (
-            <ErrorState error={file.error} onRetry={file.reload} />
-          ) : file.status === "loading" || file.status === "idle" ? (
+          ) : file.state.status === "loading" ? (
             <div className="space-y-2 p-4">
               <Skeleton className="h-4 w-1/3" />
               <Skeleton className="h-64 w-full" />
             </div>
-          ) : (
+          ) : file.state.status === "error" ? (
+            <ErrorState error={file.state.error} onRetry={file.reload} />
+          ) : !file.state.value ? null : (
             <ScrollArea className="h-full">
               <div className="space-y-3 p-4">
                 <div>
                   <div className="text-sm font-medium">{selected.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {fmtSize(file.value.size)} · {file.value.mime}
+                    {fmtSize(file.state.value.size)} · {file.state.value.mime}
                   </div>
                 </div>
-                <FileViewer result={file.value} />
+                <FileViewer result={file.state.value} />
               </div>
             </ScrollArea>
           )}

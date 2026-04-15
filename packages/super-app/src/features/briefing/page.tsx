@@ -1,26 +1,30 @@
-import { Calendar, Cloud, Mail, Newspaper } from "lucide-react";
+import { Calendar, Cloud, Mail, Newspaper, Quote, Sparkles } from "lucide-react";
 import * as React from "react";
-import type { CalendarEvent, GmailMessage, HnStory, WeatherResult } from "~/commands/results";
-import { PageHeader } from "~/components/shell/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { SkeletonList } from "~/components/ui/skeleton-list";
-import { type CommandState, useCommand } from "~/lib/pub";
+import { type AsyncState, invoke, useAsync } from "~/core/pub";
+import { PageHeader } from "~/core/shell/page-header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/core/ui/card";
+import { ScrollArea } from "~/core/ui/scroll-area";
+import { SkeletonList } from "~/core/ui/skeleton-list";
+import type { CalendarEvent, GmailMessage, HnStory, WeatherResult } from "./commands";
+import * as cmd from "./commands";
 
 function PanelShell({
   icon,
   title,
+  action,
   children,
 }: {
   icon: React.ReactNode;
   title: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="flex-row items-center gap-2 space-y-0 pb-3">
         <div className="text-muted-foreground">{icon}</div>
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="flex-1 text-sm font-medium">{title}</CardTitle>
+        {action}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">
@@ -31,21 +35,83 @@ function PanelShell({
   );
 }
 
-function render<T>(state: CommandState<T>, ok: (data: T) => React.ReactNode, rows = 3) {
-  if (state.status === "loading" || state.status === "idle") {
-    return <SkeletonList count={rows} itemClassName="h-10" />;
-  }
-  if (state.status === "error") {
-    return <p className="text-xs text-destructive">{state.error}</p>;
-  }
+function render<T>(state: AsyncState<T>, ok: (data: T) => React.ReactNode, rows = 3) {
+  if (state.status === "loading") return <SkeletonList count={rows} itemClassName="h-10" />;
+  if (state.status === "error") return <p className="text-xs text-destructive">{state.error}</p>;
   return <>{ok(state.value)}</>;
 }
 
+function useLiveClock(): string | null {
+  const [now, setNow] = React.useState<Date | null>(null);
+  React.useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    now?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) ?? null
+  );
+}
+
+function AgentPanel({
+  title,
+  icon,
+  run,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  run: () => Promise<string>;
+}) {
+  type State =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "loaded"; text: string }
+    | { status: "error"; error: string };
+  const [state, setState] = React.useState<State>({ status: "idle" });
+
+  const trigger = () => {
+    setState({ status: "loading" });
+    run()
+      .then((text) => setState({ status: "loaded", text }))
+      .catch((err) =>
+        setState({ status: "error", error: err instanceof Error ? err.message : String(err) }),
+      );
+  };
+
+  return (
+    <PanelShell
+      icon={icon}
+      title={title}
+      action={
+        <button
+          type="button"
+          onClick={trigger}
+          aria-label={`Generate ${title}`}
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Sparkles className="size-3.5" />
+        </button>
+      }
+    >
+      {state.status === "idle" ? (
+        <p className="text-xs text-muted-foreground">Tap ✨ to generate.</p>
+      ) : state.status === "loading" ? (
+        <SkeletonList count={3} itemClassName="h-4" />
+      ) : state.status === "error" ? (
+        <p className="text-xs text-destructive">{state.error}</p>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{state.text}</p>
+      )}
+    </PanelShell>
+  );
+}
+
 export function BriefingPage() {
-  const weather = useCommand<WeatherResult>("weather.current");
-  const events = useCommand<{ events: CalendarEvent[] }>("calendar.today");
-  const gmail = useCommand<{ messages: GmailMessage[] }>("gmail.unread");
-  const hn = useCommand<{ stories: HnStory[] }>("news.hn");
+  const weather = useAsync(() => invoke<WeatherResult>(cmd.weatherCurrent), []);
+  const events = useAsync(() => invoke<{ events: CalendarEvent[] }>(cmd.calendarToday), []);
+  const gmail = useAsync(() => invoke<{ messages: GmailMessage[] }>(cmd.gmailUnread), []);
+  const hn = useAsync(() => invoke<{ stories: HnStory[] }>(cmd.newsHn), []);
+  const clock = useLiveClock();
 
   const refresh = React.useCallback(() => {
     weather.reload();
@@ -54,18 +120,41 @@ export function BriefingPage() {
     hn.reload();
   }, [weather.reload, events.reload, gmail.reload, hn.reload]);
 
-  const today = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const [today, setToday] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    );
+  }, []);
+
+  const brief = async () => {
+    const cal = events.state.status === "loaded" ? events.state.value.events : [];
+    const w = weather.state.status === "loaded" ? weather.state.value : null;
+    const gm = gmail.state.status === "loaded" ? gmail.state.value.messages : [];
+    const context = [
+      `Weather: ${w ? `${Math.round(w.temperatureC)}°C, ${w.description}` : "unknown"}`,
+      `Calendar today (${cal.length}):`,
+      ...cal.slice(0, 8).map((e) => `  ${e.summary} — ${e.start}`),
+      `Unread emails (${gm.length}):`,
+      ...gm.slice(0, 5).map((m) => `  from ${m.from}: ${m.subject}`),
+    ].join("\n");
+    return invoke<string>(cmd.briefMe, { context });
+  };
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Briefing" description={today} onRefresh={refresh} />
-      <div className="grid flex-1 min-h-0 grid-cols-1 gap-4 overflow-auto p-6 lg:grid-cols-2 xl:grid-cols-4">
+      <PageHeader
+        title="Briefing"
+        description={today && clock ? `${today} · ${clock}` : undefined}
+        onRefresh={refresh}
+      />
+      <div className="grid flex-1 min-h-0 auto-rows-min grid-cols-1 gap-4 overflow-auto p-6 lg:grid-cols-2 xl:grid-cols-4">
         <PanelShell icon={<Cloud className="size-4" />} title="Weather">
-          {render(weather, (w) => (
+          {render(weather.state, (w) => (
             <div className="space-y-2">
               <div className="text-3xl font-semibold">{Math.round(w.temperatureC)}°C</div>
               <CardDescription>{w.description}</CardDescription>
@@ -90,7 +179,7 @@ export function BriefingPage() {
         </PanelShell>
 
         <PanelShell icon={<Calendar className="size-4" />} title="Today">
-          {render(events, (r) =>
+          {render(events.state, (r) =>
             r.events.length === 0 ? (
               <p className="text-sm text-muted-foreground">No events scheduled.</p>
             ) : (
@@ -116,7 +205,7 @@ export function BriefingPage() {
         </PanelShell>
 
         <PanelShell icon={<Mail className="size-4" />} title="Inbox">
-          {render(gmail, (r) =>
+          {render(gmail.state, (r) =>
             r.messages.length === 0 ? (
               <p className="text-sm text-muted-foreground">Inbox zero.</p>
             ) : (
@@ -134,7 +223,7 @@ export function BriefingPage() {
         </PanelShell>
 
         <PanelShell icon={<Newspaper className="size-4" />} title="Top Stories">
-          {render(hn, (r) =>
+          {render(hn.state, (r) =>
             r.stories.slice(0, 8).map((s, i) => (
               <a
                 key={s.id}
@@ -154,6 +243,18 @@ export function BriefingPage() {
             )),
           )}
         </PanelShell>
+
+        <AgentPanel title="Brief me" icon={<Sparkles className="size-4" />} run={brief} />
+        <AgentPanel
+          title="Joke"
+          icon={<Sparkles className="size-4" />}
+          run={() => invoke<string>(cmd.joke)}
+        />
+        <AgentPanel
+          title="Quote"
+          icon={<Quote className="size-4" />}
+          run={() => invoke<string>(cmd.quote)}
+        />
       </div>
     </div>
   );

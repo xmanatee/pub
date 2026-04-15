@@ -1,4 +1,8 @@
 import { type BridgeMessage, parseBridgeMessage } from "../../../../shared/bridge-protocol-core";
+import {
+  type CommandFunctionSpec,
+  parseCommandFunctionSpec,
+} from "../../../../shared/command-protocol-core";
 import type {
   LiveAgentActivity,
   LiveAgentState,
@@ -96,12 +100,26 @@ export type CloseRequest = {
 
 type CloseResponse = IpcSuccessResponse | IpcErrorResponse;
 
+export type RunCommandSpecRequest = {
+  method: "run-command-spec";
+  params: {
+    spec: CommandFunctionSpec;
+    args: Record<string, unknown>;
+    requestedTimeoutMs?: number;
+  };
+};
+
+type RunCommandSpecResponse =
+  | IpcSuccessResponse<{ value: unknown }>
+  | IpcErrorResponse;
+
 export type IpcRequest =
   | WriteRequest
   | WriteFilesRequest
   | StatusRequest
   | ActiveSlugRequest
-  | CloseRequest;
+  | CloseRequest
+  | RunCommandSpecRequest;
 
 export type IpcResponseMap = {
   "active-slug": ActiveSlugResponse;
@@ -109,6 +127,7 @@ export type IpcResponseMap = {
   status: StatusResponse;
   write: WriteResponse;
   "write-files": WriteFilesResponse;
+  "run-command-spec": RunCommandSpecResponse;
 };
 
 export type IpcResponseFor<T extends keyof IpcResponseMap> = IpcResponseMap[T];
@@ -173,6 +192,19 @@ export function parseIpcRequest(input: unknown): IpcRequest | null {
 
   if (method === "status" || method === "active-slug" || method === "close") {
     return { method, params: {} };
+  }
+
+  if (method === "run-command-spec") {
+    const spec = parseCommandFunctionSpec(params.spec);
+    if (!spec) return null;
+    const args = readRecord(params.args);
+    if (!args) return null;
+    const requestedTimeoutMs =
+      params.requestedTimeoutMs === undefined
+        ? undefined
+        : readFiniteNumber(params.requestedTimeoutMs);
+    if (params.requestedTimeoutMs !== undefined && requestedTimeoutMs === undefined) return null;
+    return { method, params: { spec, args, requestedTimeoutMs } };
   }
 
   return null;
@@ -255,6 +287,10 @@ export function parseIpcResponse<T extends IpcRequest["method"]>(
     const slug = record.slug === null ? null : readString(record.slug);
     if (slug === undefined) return null;
     return { ok: true, slug } as IpcResponseFor<T>;
+  }
+
+  if (method === "run-command-spec") {
+    return { ok: true, value: record.value } as IpcResponseFor<T>;
   }
 
   return { ok: true } as IpcResponseFor<T>;

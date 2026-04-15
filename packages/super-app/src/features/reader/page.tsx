@@ -1,59 +1,60 @@
 import { ExternalLink, Loader2, Newspaper, X } from "lucide-react";
 import * as React from "react";
-import type { ReaderResult } from "~/commands/results";
-import { EmptyState } from "~/components/shell/empty-state";
-import { ErrorState } from "~/components/shell/error-state";
-import { PageHeader } from "~/components/shell/page-header";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { cn } from "~/lib/cn";
-import { invoke } from "~/lib/pub";
+import { cn } from "~/core/cn";
+import { invoke } from "~/core/pub";
+import { EmptyState } from "~/core/shell/empty-state";
+import { ErrorState } from "~/core/shell/error-state";
+import { PageHeader } from "~/core/shell/page-header";
+import { Button } from "~/core/ui/button";
+import { Input } from "~/core/ui/input";
+import { ScrollArea } from "~/core/ui/scroll-area";
+import { reader } from "./client";
+import type { ReaderResult } from "./commands";
+import * as cmd from "./commands";
 
-interface Tab {
+interface TabCore {
   id: string;
   url: string;
-  title: string;
-  result: ReaderResult | null;
-  state: "loading" | "loaded" | "error";
-  error: string | null;
 }
 
-function makeId(): string {
-  return Math.random().toString(36).slice(2, 10);
+type Tab =
+  | (TabCore & { status: "loading" })
+  | (TabCore & { status: "loaded"; result: ReaderResult })
+  | (TabCore & { status: "error"; error: string });
+
+function tabTitle(tab: Tab): string {
+  return tab.status === "loaded" ? tab.result.title || tab.url : tab.url;
 }
+
+const makeId = () => Math.random().toString(36).slice(2, 10);
 
 export function ReaderPage() {
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const [active, setActive] = React.useState<string | null>(null);
   const [url, setUrl] = React.useState("");
 
+  const patch = (id: string, next: Tab) =>
+    setTabs((prev) => prev.map((t) => (t.id === id ? next : t)));
+
   const open = async (raw: string) => {
     let normalized = raw.trim();
     if (!normalized) return;
     if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
     const id = makeId();
-    setTabs((prev) => [
-      ...prev,
-      { id, url: normalized, title: normalized, result: null, state: "loading", error: null },
-    ]);
+    setTabs((prev) => [...prev, { id, url: normalized, status: "loading" }]);
     setActive(id);
     setUrl("");
     try {
-      const result = await invoke<ReaderResult>("reader.fetch", { url: normalized });
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === id ? { ...t, result, title: result.title || t.url, state: "loaded" } : t,
-        ),
-      );
+      const html = await invoke<string>(cmd.fetchPage, { url: normalized });
+      const result = await reader.simplify(normalized, html);
+      patch(id, { id, url: normalized, status: "loaded", result });
     } catch (err) {
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? { ...t, state: "error", error: err instanceof Error ? err.message : String(err) }
-            : t,
-        ),
-      );
+      patch(id, {
+        id,
+        url: normalized,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   };
 
@@ -65,13 +66,13 @@ export function ReaderPage() {
     });
   };
 
-  const current = tabs.find((t) => t.id === active);
+  const current = tabs.find((t) => t.id === active) ?? null;
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title="Reader"
-        description="Fetch any web page and view a clean, distraction-free version."
+        description="Paste a URL to fetch and view a clean, distraction-free version."
       />
       <form
         onSubmit={(e) => {
@@ -109,8 +110,8 @@ export function ReaderPage() {
                 onClick={() => setActive(t.id)}
                 className="max-w-64 truncate text-left"
               >
-                {t.state === "loading" ? <Loader2 className="inline size-3 animate-spin" /> : null}{" "}
-                {t.title}
+                {t.status === "loading" ? <Loader2 className="inline size-3 animate-spin" /> : null}{" "}
+                {tabTitle(t)}
               </button>
               <button type="button" onClick={() => close(t.id)} aria-label="Close tab">
                 <X className="size-3 text-muted-foreground hover:text-foreground" />
@@ -126,41 +127,47 @@ export function ReaderPage() {
             title="No page open"
             description="Paste a URL above to fetch and read."
           />
-        ) : current.state === "loading" ? (
+        ) : current.status === "loading" ? (
           <EmptyState
             icon={<Loader2 className="size-6 animate-spin" />}
             title="Fetching…"
             description={current.url}
           />
-        ) : current.state === "error" ? (
-          <ErrorState error={current.error ?? "Failed to fetch"} />
+        ) : current.status === "error" ? (
+          <ErrorState error={current.error} />
         ) : (
-          <ScrollArea className="h-full">
-            <article className="mx-auto max-w-prose px-6 py-10">
-              <header className="mb-6 space-y-2 border-b pb-4">
-                <h1 className="text-2xl font-semibold tracking-tight">{current.result?.title}</h1>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {current.result?.byline ? <span>{current.result.byline}</span> : null}
-                  {current.result?.siteName ? <span>· {current.result.siteName}</span> : null}
-                  <a
-                    href={current.result?.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
-                  >
-                    Original <ExternalLink className="size-3" />
-                  </a>
-                </div>
-              </header>
-              <div
-                className="prose-reader"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized in reader.fetch handler
-                dangerouslySetInnerHTML={{ __html: current.result?.contentHtml ?? "" }}
-              />
-            </article>
-          </ScrollArea>
+          <Article result={current.result} />
         )}
       </div>
     </div>
+  );
+}
+
+function Article({ result }: { result: ReaderResult }) {
+  return (
+    <ScrollArea className="h-full">
+      <article className="mx-auto max-w-prose px-6 py-10">
+        <header className="mb-6 space-y-2 border-b pb-4">
+          <h1 className="text-2xl font-semibold tracking-tight">{result.title}</h1>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {result.byline ? <span>{result.byline}</span> : null}
+            {result.siteName ? <span>· {result.siteName}</span> : null}
+            <a
+              href={result.url}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
+            >
+              Original <ExternalLink className="size-3" />
+            </a>
+          </div>
+        </header>
+        <div
+          className="prose-reader"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized in reader/server.ts
+          dangerouslySetInnerHTML={{ __html: result.contentHtml }}
+        />
+      </article>
+    </ScrollArea>
   );
 }

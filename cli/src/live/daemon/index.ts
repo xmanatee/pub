@@ -340,6 +340,16 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
     writeAckTimeoutMs: 5_000,
     writeAckMaxAttempts: 2,
+    getBridgeSettings: () =>
+      state.activeLiveSession
+        ? {
+            ...config.bridgeSettings,
+            workspaceDir: state.activeLiveSession.workspaceCanvasDir,
+            attachmentDir: state.activeLiveSession.attachmentDir,
+            artifactsDir: state.activeLiveSession.artifactsDir,
+          }
+        : config.bridgeSettings,
+    getBridgeRunner: () => state.bridgeRunner,
   });
 
   const ipcServer = createDaemonIpcServer(handleIpcRequest, (error) => {

@@ -1,8 +1,6 @@
-import { isAbsolute, join, normalize, relative } from "node:path";
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
 import {
   COMMAND_PROTOCOL_VERSION,
-  type CommandAgentSpec,
   type CommandFunctionSpec,
   extractManifestFromHtml,
   makeCommandResultMessage,
@@ -10,8 +8,7 @@ import {
   parseCommandInvokeMessage,
 } from "../../../../shared/command-protocol-core";
 import type { LiveExecutorState } from "../../../../shared/live-runtime-state-core";
-import { executeAgentCommand } from "../bridge/providers/agent-command.js";
-import { executeProcessCommand, executeShellCommand } from "./executors/process.js";
+import { executeCommandSpec } from "./run-spec.js";
 import {
   buildCommandError,
   type CommandHandlerParams,
@@ -20,9 +17,7 @@ import {
   normalizeFunctionSpec,
   type RecentCommandResult,
   type RunningCommand,
-  resolveCommandTimeoutMs,
 } from "./shared.js";
-import { interpolateTemplate, toCommandReturnValue } from "./template.js";
 
 export function createLiveCommandHandler(params: CommandHandlerParams) {
   const boundFunctions = new Map<string, CommandFunctionSpec>();
@@ -37,26 +32,6 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
 
   function currentRuntime() {
     return getCommandRuntimeConfig(currentBridgeSettings());
-  }
-
-  function resolveWorkspaceCwd(
-    requestedCwd: string | undefined,
-    args: Record<string, unknown>,
-  ): string {
-    const workspaceDir = currentBridgeSettings().workspaceDir;
-    if (!requestedCwd) return workspaceDir;
-    const interpolated = interpolateTemplate(requestedCwd, args).trim();
-    if (interpolated.length === 0) return workspaceDir;
-    if (isAbsolute(interpolated)) {
-      throw new Error("Command executor cwd must be relative to the active pub workspace.");
-    }
-    const normalizedWorkspace = normalize(workspaceDir);
-    const resolved = normalize(join(normalizedWorkspace, interpolated));
-    const rel = relative(normalizedWorkspace, resolved);
-    if (rel.startsWith("..") || isAbsolute(rel)) {
-      throw new Error("Command executor cwd escapes the active pub workspace.");
-    }
-    return resolved;
   }
 
   function setExecutorState(nextState: LiveExecutorState): void {
@@ -105,70 +80,16 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
     await params.sendCommandMessage(makeCommandResultMessage(payload));
   }
 
-  async function executeFunction(
+  function executeFunction(
     spec: CommandFunctionSpec,
     args: Record<string, unknown>,
     abortSignal: AbortSignal,
     requestedTimeoutMs?: number,
   ): Promise<unknown> {
-    const runtime = currentRuntime();
-    const bridgeSettings = currentBridgeSettings();
-    const executor = spec.executor;
-    if (!executor) {
-      throw new Error(`Function "${spec.name}" is missing executor definition.`);
-    }
-    const timeoutMs = resolveCommandTimeoutMs({ requestedTimeoutMs, spec, runtime });
-    const returnType = spec.returns === "json" || spec.returns === "text" ? spec.returns : "void";
-
-    if (executor.kind === "exec") {
-      const command = interpolateTemplate(executor.command, args);
-      const commandArgs = (executor.args ?? []).map((entry) => interpolateTemplate(entry, args));
-      const cwd = resolveWorkspaceCwd(executor.cwd, args);
-      const env = executor.env
-        ? Object.fromEntries(
-            Object.entries(executor.env).map(([key, value]) => [
-              key,
-              interpolateTemplate(value, args),
-            ]),
-          )
-        : undefined;
-      const result = await executeProcessCommand({
-        command,
-        args: commandArgs,
-        cwd,
-        env,
-        timeoutMs,
-        maxOutputBytes: runtime.maxOutputBytes,
-        signal: abortSignal,
-      });
-      return toCommandReturnValue(result.stdout, returnType);
-    }
-
-    if (executor.kind === "shell") {
-      const script = interpolateTemplate(executor.script, args);
-      const cwd = resolveWorkspaceCwd(executor.cwd, args);
-      const result = await executeShellCommand({
-        script,
-        shell: executor.shell,
-        cwd,
-        timeoutMs,
-        maxOutputBytes: runtime.maxOutputBytes,
-        signal: abortSignal,
-      });
-      return toCommandReturnValue(result.stdout, returnType);
-    }
-
-    const agentSpec = executor as CommandAgentSpec;
-    const prompt = interpolateTemplate(agentSpec.prompt, args);
-    const output = agentSpec.output === "json" ? "json" : "text";
-    return executeAgentCommand({
-      spec: agentSpec,
-      prompt,
-      timeoutMs,
-      output,
-      maxOutputBytes: runtime.maxOutputBytes,
+    return executeCommandSpec(spec, args, {
+      bridgeSettings: currentBridgeSettings(),
       signal: abortSignal,
-      bridgeSettings,
+      requestedTimeoutMs,
       getBridgeRunner: params.getBridgeRunner,
     });
   }

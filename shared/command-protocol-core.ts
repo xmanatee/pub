@@ -283,6 +283,10 @@ export function parseCommandFunctionList(input: unknown): CommandFunctionSpec[] 
   return parseFunctionList(input);
 }
 
+export function parseCommandFunctionSpec(input: unknown): CommandFunctionSpec | null {
+  return parseFunctionSpec(input);
+}
+
 const MANIFEST_SCRIPT_RE = new RegExp(
   `<script\\s[^>]*type\\s*=\\s*["']${COMMAND_MANIFEST_MIME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'][^>]*>([\\s\\S]*?)<\\/script>`,
   "i",

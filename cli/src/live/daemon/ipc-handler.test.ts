@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { IpcRequest } from "../transport/ipc-protocol.js";
+import { type IpcRequest, parseIpcRequest } from "../transport/ipc-protocol.js";
 import { createDaemonIpcHandler } from "./ipc-handler.js";
 
 function createHandlerHarness(overrides?: {
@@ -42,6 +42,8 @@ function createHandlerHarness(overrides?: {
     shutdown: vi.fn(),
     writeAckTimeoutMs: 5_000,
     writeAckMaxAttempts: 2,
+    getBridgeSettings: () => ({ mode: "openclaw" }) as never,
+    getBridgeRunner: () => null,
   });
 
   return { handler, persistCanvasHtml, persistFiles, openDataChannel };
@@ -88,6 +90,51 @@ describe("ipc-handler status and active-slug", () => {
     const { handler } = createHandlerHarness({ activeSlug: "pub-b" });
     const result = await handler({ method: "active-slug", params: {} });
     expect(result).toEqual({ ok: true, slug: "pub-b" });
+  });
+});
+
+describe("ipc-handler run-command-spec", () => {
+  it("executes an exec spec via the shared runner and returns the parsed value", async () => {
+    const { handler } = createHandlerHarness();
+    const req: IpcRequest = {
+      method: "run-command-spec",
+      params: {
+        spec: {
+          name: "echo.hello",
+          returns: "text",
+          executor: { kind: "exec", command: "printf", args: ["hello-%s", "{{who}}"] },
+        },
+        args: { who: "world" },
+      },
+    };
+    const result = await handler(req);
+    expect(result).toEqual({ ok: true, value: "hello-world" });
+  });
+
+  it("surfaces executor failures as ok:false with a message", async () => {
+    const { handler } = createHandlerHarness();
+    const req: IpcRequest = {
+      method: "run-command-spec",
+      params: {
+        spec: {
+          name: "fail",
+          returns: "text",
+          executor: { kind: "exec", command: "false", args: [] },
+        },
+        args: {},
+      },
+    };
+    const result = (await handler(req)) as { ok: boolean; error?: string };
+    expect(result.ok).toBe(false);
+    expect(typeof result.error).toBe("string");
+  });
+
+  it("rejects a malformed spec at parse time", () => {
+    const parsed = parseIpcRequest({
+      method: "run-command-spec",
+      params: { spec: { executor: { kind: "exec" } }, args: {} },
+    });
+    expect(parsed).toBeNull();
   });
 });
 
