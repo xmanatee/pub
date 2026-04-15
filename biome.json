@@ -14,6 +14,8 @@
       "!**/cli/dist",
       "!**/cli/node_modules",
       "!web/src/routeTree.gen.ts",
+      "!packages/super-app/src/routeTree.gen.ts",
+      "!packages/super-app/dist",
       "!**/.vercel",
       "!**/.claude",
       "!**/test-results",

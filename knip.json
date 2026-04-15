@@ -28,6 +28,22 @@
     },
     "packages/default-app": {
       "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/super-app": {
+      "entry": [
+        "src/router.tsx",
+        "src/routes/**/*.tsx",
+        "src/core/empty-module.ts",
+        "src/core/util-shim.ts",
+        "src/core/node-polyfills.ts",
+        "scripts/*.mjs"
+      ],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["buffer"],
+      "paths": {
+        "~/*": ["./src/*"],
+        "@shared/*": ["../../shared/*"]
+      }
     }
   }
 }

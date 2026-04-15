@@ -4,11 +4,12 @@
  * action (for the super-app and any local caller). Kept free of runtime state
  * so callers own concurrency, cancellation, and logging.
  */
-import type { BridgeSettings } from "../../core/config/index.js";
+
 import type {
   CommandAgentSpec,
   CommandFunctionSpec,
 } from "../../../../shared/command-protocol-core";
+import type { BridgeSettings } from "../../core/config/index.js";
 import { executeAgentCommand } from "../bridge/providers/agent-command.js";
 import type { BridgeRunner } from "../bridge/shared.js";
 import { executeProcessCommand, executeShellCommand } from "./executors/process.js";

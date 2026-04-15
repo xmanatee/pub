@@ -131,6 +131,11 @@ export class CliFixture {
     throw new Error(lastFailure);
   }
 
+  /** The isolated unix socket the daemon listens on — passed to co-running processes. */
+  get agentSocketPath(): string {
+    return this.isolatedSocketPath;
+  }
+
   /** Run a CLI command synchronously. Returns stdout. */
   run(args: string[], timeoutMs = 30_000): string {
     return execFileSync(this.cliBin, args, {

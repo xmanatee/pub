@@ -109,9 +109,7 @@ export type RunCommandSpecRequest = {
   };
 };
 
-type RunCommandSpecResponse =
-  | IpcSuccessResponse<{ value: unknown }>
-  | IpcErrorResponse;
+type RunCommandSpecResponse = IpcSuccessResponse<{ value: unknown }> | IpcErrorResponse;
 
 export type IpcRequest =
   | WriteRequest

@@ -134,15 +134,18 @@ function FileViewer({ result }: { result: FsReadResult }) {
 }
 
 export function FilesPage() {
-  const [path, setPath] = React.useState("~");
+  // User-typed path or entry.path (may start as "~"); server canonicalizes to absolute in cwd.
+  const [requestedPath, setPath] = React.useState("~");
   const [selected, setSelected] = React.useState<FsEntry | null>(null);
   const [showHidden, setShowHidden] = React.useState(false);
 
-  const list = useAsync(() => files.list(path), [path]);
+  const list = useAsync(() => files.list(requestedPath), [requestedPath]);
   const file = useAsync(
     () => (selected?.type === "file" ? files.read(selected.path) : Promise.resolve(null)),
     [selected?.path, selected?.type],
   );
+
+  const cwd = list.state.status === "loaded" ? list.state.value.cwd : requestedPath;
 
   const onOpen = (entry: FsEntry) => {
     if (entry.type === "dir") {
@@ -165,7 +168,7 @@ export function FilesPage() {
   const onRename = async (entry: FsEntry) => {
     const next = prompt("Rename to", entry.name);
     if (!next || next === entry.name) return;
-    const toPath = `${path}/${next}`;
+    const toPath = `${cwd}/${next}`;
     if (await withErrorAlert(() => invoke(cmd.rename, { from: entry.path, to: toPath }))) {
       afterWrite(entry);
     }
@@ -174,13 +177,13 @@ export function FilesPage() {
   const onMkdir = async () => {
     const name = prompt("Folder name");
     if (!name) return;
-    if (await withErrorAlert(() => invoke(cmd.mkdir, { path: `${path}/${name}` }))) list.reload();
+    if (await withErrorAlert(() => invoke(cmd.mkdir, { path: `${cwd}/${name}` }))) list.reload();
   };
 
   const onCreateFile = async () => {
     const name = prompt("File name");
     if (!name) return;
-    if (await withErrorAlert(() => invoke(cmd.touch, { path: `${path}/${name}` }))) list.reload();
+    if (await withErrorAlert(() => invoke(cmd.touch, { path: `${cwd}/${name}` }))) list.reload();
   };
 
   return (
@@ -200,7 +203,7 @@ export function FilesPage() {
         onRefresh={list.reload}
       />
       <div className="flex shrink-0 items-center justify-between gap-2 border-b px-6 py-2">
-        <Crumbs path={path} onNavigate={setPath} />
+        <Crumbs path={cwd} onNavigate={setPath} />
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <input
             type="checkbox"

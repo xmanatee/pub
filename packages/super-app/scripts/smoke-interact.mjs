@@ -7,8 +7,7 @@ import { readFile, unlink, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const base = process.argv[2] || "http://localhost:5173";
-const store = (name) =>
-  `${process.env.HOME}/.pub-super-app/${name}.json`;
+const store = (name) => `${process.env.HOME}/.pub-super-app/${name}.json`;
 
 async function readStore(name) {
   try {
@@ -51,7 +50,9 @@ await browser.close();
 
 const report = {
   pageErrors: [...new Set(errors)].slice(0, 3),
-  note: note ? { ok: true, id: note.id, body: note.body, hasCreatedAt: !!note.createdAt } : { ok: false },
+  note: note
+    ? { ok: true, id: note.id, body: note.body, hasCreatedAt: !!note.createdAt }
+    : { ok: false },
   task: task
     ? { ok: true, id: task.id, completed: task.completed, hasCreatedAt: !!task.createdAt }
     : { ok: false },

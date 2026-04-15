@@ -98,7 +98,8 @@ function Shell() {
           </div>
         ) : state.status === "loading" ? (
           <div className="space-y-2 p-3">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: 8 }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length placeholder, never reordered
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
@@ -242,7 +243,8 @@ function Thread({
             <ErrorState error={state.error} onRetry={reload} />
           ) : state.status === "loading" ? (
             <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
+              {Array.from({ length: 6 }, (_, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length placeholder, never reordered
                 <Skeleton key={i} className={cn("h-10", i % 2 ? "ml-auto w-1/2" : "w-2/3")} />
               ))}
             </div>

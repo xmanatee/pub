@@ -12,7 +12,6 @@ import type { FsListResult, FsReadResult } from "./commands";
 
 const PREVIEW_CAP_BYTES = 5 * 1024 * 1024;
 const TEXT_SNIFF_BYTES = 8192;
-const HOME = homedir();
 
 const MIME: Record<string, string> = {
   ".png": "image/png",
@@ -44,14 +43,8 @@ const MIME: Record<string, string> = {
 };
 
 function expand(p: string | undefined): string {
-  if (!p) return HOME;
+  if (!p) return homedir();
   return normalize(expandHome(p));
-}
-
-function tilde(p: string): string {
-  if (p === HOME) return "~";
-  if (p.startsWith(`${HOME}/`)) return `~/${p.slice(HOME.length + 1)}`;
-  return p;
 }
 
 function guessMime(name: string): string {
@@ -70,7 +63,7 @@ export const listFiles = createServerFn({ method: "GET" })
         const type = e.isSymbolicLink() ? "symlink" : e.isDirectory() ? "dir" : "file";
         return {
           name: e.name,
-          path: tilde(full),
+          path: full,
           type: type as FsListResult["entries"][number]["type"],
           size: stat.size,
           mtime: stat.mtimeMs,
@@ -82,7 +75,7 @@ export const listFiles = createServerFn({ method: "GET" })
       if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-    return { cwd: tilde(cwd), parent: cwd === "/" ? null : tilde(dirname(cwd)), entries };
+    return { cwd, parent: cwd === "/" ? null : dirname(cwd), entries };
   });
 
 export const readFileContents = createServerFn({ method: "GET" })
@@ -102,7 +95,7 @@ export const readFileContents = createServerFn({ method: "GET" })
       const mime = isText && guessed === "application/octet-stream" ? "text/plain" : guessed;
       return {
         name: basename(full),
-        path: tilde(full),
+        path: full,
         size: stat.size,
         mime,
         encoding: isText ? "utf8" : "base64",

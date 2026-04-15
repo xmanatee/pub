@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: Number.parseInt(process.env.PORT || "5173"),
+    port: Number.parseInt(process.env.PORT || "5173", 10),
     hmr: tunnelBase ? false : undefined,
   },
   plugins: [tailwindcss(), tanstackStart({ target: "node-server" })],
