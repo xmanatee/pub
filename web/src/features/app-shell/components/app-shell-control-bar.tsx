@@ -1,15 +1,20 @@
 import { api } from "@backend/_generated/api";
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Menu, Play, Plus, X } from "lucide-react";
+import { Play, Plus } from "lucide-react";
 import * as React from "react";
+import { Blob } from "~/components/blob/blob";
 import { useControlBarLayer } from "~/components/control-bar/control-bar-controller";
 import { ControlBarPanel } from "~/components/control-bar/control-bar-parts";
 import { CONTROL_BAR_PRIORITY } from "~/components/control-bar/control-bar-types";
 import { Button } from "~/components/ui/button";
 import { useIsFullscreenRoute } from "~/features/app-shell/hooks/use-header-nav-visible";
+import { LIVE_BLOB_TONES } from "~/features/live/blob/live-blob-tones";
 import { useStartLive } from "~/features/pubs/hooks/use-start-live";
 import { AppNavMenu } from "./app-nav-menu";
+
+/** The shell has no live session, so the blob renders in its neutral idle tone. */
+const SHELL_BLOB_CONTENT = <Blob tone={LIVE_BLOB_TONES.idle} />;
 
 type NewState =
   | { kind: "ready"; label: "Create a new pub" }
@@ -67,11 +72,7 @@ export function AppShellControlBar() {
     backdropOnClick: menuOpen ? closeMenu : undefined,
     statusButton: {
       ariaLabel: menuOpen ? "Close menu" : "Open menu",
-      content: menuOpen ? (
-        <X className="h-4 w-4" aria-hidden="true" />
-      ) : (
-        <Menu className="h-4 w-4" aria-hidden="true" />
-      ),
+      content: SHELL_BLOB_CONTENT,
       onClick: toggleMenu,
     },
     mainContent: (
