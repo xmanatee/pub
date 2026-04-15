@@ -317,11 +317,14 @@ async function executeDetachedClaudeAgentCommand(params: {
       const assistantChunks: string[] = [];
       for (const line of stdout.split(/\r?\n/)) {
         const event = readClaudeAssistantOutput(line);
-        if (event.kind === "result") resultText = event.text;
-        else if (event.kind === "assistant" && event.text.length > 0) assistantChunks.push(event.text);
+        if (event.kind === "result") {
+          resultText = event.text;
+          break;
+        }
+        if (event.kind === "assistant" && event.text.length > 0) assistantChunks.push(event.text);
         else if (event.kind === "malformed") sawMalformed = true;
       }
-      if (resultText !== null) finish(() => resolve(resultText!));
+      if (resultText !== null) finish(() => resolve(resultText));
       else {
         const joined = assistantChunks.join("").trim();
         finish(() => resolve(sawMalformed || joined.length === 0 ? stdout.trim() : joined));

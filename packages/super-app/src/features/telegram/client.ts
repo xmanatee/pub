@@ -171,6 +171,7 @@ async function logout(): Promise<TelegramAuthState> {
   state.client = null;
   state.pending = null;
   state.needsPassword = false;
+  state.creds = null;
   clearSession();
   return { status: "logged-out" };
 }

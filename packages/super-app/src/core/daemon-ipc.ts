@@ -10,7 +10,7 @@ import * as net from "node:net";
 import { homedir } from "node:os";
 import * as path from "node:path";
 import { createServerFn } from "@tanstack/react-start";
-import type { CommandFunctionSpec } from "~/core/types";
+import type { CommandFunctionSpec, JsonValue } from "~/core/types";
 
 /**
  * Mirrors `resolvePubPaths().socketRoot` in the CLI: the daemon listens on
@@ -33,15 +33,6 @@ function resolveSocketPath(): string {
 const SOCKET_PATH = resolveSocketPath();
 
 class DaemonUnavailableError extends Error {}
-
-/** Anything the daemon may legitimately return (must be JSON-serializable). */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
 
 export type CommandResponse = { ok: true; value: JsonValue } | { ok: false; error: string };
 

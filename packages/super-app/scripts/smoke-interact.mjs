@@ -3,7 +3,7 @@
  * notes and tasks, confirming full browser → server fn → node store round-trip.
  * Cleans up any entries it creates.
  */
-import { readFile, unlink } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const base = process.argv[2] || "http://localhost:5173";
@@ -63,15 +63,10 @@ await cleanup("notes", (n) => n.title === `${tag}-note`);
 await cleanup("tasks", (t) => t.title === `${tag}-task`);
 
 async function cleanup(name, matcher) {
-  try {
-    const contents = await readStore(name);
-    const keep = contents.filter((e) => !matcher(e));
-    if (keep.length === 0) await unlink(store(name)).catch(() => {});
-    else {
-      const { writeFile } = await import("node:fs/promises");
-      await writeFile(store(name), JSON.stringify(keep, null, 2));
-    }
-  } catch {}
+  const contents = await readStore(name);
+  const keep = contents.filter((e) => !matcher(e));
+  if (keep.length === 0) await unlink(store(name)).catch(() => {});
+  else await writeFile(store(name), JSON.stringify(keep, null, 2));
 }
 
 if (!report.note.ok || !report.task.ok || report.pageErrors.length > 0) process.exit(1);

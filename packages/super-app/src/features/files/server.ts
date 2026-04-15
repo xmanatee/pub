@@ -7,6 +7,7 @@ import { lstat, open, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, normalize } from "node:path";
 import { createServerFn } from "@tanstack/react-start";
+import { expandHome } from "~/core/paths";
 import type { FsListResult, FsReadResult } from "./commands";
 
 const PREVIEW_CAP_BYTES = 5 * 1024 * 1024;
@@ -43,9 +44,8 @@ const MIME: Record<string, string> = {
 };
 
 function expand(p: string | undefined): string {
-  if (!p || p === "~") return HOME;
-  if (p.startsWith("~/")) return join(HOME, p.slice(2));
-  return normalize(p);
+  if (!p) return HOME;
+  return normalize(expandHome(p));
 }
 
 function tilde(p: string): string {

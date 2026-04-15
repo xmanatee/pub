@@ -11,26 +11,18 @@
  *   }
  */
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { createServerFn } from "@tanstack/react-start";
+import { expandHome } from "./paths";
+import type { JsonValue } from "./types";
 
 export const CONFIG_PATH = "~/.pub-super-app/config.json";
 
-function expand(p: string): string {
-  return p.startsWith("~/") ? join(homedir(), p.slice(2)) : p;
-}
-
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-type ConfigDoc = { [key: string]: JsonValue };
-
-async function loadConfig(): Promise<ConfigDoc> {
+async function loadConfig(): Promise<Record<string, JsonValue>> {
   try {
-    const raw = await readFile(expand(CONFIG_PATH), "utf8");
+    const raw = await readFile(expandHome(CONFIG_PATH), "utf8");
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as ConfigDoc)
+      ? (parsed as Record<string, JsonValue>)
       : {};
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return {};
@@ -42,5 +34,5 @@ export const getFeatureConfig = createServerFn({ method: "GET" })
   .inputValidator((input: { name: string }) => input)
   .handler(async ({ data }): Promise<JsonValue | null> => {
     const doc = await loadConfig();
-    return Object.hasOwn(doc, data.name) ? (doc[data.name] ?? null) : null;
+    return doc[data.name] ?? null;
   });

@@ -4,8 +4,8 @@
  * feature's `server.ts` — no copy-paste of load/save logic.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
+import { expandHome } from "./paths";
 
 export interface StoreEntry {
   id: string;
@@ -13,13 +13,8 @@ export interface StoreEntry {
   updatedAt: number | null;
 }
 
-function expand(p: string): string {
-  if (p.startsWith("~/")) return join(homedir(), p.slice(2));
-  return p;
-}
-
 export function createJsonStore<T extends StoreEntry>(relativePath: string) {
-  const file = expand(relativePath);
+  const file = expandHome(relativePath);
 
   const load = async (): Promise<T[]> => {
     try {
