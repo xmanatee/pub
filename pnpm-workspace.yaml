@@ -3,3 +3,4 @@ packages:
   - cli
   - relay
   - packages/default-app
+  - packages/super-app
