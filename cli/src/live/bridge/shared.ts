@@ -100,13 +100,7 @@ export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext):
   lines.push(`- Title: ${ctx.title || "(not set)"}`);
   lines.push(`- Description: ${ctx.description || "(not set)"}`);
   lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
-  if (ctx.contentFilePath) {
-    lines.push(
-      `- Current canvas file: \`${ctx.contentFilePath}\` (live workspace content — read selectively if needed)`,
-    );
-  } else {
-    lines.push("- Canvas is currently empty.");
-  }
+  lines.push(`- Canvas: ${ctx.contentFilePath ? "has existing content (only read when asked to do smth)" : "empty"}`);
   if (ctx.workspaceDir) {
     lines.push(
       `- Session workspace: \`${ctx.workspaceDir}\` (prefer canvas file URLs like \`/__pub_files__/_/output.png\` so each pub stays isolated)`,

@@ -202,7 +202,10 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("[Live: my-demo] Session started.");
     expect(briefing).toContain("Title: My Landing Page");
     expect(briefing).toContain("Visibility: public");
-    expect(briefing).toContain("/tmp/my-demo.session-content.html");
+    // Canvas presence is signalled as a boolean — no file path, so the agent
+    // isn't nudged into reading the entire canvas on boot.
+    expect(briefing).toContain("Canvas: has existing content");
+    expect(briefing).not.toContain("/tmp/my-demo.session-content.html");
 
     // Command protocol
     expect(briefing).toContain("## Canvas Commands");
@@ -227,7 +230,7 @@ describe("buildSessionBriefing", () => {
     expect(briefing).toContain("Title: (not set)");
     expect(briefing).toContain("Description: (not set)");
     expect(briefing).toContain("Visibility: private");
-    expect(briefing).toContain("Canvas is currently empty.");
+    expect(briefing).toContain("Canvas: empty");
   });
 });
 

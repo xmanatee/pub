@@ -118,8 +118,14 @@ export function createLiveCommandHandler(params: CommandHandlerParams) {
   function bindFromHtml(html: string): void {
     const manifest = extractManifestFromHtml(html);
     if (!manifest) {
+      // A missing manifest is normal for pubs that expose no canvas-invokable
+      // commands. Only warn when a canvas rewrite *dropped* previously-bound
+      // commands — that's a likely regression the operator wants to notice.
+      const hadBindings = boundFunctions.size > 0;
       boundFunctions.clear();
-      params.debugLog("commands no manifest found in HTML");
+      if (hadBindings) {
+        params.debugLog("commands cleared — new canvas has no manifest");
+      }
       const queued = pendingUntilManifest.splice(0);
       setExecutorState("idle");
       for (const message of queued) {
