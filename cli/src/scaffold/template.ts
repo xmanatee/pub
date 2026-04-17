@@ -90,13 +90,13 @@ export function App() {
         <button
           type="button"
           onClick={() => setCount((c) => c + 1)}
-          className="mb-8 rounded-lg bg-blue-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 active:scale-[0.98]"
+          className="mb-8 rounded-lg bg-blue-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 active:scale-95"
         >
           Count: {count}
         </button>
         <p className="text-xs text-neutral-500">
           Edit{" "}
-          <code className="rounded bg-neutral-800 px-1.5 py-0.5 text-[0.85em]">src/App.tsx</code>{" "}
+          <code className="rounded bg-neutral-800 px-1.5 py-0.5 text-xs">src/App.tsx</code>{" "}
           to get started.
         </p>
       </div>

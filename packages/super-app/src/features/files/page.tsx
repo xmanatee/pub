@@ -117,7 +117,9 @@ function FileViewer({ result }: { result: FsReadResult }) {
       return <audio src={dataUrl} controls className="w-full" />;
     }
     if (result.mime === "application/pdf") {
-      return <iframe src={dataUrl} title={result.path} className="h-[70vh] w-full rounded-md" />;
+      return (
+        <iframe src={dataUrl} title={result.path} className="file-pdf-frame w-full rounded-md" />
+      );
     }
     return (
       <p className="text-xs text-muted-foreground">
@@ -213,7 +215,7 @@ export function FilesPage() {
           Show hidden
         </label>
       </div>
-      <div className="grid flex-1 min-h-0 grid-cols-[minmax(280px,2fr)_3fr] divide-x">
+      <div className="files-layout grid flex-1 min-h-0 divide-x">
         <div className="flex min-h-0 flex-col">
           {list.state.status === "loading" ? (
             <SkeletonList count={8} itemClassName="h-7" className="space-y-1 p-3" />

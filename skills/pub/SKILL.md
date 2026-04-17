@@ -7,7 +7,7 @@ homepage: https://pub.blue
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.6"
+  version: "5.2.7"
   openclaw:
     homepage: https://pub.blue
     primaryEnv: PUB_API_KEY
@@ -28,7 +28,7 @@ Use this skill when the user asks about creating adaptive interfaces, publishing
 
 ## Required CLI Version
 
-Use **pub CLI 0.9.19+**.
+Use **pub CLI 0.11.6+**.
 
 Source: <https://github.com/xmanatee/pub> (MIT license)
 
@@ -135,9 +135,13 @@ Notes:
 pub status
 ```
 
-3. Send replies:
+3. Reply in chat:
+
+Bridge-owned chat is the live-session contract. Reply with normal assistant text; the bridge forwards that text to the chat channel.
+Do not use `pub write` for chat messages.
+
+Use `pub write` only for non-chat outputs:
 ```bash
-pub write "Hello"
 pub write -c canvas -f /tmp/view.html
 ```
 

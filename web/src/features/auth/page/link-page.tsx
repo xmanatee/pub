@@ -94,7 +94,7 @@ export function LinkPage({ token }: { token: string }) {
 
   if (authLoading || !tokenInfo) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+      <div className="auth-panel-min-height flex items-center justify-center px-4">
         <div className="text-muted-foreground text-sm">Loading…</div>
       </div>
     );
@@ -102,7 +102,7 @@ export function LinkPage({ token }: { token: string }) {
 
   if (isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+      <div className="auth-panel-min-height flex items-center justify-center px-4">
         <div className="text-muted-foreground text-sm">Linking accounts…</div>
       </div>
     );
@@ -151,7 +151,7 @@ function CenteredCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+    <div className="auth-panel-min-height flex items-center justify-center px-4">
       <Card className="w-full max-w-sm border-border/50">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">

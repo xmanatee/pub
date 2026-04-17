@@ -116,7 +116,7 @@ export function TrackerPage() {
           Add
         </Button>
       </form>
-      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[1fr_18rem] divide-x">
+      <div className="tracker-layout grid flex-1 min-h-0 divide-x">
         <ScrollArea className="h-full">
           <div className="space-y-6 p-6">
             {state.status === "error" ? (
@@ -177,7 +177,7 @@ export function TrackerPage() {
                 ))}
               </div>
               <div className="pt-3">
-                <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div className="field-label mb-1 uppercase tracking-wider text-muted-foreground">
                   Common
                 </div>
                 <div className="flex flex-wrap gap-1">

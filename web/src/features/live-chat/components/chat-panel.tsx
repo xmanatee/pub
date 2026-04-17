@@ -169,7 +169,7 @@ function ChatBubble({ msg }: { msg: ChatEntry }) {
         {msg.type === "attachment" && <AttachmentBubble entry={msg} />}
 
         <div
-          className={`mt-1 flex items-center gap-1 text-[11px] ${
+          className={`chat-timestamp mt-1 flex items-center gap-1 ${
             isUser ? "justify-end text-primary-foreground/80" : "justify-start text-foreground/60"
           }`}
         >

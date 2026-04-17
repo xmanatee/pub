@@ -20,7 +20,7 @@
     "test:e2e": "env -u NO_COLOR pnpm --filter pub-web test:e2e",
     "test:e2e:fullstack": "docker compose -f tests/e2e/docker-compose.yml run --build --rm test-runner; docker compose -f tests/e2e/docker-compose.yml down -v",
 
-    "lint:root": "biome check . && tsc --noEmit && bash scripts/validate-shared.sh",
+    "lint:root": "biome check . && tsc --noEmit && bash scripts/validate-shared.sh && node scripts/validate-repo-conventions.mjs",
     "lint:web": "pnpm --filter pub-web lint",
     "lint:cli": "pnpm --filter pub-cli lint",
     "lint:relay": "pnpm --filter pub-relay lint",

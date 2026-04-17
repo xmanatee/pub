@@ -100,7 +100,9 @@ export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext):
   lines.push(`- Title: ${ctx.title || "(not set)"}`);
   lines.push(`- Description: ${ctx.description || "(not set)"}`);
   lines.push(`- Visibility: ${ctx.isPublic ? "public" : "private"}`);
-  lines.push(`- Canvas: ${ctx.contentFilePath ? "has existing content (only read when asked to do smth)" : "empty"}`);
+  lines.push(
+    `- Canvas: ${ctx.contentFilePath ? "has existing content (read it only when asked to inspect or update it)" : "empty"}`,
+  );
   if (ctx.workspaceDir) {
     lines.push(
       `- Session workspace: \`${ctx.workspaceDir}\` (prefer canvas file URLs like \`/__pub_files__/_/output.png\` so each pub stays isolated)`,

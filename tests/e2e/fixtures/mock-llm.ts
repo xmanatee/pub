@@ -103,7 +103,8 @@ export function addCanvasRule(
 
 /**
  * Add the default "pong" rule for the bridge connectivity probe.
- * Returns a text response (no tool_use) — the self-probe simulates pong via IPC.
+ * The agent must execute the same `pub write "pong"` command that real bridge
+ * probes require; assistant text after the tool call is bridge-delivered chat.
  */
 export function addPongRule(mode: BridgeMode): Promise<void> {
   const tool = toolNameForMode(mode);

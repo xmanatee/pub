@@ -94,6 +94,53 @@
 }
 
 @layer components {
+  .briefing-microcopy,
+  .field-label,
+  .telegram-metadata {
+    font-size: 0.6875rem;
+  }
+
+  .file-pdf-frame {
+    height: 70vh;
+  }
+
+  .scroll-area-viewport {
+    border-radius: inherit;
+  }
+
+  .ui-button {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .ui-button svg {
+    pointer-events: none;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .files-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+
+  .notes-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .telegram-message-width {
+    max-width: 75%;
+  }
+
+  .tracker-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (min-width: 64rem) {
+    .tracker-layout {
+      grid-template-columns: minmax(0, 1fr) 18rem;
+    }
+  }
+
   .prose-reader {
     @apply text-base leading-relaxed text-foreground;
   }
@@ -107,7 +154,10 @@
   .prose-reader ul, .prose-reader ol { @apply my-3 ml-6 list-disc; }
   .prose-reader ol { @apply list-decimal; }
   .prose-reader blockquote { @apply my-4 border-l-2 pl-4 text-muted-foreground italic; }
-  .prose-reader code { @apply rounded bg-muted px-1 py-0.5 text-[0.85em]; }
+  .prose-reader code {
+    @apply rounded bg-muted px-1 py-0.5;
+    font-size: 0.85em;
+  }
   .prose-reader pre { @apply my-4 overflow-x-auto rounded-md bg-muted p-3; }
   .prose-reader pre code { @apply bg-transparent p-0; }
   .prose-reader img { @apply my-4 max-w-full rounded-md; }

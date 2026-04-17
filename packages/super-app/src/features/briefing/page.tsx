@@ -165,7 +165,7 @@ export function BriefingPage() {
               <div className="grid grid-cols-3 gap-2 pt-3">
                 {w.forecast.slice(0, 3).map((d) => (
                   <div key={d.date} className="rounded-md bg-muted px-2 py-2 text-center">
-                    <div className="text-[10px] text-muted-foreground">
+                    <div className="briefing-microcopy text-muted-foreground">
                       {new Date(d.date).toLocaleDateString(undefined, { weekday: "short" })}
                     </div>
                     <div className="text-sm font-medium">
@@ -213,7 +213,9 @@ export function BriefingPage() {
                 <div key={m.id} className="rounded-md border bg-card p-2.5">
                   <div className="flex items-baseline justify-between gap-2">
                     <div className="truncate text-sm font-medium">{m.from}</div>
-                    <div className="shrink-0 text-[10px] text-muted-foreground">{m.date}</div>
+                    <div className="briefing-microcopy shrink-0 text-muted-foreground">
+                      {m.date}
+                    </div>
                   </div>
                   <div className="line-clamp-2 text-xs text-muted-foreground">{m.subject}</div>
                 </div>
@@ -236,7 +238,7 @@ export function BriefingPage() {
                   <span className="shrink-0 text-xs text-muted-foreground">{i + 1}.</span>
                   <span className="text-sm font-medium leading-snug">{s.title}</span>
                 </div>
-                <div className="pl-5 text-[11px] text-muted-foreground">
+                <div className="briefing-microcopy pl-5 text-muted-foreground">
                   {s.score} pts · {s.comments} comments · {s.by}
                 </div>
               </a>

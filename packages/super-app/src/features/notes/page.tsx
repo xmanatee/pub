@@ -57,7 +57,7 @@ export function NotesPage() {
           </Button>
         }
       />
-      <div className="grid flex-1 min-h-0 grid-cols-[minmax(18rem,1fr)_2fr] divide-x">
+      <div className="notes-layout grid flex-1 min-h-0 divide-x">
         <div className="flex min-h-0 flex-col">
           {state.status === "loading" ? (
             <SkeletonList count={6} itemClassName="h-16" className="space-y-2 p-3" />
@@ -83,7 +83,7 @@ export function NotesPage() {
                     >
                       <div className="truncate text-sm font-medium">{n.title || "Untitled"}</div>
                       <div className="line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
-                      <div className="mt-1 text-[10px] text-muted-foreground">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         {fmtDate(n.updatedAt ?? n.createdAt)}
                       </div>
                     </button>

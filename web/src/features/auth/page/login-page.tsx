@@ -52,7 +52,7 @@ export function LoginPage() {
 
   if (IN_TELEGRAM) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+      <div className="auth-panel-min-height flex items-center justify-center px-4">
         <Card className="w-full max-w-sm border-border/50">
           <CardHeader className="text-center pb-2">
             <div className="flex justify-center mb-4">
@@ -71,7 +71,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+    <div className="auth-panel-min-height flex items-center justify-center px-4">
       <Card className="w-full max-w-sm border-border/50">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">

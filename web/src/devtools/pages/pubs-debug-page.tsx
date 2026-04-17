@@ -97,7 +97,7 @@ export function PubsDebugPage() {
         </section>
       </div>
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-60 flex items-center justify-end px-3"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex items-center justify-end px-3"
         style={{ paddingBottom: "calc(var(--safe-bottom) + 0.75rem)" }}
       >
         <button

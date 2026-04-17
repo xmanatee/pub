@@ -60,7 +60,7 @@ export function AuthDebugPage() {
             Entries: <span className="font-mono">{entries.length}</span>
           </p>
 
-          <pre className="rounded-md border border-border/50 bg-muted/30 p-4 text-xs overflow-auto max-h-[65vh]">
+          <pre className="auth-debug-log overflow-auto rounded-md border border-border/50 bg-muted/30 p-4 text-xs">
             {entries.length === 0
               ? "No auth events captured yet."
               : JSON.stringify(entries, null, 2)}

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/auth/callback")({
     }
   },
   component: () => (
-    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+    <div className="auth-panel-min-height flex items-center justify-center px-4">
       <div className="text-muted-foreground text-sm">Completing sign-in…</div>
     </div>
   ),

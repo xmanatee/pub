@@ -92,7 +92,7 @@ export function AppShellControlBar() {
           <Button
             asChild
             variant="ghost"
-            className="h-10 max-w-[60%] shrink-0 gap-2 rounded-full px-3 text-sm"
+            className="shell-resume-button h-10 shrink-0 gap-2 rounded-full px-3 text-sm"
           >
             <Link to="/p/$slug" params={{ slug: lastPub.slug }}>
               <Play className="size-4 shrink-0" aria-hidden="true" />

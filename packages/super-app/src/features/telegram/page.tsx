@@ -164,14 +164,14 @@ function DialogRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <div className="truncate text-sm font-medium">{d.title}</div>
-          <div className="shrink-0 text-[10px] text-muted-foreground">
+          <div className="telegram-metadata shrink-0 text-muted-foreground">
             {fmtTime(d.date * 1000, true)}
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="truncate text-xs text-muted-foreground">{d.lastMessage ?? "\u00a0"}</div>
           {d.unread > 0 ? (
-            <span className="shrink-0 rounded-full bg-primary px-1.5 text-[10px] font-medium leading-4 text-primary-foreground">
+            <span className="telegram-metadata shrink-0 rounded-full bg-primary px-1.5 font-medium leading-4 text-primary-foreground">
               {d.unread}
             </span>
           ) : null}

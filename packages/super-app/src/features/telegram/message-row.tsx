@@ -97,31 +97,31 @@ export function MessageRow({
       )}
     >
       {replyTarget ? (
-        <div className="mb-0.5 max-w-[75%] rounded-md border-l-2 border-primary/60 bg-muted/50 px-2 py-1 text-[11px]">
+        <div className="telegram-message-width mb-0.5 rounded-md border-l-2 border-primary/60 bg-muted/50 px-2 py-1 text-xs">
           <div className="truncate opacity-70">↩ {replyTarget.from ?? "reply"}</div>
           <div className="truncate opacity-80">{replyTarget.text || replyTarget.mediaType}</div>
         </div>
       ) : null}
       <div
         className={cn(
-          "max-w-[75%] rounded-2xl px-3 py-2 text-sm",
+          "telegram-message-width rounded-2xl px-3 py-2 text-sm",
           m.out ? "bg-primary text-primary-foreground" : "bg-muted",
         )}
       >
         {m.from && !m.out ? (
-          <div className="mb-0.5 text-[10px] font-medium opacity-70">{m.from}</div>
+          <div className="mb-0.5 text-xs font-medium opacity-70">{m.from}</div>
         ) : null}
         {m.mediaType ? (
           <button
             type="button"
             onClick={onDownload}
-            className="mb-1 flex items-center gap-1 rounded-md bg-background/20 px-2 py-1 text-[11px]"
+            className="mb-1 flex items-center gap-1 rounded-md bg-background/20 px-2 py-1 text-xs"
           >
             <Download className="size-3" /> Download {m.mediaType}
           </button>
         ) : null}
         {m.text ? <div className="whitespace-pre-wrap break-words">{m.text}</div> : null}
-        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] opacity-60">
+        <div className="mt-0.5 flex items-center justify-end gap-1 text-xs opacity-60">
           {m.pinned ? <Pin className="size-3" /> : null}
           {m.editDate ? <span>edited</span> : null}
           <span>{fmtTime(m.date * 1000, true)}</span>
@@ -135,7 +135,7 @@ export function MessageRow({
               type="button"
               onClick={() => onReact(r.emoticon)}
               className={cn(
-                "rounded-full border bg-background px-1.5 py-0.5 text-[11px]",
+                "rounded-full border bg-background px-1.5 py-0.5 text-xs",
                 r.chosen && "border-primary bg-primary/10",
               )}
             >

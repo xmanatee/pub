@@ -139,7 +139,7 @@ export function ControlBarSurface({
                   className={cn(
                     "transition-all duration-500 ease-in-out",
                     hasAddons && addonsVisible
-                      ? "max-h-[70vh] translate-y-0 opacity-100 overflow-y-auto"
+                      ? "control-bar-addons-open translate-y-0 opacity-100 overflow-y-auto"
                       : "pointer-events-none max-h-0 translate-y-4 opacity-0",
                   )}
                 >

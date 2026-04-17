@@ -76,7 +76,7 @@ function PeerBody({
       ) : null}
       {peer.about ? (
         <div>
-          <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="field-label mb-1 uppercase tracking-wider text-muted-foreground">
             About
           </div>
           <div className="whitespace-pre-wrap text-sm">{peer.about}</div>
@@ -125,7 +125,7 @@ function PeerBody({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="field-label uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-sm">{value}</div>
     </div>
   );
