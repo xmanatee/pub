@@ -41,7 +41,25 @@ test.describe("Agent presence via HTTP API", () => {
     const api = new ApiClient({ user });
 
     const res = await api.agentHeartbeat({ daemonSessionId: "no-session" });
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "presence_not_online",
+    });
+  });
+
+  test("online rejects a second fresh host for the same API key", async () => {
+    const user = seedUser();
+    const api = new ApiClient({ user });
+
+    expect((await api.agentOnline({ daemonSessionId: "one", agentName: "one" })).status).toBe(200);
+
+    const res = await api.agentOnline({ daemonSessionId: "two", agentName: "two" });
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "presence_api_key_in_use",
+    });
+
+    await api.agentOffline({ daemonSessionId: "one" });
   });
 
   test("online → offline → online again", async () => {
