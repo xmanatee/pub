@@ -17,6 +17,9 @@ const REQUIRED_BRIEFING_CAPABILITIES: ReadonlyArray<readonly [string, string]> =
   ["reply naturally", "chat delivered via natural assistant text"],
   ["pub write -c canvas -f", "canvas updates via pub write"],
 
+  // Source validation
+  ['pub commit "', "pub commit validation gate for source edits"],
+
   // Canvas interactivity
   ["/__pub_files__/", "host file access via pub-fs URLs"],
   ["pub-command-manifest", "command manifest embedding in HTML"],
@@ -36,6 +39,9 @@ const REQUIRED_SYSTEM_PROMPT_CAPABILITIES: ReadonlyArray<readonly [string, strin
   // Communication
   ["reply naturally", "chat delivered via natural assistant text"],
   ["pub write -c canvas -f", "canvas update syntax"],
+
+  // Source validation
+  ['pub commit "', "pub commit validation gate for source edits"],
 
   // Canvas
   ["sandboxed iframe", "canvas rendering model"],

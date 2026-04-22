@@ -1,44 +1,19 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.3/schema.json",
   "files": {
-    "includes": [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.js",
-      "**/*.json",
-      "!**/node_modules",
-      "!**/dist",
-      "!**/.vinxi",
-      "!**/.output",
-      "!**/convex/_generated",
-      "!**/cli/dist",
-      "!**/cli/node_modules",
-      "!web/src/routeTree.gen.ts",
-      "!packages/super-app",
-      "!**/.vercel",
-      "!**/.claude",
-      "!**/test-results",
-      "!**/playwright-report",
-      "!**/.worktrees",
-      "!web/public/sandbox",
-      "!cli/assets"
-    ]
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.json", "!**/node_modules", "!**/dist", "!src/routeTree.gen.ts"]
   },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
-      "complexity": {
-        "noForEach": "off"
-      },
       "style": {
         "noNonNullAssertion": "error",
         "useConst": "error",
         "useImportType": "off"
       },
       "suspicious": {
-        "noExplicitAny": "warn",
-        "noConsole": "off"
+        "noExplicitAny": "warn"
       },
       "correctness": {
         "noUnusedImports": "error",
@@ -62,9 +37,7 @@
   "assist": {
     "actions": {
       "source": {
-        "organizeImports": {
-          "level": "on"
-        }
+        "organizeImports": { "level": "on" }
       }
     }
   }

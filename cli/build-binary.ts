@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Build standalone binaries for all targets using `bun build --compile`.
+ * Pre-step: regenerate the super-app source tarball consumed by
+ * `src/super-app/workspace.ts` via `import with { type: "file" }`.
  */
 
 import { execSync } from "node:child_process";
@@ -41,7 +43,9 @@ function resolveTargets(): ReadonlyArray<(typeof TARGETS)[number]> {
   return TARGETS.filter((target) => requestedSuffixes.includes(target.suffix));
 }
 
-if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+execSync("node scripts/bundle-super-app.mjs", { stdio: "inherit" });
+
+fs.mkdirSync(OUT_DIR, { recursive: true });
 
 for (const target of resolveTargets()) {
   const outfile = path.join(OUT_DIR, `pub-${target.suffix}`);

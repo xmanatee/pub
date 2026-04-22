@@ -6,6 +6,8 @@ Full-stack TypeScript app for adaptive interfaces powered by AI agents. A pub is
 
 - **Bridge owns chat delivery.** Providers forward the agent's assistant text to the chat channel via `sendMessage`. `pub write` is reserved for non-chat channels (canvas, attachments) and non-live scripting.
 - **Never modify `components/ui/`.** Extend shadcn primitives by composition.
+- **Super-app is the tunneled default.** `pub start` extracts the embedded `packages/super-app` source into the user's workspace and boots `vite dev` there; the bridge workspace follows so the agent edits the same tree the tunnel is serving. Once extracted, the directory belongs to the user — never overwritten on upgrade. A user-set `tunnel.devCommand` in saved config overrides the default and ships their own app instead.
+- **`pub commit "<description>"` is the validation gate.** The agent must run it after each coherent change. It runs `tsc --noEmit`, `biome check src`, and `vite build` in the super-app workspace; on any failure the agent is forced to fix before proceeding. Future: commit to a git-backed source tree and restart the served app on success.
 
 ## Conventions
 

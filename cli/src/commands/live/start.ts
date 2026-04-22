@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import type { Command } from "commander";
 import { resolvePubSettings } from "../../core/config/index.js";
+import type { PubTunnelConfig } from "../../core/config/types.js";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { resolvePubPaths } from "../../core/paths.js";
 import { CLI_VERSION } from "../../core/version/version.js";
@@ -12,12 +13,25 @@ import {
 } from "../../live/runtime/daemon-files.js";
 import { buildDaemonSpawnStdio, waitForDaemonReady } from "../../live/runtime/daemon-process.js";
 import { runStartPreflight } from "../../live/runtime/start-preflight.js";
-import { resolveDefaultTunnelConfig, scaffoldDefaultApp } from "../../scaffold/index.js";
+import { ensureSuperAppWorkspace } from "../../super-app/workspace.js";
 import { createCliCommandContext } from "../shared/index.js";
 import { getLiveVerboseEnableCommand, printDaemonStatus } from "./support.js";
 
 interface StartCommandOptions {
   agentName: string;
+}
+
+function resolveTunnelConfig(
+  saved: PubTunnelConfig | undefined,
+  env: NodeJS.ProcessEnv,
+): PubTunnelConfig {
+  if (saved?.devCommand) return saved;
+  const paths = resolvePubPaths(env);
+  const workspace = ensureSuperAppWorkspace(paths.workspaceRoot);
+  if (workspace.wasInitialized) {
+    console.log(`Initialized super-app at ${workspace.dir}`);
+  }
+  return workspace.tunnelConfig;
 }
 
 export function registerStartCommand(program: Command): void {
@@ -27,6 +41,15 @@ export function registerStartCommand(program: Command): void {
     .requiredOption("--agent-name <name>", "Agent display name shown to the browser user")
     .action(async (opts: StartCommandOptions) => {
       const context = createCliCommandContext();
+      const resolved = resolvePubSettings(context.env);
+
+      // Resolve the tunneled app before preflight so the bridge workspace
+      // (derived from PUB_PROJECT_ROOT) lands inside the tree the agent edits.
+      const tunnelConfig = resolveTunnelConfig(resolved.rawConfig.tunnel, context.env);
+      if (tunnelConfig.devCwd && !process.env.PUB_PROJECT_ROOT?.trim()) {
+        process.env.PUB_PROJECT_ROOT = tunnelConfig.devCwd;
+      }
+
       const preflight = await runStartPreflight();
       const { apiClientSettings, bridgeSettings, bridgeProcessEnv } = preflight;
       try {
@@ -47,22 +70,8 @@ export function registerStartCommand(program: Command): void {
 
       const { spawn } = await import("node:child_process");
       const daemonLogFd = fs.openSync(logPath, "a");
-      const resolved = resolvePubSettings(context.env);
       const sentryDsn = resolved.valuesByKey.sentryDsn;
       const telemetry = resolved.valuesByKey.telemetry;
-
-      const tunnelConfig = resolved.rawConfig.tunnel?.devCommand
-        ? resolved.rawConfig.tunnel
-        : (() => {
-            const paths = resolvePubPaths(context.env);
-            const { tunnelConfig: autoConfig, scaffoldDir } = resolveDefaultTunnelConfig(
-              paths.workspaceRoot,
-            );
-            console.log(`Scaffolding default app to ${scaffoldDir}...`);
-            scaffoldDefaultApp(scaffoldDir);
-            console.log("Default app ready.");
-            return autoConfig;
-          })();
 
       const child = spawn(process.execPath, [], {
         detached: true,

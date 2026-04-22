@@ -12,8 +12,24 @@ function rawMd(): Plugin {
   };
 }
 
+/**
+ * Mirrors the bun-compile `import x from "./foo.tar.gz" with { type: "file" }`
+ * semantics by exporting the absolute source path. Tests exercise the extract
+ * helper with their own fixture tarball, so the embedded path itself is only
+ * loaded to satisfy the module graph.
+ */
+function fileAsset(): Plugin {
+  return {
+    name: "file-asset",
+    transform(_code, id) {
+      if (!id.endsWith(".tar.gz")) return null;
+      return { code: `export default ${JSON.stringify(id)};`, map: null };
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [rawMd()],
+  plugins: [rawMd(), fileAsset()],
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",

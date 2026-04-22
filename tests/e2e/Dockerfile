@@ -9,7 +9,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
 COPY cli/package.json ./cli/
 COPY relay/package.json ./relay/
-COPY packages/default-app/package.json ./packages/default-app/
 COPY packages/super-app/package.json ./packages/super-app/
 RUN pnpm install --frozen-lockfile
 
@@ -45,7 +44,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
 COPY cli/package.json ./cli/
 COPY relay/package.json ./relay/
-COPY packages/default-app/package.json ./packages/default-app/
 COPY packages/super-app/package.json ./packages/super-app/
 RUN pnpm install --frozen-lockfile
 

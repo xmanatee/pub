@@ -8,6 +8,10 @@ dist-bin/
 
 convex/_generated/
 web/src/routeTree.gen.ts
+packages/super-app/src/routeTree.gen.ts
+
+# super-app source tarball embedded in the CLI binary (built on demand)
+cli/assets/super-app-source.tar.gz
 
 # Firebase
 firebase-debug.log

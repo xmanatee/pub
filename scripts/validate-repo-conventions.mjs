@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -96,8 +97,6 @@ function validateNoArbitraryTailwind() {
       if (!/\.(ts|tsx|css)$/.test(path)) return false;
       return !path.endsWith("routeTree.gen.ts");
     }),
-    ...walkFiles("packages/default-app/src", (path) => /\.(ts|tsx|css)$/.test(path)),
-    "cli/src/scaffold/template.ts",
   ];
 
   const arbitraryUtility =
@@ -117,9 +116,40 @@ function validateNoArbitraryTailwind() {
   }
 }
 
+function validateSuperAppBundle() {
+  const bundler = join(root, "cli/scripts/bundle-super-app.mjs");
+  const tarball = join(root, "cli/assets/super-app-source.tar.gz");
+  execSync(`node ${JSON.stringify(bundler)}`, { stdio: "pipe" });
+
+  const entries = new Set(
+    execSync(`tar -tzf ${JSON.stringify(tarball)}`, { encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean),
+  );
+
+  const required = [
+    "./package.json",
+    "./vite.config.ts",
+    "./tsconfig.json",
+    "./biome.json",
+    "./src/router.tsx",
+    "./src/routes/__root.tsx",
+    "./shared/command-protocol-core.ts",
+  ];
+  for (const entry of required) {
+    if (!entries.has(entry)) fail(`super-app bundle is missing ${entry}.`);
+  }
+
+  const banned = ["./node_modules/", "./dist/", "./src/routeTree.gen.ts"];
+  for (const entry of banned) {
+    if (entries.has(entry)) fail(`super-app bundle must not ship ${entry}.`);
+  }
+}
+
 validateUiPrimitiveSurface();
 validateSkillProtocol();
 validateNoArbitraryTailwind();
+validateSuperAppBundle();
 
 if (failures.length > 0) {
   console.error(failures.join("\n\n"));

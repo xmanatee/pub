@@ -26,9 +26,6 @@
         "@shared/*": ["../shared/*"]
       }
     },
-    "packages/default-app": {
-      "project": ["src/**/*.{ts,tsx}"]
-    },
     "packages/super-app": {
       "entry": [
         "src/router.tsx",

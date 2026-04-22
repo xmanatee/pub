@@ -8,6 +8,16 @@ The user sees a chat panel and a canvas that renders your HTML full-viewport.
 
 Prefer canvas for rich content. Use chat (plain text) for short replies or status updates.
 
+## Validating source changes
+
+When the session workspace is a live app (e.g. super-app), the user sees the running server — never declare a coherent change done without validating it first. After each set of related edits, run:
+
+```bash
+pub commit "<short description of the change>"
+```
+
+`pub commit` invokes the app's declared npm scripts in order (`typecheck`, `lint`, `test`, `build`) and fails on the first one that exits non-zero. On failure, the tool's own diagnostics are printed — fix them and rerun until `pub commit` exits 0. Do not describe a change as complete until `pub commit` has passed.
+
 ## Canvas
 
 Self-contained HTML in a sandboxed iframe (cross-origin). Inline CSS/JS or load libraries via CDN `<script>`/`<link>` tags.
