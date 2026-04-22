@@ -88,6 +88,7 @@ export function registerConfigCommand(program: Command): void {
         const detected = detectDevServerConfig();
         if (detected) {
           nextTunnel.devCommand = detected.devCommand;
+          nextTunnel.devCwd = detected.devCwd;
           nextTunnel.devPort = detected.devPort;
         }
         const nextConfig = compactPubConfig({
@@ -109,7 +110,12 @@ export function registerConfigCommand(program: Command): void {
           }),
           `selected: ${result.selected.mode}`,
           ...(detected
-            ? [`tunnel: detected dev server (${detected.devCommand}, port ${detected.devPort})`]
+            ? [
+                [
+                  "tunnel: detected dev server",
+                  `(${detected.devCommand}, cwd ${detected.devCwd}, port ${detected.devPort})`,
+                ].join(" "),
+              ]
             : ["tunnel: no dev server detected"]),
         ]);
         console.log("");

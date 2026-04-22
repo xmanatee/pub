@@ -1,40 +1,41 @@
 # Pub
 
-Full-stack TypeScript app for adaptive interfaces powered by AI agents. A pub is content that can be static, live, or both. The stack is a web app, a CLI, and a Cloudflare Worker relay.
+Pub is a full-stack TypeScript system for adaptive interfaces powered by AI
+agents. The repo spans a web app, CLI, relay infrastructure, and an embedded
+live app experience.
 
-## Non-negotiable
+## Operating Principles
 
-- **Bridge owns chat delivery.** Providers forward the agent's assistant text to the chat channel via `sendMessage`. `pub write` is reserved for non-chat channels (canvas, attachments) and non-live scripting.
-- **Never modify `components/ui/`.** Extend shadcn primitives by composition.
-- **Super-app is the tunneled default.** `pub start` extracts the embedded `packages/super-app` source into the user's workspace and boots `vite dev` there; the bridge workspace follows so the agent edits the same tree the tunnel is serving. Once extracted, the directory belongs to the user — never overwritten on upgrade. A user-set `tunnel.devCommand` in saved config overrides the default and ships their own app instead.
-- **`pub commit "<description>"` is the validation gate.** The agent must run it after each coherent change. It runs `tsc --noEmit`, `biome check src`, and `vite build` in the super-app workspace; on any failure the agent is forced to fix before proceeding. Future: commit to a git-backed source tree and restart the served app on success.
+- Treat the implementation, configuration schema, package scripts, and focused
+  docs as the source of truth for exact commands, protocols, limits, and wiring.
+- Keep agent-facing guidance high level here; do not duplicate details that can
+  be read directly from code, generated config, or narrower documentation.
+- Preserve user-owned workspaces and user-authored content. Initialization and
+  upgrades must not silently overwrite local edits.
+- Keep live chat, canvas, tunnel, and bridge responsibilities separated. Do not
+  route around the owning layer when changing delivery behavior.
+- Keep generated, vendored, and primitive UI surfaces read-only unless their
+  owning workflow explicitly regenerates or updates them.
+- Follow existing routing, state, styling, and data-ownership patterns before
+  introducing new abstractions.
+- Keep product privacy and cleanup invariants intact when adding creation,
+  sharing, connection, or deletion behavior.
+- When public CLI or agent-facing behavior changes, keep the shipped runtime
+  guidance and metadata in sync with the implementation.
 
-## Conventions
+## Architecture Guidelines
 
-- **Routing** — TanStack Router file-based routes. Auth guards live in layout routes (`_authenticated`, `_guest`); there is no `AuthGuard` component.
-- **State** — `@convex-dev/react-query` bridges Convex with TanStack Router loaders. No React Context for app state.
-- **Styling** — Tailwind v4, oklch tokens. No arbitrary-value Tailwind (`text-[...]`, `[&_...]`) unless nothing else works.
-- **Icons** — `lucide-react` for UI, `@icons-pack/react-simple-icons` for brand.
-- **Cascade deletion** — New FK tables must be registered in `USER_OWNED_TABLES` / `PUB_OWNED_TABLES` in `user_data.ts`. Structural tests in `user_data.test.ts` enforce it.
-- **OG metadata** — HTML meta tags are the single source of truth for pub preview fields. Do not persist duplicates; re-extract on update.
+- Web, CLI, relay, and live-app code should remain loosely coupled through their
+  existing boundaries.
+- The CLI owns local setup, validation, daemon lifecycle, bridge coordination,
+  and tunnel startup. Keep those concerns explicit and observable.
+- The embedded live app is a starting point for user work. Once materialized in
+  a workspace, treat it as user-owned source.
+- Feature work should be additive where possible and should keep feature-local
+  concerns inside the feature boundary.
+- Prefer small, verifiable changes that preserve established conventions over
+  broad refactors.
 
-## Business rules
+## References
 
-- Max 10 pubs per user free-tier (200 subscribed).
-- Max 1 live connection per host; max 1 per slug. A new connection replaces the previous.
-- Pubs are always created private.
-
-## Skill authoring
-
-- `SKILL.md` holds deterministic runtime instructions.
-- Meta-guidance about skills belongs here, not in `SKILL.md`.
-- When CLI behavior changes, update `SKILL.md`, `claw.json` version, and this file together.
-
-## Worktree screenshot tests
-
-Screenshot tests in `tests/e2e/` need Convex codegen and the TanStack route tree (both gitignored). In a worktree, copy `convex/_generated/*` and `web/src/routeTree.gen.ts` from the main worktree before running.
-
-## Detail
-
-- Frontend conventions → `@docs/frontend-structure.md`
-- Testing conventions → `@docs/testing-conventions.md`
+Use the focused docs under `docs/` for frontend and testing details.

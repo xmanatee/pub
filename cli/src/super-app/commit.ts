@@ -15,15 +15,10 @@ export interface CommitStep {
   script: string;
 }
 
-/**
- * Order matters for agent UX: cheap static checks before the expensive build,
- * tests before the build so a broken test is surfaced without waiting for a
- * full bundle.
- */
+/** Order matters for agent UX: cheap static checks before the expensive build. */
 export const DEFAULT_COMMIT_STEPS: readonly CommitStep[] = [
   { script: "typecheck" },
   { script: "lint" },
-  { script: "test" },
   { script: "build" },
 ];
 

@@ -7,7 +7,7 @@ homepage: https://pub.blue
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.7"
+  version: "5.2.8"
   openclaw:
     homepage: https://pub.blue
     primaryEnv: PUB_API_KEY
@@ -28,7 +28,7 @@ Use this skill when the user asks about creating adaptive interfaces, publishing
 
 ## Required CLI Version
 
-Use **pub CLI 0.11.7+**.
+Use **pub CLI 0.11.9+**.
 
 Source: <https://github.com/xmanatee/pub> (MIT license)
 
@@ -53,12 +53,12 @@ echo "pub_KEY" | pub config --api-key-stdin
 
 Key source: <https://pub.blue/agents>
 
-Pub resolves config from exactly one existing directory:
-- `PUB_CONFIG_DIR`
-- `OPENCLAW_HOME/.openclaw/pub`
-- `~/.config/pub`
+Pub resolves config from:
+- `PUB_HOME/config/config.json` when `PUB_HOME` is set
+- `XDG_CONFIG_HOME/pub/config.json` when `XDG_CONFIG_HOME` is set
+- `~/.config/pub/config.json` by default
 
-If more than one exists, Pub fails until redundant config directories are removed.
+`PUB_HOME` must be an absolute path. It also roots Pub data, state, runtime sockets, and workspaces.
 For OpenClaw bridge mode, set an explicit workspace before `pub config --auto`, for example `OPENCLAW_WORKSPACE=/absolute/path/to/workspace`.
 
 ## Core Commands

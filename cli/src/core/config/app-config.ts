@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 interface DetectedDevServer {
   devCommand: string;
+  devCwd: string;
   devPort: number;
 }
 
@@ -24,7 +25,11 @@ export function detectDevServerConfig(dir = process.cwd()): DetectedDevServer | 
   const port = inferPort(allDeps, scripts);
   const packageManager = detectPackageManager(dir);
 
-  return { devCommand: `${packageManager} ${command}`, devPort: port };
+  return {
+    devCommand: `${packageManager} ${command}`,
+    devCwd: path.resolve(dir),
+    devPort: port,
+  };
 }
 
 function inferPort(deps: Record<string, string>, scripts: Record<string, string>): number {

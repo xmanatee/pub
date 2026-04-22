@@ -21,9 +21,11 @@ export function registerCommitCommand(program: Command): void {
     .action((message: string) => {
       const context = createCliCommandContext();
       const resolved = resolvePubSettings(context.env);
+      const fallbackCwd = context.env.PUB_PROJECT_ROOT?.trim() || process.cwd();
       const dir = getSuperAppDir(
         resolved.rawConfig.tunnel,
         resolvePubPaths(context.env).workspaceRoot,
+        fallbackCwd,
       );
 
       if (!isSuperAppInitialized(dir)) {

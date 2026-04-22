@@ -193,6 +193,10 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "Dev server command (e.g., 'pnpm dev').",
     env: ["PUB_DEV_COMMAND"],
   }),
+  tunnelVar("tunnel.devCwd", "devCwd", "string", {
+    description: "Working directory for the dev server command.",
+    env: ["PUB_DEV_CWD"],
+  }),
   tunnelVar("tunnel.devPort", "devPort", "integer", {
     description: "Dev server port.",
     env: ["PUB_DEV_PORT"],

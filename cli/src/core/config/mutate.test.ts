@@ -147,7 +147,7 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(28);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(29);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");
@@ -158,6 +158,7 @@ describe("SUPPORTED_CONFIG_KEYS", () => {
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
     expect(SUPPORTED_CONFIG_KEYS).toContain("claude-channel.socketPath");
     expect(SUPPORTED_CONFIG_KEYS).toContain("tunnel.devCommand");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("tunnel.devCwd");
     expect(SUPPORTED_CONFIG_KEYS).toContain("tunnel.devPort");
     expect(SUPPORTED_CONFIG_KEYS).toContain("tunnel.relayUrl");
   });

@@ -29,18 +29,31 @@ export function ensureSuperAppWorkspace(workspaceRoot: string): SuperAppWorkspac
   if (isSuperAppInitialized(dir)) {
     return { dir, tunnelConfig, wasInitialized: false };
   }
+  if (fs.existsSync(path.join(dir, "package.json"))) {
+    installSuperAppDependencies(dir);
+    return { dir, tunnelConfig, wasInitialized: true };
+  }
+  assertCanExtractSuperApp(dir);
   extractSuperAppBundle(SUPER_APP_BUNDLE_PATH, dir);
+  installSuperAppDependencies(dir);
+  return { dir, tunnelConfig, wasInitialized: true };
+}
+
+function installSuperAppDependencies(dir: string): void {
   const packageManager = detectPackageManager();
   execSync(`${packageManager} install`, { cwd: dir, stdio: "inherit", timeout: 180_000 });
   // Priming build: produces `src/routeTree.gen.ts` (and validates the
   // source tree) so `pub commit`'s typecheck is deterministic from the
   // first invocation, not racing vite dev's background codegen.
   execSync(`${packageManager} run build`, { cwd: dir, stdio: "inherit", timeout: 120_000 });
-  return { dir, tunnelConfig, wasInitialized: true };
 }
 
-export function getSuperAppDir(saved: PubTunnelConfig | undefined, workspaceRoot: string): string {
-  if (saved?.devCommand && saved.devCwd) return saved.devCwd;
+export function getSuperAppDir(
+  saved: PubTunnelConfig | undefined,
+  workspaceRoot: string,
+  fallbackCwd = process.cwd(),
+): string {
+  if (saved?.devCommand) return path.resolve(saved.devCwd ?? fallbackCwd);
   return path.join(workspaceRoot, SUPER_APP_DIR_NAME);
 }
 
@@ -59,7 +72,23 @@ export function isSuperAppInitialized(dir: string): boolean {
   );
 }
 
+function assertCanExtractSuperApp(dir: string): void {
+  if (!fs.existsSync(dir)) return;
+  if (!fs.statSync(dir).isDirectory()) {
+    throw new Error(`Refusing to initialize super-app at ${dir}: path is not a directory.`);
+  }
+  const entries = fs.readdirSync(dir);
+  if (entries.length === 0) return;
+  throw new Error(
+    [
+      `Refusing to initialize super-app at ${dir}: directory already exists and is not empty.`,
+      "Move it aside, delete it, or configure tunnel.devCommand/tunnel.devCwd for a custom app.",
+    ].join(" "),
+  );
+}
+
 export function extractSuperAppBundle(bundlePath: string, dir: string): void {
+  assertCanExtractSuperApp(dir);
   fs.mkdirSync(dir, { recursive: true });
   // Compiled binaries embed the tarball in a virtual FS that `tar` can't
   // read directly. Read bytes ourselves and pipe to `tar -xzf -`.

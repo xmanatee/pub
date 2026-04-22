@@ -66,12 +66,12 @@ describe("runSuperAppCommit", () => {
     const outcomes = runSuperAppCommit({
       dir,
       packageManager: pm,
-      steps: [{ script: "typecheck" }, { script: "lint" }, { script: "test" }],
+      steps: [{ script: "typecheck" }, { script: "lint" }, { script: "build" }],
     });
     expect(outcomes).toEqual([
       { script: "typecheck", status: "passed" },
       { script: "lint", status: "skipped", reason: "not declared" },
-      { script: "test", status: "skipped", reason: "not declared" },
+      { script: "build", status: "skipped", reason: "not declared" },
     ]);
   });
 

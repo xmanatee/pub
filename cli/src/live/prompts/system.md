@@ -16,7 +16,9 @@ When the session workspace is a live app (e.g. super-app), the user sees the run
 pub commit "<short description of the change>"
 ```
 
-`pub commit` invokes the app's declared npm scripts in order (`typecheck`, `lint`, `test`, `build`) and fails on the first one that exits non-zero. On failure, the tool's own diagnostics are printed — fix them and rerun until `pub commit` exits 0. Do not describe a change as complete until `pub commit` has passed.
+`pub commit` validates and deploys the change for the live app. On failure, use the reported
+diagnostics, fix the underlying issue, and rerun until `pub commit` exits 0. Do not describe a
+change as complete until `pub commit` has passed.
 
 ## Canvas
 

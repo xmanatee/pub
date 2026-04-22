@@ -7,6 +7,7 @@ import {
   buildTunnelConfig,
   ensureSuperAppWorkspace,
   extractSuperAppBundle,
+  getSuperAppDir,
   isSuperAppInitialized,
 } from "./workspace.js";
 
@@ -47,6 +48,26 @@ describe("super-app workspace", () => {
     expect(config.relayUrl).toBeTruthy();
   });
 
+  it("getSuperAppDir uses a saved custom dev cwd when the tunnel app is overridden", () => {
+    expect(
+      getSuperAppDir(
+        { devCommand: "pnpm dev", devCwd: "/tmp/custom-app", devPort: 5173 },
+        "/tmp/pub-workspaces",
+        "/tmp/fallback",
+      ),
+    ).toBe("/tmp/custom-app");
+  });
+
+  it("getSuperAppDir falls back to the cwd for custom tunnel configs without devCwd", () => {
+    expect(
+      getSuperAppDir(
+        { devCommand: "pnpm dev", devPort: 5173 },
+        "/tmp/pub-workspaces",
+        "/tmp/app",
+      ),
+    ).toBe("/tmp/app");
+  });
+
   it("isSuperAppInitialized requires both package.json and node_modules", () => {
     const dir = join(root, "app");
     expect(isSuperAppInitialized(dir)).toBe(false);
@@ -69,6 +90,17 @@ describe("super-app workspace", () => {
   it("extractSuperAppBundle throws when the bundle path is missing", () => {
     const missing = join(bundleDir, "does-not-exist.tar.gz");
     expect(() => extractSuperAppBundle(missing, join(root, "app"))).toThrow();
+  });
+
+  it("extractSuperAppBundle refuses to write into a non-empty directory", () => {
+    const dir = join(root, "app");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "user-edit.txt"), "do not replace");
+
+    expect(() => extractSuperAppBundle(buildFixtureTarball(bundleDir), dir)).toThrow(
+      /Refusing to initialize super-app/,
+    );
+    expect(existsSync(join(dir, "user-edit.txt"))).toBe(true);
   });
 
   it("ensureSuperAppWorkspace is a no-op when already initialized", () => {
