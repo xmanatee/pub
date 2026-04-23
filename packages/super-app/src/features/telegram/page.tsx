@@ -208,7 +208,9 @@ function Thread({
 
   React.useEffect(() => {
     setCompose({ kind: "new", text: "" });
-    telegram.markRead(dialogId).catch(() => {});
+    void telegram.markRead(dialogId).catch((error) => {
+      console.warn("Failed to mark Telegram dialog as read", error);
+    });
   }, [dialogId]);
 
   const onSubmit = async (e: React.FormEvent) => {

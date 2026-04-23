@@ -8,7 +8,7 @@
  * it. A CLI upgrade reuses the existing workspace; users opt in to a refresh
  * by deleting the directory.
  */
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import SUPER_APP_BUNDLE_PATH from "../../assets/super-app-source.tar.gz" with { type: "file" };
@@ -42,9 +42,8 @@ export function ensureSuperAppWorkspace(workspaceRoot: string): SuperAppWorkspac
 function installSuperAppDependencies(dir: string): void {
   const packageManager = detectPackageManager();
   execSync(`${packageManager} install`, { cwd: dir, stdio: "inherit", timeout: 180_000 });
-  // Priming build: produces `src/routeTree.gen.ts` (and validates the
-  // source tree) so `pub commit`'s typecheck is deterministic from the
-  // first invocation, not racing vite dev's background codegen.
+  // Prime generated files once so the first `pub commit` doesn't race
+  // dev-server codegen.
   execSync(`${packageManager} run build`, { cwd: dir, stdio: "inherit", timeout: 120_000 });
 }
 
@@ -102,10 +101,10 @@ export function extractSuperAppBundle(bundlePath: string, dir: string): void {
 
 export function detectPackageManager(): string {
   for (const pm of ["pnpm", "npm"]) {
-    try {
-      execSync(`${pm} --version`, { stdio: "ignore", timeout: 5_000 });
+    const result = spawnSync(pm, ["--version"], { stdio: "ignore", timeout: 5_000 });
+    if (result.status === 0) {
       return pm;
-    } catch {}
+    }
   }
   throw new Error("No package manager found. Install pnpm or npm to initialize super-app.");
 }

@@ -12,13 +12,11 @@ async function validateAgainstRegisteredBots(initData: string, botTokens: string
   if (botTokens.length === 0) {
     throw new Error("No Telegram bot connected");
   }
-  for (const token of botTokens) {
-    try {
-      await validateInitData(initData, token);
-      return;
-    } catch {}
+  try {
+    await Promise.any(botTokens.map((token) => validateInitData(initData, token)));
+  } catch {
+    throw new Error("Invalid initData signature");
   }
-  throw new Error("Invalid initData signature");
 }
 
 const telegram = ConvexCredentials<DataModel>({

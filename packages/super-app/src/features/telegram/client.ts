@@ -97,7 +97,7 @@ async function authState(): Promise<TelegramAuthState> {
   }
   if (state.needsPassword) return { status: "needs-password" };
   const client = await getClient();
-  const authed = await client.checkAuthorization().catch(() => false);
+  const authed = await client.checkAuthorization();
   if (!authed) return { status: "logged-out" };
   const me = (await client.getMe()) as Api.User;
   return {

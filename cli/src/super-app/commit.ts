@@ -3,8 +3,6 @@
  * invokes the super-app's declared npm scripts in order. If a script is
  * missing from `package.json`, the step is skipped — super-app owns which
  * checks it exposes; pub just runs whatever is declared.
- *
- * Future: on success, git-commit the change and restart the served app.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
