@@ -37,6 +37,7 @@
       ],
       "project": ["src/**/*.{ts,tsx}"],
       "ignoreDependencies": ["buffer"],
+      "ignoreUnresolved": ["^\\./routeTree\\.gen$"],
       "paths": {
         "~/*": ["./src/*"],
         "@shared/*": ["../../shared/*"]

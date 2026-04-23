@@ -60,11 +60,7 @@ describe("super-app workspace", () => {
 
   it("getSuperAppDir falls back to the cwd for custom tunnel configs without devCwd", () => {
     expect(
-      getSuperAppDir(
-        { devCommand: "pnpm dev", devPort: 5173 },
-        "/tmp/pub-workspaces",
-        "/tmp/app",
-      ),
+      getSuperAppDir({ devCommand: "pnpm dev", devPort: 5173 }, "/tmp/pub-workspaces", "/tmp/app"),
     ).toBe("/tmp/app");
   });
 

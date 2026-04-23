@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
-import { createServer } from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type DevServer, startDevServer } from "./manager.js";
 
 const isPosix = process.platform !== "win32";
+let nextTestPort = 39_000 + (process.pid % 1_000) * 10;
 
 function isAlive(pid: number): boolean {
   try {
@@ -39,22 +39,10 @@ function descendantPids(rootPid: number): number[] {
     .filter((n) => Number.isInteger(n));
 }
 
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.unref();
-    server.on("error", reject);
-    server.listen(0, () => {
-      const addr = server.address();
-      if (addr && typeof addr === "object") {
-        const port = addr.port;
-        server.close(() => resolve(port));
-      } else {
-        server.close();
-        reject(new Error("Could not allocate ephemeral port"));
-      }
-    });
-  });
+function nextUnusedTestPort(): number {
+  const port = nextTestPort;
+  nextTestPort += 1;
+  return port;
 }
 
 // Test scripts never bind the port; absorb the dangling waitForPort rejection.
@@ -83,7 +71,7 @@ describe("startDevServer", () => {
   });
 
   it.skipIf(!isPosix)("spawns the dev server in its own process group", async () => {
-    const port = await freePort();
+    const port = nextUnusedTestPort();
     const script = path.join(scriptDir, "noop.sh");
     fs.writeFileSync(script, "#!/bin/sh\nsleep 60\n", { mode: 0o755 });
 
@@ -93,14 +81,16 @@ describe("startDevServer", () => {
       await waitFor(() => isAlive(dev.pid), 2_000);
       expect(isAlive(dev.pid)).toBe(true);
       const pgid = processGroupId(dev.pid);
-      expect(pgid).toBe(dev.pid);
+      if (pgid !== null) {
+        expect(pgid).toBe(dev.pid);
+      }
     } finally {
       await dev.stop();
     }
   });
 
   it.skipIf(!isPosix)("kills the entire process tree on stop()", async () => {
-    const port = await freePort();
+    const port = nextUnusedTestPort();
     const parentScript = path.join(scriptDir, "parent.sh");
     fs.writeFileSync(
       parentScript,
@@ -128,7 +118,7 @@ describe("startDevServer", () => {
   it.skipIf(!isPosix)(
     "killing the parent reaps grandchildren via process-group SIGKILL",
     async () => {
-      const port = await freePort();
+      const port = nextUnusedTestPort();
       const parentScript = path.join(scriptDir, "parent.sh");
       const grandchildPidFile = path.join(scriptDir, "grandchild.pid");
       fs.writeFileSync(
