@@ -216,7 +216,11 @@ export function createDaemonChannelManager(params: {
     dedup.reset();
   }
 
-  function setupChannel(name: string, dc: DataChannelLike, options?: { peerOwned?: boolean }): void {
+  function setupChannel(
+    name: string,
+    dc: DataChannelLike,
+    options?: { peerOwned?: boolean },
+  ): void {
     let bucket = state.channels.get(name);
     if (!bucket) {
       bucket = new Set();
@@ -471,7 +475,10 @@ export function createDaemonChannelManager(params: {
           }
           sendCount += 1;
         } catch (error) {
-          markError(`${context} send failed on endpoint (attempt ${attempt}/${maxAttempts})`, error);
+          markError(
+            `${context} send failed on endpoint (attempt ${attempt}/${maxAttempts})`,
+            error,
+          );
         }
       }
       if (sendCount === 0) {

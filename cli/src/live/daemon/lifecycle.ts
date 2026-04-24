@@ -5,8 +5,8 @@ import {
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { errorMessage } from "../../core/errors/cli-error.js";
-import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 import { readLatestCliVersion } from "../runtime/daemon-files.js";
+import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 import { PING_INTERVAL_MS, PONG_TIMEOUT_MS } from "./shared.js";
 import type { DaemonState } from "./state.js";
 

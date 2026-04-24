@@ -216,10 +216,12 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
 });
 
 describe("createDaemonChannelManager fan-out semantics", () => {
-  function makeManager(overrides: {
-    onCommandMessage?: (msg: BridgeMessage) => Promise<void>;
-    onChannelClosed?: (name: string) => void;
-  } = {}) {
+  function makeManager(
+    overrides: {
+      onCommandMessage?: (msg: BridgeMessage) => Promise<void>;
+      onChannelClosed?: (name: string) => void;
+    } = {},
+  ) {
     const state = createDaemonState();
     setDaemonConnectionState(state, "connected");
     const markError = vi.fn();
@@ -292,7 +294,6 @@ describe("createDaemonChannelManager fan-out semantics", () => {
     expect(ackFor(tunnelChat)).toBeDefined();
   });
 
-
   it("fires onChannelClosed every time but the caller can gate on hasOpenChannel", () => {
     const onChannelClosed = vi.fn();
     const { manager } = makeManager({ onChannelClosed });
@@ -321,4 +322,3 @@ describe("createDaemonChannelManager fan-out semantics", () => {
     await expect(waiter).resolves.toBe(true);
   });
 });
-
