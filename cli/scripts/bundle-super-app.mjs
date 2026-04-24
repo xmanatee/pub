@@ -10,10 +10,8 @@
  * test setup — is super-app's own declaration.
  *
  * The tarball ships with a pnpm-lock.yaml generated against a standalone
- * (non-workspace) copy of super-app so the CLI can install with
- * `--frozen-lockfile`. Without the lockfile, a fresh install resolves caret
- * ranges to latest and a bad upstream release (e.g. a new required peer dep
- * landing in a transitive) breaks every user's first `pub start`.
+ * (non-workspace) copy so `pub start` can install with `--frozen-lockfile`
+ * and pin every transitive to what was tested at bundle time.
  */
 import { execSync } from "node:child_process";
 import {

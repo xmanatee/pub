@@ -40,9 +40,10 @@ export function ensureSuperAppWorkspace(workspaceRoot: string): SuperAppWorkspac
 }
 
 function installSuperAppDependencies(dir: string): void {
-  // The bundled tarball ships a pnpm-lock.yaml; installing without pnpm
-  // would ignore it and resolve to latest, which is how the 1.168.0
-  // @tanstack/start-plugin-core regression broke every fresh install.
+  // The bundle ships a pnpm-lock.yaml; `--frozen-lockfile` is what makes a
+  // fresh install deterministic and immune to a bad upstream minor landing
+  // between releases. Fall back to any other package manager and the lockfile
+  // is ignored.
   assertPnpmAvailable();
   execSync("pnpm install --frozen-lockfile --ignore-workspace", {
     cwd: dir,
@@ -107,15 +108,20 @@ export function extractSuperAppBundle(bundlePath: string, dir: string): void {
 }
 
 export function detectPackageManager(): string {
-  assertPnpmAvailable();
-  return "pnpm";
+  for (const pm of ["pnpm", "npm"]) {
+    const result = spawnSync(pm, ["--version"], { stdio: "ignore", timeout: 5_000 });
+    if (result.status === 0) {
+      return pm;
+    }
+  }
+  throw new Error("No package manager found. Install pnpm or npm to initialize super-app.");
 }
 
 function assertPnpmAvailable(): void {
   const result = spawnSync("pnpm", ["--version"], { stdio: "ignore", timeout: 5_000 });
   if (result.status !== 0) {
     throw new Error(
-      "pnpm is required to manage the super-app workspace. " +
+      "pnpm is required to install the bundled super-app (the tarball ships a pnpm-lock.yaml). " +
         "Install it from https://pnpm.io/installation and retry.",
     );
   }

@@ -36,7 +36,7 @@
         "scripts/*.mjs"
       ],
       "project": ["src/**/*.{ts,tsx}"],
-      "ignoreDependencies": ["buffer"],
+      "ignoreDependencies": ["buffer", "@rsbuild/core"],
       "ignoreUnresolved": ["^\\./routeTree\\.gen$"],
       "paths": {
         "~/*": ["./src/*"],
