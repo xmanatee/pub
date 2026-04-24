@@ -40,11 +40,18 @@ export function ensureSuperAppWorkspace(workspaceRoot: string): SuperAppWorkspac
 }
 
 function installSuperAppDependencies(dir: string): void {
-  const packageManager = detectPackageManager();
-  execSync(`${packageManager} install`, { cwd: dir, stdio: "inherit", timeout: 180_000 });
+  // The bundled tarball ships a pnpm-lock.yaml; installing without pnpm
+  // would ignore it and resolve to latest, which is how the 1.168.0
+  // @tanstack/start-plugin-core regression broke every fresh install.
+  assertPnpmAvailable();
+  execSync("pnpm install --frozen-lockfile --ignore-workspace", {
+    cwd: dir,
+    stdio: "inherit",
+    timeout: 180_000,
+  });
   // Prime generated files once so the first `pub commit` doesn't race
   // dev-server codegen.
-  execSync(`${packageManager} run build`, { cwd: dir, stdio: "inherit", timeout: 120_000 });
+  execSync("pnpm run build", { cwd: dir, stdio: "inherit", timeout: 120_000 });
 }
 
 export function getSuperAppDir(
@@ -100,11 +107,16 @@ export function extractSuperAppBundle(bundlePath: string, dir: string): void {
 }
 
 export function detectPackageManager(): string {
-  for (const pm of ["pnpm", "npm"]) {
-    const result = spawnSync(pm, ["--version"], { stdio: "ignore", timeout: 5_000 });
-    if (result.status === 0) {
-      return pm;
-    }
+  assertPnpmAvailable();
+  return "pnpm";
+}
+
+function assertPnpmAvailable(): void {
+  const result = spawnSync("pnpm", ["--version"], { stdio: "ignore", timeout: 5_000 });
+  if (result.status !== 0) {
+    throw new Error(
+      "pnpm is required to manage the super-app workspace. " +
+        "Install it from https://pnpm.io/installation and retry.",
+    );
   }
-  throw new Error("No package manager found. Install pnpm or npm to initialize super-app.");
 }

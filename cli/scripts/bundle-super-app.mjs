@@ -8,6 +8,12 @@
  * monorepo-relative `../../shared` to the standalone `./shared` and bundling
  * `shared/` alongside. Everything else — dependencies, scripts, lint config,
  * test setup — is super-app's own declaration.
+ *
+ * The tarball ships with a pnpm-lock.yaml generated against a standalone
+ * (non-workspace) copy of super-app so the CLI can install with
+ * `--frozen-lockfile`. Without the lockfile, a fresh install resolves caret
+ * ranges to latest and a bad upstream release (e.g. a new required peer dep
+ * landing in a transitive) breaks every user's first `pub start`.
  */
 import { execSync } from "node:child_process";
 import {
@@ -81,12 +87,22 @@ function rewriteSharedAliases(payload) {
   );
 }
 
+function generateLockfile(payload) {
+  execSync("pnpm install --lockfile-only --ignore-workspace", {
+    cwd: payload,
+    stdio: "inherit",
+  });
+}
+
 const stageRoot = mkdtempSync(join(tmpdir(), "pub-super-app-bundle-"));
 try {
   const payload = join(stageRoot, "payload");
   stageLayout(payload);
+  generateLockfile(payload);
   mkdirSync(dirname(OUT_PATH), { recursive: true });
-  execSync(`tar -czf "${OUT_PATH}" -C "${payload}" .`, { stdio: "inherit" });
+  execSync(`tar --exclude=node_modules -czf "${OUT_PATH}" -C "${payload}" .`, {
+    stdio: "inherit",
+  });
   console.log(`super-app bundle: ${OUT_PATH} (${statSync(OUT_PATH).size} bytes)`);
 } finally {
   rmSync(stageRoot, { recursive: true, force: true });
