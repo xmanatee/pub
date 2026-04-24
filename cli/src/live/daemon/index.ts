@@ -119,12 +119,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
     onPubFsMessage: async (msg) => pubFsHandler.onMessage(msg),
     onChannelClosed: (name) => {
-      if (name === CONTROL_CHANNEL || name === "command") {
-        lifecycle.markError(`critical datachannel "${name}" closed unexpectedly`);
-        lifecycle.handleConnectionClosed(`channel-closed-${name}`);
-      }
+      if (name !== CONTROL_CHANNEL && name !== "command") return;
+      if (channelManager.hasOpenChannel(name)) return;
+      lifecycle.markError(`critical datachannel "${name}" closed unexpectedly`);
+      lifecycle.handleConnectionClosed(`channel-closed-${name}`);
     },
   });
+
+  function listOpenChannelNames(): string[] {
+    const names: string[] = [];
+    for (const name of state.channels.keys()) {
+      if (channelManager.hasOpenChannel(name)) names.push(name);
+    }
+    return names;
+  }
 
   publishRuntimeState = async (options) => {
     if (state.stopped || !isLiveConnectionReady(state.runtimeState)) {
@@ -136,7 +144,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       makeStatusMessage({
         ...state.runtimeState,
         slug: state.signalingSlug ?? undefined,
-        channels: [...state.channels.keys()],
+        channels: listOpenChannelNames(),
         ...(options?.continued ? { continued: true } : {}),
       }),
       {
@@ -155,7 +163,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   pubFsHandler = createPubFsHandler({
     getSessionRootDir: () => state.activeLiveSession?.workspaceCanvasDir ?? null,
     markError: lifecycle.markError,
-    openDataChannel: channelManager.openDataChannel,
+    ensurePeerChannel: channelManager.ensurePeerChannel,
     waitForChannelOpen: channelManager.waitForChannelOpen,
   });
 
@@ -321,18 +329,14 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
     getActiveSlug: () => state.signalingSlug,
     getUptimeSeconds: () => Math.floor((Date.now() - startTime) / 1000),
-    getChannels: () => [...state.channels.keys()],
+    getChannels: () => listOpenChannelNames(),
     getLastError: () => state.lastError,
     getBridgeMode: () => config.bridgeSettings.mode,
     getBridgeStatus: () => state.bridgeRunner?.status() ?? null,
     getLogPath: () => logPath ?? null,
     getWriteReadinessError: () => getLiveWriteReadinessError(state.runtimeState.connectionState),
-    openDataChannel: channelManager.openDataChannel,
-    waitForChannelOpen: channelManager.waitForChannelOpen,
-    waitForDeliveryAck: channelManager.waitForDeliveryAck,
-    settlePendingAck: channelManager.settlePendingAck,
+    sendOutboundMessageWithAck: channelManager.sendOutboundMessageWithAck,
     markAgentStreaming: () => bridgeManager.markAgentStreaming(),
-    markError: lifecycle.markError,
     shutdown: () => {
       void shutdown().catch((error) => {
         lifecycle.logAlways("shutdown failed from IPC request", error);

@@ -5,6 +5,7 @@ import {
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { errorMessage } from "../../core/errors/cli-error.js";
+import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 import { readLatestCliVersion } from "../runtime/daemon-files.js";
 import { PING_INTERVAL_MS, PONG_TIMEOUT_MS } from "./shared.js";
 import type { DaemonState } from "./state.js";
@@ -105,6 +106,15 @@ export function createDaemonLifecycle(params: {
     onConnectionClosed = handler;
   }
 
+  function findPeerControlChannel(): DataChannelLike | null {
+    const bucket = state.channels.get(CONTROL_CHANNEL);
+    if (!bucket) return null;
+    for (const dc of bucket) {
+      if (state.peerDataChannels.has(dc) && dc.isOpen()) return dc;
+    }
+    return null;
+  }
+
   function startPingPong(): void {
     stopPingPong();
     state.pingTimer = setInterval(() => {
@@ -112,10 +122,10 @@ export function createDaemonLifecycle(params: {
         stopPingPong();
         return;
       }
-      const controlDc = state.channels.get(CONTROL_CHANNEL);
-      if (!controlDc) return;
+      const peerControlDc = findPeerControlChannel();
+      if (!peerControlDc) return;
       try {
-        controlDc.sendMessage(encodeMessage(makeEventMessage("ping")));
+        peerControlDc.sendMessage(encodeMessage(makeEventMessage("ping")));
         if (state.pongTimeout) clearTimeout(state.pongTimeout);
         state.pongTimeout = setTimeout(() => {
           if (!isLiveConnectionReady(state.runtimeState) || state.stopped) return;

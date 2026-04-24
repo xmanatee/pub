@@ -16,8 +16,8 @@ import {
 export interface TunnelTransportState {
   connected: boolean;
   agentStatus: StatusPayload | null;
-  sendChat: (text: string) => void;
-  sendOnChannel: (channel: string, msg: BridgeMessage) => void;
+  sendChat: (text: string) => boolean;
+  sendOnChannel: (channel: string, msg: BridgeMessage) => boolean;
   onChannelMessage: React.MutableRefObject<((channel: string, msg: BridgeMessage) => void) | null>;
   onChannelBinary: React.MutableRefObject<((channel: string, data: Uint8Array) => void) | null>;
 }
@@ -65,13 +65,15 @@ export function useTunnelTransport(tunnelWsUrl: string | null): TunnelTransportS
     };
   }, [tunnelWsUrl]);
 
-  const sendChat = useCallback((text: string) => {
-    clientRef.current?.sendChannel("chat", makeTextMessage(text));
-  }, []);
+  const sendChat = useCallback(
+    (text: string) => clientRef.current?.sendChannel("chat", makeTextMessage(text)) ?? false,
+    [],
+  );
 
-  const sendOnChannel = useCallback((channel: string, msg: BridgeMessage) => {
-    clientRef.current?.sendChannel(channel, msg);
-  }, []);
+  const sendOnChannel = useCallback(
+    (channel: string, msg: BridgeMessage) => clientRef.current?.sendChannel(channel, msg) ?? false,
+    [],
+  );
 
   return { connected, agentStatus, sendChat, sendOnChannel, onChannelMessage, onChannelBinary };
 }

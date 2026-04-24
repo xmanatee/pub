@@ -9,7 +9,11 @@ export type TunnelChannelHandler = (channel: string, message: BridgeMessage) => 
 export type TunnelBinaryHandler = (channel: string, data: Uint8Array) => void;
 
 export interface BrowserTunnelClient {
-  sendChannel(channel: string, message: BridgeMessage): void;
+  /** Sends a channel message over the tunnel websocket. Returns `true` when
+   *  the frame was handed off to the socket; returns `false` if the socket is
+   *  not open, so callers can surface the failure to the user instead of
+   *  silently losing the message. */
+  sendChannel(channel: string, message: BridgeMessage): boolean;
   close(): void;
   readonly connected: boolean;
 }
@@ -79,9 +83,10 @@ export function createBrowserTunnelClient(
       return ws?.readyState === WebSocket.OPEN;
     },
 
-    sendChannel(channel: string, message: BridgeMessage): void {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    sendChannel(channel: string, message: BridgeMessage): boolean {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
       ws.send(encodeTunnelMessage({ type: "channel", channel, message }));
+      return true;
     },
 
     close(): void {

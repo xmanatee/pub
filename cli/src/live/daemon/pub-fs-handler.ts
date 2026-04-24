@@ -53,7 +53,7 @@ const SESSION_ROOT_POLL_MS = 50;
 export function createPubFsHandler(params: {
   markError: (message: string, error?: unknown) => void;
   getSessionRootDir: () => string | null;
-  openDataChannel: (channel: string) => DataChannelLike;
+  ensurePeerChannel: (channel: string) => DataChannelLike;
   waitForChannelOpen: (dc: DataChannelLike, timeoutMs?: number) => Promise<void>;
 }) {
   const activeReads = new Map<string, ActiveRead>();
@@ -91,7 +91,7 @@ export function createPubFsHandler(params: {
     if (!request) return;
 
     const { requestId, path, rangeStart, rangeEnd } = request;
-    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    const dc = params.ensurePeerChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
     const sessionRootDir = await waitForSessionRootDir();
 
@@ -199,7 +199,7 @@ export function createPubFsHandler(params: {
     if (!request) return;
 
     const { requestId, path: filePath, size } = request;
-    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    const dc = params.ensurePeerChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
     const sessionRootDir = await waitForSessionRootDir();
 
@@ -263,7 +263,7 @@ export function createPubFsHandler(params: {
     if (!write) return;
     activeWrite.current = null;
 
-    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    const dc = params.ensurePeerChannel(CHANNELS.PUB_FS);
     try {
       mkdirSync(dirname(write.resolvedPath), { recursive: true });
       writeFileSync(write.resolvedPath, Buffer.concat(write.chunks));
@@ -285,7 +285,7 @@ export function createPubFsHandler(params: {
     if (!request) return;
 
     const { requestId, path: filePath } = request;
-    const dc = params.openDataChannel(CHANNELS.PUB_FS);
+    const dc = params.ensurePeerChannel(CHANNELS.PUB_FS);
     await params.waitForChannelOpen(dc);
     const sessionRootDir = await waitForSessionRootDir();
 

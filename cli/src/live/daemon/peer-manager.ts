@@ -25,6 +25,7 @@ export function createPeerManager(params: {
   setupChannel: (
     name: string,
     dc: ReturnType<NonNullable<DaemonState["peer"]>["createDataChannel"]>,
+    options?: { peerOwned?: boolean },
   ) => void;
   flushQueuedAcks: () => void;
   failPendingAcks: () => void;
@@ -107,6 +108,7 @@ export function createPeerManager(params: {
       setupChannel(
         dc.getLabel(),
         dc as ReturnType<NonNullable<DaemonState["peer"]>["createDataChannel"]>,
+        { peerOwned: true },
       );
     });
   }
@@ -115,25 +117,23 @@ export function createPeerManager(params: {
     const nextPeer = createPeerConnection({ iceServers });
     state.peer = nextPeer;
     setConnectionState("connecting");
-    state.channels = new Map();
-    state.pendingInboundBinaryMeta = new Map();
-    state.inboundStreams = new Map();
+    state.peerDataChannels = new WeakSet();
     resetMessageDedup();
     attachPeerHandlers(nextPeer);
   }
 
   async function closeCurrentPeer(): Promise<void> {
     failPendingAcks();
-    for (const dc of state.channels.values()) {
-      try {
-        dc.close();
-      } catch (error) {
-        debugLog("failed to close data channel cleanly", error);
+    for (const [name, bucket] of state.channels) {
+      for (const dc of [...bucket]) {
+        if (!state.peerDataChannels.has(dc)) continue;
+        try {
+          dc.close();
+        } catch (error) {
+          debugLog(`failed to close peer data channel "${name}" cleanly`, error);
+        }
       }
     }
-    state.channels.clear();
-    state.pendingInboundBinaryMeta.clear();
-    state.inboundStreams.clear();
     resetMessageDedup();
     if (state.peer) {
       try {

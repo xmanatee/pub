@@ -20,6 +20,7 @@ import type { DaemonState } from "./state.js";
 
 const DEDUP_MAX_SIZE = 10_000;
 const OUTBOUND_SEND_MAX_ATTEMPTS = 2;
+const OUTBOUND_ACK_TIMEOUT_MS = 5_000;
 const MAX_ACK_FAILURES = 3;
 const MAX_PENDING_ACKS = 200;
 
@@ -43,6 +44,34 @@ export function createDaemonChannelManager(params: {
       });
   }
 
+  function getOpenChannels(name: string): DataChannelLike[] {
+    const bucket = state.channels.get(name);
+    if (!bucket) return [];
+    const open: DataChannelLike[] = [];
+    for (const dc of bucket) if (dc.isOpen()) open.push(dc);
+    return open;
+  }
+
+  function hasOpenChannel(name: string): boolean {
+    const bucket = state.channels.get(name);
+    if (!bucket) return false;
+    for (const dc of bucket) if (dc.isOpen()) return true;
+    return false;
+  }
+
+  function fanOutSend(dcs: DataChannelLike[], encoded: string, errorContext: string): number {
+    let sent = 0;
+    for (const dc of dcs) {
+      try {
+        dc.sendMessage(encoded);
+        sent += 1;
+      } catch (error) {
+        markError(errorContext, error);
+      }
+    }
+    return sent;
+  }
+
   function emitDeliveryStatus(params: {
     channel: string;
     messageId: string;
@@ -50,8 +79,6 @@ export function createDaemonChannelManager(params: {
     error?: string;
   }): void {
     if (!params.messageId || params.channel === CONTROL_CHANNEL) return;
-    const controlDc = state.channels.get(CONTROL_CHANNEL);
-    const messageDc = state.channels.get(params.channel);
     const encoded = encodeMessage(
       makeDeliveryReceiptMessage({
         messageId: params.messageId,
@@ -60,17 +87,16 @@ export function createDaemonChannelManager(params: {
         error: params.error,
       }),
     );
-    try {
-      if (controlDc?.isOpen()) {
-        controlDc.sendMessage(encoded);
-        return;
-      }
-      if (messageDc?.isOpen()) {
-        messageDc.sendMessage(encoded);
-      }
-    } catch (error) {
-      debugLog("failed to emit delivery status", error);
+    const controlDcs = getOpenChannels(CONTROL_CHANNEL);
+    if (controlDcs.length > 0) {
+      fanOutSend(controlDcs, encoded, "failed to emit delivery status on _control");
+      return;
     }
+    fanOutSend(
+      getOpenChannels(params.channel),
+      encoded,
+      `failed to emit delivery status on "${params.channel}"`,
+    );
   }
 
   function getAckKey(messageId: string, channel: string): string {
@@ -91,39 +117,33 @@ export function createDaemonChannelManager(params: {
   }
 
   function flushQueuedAcks(): void {
-    const controlDc = state.channels.get(CONTROL_CHANNEL);
     for (const [ackKey, ack] of state.pendingOutboundAcks) {
-      const messageDc = state.channels.get(ack.channel);
+      const controlDcs = getOpenChannels(CONTROL_CHANNEL);
+      const messageDcs = getOpenChannels(ack.channel);
       const targetChannel = resolveAckChannel({
-        controlChannelOpen: Boolean(controlDc?.isOpen()),
-        messageChannelOpen: Boolean(messageDc?.isOpen()),
+        controlChannelOpen: controlDcs.length > 0,
+        messageChannelOpen: messageDcs.length > 0,
         messageChannel: ack.channel,
       });
       if (!targetChannel) continue;
 
       const encodedAck = encodeMessage(makeAckMessage(ack.messageId, ack.channel));
-      const primaryDc = targetChannel === CONTROL_CHANNEL ? controlDc : messageDc;
-
-      try {
-        if (primaryDc?.isOpen()) {
-          primaryDc.sendMessage(encodedAck);
-          state.pendingOutboundAcks.delete(ackKey);
-          continue;
-        }
-      } catch (error) {
-        markError("failed to flush queued ack on primary channel", error);
+      const primaryDcs = targetChannel === CONTROL_CHANNEL ? controlDcs : messageDcs;
+      const primarySent = fanOutSend(primaryDcs, encodedAck, "failed to flush queued ack");
+      if (primarySent > 0) {
+        state.pendingOutboundAcks.delete(ackKey);
+        continue;
       }
 
-      const fallbackChannel = targetChannel === ack.channel ? CONTROL_CHANNEL : ack.channel;
-      const fallbackDc = fallbackChannel === CONTROL_CHANNEL ? controlDc : messageDc;
-      try {
-        if (fallbackDc?.isOpen()) {
-          fallbackDc.sendMessage(encodedAck);
-          state.pendingOutboundAcks.delete(ackKey);
-          continue;
-        }
-      } catch (error) {
-        markError("failed to flush queued ack on fallback channel", error);
+      const fallbackDcs = targetChannel === CONTROL_CHANNEL ? messageDcs : controlDcs;
+      const fallbackSent = fanOutSend(
+        fallbackDcs,
+        encodedAck,
+        "failed to flush queued ack on fallback channel",
+      );
+      if (fallbackSent > 0) {
+        state.pendingOutboundAcks.delete(ackKey);
+        continue;
       }
 
       ack.failCount += 1;
@@ -196,20 +216,34 @@ export function createDaemonChannelManager(params: {
     dedup.reset();
   }
 
-  function setupChannel(name: string, dc: DataChannelLike): void {
-    state.channels.set(name, dc);
+  function setupChannel(name: string, dc: DataChannelLike, options?: { peerOwned?: boolean }): void {
+    let bucket = state.channels.get(name);
+    if (!bucket) {
+      bucket = new Set();
+      state.channels.set(name, bucket);
+    }
+    bucket.add(dc);
+    if (options?.peerOwned) state.peerDataChannels.add(dc);
+
     dc.onOpen(() => {
       debugLog(`datachannel "${name}" open`);
       if (name === CONTROL_CHANNEL) flushQueuedAcks();
     });
 
     dc.onClosed(() => {
-      if (state.channels.get(name) === dc) {
-        state.channels.delete(name);
-        state.pendingInboundBinaryMeta.delete(name);
-        state.inboundStreams.delete(name);
+      const currentBucket = state.channels.get(name);
+      if (currentBucket) {
+        currentBucket.delete(dc);
+        if (currentBucket.size === 0) {
+          state.channels.delete(name);
+          state.pendingInboundBinaryMeta.delete(name);
+          state.inboundStreams.delete(name);
+        }
       }
       debugLog(`datachannel "${name}" closed`);
+      // When a target-channel DC closes, re-evaluate queued acks so pending
+      // acks keyed on this channel can drain via their fallback (_control).
+      flushQueuedAcks();
       onChannelClosed?.(name);
     });
 
@@ -351,12 +385,20 @@ export function createDaemonChannelManager(params: {
     });
   }
 
-  function openDataChannel(name: string): DataChannelLike {
+  /** Get an existing WebRTC-peer DC for this name, or create one on the peer.
+   *  Use when a caller needs a single DC handle to send binary frames in order
+   *  (pub-fs streams). Tunnel endpoints register through `setupChannel` and do
+   *  not route through this helper. */
+  function ensurePeerChannel(name: string): DataChannelLike {
     if (!state.peer) throw new Error("PeerConnection not initialized");
-    const existing = state.channels.get(name);
-    if (existing) return existing;
+    const bucket = state.channels.get(name);
+    if (bucket) {
+      for (const dc of bucket) {
+        if (state.peerDataChannels.has(dc)) return dc;
+      }
+    }
     const dc = state.peer.createDataChannel(name, ORDERED_DATA_CHANNEL_OPTIONS);
-    setupChannel(name, dc);
+    setupChannel(name, dc, { peerOwned: true });
     return dc;
   }
 
@@ -381,42 +423,59 @@ export function createDaemonChannelManager(params: {
   async function sendOutboundMessageWithAck(
     channel: string,
     msg: BridgeMessage,
-    options?: { binaryPayload?: Buffer; context?: string; maxAttempts?: number },
+    options?: {
+      binaryPayload?: Buffer;
+      context?: string;
+      maxAttempts?: number;
+      ackTimeoutMs?: number;
+    },
   ): Promise<boolean> {
     const maxAttempts = options?.maxAttempts ?? OUTBOUND_SEND_MAX_ATTEMPTS;
+    const ackTimeoutMs = options?.ackTimeoutMs ?? OUTBOUND_ACK_TIMEOUT_MS;
     const context = options?.context ?? `channel "${channel}"`;
+    const encoded = encodeMessage(
+      options?.binaryPayload
+        ? { ...msg, meta: { ...(msg.meta || {}), size: options.binaryPayload.length } }
+        : msg,
+    );
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       if (state.stopped || !isLiveConnectionReady(state.runtimeState)) return false;
 
-      let targetDc: DataChannelLike;
-      try {
-        targetDc = state.channels.get(channel) ?? openDataChannel(channel);
-        await waitForChannelOpen(targetDc);
-      } catch (error) {
-        markError(`${context} failed to open (attempt ${attempt}/${maxAttempts})`, error);
+      let targetDcs = getOpenChannels(channel);
+      if (targetDcs.length === 0 && state.peer) {
+        try {
+          const dc = ensurePeerChannel(channel);
+          await waitForChannelOpen(dc);
+          targetDcs = getOpenChannels(channel);
+        } catch (error) {
+          markError(`${context} failed to open (attempt ${attempt}/${maxAttempts})`, error);
+          continue;
+        }
+      }
+      if (targetDcs.length === 0) {
+        markError(`${context} no open endpoints (attempt ${attempt}/${maxAttempts})`);
         continue;
       }
 
       const waitForAck = shouldAcknowledgeMessage(channel, msg)
-        ? waitForDeliveryAck(msg.id, channel, 5_000)
+        ? waitForDeliveryAck(msg.id, channel, ackTimeoutMs)
         : null;
 
-      try {
-        if (msg.type === "binary" && options?.binaryPayload) {
-          targetDc.sendMessage(
-            encodeMessage({
-              ...msg,
-              meta: { ...(msg.meta || {}), size: options.binaryPayload.length },
-            }),
-          );
-          targetDc.sendMessageBinary(options.binaryPayload);
-        } else {
-          targetDc.sendMessage(encodeMessage(msg));
+      let sendCount = 0;
+      for (const dc of targetDcs) {
+        try {
+          dc.sendMessage(encoded);
+          if (msg.type === "binary" && options?.binaryPayload) {
+            dc.sendMessageBinary(options.binaryPayload);
+          }
+          sendCount += 1;
+        } catch (error) {
+          markError(`${context} send failed on endpoint (attempt ${attempt}/${maxAttempts})`, error);
         }
-      } catch (error) {
+      }
+      if (sendCount === 0) {
         if (waitForAck) settlePendingAck(msg.id, channel, false);
-        markError(`${context} failed to send (attempt ${attempt}/${maxAttempts})`, error);
         continue;
       }
 
@@ -433,9 +492,11 @@ export function createDaemonChannelManager(params: {
 
   return {
     emitDeliveryStatus,
+    ensurePeerChannel,
     failPendingAcks,
     flushQueuedAcks,
-    openDataChannel,
+    getOpenChannels,
+    hasOpenChannel,
     resetMessageDedup,
     sendOutboundMessageWithAck,
     settlePendingAck,

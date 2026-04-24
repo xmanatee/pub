@@ -12,7 +12,7 @@ function createHandlerHarness(overrides?: {
   const persistFiles = vi.fn(
     async () => ({ ok: true, fileCount: 1, delivered: true }) as Record<string, unknown>,
   );
-  const openDataChannel = vi.fn();
+  const sendOutboundMessageWithAck = vi.fn(async () => true);
 
   const handler = createDaemonIpcHandler({
     persistCanvasHtml,
@@ -33,12 +33,8 @@ function createHandlerHarness(overrides?: {
     getBridgeStatus: () => null,
     getLogPath: () => null,
     getWriteReadinessError: () => overrides?.writeReadinessError ?? null,
-    openDataChannel,
-    waitForChannelOpen: vi.fn(async () => {}),
-    waitForDeliveryAck: vi.fn(async () => true),
-    settlePendingAck: vi.fn(),
+    sendOutboundMessageWithAck,
     markAgentStreaming: vi.fn(),
-    markError: vi.fn(),
     shutdown: vi.fn(),
     writeAckTimeoutMs: 5_000,
     writeAckMaxAttempts: 2,
@@ -46,7 +42,7 @@ function createHandlerHarness(overrides?: {
     getBridgeRunner: () => null,
   });
 
-  return { handler, persistCanvasHtml, persistFiles, openDataChannel };
+  return { handler, persistCanvasHtml, persistFiles, sendOutboundMessageWithAck };
 }
 
 function canvasWriteRequest(html: string): IpcRequest {
@@ -140,7 +136,7 @@ describe("ipc-handler run-command-spec", () => {
 
 describe("ipc-handler data channel write", () => {
   it("checks write readiness", async () => {
-    const { handler, openDataChannel } = createHandlerHarness({
+    const { handler, sendOutboundMessageWithAck } = createHandlerHarness({
       writeReadinessError: "Live session connection is not ready yet.",
     });
 
@@ -150,6 +146,35 @@ describe("ipc-handler data channel write", () => {
     });
 
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining("not ready") });
-    expect(openDataChannel).not.toHaveBeenCalled();
+    expect(sendOutboundMessageWithAck).not.toHaveBeenCalled();
+  });
+
+  it("fans the write through sendOutboundMessageWithAck", async () => {
+    const { handler, sendOutboundMessageWithAck } = createHandlerHarness();
+
+    const result = await handler({
+      method: "write",
+      params: { channel: "chat", msg: { id: "msg-3", type: "text", data: "hello" } },
+    });
+
+    expect(result).toEqual({ ok: true, delivered: true });
+    expect(sendOutboundMessageWithAck).toHaveBeenCalledWith(
+      "chat",
+      expect.objectContaining({ id: "msg-3", type: "text" }),
+      expect.objectContaining({ ackTimeoutMs: 5_000, maxAttempts: 2 }),
+    );
+  });
+
+  it("surfaces an error when delivery fails", async () => {
+    const { handler, sendOutboundMessageWithAck } = createHandlerHarness();
+    sendOutboundMessageWithAck.mockResolvedValueOnce(false);
+
+    const result = (await handler({
+      method: "write",
+      params: { channel: "chat", msg: { id: "msg-4", type: "text", data: "hi" } },
+    })) as { ok: boolean; error?: string };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("msg-4");
   });
 });

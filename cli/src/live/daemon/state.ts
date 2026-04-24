@@ -53,7 +53,15 @@ export type DaemonState = {
   pendingOutboundAcks: Map<string, PendingOutboundAck>;
   pendingDeliveryAcks: Map<string, PendingDeliveryAck>;
   peer: AdapterPeerConnection | null;
-  channels: Map<string, DataChannelLike>;
+  /** All live data channels indexed by name. Each name may have multiple
+   *  concurrent endpoints — e.g. the WebRTC peer (iframe) and the tunnel
+   *  websocket (shell) both open `chat` and `_control`. Outbound traffic
+   *  fans out across every open DC in the set so every endpoint sees it. */
+  channels: Map<string, Set<DataChannelLike>>;
+  /** Subset of `channels`: data channels owned by the current WebRTC peer.
+   *  Used to route binary streams and to target peer-specific sends without
+   *  tagging the `DataChannelLike` interface itself. */
+  peerDataChannels: WeakSet<DataChannelLike>;
   pendingInboundBinaryMeta: Map<string, BridgeMessage>;
   inboundStreams: Map<string, { streamId: string; startedAt: number }>;
   heartbeatTimer: ReturnType<typeof setInterval> | null;
@@ -86,6 +94,7 @@ export function createDaemonState(): DaemonState {
     pendingDeliveryAcks: new Map(),
     peer: null,
     channels: new Map(),
+    peerDataChannels: new WeakSet(),
     pendingInboundBinaryMeta: new Map(),
     inboundStreams: new Map(),
     heartbeatTimer: null,

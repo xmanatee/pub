@@ -52,11 +52,12 @@ export function useTunnelLiveModel(
 
   useEffect(() => {
     transport.onChannelMessage.current = (channel: string, msg: BridgeMessage) => {
-      if (channel === CONTROL_CHANNEL) {
-        const ack = parseAckMessage(msg);
-        if (ack) chatDelivery.markMessageConfirmed(ack.messageId);
+      const ack = parseAckMessage(msg);
+      if (ack) {
+        chatDelivery.markMessageConfirmed(ack.messageId);
         return;
       }
+      if (channel === CONTROL_CHANNEL) return;
       if (channel === "chat" && msg.type === "text" && typeof msg.data === "string") {
         chatDelivery.addAgentMessage({ content: msg.data, id: msg.id });
       }
@@ -70,8 +71,11 @@ export function useTunnelLiveModel(
     (text: string) => {
       const msg = makeTextMessage(text);
       chatDelivery.addUserPendingMessage({ content: text, id: msg.id });
-      transport.sendOnChannel("chat", msg);
-      chatDelivery.markMessageSentIfPending(msg.id);
+      if (transport.sendOnChannel("chat", msg)) {
+        chatDelivery.markMessageSentIfPending(msg.id);
+      } else {
+        chatDelivery.markMessageFailed(msg.id);
+      }
     },
     [chatDelivery, transport],
   );
@@ -80,10 +84,7 @@ export function useTunnelLiveModel(
 
   const audio = useControlBarAudio({
     disabled: !transport.connected,
-    sendOnChannel: (ch: string, msg: BridgeMessage) => {
-      transport.sendOnChannel(ch, msg);
-      return transport.connected;
-    },
+    sendOnChannel: (ch: string, msg: BridgeMessage) => transport.sendOnChannel(ch, msg),
     sendBinaryOnChannel: () => false,
     ensureChannel,
     onSendAudio: () => {},
