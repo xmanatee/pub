@@ -97,6 +97,12 @@ function deferredPromise<T>() {
   return { promise, resolve, reject };
 }
 
+/** A bridge acceptor that always reports messages as delivered (so existing
+ *  tests that don't care about bridge plumbing keep passing). */
+const passThroughAcceptor = {
+  tryAcceptInbound: () => "delivered" as const,
+};
+
 describe("createDaemonChannelManager pub-fs binary flow", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -113,6 +119,7 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
       markError: vi.fn(),
       onCommandMessage: vi.fn(async () => {}),
       onPubFsMessage,
+      getBridgeAcceptor: () => passThroughAcceptor,
     });
 
     const dc = new MockDataChannel();
@@ -145,6 +152,7 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
       markError,
       onCommandMessage: vi.fn(async () => {}),
       onPubFsMessage,
+      getBridgeAcceptor: () => passThroughAcceptor,
     });
 
     const dc = new MockDataChannel();
@@ -179,6 +187,7 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
       markError: vi.fn(),
       onCommandMessage: vi.fn(async () => {}),
       onPubFsMessage,
+      getBridgeAcceptor: () => passThroughAcceptor,
     });
 
     const dc = new MockDataChannel();
@@ -220,6 +229,7 @@ describe("createDaemonChannelManager fan-out semantics", () => {
     overrides: {
       onCommandMessage?: (msg: BridgeMessage) => Promise<void>;
       onChannelClosed?: (name: string) => void;
+      getBridgeAcceptor?: () => { tryAcceptInbound: typeof passThroughAcceptor.tryAcceptInbound };
     } = {},
   ) {
     const state = createDaemonState();
@@ -232,6 +242,7 @@ describe("createDaemonChannelManager fan-out semantics", () => {
       onCommandMessage: overrides.onCommandMessage ?? vi.fn(async () => {}),
       onPubFsMessage: vi.fn(async () => {}),
       onChannelClosed: overrides.onChannelClosed,
+      getBridgeAcceptor: overrides.getBridgeAcceptor ?? (() => passThroughAcceptor),
     });
     return { state, manager, markError };
   }

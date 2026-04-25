@@ -5,6 +5,7 @@ import type { IceServer } from "../../../../shared/webrtc-transport-core";
 import type { PubApiClient } from "../../core/api/client.js";
 import { createPeerConnection } from "../transport/webrtc-adapter.js";
 import { createAnswer } from "./answer.js";
+import type { SessionIntent } from "./bridge-manager.js";
 import { LOCAL_CANDIDATE_FLUSH_MS, OFFER_TIMEOUT_MS } from "./shared.js";
 import {
   type DaemonState,
@@ -31,9 +32,10 @@ export function createPeerManager(params: {
   failPendingAcks: () => void;
   resetMessageDedup: () => void;
   clearAgentPreparation: () => void;
-  ensureAgentReady: () => Promise<void>;
+  ensureAgentReady: (intent: SessionIntent) => Promise<void>;
   handleConnectionClosed: (reason: string) => void;
   clearLocalCandidateTimers: () => void;
+  startPingPong: () => void;
   stopPingPong: () => void;
   commandHandlerBeginManifestLoad: () => void;
   commandHandlerStop: () => void;
@@ -51,8 +53,10 @@ export function createPeerManager(params: {
     failPendingAcks,
     resetMessageDedup,
     clearAgentPreparation,
+    ensureAgentReady,
     handleConnectionClosed,
     clearLocalCandidateTimers,
+    startPingPong,
     stopPingPong,
     commandHandlerBeginManifestLoad,
     commandHandlerStop,
@@ -78,7 +82,17 @@ export function createPeerManager(params: {
       if (peerState === "connected") {
         setConnectionState("connected");
         flushQueuedAcks();
-        void params.ensureAgentReady().catch((error) => {
+        const slug = state.signalingSlug;
+        if (!slug) {
+          markError("peer connected without an active signaling slug — cannot prepare agent");
+          return;
+        }
+        startPingPong();
+        void ensureAgentReady({
+          kind: "pub",
+          slug,
+          modelProfile: state.signalingModelProfile,
+        }).catch((error) => {
           markError("failed to ensure agent ready after peer connected", error);
         });
         return;
@@ -150,7 +164,7 @@ export function createPeerManager(params: {
     setDaemonAgentActivity(state, "idle");
     setDaemonAgentState(state, "idle");
     clearAgentPreparation();
-    state.activeLiveModelProfile = null;
+    state.signalingModelProfile = null;
     failPendingAcks();
     stopPingPong();
     state.lastAppliedBrowserOffer = null;
@@ -229,7 +243,7 @@ export function createPeerManager(params: {
         debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
         state.lastAppliedBrowserOffer = browserOffer;
         state.signalingSlug = slug;
-        state.activeLiveModelProfile = modelProfile ?? null;
+        state.signalingModelProfile = modelProfile ?? null;
         commandHandlerBeginManifestLoad();
 
         const tSignal = Date.now();

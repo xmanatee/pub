@@ -152,6 +152,21 @@ export function ensureLiveSessionDirs(params: {
   };
 }
 
+/** Materialize the runtime directories used by a tunnel session. The
+ *  workspace itself (the super-app source tree) is owned by the user and is
+ *  never created or cleared from here — the caller passes its absolute path.
+ *  Tunnel sessions don't have a per-session id (at most one per daemon), so
+ *  attachments and artifacts live at a fixed daemon-scoped path. */
+export function ensureTunnelSessionDirs(params: { workspaceDir: string; env?: NodeJS.ProcessEnv }) {
+  const env = params.env ?? process.env;
+  const tunnelRoot = path.join(resolvePubPaths(env).sessionRuntimeRoot, "tunnel");
+  return {
+    workspaceCanvasDir: params.workspaceDir,
+    attachmentDir: ensureDir(path.join(tunnelRoot, "attachments")),
+    artifactsDir: ensureDir(path.join(tunnelRoot, "artifacts")),
+  };
+}
+
 export function writeCanvasMirror(pubId: string, files: Record<string, string>): string {
   const targetDir = pubCanvasDir(pubId);
   writeFilesToDirectory(targetDir, files);

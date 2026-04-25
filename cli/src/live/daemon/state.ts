@@ -11,13 +11,33 @@ import { IDLE_LIVE_RUNTIME_STATE } from "../../../../shared/live-runtime-state-c
 import type { BridgeRunner } from "../bridge/shared.js";
 import type { AdapterPeerConnection, DataChannelLike } from "../transport/webrtc-adapter.js";
 
-export type ActiveLiveSessionPaths = {
-  liveSessionId: string;
-  pubId: string;
-  workspaceCanvasDir: string;
-  attachmentDir: string;
-  artifactsDir: string;
-};
+/** What the bridge runner is currently bound to.
+ *
+ *  Pub-flow sessions originate from a Convex `connections` row negotiated over
+ *  WebRTC: the agent renders a specific pub's content. Tunnel-flow sessions
+ *  originate from the browser opening a relay tunnel into a long-lived
+ *  workspace (the super-app); there is no slug, no Convex round-trip, and no
+ *  publishing — the agent edits files in place and Vite HMR reflects the
+ *  changes in the iframe.
+ *
+ *  Encoded as a discriminated union so callers can never read a pub-only field
+ *  on a tunnel session (or vice versa). */
+export type ActiveSession =
+  | {
+      kind: "pub";
+      slug: string;
+      pubId: string;
+      liveSessionId: string;
+      workspaceCanvasDir: string;
+      attachmentDir: string;
+      artifactsDir: string;
+    }
+  | {
+      kind: "tunnel";
+      workspaceCanvasDir: string;
+      attachmentDir: string;
+      artifactsDir: string;
+    };
 
 export type PendingOutboundAck = {
   channel: string;
@@ -34,18 +54,28 @@ export type DaemonState = {
   stopped: boolean;
   runtimeState: LiveRuntimeStateSnapshot;
   agentPreparing: Promise<void> | null;
+  /** Incremented every time `ensureAgentReady` accepts a new intent. Lets a
+   *  long-running preparation detect that a newer intent has superseded it
+   *  (pub→pub slug change, pub→tunnel handoff, etc.) without coupling the
+   *  staleness check to any pub-only field. */
+  bridgePrepGeneration: number;
   bridgeAbort: AbortController | null;
-  /** Slug the bridge runner is currently serving. Set after the bridge starts,
-   *  cleared before teardown. Canvas writes target this slug — it stays correct
-   *  even when `signalingSlug` has already moved to a new session. */
-  bridgeSlug: string | null;
+  /** Outbound messages produced by the bridge runner while the connection is
+   *  not yet ready to send. Drained by `flushOutboundBuffer` once we go ready. */
   bridgeOutboundBuffer: Array<{ channel: string; msg: BridgeMessage }>;
+  /** Inbound messages received on data channels while the bridge runner is
+   *  still preparing. Drained into the runner once it's ready. Bounded so a
+   *  flood during prep cannot grow without bound. */
+  bridgeInboundBuffer: Array<{ channel: string; msg: BridgeMessage }>;
   recovering: boolean;
-  /** Slug of the current WebRTC signaling session. Changes immediately when
-   *  a new live request arrives — before the old bridge is torn down.
-   *  Used for signaling decisions and status reporting, NOT for routing writes. */
+  /** Slug of the current WebRTC signaling session. Pub-flow only — tunnel
+   *  sessions never set this. Changes immediately when a new browser offer
+   *  arrives, before the bridge has been retargeted. */
   signalingSlug: string | null;
-  activeLiveModelProfile: LiveModelProfile | null;
+  /** Model profile carried by the most recent pub-flow signaling snapshot.
+   *  Threaded into the bridge runner config when the pub bridge starts.
+   *  Pub-flow only. */
+  signalingModelProfile: LiveModelProfile | null;
   lastAppliedBrowserOffer: string | null;
   lastBrowserCandidateCount: number;
   lastSentCandidateCount: number;
@@ -72,7 +102,10 @@ export type DaemonState = {
   pongTimeout: ReturnType<typeof setTimeout> | null;
   lastError: string | null;
   bridgeRunner: BridgeRunner | null;
-  activeLiveSession: ActiveLiveSessionPaths | null;
+  /** What the bridge runner is currently serving. `null` exactly when
+   *  `bridgeRunner` is `null`. Stays set across pub-flow signaling drops so
+   *  the bridge can survive transient WebRTC reconnects. */
+  activeSession: ActiveSession | null;
 };
 
 export function createDaemonState(): DaemonState {
@@ -80,12 +113,13 @@ export function createDaemonState(): DaemonState {
     stopped: false,
     runtimeState: { ...IDLE_LIVE_RUNTIME_STATE },
     agentPreparing: null,
+    bridgePrepGeneration: 0,
     bridgeAbort: null,
-    bridgeSlug: null,
     bridgeOutboundBuffer: [],
+    bridgeInboundBuffer: [],
     recovering: false,
     signalingSlug: null,
-    activeLiveModelProfile: null,
+    signalingModelProfile: null,
     lastAppliedBrowserOffer: null,
     lastBrowserCandidateCount: 0,
     lastSentCandidateCount: 0,
@@ -105,7 +139,7 @@ export function createDaemonState(): DaemonState {
     pongTimeout: null,
     lastError: null,
     bridgeRunner: null,
-    activeLiveSession: null,
+    activeSession: null,
   };
 }
 

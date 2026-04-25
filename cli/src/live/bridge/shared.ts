@@ -59,6 +59,11 @@ interface SessionBriefingContext {
   workspaceDir?: string;
 }
 
+interface TunnelSessionBriefingContext {
+  workspaceDir: string;
+  agentName: string | null;
+}
+
 export function buildInboundPrompt(slug: string, userText: string): string {
   return [`[Live: ${slug}] User message:`, "", userText].join("\n");
 }
@@ -112,6 +117,23 @@ export function buildSessionBriefing(slug: string, ctx: SessionBriefingContext):
   if (COMMAND_PROTOCOL_GUIDE.length > 0) {
     lines.push("", COMMAND_PROTOCOL_GUIDE);
   }
+
+  return lines.join("\n");
+}
+
+export function buildTunnelSessionBriefing(ctx: TunnelSessionBriefingContext): string {
+  const lines: string[] = [
+    SYSTEM_PROMPT,
+    "",
+    "---",
+    "",
+    "[Live: tunnel] Session started.",
+    "",
+    "## Tunnel Context",
+    `- Workspace: \`${ctx.workspaceDir}\` (user-owned project; edit files in place — Vite HMR reflects changes through the tunnel)`,
+    `- Agent name: ${ctx.agentName ?? "(unset)"}`,
+    "- The browser is viewing this workspace through a relay tunnel; there is no pub slug, no pub publishing, and no canvas HTML protocol. Do not call `pub write -c canvas` — write files directly with normal filesystem tools.",
+  ];
 
   return lines.join("\n");
 }

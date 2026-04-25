@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
+import type { BridgeSettings } from "../../core/config/index.js";
 import { exitProcess } from "../../core/process/exit.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
@@ -24,7 +25,7 @@ import {
   isRateLimitError,
 } from "./shared.js";
 import { createSignalingController } from "./signaling.js";
-import { createDaemonState, setDaemonExecutorState } from "./state.js";
+import { createDaemonState, setDaemonConnectionState, setDaemonExecutorState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -51,17 +52,20 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     requireDelivery?: boolean;
   }): Promise<boolean> => false;
 
+  function activeSessionBridgeSettings(): BridgeSettings {
+    const session = state.activeSession;
+    if (!session) return config.bridgeSettings;
+    return {
+      ...config.bridgeSettings,
+      workspaceDir: session.workspaceCanvasDir,
+      attachmentDir: session.attachmentDir,
+      artifactsDir: session.artifactsDir,
+    };
+  }
+
   const commandHandler = createLiveCommandHandler({
     bridgeSettings: config.bridgeSettings,
-    getRuntimeBridgeSettings: () =>
-      state.activeLiveSession
-        ? {
-            ...config.bridgeSettings,
-            workspaceDir: state.activeLiveSession.workspaceCanvasDir,
-            attachmentDir: state.activeLiveSession.attachmentDir,
-            artifactsDir: state.activeLiveSession.artifactsDir,
-          }
-        : config.bridgeSettings,
+    getRuntimeBridgeSettings: activeSessionBridgeSettings,
     debugLog: (message, error) => lifecycle.debugLog(message, error),
     markError: (message, error) => lifecycle.markError(message, error),
     getBridgeRunner: () => state.bridgeRunner,
@@ -124,6 +128,11 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       lifecycle.markError(`critical datachannel "${name}" closed unexpectedly`);
       lifecycle.handleConnectionClosed(`channel-closed-${name}`);
     },
+    // Lazily resolved: bridgeManager is created below but channelManager and
+    // bridgeManager reference each other (channel→accept inbound; bridge→send
+    // outbound via channelManager). The closure here defers the lookup until
+    // the first inbound message arrives.
+    getBridgeAcceptor: () => bridgeManager,
   });
 
   function listOpenChannelNames(): string[] {
@@ -161,7 +170,12 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   };
 
   pubFsHandler = createPubFsHandler({
-    getSessionRootDir: () => state.activeLiveSession?.workspaceCanvasDir ?? null,
+    // Pub-FS is the pub-flow protocol for the browser to read/write files in
+    // the agent's session workspace. Tunnel-mode browser views fetch files
+    // directly via HTTP through the relay tunnel, so pub-fs is intentionally
+    // unavailable on tunnel sessions.
+    getSessionRootDir: () =>
+      state.activeSession?.kind === "pub" ? state.activeSession.workspaceCanvasDir : null,
     markError: lifecycle.markError,
     ensurePeerChannel: channelManager.ensurePeerChannel,
     waitForChannelOpen: channelManager.waitForChannelOpen,
@@ -170,6 +184,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   bridgeManager = createBridgeManager({
     state,
     bridgeSettings: config.bridgeSettings,
+    agentName,
     commandHandler,
     apiClient,
     debugLog: lifecycle.debugLog,
@@ -191,12 +206,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     failPendingAcks: channelManager.failPendingAcks,
     resetMessageDedup: channelManager.resetMessageDedup,
     clearAgentPreparation: bridgeManager.clearAgentPreparation,
-    ensureAgentReady: async () => {
-      lifecycle.startPingPong();
-      await bridgeManager.ensureAgentReady();
-    },
+    ensureAgentReady: bridgeManager.ensureAgentReady,
     handleConnectionClosed: lifecycle.handleConnectionClosed,
     clearLocalCandidateTimers: lifecycle.clearLocalCandidateTimers,
+    startPingPong: lifecycle.startPingPong,
     stopPingPong: lifecycle.stopPingPong,
     commandHandlerBeginManifestLoad: () => commandHandler.beginManifestLoad(),
     commandHandlerStop: () => commandHandler.stop(),
@@ -344,15 +357,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
     writeAckTimeoutMs: 5_000,
     writeAckMaxAttempts: 2,
-    getBridgeSettings: () =>
-      state.activeLiveSession
-        ? {
-            ...config.bridgeSettings,
-            workspaceDir: state.activeLiveSession.workspaceCanvasDir,
-            attachmentDir: state.activeLiveSession.attachmentDir,
-            artifactsDir: state.activeLiveSession.artifactsDir,
-          }
-        : config.bridgeSettings,
+    getBridgeSettings: activeSessionBridgeSettings,
     getBridgeRunner: () => state.bridgeRunner,
   });
 
@@ -428,6 +433,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       const httpProxy = createHttpProxy(devPort, tunnelBase);
       wsProxy = createWsProxy(devPort, (msg) => tunnelConnection?.send(msg), tunnelBase);
 
+      const tunnelWorkspaceDir = devCwd ?? process.cwd();
+
       function getOrCreateTunnelChannel(name: string): TunnelDataChannel {
         let tc = tunnelChannels.get(name);
         if (!tc) {
@@ -437,6 +444,26 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
           tc.markOpen();
         }
         return tc;
+      }
+
+      // First non-control channel opening is what proves a browser is on the
+      // other end of the tunnel — that's our cue to start the agent. The
+      // tunnel transport has no SDP/ICE state machine, so we synthesize the
+      // "connected" runtime state here and hand the bridge a tunnel intent.
+      // We pre-create the `_control` tunnel channel so the bridge can publish
+      // status messages (and the browser's delivery acks have a return path)
+      // before the browser has had a chance to send any control traffic itself.
+      function activateTunnelSessionIfNeeded(): void {
+        if (state.activeSession?.kind === "tunnel") return;
+        if (state.runtimeState.connectionState !== "connected") {
+          setDaemonConnectionState(state, "connected");
+        }
+        getOrCreateTunnelChannel(CONTROL_CHANNEL);
+        void bridgeManager
+          .ensureAgentReady({ kind: "tunnel", workspaceDir: tunnelWorkspaceDir })
+          .catch((error) => {
+            lifecycle.markError("failed to ensure agent ready for tunnel", error);
+          });
       }
 
       tunnelConnection = connectTunnel({
@@ -459,11 +486,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
               break;
             case "channel": {
               const tc = getOrCreateTunnelChannel(msg.channel);
+              if (msg.channel !== CONTROL_CHANNEL) activateTunnelSessionIfNeeded();
               tc.dispatchMessage(msg.message);
               break;
             }
             case "channel-binary": {
               const tc = getOrCreateTunnelChannel(msg.channel);
+              if (msg.channel !== CONTROL_CHANNEL) activateTunnelSessionIfNeeded();
               tc.dispatchBinary(Buffer.from(msg.data, "base64"));
               break;
             }
@@ -477,8 +506,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   }
 
   async function cleanup(): Promise<void> {
+    const sessionLabel = state.activeSession
+      ? state.activeSession.kind === "pub"
+        ? `pub:${state.activeSession.slug}`
+        : "tunnel"
+      : "none";
     lifecycle.debugLog(
-      `daemon cleanup start signalingSlug=${state.signalingSlug ?? "none"} connectionState=${state.runtimeState.connectionState} agentState=${state.runtimeState.agentState} executorState=${state.runtimeState.executorState}`,
+      `daemon cleanup start activeSession=${sessionLabel} signalingSlug=${state.signalingSlug ?? "none"} connectionState=${state.runtimeState.connectionState} agentState=${state.runtimeState.agentState} executorState=${state.runtimeState.executorState}`,
     );
 
     lifecycle.clearAllTimers();

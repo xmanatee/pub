@@ -5,6 +5,7 @@ import {
   CONTROL_CHANNEL,
   makeErrorMessage,
 } from "../../../../shared/bridge-protocol-core";
+import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import {
   canSendAgentTraffic,
   isLiveConnectionReady,
@@ -13,21 +14,54 @@ import {
 import type { PubApiClient } from "../../core/api/client.js";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { createBridgeRunnerForSettings } from "../bridge/providers/registry.js";
-import { buildSessionBriefing } from "../bridge/shared.js";
+import {
+  type BufferedEntry,
+  buildSessionBriefing,
+  buildTunnelSessionBriefing,
+} from "../bridge/shared.js";
 import {
   applyWorkspaceFiles,
+  ensureTunnelSessionDirs,
   hydrateSessionWorkspace,
   readWorkspaceFiles,
   removeLiveSessionDirs,
   writeCanvasMirror,
 } from "../runtime/daemon-files.js";
-import { type DaemonState, setDaemonAgentActivity, setDaemonAgentState } from "./state.js";
+import {
+  type ActiveSession,
+  type DaemonState,
+  setDaemonAgentActivity,
+  setDaemonAgentState,
+} from "./state.js";
 
 const SLOW_AGENT_PREPARATION_LOG_MS = 10_000;
+const MAX_BRIDGE_BUFFER_SIZE = 200;
+
+/** What ensureAgentReady is being asked to make true. The bridge-manager
+ *  reconciles `state.activeSession` to match this intent, and decides whether
+ *  to reattach (matching active session, runner alive) or restart. */
+export type SessionIntent =
+  | { kind: "pub"; slug: string; modelProfile: LiveModelProfile | null }
+  | { kind: "tunnel"; workspaceDir: string };
+
+function intentMatchesSession(intent: SessionIntent, session: ActiveSession): boolean {
+  if (intent.kind === "pub" && session.kind === "pub") {
+    return intent.slug === session.slug;
+  }
+  if (intent.kind === "tunnel" && session.kind === "tunnel") {
+    return intent.workspaceDir === session.workspaceCanvasDir;
+  }
+  return false;
+}
+
+function describeIntent(intent: SessionIntent): string {
+  return intent.kind === "pub" ? `pub:${intent.slug}` : `tunnel:${intent.workspaceDir}`;
+}
 
 export function createBridgeManager(params: {
   state: DaemonState;
   bridgeSettings: BridgeSettings;
+  agentName?: string;
   commandHandler: {
     beginManifestLoad: () => void;
     bindFromHtml: (html: string) => void;
@@ -55,6 +89,7 @@ export function createBridgeManager(params: {
   const {
     state,
     bridgeSettings,
+    agentName,
     commandHandler,
     apiClient,
     debugLog,
@@ -81,7 +116,7 @@ export function createBridgeManager(params: {
   async function sendOnChannel(channel: string, msg: BridgeMessage): Promise<boolean> {
     if (state.stopped) return false;
     if (!canSendAgentTraffic(state.runtimeState)) {
-      if (state.bridgeRunner && state.bridgeSlug && state.bridgeOutboundBuffer.length < 200) {
+      if (state.bridgeRunner && state.bridgeOutboundBuffer.length < MAX_BRIDGE_BUFFER_SIZE) {
         state.bridgeOutboundBuffer.push({ channel, msg });
       }
       return false;
@@ -92,7 +127,10 @@ export function createBridgeManager(params: {
     });
   }
 
-  async function notifyBrowserPreparationFailed(slug: string, error: unknown): Promise<void> {
+  async function notifyBrowserPreparationFailed(
+    intent: SessionIntent,
+    error: unknown,
+  ): Promise<void> {
     await sendOutboundMessageWithAck(
       CONTROL_CHANNEL,
       makeErrorMessage({
@@ -100,18 +138,21 @@ export function createBridgeManager(params: {
         message:
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : `Failed to prepare agent session for "${slug}"`,
+            : `Failed to prepare agent session for ${describeIntent(intent)}`,
       }),
       {
         context: 'bridge error status on "_control"',
         maxAttempts: 1,
       },
     ).catch((notifyError) => {
-      debugLog(`failed to notify browser about preparation error for "${slug}"`, notifyError);
+      debugLog(
+        `failed to notify browser about preparation error for ${describeIntent(intent)}`,
+        notifyError,
+      );
     });
   }
 
-  interface SessionContent {
+  interface PubSessionContent {
     pubId: string;
     files: Record<string, string>;
     isPublic: boolean;
@@ -119,7 +160,7 @@ export function createBridgeManager(params: {
     description?: string;
   }
 
-  async function fetchSessionContent(slug: string): Promise<SessionContent> {
+  async function fetchPubSessionContent(slug: string): Promise<PubSessionContent> {
     debugLog(`bridge session content fetch start slug=${slug}`);
     const pub = await apiClient.get(slug);
     if (!pub.id) {
@@ -139,16 +180,22 @@ export function createBridgeManager(params: {
     };
   }
 
-  function bindSessionManifest(content: string | undefined): void {
+  function bindManifestForSession(session: ActiveSession, indexHtml: string | undefined): void {
+    if (session.kind !== "pub") {
+      // Tunnel sessions don't carry a pub command manifest — the agent edits a
+      // user-owned project tree, not a manifest-bearing HTML artifact.
+      commandHandler.clearBindings();
+      return;
+    }
     commandHandler.beginManifestLoad();
-    if (content && content.length > 0) commandHandler.bindFromHtml(content);
+    if (indexHtml && indexHtml.length > 0) commandHandler.bindFromHtml(indexHtml);
     else commandHandler.clearBindings();
   }
 
-  async function loadSessionContent(slug: string): Promise<SessionContent> {
+  async function reloadPubSessionContent(slug: string): Promise<PubSessionContent> {
     commandHandler.beginManifestLoad();
     try {
-      const sessionContent = await fetchSessionContent(slug);
+      const sessionContent = await fetchPubSessionContent(slug);
       const indexHtml = sessionContent.files["index.html"];
       if (indexHtml && indexHtml.length > 0) commandHandler.bindFromHtml(indexHtml);
       else commandHandler.clearBindings();
@@ -160,9 +207,14 @@ export function createBridgeManager(params: {
   }
 
   async function teardownBridgeRunner(): Promise<void> {
-    const activeLiveSession = state.activeLiveSession;
-    state.bridgeSlug = null;
+    const previousSession = state.activeSession;
+    state.activeSession = null;
     state.bridgeOutboundBuffer.length = 0;
+    // Inbound buffer is intentionally NOT cleared here. Teardown runs at the
+    // start of every new preparation; the buffer holds messages the user has
+    // already sent to "the agent on this connection," and we want them to
+    // reach whichever runner ends up taking over. Failure paths clear the
+    // buffer explicitly via failBufferedInbound.
     if (state.bridgeAbort) {
       state.bridgeAbort.abort();
       state.bridgeAbort = null;
@@ -175,103 +227,155 @@ export function createBridgeManager(params: {
       }
       state.bridgeRunner = null;
     }
-    state.activeLiveSession = null;
-    if (activeLiveSession) {
+    // Pub sessions own a per-session workspace tree; tear it down so the next
+    // pub session starts clean. Tunnel sessions point at user-owned source —
+    // never delete it.
+    if (previousSession?.kind === "pub") {
       try {
-        removeLiveSessionDirs(activeLiveSession.liveSessionId);
+        removeLiveSessionDirs(previousSession.liveSessionId);
       } catch (error) {
         debugLog(
-          `failed to remove live session dirs for "${activeLiveSession.liveSessionId}"`,
+          `failed to remove live session dirs for "${previousSession.liveSessionId}"`,
           error,
         );
       }
     }
   }
 
-  async function startBridge(slug: string): Promise<void> {
-    if (state.stopped || state.signalingSlug !== slug) return;
-    await teardownBridgeRunner();
-    const abort = new AbortController();
-    state.bridgeAbort = abort;
-    debugLog(`bridge runner start slug=${slug}`);
-    const sessionContent = await fetchSessionContent(slug);
-    const liveSessionId = randomUUID();
-    const sessionPaths = hydrateSessionWorkspace({
-      liveSessionId,
-      pubId: sessionContent.pubId,
-      files: sessionContent.files,
-    });
-    state.activeLiveSession = {
-      liveSessionId,
-      pubId: sessionContent.pubId,
-      workspaceCanvasDir: sessionPaths.workspaceCanvasDir,
-      attachmentDir: sessionPaths.attachmentDir,
-      artifactsDir: sessionPaths.artifactsDir,
-    };
-    const contentFilePath = path.join(sessionPaths.workspaceCanvasDir, "index.html");
-    debugLog(
-      `bridge briefing load complete slug=${slug} liveSessionId=${liveSessionId} fileCount=${Object.keys(sessionContent.files).length}`,
-    );
-    const sessionBriefing = buildSessionBriefing(slug, {
-      title: sessionContent.title,
-      description: sessionContent.description,
-      isPublic: sessionContent.isPublic,
-      contentFilePath: sessionContent.files["index.html"] ? contentFilePath : undefined,
-      workspaceDir: sessionPaths.workspaceCanvasDir,
-    });
-
-    const runnerBridgeSettingsBase: BridgeSettings = {
+  function withRuntimeBridgeSettings(session: ActiveSession): BridgeSettings {
+    const base: BridgeSettings = {
       ...bridgeSettings,
-      workspaceDir: sessionPaths.workspaceCanvasDir,
-      attachmentDir: sessionPaths.attachmentDir,
-      artifactsDir: sessionPaths.artifactsDir,
+      workspaceDir: session.workspaceCanvasDir,
+      attachmentDir: session.attachmentDir,
+      artifactsDir: session.artifactsDir,
     };
-    const runnerBridgeSettings = state.activeLiveModelProfile
-      ? { ...runnerBridgeSettingsBase, liveModelProfile: state.activeLiveModelProfile }
-      : runnerBridgeSettingsBase;
-    const runnerConfig = {
-      slug,
-      sessionBriefing,
-      bridgeSettings: runnerBridgeSettings,
-      sendMessage: sendOnChannel,
-      onActivityChange: handleActivityChange,
-      onCanvasWrite: (html: string) => {
-        void persistCanvasHtml(html).catch((error) => {
-          markError("unexpected canvas persist failure", error);
-        });
-      },
-      onDeliveryUpdate: ({
-        channel,
-        messageId,
-        stage,
-        error,
-      }: {
-        channel: string;
-        messageId: string;
-        stage: "confirmed" | "failed";
-        error?: string;
-      }) => {
-        emitDeliveryStatus({ channel, messageId, stage, error });
-      },
-      debugLog,
-    };
+    if (session.kind === "pub" && state.signalingModelProfile) {
+      return { ...base, liveModelProfile: state.signalingModelProfile };
+    }
+    return base;
+  }
 
-    const runner = await createBridgeRunnerForSettings({
-      bridgeSettings: runnerBridgeSettings,
-      config: runnerConfig,
-      abortSignal: abort.signal,
+  function buildBriefingFor(intent: SessionIntent, content: PubSessionContent | null): string {
+    if (intent.kind === "pub") {
+      if (!content) throw new Error("pub intent requires pre-fetched session content");
+      const session = state.activeSession;
+      if (!session || session.kind !== "pub") {
+        throw new Error("pub intent requires an active pub session");
+      }
+      const indexHtml = content.files["index.html"];
+      const contentFilePath = indexHtml
+        ? path.join(session.workspaceCanvasDir, "index.html")
+        : undefined;
+      return buildSessionBriefing(session.slug, {
+        title: content.title,
+        description: content.description,
+        isPublic: content.isPublic,
+        contentFilePath,
+        workspaceDir: session.workspaceCanvasDir,
+      });
+    }
+    return buildTunnelSessionBriefing({
+      workspaceDir: intent.workspaceDir,
+      agentName: agentName ?? null,
     });
-    debugLog(`bridge runner created slug=${slug}`);
+  }
 
-    if (state.stopped || state.signalingSlug !== slug || abort.signal.aborted) {
-      await runner.stop();
+  async function startSession(
+    intent: SessionIntent,
+    abort: AbortController,
+    isStale: () => boolean,
+  ): Promise<void> {
+    debugLog(`bridge runner start ${describeIntent(intent)}`);
+
+    if (intent.kind === "pub") {
+      const content = await fetchPubSessionContent(intent.slug);
+      if (isStale() || abort.signal.aborted) return;
+      const liveSessionId = randomUUID();
+      const dirs = hydrateSessionWorkspace({
+        liveSessionId,
+        pubId: content.pubId,
+        files: content.files,
+      });
+      state.activeSession = {
+        kind: "pub",
+        slug: intent.slug,
+        pubId: content.pubId,
+        liveSessionId,
+        workspaceCanvasDir: dirs.workspaceCanvasDir,
+        attachmentDir: dirs.attachmentDir,
+        artifactsDir: dirs.artifactsDir,
+      };
+      debugLog(
+        `bridge briefing load complete slug=${intent.slug} liveSessionId=${liveSessionId} fileCount=${Object.keys(content.files).length}`,
+      );
+      const briefing = buildBriefingFor(intent, content);
+      const runtimeSettings = withRuntimeBridgeSettings(state.activeSession);
+      const runner = await createBridgeRunnerForSettings({
+        bridgeSettings: runtimeSettings,
+        config: {
+          slug: intent.slug,
+          sessionBriefing: briefing,
+          bridgeSettings: runtimeSettings,
+          sendMessage: sendOnChannel,
+          onActivityChange: handleActivityChange,
+          onCanvasWrite: (html: string) => {
+            void persistCanvasHtml(html).catch((error) => {
+              markError("unexpected canvas persist failure", error);
+            });
+          },
+          onDeliveryUpdate: emitDeliveryStatus,
+          debugLog,
+        },
+        abortSignal: abort.signal,
+      });
+      if (isStale() || abort.signal.aborted) {
+        await runner.stop();
+        return;
+      }
+      state.bridgeRunner = runner;
+      bindManifestForSession(state.activeSession, content.files["index.html"]);
       return;
     }
-    state.bridgeRunner = runner;
-    state.bridgeSlug = slug;
 
-    // Bind the manifest NOW — bridge runner is set, so agent commands will resolve.
-    bindSessionManifest(sessionContent.files["index.html"]);
+    // tunnel kind
+    const dirs = ensureTunnelSessionDirs({ workspaceDir: intent.workspaceDir });
+    state.activeSession = {
+      kind: "tunnel",
+      workspaceCanvasDir: dirs.workspaceCanvasDir,
+      attachmentDir: dirs.attachmentDir,
+      artifactsDir: dirs.artifactsDir,
+    };
+    debugLog(`bridge briefing load complete tunnel workspaceDir=${dirs.workspaceCanvasDir}`);
+    const briefing = buildBriefingFor(intent, null);
+    const runtimeSettings = withRuntimeBridgeSettings(state.activeSession);
+    const tunnelRunner = await createBridgeRunnerForSettings({
+      bridgeSettings: runtimeSettings,
+      config: {
+        // Tunnel sessions surface a stable label for log/correlation; the bridge
+        // protocol uses `slug` as the session identifier even though tunnel
+        // mode has no Convex slug.
+        slug: "(tunnel)",
+        sessionBriefing: briefing,
+        bridgeSettings: runtimeSettings,
+        sendMessage: sendOnChannel,
+        onActivityChange: handleActivityChange,
+        onDeliveryUpdate: emitDeliveryStatus,
+        debugLog,
+      },
+      abortSignal: abort.signal,
+    });
+    if (isStale() || abort.signal.aborted) {
+      await tunnelRunner.stop();
+      return;
+    }
+    state.bridgeRunner = tunnelRunner;
+    bindManifestForSession(state.activeSession, undefined);
+  }
+
+  function drainInboundBuffer(): void {
+    if (!state.bridgeRunner) return;
+    const entries = state.bridgeInboundBuffer.splice(0);
+    if (entries.length > 0) state.bridgeRunner.enqueue(entries);
   }
 
   async function flushOutboundBuffer(): Promise<void> {
@@ -284,156 +388,239 @@ export function createBridgeManager(params: {
     }
   }
 
-  async function ensureAgentReady(): Promise<void> {
+  async function ensureAgentReady(intent: SessionIntent): Promise<void> {
+    if (state.stopped || !isLiveConnectionReady(state.runtimeState)) return;
+
+    // Increment first so any in-flight preparation sees a stale generation and
+    // bails out at its next checkpoint. This is what makes pub↔tunnel handoff
+    // safe: the previous intent's network calls finish but their post-await
+    // state mutations are skipped.
+    const myGen = ++state.bridgePrepGeneration;
+    const isStale = () => state.stopped || myGen !== state.bridgePrepGeneration;
+
+    if (state.bridgeAbort) state.bridgeAbort.abort();
+    const previous = state.agentPreparing;
+
+    const myAbort = new AbortController();
+
+    const myPrep = runPreparation({
+      intent,
+      isStale,
+      myAbort,
+      previous,
+    });
+
+    state.agentPreparing = myPrep;
+    await myPrep;
+  }
+
+  async function runPreparation(args: {
+    intent: SessionIntent;
+    isStale: () => boolean;
+    myAbort: AbortController;
+    previous: Promise<void> | null;
+  }): Promise<void> {
+    const { intent, isStale, myAbort, previous } = args;
+
+    // Wait for any in-flight prep to settle. We swallow its rejection — the
+    // previous owner already logged it via markError; we only need to know
+    // when the lane is free.
+    if (previous) await previous.catch(() => {});
+    if (isStale()) return;
+
     if (
-      state.stopped ||
-      !isLiveConnectionReady(state.runtimeState) ||
-      state.agentPreparing ||
-      !state.signalingSlug
+      state.activeSession &&
+      intentMatchesSession(intent, state.activeSession) &&
+      state.bridgeRunner?.status().running
     ) {
-      return;
-    }
-
-    const slug = state.signalingSlug;
-
-    if (state.bridgeRunner && state.bridgeSlug === slug) {
-      if (state.bridgeRunner.status().running) {
-        debugLog(`reattaching existing bridge for "${slug}"`);
-        try {
-          setDaemonAgentState(state, "ready");
-          await loadSessionContent(slug);
-          await publishRuntimeState({ continued: true, requireDelivery: true });
-          await flushOutboundBuffer();
-        } catch (error) {
-          setDaemonAgentActivity(state, "idle");
-          setDaemonAgentState(state, "idle");
-          await publishRuntimeState().catch((publishError) => {
-            debugLog(
-              `failed to publish idle state after reattach error for "${slug}"`,
-              publishError,
-            );
-          });
-          markError(`failed to reattach bridge for "${slug}"`, error);
-        }
-        return;
-      }
-      debugLog(`bridge for "${slug}" died during disconnect, restarting`);
-      await stopBridge();
-    }
-
-    const isStale = () => state.stopped || state.signalingSlug !== slug;
-
-    const slowPreparationTimer = setTimeout(() => {
-      if (
-        state.agentPreparing &&
-        state.signalingSlug === slug &&
-        isLiveConnectionReady(state.runtimeState) &&
-        state.runtimeState.agentState !== "ready"
-      ) {
-        debugLog(
-          `agent preparation still in progress slug=${slug} after ${SLOW_AGENT_PREPARATION_LOG_MS}ms`,
-        );
-      }
-    }, SLOW_AGENT_PREPARATION_LOG_MS);
-
-    const preparePromise = (async () => {
+      debugLog(`reattaching existing bridge for ${describeIntent(intent)}`);
       try {
-        const t0 = Date.now();
-        setDaemonAgentState(state, "preparing");
-        await publishRuntimeState().catch((error) => {
-          debugLog(`failed to publish preparing state for "${slug}"`, error);
-        });
-        if (isStale()) return;
-        debugLog(`agent preparation start slug=${slug}`);
-        await startBridge(slug);
-        debugLog(`[profile] bridge started in ${Date.now() - t0}ms`);
-        if (isStale() || !isLiveConnectionReady(state.runtimeState)) return;
         setDaemonAgentState(state, "ready");
-        const tReady = Date.now();
-        await publishRuntimeState({ requireDelivery: true });
+        if (intent.kind === "pub") {
+          await reloadPubSessionContent(intent.slug);
+        }
         if (isStale()) return;
-        debugLog(`agent preparation complete slug=${slug} total=${Date.now() - t0}ms`);
-        debugLog(
-          `[profile] ready state sent in ${Date.now() - tReady}ms (total ${Date.now() - t0}ms)`,
-        );
+        await publishRuntimeState({ continued: true, requireDelivery: true });
+        await flushOutboundBuffer();
+        drainInboundBuffer();
       } catch (error) {
         if (isStale()) return;
         setDaemonAgentActivity(state, "idle");
         setDaemonAgentState(state, "idle");
         await publishRuntimeState().catch((publishError) => {
-          debugLog(`failed to publish idle state for "${slug}"`, publishError);
+          debugLog(
+            `failed to publish idle state after reattach error for ${describeIntent(intent)}`,
+            publishError,
+          );
         });
-        await notifyBrowserPreparationFailed(slug, error);
-        await teardownBridgeRunner().catch((stopError) => {
-          debugLog(`failed to stop bridge after preparation error for "${slug}"`, stopError);
-        });
-        markError(`failed to prepare agent session for "${slug}"`, error);
+        markError(`failed to reattach bridge for ${describeIntent(intent)}`, error);
       } finally {
-        clearTimeout(slowPreparationTimer);
         if (!isStale()) {
           state.agentPreparing = null;
+          state.bridgeAbort = null;
         }
       }
-    })();
+      return;
+    }
 
-    state.agentPreparing = preparePromise;
-    await preparePromise;
+    const slowPreparationTimer = setTimeout(() => {
+      if (
+        !isStale() &&
+        isLiveConnectionReady(state.runtimeState) &&
+        state.runtimeState.agentState !== "ready"
+      ) {
+        debugLog(
+          `agent preparation still in progress ${describeIntent(intent)} after ${SLOW_AGENT_PREPARATION_LOG_MS}ms`,
+        );
+      }
+    }, SLOW_AGENT_PREPARATION_LOG_MS);
+
+    try {
+      const t0 = Date.now();
+      setDaemonAgentState(state, "preparing");
+      await publishRuntimeState().catch((error) => {
+        debugLog(`failed to publish preparing state for ${describeIntent(intent)}`, error);
+      });
+      if (isStale()) return;
+      debugLog(`agent preparation start ${describeIntent(intent)}`);
+      await teardownBridgeRunner();
+      if (isStale()) return;
+      // teardownBridgeRunner aborts whatever was in state.bridgeAbort. Install
+      // ours afterwards so the runner we're about to create is governed by an
+      // un-aborted controller.
+      state.bridgeAbort = myAbort;
+      await startSession(intent, myAbort, isStale);
+      debugLog(`[profile] bridge started in ${Date.now() - t0}ms`);
+      if (isStale() || !isLiveConnectionReady(state.runtimeState)) return;
+      setDaemonAgentState(state, "ready");
+      const tReady = Date.now();
+      await publishRuntimeState({ requireDelivery: true });
+      if (isStale()) return;
+      await flushOutboundBuffer();
+      drainInboundBuffer();
+      debugLog(`agent preparation complete ${describeIntent(intent)} total=${Date.now() - t0}ms`);
+      debugLog(
+        `[profile] ready state sent in ${Date.now() - tReady}ms (total ${Date.now() - t0}ms)`,
+      );
+    } catch (error) {
+      if (isStale()) return;
+      setDaemonAgentActivity(state, "idle");
+      setDaemonAgentState(state, "idle");
+      await publishRuntimeState().catch((publishError) => {
+        debugLog(`failed to publish idle state for ${describeIntent(intent)}`, publishError);
+      });
+      await notifyBrowserPreparationFailed(intent, error);
+      await teardownBridgeRunner().catch((stopError) => {
+        debugLog(
+          `failed to stop bridge after preparation error for ${describeIntent(intent)}`,
+          stopError,
+        );
+      });
+      failBufferedInbound(`agent preparation failed for ${describeIntent(intent)}`);
+      markError(`failed to prepare agent session for ${describeIntent(intent)}`, error);
+    } finally {
+      clearTimeout(slowPreparationTimer);
+      if (!isStale()) {
+        state.agentPreparing = null;
+        state.bridgeAbort = null;
+      }
+    }
+  }
+
+  function failBufferedInbound(reason: string): void {
+    const entries = state.bridgeInboundBuffer.splice(0);
+    for (const { channel, msg } of entries) {
+      emitDeliveryStatus({ channel, messageId: msg.id, stage: "failed", error: reason });
+    }
   }
 
   async function stopBridge(): Promise<void> {
     setDaemonAgentActivity(state, "idle");
     setDaemonAgentState(state, "idle");
     state.agentPreparing = null;
+    state.bridgePrepGeneration += 1;
+    failBufferedInbound("bridge stopped");
     await teardownBridgeRunner();
   }
 
+  function clearAgentPreparation(): void {
+    state.agentPreparing = null;
+  }
+
+  /** Outcome of attempting to deliver an inbound channel message to the bridge. */
+  type InboundAcceptOutcome = "delivered" | "buffered" | "rejected";
+
+  /** Channel-manager calls this once per inbound bridge-bound message. The
+   *  bridge runner cannot guarantee being alive at the instant a message
+   *  arrives (it might still be preparing), so we either forward, buffer
+   *  bounded, or — if there is no session at all — reject so the browser sees
+   *  a `delivery: failed` instead of a misleading `received`. */
+  function tryAcceptInbound(entries: BufferedEntry[]): InboundAcceptOutcome {
+    if (state.bridgeRunner) {
+      state.bridgeRunner.enqueue(entries);
+      return "delivered";
+    }
+    const sessionInFlight = state.activeSession !== null || state.agentPreparing !== null;
+    if (!sessionInFlight) return "rejected";
+    if (state.bridgeInboundBuffer.length + entries.length > MAX_BRIDGE_BUFFER_SIZE) {
+      return "rejected";
+    }
+    state.bridgeInboundBuffer.push(...entries);
+    return "buffered";
+  }
+
   async function persistCanvasHtml(html: string): Promise<Record<string, unknown>> {
-    const slug = state.bridgeSlug;
-    const activeLiveSession = state.activeLiveSession;
-    if (!slug || !activeLiveSession) return { ok: false, error: "No active live session." };
+    const session = state.activeSession;
+    if (!session) return { ok: false, error: "No active live session." };
+    if (session.kind !== "pub") {
+      return {
+        ok: false,
+        error: "Canvas writes are only supported in pub sessions, not tunnel mode.",
+      };
+    }
     try {
-      const files = applyWorkspaceFiles(activeLiveSession.workspaceCanvasDir, {
+      const files = applyWorkspaceFiles(session.workspaceCanvasDir, {
         "index.html": html,
       });
-      await publishWorkspaceFiles(slug, activeLiveSession, files);
+      await publishWorkspaceFiles(session, files);
       commandHandler.bindFromHtml(html);
       return { ok: true, delivered: true };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      markError(`failed to persist canvas HTML for "${slug}"`, error);
+      markError(`failed to persist canvas HTML for "${session.slug}"`, error);
       return { ok: false, error: `Canvas update failed: ${errMsg}` };
     }
   }
 
   async function persistFiles(files: Record<string, string>): Promise<Record<string, unknown>> {
-    const slug = state.bridgeSlug;
-    const activeLiveSession = state.activeLiveSession;
-    if (!slug || !activeLiveSession) return { ok: false, error: "No active live session." };
+    const session = state.activeSession;
+    if (!session) return { ok: false, error: "No active live session." };
+    if (session.kind !== "pub") {
+      return {
+        ok: false,
+        error: "File writes via `pub write` are only supported in pub sessions, not tunnel mode.",
+      };
+    }
     try {
-      const snapshot = applyWorkspaceFiles(activeLiveSession.workspaceCanvasDir, files);
-      await publishWorkspaceFiles(slug, activeLiveSession, snapshot);
+      const snapshot = applyWorkspaceFiles(session.workspaceCanvasDir, files);
+      await publishWorkspaceFiles(session, snapshot);
       const indexHtml = snapshot["index.html"];
       if (indexHtml) commandHandler.bindFromHtml(indexHtml);
       return { ok: true, fileCount: Object.keys(snapshot).length };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      markError(`failed to write files for "${slug}"`, error);
+      markError(`failed to write files for "${session.slug}"`, error);
       return { ok: false, error: `File write failed: ${errMsg}` };
     }
   }
 
   async function publishWorkspaceFiles(
-    slug: string,
-    activeLiveSession: NonNullable<DaemonState["activeLiveSession"]>,
-    files = readWorkspaceFiles(activeLiveSession.workspaceCanvasDir),
+    session: Extract<ActiveSession, { kind: "pub" }>,
+    files = readWorkspaceFiles(session.workspaceCanvasDir),
   ): Promise<Record<string, string>> {
-    await apiClient.update({ slug, files });
-    writeCanvasMirror(activeLiveSession.pubId, files);
+    await apiClient.update({ slug: session.slug, files });
+    writeCanvasMirror(session.pubId, files);
     return files;
-  }
-
-  function clearAgentPreparation(): void {
-    state.agentPreparing = null;
   }
 
   return {
@@ -443,5 +630,6 @@ export function createBridgeManager(params: {
     persistCanvasHtml,
     persistFiles,
     stopBridge,
+    tryAcceptInbound,
   };
 }

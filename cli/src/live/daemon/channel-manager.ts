@@ -24,6 +24,14 @@ const OUTBOUND_ACK_TIMEOUT_MS = 5_000;
 const MAX_ACK_FAILURES = 3;
 const MAX_PENDING_ACKS = 200;
 
+/** Bridge-manager API surface that channel-manager needs in order to route
+ *  inbound messages without ever silently dropping them. */
+export interface BridgeInboundAcceptor {
+  tryAcceptInbound(
+    entries: Array<{ channel: string; msg: BridgeMessage }>,
+  ): "delivered" | "buffered" | "rejected";
+}
+
 export function createDaemonChannelManager(params: {
   state: DaemonState;
   debugLog: (message: string, error?: unknown) => void;
@@ -31,8 +39,19 @@ export function createDaemonChannelManager(params: {
   onCommandMessage: (msg: BridgeMessage) => Promise<void>;
   onPubFsMessage: (msg: BridgeMessage) => Promise<void>;
   onChannelClosed?: (name: string) => void;
+  /** Resolved lazily so the channel-manager can be wired before the
+   *  bridge-manager (they reference each other through different facets). */
+  getBridgeAcceptor: () => BridgeInboundAcceptor;
 }) {
-  const { state, debugLog, markError, onCommandMessage, onPubFsMessage, onChannelClosed } = params;
+  const {
+    state,
+    debugLog,
+    markError,
+    onCommandMessage,
+    onPubFsMessage,
+    onChannelClosed,
+    getBridgeAcceptor,
+  } = params;
   const dedup = createMessageDedup(DEDUP_MAX_SIZE);
   let pubFsWriteLane = Promise.resolve();
 
@@ -70,6 +89,22 @@ export function createDaemonChannelManager(params: {
       }
     }
     return sent;
+  }
+
+  /** Emit a delivery receipt that mirrors the bridge-acceptor's outcome.
+   *  Inbound messages that the bridge buffered or accepted both report
+   *  `received`; rejected messages report `failed` so the browser surfaces the
+   *  drop instead of seeing a misleading success. */
+  function emitDeliveryForOutcome(
+    channel: string,
+    messageId: string,
+    outcome: "delivered" | "buffered" | "rejected",
+  ): void {
+    if (outcome === "rejected") {
+      emitDeliveryStatus({ channel, messageId, stage: "failed", error: "no active agent session" });
+      return;
+    }
+    emitDeliveryStatus({ channel, messageId, stage: "received" });
   }
 
   function emitDeliveryStatus(params: {
@@ -320,12 +355,11 @@ export function createDaemonChannelManager(params: {
             });
             return;
           }
-          state.bridgeRunner?.enqueue([{ channel: name, msg }]);
-          if (
-            name !== CONTROL_CHANNEL &&
-            (msg.type === "text" || msg.type === "html" || (msg.type === "binary" && !!msg.data))
-          ) {
-            emitDeliveryStatus({ channel: name, messageId: msg.id, stage: "received" });
+          const isDeliverableType =
+            msg.type === "text" || msg.type === "html" || (msg.type === "binary" && !!msg.data);
+          const outcome = getBridgeAcceptor().tryAcceptInbound([{ channel: name, msg }]);
+          if (name !== CONTROL_CHANNEL && isDeliverableType) {
+            emitDeliveryForOutcome(name, msg.id, outcome);
           }
           return;
         }
@@ -379,9 +413,9 @@ export function createDaemonChannelManager(params: {
         if (shouldAcknowledgeMessage(name, binMsg)) {
           queueAck(binMsg.id, name);
         }
-        state.bridgeRunner?.enqueue([{ channel: name, msg: binMsg }]);
+        const binOutcome = getBridgeAcceptor().tryAcceptInbound([{ channel: name, msg: binMsg }]);
         if (!activeStream) {
-          emitDeliveryStatus({ channel: name, messageId: binMsg.id, stage: "received" });
+          emitDeliveryForOutcome(name, binMsg.id, binOutcome);
         }
       } catch (error) {
         debugLog(`datachannel "${name}" onMessage error`, error);

@@ -58,6 +58,8 @@ function createTestPeerManager() {
   const handleConnectionClosed = vi.fn();
   const ensureAgentReady = vi.fn(async () => {});
   const flushQueuedAcks = vi.fn();
+  const startPingPong = vi.fn();
+  const markError = vi.fn();
   const commandHandlerBeginManifestLoad = vi.fn();
 
   const manager = createPeerManager({
@@ -68,7 +70,7 @@ function createTestPeerManager() {
     },
     daemonSessionId: "test-session",
     debugLog: vi.fn(),
-    markError: vi.fn(),
+    markError,
     setupChannel: vi.fn(),
     flushQueuedAcks,
     failPendingAcks: vi.fn(),
@@ -77,6 +79,7 @@ function createTestPeerManager() {
     ensureAgentReady,
     handleConnectionClosed,
     clearLocalCandidateTimers: vi.fn(),
+    startPingPong,
     stopPingPong: vi.fn(),
     commandHandlerBeginManifestLoad,
     commandHandlerStop: vi.fn(),
@@ -92,6 +95,8 @@ function createTestPeerManager() {
     handleConnectionClosed,
     ensureAgentReady,
     flushQueuedAcks,
+    startPingPong,
+    markError,
     commandHandlerBeginManifestLoad,
   };
 }
@@ -115,11 +120,29 @@ describe("peer-manager state transitions", () => {
     expect(handleConnectionClosed).toHaveBeenCalledWith("peer-state:closed");
   });
 
-  it("onStateChange('connected') calls ensureAgentReady and flushQueuedAcks", () => {
-    const { mockPeer, ensureAgentReady, flushQueuedAcks } = createTestPeerManager();
+  it("onStateChange('connected') calls ensureAgentReady and startPingPong with the active pub intent", () => {
+    const { mockPeer, ensureAgentReady, flushQueuedAcks, startPingPong, state } =
+      createTestPeerManager();
+    state.signalingSlug = "demo-slug";
+    state.signalingModelProfile = "fast";
     mockPeer.emitStateChange("connected");
     expect(flushQueuedAcks).toHaveBeenCalled();
-    expect(ensureAgentReady).toHaveBeenCalled();
+    expect(startPingPong).toHaveBeenCalled();
+    expect(ensureAgentReady).toHaveBeenCalledWith({
+      kind: "pub",
+      slug: "demo-slug",
+      modelProfile: "fast",
+    });
+  });
+
+  it("onStateChange('connected') without a signalingSlug logs an error and skips agent prep", () => {
+    const { mockPeer, ensureAgentReady, startPingPong, markError } = createTestPeerManager();
+    mockPeer.emitStateChange("connected");
+    expect(ensureAgentReady).not.toHaveBeenCalled();
+    expect(startPingPong).not.toHaveBeenCalled();
+    expect(markError).toHaveBeenCalledWith(
+      expect.stringContaining("without an active signaling slug"),
+    );
   });
 
   it("onIceStateChange('disconnected') does NOT call handleConnectionClosed", () => {

@@ -48,18 +48,26 @@ function createBridgeManagerHarness() {
   return { manager, state, updateMock, commandHandler };
 }
 
+function setActivePubSession(
+  state: ReturnType<typeof createDaemonState>,
+  overrides: { slug?: string; workspaceCanvasDir?: string } = {},
+): void {
+  state.activeSession = {
+    kind: "pub",
+    slug: overrides.slug ?? "pub-a",
+    pubId: "pub-1",
+    liveSessionId: "session-1",
+    workspaceCanvasDir: overrides.workspaceCanvasDir ?? makeTempDir(),
+    attachmentDir: makeTempDir(),
+    artifactsDir: makeTempDir(),
+  };
+}
+
 describe("persistCanvasHtml", () => {
-  it("writes to bridgeSlug", async () => {
+  it("writes to the active pub session's slug", async () => {
     const { manager, state, updateMock, commandHandler } = createBridgeManagerHarness();
     const workspaceDir = makeTempDir();
-    state.bridgeSlug = "pub-a";
-    state.activeLiveSession = {
-      liveSessionId: "session-1",
-      pubId: "pub-1",
-      workspaceCanvasDir: workspaceDir,
-      attachmentDir: makeTempDir(),
-      artifactsDir: makeTempDir(),
-    };
+    setActivePubSession(state, { slug: "pub-a", workspaceCanvasDir: workspaceDir });
     fs.mkdirSync(path.join(workspaceDir, "assets"), { recursive: true });
     fs.writeFileSync(path.join(workspaceDir, "assets", "app.js"), "console.log('ok');");
 
@@ -76,7 +84,7 @@ describe("persistCanvasHtml", () => {
     expect(commandHandler.bindFromHtml).toHaveBeenCalledWith("<h1>hello</h1>");
   });
 
-  it("fails when bridgeSlug is null", async () => {
+  it("fails when there is no active session", async () => {
     const { manager, updateMock } = createBridgeManagerHarness();
 
     const result = await manager.persistCanvasHtml("<h1>hello</h1>");
@@ -85,16 +93,9 @@ describe("persistCanvasHtml", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("targets bridgeSlug even when signalingSlug differs", async () => {
+  it("targets the active pub session even when signalingSlug has moved on", async () => {
     const { manager, state, updateMock } = createBridgeManagerHarness();
-    state.activeLiveSession = {
-      liveSessionId: "session-1",
-      pubId: "pub-1",
-      workspaceCanvasDir: makeTempDir(),
-      attachmentDir: makeTempDir(),
-      artifactsDir: makeTempDir(),
-    };
-    state.bridgeSlug = "pub-a";
+    setActivePubSession(state, { slug: "pub-a" });
     state.signalingSlug = "pub-b";
 
     const result = await manager.persistCanvasHtml("<h1>hello</h1>");
@@ -106,16 +107,27 @@ describe("persistCanvasHtml", () => {
     });
   });
 
-  it("reports API errors", async () => {
+  it("rejects canvas writes on tunnel sessions", async () => {
     const { manager, state, updateMock } = createBridgeManagerHarness();
-    state.activeLiveSession = {
-      liveSessionId: "session-1",
-      pubId: "pub-1",
+    state.activeSession = {
+      kind: "tunnel",
       workspaceCanvasDir: makeTempDir(),
       attachmentDir: makeTempDir(),
       artifactsDir: makeTempDir(),
     };
-    state.bridgeSlug = "pub-a";
+
+    const result = await manager.persistCanvasHtml("<h1>hello</h1>");
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("only supported in pub sessions"),
+    });
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("reports API errors", async () => {
+    const { manager, state, updateMock } = createBridgeManagerHarness();
+    setActivePubSession(state, { slug: "pub-a" });
     updateMock.mockRejectedValue(new Error("network failure"));
 
     const result = await manager.persistCanvasHtml("<h1>hello</h1>");
