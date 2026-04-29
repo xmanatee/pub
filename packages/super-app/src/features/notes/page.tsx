@@ -1,45 +1,64 @@
 import { Plus, Trash2 } from "lucide-react";
+import { marked } from "marked";
 import * as React from "react";
-import { cn } from "~/core/cn";
+import { AIActionPanel } from "~/core/ai/action-panel";
 import { fmtDate } from "~/core/fmt";
-import { useAsync, withErrorAlert } from "~/core/pub";
-import { EmptyState } from "~/core/shell/empty-state";
-import { ErrorState } from "~/core/shell/error-state";
+import { useConfirm } from "~/core/hooks/use-confirm";
+import { useDebouncedSave } from "~/core/hooks/use-debounced-save";
+import { useTryToast } from "~/core/hooks/use-toast";
+import { useIncomingTarget } from "~/core/navigation/use-target-navigation";
+import { useAsync } from "~/core/pub";
+import { ListDetail, type ListDetailItemsState } from "~/core/shell/list-detail";
 import { PageHeader } from "~/core/shell/page-header";
 import { Button } from "~/core/ui/button";
 import { Input } from "~/core/ui/input";
 import { ScrollArea } from "~/core/ui/scroll-area";
-import { SkeletonList } from "~/core/ui/skeleton-list";
-import { notes } from "./client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/core/ui/tabs";
+import { Textarea } from "~/core/ui/textarea";
+import { notesApi } from "./client";
 import type { Note } from "./commands";
 
 export function NotesPage() {
-  const { state, reload } = useAsync(() => notes.list().then((r) => r.entries), []);
-  const [selected, setSelected] = React.useState<Note | null>(null);
-  const [title, setTitle] = React.useState("");
-  const [body, setBody] = React.useState("");
+  const confirm = useConfirm();
+  const tryToast = useTryToast();
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState("");
+
+  const { state, reload } = useAsync(() => notesApi.list().then((r) => r.entries), []);
+  const incoming = useIncomingTarget("notes");
 
   React.useEffect(() => {
-    setTitle(selected?.title ?? "");
-    setBody(selected?.body ?? "");
-  }, [selected]);
+    if (!incoming.target) return;
+    const ctx = incoming.target.context;
+    void notesApi
+      .create(ctx.fields?.title ?? `From ${ctx.sourceServiceId}`, ctx.excerpt)
+      .then(({ entry }) => {
+        setSelectedId(entry.id);
+        reload();
+      })
+      .catch((err) => tryToast(() => Promise.reject(err), { errorTitle: "Couldn't create note" }));
+    incoming.consume();
+  }, [incoming, reload, tryToast]);
 
-  const save = () =>
-    withErrorAlert(async () => {
-      if (selected) await notes.update(selected.id, title, body);
-      else await notes.create(title, body);
-      setSelected(null);
-      reload();
-    });
-
-  const onDelete = async (id: string) => {
-    if (!confirm("Delete note?")) return;
-    await withErrorAlert(async () => {
-      await notes.delete(id);
-      if (selected?.id === id) setSelected(null);
-      reload();
-    });
+  const onCreate = async () => {
+    const { entry } = await notesApi.create("Untitled", "");
+    setSelectedId(entry.id);
+    reload();
   };
+
+  const onDelete = async (note: Note) => {
+    const ok = await confirm({ title: "Delete this note?", description: note.title, danger: true });
+    if (!ok) return;
+    await notesApi.delete(note.id);
+    if (selectedId === note.id) setSelectedId(null);
+    reload();
+  };
+
+  const itemsState: ListDetailItemsState<Note> = React.useMemo(() => {
+    if (state.status === "loading") return { status: "loading" };
+    if (state.status === "error") return { status: "error", error: state.error };
+    return { status: "loaded", items: state.value };
+  }, [state]);
 
   return (
     <div className="flex h-full flex-col">
@@ -47,85 +66,119 @@ export function NotesPage() {
         title="Notes"
         onRefresh={reload}
         actions={
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSelected(null)}
-            aria-label="New note"
-          >
-            <Plus />
+          <Button size="sm" onClick={onCreate}>
+            <Plus className="size-3.5" /> New
           </Button>
         }
       />
-      <div className="notes-layout grid flex-1 min-h-0 divide-x">
-        <div className="flex min-h-0 flex-col">
-          {state.status === "loading" ? (
-            <SkeletonList count={6} itemClassName="h-16" className="space-y-2 p-3" />
-          ) : state.status === "error" ? (
-            <ErrorState error={state.error} onRetry={reload} />
-          ) : state.value.length === 0 ? (
-            <EmptyState title="No notes yet" description="Create one to get started." />
-          ) : (
-            <ScrollArea className="h-full">
-              <div className="space-y-1 p-2">
-                {state.value.map((n) => (
-                  <div
-                    key={n.id}
-                    className={cn(
-                      "group flex items-start gap-2 rounded-md p-2 transition-colors",
-                      selected?.id === n.id ? "bg-accent" : "hover:bg-accent/60",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelected(n)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <div className="truncate text-sm font-medium">{n.title || "Untitled"}</div>
-                      <div className="line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {fmtDate(n.updatedAt ?? n.createdAt)}
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(n.id)}
-                      className="opacity-0 transition-opacity group-hover:opacity-100"
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
-                    </button>
-                  </div>
-                ))}
+      <div className="min-h-0 flex-1">
+        <ListDetail
+          state={itemsState}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search notes…"
+          filter={(n, q) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q)}
+          onRetry={reload}
+          emptyTitle="No notes yet"
+          emptyDescription="Create one to get started."
+          emptyAction={<Button onClick={onCreate}>Create note</Button>}
+          renderRow={(n) => (
+            <div className="px-2 py-2">
+              <div className="truncate text-sm font-medium">{n.title || "Untitled"}</div>
+              <div className="line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {fmtDate(n.updatedAt ?? n.createdAt)}
               </div>
-            </ScrollArea>
+            </div>
           )}
+          renderDetail={(note) => (
+            <NoteEditor
+              key={note.id}
+              note={note}
+              onChange={() => reload()}
+              onDelete={() => onDelete(note)}
+            />
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NoteEditor({
+  note,
+  onChange,
+  onDelete,
+}: {
+  note: Note;
+  onChange: () => void;
+  onDelete: () => void;
+}) {
+  const [title, setTitle] = React.useState(note.title);
+  const [body, setBody] = React.useState(note.body);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-sync only on note swap
+  React.useEffect(() => {
+    setTitle(note.title);
+    setBody(note.body);
+  }, [note.id]);
+
+  const { saving } = useDebouncedSave({ title, body }, async (next) => {
+    if (next.title === note.title && next.body === note.body) return;
+    await notesApi.update(note.id, next.title, next.body);
+    onChange();
+  });
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b px-6 py-3">
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="text-base font-medium"
+        />
+        <span className="text-xs text-muted-foreground">{saving ? "Saving…" : "Saved"}</span>
+        <Button variant="ghost" size="icon" onClick={onDelete} aria-label="Delete">
+          <Trash2 />
+        </Button>
+      </div>
+      <Tabs defaultValue="edit" className="flex flex-1 min-h-0 flex-col">
+        <div className="shrink-0 border-b px-6 py-2">
+          <TabsList>
+            <TabsTrigger value="edit">Edit</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="ai">AI</TabsTrigger>
+          </TabsList>
         </div>
-        <div className="flex min-h-0 flex-col gap-3 p-6">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
-            className="text-lg"
-          />
-          <textarea
+        <TabsContent value="edit" className="px-6 py-3">
+          <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Write…"
-            className="flex-1 min-h-0 resize-none rounded-md border bg-transparent p-3 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            placeholder="Write… (markdown supported)"
+            className="h-full min-h-0 resize-none"
           />
-          <div className="flex justify-end gap-2">
-            {selected ? (
-              <Button variant="outline" onClick={() => setSelected(null)}>
-                Cancel
-              </Button>
-            ) : null}
-            <Button onClick={save} disabled={!title.trim() && !body.trim()}>
-              {selected ? "Save" : "Create"}
-            </Button>
-          </div>
-        </div>
-      </div>
+        </TabsContent>
+        <TabsContent value="preview" className="min-h-0">
+          <ScrollArea className="h-full">
+            <article
+              className="prose-reader mx-auto max-w-prose px-6 py-6"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: marked returns sanitized markdown
+              dangerouslySetInnerHTML={{ __html: marked.parse(body, { async: false }) as string }}
+            />
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="ai" className="min-h-0 p-6">
+          <AIActionPanel
+            sourceServiceId="notes"
+            sourceItemId={note.id}
+            text={[title, body].filter(Boolean).join("\n\n")}
+            allow={["draft-email", "create-event", "create-task"]}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/core/ui/button";
@@ -32,15 +33,8 @@ export function AuthFlow({ auth, onChange }: { auth: TelegramAuthState; onChange
     return (
       <Shell title="Telegram not configured" error={null}>
         <p className="text-xs text-muted-foreground">
-          Add your Telegram API credentials to{" "}
-          <code className="rounded bg-muted px-1">~/.pub-super-app/config.json</code>:
+          Save your Telegram API credentials in Settings, then reload this page.
         </p>
-        <pre className="rounded-md bg-muted p-3 text-xs">{`{
-  "telegram": {
-    "apiId": 1234567,
-    "apiHash": "your-api-hash"
-  }
-}`}</pre>
         <p className="text-xs text-muted-foreground">
           Get credentials from{" "}
           <a
@@ -51,8 +45,11 @@ export function AuthFlow({ auth, onChange }: { auth: TelegramAuthState; onChange
           >
             my.telegram.org/apps
           </a>
-          , then reload this page.
+          .
         </p>
+        <Button asChild className="w-full">
+          <Link to="/settings">Open Settings</Link>
+        </Button>
       </Shell>
     );
   }

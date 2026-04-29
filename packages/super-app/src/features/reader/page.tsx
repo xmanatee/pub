@@ -1,5 +1,6 @@
-import { ExternalLink, Loader2, Newspaper, X } from "lucide-react";
+import { ExternalLink, Loader2, Newspaper, Plus, X } from "lucide-react";
 import * as React from "react";
+import { AIActionPanel } from "~/core/ai/action-panel";
 import { cn } from "~/core/cn";
 import { invoke } from "~/core/pub";
 import { EmptyState } from "~/core/shell/empty-state";
@@ -22,41 +23,64 @@ type Tab =
   | (TabCore & { status: "loaded"; result: ReaderResult })
   | (TabCore & { status: "error"; error: string });
 
+const SHORTCUTS = [
+  { label: "Wikipedia", url: "https://wikipedia.org" },
+  { label: "Hacker News", url: "https://news.ycombinator.com" },
+  { label: "GitHub", url: "https://github.com" },
+  { label: "Reddit", url: "https://reddit.com" },
+  { label: "MDN", url: "https://developer.mozilla.org" },
+  { label: "DuckDuckGo", url: "https://duckduckgo.com" },
+  { label: "Stack Overflow", url: "https://stackoverflow.com" },
+  { label: "NPM", url: "https://npmjs.com" },
+];
+
 function tabTitle(tab: Tab): string {
   return tab.status === "loaded" ? tab.result.title || tab.url : tab.url;
 }
 
 const makeId = () => Math.random().toString(36).slice(2, 10);
 
+function normalize(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[\w-]+(\.[\w-]+)+/.test(trimmed)) return `https://${trimmed}`;
+  return `https://duckduckgo.com/?q=${encodeURIComponent(trimmed)}`;
+}
+
 export function ReaderPage() {
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const [active, setActive] = React.useState<string | null>(null);
   const [url, setUrl] = React.useState("");
 
-  const patch = (id: string, next: Tab) =>
-    setTabs((prev) => prev.map((t) => (t.id === id ? next : t)));
+  const patch = React.useCallback(
+    (id: string, next: Tab) => setTabs((prev) => prev.map((t) => (t.id === id ? next : t))),
+    [],
+  );
 
-  const open = async (raw: string) => {
-    let normalized = raw.trim();
-    if (!normalized) return;
-    if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
-    const id = makeId();
-    setTabs((prev) => [...prev, { id, url: normalized, status: "loading" }]);
-    setActive(id);
-    setUrl("");
-    try {
-      const html = await invoke<string>(cmd.fetchPage, { url: normalized });
-      const result = await reader.simplify(normalized, html);
-      patch(id, { id, url: normalized, status: "loaded", result });
-    } catch (err) {
-      patch(id, {
-        id,
-        url: normalized,
-        status: "error",
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  };
+  const open = React.useCallback(
+    async (raw: string) => {
+      const normalized = normalize(raw);
+      if (!normalized) return;
+      const id = makeId();
+      setTabs((prev) => [...prev, { id, url: normalized, status: "loading" }]);
+      setActive(id);
+      setUrl("");
+      try {
+        const html = await invoke<string>(cmd.fetchPage, { url: normalized });
+        const result = await reader.simplify(normalized, html);
+        patch(id, { id, url: normalized, status: "loaded", result });
+      } catch (err) {
+        patch(id, {
+          id,
+          url: normalized,
+          status: "error",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+    [patch],
+  );
 
   const close = (id: string) => {
     setTabs((prev) => {
@@ -70,10 +94,7 @@ export function ReaderPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader
-        title="Reader"
-        description="Paste a URL to fetch and view a clean, distraction-free version."
-      />
+      <PageHeader title="Reader" description="Distraction-free article view with AI Q&A." />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -86,7 +107,7 @@ export function ReaderPage() {
           inputMode="url"
           autoComplete="off"
           spellCheck={false}
-          placeholder="https://…"
+          placeholder="URL or search…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           className="flex-1"
@@ -118,15 +139,22 @@ export function ReaderPage() {
               </button>
             </div>
           ))}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="New tab"
+            onClick={() => {
+              setActive(null);
+            }}
+          >
+            <Plus className="size-3.5" />
+          </Button>
         </div>
       ) : null}
       <div className="flex-1 min-h-0">
         {!current ? (
-          <EmptyState
-            icon={<Newspaper className="size-6" />}
-            title="No page open"
-            description="Paste a URL above to fetch and read."
-          />
+          <Home onOpen={open} />
         ) : current.status === "loading" ? (
           <EmptyState
             icon={<Loader2 className="size-6 animate-spin" />}
@@ -143,31 +171,63 @@ export function ReaderPage() {
   );
 }
 
+function Home({ onOpen }: { onOpen: (url: string) => void }) {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="space-y-4 px-6 text-center">
+        <Newspaper className="mx-auto size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Paste a URL above or pick a starting point.</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {SHORTCUTS.map((s) => (
+            <Button key={s.url} variant="outline" size="sm" onClick={() => onOpen(s.url)}>
+              {s.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Article({ result }: { result: ReaderResult }) {
   return (
-    <ScrollArea className="h-full">
-      <article className="mx-auto max-w-prose px-6 py-10">
-        <header className="mb-6 space-y-2 border-b pb-4">
-          <h1 className="text-2xl font-semibold tracking-tight">{result.title}</h1>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {result.byline ? <span>{result.byline}</span> : null}
-            {result.siteName ? <span>· {result.siteName}</span> : null}
-            <a
-              href={result.url}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
-            >
-              Original <ExternalLink className="size-3" />
-            </a>
-          </div>
-        </header>
-        <div
-          className="prose-reader"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized in reader/server.ts
-          dangerouslySetInnerHTML={{ __html: result.contentHtml }}
-        />
-      </article>
-    </ScrollArea>
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_22rem]">
+      <ScrollArea className="h-full">
+        <article className="mx-auto max-w-prose px-6 py-10">
+          <header className="mb-6 space-y-2 border-b pb-4">
+            <h1 className="text-2xl font-semibold tracking-tight">{result.title}</h1>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {result.byline ? <span>{result.byline}</span> : null}
+              {result.siteName ? <span>· {result.siteName}</span> : null}
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
+              >
+                Original <ExternalLink className="size-3" />
+              </a>
+            </div>
+          </header>
+          <div
+            className="prose-reader"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized in reader/server.ts
+            dangerouslySetInnerHTML={{ __html: result.contentHtml }}
+          />
+        </article>
+      </ScrollArea>
+      <aside className="border-l bg-sidebar/40 p-4">
+        <ScrollArea className="h-full">
+          <AIActionPanel
+            embedded
+            sourceServiceId="reader"
+            sourceItemId={result.url}
+            text={result.textContent.slice(0, 6000)}
+            fields={{ title: result.title }}
+            allow={["create-task", "create-note", "draft-email"]}
+          />
+        </ScrollArea>
+      </aside>
+    </div>
   );
 }

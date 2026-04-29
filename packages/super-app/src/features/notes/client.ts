@@ -1,7 +1,7 @@
 import type { Note } from "./commands";
 import { createNote, deleteNote, listNotes, updateNote } from "./server";
 
-export const notes = {
+export const notesApi = {
   list: (): Promise<{ entries: Note[] }> => listNotes(),
   create: (title: string, body: string): Promise<{ entry: Note }> =>
     createNote({ data: { title, body } }),

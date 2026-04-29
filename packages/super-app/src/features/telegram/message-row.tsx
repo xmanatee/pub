@@ -10,14 +10,22 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import * as React from "react";
+import * as prompts from "~/core/ai/prompts";
+import { runAI } from "~/core/ai/runner";
 import { cn } from "~/core/cn";
 import { fmtTime } from "~/core/fmt";
-import { invoke, withErrorAlert } from "~/core/pub";
-import type { CommandFunctionSpec } from "~/core/types";
+import { useConfirm } from "~/core/hooks/use-confirm";
+import { useTryToast } from "~/core/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "~/core/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "~/core/ui/popover";
 import { telegram } from "./client";
 import type { TelegramMessage } from "./commands";
-import * as cmd from "./commands";
 
 const QUICK_REACTIONS = ["👍", "❤️", "🔥", "😂", "🎉", "🙏"];
 
@@ -42,12 +50,12 @@ export function MessageRow({
   onChanged,
   onAiReply,
 }: MessageRowProps) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [reactOpen, setReactOpen] = React.useState(false);
+  const tryToast = useTryToast();
+  const confirm = useConfirm();
 
-  const onDelete = () => {
-    if (!confirm("Delete message?")) return;
-    withErrorAlert(async () => {
+  const onDelete = async () => {
+    if (!(await confirm({ title: "Delete message?", danger: true }))) return;
+    await tryToast(async () => {
       await telegram.delete(dialogId, [m.id]);
       onChanged();
     });
@@ -55,15 +63,14 @@ export function MessageRow({
 
   const onReact = (emoticon: string) => {
     const chosen = m.reactions.find((r) => r.emoticon === emoticon)?.chosen;
-    withErrorAlert(async () => {
+    void tryToast(async () => {
       await telegram.react(dialogId, m.id, chosen ? null : emoticon);
-      setReactOpen(false);
       onChanged();
     });
   };
 
   const onPin = () =>
-    withErrorAlert(async () => {
+    tryToast(async () => {
       await (m.pinned ? telegram.unpin(dialogId, m.id) : telegram.pin(dialogId, m.id));
       onChanged();
     });
@@ -71,7 +78,7 @@ export function MessageRow({
   const onCopy = () => navigator.clipboard.writeText(m.text);
 
   const onDownload = () =>
-    withErrorAlert(async () => {
+    tryToast(async () => {
       const { dataUrl, mime, filename } = await telegram.downloadMedia(dialogId, m.id);
       const a = document.createElement("a");
       a.href = dataUrl;
@@ -80,14 +87,17 @@ export function MessageRow({
       a.click();
     });
 
-  const onAi = (spec: CommandFunctionSpec, args: Record<string, unknown>) => {
-    setMenuOpen(false);
-    withErrorAlert(async () => {
-      const text = await invoke<string>(spec, args);
-      if (onAiReply) onAiReply(text);
-      else alert(text);
+  const onAiVerb = (verb: "explain" | "translate" | "draft" | "retone") =>
+    tryToast(async () => {
+      let result: string;
+      if (verb === "explain") result = await runAI<string>(prompts.explain, { text: m.text });
+      else if (verb === "translate")
+        result = await runAI<string>(prompts.translate, { text: m.text, lang: "English" });
+      else if (verb === "retone")
+        result = await runAI<string>(prompts.retone, { text: m.text, tone: "concise" });
+      else result = await runAI<string>(prompts.draftReply, { text: m.text, intent: "" });
+      if (onAiReply) onAiReply(result);
     });
-  };
 
   return (
     <div
@@ -150,173 +160,84 @@ export function MessageRow({
           m.out ? "-left-28" : "-right-28",
         )}
       >
-        <IconButton
-          onClick={() => setReactOpen((v) => !v)}
-          label="React"
-          icon={<Smile className="size-3.5" />}
-        />
-        <IconButton
-          onClick={() => onReply(m)}
-          label="Reply"
-          icon={<CornerUpLeft className="size-3.5" />}
-        />
-        <IconButton
-          onClick={() => setMenuOpen((v) => !v)}
-          label="More"
-          icon={<MoreHorizontal className="size-3.5" />}
-        />
-      </div>
-      {reactOpen ? (
-        <div
-          className={cn(
-            "absolute top-6 z-10 flex gap-0.5 rounded-md border bg-popover p-1 shadow-sm",
-            m.out ? "right-0" : "left-0",
-          )}
-        >
-          {QUICK_REACTIONS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              onClick={() => onReact(e)}
-              className="rounded p-1 text-base hover:bg-accent"
-            >
-              {e}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" aria-label="React" className="rounded p-1 hover:bg-accent">
+              <Smile className="size-3.5" />
             </button>
-          ))}
-        </div>
-      ) : null}
-      {menuOpen ? (
-        <div
-          className={cn(
-            "absolute top-6 z-10 min-w-44 rounded-md border bg-popover p-1 shadow-sm",
-            m.out ? "right-0" : "left-0",
-          )}
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-1">
+            <div className="flex gap-0.5">
+              {QUICK_REACTIONS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => onReact(e)}
+                  className="rounded p-1 text-base hover:bg-accent"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+        <button
+          type="button"
+          onClick={() => onReply(m)}
+          aria-label="Reply"
+          className="rounded p-1 hover:bg-accent"
         >
-          <MenuItem
-            icon={<CornerUpLeft className="size-3.5" />}
-            label="Reply"
-            onClick={() => {
-              onReply(m);
-              setMenuOpen(false);
-            }}
-          />
-          {m.out ? (
-            <MenuItem
-              icon={<Pencil className="size-3.5" />}
-              label="Edit"
-              onClick={() => {
-                onEdit(m);
-                setMenuOpen(false);
-              }}
-            />
-          ) : null}
-          <MenuItem
-            icon={<Forward className="size-3.5" />}
-            label="Forward"
-            onClick={() => {
-              onForward(m);
-              setMenuOpen(false);
-            }}
-          />
-          <MenuItem
-            icon={<Pin className="size-3.5" />}
-            label={m.pinned ? "Unpin" : "Pin"}
-            onClick={() => {
-              onPin();
-              setMenuOpen(false);
-            }}
-          />
-          <MenuItem
-            icon={<Sparkles className="size-3.5" />}
-            label="Explain"
-            onClick={() => onAi(cmd.aiExplain, { text: m.text })}
-          />
-          <MenuItem
-            icon={<Languages className="size-3.5" />}
-            label="Translate"
-            onClick={() => onAi(cmd.aiTranslate, { text: m.text, lang: "English" })}
-          />
-          <MenuItem
-            icon={<Sparkles className="size-3.5" />}
-            label="Draft reply"
-            onClick={() => onAi(cmd.aiDraft, { text: m.text })}
-          />
-          <MenuItem
-            icon={<Download className="size-3.5" />}
-            label="Copy text"
-            onClick={() => {
-              onCopy();
-              setMenuOpen(false);
-            }}
-          />
-          {m.mediaType ? (
-            <MenuItem
-              icon={<Download className="size-3.5" />}
-              label="Download media"
-              onClick={() => {
-                onDownload();
-                setMenuOpen(false);
-              }}
-            />
-          ) : null}
-          <MenuItem
-            icon={<Trash2 className="size-3.5" />}
-            label="Delete"
-            danger
-            onClick={() => {
-              onDelete();
-              setMenuOpen(false);
-            }}
-          />
-        </div>
-      ) : null}
+          <CornerUpLeft className="size-3.5" />
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" aria-label="More" className="rounded p-1 hover:bg-accent">
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={() => onReply(m)}>
+              <CornerUpLeft className="size-3.5" /> Reply
+            </DropdownMenuItem>
+            {m.out ? (
+              <DropdownMenuItem onSelect={() => onEdit(m)}>
+                <Pencil className="size-3.5" /> Edit
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem onSelect={() => onForward(m)}>
+              <Forward className="size-3.5" /> Forward
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onPin}>
+              <Pin className="size-3.5" /> {m.pinned ? "Unpin" : "Pin"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onAiVerb("explain")}>
+              <Sparkles className="size-3.5" /> Explain
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAiVerb("translate")}>
+              <Languages className="size-3.5" /> Translate
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAiVerb("draft")}>
+              <Sparkles className="size-3.5" /> Draft reply
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAiVerb("retone")}>
+              <Sparkles className="size-3.5" /> Retone
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onCopy}>
+              <Download className="size-3.5" /> Copy text
+            </DropdownMenuItem>
+            {m.mediaType ? (
+              <DropdownMenuItem onSelect={onDownload}>
+                <Download className="size-3.5" /> Download media
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem danger onSelect={onDelete}>
+              <Trash2 className="size-3.5" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
-  );
-}
-
-function IconButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="rounded p-1 hover:bg-accent"
-    >
-      {icon}
-    </button>
-  );
-}
-
-function MenuItem({
-  icon,
-  label,
-  onClick,
-  danger,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent",
-        danger && "text-destructive",
-      )}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

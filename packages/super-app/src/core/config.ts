@@ -10,7 +10,8 @@
  *     "whatsapp": { "token": "..." }
  *   }
  */
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { expandHome } from "./paths";
 import type { JsonValue } from "./types";
@@ -30,9 +31,32 @@ async function loadConfig(): Promise<Record<string, JsonValue>> {
   }
 }
 
+async function writeDoc(doc: Record<string, JsonValue>): Promise<void> {
+  const file = expandHome(CONFIG_PATH);
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(doc, null, 2));
+}
+
 export const getFeatureConfig = createServerFn({ method: "GET" })
   .inputValidator((input: { name: string }) => input)
   .handler(async ({ data }): Promise<JsonValue | null> => {
     const doc = await loadConfig();
     return doc[data.name] ?? null;
   });
+
+export const setFeatureConfig = createServerFn({ method: "POST" })
+  .inputValidator((input: { name: string; value: JsonValue | null }) => input)
+  .handler(async ({ data }): Promise<{ ok: true }> => {
+    const doc = await loadConfig();
+    if (data.value === null) delete doc[data.name];
+    else doc[data.name] = data.value;
+    await writeDoc(doc);
+    return { ok: true };
+  });
+
+export const listFeatureConfigKeys = createServerFn({ method: "GET" }).handler(
+  async (): Promise<string[]> => {
+    const doc = await loadConfig();
+    return Object.keys(doc).sort();
+  },
+);

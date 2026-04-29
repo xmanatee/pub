@@ -1,5 +1,7 @@
 import { Calendar, Cloud, Mail, Newspaper, Quote, Sparkles } from "lucide-react";
 import * as React from "react";
+import * as aiPrompts from "~/core/ai/prompts";
+import { runAI } from "~/core/ai/runner";
 import { type AsyncState, invoke, useAsync } from "~/core/pub";
 import { PageHeader } from "~/core/shell/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/core/ui/card";
@@ -51,6 +53,18 @@ function useLiveClock(): string | null {
   return (
     now?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) ?? null
   );
+}
+
+function useGreeting(): string | null {
+  const [hour, setHour] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    setHour(new Date().getHours());
+  }, []);
+  if (hour === null) return null;
+  if (hour < 5) return "Up late";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 function AgentPanel({
@@ -112,6 +126,7 @@ export function BriefingPage() {
   const gmail = useAsync(() => invoke<{ messages: GmailMessage[] }>(cmd.gmailUnread), []);
   const hn = useAsync(() => invoke<{ stories: HnStory[] }>(cmd.newsHn), []);
   const clock = useLiveClock();
+  const greeting = useGreeting();
 
   const refresh = React.useCallback(() => {
     weather.reload();
@@ -142,13 +157,13 @@ export function BriefingPage() {
       `Unread emails (${gm.length}):`,
       ...gm.slice(0, 5).map((m) => `  from ${m.from}: ${m.subject}`),
     ].join("\n");
-    return invoke<string>(cmd.briefMe, { context });
+    return runAI<string>(aiPrompts.briefMe, { context });
   };
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Briefing"
+        title={greeting ? `${greeting}` : "Briefing"}
         description={today && clock ? `${today} · ${clock}` : undefined}
         onRefresh={refresh}
       />
@@ -250,12 +265,12 @@ export function BriefingPage() {
         <AgentPanel
           title="Joke"
           icon={<Sparkles className="size-4" />}
-          run={() => invoke<string>(cmd.joke)}
+          run={() => runAI<string>(aiPrompts.joke, {})}
         />
         <AgentPanel
           title="Quote"
           icon={<Quote className="size-4" />}
-          run={() => invoke<string>(cmd.quote)}
+          run={() => runAI<string>(aiPrompts.quote, {})}
         />
       </div>
     </div>

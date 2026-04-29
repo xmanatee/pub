@@ -61,9 +61,7 @@ async function loadCreds(): Promise<{ apiId: number; apiHash: string } | null> {
 async function requireCreds(): Promise<{ apiId: number; apiHash: string }> {
   const creds = await loadCreds();
   if (!creds) {
-    throw new Error(
-      'Telegram not configured. Add { apiId, apiHash } under "telegram" in ~/.pub-super-app/config.json.',
-    );
+    throw new Error("Telegram not configured. Open Settings to add apiId / apiHash.");
   }
   return creds;
 }

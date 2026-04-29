@@ -2,6 +2,10 @@
  * Super-app command client + generic async state hook. `invoke` forwards a
  * `CommandFunctionSpec` to the pub daemon via a TanStack Start server fn;
  * `useAsync` drives loading/error/loaded state for any promise-returning fn.
+ *
+ * Failures surface as thrown exceptions — features wrap them with
+ * `useTryToast` (`core/hooks/use-toast`). There is no `alert()` in this
+ * file or in any feature; a test enforces it.
  */
 import * as React from "react";
 import { runCommandSpec } from "./daemon-ipc";
@@ -23,17 +27,6 @@ export async function invoke<T = unknown>(
   });
   if (!response.ok) throw new Error(response.error);
   return response.value as T;
-}
-
-/** Wrap a promise-returning action; surface failures via `alert`. */
-export async function withErrorAlert(fn: () => Promise<unknown>): Promise<boolean> {
-  try {
-    await fn();
-    return true;
-  } catch (err) {
-    alert(err instanceof Error ? err.message : String(err));
-    return false;
-  }
 }
 
 export type AsyncState<T> =

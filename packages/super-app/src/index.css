@@ -163,6 +163,58 @@
   .prose-reader img { @apply my-4 max-w-full rounded-md; }
   .prose-reader figure { @apply my-4; }
   .prose-reader figcaption { @apply mt-1 text-xs text-muted-foreground; }
+
+  /* Radix data-state animations (in lieu of tailwindcss-animate). */
+  @keyframes overlay-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes overlay-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes content-zoom-in {
+    from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  @keyframes content-zoom-out {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    to   { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+  }
+  [data-state="open"][role="dialog"],
+  [data-state="open"][role="alertdialog"] {
+    animation: content-zoom-in 0.15s ease-out;
+  }
+  [data-state="closed"][role="dialog"],
+  [data-state="closed"][role="alertdialog"] {
+    animation: content-zoom-out 0.12s ease-in;
+  }
+
+  /* Toast slide animation */
+  @keyframes toast-slide-in-bottom {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes toast-slide-out-right {
+    from { transform: translateX(0); opacity: 1; }
+    to   { transform: translateX(120%); opacity: 0; }
+  }
+  [data-radix-toast-viewport] [data-state="open"] {
+    animation: toast-slide-in-bottom 0.18s ease-out;
+  }
+  [data-radix-toast-viewport] [data-state="closed"] {
+    animation: toast-slide-out-right 0.15s ease-in;
+  }
+
+  .empty-grid-shimmer {
+    background: linear-gradient(90deg, transparent 0%, var(--muted) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
 }
 
 @layer base {

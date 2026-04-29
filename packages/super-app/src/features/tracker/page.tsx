@@ -1,38 +1,35 @@
-import { Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, Trash2 } from "lucide-react";
 import * as React from "react";
+import * as prompts from "~/core/ai/prompts";
+import { runAI } from "~/core/ai/runner";
 import { fmtDate, fmtTime } from "~/core/fmt";
-import { invoke, useAsync, withErrorAlert } from "~/core/pub";
+import { useTryToast } from "~/core/hooks/use-toast";
+import { useAsync } from "~/core/pub";
 import { ErrorState } from "~/core/shell/error-state";
 import { PageHeader } from "~/core/shell/page-header";
+import { Badge } from "~/core/ui/badge";
 import { Button } from "~/core/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/core/ui/card";
 import { Input } from "~/core/ui/input";
 import { ScrollArea } from "~/core/ui/scroll-area";
 import { SkeletonList } from "~/core/ui/skeleton-list";
-import { tracker } from "./client";
-import type { TrackerEntry } from "./commands";
-import * as cmd from "./commands";
+import { Switch } from "~/core/ui/switch";
+import { trackerApi } from "./client";
+import { DEFAULT_CATEGORIES, type TrackerEntry } from "./commands";
 
-const CATEGORY_STYLE: Record<string, string> = {
-  work: "bg-blue-500/15 text-blue-600 dark:text-blue-300",
-  exercise: "bg-green-500/15 text-green-600 dark:text-green-300",
-  meal: "bg-orange-500/15 text-orange-600 dark:text-orange-300",
-  errand: "bg-purple-500/15 text-purple-600 dark:text-purple-300",
-  study: "bg-pink-500/15 text-pink-600 dark:text-pink-300",
-  rest: "bg-teal-500/15 text-teal-600 dark:text-teal-300",
-  other: "bg-muted text-muted-foreground",
-};
-const CATEGORIES = Object.keys(CATEGORY_STYLE);
+const CATEGORY_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "secondary"> =
+  {
+    work: "default",
+    exercise: "success",
+    meal: "warning",
+    errand: "secondary",
+    study: "default",
+    rest: "muted",
+    other: "muted",
+  };
 
-function CategoryBadge({ category }: { category: string }) {
-  const className = CATEGORY_STYLE[category] ?? CATEGORY_STYLE.other;
-  return (
-    <span
-      className={`shrink-0 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${className}`}
-    >
-      {category}
-    </span>
-  );
+function categoryVariant(cat: string) {
+  return CATEGORY_VARIANT[cat] ?? "muted";
 }
 
 function groupByDay(entries: TrackerEntry[]) {
@@ -48,10 +45,14 @@ function groupByDay(entries: TrackerEntry[]) {
 }
 
 export function TrackerPage() {
-  const { state, reload } = useAsync(() => tracker.list().then((r) => r.entries), []);
+  const tryToast = useTryToast();
+  const { state, reload } = useAsync(() => trackerApi.list().then((r) => r.entries), []);
   const [text, setText] = React.useState("");
   const [aiMode, setAiMode] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
+  const [summary, setSummary] = React.useState<string | null>(null);
+  const [summarizing, setSummarizing] = React.useState(false);
+  const [categories, setCategories] = React.useState<string[]>(DEFAULT_CATEGORIES);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,25 +62,60 @@ export function TrackerPage() {
     let category: string | null = null;
     if (aiMode) {
       try {
-        const result = await invoke<{ category: string }>(cmd.categorize, { text: t });
-        if (CATEGORIES.includes(result.category)) category = result.category;
+        const result = await runAI<{ category: string }>(prompts.categorize, {
+          text: t,
+          categories: categories.join(", "),
+        });
+        if (categories.includes(result.category)) category = result.category;
       } catch {
-        // Agent unavailable — save the entry uncategorized.
+        // Agent unavailable — save uncategorized.
       }
     }
-    await withErrorAlert(async () => {
-      await tracker.add(t, category);
-      setText("");
-      reload();
-    });
+    await tryToast(
+      async () => {
+        await trackerApi.add(t, category);
+        setText("");
+        reload();
+      },
+      { errorTitle: "Couldn't add entry" },
+    );
     setSubmitting(false);
   };
 
-  const onDelete = (id: string) =>
-    withErrorAlert(async () => {
-      await tracker.delete(id);
-      reload();
-    });
+  const onDelete = async (id: string) => {
+    await tryToast(
+      async () => {
+        await trackerApi.delete(id);
+        reload();
+      },
+      { errorTitle: "Couldn't delete" },
+    );
+  };
+
+  const summarizeToday = async () => {
+    if (state.status !== "loaded") return;
+    setSummarizing(true);
+    setSummary(null);
+    try {
+      const todayMs = 24 * 3600 * 1000;
+      const now = Date.now();
+      const today = state.value.filter((e) => now - e.createdAt < todayMs);
+      const text = await runAI<string>(prompts.summarize, {
+        text: today.map((e) => `- [${e.category ?? "uncategorized"}] ${e.text}`).join("\n"),
+      });
+      setSummary(text);
+    } catch (err) {
+      tryToast(() => Promise.reject(err), { errorTitle: "Summary failed" });
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
+  const addCategory = (raw: string) => {
+    const next = raw.trim().toLowerCase();
+    if (!next || categories.includes(next)) return;
+    setCategories([...categories.slice(0, -1), next, "other"]);
+  };
 
   const entries = state.status === "loaded" ? state.value : [];
   const todayMs = 24 * 3600 * 1000;
@@ -103,20 +139,15 @@ export function TrackerPage() {
           placeholder="What just happened?"
           autoFocus
         />
-        <Button
-          type="button"
-          variant={aiMode ? "default" : "outline"}
-          size="icon"
-          onClick={() => setAiMode((v) => !v)}
-          aria-label="Toggle AI categorization"
-        >
-          <Sparkles />
-        </Button>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Switch checked={aiMode} onCheckedChange={setAiMode} aria-label="Auto categorize" />
+          <Sparkles className="size-3.5" />
+        </div>
         <Button type="submit" disabled={!text.trim() || submitting}>
-          Add
+          {submitting ? <Loader2 className="animate-spin" /> : null} Add
         </Button>
       </form>
-      <div className="tracker-layout grid flex-1 min-h-0 divide-x">
+      <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)_18rem] divide-x">
         <ScrollArea className="h-full">
           <div className="space-y-6 p-6">
             {state.status === "error" ? (
@@ -141,7 +172,9 @@ export function TrackerPage() {
                           {fmtTime(entry.createdAt)}
                         </div>
                         <div className="min-w-0 flex-1 text-sm">{entry.text}</div>
-                        {entry.category ? <CategoryBadge category={entry.category} /> : null}
+                        {entry.category ? (
+                          <Badge variant={categoryVariant(entry.category)}>{entry.category}</Badge>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => onDelete(entry.id)}
@@ -158,7 +191,7 @@ export function TrackerPage() {
             )}
           </div>
         </ScrollArea>
-        <div className="min-h-0 overflow-auto bg-sidebar/50 p-6">
+        <div className="overflow-auto bg-sidebar/40 p-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Today</CardTitle>
@@ -171,25 +204,70 @@ export function TrackerPage() {
               <div className="space-y-1.5">
                 {Array.from(byCat.entries()).map(([cat, n]) => (
                   <div key={cat} className="flex items-center justify-between text-xs">
-                    <span className="capitalize">{cat}</span>
+                    <Badge variant={categoryVariant(cat)}>{cat}</Badge>
                     <span className="tabular-nums text-muted-foreground">{n}</span>
                   </div>
                 ))}
               </div>
-              <div className="pt-3">
-                <div className="field-label mb-1 uppercase tracking-wider text-muted-foreground">
-                  Common
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={summarizeToday}
+                disabled={summarizing || today.length === 0}
+              >
+                {summarizing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3.5" />
+                )}{" "}
+                Summarize day
+              </Button>
+              {summary ? (
+                <p className="rounded-md bg-muted/40 p-2 text-xs leading-relaxed">{summary}</p>
+              ) : null}
+              <div className="space-y-1.5 pt-2">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Categories
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {CATEGORIES.filter((c) => c !== "other").map((c) => (
-                    <CategoryBadge key={c} category={c} />
+                  {categories.map((c) => (
+                    <Badge key={c} variant={categoryVariant(c)}>
+                      {c}
+                    </Badge>
                   ))}
                 </div>
+                <NewCategoryInput onAdd={addCategory} />
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+function NewCategoryInput({ onAdd }: { onAdd: (name: string) => void }) {
+  const [v, setV] = React.useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!v.trim()) return;
+        onAdd(v);
+        setV("");
+      }}
+      className="flex gap-1"
+    >
+      <Input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        placeholder="add category…"
+        className="h-7 text-xs"
+      />
+      <Button type="submit" variant="outline" size="sm" className="h-7" disabled={!v.trim()}>
+        Add
+      </Button>
+    </form>
   );
 }

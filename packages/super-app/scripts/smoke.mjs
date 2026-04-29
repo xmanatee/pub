@@ -1,7 +1,19 @@
 import { chromium } from "playwright";
 
 const base = process.argv[2] || "http://localhost:5173";
-const routes = ["/", "/files", "/reader", "/tracker", "/notes", "/tasks", "/telegram"];
+const routes = [
+  "/",
+  "/files",
+  "/reader",
+  "/tracker",
+  "/notes",
+  "/tasks",
+  "/telegram",
+  "/mail",
+  "/calendar",
+  "/inbox",
+  "/settings",
+];
 
 const browser = await chromium.launch({ headless: true });
 const summary = [];

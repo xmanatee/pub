@@ -1,6 +1,8 @@
 import { Archive, Ban, BellOff, LogOut, MessageCircle, Settings, X } from "lucide-react";
 import type * as React from "react";
-import { useAsync, withErrorAlert } from "~/core/pub";
+import { useConfirm } from "~/core/hooks/use-confirm";
+import { useTryToast } from "~/core/hooks/use-toast";
+import { useAsync } from "~/core/pub";
 import { ErrorState } from "~/core/shell/error-state";
 import { Button } from "~/core/ui/button";
 import { Skeleton } from "~/core/ui/skeleton";
@@ -16,10 +18,12 @@ export function PeerInfoDrawer({
   onClose: () => void;
   onLeft: () => void;
 }) {
+  const tryToast = useTryToast();
+  const confirm = useConfirm();
   const { state, reload } = useAsync(() => telegram.peer(dialogId), [dialogId]);
 
   const run = (fn: () => Promise<unknown>, after?: () => void) =>
-    withErrorAlert(async () => {
+    tryToast(async () => {
       await fn();
       reload();
       after?.();
@@ -45,7 +49,20 @@ export function PeerInfoDrawer({
         ) : state.status === "error" ? (
           <ErrorState error={state.error} onRetry={reload} />
         ) : (
-          <PeerBody peer={state.value} run={run} onLeft={onLeft} dialogId={dialogId} />
+          <PeerBody
+            peer={state.value}
+            run={run}
+            onLeft={onLeft}
+            dialogId={dialogId}
+            confirmLeave={async () => {
+              const ok = await confirm({
+                title: `Leave ${state.value.title}?`,
+                danger: true,
+                confirmLabel: "Leave",
+              });
+              if (ok) await run(() => telegram.leave(dialogId), onLeft);
+            }}
+          />
         )}
       </div>
     </div>
@@ -55,13 +72,14 @@ export function PeerInfoDrawer({
 function PeerBody({
   peer,
   run,
-  onLeft,
   dialogId,
+  confirmLeave,
 }: {
   peer: TelegramPeerInfo;
   run: (fn: () => Promise<unknown>, after?: () => void) => Promise<boolean>;
   onLeft: () => void;
   dialogId: string;
+  confirmLeave: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -107,9 +125,7 @@ function PeerBody({
             icon={<LogOut className="size-4" />}
             label="Leave"
             danger
-            onClick={() => {
-              if (confirm(`Leave ${peer.title}?`)) run(() => telegram.leave(dialogId), onLeft);
-            }}
+            onClick={confirmLeave}
           />
         )}
         <Action

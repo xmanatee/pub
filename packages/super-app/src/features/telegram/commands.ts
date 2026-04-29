@@ -1,10 +1,8 @@
 /**
  * Telegram — the client runs entirely in the browser (gramjs with a
- * localStorage-backed `StringSession`). Daemon-routed commands only cover
- * the AI context-menu actions, which go through the configured agent.
+ * localStorage-backed `StringSession`). AI verbs live in `core/ai/prompts`,
+ * not here; this file owns only the wire shape.
  */
-import type { CommandFunctionSpec } from "~/core/types";
-
 export interface TelegramConfig {
   apiId: number;
   apiHash: string;
@@ -54,24 +52,3 @@ interface TelegramPeerBase {
 export type TelegramPeerInfo =
   | (TelegramPeerBase & { kind: "user"; phone?: string; blocked: boolean })
   | (TelegramPeerBase & { kind: "group" | "channel"; memberCount?: number });
-
-function agent(name: string, prompt: string): CommandFunctionSpec {
-  return {
-    name: `telegram.${name}`,
-    returns: "text",
-    executor: { kind: "agent", mode: "detached", profile: "fast", output: "text", prompt },
-  };
-}
-
-export const aiExplain = agent(
-  "ai.explain",
-  "Briefly explain what this message means. No preamble.\n\n{{text}}",
-);
-export const aiTranslate = agent(
-  "ai.translate",
-  "Translate this message to English (or to {{lang}} if provided). Just the translation.\n\n{{text}}",
-);
-export const aiDraft = agent(
-  "ai.draft",
-  "Draft a reply to this message in the user's voice. Keep it short.\n\n{{text}}",
-);
