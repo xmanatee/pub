@@ -10,6 +10,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import * as React from "react";
 import * as prompts from "~/core/ai/prompts";
 import { runAI } from "~/core/ai/runner";
 import { cn } from "~/core/cn";
@@ -52,6 +53,12 @@ export function MessageRow({
 }: MessageRowProps) {
   const tryToast = useTryToast();
   const confirm = useConfirm();
+  const [preview, setPreview] = React.useState<{
+    dataUrl: string;
+    mime: string | null;
+    filename: string;
+  } | null>(null);
+  const [previewing, setPreviewing] = React.useState(false);
 
   const onDelete = async () => {
     if (!(await confirm({ title: "Delete message?", danger: true }))) return;
@@ -85,6 +92,16 @@ export function MessageRow({
       const ext = mime?.split("/")[1]?.split(";")[0] ?? "bin";
       a.download = `${filename}.${ext}`;
       a.click();
+    });
+
+  const onPreview = () =>
+    tryToast(async () => {
+      setPreviewing(true);
+      try {
+        setPreview(await telegram.downloadMedia(dialogId, m.id));
+      } finally {
+        setPreviewing(false);
+      }
     });
 
   const onAiVerb = (verb: "explain" | "translate" | "draft" | "retone") =>
@@ -122,13 +139,25 @@ export function MessageRow({
           <div className="mb-0.5 text-xs font-medium opacity-70">{m.from}</div>
         ) : null}
         {m.mediaType ? (
-          <button
-            type="button"
-            onClick={onDownload}
-            className="mb-1 flex items-center gap-1 rounded-md bg-background/20 px-2 py-1 text-xs"
-          >
-            <Download className="size-3" /> Download {m.mediaType}
-          </button>
+          <div className="mb-1 space-y-1">
+            {preview ? <TelegramMediaPreview preview={preview} /> : null}
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={onPreview}
+                className="flex items-center gap-1 rounded-md bg-background/20 px-2 py-1 text-xs"
+              >
+                <Download className="size-3" /> {previewing ? "Loading" : "Preview"} {m.mediaType}
+              </button>
+              <button
+                type="button"
+                onClick={onDownload}
+                className="flex items-center gap-1 rounded-md bg-background/20 px-2 py-1 text-xs"
+              >
+                <Download className="size-3" /> Download
+              </button>
+            </div>
+          </div>
         ) : null}
         {m.text ? <div className="whitespace-pre-wrap break-words">{m.text}</div> : null}
         <div className="mt-0.5 flex items-center justify-end gap-1 text-xs opacity-60">
@@ -240,4 +269,26 @@ export function MessageRow({
       </div>
     </div>
   );
+}
+
+function TelegramMediaPreview({
+  preview,
+}: {
+  preview: { dataUrl: string; mime: string | null; filename: string };
+}) {
+  const mime = preview.mime ?? "";
+  if (mime.startsWith("image/")) {
+    return <img src={preview.dataUrl} alt={preview.filename} className="max-h-80 rounded-md" />;
+  }
+  if (mime.startsWith("video/")) {
+    return (
+      // biome-ignore lint/a11y/useMediaCaption: Telegram media may not include captions.
+      <video src={preview.dataUrl} controls className="max-h-80 rounded-md" />
+    );
+  }
+  if (mime.startsWith("audio/")) {
+    // biome-ignore lint/a11y/useMediaCaption: Telegram voice/audio messages rarely include caption tracks.
+    return <audio src={preview.dataUrl} controls className="w-full" />;
+  }
+  return null;
 }

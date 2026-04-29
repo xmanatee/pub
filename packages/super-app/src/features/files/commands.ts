@@ -47,6 +47,12 @@ export const rename: CommandFunctionSpec = {
   executor: { kind: "exec", command: "mv", args: ["{{from}}", "{{to}}"] },
 };
 
+export const copy: CommandFunctionSpec = {
+  name: "files.copy",
+  returns: "void",
+  executor: { kind: "exec", command: "cp", args: ["-R", "{{from}}", "{{to}}"] },
+};
+
 export const touch: CommandFunctionSpec = {
   name: "files.touch",
   returns: "void",

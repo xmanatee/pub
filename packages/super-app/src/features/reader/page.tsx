@@ -1,6 +1,17 @@
-import { ExternalLink, Loader2, Newspaper, Plus, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  Loader2,
+  Newspaper,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import * as React from "react";
 import { AIActionPanel } from "~/core/ai/action-panel";
+import * as prompts from "~/core/ai/prompts";
+import { runAI } from "~/core/ai/runner";
 import { cn } from "~/core/cn";
 import { invoke } from "~/core/pub";
 import { EmptyState } from "~/core/shell/empty-state";
@@ -16,11 +27,13 @@ import * as cmd from "./commands";
 interface TabCore {
   id: string;
   url: string;
+  hist: string[];
+  hi: number;
 }
 
 type Tab =
   | (TabCore & { status: "loading" })
-  | (TabCore & { status: "loaded"; result: ReaderResult })
+  | (TabCore & { status: "loaded"; result: ReaderResult; html: string })
   | (TabCore & { status: "error"; error: string });
 
 const SHORTCUTS = [
@@ -52,10 +65,37 @@ export function ReaderPage() {
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const [active, setActive] = React.useState<string | null>(null);
   const [url, setUrl] = React.useState("");
+  const [rawMode, setRawMode] = React.useState(false);
 
   const patch = React.useCallback(
     (id: string, next: Tab) => setTabs((prev) => prev.map((t) => (t.id === id ? next : t))),
     [],
+  );
+
+  const loadInto = React.useCallback(
+    async (id: string, raw: string, history: string[], targetIndex = history.length - 1) => {
+      const normalized = normalize(raw);
+      if (!normalized) return;
+      const hi = Math.max(0, Math.min(history.length - 1, targetIndex));
+      patch(id, { id, url: normalized, status: "loading", hist: history, hi });
+      setActive(id);
+      setUrl("");
+      try {
+        const html = await invoke<string>(cmd.fetchPage, { url: normalized });
+        const result = await reader.simplify(normalized, html);
+        patch(id, { id, url: normalized, status: "loaded", result, html, hist: history, hi });
+      } catch (err) {
+        patch(id, {
+          id,
+          url: normalized,
+          status: "error",
+          error: err instanceof Error ? err.message : String(err),
+          hist: history,
+          hi,
+        });
+      }
+    },
+    [patch],
   );
 
   const open = React.useCallback(
@@ -63,24 +103,25 @@ export function ReaderPage() {
       const normalized = normalize(raw);
       if (!normalized) return;
       const id = makeId();
-      setTabs((prev) => [...prev, { id, url: normalized, status: "loading" }]);
-      setActive(id);
-      setUrl("");
-      try {
-        const html = await invoke<string>(cmd.fetchPage, { url: normalized });
-        const result = await reader.simplify(normalized, html);
-        patch(id, { id, url: normalized, status: "loaded", result });
-      } catch (err) {
-        patch(id, {
-          id,
-          url: normalized,
-          status: "error",
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+      setTabs((prev) => [
+        ...prev,
+        { id, url: normalized, status: "loading", hist: [normalized], hi: 0 },
+      ]);
+      await loadInto(id, normalized, [normalized]);
     },
-    [patch],
+    [loadInto],
   );
+
+  const navigateCurrent = async (raw: string) => {
+    const normalized = normalize(raw);
+    if (!normalized) return;
+    if (!current) {
+      await open(normalized);
+      return;
+    }
+    const nextHist = [...current.hist.slice(0, current.hi + 1), normalized];
+    await loadInto(current.id, normalized, nextHist);
+  };
 
   const close = (id: string) => {
     setTabs((prev) => {
@@ -91,6 +132,8 @@ export function ReaderPage() {
   };
 
   const current = tabs.find((t) => t.id === active) ?? null;
+  const canBack = current ? current.hi > 0 : false;
+  const canForward = current ? current.hi < current.hist.length - 1 : false;
 
   return (
     <div className="flex h-full flex-col">
@@ -98,12 +141,48 @@ export function ReaderPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          open(url);
+          navigateCurrent(url);
         }}
         className="flex shrink-0 items-center gap-2 border-b px-6 py-3"
       >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={!canBack || !current}
+          onClick={() =>
+            current &&
+            loadInto(current.id, current.hist[current.hi - 1], current.hist, current.hi - 1)
+          }
+          aria-label="Back"
+        >
+          <ArrowLeft />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={!canForward || !current}
+          onClick={() =>
+            current &&
+            loadInto(current.id, current.hist[current.hi + 1], current.hist, current.hi + 1)
+          }
+          aria-label="Forward"
+        >
+          <ArrowRight />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={!current}
+          onClick={() => current && loadInto(current.id, current.url, current.hist, current.hi)}
+          aria-label="Refresh"
+        >
+          <RefreshCw />
+        </Button>
         <Input
-          type="url"
+          type="text"
           inputMode="url"
           autoComplete="off"
           spellCheck={false}
@@ -114,6 +193,14 @@ export function ReaderPage() {
         />
         <Button type="submit" disabled={!url.trim()}>
           Open
+        </Button>
+        <Button
+          type="button"
+          variant={rawMode ? "default" : "outline"}
+          disabled={current?.status !== "loaded"}
+          onClick={() => setRawMode((v) => !v)}
+        >
+          Raw
         </Button>
       </form>
       {tabs.length > 0 ? (
@@ -163,6 +250,13 @@ export function ReaderPage() {
           />
         ) : current.status === "error" ? (
           <ErrorState error={current.error} />
+        ) : rawMode ? (
+          <iframe
+            title={current.url}
+            srcDoc={current.html}
+            sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+            className="h-full w-full border-0 bg-white"
+          />
         ) : (
           <Article result={current.result} />
         )}
@@ -218,16 +312,77 @@ function Article({ result }: { result: ReaderResult }) {
       </ScrollArea>
       <aside className="border-l bg-sidebar/40 p-4">
         <ScrollArea className="h-full">
-          <AIActionPanel
-            embedded
-            sourceServiceId="reader"
-            sourceItemId={result.url}
-            text={result.textContent.slice(0, 6000)}
-            fields={{ title: result.title }}
-            allow={["create-task", "create-note", "draft-email"]}
-          />
+          <ReaderAssistant result={result} />
         </ScrollArea>
       </aside>
+    </div>
+  );
+}
+
+function ReaderAssistant({ result }: { result: ReaderResult }) {
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [output, setOutput] = React.useState<string | null>(null);
+  const text = result.textContent.slice(0, 6000);
+  const run = async (key: string, question: string) => {
+    setBusy(key);
+    setOutput(null);
+    try {
+      const answer = await runAI<string>(prompts.qaDocument, {
+        document: text,
+        question,
+      });
+      setOutput(answer);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => run("summary", "Summarize this page in 3-4 sentences.")}
+        >
+          {busy === "summary" ? <Loader2 className="animate-spin" /> : null} Summarize
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => run("points", "What are the key points or takeaways?")}
+        >
+          Key points
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => run("eli5", "Explain this page like I am 5.")}
+        >
+          ELI5
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => run("links", "List the important links mentioned and what they are for.")}
+        >
+          Links
+        </Button>
+      </div>
+      {output ? (
+        <div className="whitespace-pre-wrap rounded-md border bg-card p-3 text-sm">{output}</div>
+      ) : null}
+      <AIActionPanel
+        embedded
+        sourceServiceId="reader"
+        sourceItemId={result.url}
+        text={text}
+        fields={{ title: result.title }}
+        allow={["create-task", "create-note", "draft-email"]}
+      />
     </div>
   );
 }

@@ -17,6 +17,7 @@ export const mailApi = {
   archive: (id: string): Promise<void> => invoke(cmd.archiveMessage, { id }),
   trash: (id: string): Promise<void> => invoke(cmd.trashMessage, { id }),
   markRead: (id: string): Promise<void> => invoke(cmd.markAsRead, { id }),
+  star: (id: string): Promise<void> => invoke(cmd.starMessage, { id }),
   draft: (to: string, subject: string, body: string): Promise<void> =>
     invoke(cmd.sendDraft, { to, subject, body }),
   send: (to: string, subject: string, body: string): Promise<void> =>

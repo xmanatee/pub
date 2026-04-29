@@ -1,4 +1,14 @@
-import { Info, Loader2, LogOut, Send, Sparkles, X } from "lucide-react";
+import {
+  CalendarClock,
+  FileUp,
+  Info,
+  Loader2,
+  LogOut,
+  Search,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import * as React from "react";
 import * as prompts from "~/core/ai/prompts";
 import { runAI } from "~/core/ai/runner";
@@ -87,10 +97,17 @@ export function TelegramPage() {
 
 function Shell() {
   const tryToast = useTryToast();
-  const { state, reload } = useAsync(() => telegram.dialogs().then((r) => r.dialogs), []);
+  const [dialogLimit, setDialogLimit] = React.useState(50);
+  const { state, reload } = useAsync(
+    () => telegram.dialogs(dialogLimit).then((r) => r.dialogs),
+    [dialogLimit],
+  );
   const [active, setActive] = React.useState<string | null>(null);
   const [showInfo, setShowInfo] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [dialogFilter, setDialogFilter] = React.useState<
+    "all" | "unread" | "users" | "groups" | "channels"
+  >("all");
   const [digesting, setDigesting] = React.useState(false);
   const [digest, setDigest] = React.useState<string | null>(null);
 
@@ -98,9 +115,16 @@ function Shell() {
   const filtered = React.useMemo(() => {
     if (!dialogs) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return dialogs;
-    return dialogs.filter((d) => d.title.toLowerCase().includes(q));
-  }, [dialogs, search]);
+    return dialogs
+      .filter((d) => {
+        if (dialogFilter === "unread") return d.unread > 0;
+        if (dialogFilter === "users") return d.isUser;
+        if (dialogFilter === "groups") return d.isGroup;
+        if (dialogFilter === "channels") return d.isChannel;
+        return true;
+      })
+      .filter((d) => !q || d.title.toLowerCase().includes(q));
+  }, [dialogFilter, dialogs, search]);
 
   React.useEffect(() => {
     if (filtered.length > 0 && !active) setActive(filtered[0].id);
@@ -149,6 +173,19 @@ function Shell() {
             placeholder="Search chats…"
             className="h-8"
           />
+          <div className="flex gap-1 overflow-x-auto">
+            {(["all", "unread", "users", "groups", "channels"] as const).map((f) => (
+              <Button
+                key={f}
+                variant={dialogFilter === f ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 capitalize"
+                onClick={() => setDialogFilter(f)}
+              >
+                {f}
+              </Button>
+            ))}
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -195,6 +232,18 @@ function Shell() {
                 }}
               />
             ))}
+            {filtered.length >= dialogLimit ? (
+              <div className="p-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setDialogLimit((n) => n + 50)}
+                >
+                  Load more chats
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
       </aside>
@@ -274,11 +323,16 @@ function Thread({
 }) {
   const promptUser = usePrompt();
   const tryToast = useTryToast();
+  const [messageLimit, setMessageLimit] = React.useState(50);
   const { state, reload } = useAsync(
-    () => telegram.messages(dialogId).then((r) => r.messages),
-    [dialogId],
+    () => telegram.messages(dialogId, messageLimit).then((r) => r.messages),
+    [dialogId, messageLimit],
   );
   const [compose, setCompose] = React.useState<Compose>({ kind: "new", text: "" });
+  const [messageSearch, setMessageSearch] = React.useState("");
+  const [searchResults, setSearchResults] = React.useState<TelegramMessage[] | null>(null);
+  const [searching, setSearching] = React.useState(false);
+  const [scheduledAt, setScheduledAt] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const incoming = useIncomingTarget("telegram");
 
@@ -291,6 +345,10 @@ function Thread({
 
   React.useEffect(() => {
     setCompose({ kind: "new", text: "" });
+    setMessageLimit(50);
+    setMessageSearch("");
+    setSearchResults(null);
+    setScheduledAt("");
     void telegram.markRead(dialogId).catch(() => {});
   }, [dialogId]);
 
@@ -300,13 +358,46 @@ function Thread({
     setBusy(true);
     await tryToast(async () => {
       if (compose.kind === "edit") await telegram.edit(dialogId, compose.target.id, compose.text);
-      else if (compose.kind === "reply")
+      else if (scheduledAt) {
+        const delay = new Date(scheduledAt).getTime() - Date.now();
+        const text = compose.text;
+        const replyTo = compose.kind === "reply" ? compose.target.id : undefined;
+        window.setTimeout(
+          () => void telegram.send(dialogId, text, replyTo).catch(() => {}),
+          Math.max(0, delay),
+        );
+      } else if (compose.kind === "reply")
         await telegram.send(dialogId, compose.text, compose.target.id);
       else await telegram.send(dialogId, compose.text);
       setCompose({ kind: "new", text: "" });
+      setScheduledAt("");
       reload();
     });
     setBusy(false);
+  };
+
+  const onFile = async (file: File | null) => {
+    if (!file) return;
+    await tryToast(async () => {
+      const replyTo = compose.kind === "reply" ? compose.target.id : undefined;
+      await telegram.sendFile(dialogId, file, compose.text, replyTo);
+      setCompose({ kind: "new", text: "" });
+      reload();
+    });
+  };
+
+  const runSearch = async () => {
+    const q = messageSearch.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+    setSearching(true);
+    await tryToast(async () => {
+      const result = await telegram.searchMessages(dialogId, q, 80);
+      setSearchResults(result.messages);
+    });
+    setSearching(false);
   };
 
   const onForward = async (target: TelegramMessage) => {
@@ -317,7 +408,7 @@ function Thread({
     });
   };
 
-  const messages = state.status === "loaded" ? state.value : [];
+  const messages = searchResults ?? (state.status === "loaded" ? state.value : []);
   const messageById = React.useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
 
   return (
@@ -325,9 +416,31 @@ function Thread({
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2">
           <div className="truncate text-sm font-medium">{dialog?.title ?? dialogId}</div>
-          <Button variant="ghost" size="icon" onClick={onToggleInfo} aria-label="Chat info">
-            <Info className="size-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <form
+              className="hidden items-center gap-1 md:flex"
+              onSubmit={(e) => {
+                e.preventDefault();
+                runSearch();
+              }}
+            >
+              <Input
+                value={messageSearch}
+                onChange={(e) => {
+                  setMessageSearch(e.target.value);
+                  if (!e.target.value.trim()) setSearchResults(null);
+                }}
+                placeholder="Search messages"
+                className="h-8 w-48"
+              />
+              <Button type="submit" variant="ghost" size="icon" aria-label="Search messages">
+                {searching ? <Loader2 className="animate-spin" /> : <Search />}
+              </Button>
+            </form>
+            <Button variant="ghost" size="icon" onClick={onToggleInfo} aria-label="Chat info">
+              <Info className="size-4" />
+            </Button>
+          </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col-reverse overflow-auto p-4">
           {state.status === "error" ? (
@@ -343,6 +456,11 @@ function Thread({
             <div className="text-center text-xs text-muted-foreground">No messages</div>
           ) : (
             <div className="flex flex-col gap-1">
+              {!searchResults && messages.length >= messageLimit ? (
+                <Button variant="outline" size="sm" onClick={() => setMessageLimit((n) => n + 50)}>
+                  Load older messages
+                </Button>
+              ) : null}
               {messages.map((m) => (
                 <MessageRow
                   key={m.id}
@@ -377,12 +495,25 @@ function Thread({
           </div>
         ) : null}
         <form onSubmit={onSubmit} className="flex shrink-0 items-center gap-2 border-t px-4 py-3">
+          <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border hover:bg-accent">
+            <FileUp className="size-4" />
+            <input
+              type="file"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0] ?? null;
+                e.currentTarget.value = "";
+                void onFile(file);
+              }}
+            />
+          </label>
           <Input
             value={compose.text}
             onChange={(e) => setCompose((c) => ({ ...c, text: e.target.value }))}
             placeholder={compose.kind === "edit" ? "Edit message" : "Write a message"}
             autoFocus
           />
+          <ScheduleInput value={scheduledAt} onChange={setScheduledAt} />
           <Button type="submit" disabled={!compose.text.trim() || busy}>
             <Send className="size-4" />
           </Button>
@@ -392,5 +523,20 @@ function Thread({
         <PeerInfoDrawer dialogId={dialogId} onClose={onToggleInfo} onLeft={onLeft} />
       ) : null}
     </div>
+  );
+}
+
+function ScheduleInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border hover:bg-accent">
+      <CalendarClock className={cn("size-4", value && "text-primary")} />
+      <input
+        type="datetime-local"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+        aria-label="Schedule message"
+      />
+    </label>
   );
 }

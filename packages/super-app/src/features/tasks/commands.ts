@@ -43,6 +43,8 @@ export interface Task {
   id: string;
   createdAt: number;
   updatedAt: number | null;
+  /** Manual ordering within the active list; lower values appear first after priority/due grouping. */
+  order?: number | null;
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
@@ -50,6 +52,8 @@ export interface Task {
   estimatedTime: TaskEstimate | null;
   subtasks: TaskSubtask[];
   recurrence: TaskRecurrence | null;
+  /** Explicit due date for one-off tasks. Recurring tasks derive next due from lastCompletedAt. */
+  dueAt?: number | null;
   /** Last-completed timestamp; the next due date for recurring tasks is derived from this. */
   lastCompletedAt: number | null;
   note: string | null;

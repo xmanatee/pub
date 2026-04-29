@@ -1,7 +1,9 @@
 import {
   Archive,
   ArchiveRestore,
+  CalendarDays,
   CheckCircle2,
+  GripVertical,
   Loader2,
   MoreHorizontal,
   Plus,
@@ -46,7 +48,14 @@ import {
   type TaskPriority,
   type TaskRecurrence,
 } from "./commands";
-import { compareForActiveList, filterForView, recurrenceLabel, type SmartView } from "./model";
+import {
+  compareForActiveList,
+  filterForView,
+  isOverdue,
+  nextDueAt,
+  recurrenceLabel,
+  type SmartView,
+} from "./model";
 
 const PRIORITY_VARIANT: Record<TaskPriority, "destructive" | "warning" | "default" | "muted"> = {
   urgent: "destructive",
@@ -65,6 +74,7 @@ export function TasksPage() {
   const [draft, setDraft] = React.useState("");
   const [creating, setCreating] = React.useState(false);
   const [triaging, setTriaging] = React.useState(false);
+  const [draggedId, setDraggedId] = React.useState<string | null>(null);
 
   const { state, reload } = useAsync(() => tasksApi.list().then((r) => r.entries), []);
   const incoming = useIncomingTarget("tasks");
@@ -190,6 +200,19 @@ export function TasksPage() {
     reload();
   };
 
+  const reorderTask = async (targetId: string) => {
+    if (!draggedId || draggedId === targetId) return;
+    const current = visible.slice();
+    const from = current.findIndex((t) => t.id === draggedId);
+    const to = current.findIndex((t) => t.id === targetId);
+    if (from === -1 || to === -1) return;
+    const [moved] = current.splice(from, 1);
+    current.splice(to, 0, moved);
+    await Promise.all(current.map((task, index) => tasksApi.update(task.id, { order: index })));
+    setDraggedId(null);
+    reload();
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -273,6 +296,9 @@ export function TasksPage() {
           renderRow={(task) => (
             <TaskRow
               task={task}
+              dragging={draggedId === task.id}
+              onDragStart={() => setDraggedId(task.id)}
+              onDrop={() => reorderTask(task.id)}
               onComplete={() => onComplete(task)}
               onArchive={() => onArchive(task)}
               onUnarchive={() => onUnarchive(task)}
@@ -297,12 +323,18 @@ export function TasksPage() {
 
 function TaskRow({
   task,
+  dragging,
+  onDragStart,
+  onDrop,
   onComplete,
   onArchive,
   onUnarchive,
   onDelete,
 }: {
   task: Task;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDrop: () => void;
   onComplete: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
@@ -312,8 +344,18 @@ function TaskRow({
     task.subtasks.length > 0
       ? `${task.subtasks.filter((s) => s.done).length}/${task.subtasks.length}`
       : null;
+  const due = nextDueAt(task);
+  const overdue = isOverdue(task);
   return (
-    <div className="group flex items-start gap-2 px-2 py-2">
+    // biome-ignore lint/a11y/noStaticElementInteractions: this row is a drag/drop container; nested controls keep semantic actions.
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onDrop}
+      className={cn("group flex items-start gap-2 px-2 py-2", dragging && "opacity-50")}
+    >
+      <GripVertical className="mt-0.5 size-4 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       <button
         type="button"
         onClick={(e) => {
@@ -356,6 +398,12 @@ function TaskRow({
           ) : null}
           {task.recurrence ? (
             <Badge variant="muted">{recurrenceLabel(task.recurrence)}</Badge>
+          ) : null}
+          {due ? (
+            <Badge variant={overdue ? "destructive" : "muted"}>
+              <CalendarDays className="size-3" />
+              {formatDueLabel(due)}
+            </Badge>
           ) : null}
         </div>
       </div>
@@ -537,6 +585,13 @@ function TaskDetail({
               ))}
             </Select>
           </Field>
+          <Field label="Due date">
+            <DateTimeInput
+              value={task.dueAt ?? null}
+              onChange={(dueAt) => onPatch({ dueAt })}
+              disabled={task.recurrence !== null}
+            />
+          </Field>
         </div>
 
         <div className="space-y-1.5">
@@ -674,6 +729,7 @@ interface TaskAnalysis {
   estimatedTime?: TaskEstimate | null;
   subtasks?: string[];
   recurrence?: TaskRecurrence | null;
+  dueAt?: number | null;
   note?: string | null;
 }
 
@@ -703,6 +759,52 @@ function applyAnalysis(analysis: TaskAnalysis): Partial<Task> {
     estimatedTime: analysis.estimatedTime ?? null,
     subtasks,
     recurrence: analysis.recurrence ?? null,
+    dueAt: analysis.dueAt ?? null,
     note: analysis.note ?? null,
   };
+}
+
+function formatDueLabel(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  if (sameDay) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function DateTimeInput({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+  disabled?: boolean;
+}) {
+  const local = React.useMemo(() => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }, [value]);
+  return (
+    <input
+      type="datetime-local"
+      value={local}
+      disabled={disabled}
+      onChange={(e) => {
+        if (!e.target.value) {
+          onChange(null);
+          return;
+        }
+        const next = new Date(e.target.value);
+        if (!Number.isNaN(next.getTime())) onChange(next.getTime());
+      }}
+      className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+    />
+  );
 }

@@ -1,13 +1,18 @@
 import {
   ArrowDownAZ,
   ChevronRight,
+  Copy,
   Download,
+  Eye,
   File,
   FilePlus2,
   Folder,
   FolderPlus,
+  Grid2X2,
   Home,
+  List,
   Pencil,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import * as React from "react";
@@ -15,6 +20,7 @@ import { AIActionPanel } from "~/core/ai/action-panel";
 import { cn } from "~/core/cn";
 import { fmtSize, fmtTime } from "~/core/fmt";
 import { useConfirm } from "~/core/hooks/use-confirm";
+import { usePersistentState } from "~/core/hooks/use-persistent-state";
 import { usePrompt } from "~/core/hooks/use-prompt";
 import { useTryToast } from "~/core/hooks/use-toast";
 import { invoke, useAsync } from "~/core/pub";
@@ -29,6 +35,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "~/core/ui/context-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/core/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +53,7 @@ import type { FsEntry, FsReadResult } from "./commands";
 import * as cmd from "./commands";
 
 type SortKey = "name" | "size" | "mtime";
+type FileViewMode = "list" | "grid" | "living";
 
 function sortEntries(entries: FsEntry[], key: SortKey, dir: 1 | -1): FsEntry[] {
   return entries.slice().sort((a, b) => {
@@ -118,9 +126,16 @@ export function FilesPage() {
 
   const [requestedPath, setPath] = React.useState("~");
   const [selected, setSelected] = React.useState<FsEntry | null>(null);
+  const [quickLook, setQuickLook] = React.useState(false);
   const [showHidden, setShowHidden] = React.useState(false);
   const [sortKey, setSortKey] = React.useState<SortKey>("name");
   const [sortDir, setSortDir] = React.useState<1 | -1>(1);
+  const [viewMode, setViewMode] = usePersistentState<FileViewMode>(
+    "pub-super-app:files:view",
+    "list",
+    (raw) => (raw === "grid" || raw === "living" ? raw : "list"),
+    (value) => value,
+  );
 
   const list = useAsync(() => filesApi.list(requestedPath), [requestedPath]);
   const file = useAsync(
@@ -133,6 +148,7 @@ export function FilesPage() {
   const onOpen = (entry: FsEntry) => {
     if (entry.type === "dir") {
       setSelected(null);
+      setQuickLook(false);
       setPath(entry.path);
     } else {
       setSelected(entry);
@@ -172,6 +188,22 @@ export function FilesPage() {
       })
     ) {
       afterMutation(entry);
+    }
+  };
+
+  const onCopy = async (entry: FsEntry) => {
+    const next = await promptUser({
+      title: "Copy to",
+      initial: `${entry.path} copy`,
+      placeholder: "destination path",
+    });
+    if (!next || next === entry.path) return;
+    if (
+      await tryToast(() => invoke(cmd.copy, { from: entry.path, to: next }), {
+        errorTitle: "Copy failed",
+      })
+    ) {
+      list.reload();
     }
   };
 
@@ -229,6 +261,30 @@ export function FilesPage() {
       <div className="flex shrink-0 items-center justify-between gap-2 border-b px-6 py-2">
         <Crumbs path={cwd} onNavigate={setPath} />
         <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="icon"
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+          >
+            <List />
+          </Button>
+          <Button
+            variant={viewMode === "grid" ? "secondary" : "ghost"}
+            size="icon"
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+          >
+            <Grid2X2 />
+          </Button>
+          <Button
+            variant={viewMode === "living" ? "secondary" : "ghost"}
+            size="icon"
+            onClick={() => setViewMode("living")}
+            aria-label="Living view"
+          >
+            <Sparkles />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm">
@@ -282,16 +338,43 @@ export function FilesPage() {
                     <Folder className="size-4" /> ..
                   </button>
                 ) : null}
-                {sorted.map((entry) => (
-                  <EntryRow
-                    key={entry.path}
-                    entry={entry}
-                    active={selected?.path === entry.path}
-                    onOpen={() => onOpen(entry)}
-                    onRename={() => onRename(entry)}
-                    onDelete={() => onDelete(entry)}
-                  />
-                ))}
+                {viewMode === "living" ? (
+                  <LivingFilesView entries={sorted} onOpen={onOpen} />
+                ) : viewMode === "list" ? (
+                  sorted.map((entry) => (
+                    <EntryRow
+                      key={entry.path}
+                      entry={entry}
+                      active={selected?.path === entry.path}
+                      onOpen={() => onOpen(entry)}
+                      onQuickLook={() => {
+                        setSelected(entry);
+                        setQuickLook(entry.type === "file");
+                      }}
+                      onRename={() => onRename(entry)}
+                      onCopy={() => onCopy(entry)}
+                      onDelete={() => onDelete(entry)}
+                    />
+                  ))
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2">
+                    {sorted.map((entry) => (
+                      <EntryTile
+                        key={entry.path}
+                        entry={entry}
+                        active={selected?.path === entry.path}
+                        onOpen={() => onOpen(entry)}
+                        onQuickLook={() => {
+                          setSelected(entry);
+                          setQuickLook(entry.type === "file");
+                        }}
+                        onRename={() => onRename(entry)}
+                        onCopy={() => onCopy(entry)}
+                        onDelete={() => onDelete(entry)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </ScrollArea>
           )}
@@ -320,6 +403,12 @@ export function FilesPage() {
                     {fmtTime(selected.mtime, true)}
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setQuickLook(true)}>
+                    <Eye className="size-3.5" /> Quick look
+                  </Button>
+                  <DownloadButton result={file.state.value} />
+                </div>
                 <FileViewer result={file.state.value} />
                 {fileText ? (
                   <AIActionPanel
@@ -335,21 +424,95 @@ export function FilesPage() {
           )}
         </div>
       </div>
+      <QuickLook
+        open={quickLook}
+        onOpenChange={setQuickLook}
+        entries={sorted.filter((e) => e.type === "file")}
+        selected={selected}
+        onSelect={setSelected}
+      />
     </div>
   );
+}
+
+function LivingFilesView({
+  entries,
+  onOpen,
+}: {
+  entries: FsEntry[];
+  onOpen: (entry: FsEntry) => void;
+}) {
+  const dirs = entries.filter((e) => e.type === "dir");
+  const files = entries.filter((e) => e.type === "file");
+  return (
+    <div className="living-files-scene">
+      <div className="living-horizon" />
+      {dirs.map((entry, i) => (
+        <button
+          key={entry.path}
+          type="button"
+          onClick={() => onOpen(entry)}
+          className="living-tree"
+          style={{
+            left: `${8 + (i / Math.max(1, dirs.length)) * 84}%`,
+            height: `${72 + Math.min(90, entry.size / 60)}px`,
+          }}
+          title={`${entry.name} · folder`}
+        >
+          <span>{entry.name}</span>
+        </button>
+      ))}
+      {files.map((entry, i) => {
+        const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
+        const color = extColor(ext);
+        return (
+          <button
+            key={entry.path}
+            type="button"
+            onClick={() => onOpen(entry)}
+            className="living-file"
+            style={{
+              left: `${6 + ((i * 17) % 88)}%`,
+              top: `${18 + ((i * 23) % 62)}%`,
+              color,
+              animationDelay: `${(i % 7) * 0.17}s`,
+            }}
+            title={`${entry.name} · ${fmtSize(entry.size)} · ${ext || "file"}`}
+          >
+            <span />
+            <b>{entry.name}</b>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function extColor(ext: string): string {
+  if (["ts", "tsx", "js", "jsx"].includes(ext)) return "#3b82f6";
+  if (["md", "txt"].includes(ext)) return "#22c55e";
+  if (["json", "yml", "yaml", "toml"].includes(ext)) return "#f59e0b";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "#ec4899";
+  if (["mp4", "mov", "webm", "mp3", "wav", "m4a"].includes(ext)) return "#8b5cf6";
+  if (["sh", "py", "go", "rs"].includes(ext)) return "#14b8a6";
+  return "#94a3b8";
 }
 
 function EntryRow({
   entry,
   active,
   onOpen,
+  onQuickLook,
   onRename,
+  onCopy,
   onDelete,
 }: {
   entry: FsEntry;
   active: boolean;
   onOpen: () => void;
+  onQuickLook: () => void;
   onRename: () => void;
+  onCopy: () => void;
   onDelete: () => void;
 }) {
   const Icon = entry.type === "dir" ? Folder : File;
@@ -385,6 +548,11 @@ function EntryRow({
             <button type="button" onClick={onRename} aria-label="Rename">
               <Pencil className="size-3.5 text-muted-foreground hover:text-foreground" />
             </button>
+            {entry.type === "file" ? (
+              <button type="button" onClick={onQuickLook} aria-label="Quick look">
+                <Eye className="size-3.5 text-muted-foreground hover:text-foreground" />
+              </button>
+            ) : null}
             <button type="button" onClick={onDelete} aria-label="Delete">
               <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
             </button>
@@ -393,8 +561,16 @@ function EntryRow({
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={onOpen}>Open</ContextMenuItem>
+        {entry.type === "file" ? (
+          <ContextMenuItem onSelect={onQuickLook}>
+            <Eye className="size-3.5" /> Quick look
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem onSelect={onRename}>
           <Pencil className="size-3.5" /> Rename
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={onCopy}>
+          <Copy className="size-3.5" /> Copy
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => navigator.clipboard.writeText(entry.path)}>
           <Download className="size-3.5" /> Copy path
@@ -405,5 +581,164 @@ function EntryRow({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  );
+}
+
+function EntryTile({
+  entry,
+  active,
+  onOpen,
+  onQuickLook,
+  onRename,
+  onCopy,
+  onDelete,
+}: {
+  entry: FsEntry;
+  active: boolean;
+  onOpen: () => void;
+  onQuickLook: () => void;
+  onRename: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+}) {
+  const Icon = entry.type === "dir" ? Folder : File;
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={onOpen}
+          onDoubleClick={entry.type === "file" ? onQuickLook : onOpen}
+          className={cn(
+            "group flex min-h-32 flex-col gap-2 rounded-md border p-2 text-left hover:bg-accent/50",
+            active && "border-primary bg-accent",
+          )}
+        >
+          <div className="flex h-20 items-center justify-center overflow-hidden rounded bg-muted/50">
+            <FileThumb entry={entry} fallback={<Icon className="size-8 text-muted-foreground" />} />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{entry.name}</div>
+            <div className="text-xs text-muted-foreground">
+              {entry.type === "file" ? fmtSize(entry.size) : "Folder"}
+            </div>
+          </div>
+        </button>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={onOpen}>Open</ContextMenuItem>
+        {entry.type === "file" ? (
+          <ContextMenuItem onSelect={onQuickLook}>Quick look</ContextMenuItem>
+        ) : null}
+        <ContextMenuItem onSelect={onRename}>Rename</ContextMenuItem>
+        <ContextMenuItem onSelect={onCopy}>Copy</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem danger onSelect={onDelete}>
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function FileThumb({ entry, fallback }: { entry: FsEntry; fallback: React.ReactNode }) {
+  const canPreview = entry.type === "file" && entry.size < 2 * 1024 * 1024;
+  const preview = useAsync(
+    () => (canPreview ? filesApi.read(entry.path) : Promise.resolve(null)),
+    [entry.path, canPreview],
+  );
+  if (!canPreview || preview.state.status !== "loaded" || !preview.state.value)
+    return <>{fallback}</>;
+  const result = preview.state.value;
+  if (result.encoding === "base64" && result.mime.startsWith("image/")) {
+    return (
+      <img
+        src={`data:${result.mime};base64,${result.content}`}
+        alt={entry.name}
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+  if (result.mime === "application/pdf") return <File className="size-8 text-destructive" />;
+  return <>{fallback}</>;
+}
+
+function DownloadButton({ result }: { result: FsReadResult }) {
+  if (result.truncated) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        const href =
+          result.encoding === "base64"
+            ? `data:${result.mime};base64,${result.content}`
+            : `data:${result.mime};charset=utf-8,${encodeURIComponent(result.content)}`;
+        const a = document.createElement("a");
+        a.href = href;
+        a.download = result.name;
+        a.click();
+      }}
+    >
+      <Download className="size-3.5" /> Download
+    </Button>
+  );
+}
+
+function QuickLook({
+  open,
+  onOpenChange,
+  entries,
+  selected,
+  onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  entries: FsEntry[];
+  selected: FsEntry | null;
+  onSelect: (entry: FsEntry | null) => void;
+}) {
+  const file = useAsync(
+    () =>
+      open && selected?.type === "file" ? filesApi.read(selected.path) : Promise.resolve(null),
+    [open, selected?.path, selected?.type],
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+      if (!selected) return;
+      const idx = entries.findIndex((entry) => entry.path === selected.path);
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        onSelect(entries[Math.min(entries.length - 1, idx + 1)] ?? selected);
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        onSelect(entries[Math.max(0, idx - 1)] ?? selected);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [entries, onOpenChange, onSelect, open, selected]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{selected?.name ?? "Quick look"}</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[75vh] overflow-auto">
+          {file.state.status === "loading" ? (
+            <Skeleton className="h-96 w-full" />
+          ) : file.state.status === "error" ? (
+            <ErrorState error={file.state.error} />
+          ) : file.state.value ? (
+            <FileViewer result={file.state.value} />
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

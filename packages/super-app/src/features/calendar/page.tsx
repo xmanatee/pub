@@ -17,6 +17,7 @@ import { useIncomingTarget } from "~/core/navigation/use-target-navigation";
 import { useAsync } from "~/core/pub";
 import { PageHeader } from "~/core/shell/page-header";
 import { Button } from "~/core/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/core/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~/core/ui/dialog";
 import { Input } from "~/core/ui/input";
 import { ScrollArea } from "~/core/ui/scroll-area";
@@ -26,7 +27,7 @@ import { Textarea } from "~/core/ui/textarea";
 import { calendarApi, type EventInput } from "./client";
 import type { CalendarEvent } from "./commands";
 
-type ViewKind = "day" | "week" | "month";
+type ViewKind = "day" | "week" | "month" | "fluid";
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -54,6 +55,12 @@ function rangeFor(view: ViewKind, anchor: Date): { from: Date; to: Date } {
     to.setDate(to.getDate() + 1);
     return { from, to };
   }
+  if (view === "fluid") {
+    const from = startOfDay(anchor);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 1);
+    return { from, to };
+  }
   if (view === "week") {
     const from = startOfWeek(anchor);
     const to = new Date(from);
@@ -69,6 +76,8 @@ function rangeFor(view: ViewKind, anchor: Date): { from: Date; to: Date } {
 function formatRangeLabel(view: ViewKind, from: Date): string {
   if (view === "day")
     return from.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  if (view === "fluid")
+    return `Fluid day · ${from.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`;
   if (view === "week")
     return `Week of ${from.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
   return from.toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -84,7 +93,7 @@ function useRangeLabel(view: ViewKind, from: Date): string | null {
 
 function shift(view: ViewKind, anchor: Date, dir: 1 | -1): Date {
   const next = new Date(anchor);
-  if (view === "day") next.setDate(next.getDate() + dir);
+  if (view === "day" || view === "fluid") next.setDate(next.getDate() + dir);
   else if (view === "week") next.setDate(next.getDate() + 7 * dir);
   else next.setMonth(next.getMonth() + dir);
   return next;
@@ -186,6 +195,7 @@ export function CalendarPage() {
             <TabsTrigger value="day">Day</TabsTrigger>
             <TabsTrigger value="week">Week</TabsTrigger>
             <TabsTrigger value="month">Month</TabsTrigger>
+            <TabsTrigger value="fluid">Fluid</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -194,6 +204,8 @@ export function CalendarPage() {
           <SkeletonList count={6} itemClassName="h-12" className="space-y-2 p-6" />
         ) : state.status === "error" ? (
           <p className="p-6 text-sm text-destructive">{state.error}</p>
+        ) : view === "fluid" ? (
+          <FluidCalendar events={state.value} />
         ) : (
           <ScrollArea className="h-full">
             <div className="space-y-2 p-6">
@@ -239,6 +251,130 @@ export function CalendarPage() {
       ) : null}
     </div>
   );
+}
+
+function FluidCalendar({ events }: { events: CalendarEvent[] }) {
+  const [active, setActive] = React.useState<CalendarEvent | null>(null);
+  const grouped = React.useMemo(() => {
+    const buckets = {
+      work: [] as CalendarEvent[],
+      personal: [] as CalendarEvent[],
+      team: [] as CalendarEvent[],
+    };
+    for (const event of events) buckets[eventCategory(event)].push(event);
+    return buckets;
+  }, [events]);
+  const totalHours = Math.max(
+    1,
+    events.reduce((sum, event) => sum + eventDurationHours(event), 0),
+  );
+  const layers = (Object.keys(grouped) as Array<keyof typeof grouped>).map((key) => ({
+    key,
+    events: grouped[key],
+    pct: Math.max(
+      6,
+      (grouped[key].reduce((sum, event) => sum + eventDurationHours(event), 0) / totalHours) * 100,
+    ),
+  }));
+  return (
+    <div className="grid h-full grid-cols-1 gap-6 overflow-auto p-6 lg:grid-cols-[minmax(18rem,28rem)_1fr]">
+      <div className="calendar-vessel">
+        <div className="calendar-liquid-stack">
+          {layers.map((layer) => (
+            <button
+              key={layer.key}
+              type="button"
+              className={`calendar-liquid ${layer.key}`}
+              style={{ height: `${layer.pct}%` }}
+              onMouseEnter={() => setActive(layer.events[0] ?? null)}
+            >
+              <span>{layer.key}</span>
+            </button>
+          ))}
+        </div>
+        <div className="calendar-glass" />
+      </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          {(Object.keys(grouped) as Array<keyof typeof grouped>).map((key) => (
+            <Card key={key}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm capitalize">{key}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{grouped[key].length}</div>
+                <div className="text-xs text-muted-foreground">
+                  {grouped[key]
+                    .reduce((sum, event) => sum + eventDurationHours(event), 0)
+                    .toFixed(1)}
+                  h
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {events.length > 0 ? (
+          <div className="space-y-2">
+            {events.map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onMouseEnter={() => setActive(event)}
+                onClick={() => setActive(event)}
+                className="flex w-full items-center justify-between gap-3 rounded-md border bg-card p-3 text-left hover:bg-accent/40"
+              >
+                <span className="truncate text-sm font-medium">{event.summary}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {new Date(event.start).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No events today.</p>
+        )}
+        {active ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">{active.summary}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm text-muted-foreground">
+              <div>
+                {new Date(active.start).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {" - "}
+                {new Date(active.end).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+              {active.location ? <div>{active.location}</div> : null}
+              {active.description ? <div className="line-clamp-3">{active.description}</div> : null}
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function eventCategory(event: CalendarEvent): "work" | "personal" | "team" {
+  const text = `${event.summary} ${event.description ?? ""}`.toLowerCase();
+  if (/standup|team|sync|review|planning|1:1|meeting/.test(text)) return "team";
+  if (/gym|doctor|family|lunch|personal|home/.test(text)) return "personal";
+  return "work";
+}
+
+function eventDurationHours(event: CalendarEvent): number {
+  const start = new Date(event.start).getTime();
+  const end = new Date(event.end).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0.5;
+  return Math.min(8, Math.max(0.25, (end - start) / 3_600_000));
 }
 
 function groupByDay(events: CalendarEvent[]): { day: string; events: CalendarEvent[] }[] {

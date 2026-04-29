@@ -68,6 +68,12 @@ export const markAsRead: CommandFunctionSpec = {
   },
 };
 
+export const starMessage: CommandFunctionSpec = {
+  name: "mail.star",
+  returns: "void",
+  executor: { kind: "exec", command: "gog", args: ["gmail", "star", "--id", "{{id}}"] },
+};
+
 export const sendDraft: CommandFunctionSpec = {
   name: "mail.draft",
   returns: "void",

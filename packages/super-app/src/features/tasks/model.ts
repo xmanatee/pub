@@ -17,7 +17,7 @@ function nextWeekday(from: number): number {
 }
 
 export function nextDueAt(task: Task, now: number = Date.now()): number | null {
-  if (!task.recurrence) return null;
+  if (!task.recurrence) return task.dueAt ?? null;
   const base = task.lastCompletedAt ?? task.createdAt;
   switch (task.recurrence) {
     case "daily":
@@ -45,8 +45,18 @@ export function compareForActiveList(a: Task, b: Task): number {
   // Analyzing first, then by priority, then by recency.
   if (a.status === "analyzing" && b.status !== "analyzing") return -1;
   if (b.status === "analyzing" && a.status !== "analyzing") return 1;
+  const ad = nextDueAt(a);
+  const bd = nextDueAt(b);
+  if (ad !== null || bd !== null) {
+    if (ad === null) return 1;
+    if (bd === null) return -1;
+    if (ad !== bd) return ad - bd;
+  }
   const p = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
   if (p !== 0) return p;
+  const ao = a.order ?? a.createdAt;
+  const bo = b.order ?? b.createdAt;
+  if (ao !== bo) return ao - bo;
   return b.createdAt - a.createdAt;
 }
 

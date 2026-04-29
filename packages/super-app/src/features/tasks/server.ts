@@ -13,12 +13,14 @@ export const createTask = createServerFn({ method: "POST" })
   .handler(async ({ data }) => ({
     entry: await store.append({
       title: data.title,
+      order: Date.now(),
       status: "analyzing",
       priority: "medium",
       category: "other",
       estimatedTime: null,
       subtasks: [],
       recurrence: null,
+      dueAt: null,
       lastCompletedAt: null,
       note: null,
       comments: [],

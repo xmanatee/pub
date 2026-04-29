@@ -250,6 +250,17 @@ async function messages(dialogId: string, limit = 50): Promise<{ messages: Teleg
   return { messages: list.map(toMessage) };
 }
 
+async function searchMessages(
+  dialogId: string,
+  query: string,
+  limit = 50,
+): Promise<{ messages: TelegramMessage[] }> {
+  const client = await getClient();
+  const entity = await client.getEntity(dialogId);
+  const list = await client.getMessages(entity, { limit, search: query });
+  return { messages: list.map(toMessage) };
+}
+
 async function fetchMuted(client: TelegramClient, entity: Api.TypeEntityLike): Promise<boolean> {
   const inputPeer = await client.getInputEntity(entity);
   const settings = (await client.invoke(
@@ -314,6 +325,23 @@ async function send(dialogId: string, text: string, replyTo?: number): Promise<{
   const entity = await client.getEntity(dialogId);
   const result = await client.sendMessage(entity, { message: text, replyTo });
   return { id: result.id };
+}
+
+async function sendFile(
+  dialogId: string,
+  file: File,
+  caption?: string,
+  replyTo?: number,
+): Promise<{ id: number | null }> {
+  const client = await getClient();
+  const entity = await client.getEntity(dialogId);
+  const result = await client.sendFile(entity, {
+    file,
+    caption: caption ?? "",
+    replyTo,
+  });
+  const first = Array.isArray(result) ? result[0] : result;
+  return { id: first?.id ?? null };
 }
 
 async function editMessage(dialogId: string, id: number, text: string): Promise<{ id: number }> {
@@ -467,8 +495,10 @@ export const telegram = {
   logout,
   dialogs,
   messages,
+  searchMessages,
   peer,
   send,
+  sendFile,
   edit: editMessage,
   delete: deleteMessages,
   forward: forwardMessages,

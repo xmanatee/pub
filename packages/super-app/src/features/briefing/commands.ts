@@ -11,6 +11,7 @@ export interface WeatherResult {
   description: string;
   humidity: number;
   windKph: number;
+  hourly: { time: string; temperatureC: number; description: string; chanceOfRain: number }[];
   forecast: { date: string; minC: number; maxC: number; description: string }[];
 }
 
@@ -56,6 +57,8 @@ export const weatherCurrent: CommandFunctionSpec = {
       " description: .current_condition[0].weatherDesc[0].value," +
       " humidity: (.current_condition[0].humidity|tonumber)," +
       " windKph: (.current_condition[0].windspeedKmph|tonumber)," +
+      " hourly: [.weather[0].hourly[] | {time: .time, temperatureC:(.tempC|tonumber)," +
+      " description: .weatherDesc[0].value, chanceOfRain:(.chanceofrain|tonumber)}]," +
       " forecast: [.weather[0:3][] | {date, minC:(.mintempC|tonumber), maxC:(.maxtempC|tonumber)," +
       " description: .hourly[(.hourly|length/2|floor)].weatherDesc[0].value}]}'",
   },

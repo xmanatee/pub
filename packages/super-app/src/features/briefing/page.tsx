@@ -177,6 +177,24 @@ export function BriefingPage() {
                 Feels like {Math.round(w.feelsLikeC)}° · Humidity {w.humidity}% · Wind{" "}
                 {Math.round(w.windKph)} kph
               </div>
+              {w.hourly.length > 0 ? (
+                <div className="flex gap-2 overflow-x-auto pt-2">
+                  {w.hourly.slice(0, 8).map((h) => (
+                    <div
+                      key={h.time}
+                      className="min-w-20 rounded-md border bg-background px-2 py-2 text-center"
+                    >
+                      <div className="briefing-microcopy text-muted-foreground">
+                        {formatWeatherHour(h.time)}
+                      </div>
+                      <div className="text-sm font-medium">{Math.round(h.temperatureC)}°</div>
+                      <div className="briefing-microcopy truncate text-muted-foreground">
+                        {h.chanceOfRain}% rain
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="grid grid-cols-3 gap-2 pt-3">
                 {w.forecast.slice(0, 3).map((d) => (
                   <div key={d.date} className="rounded-md bg-muted px-2 py-2 text-center">
@@ -275,4 +293,13 @@ export function BriefingPage() {
       </div>
     </div>
   );
+}
+
+function formatWeatherHour(raw: string): string {
+  const padded = raw.padStart(4, "0");
+  const hour = Number(padded.slice(0, 2));
+  if (!Number.isFinite(hour)) return raw;
+  return new Date(2000, 0, 1, hour).toLocaleTimeString([], {
+    hour: "numeric",
+  });
 }
