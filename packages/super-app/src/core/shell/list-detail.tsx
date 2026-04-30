@@ -60,7 +60,7 @@ export function ListDetail<T extends { id: string }>({
   const selected = filtered.find((it) => it.id === selectedId) ?? null;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[20rem_minmax(0,1fr)] divide-x">
+    <div className="grid h-full min-h-0 layout-list-detail divide-x">
       <div className={cn("flex min-h-0 flex-col", listClassName)}>
         {onSearchChange ? (
           <div className="shrink-0 border-b px-3 py-2">

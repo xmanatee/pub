@@ -151,7 +151,9 @@ export function MailPage() {
             selectedId={selectedId}
             onSelect={(id) => {
               setSelectedId(id);
-              void mailApi.markRead(id).catch(() => {});
+              void tryToast(() => mailApi.markRead(id), {
+                errorTitle: "Couldn't mark message read",
+              });
             }}
             searchValue={search}
             onSearchChange={setSearch}
@@ -243,7 +245,7 @@ function MessageDetail({
           </div>
           <div className="flex flex-wrap gap-1">
             {message.labels.slice(0, 6).map((label) => (
-              <Badge key={label} variant="outline" className="text-[10px]">
+              <Badge key={label} variant="outline" className="text-tiny">
                 {label}
               </Badge>
             ))}
@@ -430,7 +432,7 @@ function DocumentDialog({
           <DialogTitle>Email document</DialogTitle>
         </DialogHeader>
         {doc ? (
-          <div className="grid max-h-[75vh] grid-cols-1 gap-4 overflow-auto md:grid-cols-2">
+          <div className="grid max-h-75vh grid-cols-1 gap-4 overflow-auto md:grid-cols-2">
             <Textarea value={source?.text ?? ""} readOnly rows={18} />
             <article className="prose-reader rounded-md border bg-card p-4">
               <h1>{doc.title}</h1>

@@ -11,6 +11,7 @@ export interface FsEntry {
   size: number;
   mtime: number;
   hidden: boolean;
+  perms: string;
 }
 
 export interface FsListResult {
@@ -38,7 +39,7 @@ export const mkdir: CommandFunctionSpec = {
 export const rm: CommandFunctionSpec = {
   name: "files.rm",
   returns: "void",
-  executor: { kind: "exec", command: "rm", args: ["-rf", "{{path}}"] },
+  executor: { kind: "exec", command: "trash", args: ["{{path}}"] },
 };
 
 export const rename: CommandFunctionSpec = {

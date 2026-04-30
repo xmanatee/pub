@@ -5,12 +5,9 @@ import { cn } from "~/core/cn";
 
 export const ContextMenu = ContextMenuPrimitive.Root;
 export const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
-export const ContextMenuGroup = ContextMenuPrimitive.Group;
-export const ContextMenuSub = ContextMenuPrimitive.Sub;
-export const ContextMenuRadioGroup = ContextMenuPrimitive.RadioGroup;
 
 const itemBase =
-  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
+  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground ui-disabled";
 
 export const ContextMenuSubTrigger = React.forwardRef<
   React.ComponentRef<typeof ContextMenuPrimitive.SubTrigger>,
@@ -18,7 +15,7 @@ export const ContextMenuSubTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <ContextMenuPrimitive.SubTrigger
     ref={ref}
-    className={cn(itemBase, "data-[state=open]:bg-accent", className)}
+    className={cn(itemBase, "ui-state-open-bg", className)}
     {...props}
   >
     {children}
@@ -34,7 +31,7 @@ export const ContextMenuSubContent = React.forwardRef<
   <ContextMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg",
+      "z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg",
       className,
     )}
     {...props}
@@ -50,7 +47,7 @@ export const ContextMenuContent = React.forwardRef<
     <ContextMenuPrimitive.Content
       ref={ref}
       className={cn(
-        "z-50 min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+        "z-50 min-w-40 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
         className,
       )}
       {...props}

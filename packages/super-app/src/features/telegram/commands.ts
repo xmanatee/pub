@@ -26,7 +26,7 @@ export interface TelegramDialog {
   isChannel: boolean;
 }
 
-export type TelegramMediaType = "photo" | "document" | "audio" | "video" | "voice";
+export type TelegramMediaType = "photo" | "document" | "audio" | "video" | "voice" | "video-note";
 
 export interface TelegramMessage {
   id: number;

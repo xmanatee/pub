@@ -184,6 +184,8 @@ function detectMediaType(m: Api.Message): TelegramMessage["mediaType"] {
     const attrs = doc?.attributes ?? [];
     if (attrs.some((a) => a instanceof Api.DocumentAttributeAudio && a.voice)) return "voice";
     if (attrs.some((a) => a instanceof Api.DocumentAttributeAudio)) return "audio";
+    if (attrs.some((a) => a instanceof Api.DocumentAttributeVideo && a.roundMessage))
+      return "video-note";
     if (attrs.some((a) => a instanceof Api.DocumentAttributeVideo)) return "video";
     return "document";
   }

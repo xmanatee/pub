@@ -7,7 +7,7 @@
  * service-specific scoring) but exposes the table here so unit tests can
  * pin the weights down.
  */
-import type { CrossFeatureContext, ServiceAction } from "~/core/navigation/registry";
+import type { ServiceAction } from "~/core/navigation/registry";
 
 export const AUTO_SURFACE_THRESHOLD = 0.62;
 
@@ -129,13 +129,4 @@ export function rankActions(
       return { action, score: s, surface: s >= AUTO_SURFACE_THRESHOLD };
     })
     .sort((a, b) => b.score - a.score);
-}
-
-export function buildContext(
-  sourceServiceId: string,
-  sourceItemId: string | undefined,
-  excerpt: string,
-  fields?: Record<string, string>,
-): CrossFeatureContext {
-  return { sourceServiceId, sourceItemId, excerpt, fields };
 }

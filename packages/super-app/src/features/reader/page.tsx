@@ -285,7 +285,7 @@ function Home({ onOpen }: { onOpen: (url: string) => void }) {
 
 function Article({ result }: { result: ReaderResult }) {
   return (
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid h-full layout-article">
       <ScrollArea className="h-full">
         <article className="mx-auto max-w-prose px-6 py-10">
           <header className="mb-6 space-y-2 border-b pb-4">

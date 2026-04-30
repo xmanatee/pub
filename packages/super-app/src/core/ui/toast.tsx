@@ -13,7 +13,7 @@ export const ToastViewport = React.forwardRef<
   <ToastPrimitive.Viewport
     ref={ref}
     className={cn(
-      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      "fixed top-0 flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:ui-toast-max-width ui-toast-viewport",
       className,
     )}
     {...props}
@@ -22,7 +22,7 @@ export const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitive.Viewport.displayName;
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-md border bg-background p-4 pr-8 shadow-lg transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-md border bg-background p-4 pr-8 shadow-lg transition-all ui-animate-toast",
   {
     variants: {
       variant: {
@@ -43,8 +43,6 @@ export const Toast = React.forwardRef<
   <ToastPrimitive.Root ref={ref} className={cn(toastVariants({ variant }), className)} {...props} />
 ));
 Toast.displayName = ToastPrimitive.Root.displayName;
-
-export const ToastAction = ToastPrimitive.Action;
 
 export const ToastClose = React.forwardRef<
   React.ComponentRef<typeof ToastPrimitive.Close>,

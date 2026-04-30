@@ -115,18 +115,12 @@ export function TasksPage() {
         .slice(0, 8)
         .map((t) => `- [${t.priority}] ${t.title}`)
         .join("\n");
-      try {
-        const analysis = await runAI<TaskAnalysis>(prompts.analyzeTask, {
-          text: title,
-          context: context || "(none)",
-        });
-        await tasksApi.update(entry.id, applyAnalysis(analysis));
-        reload();
-      } catch (err) {
-        await tasksApi.update(entry.id, { status: "active", analyzed: false });
-        reload();
-        throw err;
-      }
+      const analysis = await runAI<TaskAnalysis>(prompts.analyzeTask, {
+        text: title,
+        context: context || "(none)",
+      });
+      await tasksApi.update(entry.id, applyAnalysis(analysis));
+      reload();
     } catch (err) {
       tryToast(() => Promise.reject(err), { errorTitle: "Couldn't analyze task" });
     } finally {

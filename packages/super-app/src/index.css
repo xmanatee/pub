@@ -188,10 +188,15 @@
   }
 
   .calendar-vessel {
-    @apply relative mx-auto h-[32rem] w-full max-w-sm overflow-hidden rounded-b-[4rem] rounded-t-2xl border bg-card shadow-sm;
+    @apply relative mx-auto w-full max-w-sm overflow-hidden rounded-t-2xl border bg-card shadow-sm;
+    height: 32rem;
+    border-bottom-right-radius: 4rem;
+    border-bottom-left-radius: 4rem;
   }
   .calendar-liquid-stack {
-    @apply absolute inset-x-8 bottom-6 flex flex-col-reverse overflow-hidden rounded-b-[3rem] rounded-t-lg;
+    @apply absolute inset-x-8 bottom-6 flex flex-col-reverse overflow-hidden rounded-t-lg;
+    border-bottom-right-radius: 3rem;
+    border-bottom-left-radius: 3rem;
     height: calc(100% - 4rem);
   }
   .calendar-liquid {
@@ -206,12 +211,15 @@
     background: radial-gradient(ellipse at center, white 0%, transparent 60%);
   }
   .calendar-glass {
-    @apply pointer-events-none absolute inset-0 rounded-b-[4rem] rounded-t-2xl;
+    @apply pointer-events-none absolute inset-0 rounded-t-2xl;
+    border-bottom-right-radius: 4rem;
+    border-bottom-left-radius: 4rem;
     box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.18), inset 20px 0 32px rgb(255 255 255 / 0.08);
   }
 
   .living-files-scene {
-    @apply relative min-h-[32rem] overflow-hidden rounded-md border bg-card;
+    @apply relative overflow-hidden rounded-md border bg-card;
+    min-height: 32rem;
     background:
       linear-gradient(to bottom, color-mix(in oklab, var(--primary) 12%, transparent), transparent 45%),
       linear-gradient(to bottom, var(--card), var(--muted));
@@ -236,7 +244,8 @@
     @apply relative z-10 max-w-24 truncate rounded bg-background/80 px-2 py-1;
   }
   .living-file {
-    @apply absolute flex -translate-x-1/2 flex-col items-center gap-1 text-[10px] transition-transform hover:scale-110;
+    @apply absolute flex -translate-x-1/2 flex-col items-center gap-1 transition-transform hover:scale-110;
+    font-size: 10px;
     animation: living-float 3.6s ease-in-out infinite;
   }
   .living-file span {
@@ -302,6 +311,71 @@
   @keyframes shimmer {
     from { background-position: 200% 0; }
     to   { background-position: -200% 0; }
+  }
+
+  /* Layout and sizing utilities to replace arbitrary syntax */
+  .layout-list-detail,
+  .layout-split-view,
+  .layout-inbox,
+  .layout-calendar,
+  .layout-article,
+  .layout-tracker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 64rem) {
+    .layout-list-detail { grid-template-columns: 20rem minmax(0, 1fr); }
+    .layout-split-view { grid-template-columns: 1fr 24rem; }
+    .layout-inbox { grid-template-columns: 16rem minmax(0, 1fr); }
+    .layout-calendar { grid-template-columns: minmax(18rem, 28rem) 1fr; }
+    .layout-article { grid-template-columns: minmax(0, 1fr) 22rem; }
+    .layout-tracker { grid-template-columns: minmax(0, 1fr) 18rem; }
+  }
+  .text-tiny { font-size: 10px; }
+  .textarea-auto-size { field-sizing: content; }
+  .grid-calendar-hours { grid-template-rows: repeat(24, minmax(3.5rem, 1fr)); }
+  .grid-files-auto { grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); }
+  .max-h-75vh { max-height: 75vh; }
+  .h-28rem { height: 28rem; }
+  .h-reader-main { height: calc(100vh - 12rem); }
+
+  .ui-toast-viewport {
+    z-index: 100;
+  }
+  .ui-toast-max-width {
+    max-width: 420px;
+  }
+
+  /* UI Component state helpers */
+  .ui-disabled[data-disabled] {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .ui-state-open-bg[data-state="open"] {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+  .ui-switch-root {
+    &[data-state="checked"] { background-color: var(--primary); }
+    &[data-state="unchecked"] { background-color: var(--muted); }
+  }
+  .ui-switch-thumb {
+    &[data-state="checked"] { transform: translateX(1rem); }
+    &[data-state="unchecked"] { transform: translateX(0); }
+  }
+  .ui-tabs-trigger[data-state="active"] {
+    background-color: var(--background);
+    color: var(--foreground);
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+
+  /* Component-specific animation triggers */
+  .ui-animate-popover {
+    &[data-state="open"] { animation: content-zoom-in 0.15s ease-out; }
+    &[data-state="closed"] { animation: content-zoom-out 0.12s ease-in; }
+  }
+  .ui-animate-toast {
+    &[data-state="open"] { animation: toast-slide-in-bottom 0.18s ease-out; }
+    &[data-state="closed"] { animation: toast-slide-out-right 0.15s ease-in; }
   }
 }
 

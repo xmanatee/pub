@@ -88,7 +88,7 @@ export function NotesPage() {
             <div className="px-2 py-2">
               <div className="truncate text-sm font-medium">{n.title || "Untitled"}</div>
               <div className="line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
-              <div className="mt-1 text-[10px] text-muted-foreground">
+              <div className="mt-1 text-tiny text-muted-foreground">
                 {fmtDate(n.updatedAt ?? n.createdAt)}
               </div>
             </div>

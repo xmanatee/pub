@@ -5,13 +5,10 @@ import { cn } from "~/core/cn";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
-export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
-export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
-export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const itemBase =
-  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
+  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground ui-disabled";
 
 export const DropdownMenuSubTrigger = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.SubTrigger>,
@@ -19,7 +16,7 @@ export const DropdownMenuSubTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
-    className={cn(itemBase, "data-[state=open]:bg-accent", className)}
+    className={cn(itemBase, "ui-state-open-bg", className)}
     {...props}
   >
     {children}
@@ -35,7 +32,7 @@ export const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg ui-animate-popover",
       className,
     )}
     {...props}
@@ -52,7 +49,7 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "z-50 min-w-40 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md ui-animate-popover",
         className,
       )}
       {...props}
@@ -138,15 +135,3 @@ export const DropdownMenuSeparator = React.forwardRef<
   />
 ));
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
-
-export function DropdownMenuShortcut({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
-      {...props}
-    />
-  );
-}

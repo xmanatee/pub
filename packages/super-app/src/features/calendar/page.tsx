@@ -277,7 +277,7 @@ function FluidCalendar({ events }: { events: CalendarEvent[] }) {
     ),
   }));
   return (
-    <div className="grid h-full grid-cols-1 gap-6 overflow-auto p-6 lg:grid-cols-[minmax(18rem,28rem)_1fr]">
+    <div className="grid h-full grid-cols-1 gap-6 overflow-auto p-6 lg:layout-calendar">
       <div className="calendar-vessel">
         <div className="calendar-liquid-stack">
           {layers.map((layer) => (

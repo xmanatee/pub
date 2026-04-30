@@ -331,7 +331,7 @@ function DeadlineUniverse() {
     email.state.status === "loading";
 
   return (
-    <div className="grid flex-1 min-h-0 grid-cols-[16rem_minmax(0,1fr)] divide-x">
+    <div className="grid flex-1 min-h-0 layout-inbox divide-x">
       <aside className="space-y-5 overflow-auto bg-sidebar/40 p-4">
         <div className="flex items-center gap-2 text-sm font-medium">
           <SlidersHorizontal className="size-4" /> Filters

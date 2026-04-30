@@ -20,7 +20,7 @@ export function Sidebar() {
       >
         <Search className="size-3.5" />
         <span className="flex-1 text-left">Search</span>
-        <span className="rounded border border-border bg-muted px-1 font-mono text-[10px]">
+        <span className="rounded border border-border bg-muted px-1 font-mono text-tiny">
           {MOD_KEY_LABEL}K
         </span>
       </button>

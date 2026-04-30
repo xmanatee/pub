@@ -60,6 +60,7 @@ export function TrackerPage() {
     if (!t) return;
     setSubmitting(true);
     let category: string | null = null;
+    let categorizeError: unknown = null;
     if (aiMode) {
       try {
         const result = await runAI<{ category: string }>(prompts.categorize, {
@@ -67,8 +68,8 @@ export function TrackerPage() {
           categories: categories.join(", "),
         });
         if (categories.includes(result.category)) category = result.category;
-      } catch {
-        // Agent unavailable — save uncategorized.
+      } catch (err) {
+        categorizeError = err;
       }
     }
     await tryToast(
@@ -79,6 +80,11 @@ export function TrackerPage() {
       },
       { errorTitle: "Couldn't add entry" },
     );
+    if (categorizeError) {
+      await tryToast(() => Promise.reject(categorizeError), {
+        errorTitle: "Auto-categorization failed",
+      });
+    }
     setSubmitting(false);
   };
 
@@ -147,7 +153,7 @@ export function TrackerPage() {
           {submitting ? <Loader2 className="animate-spin" /> : null} Add
         </Button>
       </form>
-      <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)_18rem] divide-x">
+      <div className="grid flex-1 min-h-0 layout-tracker divide-x">
         <ScrollArea className="h-full">
           <div className="space-y-6 p-6">
             {state.status === "error" ? (

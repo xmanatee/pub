@@ -280,6 +280,16 @@ function TelegramMediaPreview({
   if (mime.startsWith("image/")) {
     return <img src={preview.dataUrl} alt={preview.filename} className="max-h-80 rounded-md" />;
   }
+  if (mime === "video-note") {
+    return (
+      // biome-ignore lint/a11y/useMediaCaption: Telegram video notes don't have captions
+      <video
+        src={preview.dataUrl}
+        controls
+        className="size-48 rounded-full border-4 border-background object-cover shadow-sm"
+      />
+    );
+  }
   if (mime.startsWith("video/")) {
     return (
       // biome-ignore lint/a11y/useMediaCaption: Telegram media may not include captions.

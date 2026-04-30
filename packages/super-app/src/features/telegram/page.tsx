@@ -349,8 +349,10 @@ function Thread({
     setMessageSearch("");
     setSearchResults(null);
     setScheduledAt("");
-    void telegram.markRead(dialogId).catch(() => {});
-  }, [dialogId]);
+    void tryToast(() => telegram.markRead(dialogId), {
+      errorTitle: "Couldn't mark chat read",
+    });
+  }, [dialogId, tryToast]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,7 +365,13 @@ function Thread({
         const text = compose.text;
         const replyTo = compose.kind === "reply" ? compose.target.id : undefined;
         window.setTimeout(
-          () => void telegram.send(dialogId, text, replyTo).catch(() => {}),
+          () =>
+            void tryToast(() => telegram.send(dialogId, text, replyTo), {
+              successTitle: "Scheduled message sent",
+              errorTitle: "Scheduled message failed",
+            }).then((ok) => {
+              if (ok) reload();
+            }),
           Math.max(0, delay),
         );
       } else if (compose.kind === "reply")

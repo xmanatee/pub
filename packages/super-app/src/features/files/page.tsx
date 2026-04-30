@@ -357,7 +357,7 @@ export function FilesPage() {
                     />
                   ))
                 ) : (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2">
+                  <div className="grid grid-files-auto gap-2">
                     {sorted.map((entry) => (
                       <EntryTile
                         key={entry.path}
@@ -539,6 +539,9 @@ function EntryRow({
             />
             <span className={cn("truncate", entry.hidden && "text-muted-foreground")}>
               {entry.name}
+            </span>
+            <span className="shrink-0 text-xs text-muted-foreground opacity-50 font-mono">
+              {entry.perms}
             </span>
             {entry.type === "file" ? (
               <span className="shrink-0 text-xs text-muted-foreground">{fmtSize(entry.size)}</span>
@@ -729,7 +732,7 @@ function QuickLook({
         <DialogHeader>
           <DialogTitle>{selected?.name ?? "Quick look"}</DialogTitle>
         </DialogHeader>
-        <div className="max-h-[75vh] overflow-auto">
+        <div className="max-h-75vh overflow-auto">
           {file.state.status === "loading" ? (
             <Skeleton className="h-96 w-full" />
           ) : file.state.status === "error" ? (

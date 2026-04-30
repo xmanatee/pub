@@ -68,6 +68,7 @@ export const listFiles = createServerFn({ method: "GET" })
           size: stat.size,
           mtime: stat.mtimeMs,
           hidden: e.name.startsWith("."),
+          perms: stat.mode.toString(8).slice(-3),
         };
       }),
     );
