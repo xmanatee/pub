@@ -7,7 +7,7 @@
  *   browser click → TanStack server fn → daemon IPC → `mkdir` → listing update.
  *
  * Regresses: server-fn POST, daemon IPC `run-command-spec`, CommandFunctionSpec
- * exec executor, and the super-app's useAsync/withErrorAlert client wiring.
+ * exec executor, and the super-app's useAsync/toast client wiring.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -64,8 +64,15 @@ test.describe
 
       // Daemon-routed exec: click New folder, the `mkdir` spec runs through
       // the daemon, and the next list reflects the new directory.
-      page.once("dialog", (d) => d.accept("beta"));
       await page.getByRole("button", { name: "New folder" }).click();
+      await page
+        .getByRole("dialog", { name: "New folder" })
+        .getByPlaceholder("folder name")
+        .fill("beta");
+      await page
+        .getByRole("dialog", { name: "New folder" })
+        .getByRole("button", { name: "OK" })
+        .click();
       await expect(page.getByText("beta").first()).toBeVisible({ timeout: 15_000 });
     });
   });
