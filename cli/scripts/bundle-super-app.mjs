@@ -10,8 +10,12 @@
  * test setup — is super-app's own declaration.
  *
  * The tarball ships with a pnpm-lock.yaml generated against a standalone
- * (non-workspace) copy so `pub start` can install with `--frozen-lockfile`
- * and pin every transitive to what was tested at bundle time.
+ * pnpm workspace (packages: [.]) so `pub start` can install with
+ * `--frozen-lockfile` and pin every transitive to what was tested at bundle
+ * time. The workspace marker also opts the four postinstall scripts pnpm 11
+ * fails closed on (esbuild, bufferutil, utf-8-validate, es5-ext) into
+ * `allowBuilds`, and stops pnpm from walking up into a parent monorepo if
+ * `pub start` is run from inside one.
  */
 import { execSync } from "node:child_process";
 import {
@@ -56,6 +60,39 @@ function stageLayout(payload) {
   // super-app's vitest in the extracted workspace.
   stripTestFiles(join(payload, "shared"));
   rewriteSharedAliases(payload);
+  writePnpmWorkspace(payload);
+}
+
+function writePnpmWorkspace(payload) {
+  // pnpm 11 fails closed on skipped postinstall scripts. Each dep that
+  // declares one needs an explicit allowBuilds decision:
+  //   esbuild         (true)  — vite/vitest's bundler; postinstall verifies
+  //                             the platform binary that ships as an optional
+  //                             dep. Cheap, no toolchain needed.
+  //   es5-ext         (true)  — funding banner postinstall, no-op otherwise.
+  //   bufferutil      (false) — optional `ws` native perf module; postinstall
+  //                             invokes node-gyp which requires make + a C
+  //                             compiler. Not assumed on user laptops or in
+  //                             our Playwright base image. ws falls back to a
+  //                             pure-JS implementation when the native build
+  //                             is absent.
+  //   utf-8-validate  (false) — same story as bufferutil.
+  // `packages: [.]` makes the extracted dir its own workspace root so
+  // pnpm reads allowBuilds (and doesn't reach into a parent monorepo if
+  // `pub start` runs inside one).
+  writeFileSync(
+    join(payload, "pnpm-workspace.yaml"),
+    [
+      "packages:",
+      "  - .",
+      "allowBuilds:",
+      "  bufferutil: false",
+      "  es5-ext: true",
+      "  esbuild: true",
+      "  utf-8-validate: false",
+      "",
+    ].join("\n"),
+  );
 }
 
 function stripTestFiles(dir) {
@@ -86,7 +123,7 @@ function rewriteSharedAliases(payload) {
 }
 
 function generateLockfile(payload) {
-  execSync("pnpm install --lockfile-only --ignore-workspace", {
+  execSync("pnpm install --lockfile-only", {
     cwd: payload,
     stdio: "inherit",
   });
