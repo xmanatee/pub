@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prompt="${1:-}"
+workspace="${PUB_PROJECT_ROOT:-$PWD}"
+
+if [[ "$prompt" == *"[pub preflight] Connectivity probe."* ]]; then
+  command -v codex >/dev/null
+  command -v pub >/dev/null
+  pub write "pong" >/dev/null
+  exit 0
+fi
+
+last_message="$(mktemp "${TMPDIR:-/tmp}/pub-codex-bridge.XXXXXX")"
+codex_log="$(mktemp "${TMPDIR:-/tmp}/pub-codex-bridge.XXXXXX.log")"
+trap 'rm -f "$last_message" "$codex_log"' EXIT
+
+state_root="${PUB_CODEX_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/pub/codex-bridge}"
+mkdir -p "$state_root"
+live_label="$(printf '%s\n' "$prompt" | sed -n 's/.*\[Live: \([^]]*\)\].*/\1/p' | head -n 1)"
+if [[ -z "$live_label" ]]; then
+  live_label="workspace"
+fi
+session_key="$(printf '%s\n%s' "$workspace" "$live_label" | shasum -a 256 | awk '{print $1}')"
+session_file="$state_root/$session_key.session"
+
+if [[ "$prompt" == *"Session started."* ]]; then
+  rm -f "$session_file"
+fi
+
+run_new_session() {
+  codex exec \
+    --json \
+    --cd "$workspace" \
+    --skip-git-repo-check \
+    --sandbox workspace-write \
+    --output-last-message "$last_message" \
+    "$prompt" >"$codex_log" 2>&1
+
+  awk -F'"' '/"type":"thread.started"/ { print $8; exit }' "$codex_log" >"$session_file"
+}
+
+run_resumed_session() {
+  local session_id
+  session_id="$(cat "$session_file")"
+  (
+    cd "$workspace"
+    codex exec resume \
+      --json \
+      --skip-git-repo-check \
+      --output-last-message "$last_message" \
+      "$session_id" \
+      "$prompt"
+  ) >"$codex_log" 2>&1
+}
+
+if [[ -s "$session_file" ]]; then
+  if ! run_resumed_session; then
+    {
+      echo "Codex resume failed; starting a fresh Pub bridge session."
+      tail -n 40 "$codex_log"
+    } >&2
+    rm -f "$session_file"
+    : >"$codex_log"
+    run_new_session
+  fi
+else
+  run_new_session
+fi
+
+cat "$last_message"
