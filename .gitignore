@@ -26,9 +26,6 @@ playwright-report/
 # Project TODO
 TODO.md
 
-# Claude Code local settings
-.claude/settings.local.json
-.claude/do-tasks/
 .env*.local
 
 # Batch generator
