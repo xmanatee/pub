@@ -3,8 +3,6 @@
  * `~/.pub-super-app/<file>.json`. Exposes a single factory consumed by each
  * feature's `server.ts` — no copy-paste of load/save logic.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import { expandHome } from "./paths";
 
 export interface StoreEntry {
@@ -17,6 +15,7 @@ export function createJsonStore<T extends StoreEntry>(relativePath: string) {
   const file = expandHome(relativePath);
 
   const load = async (): Promise<T[]> => {
+    const { readFile } = await import("node:fs/promises");
     try {
       const raw = await readFile(file, "utf8");
       const parsed = JSON.parse(raw);
@@ -28,6 +27,10 @@ export function createJsonStore<T extends StoreEntry>(relativePath: string) {
   };
 
   const save = async (entries: T[]): Promise<void> => {
+    const [{ mkdir, writeFile }, { dirname }] = await Promise.all([
+      import("node:fs/promises"),
+      import("node:path"),
+    ]);
     await mkdir(dirname(file), { recursive: true });
     await writeFile(file, JSON.stringify(entries, null, 2));
   };

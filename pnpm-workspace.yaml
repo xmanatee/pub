@@ -2,4 +2,24 @@ packages:
   - web
   - cli
   - relay
+  - packages/ip-compat
   - packages/super-app
+
+overrides:
+  ip: workspace:3.0.0-pub.0
+  valibot: ^1.4.1
+
+strictDepBuilds: true
+
+onlyBuiltDependencies:
+  - "@sentry/cli"
+  - esbuild
+  - protobufjs
+  - sharp
+  - workerd
+
+ignoredBuiltDependencies:
+  - bufferutil
+  - core-js
+  - es5-ext
+  - utf-8-validate

@@ -4,15 +4,18 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { ipcCallMock } = vi.hoisted(() => ({
+const { DaemonUnavailableErrorMock, ipcCallMock } = vi.hoisted(() => ({
+  DaemonUnavailableErrorMock: class DaemonUnavailableError extends Error {},
   ipcCallMock: vi.fn(),
 }));
 
 vi.mock("../transport/ipc.js", () => ({
+  DaemonUnavailableError: DaemonUnavailableErrorMock,
   ipcCall: ipcCallMock,
 }));
 
-import { waitForDaemonReady } from "./daemon-process.js";
+import { liveInfoPath } from "./daemon-files.js";
+import { stopRecordedDaemons, waitForDaemonReady } from "./daemon-process.js";
 
 function makeStatusResponse(): string {
   return `${JSON.stringify({
@@ -40,8 +43,11 @@ function makeTempDir(prefix: string): string {
 
 describe("waitForDaemonReady", () => {
   const tempDirs: string[] = [];
+  const originalEnv = { ...process.env };
 
   afterEach(async () => {
+    process.env = { ...originalEnv };
+    vi.restoreAllMocks();
     ipcCallMock.mockReset();
     for (const dir of tempDirs.splice(0)) {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -92,5 +98,38 @@ describe("waitForDaemonReady", () => {
         timeoutMs: 1_000,
       }),
     ).resolves.toEqual({ ok: false, reason: "daemon exited with code 7" });
+  });
+
+  it("terminates a recorded launcher pid before the daemon socket is ready", async () => {
+    const dir = makeTempDir("pub-daemon-launching-");
+    tempDirs.push(dir);
+    process.env.PUB_HOME = dir;
+
+    fs.writeFileSync(
+      liveInfoPath("agent"),
+      JSON.stringify({
+        pid: 4321,
+        socketPath: path.join(dir, "daemon.sock"),
+        launching: true,
+      }),
+    );
+    ipcCallMock.mockRejectedValue(new DaemonUnavailableErrorMock("socket missing"));
+
+    let alive = true;
+    const killSpy = vi.spyOn(process, "kill").mockImplementation((pid, signal) => {
+      expect(pid).toBe(4321);
+      if (signal === 0 || signal === undefined) {
+        if (alive) return true;
+        const error = new Error("not found") as NodeJS.ErrnoException;
+        error.code = "ESRCH";
+        throw error;
+      }
+      expect(signal).toBe("SIGTERM");
+      alive = false;
+      return true;
+    });
+
+    await expect(stopRecordedDaemons()).resolves.toBe(1);
+    expect(killSpy).toHaveBeenCalledWith(4321, "SIGTERM");
   });
 });

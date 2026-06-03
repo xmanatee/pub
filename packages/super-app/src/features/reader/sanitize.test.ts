@@ -1,5 +1,6 @@
 import { parseHTML } from "linkedom";
 import { describe, expect, it } from "vitest";
+import { sanitizeHtml } from "~/core/sanitize";
 import { sanitizeReaderHtml } from "./sanitize";
 
 function bodyFor(html: string) {
@@ -53,5 +54,17 @@ describe("sanitizeReaderHtml", () => {
     expect(paragraph?.querySelector("strong")?.textContent).toBe("world");
     expect(cell?.getAttribute("colspan")).toBe("2");
     expect(cell?.hasAttribute("rowspan")).toBe(false);
+  });
+
+  it("can drop images when sanitizing tracker-prone HTML such as mail bodies", () => {
+    const sanitized = sanitizeHtml(
+      '<p>Hello</p><img src="https://tracker.example/pixel.gif" alt="tracking pixel">',
+      "https://mail.example/",
+      { imagePolicy: "drop" },
+    );
+
+    const body = bodyFor(sanitized);
+    expect(body.querySelector("p")?.textContent).toBe("Hello");
+    expect(body.querySelector("img")).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 # Stage 1: Build CLI binary and generate Convex types
 FROM node:22-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 RUN npm install -g bun
 
 WORKDIR /app
@@ -37,7 +37,7 @@ FROM ghcr.io/openclaw/openclaw@sha256:b86307b257ff42a81353b0d6b3963ccd09bbd9eb19
 
 # Stage 2: Test runner (Vite + proxy + CLI + OpenClaw + mock LLM + Playwright — all in one)
 FROM mcr.microsoft.com/playwright:v1.58.2-noble AS test-runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -55,6 +55,12 @@ COPY --from=builder /app/convex/_generated ./convex/_generated
 # Copy prebuilt CLI binary
 COPY --from=builder /app/cli/dist-bin/pub-target /usr/local/bin/pub
 RUN chmod +x /usr/local/bin/pub
+COPY --from=builder /app/cli/assets/super-app-source.tar.gz ./cli/assets/super-app-source.tar.gz
+RUN mkdir -p /tmp/pub-super-app-warm && \
+    tar -xzf cli/assets/super-app-source.tar.gz -C /tmp/pub-super-app-warm && \
+    cd /tmp/pub-super-app-warm && \
+    pnpm install --frozen-lockfile && \
+    rm -rf /tmp/pub-super-app-warm
 
 # Copy OpenClaw from its official image
 COPY --from=openclaw-source /app /opt/openclaw

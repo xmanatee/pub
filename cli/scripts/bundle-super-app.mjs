@@ -12,7 +12,10 @@
  * The tarball ships with a pnpm-lock.yaml generated against a standalone
  * pnpm workspace (packages: [.]) so `pub start` can install with
  * `--frozen-lockfile` and pin every transitive to what was tested at bundle
- * time. The workspace marker also opts the four postinstall scripts pnpm 11
+ * time. The payload also declares the same packageManager as the root
+ * workspace so Corepack and pnpm don't resolve a newer package-manager major
+ * when the app is extracted outside this monorepo. The workspace marker also
+ * opts the four postinstall scripts pnpm 11
  * fails closed on (esbuild, bufferutil, utf-8-validate, es5-ext) into
  * `allowBuilds`, and stops pnpm from walking up into a parent monorepo if
  * `pub start` is run from inside one.
@@ -59,8 +62,24 @@ function stageLayout(payload) {
   // its test files belong to pub and would otherwise get picked up by
   // super-app's vitest in the extracted workspace.
   stripTestFiles(join(payload, "shared"));
+  writePackageManager(payload);
   rewriteSharedAliases(payload);
   writePnpmWorkspace(payload);
+}
+
+function readRootPackageManager() {
+  const rootPackage = JSON.parse(readFileSync(join(PUB_ROOT, "package.json"), "utf8"));
+  if (typeof rootPackage.packageManager !== "string" || rootPackage.packageManager.length === 0) {
+    throw new Error("Root package.json must declare packageManager for standalone super-app installs.");
+  }
+  return rootPackage.packageManager;
+}
+
+function writePackageManager(payload) {
+  const packagePath = join(payload, "package.json");
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
+  packageJson.packageManager = readRootPackageManager();
+  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 
 function writePnpmWorkspace(payload) {
@@ -135,8 +154,9 @@ try {
   stageLayout(payload);
   generateLockfile(payload);
   mkdirSync(dirname(OUT_PATH), { recursive: true });
-  execSync(`tar --exclude=node_modules -czf "${OUT_PATH}" -C "${payload}" .`, {
+  execSync(`tar --no-xattrs --exclude=node_modules -czf "${OUT_PATH}" -C "${payload}" .`, {
     stdio: "inherit",
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
   });
   console.log(`super-app bundle: ${OUT_PATH} (${statSync(OUT_PATH).size} bytes)`);
 } finally {

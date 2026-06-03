@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createJsonStore } from "~/core/json-store";
 import type { Note } from "./commands";
+import { renderMarkdownToSafeHtml } from "./markdown";
 
 const store = createJsonStore<Note>("~/.pub-super-app/notes.json");
 
@@ -26,3 +27,14 @@ export const deleteNote = createServerFn({ method: "POST" })
     await store.remove(data.id);
     return { id: data.id };
   });
+
+export const renderNoteMarkdown = createServerFn({ method: "POST" })
+  .inputValidator((input: { markdown: string }) => {
+    if (!input || typeof input !== "object" || typeof input.markdown !== "string") {
+      throw new Error("notes.renderMarkdown requires markdown");
+    }
+    return input;
+  })
+  .handler(async ({ data }) => ({
+    html: renderMarkdownToSafeHtml(data.markdown),
+  }));

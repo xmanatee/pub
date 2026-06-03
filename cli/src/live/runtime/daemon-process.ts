@@ -9,6 +9,7 @@ interface DaemonProcessInfo {
   pid: number;
   socketPath?: string;
   devServerPid?: number;
+  launching?: boolean;
 }
 
 function hasErrnoCode(error: unknown, code: string): boolean {
@@ -91,16 +92,20 @@ function reapDevServerGroup(pid: number | undefined): void {
 async function requestDaemonStop(
   pid: number,
   socketPath: string | undefined,
+  options: { signalWhenSocketUnavailable?: boolean } = {},
 ): Promise<string | null> {
   if (socketPath) {
     try {
       await ipcCall(socketPath, { method: "close", params: {} });
       return null;
     } catch (error) {
-      // Socket gone or refused means the recorded pid is no longer our daemon.
-      // Do not escalate to SIGTERM — that pid may have been reused by an
-      // unrelated process.
-      if (error instanceof DaemonUnavailableError) return "stale";
+      // For ready daemon records, a gone/refused socket means the recorded pid
+      // may have been reused by an unrelated process, so do not escalate. The
+      // launcher writes pre-ready records before the socket exists; those are
+      // explicitly safe to signal because the pid came from the fresh spawn.
+      if (error instanceof DaemonUnavailableError && !options.signalWhenSocketUnavailable) {
+        return "stale";
+      }
       // IPC reached a live daemon that refused; fall through to SIGTERM.
     }
   }
@@ -120,7 +125,9 @@ async function stopRecordedDaemon(info: DaemonProcessInfo): Promise<string | nul
     return null;
   }
 
-  const outcome = await requestDaemonStop(info.pid, info.socketPath);
+  const outcome = await requestDaemonStop(info.pid, info.socketPath, {
+    signalWhenSocketUnavailable: info.launching === true,
+  });
   if (outcome === "stale") {
     reapDevServerGroup(info.devServerPid);
     return null;

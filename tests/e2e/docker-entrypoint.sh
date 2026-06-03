@@ -114,4 +114,9 @@ done
 
 # --- Run Playwright tests ---
 echo "[e2e] Running Playwright tests..."
+if [ "${E2E_SUITE:-fullstack}" = "web" ]; then
+  cd /app/web
+  exec npx playwright test --config playwright.docker.config.ts "$@"
+fi
+
 exec npx playwright test --config tests/e2e/playwright.config.ts "$@"

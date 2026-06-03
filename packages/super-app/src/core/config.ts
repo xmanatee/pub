@@ -10,8 +10,6 @@
  *     "whatsapp": { "token": "..." }
  *   }
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { expandHome } from "./paths";
 import type { JsonValue } from "./types";
@@ -19,6 +17,7 @@ import type { JsonValue } from "./types";
 export const CONFIG_PATH = "~/.pub-super-app/config.json";
 
 async function loadConfig(): Promise<Record<string, JsonValue>> {
+  const { readFile } = await import("node:fs/promises");
   try {
     const raw = await readFile(expandHome(CONFIG_PATH), "utf8");
     const parsed = JSON.parse(raw);
@@ -31,7 +30,16 @@ async function loadConfig(): Promise<Record<string, JsonValue>> {
   }
 }
 
+export async function readFeatureConfig(name: string): Promise<JsonValue | null> {
+  const doc = await loadConfig();
+  return doc[name] ?? null;
+}
+
 async function writeDoc(doc: Record<string, JsonValue>): Promise<void> {
+  const [{ mkdir, writeFile }, { dirname }] = await Promise.all([
+    import("node:fs/promises"),
+    import("node:path"),
+  ]);
   const file = expandHome(CONFIG_PATH);
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, JSON.stringify(doc, null, 2));
@@ -40,8 +48,7 @@ async function writeDoc(doc: Record<string, JsonValue>): Promise<void> {
 export const getFeatureConfig = createServerFn({ method: "GET" })
   .inputValidator((input: { name: string }) => input)
   .handler(async ({ data }): Promise<JsonValue | null> => {
-    const doc = await loadConfig();
-    return doc[data.name] ?? null;
+    return readFeatureConfig(data.name);
   });
 
 export const setFeatureConfig = createServerFn({ method: "POST" })

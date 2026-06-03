@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import type { Command } from "commander";
-import { resolvePubSettings } from "../../core/config/index.js";
-import type { PubTunnelConfig } from "../../core/config/types.js";
+import { getResolvedSettingValue, resolvePubSettings } from "../../core/config/index.js";
+import type { PubTunnelConfig, ResolvedPubSettings } from "../../core/config/types.js";
 import { errorMessage, failCli } from "../../core/errors/cli-error.js";
 import { resolvePubPaths } from "../../core/paths.js";
 import { CLI_VERSION } from "../../core/version/version.js";
@@ -21,6 +21,32 @@ interface StartCommandOptions {
   agentName: string;
 }
 
+function tunnelSetting<T>(resolved: ResolvedPubSettings, key: string): T | undefined {
+  return getResolvedSettingValue<T>(resolved, key)?.value;
+}
+
+function readResolvedTunnelConfig(resolved: ResolvedPubSettings): PubTunnelConfig | undefined {
+  const config: PubTunnelConfig = {
+    devCommand: tunnelSetting<string>(resolved, "tunnel.devCommand"),
+    devCwd: tunnelSetting<string>(resolved, "tunnel.devCwd"),
+    devPort: tunnelSetting<number>(resolved, "tunnel.devPort"),
+    relayUrl: tunnelSetting<string>(resolved, "tunnel.relayUrl"),
+  };
+  return Object.values(config).some((value) => value !== undefined) ? config : undefined;
+}
+
+export function mergeDefaultTunnelConfig(
+  defaultConfig: PubTunnelConfig,
+  saved: PubTunnelConfig | undefined,
+): PubTunnelConfig {
+  if (saved?.devCommand) return saved;
+  return {
+    ...defaultConfig,
+    devPort: saved?.devPort ?? defaultConfig.devPort,
+    relayUrl: saved?.relayUrl ?? defaultConfig.relayUrl,
+  };
+}
+
 function resolveTunnelConfig(
   saved: PubTunnelConfig | undefined,
   env: NodeJS.ProcessEnv,
@@ -31,7 +57,7 @@ function resolveTunnelConfig(
   if (workspace.wasInitialized) {
     console.log(`Initialized super-app at ${workspace.dir}`);
   }
-  return workspace.tunnelConfig;
+  return mergeDefaultTunnelConfig(workspace.tunnelConfig, saved);
 }
 
 export function registerStartCommand(program: Command): void {
@@ -45,7 +71,7 @@ export function registerStartCommand(program: Command): void {
 
       // Resolve the tunneled app before preflight so the bridge workspace
       // (derived from PUB_PROJECT_ROOT) lands inside the tree the agent edits.
-      const tunnelConfig = resolveTunnelConfig(resolved.rawConfig.tunnel, context.env);
+      const tunnelConfig = resolveTunnelConfig(readResolvedTunnelConfig(resolved), context.env);
       if (tunnelConfig.devCwd && !process.env.PUB_PROJECT_ROOT?.trim()) {
         process.env.PUB_PROJECT_ROOT = tunnelConfig.devCwd;
       }

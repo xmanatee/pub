@@ -72,12 +72,12 @@ describe("useFullscreen", () => {
   });
 
   describe("when Fullscreen API is available", () => {
-    let mockRequest: ReturnType<typeof vi.fn>;
-    let mockExit: ReturnType<typeof vi.fn>;
+    let mockRequest: ReturnType<typeof vi.fn<() => Promise<void>>>;
+    let mockExit: ReturnType<typeof vi.fn<() => Promise<void>>>;
 
     beforeEach(async () => {
-      mockRequest = vi.fn().mockResolvedValue(undefined);
-      mockExit = vi.fn().mockResolvedValue(undefined);
+      mockRequest = vi.fn(async () => undefined);
+      mockExit = vi.fn(async () => undefined);
       document.documentElement.requestFullscreen = mockRequest;
       document.exitFullscreen = mockExit;
       await act(async () => root.render(<HookConsumer />));

@@ -1,17 +1,29 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.BASE_URL ?? "http://localhost:3000";
+const inDockerWebSuite = process.env.E2E_SUITE === "web";
+
 export default defineConfig({
   testDir: "./tests/e2e/specs",
-  // This suite is dominated by tall-viewport visual tests and heavy debug pages.
-  // Running everything fully parallel with the default worker count can starve
-  // browser page creation under local load, leading to fixture setup timeouts.
+  outputDir: inDockerWebSuite ? "../test-results/web" : "/tmp/pub-web-e2e-test-results",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  workers: 4,
-  reporter: "html",
+  workers: 1,
+  reporter: [
+    [
+      "html",
+      {
+        open: "never",
+        outputFolder: inDockerWebSuite
+          ? "../playwright-report/web"
+          : "/tmp/pub-web-e2e-playwright-report",
+      },
+    ],
+    ["list"],
+  ],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL,
     locale: "en-US",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
@@ -30,11 +42,4 @@ export default defineConfig({
       },
     },
   ],
-
-  webServer: {
-    command: "env -u NO_COLOR VITE_CONVEX_URL=https://silent-guanaco-514.convex.cloud pnpm dev",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
 });

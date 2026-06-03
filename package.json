@@ -2,35 +2,36 @@
   "name": "pub-root",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "convex dev --once && concurrently -r 'pnpm dev:web' 'pnpm dev:db'",
     "dev:web": "pnpm --filter pub-web dev",
     "dev:db": "convex dev",
-
     "build:web": "pnpm --filter pub-web build",
+    "build:super-app": "pnpm --filter pub-super-app build",
     "build:cli": "pnpm --filter pub-cli build",
     "build:relay": "pnpm --filter pub-relay build",
-    "build": "pnpm build:web && pnpm build:cli && pnpm build:relay",
-
+    "build": "pnpm build:web && pnpm build:super-app && pnpm build:cli && pnpm build:relay",
     "test:root": "vitest run",
     "test:web": "pnpm --filter pub-web test",
+    "test:super-app": "pnpm --filter pub-super-app test",
     "test:cli": "pnpm --filter pub-cli test",
-    "test": "pnpm test:root && pnpm test:web && pnpm test:cli",
+    "test:ip-compat": "pnpm --filter ip test",
+    "test": "pnpm test:root && pnpm test:web && pnpm test:super-app && pnpm test:cli && pnpm test:ip-compat",
     "test:watch": "pnpm --filter pub-web test:watch",
-    "test:e2e": "env -u NO_COLOR pnpm --filter pub-web test:e2e",
-    "test:e2e:fullstack": "docker compose -f tests/e2e/docker-compose.yml run --build --rm test-runner; docker compose -f tests/e2e/docker-compose.yml down -v",
-
+    "test:e2e": "E2E_SUITE=web pnpm test:e2e:docker",
+    "test:e2e:fullstack": "pnpm test:e2e:docker",
+    "test:e2e:docker": "docker compose -f tests/e2e/docker-compose.yml run --build --rm -e E2E_SUITE=${E2E_SUITE:-fullstack} -e UPDATE_SNAPSHOTS test-runner; status=$?; docker compose -f tests/e2e/docker-compose.yml down -v; exit $status",
     "lint:root": "biome check . && tsc --noEmit && bash scripts/validate-shared.sh && node scripts/validate-repo-conventions.mjs",
     "lint:web": "pnpm --filter pub-web lint",
+    "lint:super-app": "pnpm --filter pub-super-app lint",
     "lint:cli": "pnpm --filter pub-cli lint",
     "lint:relay": "pnpm --filter pub-relay lint",
-    "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:cli && pnpm lint:relay",
+    "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:super-app && pnpm lint:cli && pnpm lint:relay",
     "lint:fix": "biome check --fix .",
     "format": "biome format --write .",
-
     "knip": "knip",
     "check": "pnpm build && pnpm lint && pnpm test && pnpm knip",
-
     "preview": "pnpm --filter pub-web preview",
     "deploy:convex": "convex deploy"
   },
@@ -38,25 +39,23 @@
     "@auth/core": "^0.37.0",
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/rate-limiter": "^0.3.2",
-    "@telegram-apps/init-data-node": "^2.0.10",
-    "concurrently": "^8.2.2",
-    "convex": "^1.19.0"
+    "concurrently": "^10.0.3",
+    "convex": "^1.40.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
     "@playwright/test": "^1.58.2",
     "@types/ws": "^8.5.0",
-    "knip": "^5.85.0",
+    "knip": "^6.15.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.0.0",
-    "ws": "^8.18.0"
+    "vitest": "^4.1.8",
+    "ws": "^8.21.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli",
-      "core-js",
-      "esbuild",
-      "protobufjs"
-    ]
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-6cpc-mj5c-m9rq"
+      ]
+    }
   }
 }

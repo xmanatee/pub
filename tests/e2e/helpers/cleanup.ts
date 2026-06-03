@@ -2,6 +2,7 @@
  * Process and resource cleanup utilities for E2E tests.
  * Ensures no zombie daemons, stale sockets, or temp dirs survive test runs.
  */
+import { execFileSync } from "node:child_process";
 import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +33,32 @@ export function killProcess(pid: number, timeoutMs = 5_000): boolean {
   }
 
   return !isProcessAlive(pid);
+}
+
+export function killProcessTree(pid: number, timeoutMs = 5_000): boolean {
+  const descendants = collectDescendantPids(pid);
+  for (const childPid of descendants.reverse()) {
+    killProcess(childPid, timeoutMs);
+  }
+  return killProcess(pid, timeoutMs);
+}
+
+function collectDescendantPids(pid: number): number[] {
+  let output = "";
+  try {
+    output = execFileSync("pgrep", ["-P", String(pid)], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return [];
+  }
+
+  const childPids = output
+    .split(/\s+/)
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isInteger(entry) && entry > 0);
+  return childPids.flatMap((childPid) => [childPid, ...collectDescendantPids(childPid)]);
 }
 
 /** Check if a process is still alive. */

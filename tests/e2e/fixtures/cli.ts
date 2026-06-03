@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { killProcess } from "../helpers/cleanup";
+import { killProcess, killProcessTree } from "../helpers/cleanup";
 import type { BridgeTestConfig } from "./bridge-configs";
 import type { TestUser } from "./convex";
 
@@ -36,9 +36,10 @@ function isDaemonNotRunningError(error: unknown): boolean {
 }
 
 export interface TunnelTestConfig {
-  devCommand: string;
-  devPort: number;
-  relayUrl: string;
+  devCommand?: string;
+  devCwd?: string;
+  devPort?: number;
+  relayUrl?: string;
 }
 
 export class CliFixture {
@@ -49,6 +50,7 @@ export class CliFixture {
   private convexSiteUrl: string;
   private bridge: BridgeTestConfig;
   private tunnelConfig: TunnelTestConfig | null;
+  private startupPid: number | null = null;
   private daemonPid: number | null = null;
   private socketPath: string | null = null;
   private isolatedSocketPath: string;
@@ -84,9 +86,10 @@ export class CliFixture {
     };
     if (this.tunnelConfig) {
       config.tunnel = {
-        devCommand: this.tunnelConfig.devCommand,
-        devPort: this.tunnelConfig.devPort,
-        relayUrl: this.tunnelConfig.relayUrl,
+        ...(this.tunnelConfig.devCommand ? { devCommand: this.tunnelConfig.devCommand } : {}),
+        ...(this.tunnelConfig.devCwd ? { devCwd: this.tunnelConfig.devCwd } : {}),
+        ...(this.tunnelConfig.devPort ? { devPort: this.tunnelConfig.devPort } : {}),
+        ...(this.tunnelConfig.relayUrl ? { relayUrl: this.tunnelConfig.relayUrl } : {}),
       };
     }
     mkdirSync(this.configDir, { recursive: true });
@@ -154,6 +157,7 @@ export class CliFixture {
       cwd: this.pubHome,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    this.startupPid = child.pid ?? null;
 
     await new Promise<void>((resolve, reject) => {
       let stdout = "";
@@ -165,10 +169,14 @@ export class CliFixture {
         stderr += d.toString();
       });
       child.on("close", (code) => {
+        this.startupPid = null;
         if (code === 0) resolve();
         else reject(new Error(`pub start exited ${code}: ${stderr || stdout}`));
       });
-      child.on("error", reject);
+      child.on("error", (error) => {
+        this.startupPid = null;
+        reject(error);
+      });
     });
 
     this.readDaemonInfo();
@@ -254,11 +262,19 @@ export class CliFixture {
     }
   }
 
+  private forceKillStartup(): void {
+    if (this.startupPid && this.startupPid > 0) {
+      killProcessTree(this.startupPid, 5_000);
+      this.startupPid = null;
+    }
+  }
+
   /**
    * Full cleanup: stop daemon, force-kill if needed, remove socket and config.
    * Safe to call multiple times. Safe to call after test failures.
    */
   cleanup(): void {
+    this.forceKillStartup();
     this.stop();
     this.forceKill();
 

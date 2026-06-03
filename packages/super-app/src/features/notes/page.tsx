@@ -1,5 +1,4 @@
 import { Plus, Trash2 } from "lucide-react";
-import { marked } from "marked";
 import * as React from "react";
 import { AIActionPanel } from "~/core/ai/action-panel";
 import { fmtDate } from "~/core/fmt";
@@ -163,11 +162,7 @@ function NoteEditor({
         </TabsContent>
         <TabsContent value="preview" className="min-h-0">
           <ScrollArea className="h-full">
-            <article
-              className="prose-reader mx-auto max-w-prose px-6 py-6"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: marked returns sanitized markdown
-              dangerouslySetInnerHTML={{ __html: marked.parse(body, { async: false }) as string }}
-            />
+            <MarkdownPreview markdown={body} />
           </ScrollArea>
         </TabsContent>
         <TabsContent value="ai" className="min-h-0 p-6">
@@ -180,5 +175,21 @@ function NoteEditor({
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function MarkdownPreview({ markdown }: { markdown: string }) {
+  const { state } = useAsync(() => notesApi.renderMarkdown(markdown), [markdown]);
+
+  if (state.status === "error") {
+    return <p className="px-6 py-6 text-sm text-destructive">{state.error}</p>;
+  }
+
+  return (
+    <article
+      className="prose-reader mx-auto max-w-prose px-6 py-6"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered markdown is sanitized in notes/markdown.ts
+      dangerouslySetInnerHTML={{ __html: state.status === "loaded" ? state.value.html : "" }}
+    />
   );
 }

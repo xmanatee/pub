@@ -2,18 +2,18 @@ import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { convexAuth, createAccount } from "@convex-dev/auth/server";
-import { validate as validateInitData } from "@telegram-apps/init-data-node/web";
 import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { telegramNotLinkedError } from "./auth_errors";
 import { parseInitDataUser } from "./telegram";
+import { validateTelegramInitData } from "./telegram_init_data";
 
 async function validateAgainstRegisteredBots(initData: string, botTokens: string[]): Promise<void> {
   if (botTokens.length === 0) {
     throw new Error("No Telegram bot connected");
   }
   try {
-    await Promise.any(botTokens.map((token) => validateInitData(initData, token)));
+    await Promise.any(botTokens.map((token) => validateTelegramInitData(initData, token)));
   } catch {
     throw new Error("Invalid initData signature");
   }

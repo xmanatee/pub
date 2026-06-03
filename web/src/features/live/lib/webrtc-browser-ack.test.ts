@@ -97,7 +97,9 @@ describe("BrowserBridge ack routing", () => {
 
     vi.stubGlobal(
       "RTCPeerConnection",
-      vi.fn(() => pc),
+      vi.fn(function RTCPeerConnectionMock() {
+        return pc;
+      }),
     );
     bridge.openChannel = vi.fn();
     bridge.setupPeerCallbacks = vi.fn();

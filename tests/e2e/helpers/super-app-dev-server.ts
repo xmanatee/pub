@@ -43,6 +43,8 @@ function pickFreePort(): Promise<number> {
 
 export class SuperAppDevServer {
   private child: ChildProcess | null = null;
+  private stdout = "";
+  private stderr = "";
   readonly home: string;
   url = "";
 
@@ -78,15 +80,17 @@ export class SuperAppDevServer {
   }
 
   private captureOutput(): () => string {
-    let stdout = "";
-    let stderr = "";
     this.child?.stdout?.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf-8");
+      this.stdout += chunk.toString("utf-8");
     });
     this.child?.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf-8");
+      this.stderr += chunk.toString("utf-8");
     });
-    return () => `--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`;
+    return () => this.getOutput();
+  }
+
+  getOutput(): string {
+    return `--- stdout ---\n${this.stdout}\n--- stderr ---\n${this.stderr}`;
   }
 
   private async waitForHttp(

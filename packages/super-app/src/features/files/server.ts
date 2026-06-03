@@ -3,9 +3,6 @@
  * and read with text/base64 detection. Exposed as TanStack Start server
  * functions (Node-only, callable as RPC).
  */
-import { lstat, open, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
-import { basename, dirname, extname, join, normalize } from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { expandHome } from "~/core/paths";
 import type { FsListResult, FsReadResult } from "./commands";
@@ -42,24 +39,28 @@ const MIME: Record<string, string> = {
   ".yaml": "text/yaml",
 };
 
-function expand(p: string | undefined): string {
-  if (!p) return homedir();
-  return normalize(expandHome(p));
+async function loadNodeRuntime() {
+  const [fs, path] = await Promise.all([import("node:fs/promises"), import("node:path")]);
+  return { fs, path };
 }
 
 function guessMime(name: string): string {
-  return MIME[extname(name).toLowerCase()] ?? "application/octet-stream";
+  const base = name.split(/[\\/]/).pop() ?? name;
+  const dot = base.lastIndexOf(".");
+  const ext = dot >= 0 ? base.slice(dot).toLowerCase() : "";
+  return MIME[ext] ?? "application/octet-stream";
 }
 
 export const listFiles = createServerFn({ method: "GET" })
   .inputValidator((input: { path?: string }) => input)
   .handler(async ({ data }): Promise<FsListResult> => {
-    const cwd = expand(data.path);
-    const dirents = await readdir(cwd, { withFileTypes: true });
+    const { fs, path } = await loadNodeRuntime();
+    const cwd = path.normalize(expandHome(data.path || "~"));
+    const dirents = await fs.readdir(cwd, { withFileTypes: true });
     const entries = await Promise.all(
       dirents.map(async (e) => {
-        const full = join(cwd, e.name);
-        const stat = await lstat(full);
+        const full = path.join(cwd, e.name);
+        const stat = await fs.lstat(full);
         const type = e.isSymbolicLink() ? "symlink" : e.isDirectory() ? "dir" : "file";
         return {
           name: e.name,
@@ -76,15 +77,16 @@ export const listFiles = createServerFn({ method: "GET" })
       if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-    return { cwd, parent: cwd === "/" ? null : dirname(cwd), entries };
+    return { cwd, parent: cwd === "/" ? null : path.dirname(cwd), entries };
   });
 
 export const readFileContents = createServerFn({ method: "GET" })
   .inputValidator((input: { path: string }) => input)
   .handler(async ({ data }): Promise<FsReadResult> => {
-    const full = expand(data.path);
-    const stat = await lstat(full);
-    const fh = await open(full, "r");
+    const { fs, path } = await loadNodeRuntime();
+    const full = path.normalize(expandHome(data.path));
+    const stat = await fs.lstat(full);
+    const fh = await fs.open(full, "r");
     try {
       const readLen = Math.min(stat.size, PREVIEW_CAP_BYTES);
       const buf = Buffer.alloc(readLen);
@@ -95,7 +97,7 @@ export const readFileContents = createServerFn({ method: "GET" })
       const guessed = guessMime(full);
       const mime = isText && guessed === "application/octet-stream" ? "text/plain" : guessed;
       return {
-        name: basename(full),
+        name: path.basename(full),
         path: full,
         size: stat.size,
         mime,

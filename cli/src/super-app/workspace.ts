@@ -40,11 +40,11 @@ export function ensureSuperAppWorkspace(workspaceRoot: string): SuperAppWorkspac
 }
 
 function installSuperAppDependencies(dir: string): void {
-  // The bundle ships a pnpm-lock.yaml plus a self-contained
-  // pnpm-workspace.yaml (packages: [.] + allowBuilds for the deps with
-  // postinstall scripts pnpm 11 fails closed on). `--frozen-lockfile` keeps
-  // the install deterministic; the workspace marker stops pnpm from walking
-  // up into a parent monorepo if `pub start` is run from inside one.
+  // The bundle ships a root packageManager pin, pnpm-lock.yaml, and a
+  // self-contained pnpm-workspace.yaml (packages: [.] + allowBuilds for the
+  // deps with postinstall scripts pnpm 11 fails closed on). `--frozen-lockfile`
+  // keeps the install deterministic; the workspace marker stops pnpm from
+  // walking up into a parent monorepo if `pub start` is run from inside one.
   assertPnpmAvailable();
   execSync("pnpm install --frozen-lockfile", {
     cwd: dir,

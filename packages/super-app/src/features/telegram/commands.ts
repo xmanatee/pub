@@ -1,7 +1,6 @@
 /**
- * Telegram — the client runs entirely in the browser (gramjs with a
- * localStorage-backed `StringSession`). AI verbs live in `core/ai/prompts`,
- * not here; this file owns only the wire shape.
+ * Telegram wire shapes. The browser calls server functions; GramJS sessions
+ * and credentials stay in the local server process.
  */
 export interface TelegramConfig {
   apiId: number;
@@ -39,6 +38,12 @@ export interface TelegramMessage {
   editDate: number | null;
   pinned: boolean;
   reactions: { emoticon: string; count: number; chosen: boolean }[];
+}
+
+export interface TelegramUpload {
+  filename: string;
+  mime: string;
+  base64: string;
 }
 
 interface TelegramPeerBase {

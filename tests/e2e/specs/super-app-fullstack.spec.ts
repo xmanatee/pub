@@ -19,6 +19,7 @@ import { clearAll, getState, seedUser } from "../fixtures/convex";
 import { SuperAppDevServer } from "../helpers/super-app-dev-server";
 
 const BRIDGE_MODE = "openclaw" as const;
+const RELAY_URL = process.env.TUNNEL_RELAY_URL ?? "http://localhost:4102";
 
 test.describe
   .serial("super-app full-stack journey", () => {
@@ -35,6 +36,8 @@ test.describe
       if (testInfo.status !== "passed") {
         const log = cli?.getDaemonLog(80);
         if (log) console.log(`[super-app-fullstack] daemon log:\n${log}`);
+        const output = devServer?.getOutput();
+        if (output) console.log(`[super-app-fullstack] dev server output:\n${output}`);
       }
       await devServer?.cleanup();
       cli?.cleanup();
@@ -46,7 +49,9 @@ test.describe
       // for any chat traffic — we only need the exec executor for this spec.
       const user = seedUser("Super-App E2E User");
       const { convexProxyUrl } = getState();
-      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(BRIDGE_MODE));
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(BRIDGE_MODE), {
+        relayUrl: RELAY_URL,
+      });
       await cli.startDaemon("super-app-bot");
 
       // 2. Start super-app dev server pointed at the daemon's isolated socket.

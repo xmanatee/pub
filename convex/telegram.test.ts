@@ -1,6 +1,18 @@
-import { sign, validate } from "@telegram-apps/init-data-node/web";
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { parseInitDataUser } from "./telegram";
+import { validateTelegramInitData } from "./telegram_init_data";
+
+function signInitData(fields: Record<string, string>, botToken: string): string {
+  const params = new URLSearchParams(fields);
+  const dataCheckString = Array.from(params.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(botToken).digest();
+  params.set("hash", createHmac("sha256", secret).update(dataCheckString).digest("hex"));
+  return params.toString();
+}
 
 describe("parseInitDataUser", () => {
   it("parses valid initData with all fields", () => {
@@ -61,38 +73,57 @@ describe("validate", () => {
   const botToken = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11";
 
   it("validates correctly signed initData", async () => {
-    const raw = await sign({ user: { id: 1, first_name: "Test" } }, botToken, new Date());
+    const raw = signInitData(
+      { user: JSON.stringify({ id: 1, first_name: "Test" }), auth_date: "2000000000" },
+      botToken,
+    );
 
-    await expect(validate(raw, botToken)).resolves.toBeUndefined();
+    await expect(
+      validateTelegramInitData(raw, botToken, { nowSeconds: 2_000_000_100 }),
+    ).resolves.toBeUndefined();
   });
 
   it("throws on tampered hash", async () => {
-    const raw = await sign({ user: { id: 1, first_name: "Test" } }, botToken, new Date());
+    const raw = signInitData(
+      { user: JSON.stringify({ id: 1, first_name: "Test" }), auth_date: "2000000000" },
+      botToken,
+    );
     const fakeHash = "0".repeat(64);
     const tampered = raw.replace(/hash=[^&]+/, `hash=${fakeHash}`);
 
-    await expect(validate(tampered, botToken)).rejects.toThrow();
+    await expect(
+      validateTelegramInitData(tampered, botToken, { nowSeconds: 2_000_000_100 }),
+    ).rejects.toThrow();
   });
 
   it("throws on wrong bot token", async () => {
-    const raw = await sign({ user: { id: 1, first_name: "Test" } }, botToken, new Date());
+    const raw = signInitData(
+      { user: JSON.stringify({ id: 1, first_name: "Test" }), auth_date: "2000000000" },
+      botToken,
+    );
 
-    await expect(validate(raw, "999999:WRONG-TOKEN")).rejects.toThrow();
+    await expect(
+      validateTelegramInitData(raw, "999999:WRONG-TOKEN", { nowSeconds: 2_000_000_100 }),
+    ).rejects.toThrow();
   });
 
   it("throws when hash is missing", async () => {
     const raw = "user=%7B%22id%22%3A1%7D&auth_date=1234567890";
 
-    await expect(validate(raw, botToken)).rejects.toThrow();
+    await expect(validateTelegramInitData(raw, botToken)).rejects.toThrow();
   });
 
   it("throws on expired initData", async () => {
-    const raw = await sign(
-      { user: { id: 1, first_name: "Test" } },
+    const raw = signInitData(
+      { user: JSON.stringify({ id: 1, first_name: "Test" }), auth_date: "2000000000" },
       botToken,
-      new Date(Date.now() - 200_000_000),
     );
 
-    await expect(validate(raw, botToken, { expiresIn: 1 })).rejects.toThrow();
+    await expect(
+      validateTelegramInitData(raw, botToken, {
+        nowSeconds: 2_000_000_100,
+        expiresInSeconds: 1,
+      }),
+    ).rejects.toThrow();
   });
 });

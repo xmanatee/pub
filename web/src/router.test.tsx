@@ -7,19 +7,25 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@convex-dev/react-query", () => ({
-  ConvexQueryClient: vi.fn(() => ({
-    hashFn: () => vi.fn(),
-    queryFn: () => vi.fn(),
-    connect: vi.fn(),
-    convexClient: { __mock: true },
-  })),
+  ConvexQueryClient: vi.fn(function ConvexQueryClientMock() {
+    return {
+      hashFn: () => vi.fn(),
+      queryFn: () => vi.fn(),
+      connect: vi.fn(),
+      convexClient: { __mock: true },
+    };
+  }),
 }));
 
 vi.mock("@sentry/react", () => ({ captureException: vi.fn() }));
 
 vi.mock("@tanstack/react-query", () => ({
-  QueryClient: vi.fn(() => ({})),
-  MutationCache: vi.fn(() => ({})),
+  QueryClient: vi.fn(function QueryClientMock() {
+    return {};
+  }),
+  MutationCache: vi.fn(function MutationCacheMock() {
+    return {};
+  }),
   notifyManager: { setScheduler: vi.fn() },
 }));
 

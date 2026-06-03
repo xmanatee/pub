@@ -6,11 +6,19 @@
  *
  * Wire format: newline-delimited JSON, one request per line.
  */
-import * as net from "node:net";
-import { homedir } from "node:os";
-import * as path from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import type { CommandFunctionSpec, JsonValue } from "~/core/types";
+
+function joinPath(...segments: string[]): string {
+  const [first = "", ...rest] = segments;
+  const joined = [
+    first.replace(/\/+$/, ""),
+    ...rest.map((segment) => segment.replace(/^\/+|\/+$/g, "")),
+  ]
+    .filter((segment) => segment.length > 0)
+    .join("/");
+  return first.startsWith("/") ? `/${joined}`.replace(/^\/+/, "/") : joined;
+}
 
 /**
  * Mirrors `resolvePubPaths().socketRoot` in the CLI: the daemon listens on
@@ -23,14 +31,13 @@ function resolveSocketPath(): string {
   const override = process.env.PUB_AGENT_SOCKET?.trim();
   if (override) return override;
   const pubHome = process.env.PUB_HOME?.trim();
-  if (pubHome) return path.join(pubHome, "sockets", "daemon.sock");
+  if (pubHome) return joinPath(pubHome, "sockets", "daemon.sock");
   const xdgRuntime = process.env.XDG_RUNTIME_DIR?.trim();
-  if (xdgRuntime) return path.join(xdgRuntime, "pub", "sockets", "daemon.sock");
-  const stateBase = process.env.XDG_STATE_HOME?.trim() || path.join(homedir(), ".local", "state");
-  return path.join(stateBase, "pub", "runtime-host", "pub", "sockets", "daemon.sock");
+  if (xdgRuntime) return joinPath(xdgRuntime, "pub", "sockets", "daemon.sock");
+  const home = process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || ".";
+  const stateBase = process.env.XDG_STATE_HOME?.trim() || joinPath(home, ".local", "state");
+  return joinPath(stateBase, "pub", "runtime-host", "pub", "sockets", "daemon.sock");
 }
-
-const SOCKET_PATH = resolveSocketPath();
 
 class DaemonUnavailableError extends Error {}
 
@@ -53,26 +60,31 @@ export const runCommandSpec = createServerFn({ method: "POST" })
         requestedTimeoutMs: data.requestedTimeoutMs,
       },
     };
+    const socketPath = resolveSocketPath();
     try {
-      return (await sendOverSocket(request)) as CommandResponse;
+      return (await sendOverSocket(socketPath, request)) as CommandResponse;
     } catch (err) {
       if (err instanceof DaemonUnavailableError) {
         return {
           ok: false,
-          error: `pub daemon not reachable at ${SOCKET_PATH}. Run \`pub start\`.`,
+          error: `pub daemon not reachable at ${socketPath}. Run \`pub start\`.`,
         };
       }
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
 
-function sendOverSocket(request: unknown): Promise<{
+async function sendOverSocket(
+  socketPath: string,
+  request: unknown,
+): Promise<{
   ok: boolean;
   value?: unknown;
   error?: string;
 }> {
+  const net = await import("node:net");
   return new Promise((resolve, reject) => {
-    const conn = net.createConnection(SOCKET_PATH);
+    const conn = net.createConnection(socketPath);
     let buffer = "";
     let settled = false;
     const finish = (fn: () => void) => {

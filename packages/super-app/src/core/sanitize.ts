@@ -53,6 +53,11 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
 
 const SAFE_URL_PROTOCOLS = new Set(["http:", "https:"]);
 const POSITIVE_INTEGER_ATTRS = new Set(["width", "height", "colspan", "rowspan"]);
+const MAX_HTML_BYTES = 5 * 1024 * 1024;
+
+export interface SanitizeHtmlOptions {
+  imagePolicy?: "allow" | "drop";
+}
 
 function normalizeSafeUrl(value: string, baseUrl: string): string | null {
   if (value.trim() === "") return null;
@@ -81,11 +86,23 @@ function sanitizeAttribute(node: Element, name: string, value: string, baseUrl: 
   }
 }
 
-export function sanitizeHtml(html: string, baseUrl = "https://example.com"): string {
+export function sanitizeHtml(
+  html: string,
+  baseUrl = "https://example.com",
+  options: SanitizeHtmlOptions = {},
+): string {
+  if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) {
+    throw new Error("HTML input is too large to sanitize");
+  }
   const { document } = parseHTML(`<!doctype html><html><body>${html}</body></html>`);
+  const imagePolicy = options.imagePolicy ?? "allow";
 
   const walk = (node: Element) => {
     const tag = node.tagName.toLowerCase();
+    if (tag === "img" && imagePolicy === "drop") {
+      node.remove();
+      return;
+    }
     if (!ALLOWED_TAGS.has(tag)) {
       if (tag === "script" || tag === "style") {
         node.remove();

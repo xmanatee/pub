@@ -11,8 +11,10 @@ if [[ "$prompt" == *"[pub preflight] Connectivity probe."* ]]; then
   exit 0
 fi
 
-last_message="$(mktemp "${TMPDIR:-/tmp}/pub-codex-bridge.XXXXXX")"
-codex_log="$(mktemp "${TMPDIR:-/tmp}/pub-codex-bridge.XXXXXX.log")"
+tmpdir="${TMPDIR:-/tmp}"
+tmpdir="${tmpdir%/}"
+last_message="$(mktemp "$tmpdir/pub-codex-bridge.XXXXXX")"
+codex_log="$(mktemp "$tmpdir/pub-codex-bridge.log.XXXXXX")"
 trap 'rm -f "$last_message" "$codex_log"' EXIT
 
 state_root="${PUB_CODEX_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/pub/codex-bridge}"
@@ -35,7 +37,7 @@ run_new_session() {
     --skip-git-repo-check \
     --sandbox workspace-write \
     --output-last-message "$last_message" \
-    "$prompt" >"$codex_log" 2>&1
+    "$prompt" >"$codex_log" 2>&1 </dev/null
 
   awk -F'"' '/"type":"thread.started"/ { print $8; exit }' "$codex_log" >"$session_file"
 }
@@ -51,7 +53,7 @@ run_resumed_session() {
       --output-last-message "$last_message" \
       "$session_id" \
       "$prompt"
-  ) >"$codex_log" 2>&1
+  ) >"$codex_log" 2>&1 </dev/null
 }
 
 if [[ -s "$session_file" ]]; then

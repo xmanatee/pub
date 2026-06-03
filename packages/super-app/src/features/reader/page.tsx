@@ -254,7 +254,8 @@ export function ReaderPage() {
           <iframe
             title={current.url}
             srcDoc={current.html}
-            sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+            sandbox=""
+            referrerPolicy="no-referrer"
             className="h-full w-full border-0 bg-white"
           />
         ) : (

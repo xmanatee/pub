@@ -9,10 +9,15 @@ import { sanitizeHtml } from "~/core/sanitize";
 import type { MailMessageDetail } from "./commands";
 
 export const sanitizeMailHtml = createServerFn({ method: "POST" })
-  .inputValidator((input: { html: string }) => input)
+  .inputValidator((input: { html: string }) => {
+    if (!input || typeof input !== "object" || typeof input.html !== "string") {
+      throw new Error("mail.sanitizeHtml requires html");
+    }
+    return input;
+  })
   .handler(
     async ({ data }): Promise<{ html: string }> => ({
-      html: sanitizeHtml(data.html),
+      html: sanitizeHtml(data.html, "https://mail.local/", { imagePolicy: "drop" }),
     }),
   );
 
