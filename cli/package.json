@@ -4,7 +4,7 @@
   "description": "CLI for publishing and visualizing AI-agent output via pub.blue",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "node scripts/bundle-super-app.mjs && vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "build": "bun run build-binary.ts"
