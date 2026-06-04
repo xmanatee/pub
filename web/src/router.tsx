@@ -2,13 +2,15 @@ import { ConvexQueryClient } from "@convex-dev/react-query";
 import * as Sentry from "@sentry/react";
 import { MutationCache, notifyManager, QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
+import { ConvexReactClient } from "convex/react";
 import posthog from "posthog-js";
 import { getConvexUrl } from "./lib/convex-url";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
   notifyManager.setScheduler(window.requestAnimationFrame);
-  const convexQueryClient = new ConvexQueryClient(getConvexUrl());
+  const convexClient = new ConvexReactClient(getConvexUrl());
+  const convexQueryClient = new ConvexQueryClient(convexClient);
 
   const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
@@ -48,7 +50,7 @@ export function getRouter() {
     });
   });
 
-  return { router, queryClient, convexClient: convexQueryClient.convexClient };
+  return { router, queryClient, convexClient };
 }
 
 declare module "@tanstack/react-router" {

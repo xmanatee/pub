@@ -188,7 +188,7 @@ function parseWsOpenMessage(obj: Record<string, unknown>): WsOpenMessage | null 
 function parseWsDataMessage(obj: Record<string, unknown>): WsDataMessage | null {
   const id = readString(obj.id);
   const data = readString(obj.data);
-  if (!id || !data) return null;
+  if (!id || data === undefined) return null;
   return { type: "ws-data", id, data, binary: obj.binary === true };
 }
 

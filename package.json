@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
-    "@convex-dev/auth": "^0.0.90",
+    "@convex-dev/auth": "^0.0.93",
     "@convex-dev/rate-limiter": "^0.3.2",
     "concurrently": "^10.0.3",
     "convex": "^1.40.0"

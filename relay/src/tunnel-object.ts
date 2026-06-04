@@ -17,10 +17,14 @@ interface PendingRequest {
   stream?: WritableStreamDefaultWriter;
 }
 
+type ProxyWsAttachment = {
+  closeMessageSent?: boolean;
+  closeMessageSuppressed?: boolean;
+};
+
 export class TunnelObject implements DurableObject {
   private state: DurableObjectState;
   private pendingRequests = new Map<string, PendingRequest>();
-  private proxyWsSockets = new Map<string, WebSocket>();
 
   constructor(state: DurableObjectState, _env: unknown) {
     this.state = state;
@@ -94,30 +98,7 @@ export class TunnelObject implements DurableObject {
 
     const pair = new WebSocketPair();
     const browserWs = pair[1];
-    browserWs.accept();
-    this.proxyWsSockets.set(id, browserWs);
-    browserWs.addEventListener("message", (event) => {
-      if (typeof event.data === "string") {
-        this.getDaemonWs()?.send(
-          encodeTunnelMessage({ type: "ws-data", id, data: event.data, binary: false }),
-        );
-      } else if (event.data instanceof ArrayBuffer) {
-        this.getDaemonWs()?.send(
-          encodeTunnelMessage({
-            type: "ws-data",
-            id,
-            data: arrayBufferToBase64(event.data),
-            binary: true,
-          }),
-        );
-      }
-    });
-    browserWs.addEventListener("close", (event) => {
-      this.closeBrowserProxyWs(id, event.code, event.reason);
-    });
-    browserWs.addEventListener("error", () => {
-      this.closeBrowserProxyWs(id, 1011, "Relay WebSocket error");
-    });
+    this.state.acceptWebSocket(browserWs, ["proxy-ws", `proxy-ws:${id}`]);
     return createWebSocketUpgradeResponse(pair[0], request);
   }
 
@@ -166,45 +147,58 @@ export class TunnelObject implements DurableObject {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    if (typeof message !== "string") return;
     const role = this.getWsRole(ws);
     if (!role) return;
 
     if (role === "daemon") {
+      if (typeof message !== "string") return;
       this.handleDaemonMessage(message);
     } else if (role === "browser") {
+      if (typeof message !== "string") return;
       this.getDaemonWs()?.send(message);
     } else if (role === "proxy-ws") {
       const id = this.getProxyWsId(ws);
       if (id) {
+        const data = typeof message === "string" ? message : arrayBufferToBase64(message);
         this.getDaemonWs()?.send(
-          encodeTunnelMessage({ type: "ws-data", id, data: message, binary: false }),
+          encodeTunnelMessage({ type: "ws-data", id, data, binary: typeof message !== "string" }),
         );
       }
     }
   }
 
-  async webSocketClose(ws: WebSocket): Promise<void> {
+  async webSocketClose(
+    ws: WebSocket,
+    code: number,
+    reason: string,
+    _wasClean: boolean,
+  ): Promise<void> {
     const role = this.getWsRole(ws);
     if (role === "daemon") {
       this.failAllPendingRequests("Tunnel disconnected");
-      for (const proxyWs of this.proxyWsSockets.values()) {
-        proxyWs.close(1001, "Tunnel disconnected");
-      }
-      this.proxyWsSockets.clear();
       for (const proxyWs of this.state.getWebSockets("proxy-ws")) {
+        this.suppressProxyWsCloseMessage(proxyWs);
         proxyWs.close(1001, "Tunnel disconnected");
       }
     } else if (role === "proxy-ws") {
       const id = this.getProxyWsId(ws);
       if (id) {
-        this.getDaemonWs()?.send(encodeTunnelMessage({ type: "ws-close", id }));
+        this.notifyDaemonProxyWsClosed(ws, id, code, reason);
       }
     }
   }
 
-  async webSocketError(ws: WebSocket): Promise<void> {
-    await this.webSocketClose(ws);
+  async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
+    const role = this.getWsRole(ws);
+    if (role === "proxy-ws") {
+      const id = this.getProxyWsId(ws);
+      if (id) {
+        this.notifyDaemonProxyWsClosed(ws, id, 1011, "Relay WebSocket error");
+      }
+      return;
+    }
+
+    await this.webSocketClose(ws, 1011, "Relay WebSocket error", false);
   }
 
   private handleDaemonMessage(raw: string): void {
@@ -244,21 +238,40 @@ export class TunnelObject implements DurableObject {
 
   private closeProxyWs(id: string, code?: number, reason?: string): void {
     const ws = this.findProxyWsById(id);
-    this.proxyWsSockets.delete(id);
-    ws?.close(code ?? 1000, reason);
+    if (!ws) return;
+    this.suppressProxyWsCloseMessage(ws);
+    ws.close(code ?? 1000, reason);
   }
 
-  private closeBrowserProxyWs(id: string, code?: number, reason?: string): void {
-    if (!this.proxyWsSockets.delete(id)) return;
+  private notifyDaemonProxyWsClosed(
+    ws: WebSocket,
+    id: string,
+    code?: number,
+    reason?: string,
+  ): void {
+    const attachment = this.getProxyWsAttachment(ws);
+    if (attachment.closeMessageSent || attachment.closeMessageSuppressed) return;
+
+    ws.serializeAttachment({ ...attachment, closeMessageSent: true });
+
     const msg: WsCloseMessage = { type: "ws-close", id };
     if (code !== undefined) msg.code = code;
     if (reason !== undefined) msg.reason = reason;
     this.getDaemonWs()?.send(encodeTunnelMessage(msg));
   }
 
+  private suppressProxyWsCloseMessage(ws: WebSocket): void {
+    const attachment = this.getProxyWsAttachment(ws);
+    ws.serializeAttachment({ ...attachment, closeMessageSuppressed: true });
+  }
+
+  private getProxyWsAttachment(ws: WebSocket): ProxyWsAttachment {
+    const attachment = ws.deserializeAttachment();
+    if (!attachment || typeof attachment !== "object") return {};
+    return attachment as ProxyWsAttachment;
+  }
+
   private findProxyWsById(id: string): WebSocket | null {
-    const standardSocket = this.proxyWsSockets.get(id);
-    if (standardSocket) return standardSocket;
     const sockets = this.state.getWebSockets(`proxy-ws:${id}`);
     return sockets[0] ?? null;
   }

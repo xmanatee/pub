@@ -16,8 +16,8 @@ importers:
         specifier: ^0.37.0
         version: 0.37.4
       '@convex-dev/auth':
-        specifier: ^0.0.90
-        version: 0.0.90(@auth/core@0.37.4)(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)
+        specifier: ^0.0.93
+        version: 0.0.93(@auth/core@0.37.4)(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)
       '@convex-dev/rate-limiter':
         specifier: ^0.3.2
         version: 0.3.2(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)
@@ -221,11 +221,11 @@ importers:
   web:
     dependencies:
       '@convex-dev/auth':
-        specifier: ^0.0.90
-        version: 0.0.90(@auth/core@0.37.4)(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)
+        specifier: ^0.0.93
+        version: 0.0.93(@auth/core@0.37.4)(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)
       '@convex-dev/react-query':
-        specifier: 0.0.0-alpha.8
-        version: 0.0.0-alpha.8(@tanstack/react-query@5.101.0(react@19.2.7))(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))
+        specifier: 0.1.0
+        version: 0.1.0(@tanstack/react-query@5.101.0(react@19.2.7))(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))
       '@icons-pack/react-simple-icons':
         specifier: ^13.13.0
         version: 13.13.0(react@19.2.7)
@@ -586,8 +586,8 @@ packages:
   '@cloudflare/workers-types@4.20260604.1':
     resolution: {integrity: sha512-nVTydUwPcz9WfwZ/6xAmqs8uUVeGbDVmyPvSYrYAo4CQTyi0122SoE1Suw8RvqnN60XXHPChAjDqSIjnr/mbmg==}
 
-  '@convex-dev/auth@0.0.90':
-    resolution: {integrity: sha512-aqw88EB042HvnaF4wcf/f/wTocmT2Bus2VDQRuV79cM0+8kORM0ICK/ByZ6XsHgQ9qr6TmidNbXm6QAgndrdpQ==}
+  '@convex-dev/auth@0.0.93':
+    resolution: {integrity: sha512-z7g1lxcNz1Yck238i79rCIubT+rCM1V9sDUdUkZfthPmOarDx0uchut/Gy78xvjQTTSy1oW1XHECKxdclmdJQA==}
     hasBin: true
     peerDependencies:
       '@auth/core': ^0.37.0
@@ -606,11 +606,11 @@ packages:
       react:
         optional: true
 
-  '@convex-dev/react-query@0.0.0-alpha.8':
-    resolution: {integrity: sha512-Rv/q7/CplU75f7ckBd2vh+HoeeQ0tOrjwMl14Hk7D/03e55oUIU0TV5JYYzC79ZQyyAtoj7CmCo5ZxcmtKNv1Q==}
+  '@convex-dev/react-query@0.1.0':
+    resolution: {integrity: sha512-ULmBZCtAQDUePdBhUv7hj1Yy4QiCelhi6uEIOtMpjW8db6W9CFKvQwLt9heLngccFyMFfAZdOfSrT+cP4AH0Jw==}
     peerDependencies:
       '@tanstack/react-query': ^5.0.0
-      convex: ^1.17.0
+      convex: ^1.29.3
 
   '@cryptography/aes@0.1.1':
     resolution: {integrity: sha512-PcYz4FDGblO6tM2kSC+VzhhK62vml6k6/YAkiWtyPvrgJVfnDRoHGDtKn5UiaRRUrvUTTocBpvc2rRgTCqxjsg==}
@@ -4937,7 +4937,7 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260604.1': {}
 
-  '@convex-dev/auth@0.0.90(@auth/core@0.37.4)(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)':
+  '@convex-dev/auth@0.0.93(@auth/core@0.37.4)(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)':
     dependencies:
       '@auth/core': 0.37.4
       '@oslojs/crypto': 1.0.1
@@ -4960,7 +4960,7 @@ snapshots:
     optionalDependencies:
       react: 19.2.7
 
-  '@convex-dev/react-query@0.0.0-alpha.8(@tanstack/react-query@5.101.0(react@19.2.7))(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))':
+  '@convex-dev/react-query@0.1.0(@tanstack/react-query@5.101.0(react@19.2.7))(convex@1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))':
     dependencies:
       '@tanstack/react-query': 5.101.0(react@19.2.7)
       convex: 1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)

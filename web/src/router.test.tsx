@@ -12,8 +12,13 @@ vi.mock("@convex-dev/react-query", () => ({
       hashFn: () => vi.fn(),
       queryFn: () => vi.fn(),
       connect: vi.fn(),
-      convexClient: { __mock: true },
     };
+  }),
+}));
+
+vi.mock("convex/react", () => ({
+  ConvexReactClient: vi.fn(function ConvexReactClientMock(url: string) {
+    return { __mock: true, url };
   }),
 }));
 
@@ -47,7 +52,7 @@ describe("getRouter", () => {
     const result = getRouter();
     expect(result.router).toBeDefined();
     expect(result.queryClient).toBeDefined();
-    expect(result.convexClient).toEqual({ __mock: true });
+    expect(result.convexClient).toEqual({ __mock: true, url: "https://example.convex.cloud" });
   });
 
   it("router has no Wrap (auth provider is in main.tsx)", () => {
