@@ -68,8 +68,8 @@ services:
         condition: service_healthy
     volumes:
       - shared-data:/shared:ro
-      - test-results:/app/test-results
-      - playwright-report:/app/playwright-report
+      - ../../test-results:/app/test-results
+      - ../../playwright-report:/app/playwright-report
     environment:
       - CONVEX_URL=http://convex-backend:3210
       - CONVEX_SITE_URL=http://convex-backend:3211
@@ -101,5 +101,3 @@ services:
 volumes:
   convex-data:
   shared-data:
-  test-results:
-  playwright-report:
