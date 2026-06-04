@@ -27,8 +27,17 @@ export async function waitForConnection(page: Page) {
   const switchHereButton = page.getByRole("button", { name: "Switch here" });
   const reclaimButton = page.getByRole("button", { name: /^Reclaim/ });
   const deadline = Date.now() + 90_000;
-  const isVisible = async (locator: Locator) => locator.isVisible().catch(() => false);
-  const isEnabled = async (locator: Locator) => locator.isEnabled().catch(() => false);
+  let lastProbeError = "";
+  const probeLocator = async (kind: "visible" | "enabled", locator: Locator): Promise<boolean> => {
+    try {
+      return kind === "visible" ? await locator.isVisible() : await locator.isEnabled();
+    } catch (error) {
+      lastProbeError = error instanceof Error ? error.message : String(error);
+      return false;
+    }
+  };
+  const isVisible = (locator: Locator) => probeLocator("visible", locator);
+  const isEnabled = (locator: Locator) => probeLocator("enabled", locator);
 
   // Wait for the control bar to appear (any recognizable element).
   // Use .first() to avoid strict-mode violations when multiple elements match.
@@ -98,7 +107,7 @@ export async function waitForConnection(page: Page) {
   }
 
   throw new Error(
-    `Live connection did not become ready. textbox=${await isVisible(textbox)} connect=${await isVisible(connectButton)} reconnect=${await isVisible(reconnectButton)} send=${await isVisible(sendButton)}`,
+    `Live connection did not become ready. textbox=${await isVisible(textbox)} connect=${await isVisible(connectButton)} reconnect=${await isVisible(reconnectButton)} send=${await isVisible(sendButton)} lastProbeError=${lastProbeError || "(none)"}`,
   );
 }
 

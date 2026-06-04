@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioChatEntry } from "~/features/live-chat/types/live-chat-types";
 
 function formatDuration(seconds: number): string {
@@ -46,6 +46,15 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const peaks = entry.waveform ?? FLAT_PEAKS;
+  const peakBars = useMemo(
+    () =>
+      peaks.map((peak, position) => ({
+        id: `${entry.id}:${position}`,
+        peak,
+        progressRatio: position / peaks.length,
+      })),
+    [entry.id, peaks],
+  );
   const duration = entry.duration ?? 0;
   const isUser = entry.from === "user";
 
@@ -175,11 +184,11 @@ export function AudioBubble({ entry }: { entry: AudioChatEntry }) {
         onClick={handleSeek}
         onKeyDown={handleSeekKeyDown}
       >
-        {peaks.map((peak, i) => (
+        {peakBars.map((bar) => (
           <div
-            key={`${i}-${peak}`}
-            className={`min-w-px flex-1 rounded-full transition-colors ${i / peaks.length < progress ? playedColor : unplayedColor}`}
-            style={{ height: `${Math.max(8, peak * 100)}%` }}
+            key={bar.id}
+            className={`min-w-px flex-1 rounded-full transition-colors ${bar.progressRatio < progress ? playedColor : unplayedColor}`}
+            style={{ height: `${Math.max(8, bar.peak * 100)}%` }}
           />
         ))}
       </div>

@@ -80,7 +80,7 @@ export class PubFsBridge {
 
   private handleWindowMessage(event: MessageEvent): void {
     const data = event.data;
-    if (!data || data.type !== "pub-fs-request") return;
+    if (data?.type !== "pub-fs-request") return;
     if (this.iframeWindow && event.source !== this.iframeWindow) return;
 
     const { method, requestId, path } = data;

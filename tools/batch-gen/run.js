@@ -19,7 +19,10 @@ function acquireLock() {
       process.kill(pid, 0);
       console.error(`Already running (pid ${pid}). Use --status to check progress.`);
       process.exit(1);
-    } catch {
+    } catch (error) {
+      if (error?.code && error.code !== "ESRCH") {
+        warn(`Removing stale lock after process check failed: ${error.message}`);
+      }
       unlinkSync(LOCKFILE);
     }
   }
@@ -29,7 +32,9 @@ function acquireLock() {
 function releaseLock() {
   try {
     if (existsSync(LOCKFILE)) unlinkSync(LOCKFILE);
-  } catch {}
+  } catch (error) {
+    warn(`Failed to remove lockfile: ${error.message}`);
+  }
 }
 
 function buildCtx(opts) {
@@ -75,7 +80,9 @@ function handleInterrupt() {
   killActiveChild();
   try {
     showStatus(ctx);
-  } catch {}
+  } catch (error) {
+    warn(`Failed to show interrupted status: ${error.message}`);
+  }
   process.exit(130);
 }
 

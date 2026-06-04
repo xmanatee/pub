@@ -25,11 +25,18 @@ for (const route of routes) {
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 240));
   });
-  await page
-    .goto(`${base}${route}`, { waitUntil: "domcontentloaded", timeout: 20000 })
-    .catch(() => {});
+  try {
+    await page.goto(`${base}${route}`, { waitUntil: "domcontentloaded", timeout: 20000 });
+  } catch (error) {
+    pageErrors.push(error instanceof Error ? error.message : String(error));
+  }
   await page.waitForTimeout(3500);
-  const body = await page.evaluate(() => document.body.innerText).catch(() => "");
+  let body = "";
+  try {
+    body = await page.evaluate(() => document.body.innerText);
+  } catch (error) {
+    pageErrors.push(error instanceof Error ? error.message : String(error));
+  }
   summary.push({
     route,
     pageErrors: [...new Set(pageErrors)].slice(0, 2),

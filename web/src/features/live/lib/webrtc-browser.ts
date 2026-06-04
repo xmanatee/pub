@@ -332,7 +332,7 @@ export class BrowserBridge {
 
   send(channel: string, message: BridgeMessage): boolean {
     const dc = this.channels.get(channel);
-    if (!dc || dc.readyState !== "open") return false;
+    if (dc?.readyState !== "open") return false;
     dc.send(encodeMessage(message));
     return true;
   }
@@ -352,7 +352,7 @@ export class BrowserBridge {
 
   sendBinary(channel: string, data: ArrayBuffer): boolean {
     const dc = this.channels.get(channel);
-    if (!dc || dc.readyState !== "open") return false;
+    if (dc?.readyState !== "open") return false;
     try {
       dc.send(data);
       return true;

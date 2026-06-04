@@ -73,8 +73,8 @@ describe("liveChatDeliveryReducer", () => {
     );
     const failed = byId.get("u-2");
     const kept = byId.get("u-3");
-    if (!failed || failed.from !== "user") throw new Error("Expected sent user message");
-    if (!kept || kept.from !== "user") throw new Error("Expected received user message");
+    if (failed?.from !== "user") throw new Error("Expected sent user message");
+    if (kept?.from !== "user") throw new Error("Expected received user message");
 
     expect(failed.delivery).toBe("failed");
     expect(kept.delivery).toBe("received");

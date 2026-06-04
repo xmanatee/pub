@@ -130,7 +130,7 @@ export const heartbeat = internalMutation({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
     const host = await findHostBySession(ctx.db, apiKeyId, daemonSessionId);
-    if (!host || host.status !== "online") throw new Error("Not online");
+    if (host?.status !== "online") throw new Error("Not online");
 
     const now = Date.now();
     await ctx.db.patch(host._id, { lastHeartbeatAt: now, updatedAt: now });
@@ -207,7 +207,7 @@ export const getHostByApiKeySession = internalQuery({
   args: { apiKeyId: v.id("apiKeys"), daemonSessionId: v.string() },
   handler: async (ctx, { apiKeyId, daemonSessionId }) => {
     const host = await findHostBySession(ctx.db, apiKeyId, daemonSessionId);
-    if (!host || host.status !== "online" || !isFreshHost(host, Date.now())) return null;
+    if (host?.status !== "online" || !isFreshHost(host, Date.now())) return null;
     return {
       _id: host._id,
       userId: host.userId,

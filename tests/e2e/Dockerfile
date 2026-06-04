@@ -36,7 +36,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 FROM ghcr.io/openclaw/openclaw@sha256:b86307b257ff42a81353b0d6b3963ccd09bbd9eb1916077d1833a967763c5bc7 AS openclaw-source
 
 # Stage 2: Test runner (Vite + proxy + CLI + OpenClaw + mock LLM + Playwright — all in one)
-FROM mcr.microsoft.com/playwright:v1.58.2-noble AS test-runner
+FROM mcr.microsoft.com/playwright:v1.60.0-noble AS test-runner
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
 WORKDIR /app

@@ -232,14 +232,19 @@ test.describe("Tunnel full-stack E2E", () => {
 
   async function waitForRelayReady(token: string) {
     const deadline = Date.now() + 15_000;
+    let lastError: unknown = null;
     while (Date.now() < deadline) {
       try {
         const res = await fetch(`${RELAY_URL}/t/${token}/`);
         if (res.status === 200) return;
-      } catch {}
+      } catch (error) {
+        lastError = error;
+      }
       await new Promise((r) => setTimeout(r, 500));
     }
-    throw new Error("Relay did not become ready within 15s");
+    const detail =
+      lastError instanceof Error && lastError.message.length > 0 ? `: ${lastError.message}` : "";
+    throw new Error(`Relay did not become ready within 15s${detail}`);
   }
 
   async function setupTunnel() {

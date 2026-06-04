@@ -85,7 +85,7 @@ export function liveChatDeliveryReducer(
       const index = state.indexById[action.messageId];
       if (index === undefined) return state;
       const entry = state.messages[index];
-      if (!entry || entry.type !== "audio") return state;
+      if (entry?.type !== "audio") return state;
       const messages = [...state.messages];
       messages[index] = {
         ...entry,
@@ -125,7 +125,7 @@ function updateUserDelivery(
   const index = state.indexById[messageId];
   if (index === undefined) return state;
   const entry = state.messages[index];
-  if (!entry || entry.from !== "user") return state;
+  if (entry?.from !== "user") return state;
 
   const nextDelivery = transform(entry.delivery);
   if (nextDelivery === entry.delivery) return state;

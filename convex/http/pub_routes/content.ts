@@ -95,7 +95,7 @@ export function registerPubContentRoutes(http: ReturnType<typeof httpRouter>): v
       if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
       const pub = await ctx.runQuery(internal.pubs.getBySlugInternal, { slug });
-      if (!pub || !pub.isPublic) {
+      if (!pub?.isPublic) {
         return new Response("Not found", { status: 404 });
       }
 

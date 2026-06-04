@@ -47,7 +47,9 @@ function nextUnusedTestPort(): number {
 
 // Test scripts never bind the port; absorb the dangling waitForPort rejection.
 function suppressReadyRejection(dev: DevServer): void {
-  dev.ready.catch(() => {});
+  void dev.ready.catch((error) => {
+    expect(error).toBeInstanceOf(Error);
+  });
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {

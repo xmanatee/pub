@@ -259,7 +259,7 @@ export function createBridgeManager(params: {
     if (intent.kind === "pub") {
       if (!content) throw new Error("pub intent requires pre-fetched session content");
       const session = state.activeSession;
-      if (!session || session.kind !== "pub") {
+      if (session?.kind !== "pub") {
         throw new Error("pub intent requires an active pub session");
       }
       const indexHtml = content.files["index.html"];
@@ -422,10 +422,17 @@ export function createBridgeManager(params: {
   }): Promise<void> {
     const { intent, isStale, myAbort, previous } = args;
 
-    // Wait for any in-flight prep to settle. We swallow its rejection — the
-    // previous owner already logged it via markError; we only need to know
-    // when the lane is free.
-    if (previous) await previous.catch(() => {});
+    // Wait for any in-flight prep to settle before mutating the shared runner
+    // state. A previous prep normally reports its own failure, but logging here
+    // keeps unexpected promise rejections visible while still allowing the new
+    // intent to recover the bridge.
+    if (previous) {
+      try {
+        await previous;
+      } catch (error) {
+        debugLog(`previous bridge preparation failed before ${describeIntent(intent)}`, error);
+      }
+    }
     if (isStale()) return;
 
     if (

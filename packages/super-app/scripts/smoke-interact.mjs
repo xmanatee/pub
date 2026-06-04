@@ -66,8 +66,15 @@ await cleanup("tasks", (t) => t.title === `${tag}-task`);
 async function cleanup(name, matcher) {
   const contents = await readStore(name);
   const keep = contents.filter((e) => !matcher(e));
-  if (keep.length === 0) await unlink(store(name)).catch(() => {});
-  else await writeFile(store(name), JSON.stringify(keep, null, 2));
+  if (keep.length === 0) {
+    try {
+      await unlink(store(name));
+    } catch (error) {
+      console.warn(`Failed to remove empty ${name} store`, error);
+    }
+  } else {
+    await writeFile(store(name), JSON.stringify(keep, null, 2));
+  }
 }
 
 if (!report.note.ok || !report.task.ok || report.pageErrors.length > 0) process.exit(1);

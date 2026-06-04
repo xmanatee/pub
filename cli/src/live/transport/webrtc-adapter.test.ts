@@ -61,6 +61,10 @@ async function canBindUdpSocket(): Promise<boolean> {
 
 const describeWebRtc = (await canBindUdpSocket()) ? describe : describe.skip;
 
+function expectRetryablePeerNegotiationError(error: unknown): void {
+  expect(error).toBeInstanceOf(Error);
+}
+
 function waitForPeerEvent<T>(
   subscribe: (resolve: (value: T) => void) => void,
   timeoutMs = PEER_EVENT_TIMEOUT_MS,
@@ -112,9 +116,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
       while (pendingForA.length > 0) {
         const next = pendingForA.shift();
         if (!next) break;
-        void a.addRemoteCandidate(next.candidate, next.mid).catch(() => {
-          // Ignore invalid/out-of-order candidates during handshake.
-        });
+        void a
+          .addRemoteCandidate(next.candidate, next.mid)
+          .catch(expectRetryablePeerNegotiationError);
       }
     };
 
@@ -122,9 +126,9 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
       while (pendingForB.length > 0) {
         const next = pendingForB.shift();
         if (!next) break;
-        void b.addRemoteCandidate(next.candidate, next.mid).catch(() => {
-          // Ignore invalid/out-of-order candidates during handshake.
-        });
+        void b
+          .addRemoteCandidate(next.candidate, next.mid)
+          .catch(expectRetryablePeerNegotiationError);
       }
     };
 
@@ -133,9 +137,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         pendingForB.push({ candidate, mid });
         return;
       }
-      void b.addRemoteCandidate(candidate, mid).catch(() => {
-        // Ignore invalid/out-of-order candidates during handshake.
-      });
+      void b.addRemoteCandidate(candidate, mid).catch(expectRetryablePeerNegotiationError);
     });
 
     b.onLocalCandidate((candidate, mid) => {
@@ -143,9 +145,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         pendingForA.push({ candidate, mid });
         return;
       }
-      void a.addRemoteCandidate(candidate, mid).catch(() => {
-        // Ignore invalid/out-of-order candidates during handshake.
-      });
+      void a.addRemoteCandidate(candidate, mid).catch(expectRetryablePeerNegotiationError);
     });
 
     a.onLocalDescription((sdp, type) => {
@@ -209,7 +209,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         const dcB = await waitForPeerEvent<AdapterDataChannel>(
           (resolve) => {
             peerB.onDataChannel((dc) => resolve(dc));
-            void peerA.setLocalDescription().catch(() => {});
+            void peerA.setLocalDescription().catch(expectRetryablePeerNegotiationError);
           },
           PEER_EVENT_TIMEOUT_MS,
           "remote data channel",
@@ -276,7 +276,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
               remoteDcs.set(dc.getLabel(), dc);
               if (remoteDcs.size === 2) resolve();
             });
-            void peerA.setLocalDescription().catch(() => {});
+            void peerA.setLocalDescription().catch(expectRetryablePeerNegotiationError);
           },
           PEER_EVENT_TIMEOUT_MS,
           "all remote data channels",
@@ -417,7 +417,7 @@ describeWebRtc("WebRTC P2P integration (werift adapter)", () => {
         const dcB = await waitForPeerEvent<AdapterDataChannel>(
           (resolve) => {
             peerB.onDataChannel((dc) => resolve(dc));
-            void peerA.setLocalDescription().catch(() => {});
+            void peerA.setLocalDescription().catch(expectRetryablePeerNegotiationError);
           },
           PEER_EVENT_TIMEOUT_MS,
           "remote data channel",

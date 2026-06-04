@@ -52,7 +52,7 @@ export const getTunnelByToken = internalQuery({
     if (!tunnel) return null;
 
     const host = await ctx.db.get(tunnel.hostId);
-    if (!host || host.status !== "online") return null;
+    if (host?.status !== "online") return null;
 
     return { userId: tunnel.userId, hostId: tunnel.hostId };
   },
@@ -72,7 +72,7 @@ export const getActiveTunnelsForUser = query({
     const results = [];
     for (const tunnel of tunnels) {
       const host = await ctx.db.get(tunnel.hostId);
-      if (!host || host.status !== "online") continue;
+      if (host?.status !== "online") continue;
       results.push({
         token: tunnel.token,
         hostId: tunnel.hostId,

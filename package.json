@@ -43,8 +43,8 @@
     "convex": "^1.40.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.3",
-    "@playwright/test": "^1.58.2",
+    "@biomejs/biome": "2.4.16",
+    "@playwright/test": "^1.60.0",
     "@types/ws": "^8.5.0",
     "knip": "^6.15.0",
     "typescript": "^5.7.2",

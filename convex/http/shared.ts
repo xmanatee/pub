@@ -322,7 +322,7 @@ export function getOgCardData(
   pub: { title?: string; slug: string; isPublic: boolean } | null,
   slug: string,
 ) {
-  if (!pub || !pub.isPublic) {
+  if (!pub?.isPublic) {
     return {
       title: "pub.blue",
       badgeColor: "#3b82f6",

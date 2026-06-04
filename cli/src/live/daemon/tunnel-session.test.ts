@@ -201,8 +201,7 @@ describe("ensureAgentReady — tunnel intent", () => {
     const tunnelIntent: SessionIntent = { kind: "tunnel", workspaceDir: FAKE_TUNNEL_DIR };
 
     // Fire-and-forget pub prep — it hangs forever inside fetchPubSessionContent.
-    // The .catch swallows the rejection so vitest doesn't flag the hanging task.
-    bridgeManager.ensureAgentReady(pubIntent).catch(() => {});
+    void bridgeManager.ensureAgentReady(pubIntent);
 
     // Yield once so the pub prep enters its hanging fetch.
     await Promise.resolve();
