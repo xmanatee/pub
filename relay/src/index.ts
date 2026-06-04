@@ -2,7 +2,7 @@ import { validateDaemonAuth, validateTunnelToken } from "./auth";
 
 export { TunnelObject } from "./tunnel-object";
 
-interface Env {
+export interface Env {
   TUNNEL: DurableObjectNamespace;
   CONVEX_SITE_URL: string;
 }
@@ -30,7 +30,7 @@ export default {
     }
 
     if (url.pathname.startsWith("/t/")) {
-      return handleHttpProxyRoute(request, url, env);
+      return handleTunnelProxyRoute(request, url, env);
     }
 
     if (url.pathname === "/health") {
@@ -78,7 +78,11 @@ async function handleBrowserWsRoute(request: Request, url: URL, env: Env): Promi
   return stub.fetch(new Request(new URL(`/ws/${token}`, request.url).toString(), request));
 }
 
-async function handleHttpProxyRoute(request: Request, url: URL, env: Env): Promise<Response> {
+export async function handleTunnelProxyRoute(
+  request: Request,
+  url: URL,
+  env: Env,
+): Promise<Response> {
   const token = extractToken(url);
   if (!token) return new Response("Missing token", { status: 400, headers: CORS_HEADERS });
 
@@ -87,6 +91,10 @@ async function handleHttpProxyRoute(request: Request, url: URL, env: Env): Promi
 
   const doId = env.TUNNEL.idFromName(validation.hostId);
   const stub = env.TUNNEL.get(doId);
+
+  if (request.headers.get("Upgrade") === "websocket") {
+    return stub.fetch(new Request(url.toString(), request));
+  }
 
   const response = await stub.fetch(
     new Request(url.toString(), {
