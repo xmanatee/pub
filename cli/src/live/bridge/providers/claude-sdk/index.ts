@@ -1,4 +1,5 @@
 import { errorMessage } from "../../../../core/errors/cli-error.js";
+import { toCommandReturnValue } from "../../../command/template.js";
 import { createBridgeScaffolding } from "../../scaffolding.js";
 import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
@@ -125,11 +126,7 @@ export async function createClaudeSdkBridgeRunner(
     invokeAgentCommand: async ({ prompt, output }) =>
       await queueSessionTask(async () => {
         const text = await deliverWithRecovery(prompt);
-        if (output === "json") {
-          const trimmed = text.trim();
-          return trimmed.length === 0 ? {} : (JSON.parse(trimmed) as unknown);
-        }
-        return text;
+        return toCommandReturnValue(text, output);
       }),
     async stop(): Promise<void> {
       if (stopped) return;

@@ -24,7 +24,7 @@ export function toCommandReturnValue(output: string, returnType: CommandReturnTy
   if (returnType === "void") return null;
   if (returnType === "json") {
     const trimmed = output.trim();
-    if (trimmed.length === 0) return {};
+    if (trimmed.length === 0) throw new Error("JSON command produced no output.");
     return JSON.parse(trimmed) as unknown;
   }
   return output;

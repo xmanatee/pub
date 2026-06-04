@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { parseFlaggedMailResult, parseGitHubMilestones, parseTaskwarriorTasks } from "./commands";
+import {
+  listFlaggedEmails,
+  listGitHubMilestones,
+  listTaskwarriorTasks,
+  parseFlaggedMailResult,
+  parseGitHubMilestones,
+  parseTaskwarriorTasks,
+} from "./commands";
 
 describe("inbox command result parsers", () => {
+  it("runs shell commands with strict failure handling", () => {
+    for (const command of [listGitHubMilestones, listTaskwarriorTasks, listFlaggedEmails]) {
+      expect(command.executor?.kind).toBe("shell");
+      if (command.executor?.kind !== "shell") throw new Error(`${command.name} must use shell`);
+      expect(command.executor.shell).toBe("/bin/bash");
+      expect(command.executor.script).toMatch(/^set -euo pipefail; /);
+    }
+  });
+
   it("parses GitHub milestones", () => {
     expect(
       parseGitHubMilestones([

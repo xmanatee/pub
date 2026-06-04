@@ -1,3 +1,4 @@
+import { strictShell } from "~/core/command-shell";
 import {
   readArray,
   readArrayValue,
@@ -41,32 +42,27 @@ export interface FlaggedMailResult {
 export const listGitHubMilestones: CommandFunctionSpec = {
   name: "inbox.deadlines.github",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true); " +
+  executor: strictShell(
+    "REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true); " +
       'if [ -n "$REPO" ]; then gh api "repos/$REPO/milestones?state=open"; else echo "[]"; fi',
-  },
+  ),
 };
 
 export const listTaskwarriorTasks: CommandFunctionSpec = {
   name: "inbox.deadlines.taskwarrior",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script: "taskwarrior export json 2>/dev/null || task export 2>/dev/null || echo '[]'",
-  },
+  executor: strictShell(
+    "taskwarrior export json 2>/dev/null || task export 2>/dev/null || echo '[]'",
+  ),
 };
 
 export const listFlaggedEmails: CommandFunctionSpec = {
   name: "inbox.deadlines.flaggedMail",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "gog -j gmail search 'is:starred OR is:important' --max 20 | " +
+  executor: strictShell(
+    "gog -j gmail search 'is:starred OR is:important' --max 20 | " +
       "jq '{messages: [.threads[]? | {id, threadId: .id, from, subject: (.subject // \"(no subject)\"), date}]}'",
-  },
+  ),
 };
 
 function parseGitHubMilestone(value: unknown, path: string): GitHubMilestone {

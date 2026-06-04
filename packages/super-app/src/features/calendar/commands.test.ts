@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { parseCalendarEvent, parseCalendarListResult } from "./commands";
+import { listEvents, parseCalendarEvent, parseCalendarListResult } from "./commands";
 
 describe("calendar command result parsers", () => {
+  it("runs shell commands with strict pipeline failure handling", () => {
+    expect(listEvents.executor?.kind).toBe("shell");
+    if (listEvents.executor?.kind !== "shell") throw new Error("calendar.list must use shell");
+    expect(listEvents.executor.shell).toBe("/bin/bash");
+    expect(listEvents.executor.script).toMatch(/^set -euo pipefail; /);
+  });
+
   it("parses normalized list output", () => {
     expect(
       parseCalendarListResult({

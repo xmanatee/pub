@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  calendarToday,
+  gmailUnread,
+  newsHn,
   parseCalendarTodayResult,
   parseGmailUnreadResult,
   parseNewsHnResult,
   parseWeatherResult,
+  weatherCurrent,
 } from "./commands";
 
 describe("briefing command result parsers", () => {
+  it("runs shell commands with strict pipeline failure handling", () => {
+    for (const command of [weatherCurrent, calendarToday, gmailUnread, newsHn]) {
+      expect(command.executor?.kind).toBe("shell");
+      if (command.executor?.kind !== "shell") throw new Error(`${command.name} must use shell`);
+      expect(command.executor.shell).toBe("/bin/bash");
+      expect(command.executor.script).toMatch(/^set -euo pipefail; /);
+    }
+  });
+
   it("parses weather command output", () => {
     expect(
       parseWeatherResult({

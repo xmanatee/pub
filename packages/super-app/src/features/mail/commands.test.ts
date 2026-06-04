@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { parseMailListResult, parseMailMessageDetail } from "./commands";
+import { listInbox, parseMailListResult, parseMailMessageDetail, readMessage } from "./commands";
 
 describe("mail command result parsers", () => {
+  it("runs shell commands with strict pipeline failure handling", () => {
+    for (const command of [listInbox, readMessage]) {
+      expect(command.executor?.kind).toBe("shell");
+      if (command.executor?.kind !== "shell") throw new Error(`${command.name} must use shell`);
+      expect(command.executor.shell).toBe("/bin/bash");
+      expect(command.executor.script).toMatch(/^set -euo pipefail; /);
+    }
+  });
+
   it("parses inbox list output", () => {
     expect(
       parseMailListResult({

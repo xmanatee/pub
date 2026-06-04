@@ -23,6 +23,7 @@ function RootComponent() {
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
         <HeadContent />
       </head>
       <body>

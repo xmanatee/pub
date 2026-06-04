@@ -1,3 +1,4 @@
+import { toCommandReturnValue } from "../../../command/template.js";
 import { createBridgeScaffolding } from "../../scaffolding.js";
 import { createSessionTaskQueue } from "../../session-task-queue.js";
 import type {
@@ -98,10 +99,7 @@ export async function createOpenClawBridgeRunner(
         signal.addEventListener("abort", abortTask, { once: true });
         try {
           const text = await runPrompt(prompt, taskAbort.signal, timeoutMs);
-          if (output === "json") {
-            return text.length === 0 ? {} : (JSON.parse(text) as unknown);
-          }
-          return text;
+          return toCommandReturnValue(text, output);
         } finally {
           runnerAbort.signal.removeEventListener("abort", abortTask);
           signal.removeEventListener("abort", abortTask);

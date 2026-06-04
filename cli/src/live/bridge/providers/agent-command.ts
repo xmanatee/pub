@@ -5,6 +5,7 @@ import type {
   CommandAgentSpec,
 } from "../../../../../shared/command-protocol-core.js";
 import type { BridgeSettings, ClaudeBridgeSettings } from "../../../core/config/index.js";
+import { toCommandReturnValue } from "../../command/template.js";
 import type { BridgeRunner } from "../shared.js";
 import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
 import { readSdkAssistantText } from "./claude-sdk/event-reader.js";
@@ -63,12 +64,7 @@ function readClaudeAssistantOutput(line: string): ClaudeEvent {
 }
 
 function parseAgentOutput(outputText: string, output: "text" | "json"): unknown {
-  if (output === "json") {
-    const trimmed = outputText.trim();
-    if (trimmed.length === 0) return {};
-    return JSON.parse(trimmed) as unknown;
-  }
-  return outputText;
+  return toCommandReturnValue(outputText, output);
 }
 
 function toSdkToolInput(input: unknown): Record<string, unknown> | undefined {

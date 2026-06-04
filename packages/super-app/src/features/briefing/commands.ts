@@ -1,3 +1,4 @@
+import { strictShell } from "~/core/command-shell";
 import {
   type JsonRecord,
   readArray,
@@ -79,10 +80,8 @@ export interface NewsHnResult {
 export const weatherCurrent: CommandFunctionSpec = {
   name: "briefing.weather",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "curl -sS --max-time 10 -H 'user-agent: curl/8' 'https://wttr.in/?format=j1' | " +
+  executor: strictShell(
+    "curl -sS --max-time 10 -H 'user-agent: curl/8' 'https://wttr.in/?format=j1' | " +
       'jq \'{location: (.nearest_area[0].areaName[0].value + ", " + .nearest_area[0].region[0].value),' +
       " temperatureC: (.current_condition[0].temp_C|tonumber)," +
       " feelsLikeC: (.current_condition[0].FeelsLikeC|tonumber)," +
@@ -93,41 +92,35 @@ export const weatherCurrent: CommandFunctionSpec = {
       " description: .weatherDesc[0].value, chanceOfRain:(.chanceofrain|tonumber)}]," +
       " forecast: [.weather[0:3][] | {date, minC:(.mintempC|tonumber), maxC:(.maxtempC|tonumber)," +
       " description: .hourly[(.hourly|length/2|floor)].weatherDesc[0].value}]}'",
-  },
+  ),
 };
 
 export const calendarToday: CommandFunctionSpec = {
   name: "briefing.calendar.today",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "gog -j calendar events --today --max 30 | " +
+  executor: strictShell(
+    "gog -j calendar events --today --max 30 | " +
       'jq \'{events: [.events[] | {id, summary: (.summary // "(untitled)"),' +
       ' start: (.start.dateTime // .start.date // ""), end: (.end.dateTime // .end.date // ""),' +
       " location, link: .htmlLink}]}'",
-  },
+  ),
 };
 
 export const gmailUnread: CommandFunctionSpec = {
   name: "briefing.gmail.unread",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "gog -j gmail search 'is:unread in:inbox' --max 20 | " +
+  executor: strictShell(
+    "gog -j gmail search 'is:unread in:inbox' --max 20 | " +
       'jq \'{messages: [.threads[] | {id, threadId: .id, from, subject: (.subject // "(no subject)"),' +
       ' date, unread: (.labels|index("UNREAD")!=null), labels}]}\'',
-  },
+  ),
 };
 
 export const newsHn: CommandFunctionSpec = {
   name: "briefing.news.hn",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "IDS=$(curl -sS --max-time 10 https://hacker-news.firebaseio.com/v0/topstories.json " +
+  executor: strictShell(
+    "IDS=$(curl -sS --max-time 10 https://hacker-news.firebaseio.com/v0/topstories.json " +
       "| jq '.[0:12][]'); " +
       'STORIES="["; FIRST=1; for id in $IDS; do ' +
       'ITEM=$(curl -sS --max-time 10 "https://hacker-news.firebaseio.com/v0/item/$id.json"); ' +
@@ -137,7 +130,7 @@ export const newsHn: CommandFunctionSpec = {
       'echo "$STORIES" | jq \'{stories: [.[] | select(.title != null) | {id, title, ' +
       'url: (.url // null), score: (.score // 0), by: (.by // ""), ' +
       "comments: (.descendants // 0), time: (.time // 0)}]}'",
-  },
+  ),
 };
 
 function readWeatherTime(record: JsonRecord, key: string, path: string): string {

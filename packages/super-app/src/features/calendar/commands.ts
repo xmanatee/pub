@@ -1,3 +1,4 @@
+import { strictShell } from "~/core/command-shell";
 import {
   type JsonRecord,
   readArray,
@@ -25,14 +26,12 @@ export interface CalendarListResult {
 export const listEvents: CommandFunctionSpec = {
   name: "calendar.list",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "gog -j calendar events --from {{from}} --to {{to}} --max {{max}} | " +
+  executor: strictShell(
+    "gog -j calendar events --from {{from}} --to {{to}} --max {{max}} | " +
       'jq \'{events: [.events[]? | {id, summary: (.summary // "(untitled)"), description: (.description // null),' +
       ' start: (.start.dateTime // .start.date // ""), end: (.end.dateTime // .end.date // ""),' +
       " location: (.location // null), link: (.htmlLink // null), attendees: [(.attendees // [])[].email]}]}'",
-  },
+  ),
 };
 
 export const createEvent: CommandFunctionSpec = {

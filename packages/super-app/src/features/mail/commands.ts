@@ -1,3 +1,4 @@
+import { strictShell } from "~/core/command-shell";
 import {
   readArray,
   readBoolean,
@@ -32,26 +33,22 @@ export interface MailListResult {
 export const listInbox: CommandFunctionSpec = {
   name: "mail.list",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "gog -j gmail search '{{query}}' --max {{max}} | " +
+  executor: strictShell(
+    "gog -j gmail search '{{query}}' --max {{max}} | " +
       'jq \'{messages: [.threads[]? | {id, threadId: .id, from, to: .to, subject: (.subject // "(no subject)"),' +
       ' date, snippet: (.snippet // ""), unread: (.labels|index("UNREAD")!=null), labels}]}\'',
-  },
+  ),
 };
 
 export const readMessage: CommandFunctionSpec = {
   name: "mail.read",
   returns: "json",
-  executor: {
-    kind: "shell",
-    script:
-      "gog -j gmail get --id {{id}} | " +
+  executor: strictShell(
+    "gog -j gmail get --id {{id}} | " +
       'jq \'{id, threadId, from, to, subject: (.subject // "(no subject)"), date, ' +
       'snippet: (.snippet // ""), unread: (.labels|index("UNREAD")!=null), labels, ' +
       'body: (.bodyText // .body // ""), bodyHtml: (.bodyHtml // null)}\'',
-  },
+  ),
 };
 
 export const archiveMessage: CommandFunctionSpec = {
