@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     include: [
       "convex/**/*.test.ts",
+      "relay/*.test.ts",
       "shared/**/*.test.ts",
       "packages/super-app/src/features/reader/**/*.test.ts",
     ],

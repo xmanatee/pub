@@ -80,8 +80,7 @@ export class TunnelObject implements DurableObject {
       return new Response("Tunnel not connected", { status: 502 });
     }
 
-    const pathParts = url.pathname.split("/");
-    const proxyPath = `/${pathParts.slice(3).join("/")}`;
+    const proxyPath = getTunnelProxyPath(url);
     const id = crypto.randomUUID().slice(0, 8);
 
     const headers: Record<string, string> = {};
@@ -105,8 +104,7 @@ export class TunnelObject implements DurableObject {
       return new Response("Tunnel not connected", { status: 502 });
     }
 
-    const pathParts = url.pathname.split("/");
-    const proxyPath = `/${pathParts.slice(3).join("/")}${url.search}`;
+    const proxyPath = getTunnelProxyPath(url);
     const id = crypto.randomUUID().slice(0, 8);
 
     const headers: Record<string, string> = {};
@@ -291,6 +289,11 @@ export class TunnelObject implements DurableObject {
     }
     return null;
   }
+}
+
+export function getTunnelProxyPath(url: URL): string {
+  const pathParts = url.pathname.split("/");
+  return `/${pathParts.slice(3).join("/")}${url.search}`;
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
