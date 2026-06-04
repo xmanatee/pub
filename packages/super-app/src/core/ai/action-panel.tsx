@@ -118,7 +118,7 @@ export function AIActionPanel({
         size="sm"
         className="justify-start"
         disabled={busy !== null || !text.trim()}
-        onClick={() => runVerb("summarize", () => runAI<string>(prompts.summarize, { text }))}
+        onClick={() => runVerb("summarize", () => runAI(prompts.summarize, { text }))}
       >
         <Sparkles className="size-3.5" /> Summarize
       </Button>
@@ -127,7 +127,7 @@ export function AIActionPanel({
         size="sm"
         className="justify-start"
         disabled={busy !== null || !text.trim()}
-        onClick={() => runVerb("explain", () => runAI<string>(prompts.explain, { text }))}
+        onClick={() => runVerb("explain", () => runAI(prompts.explain, { text }))}
       >
         <Wand2 className="size-3.5" /> Explain
       </Button>
@@ -137,7 +137,7 @@ export function AIActionPanel({
         className="justify-start"
         disabled={busy !== null || !text.trim()}
         onClick={() =>
-          runVerb("translate", () => runAI<string>(prompts.translate, { text, lang: "English" }))
+          runVerb("translate", () => runAI(prompts.translate, { text, lang: "English" }))
         }
       >
         <Languages className="size-3.5" /> Translate
@@ -148,9 +148,7 @@ export function AIActionPanel({
         className="justify-start"
         disabled={busy !== null || !text.trim()}
         onClick={() =>
-          runVerb("retone", () =>
-            runAI<string>(prompts.retone, { text, tone: "friendly and concise" }),
-          )
+          runVerb("retone", () => runAI(prompts.retone, { text, tone: "friendly and concise" }))
         }
       >
         <Reply className="size-3.5" /> Retone
@@ -166,9 +164,7 @@ export function AIActionPanel({
         if (!question.trim()) return;
         const q = question.trim();
         setQuestion("");
-        void runVerb("qa", () =>
-          runAI<string>(prompts.qaDocument, { document: text, question: q }),
-        );
+        void runVerb("qa", () => runAI(prompts.qaDocument, { document: text, question: q }));
       }}
     >
       <Textarea

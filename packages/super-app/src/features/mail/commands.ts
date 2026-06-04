@@ -1,7 +1,11 @@
-/**
- * Mail — backed by the `gog` Google Workspace CLI via daemon-routed shell
- * scripts. Each command returns parsed JSON ready for the UI.
- */
+import {
+  readArray,
+  readBoolean,
+  readNullableString,
+  readRecordValue,
+  readString,
+  readStringArray,
+} from "~/core/json-boundary";
 import type { CommandFunctionSpec } from "~/core/types";
 
 export interface MailMessage {
@@ -19,6 +23,10 @@ export interface MailMessage {
 export interface MailMessageDetail extends MailMessage {
   body: string;
   bodyHtml: string | null;
+}
+
+export interface MailListResult {
+  messages: MailMessage[];
 }
 
 export const listInbox: CommandFunctionSpec = {
@@ -103,3 +111,38 @@ export const sendMessage: CommandFunctionSpec = {
     args: ["gmail", "send", "--to", "{{to}}", "--subject", "{{subject}}", "--body", "{{body}}"],
   },
 };
+
+function parseMailMessage(value: unknown, path: string): MailMessage {
+  const record = readRecordValue(value, path);
+  return {
+    id: readString(record, "id", path),
+    threadId: readString(record, "threadId", path),
+    from: readString(record, "from", path),
+    to: readNullableString(record, "to", path),
+    subject: readString(record, "subject", path),
+    date: readString(record, "date", path),
+    snippet: readString(record, "snippet", path),
+    unread: readBoolean(record, "unread", path),
+    labels: readStringArray(record, "labels", path),
+  };
+}
+
+export function parseMailListResult(value: unknown): MailListResult {
+  const path = "mail.list";
+  const record = readRecordValue(value, path);
+  return {
+    messages: readArray(record, "messages", path).map((message, index) =>
+      parseMailMessage(message, `${path}.messages[${index}]`),
+    ),
+  };
+}
+
+export function parseMailMessageDetail(value: unknown): MailMessageDetail {
+  const path = "mail.read";
+  const record = readRecordValue(value, path);
+  return {
+    ...parseMailMessage(value, path),
+    body: readString(record, "body", path),
+    bodyHtml: readNullableString(record, "bodyHtml", path),
+  };
+}

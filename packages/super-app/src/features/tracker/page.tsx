@@ -14,6 +14,7 @@ import { Input } from "~/core/ui/input";
 import { ScrollArea } from "~/core/ui/scroll-area";
 import { SkeletonList } from "~/core/ui/skeleton-list";
 import { Switch } from "~/core/ui/switch";
+import { parseCategoryResult } from "./ai-results";
 import { trackerApi } from "./client";
 import { DEFAULT_CATEGORIES, type TrackerEntry } from "./commands";
 
@@ -63,11 +64,14 @@ export function TrackerPage() {
     let categorizeError: unknown = null;
     if (aiMode) {
       try {
-        const result = await runAI<{ category: string }>(prompts.categorize, {
-          text: t,
-          categories: categories.join(", "),
-        });
-        if (categories.includes(result.category)) category = result.category;
+        category = await runAI(
+          prompts.categorize,
+          {
+            text: t,
+            categories: categories.join(", "),
+          },
+          (value) => parseCategoryResult(value, categories),
+        );
       } catch (err) {
         categorizeError = err;
       }
@@ -106,7 +110,7 @@ export function TrackerPage() {
       const todayMs = 24 * 3600 * 1000;
       const now = Date.now();
       const today = state.value.filter((e) => now - e.createdAt < todayMs);
-      const text = await runAI<string>(prompts.summarize, {
+      const text = await runAI(prompts.summarize, {
         text: today.map((e) => `- [${e.category ?? "uncategorized"}] ${e.text}`).join("\n"),
       });
       setSummary(text);

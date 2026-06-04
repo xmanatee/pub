@@ -13,6 +13,7 @@ import { AIActionPanel } from "~/core/ai/action-panel";
 import * as prompts from "~/core/ai/prompts";
 import { runAI } from "~/core/ai/runner";
 import { cn } from "~/core/cn";
+import { readStringValue } from "~/core/json-boundary";
 import { invoke } from "~/core/pub";
 import { EmptyState } from "~/core/shell/empty-state";
 import { ErrorState } from "~/core/shell/error-state";
@@ -81,7 +82,10 @@ export function ReaderPage() {
       setActive(id);
       setUrl("");
       try {
-        const html = await invoke<string>(cmd.fetchPage, { url: normalized });
+        const html = readStringValue(
+          await invoke(cmd.fetchPage, { url: normalized }),
+          "reader.fetch",
+        );
         const result = await reader.simplify(normalized, html);
         patch(id, { id, url: normalized, status: "loaded", result, html, hist: history, hi });
       } catch (err) {
@@ -328,7 +332,7 @@ function ReaderAssistant({ result }: { result: ReaderResult }) {
     setBusy(key);
     setOutput(null);
     try {
-      const answer = await runAI<string>(prompts.qaDocument, {
+      const answer = await runAI(prompts.qaDocument, {
         document: text,
         question,
       });

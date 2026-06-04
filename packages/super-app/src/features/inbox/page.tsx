@@ -112,7 +112,7 @@ export function InboxPage() {
     setDigest(null);
     await tryToast(
       async () => {
-        const text = await runAI<string>(prompts.briefMe, {
+        const text = await runAI(prompts.briefMe, {
           context: items
             .slice(0, 12)
             .map((it) => `- [${it.serviceId}] ${it.title}${it.subtitle ? ` — ${it.subtitle}` : ""}`)
@@ -248,15 +248,15 @@ function DeadlineUniverse() {
     return calendarApi.list(now.toISOString(), later.toISOString(), 50).then((r) => r.events);
   }, []);
   const github = useAsync(
-    () => invoke<deadlineCmd.GitHubMilestone[]>(deadlineCmd.listGitHubMilestones),
+    async () => deadlineCmd.parseGitHubMilestones(await invoke(deadlineCmd.listGitHubMilestones)),
     [],
   );
   const taskwarrior = useAsync(
-    () => invoke<deadlineCmd.TaskwarriorTask[]>(deadlineCmd.listTaskwarriorTasks),
+    async () => deadlineCmd.parseTaskwarriorTasks(await invoke(deadlineCmd.listTaskwarriorTasks)),
     [],
   );
   const email = useAsync(
-    () => invoke<{ messages: deadlineCmd.FlaggedMail[] }>(deadlineCmd.listFlaggedEmails),
+    async () => deadlineCmd.parseFlaggedMailResult(await invoke(deadlineCmd.listFlaggedEmails)),
     [],
   );
 
@@ -303,7 +303,7 @@ function DeadlineUniverse() {
       }
     }
     if (email.state.status === "loaded") {
-      for (const m of email.state.value.messages ?? []) {
+      for (const m of email.state.value.messages) {
         const due = new Date(m.date).getTime();
         if (Number.isFinite(due))
           out.push({ id: `email:${m.id}`, title: m.subject, due, source: "email" });

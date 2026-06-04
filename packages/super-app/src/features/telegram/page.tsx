@@ -25,6 +25,7 @@ import { Badge } from "~/core/ui/badge";
 import { Button } from "~/core/ui/button";
 import { Input } from "~/core/ui/input";
 import { Skeleton } from "~/core/ui/skeleton";
+import { parseDigestThreadsResult } from "./ai-results";
 import { AuthFlow } from "./auth-flow";
 import { telegram } from "./client";
 import type { TelegramDialog, TelegramMessage } from "./commands";
@@ -137,7 +138,7 @@ function Shell() {
       setDigest(null);
       try {
         const unread = dialogs.filter((d) => d.unread > 0).slice(0, 12);
-        const text = await runAI<{ items: { priority: string; reason: string; id?: string }[] }>(
+        const digest = await runAI(
           prompts.digestThreads,
           {
             messages: JSON.stringify(
@@ -149,9 +150,10 @@ function Shell() {
               })),
             ),
           },
+          parseDigestThreadsResult,
         );
         setDigest(
-          (text.items ?? [])
+          digest.items
             .map(
               (i) =>
                 `${i.priority === "needs-response" ? "🔴" : i.priority === "worth-reading" ? "🟡" : "🟢"} ${i.reason}`,

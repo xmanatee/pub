@@ -83,7 +83,7 @@ export function BriefingPage() {
       `Unread emails (${gm.length}):`,
       ...gm.slice(0, 5).map((m) => `  from ${m.from}: ${m.subject}`),
     ].join("\n");
-    return runAI<string>(aiPrompts.briefMe, { context });
+    return runAI(aiPrompts.briefMe, { context });
   };
 
   return (
@@ -209,12 +209,12 @@ export function BriefingPage() {
         <AgentPanel
           title="Joke"
           icon={<Sparkles className="size-4" />}
-          run={() => runAI<string>(aiPrompts.joke, {})}
+          run={() => runAI(aiPrompts.joke, {})}
         />
         <AgentPanel
           title="Quote"
           icon={<Quote className="size-4" />}
-          run={() => runAI<string>(aiPrompts.quote, {})}
+          run={() => runAI(aiPrompts.quote, {})}
         />
       </div>
     </div>

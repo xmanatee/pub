@@ -3,7 +3,8 @@
  * real browser. Only the LLM is mocked (openclaw bridge talks to mock LLM).
  *
  * Verifies every layer between browser and host for the `files` use case
- * (server-fn filesystem read + daemon-routed exec spec):
+ * (server-fn filesystem read + daemon-routed exec spec) and route-level
+ * super-app crashes:
  *   browser click → TanStack server fn → daemon IPC → `mkdir` → listing update.
  *
  * Regresses: server-fn POST, daemon IPC `run-command-spec`, CommandFunctionSpec
@@ -79,5 +80,29 @@ test.describe
         .getByRole("button", { name: "OK" })
         .click();
       await expect(page.getByText("beta").first()).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("default briefing route loads without a React runtime crash", async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on("pageerror", (error) => pageErrors.push(error.message));
+
+      const user = seedUser("Super-App Briefing User");
+      const { convexProxyUrl } = getState();
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(BRIDGE_MODE), {
+        relayUrl: RELAY_URL,
+      });
+      await cli.startDaemon("super-app-briefing-bot");
+
+      devServer = new SuperAppDevServer({ agentSocketPath: cli.agentSocketPath });
+      const url = await devServer.start();
+
+      await page.goto(url);
+
+      const main = page.getByRole("main");
+      await expect(main.getByText("Weather")).toBeVisible({ timeout: 20_000 });
+      await expect(main.getByText("Today")).toBeVisible();
+      await expect(main.getByText("Inbox")).toBeVisible();
+      await expect(main.getByText("Top Stories")).toBeVisible();
+      expect(pageErrors).toEqual([]);
     });
   });

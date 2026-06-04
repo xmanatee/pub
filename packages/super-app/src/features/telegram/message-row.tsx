@@ -107,12 +107,12 @@ export function MessageRow({
   const onAiVerb = (verb: "explain" | "translate" | "draft" | "retone") =>
     tryToast(async () => {
       let result: string;
-      if (verb === "explain") result = await runAI<string>(prompts.explain, { text: m.text });
+      if (verb === "explain") result = await runAI(prompts.explain, { text: m.text });
       else if (verb === "translate")
-        result = await runAI<string>(prompts.translate, { text: m.text, lang: "English" });
+        result = await runAI(prompts.translate, { text: m.text, lang: "English" });
       else if (verb === "retone")
-        result = await runAI<string>(prompts.retone, { text: m.text, tone: "concise" });
-      else result = await runAI<string>(prompts.draftReply, { text: m.text, intent: "" });
+        result = await runAI(prompts.retone, { text: m.text, tone: "concise" });
+      else result = await runAI(prompts.draftReply, { text: m.text, intent: "" });
       if (onAiReply) onAiReply(result);
     });
 

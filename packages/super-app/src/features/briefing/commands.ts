@@ -1,3 +1,13 @@
+import {
+  type JsonRecord,
+  readArray,
+  readBoolean,
+  readNullableString,
+  readNumber,
+  readRecordValue,
+  readString,
+  readStringArray,
+} from "~/core/json-boundary";
 import type { CommandFunctionSpec } from "~/core/types";
 
 export interface WeatherHour {
@@ -130,51 +140,6 @@ export const newsHn: CommandFunctionSpec = {
   },
 };
 
-type JsonRecord = Record<string, unknown>;
-
-function readRecord(value: unknown, path: string): JsonRecord {
-  if (typeof value === "object" && value !== null && !Array.isArray(value))
-    return value as JsonRecord;
-  throw new Error(`${path} must be an object`);
-}
-
-function readArray(record: JsonRecord, key: string, path: string): unknown[] {
-  const value = record[key];
-  if (Array.isArray(value)) return value;
-  throw new Error(`${path}.${key} must be an array`);
-}
-
-function readString(record: JsonRecord, key: string, path: string): string {
-  const value = record[key];
-  if (typeof value === "string") return value;
-  throw new Error(`${path}.${key} must be a string`);
-}
-
-function readNullableString(record: JsonRecord, key: string, path: string): string | null {
-  const value = record[key];
-  if (typeof value === "string" || value === null) return value;
-  throw new Error(`${path}.${key} must be a string or null`);
-}
-
-function readNumber(record: JsonRecord, key: string, path: string): number {
-  const value = record[key];
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  throw new Error(`${path}.${key} must be a finite number`);
-}
-
-function readBoolean(record: JsonRecord, key: string, path: string): boolean {
-  const value = record[key];
-  if (typeof value === "boolean") return value;
-  throw new Error(`${path}.${key} must be a boolean`);
-}
-
-function readStringArray(record: JsonRecord, key: string, path: string): string[] {
-  return readArray(record, key, path).map((value, index) => {
-    if (typeof value === "string") return value;
-    throw new Error(`${path}.${key}[${index}] must be a string`);
-  });
-}
-
 function readWeatherTime(record: JsonRecord, key: string, path: string): string {
   const value = readString(record, key, path);
   const padded = value.padStart(4, "0");
@@ -187,7 +152,7 @@ function readWeatherTime(record: JsonRecord, key: string, path: string): string 
 }
 
 function parseWeatherHour(value: unknown, path: string): WeatherHour {
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     time: readWeatherTime(record, "time", path),
     temperatureC: readNumber(record, "temperatureC", path),
@@ -197,7 +162,7 @@ function parseWeatherHour(value: unknown, path: string): WeatherHour {
 }
 
 function parseWeatherForecastDay(value: unknown, path: string): WeatherForecastDay {
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     date: readString(record, "date", path),
     minC: readNumber(record, "minC", path),
@@ -208,7 +173,7 @@ function parseWeatherForecastDay(value: unknown, path: string): WeatherForecastD
 
 export function parseWeatherResult(value: unknown): WeatherResult {
   const path = "briefing.weather";
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     location: readString(record, "location", path),
     temperatureC: readNumber(record, "temperatureC", path),
@@ -226,7 +191,7 @@ export function parseWeatherResult(value: unknown): WeatherResult {
 }
 
 function parseCalendarEvent(value: unknown, path: string): CalendarEvent {
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     id: readString(record, "id", path),
     summary: readString(record, "summary", path),
@@ -239,7 +204,7 @@ function parseCalendarEvent(value: unknown, path: string): CalendarEvent {
 
 export function parseCalendarTodayResult(value: unknown): CalendarTodayResult {
   const path = "briefing.calendar.today";
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     events: readArray(record, "events", path).map((event, index) =>
       parseCalendarEvent(event, `${path}.events[${index}]`),
@@ -248,7 +213,7 @@ export function parseCalendarTodayResult(value: unknown): CalendarTodayResult {
 }
 
 function parseGmailMessage(value: unknown, path: string): GmailMessage {
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     id: readString(record, "id", path),
     threadId: readString(record, "threadId", path),
@@ -262,7 +227,7 @@ function parseGmailMessage(value: unknown, path: string): GmailMessage {
 
 export function parseGmailUnreadResult(value: unknown): GmailUnreadResult {
   const path = "briefing.gmail.unread";
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     messages: readArray(record, "messages", path).map((message, index) =>
       parseGmailMessage(message, `${path}.messages[${index}]`),
@@ -271,7 +236,7 @@ export function parseGmailUnreadResult(value: unknown): GmailUnreadResult {
 }
 
 function parseHnStory(value: unknown, path: string): HnStory {
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     id: readNumber(record, "id", path),
     title: readString(record, "title", path),
@@ -285,7 +250,7 @@ function parseHnStory(value: unknown, path: string): HnStory {
 
 export function parseNewsHnResult(value: unknown): NewsHnResult {
   const path = "briefing.news.hn";
-  const record = readRecord(value, path);
+  const record = readRecordValue(value, path);
   return {
     stories: readArray(record, "stories", path).map((story, index) =>
       parseHnStory(story, `${path}.stories[${index}]`),

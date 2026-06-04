@@ -24,6 +24,7 @@ import { ScrollArea } from "~/core/ui/scroll-area";
 import { SkeletonList } from "~/core/ui/skeleton-list";
 import { Tabs, TabsList, TabsTrigger } from "~/core/ui/tabs";
 import { Textarea } from "~/core/ui/textarea";
+import { parseComposeEventDraft } from "./ai-results";
 import { calendarApi, type EventInput } from "./client";
 import type { CalendarEvent } from "./commands";
 
@@ -117,13 +118,7 @@ export function CalendarPage() {
   React.useEffect(() => {
     if (!incoming.target) return;
     const ctx = incoming.target.context;
-    void runAI<{
-      summary: string;
-      description: string;
-      startDate: string;
-      endDate: string;
-      location: string;
-    }>(prompts.composeEvent, { context: ctx.excerpt })
+    void runAI(prompts.composeEvent, { context: ctx.excerpt }, parseComposeEventDraft)
       .then((draft) =>
         setEditing({
           id: null,

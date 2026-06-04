@@ -26,6 +26,7 @@ import { Input } from "~/core/ui/input";
 import { ScrollArea } from "~/core/ui/scroll-area";
 import { Skeleton } from "~/core/ui/skeleton";
 import { Textarea } from "~/core/ui/textarea";
+import { parseComposeEmailDraft } from "./ai-results";
 import { mailApi } from "./client";
 import type { MailMessage } from "./commands";
 
@@ -52,16 +53,21 @@ export function MailPage() {
     if (!incoming.target) return;
     setComposeOpen(true);
     const fields = incoming.target.context.fields ?? {};
-    void runAI<{ to: string; subject: string; body: string }>(prompts.composeEmail, {
-      context: incoming.target.context.excerpt,
-    })
-      .then((draft) =>
+    void runAI(
+      prompts.composeEmail,
+      {
+        context: incoming.target.context.excerpt,
+      },
+      parseComposeEmailDraft,
+    )
+      .then((draft) => {
+        const fieldTo = typeof fields.to === "string" ? fields.to : "";
         setComposeDraft({
-          to: draft.to ?? fields.to ?? "",
+          to: draft.to.length > 0 ? draft.to : fieldTo,
           subject: draft.subject,
           body: draft.body,
-        }),
-      )
+        });
+      })
       .catch((err) => tryToast(() => Promise.reject(err), { errorTitle: "Couldn't draft" }));
     incoming.consume();
   }, [incoming, tryToast]);

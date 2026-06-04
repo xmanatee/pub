@@ -1,13 +1,12 @@
 import { invoke } from "~/core/pub";
-import type { MailMessage, MailMessageDetail } from "./commands";
 import * as cmd from "./commands";
 import { sanitizeMailHtml } from "./server";
 
 export const mailApi = {
-  list: (query = "in:inbox", max = 30): Promise<{ messages: MailMessage[] }> =>
-    invoke(cmd.listInbox, { query, max: String(max) }),
-  read: async (id: string): Promise<MailMessageDetail> => {
-    const detail = await invoke<MailMessageDetail>(cmd.readMessage, { id });
+  list: async (query = "in:inbox", max = 30): Promise<cmd.MailListResult> =>
+    cmd.parseMailListResult(await invoke(cmd.listInbox, { query, max: String(max) })),
+  read: async (id: string): Promise<cmd.MailMessageDetail> => {
+    const detail = cmd.parseMailMessageDetail(await invoke(cmd.readMessage, { id }));
     if (detail.bodyHtml) {
       const { html } = await sanitizeMailHtml({ data: { html: detail.bodyHtml } });
       return { ...detail, bodyHtml: html };

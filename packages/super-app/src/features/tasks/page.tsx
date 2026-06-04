@@ -36,6 +36,12 @@ import { ScrollArea } from "~/core/ui/scroll-area";
 import { Select } from "~/core/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "~/core/ui/tabs";
 import { Textarea } from "~/core/ui/textarea";
+import {
+  parseTaskAnalysis,
+  parseTaskCommentResponse,
+  parseTriageTasksResult,
+  type TaskAnalysis,
+} from "./ai-results";
 import { tasksApi } from "./client";
 import {
   TASK_CATEGORIES,
@@ -115,10 +121,14 @@ export function TasksPage() {
         .slice(0, 8)
         .map((t) => `- [${t.priority}] ${t.title}`)
         .join("\n");
-      const analysis = await runAI<TaskAnalysis>(prompts.analyzeTask, {
-        text: title,
-        context: context || "(none)",
-      });
+      const analysis = await runAI(
+        prompts.analyzeTask,
+        {
+          text: title,
+          context: context || "(none)",
+        },
+        parseTaskAnalysis,
+      );
       await tasksApi.update(entry.id, applyAnalysis(analysis));
       reload();
     } catch (err) {
@@ -133,18 +143,22 @@ export function TasksPage() {
     setTriaging(true);
     try {
       const active = allTasks.filter((t) => t.status === "active");
-      const result = await runAI<{ changes: TriageChange[] }>(prompts.triageTasks, {
-        tasks: JSON.stringify(
-          active.map((t) => ({
-            id: t.id,
-            title: t.title,
-            priority: t.priority,
-            category: t.category,
-          })),
-        ),
-      });
+      const result = await runAI(
+        prompts.triageTasks,
+        {
+          tasks: JSON.stringify(
+            active.map((t) => ({
+              id: t.id,
+              title: t.title,
+              priority: t.priority,
+              category: t.category,
+            })),
+          ),
+        },
+        parseTriageTasksResult,
+      );
       const byId = new Map(active.map((t) => [t.id, t]));
-      for (const ch of result.changes ?? []) {
+      for (const ch of result.changes) {
         if (!byId.has(ch.id)) continue;
         await tasksApi.update(ch.id, { priority: ch.priority });
       }
@@ -459,17 +473,21 @@ function TaskDetail({
     setSubmitting(true);
     setComment("");
     try {
-      const result = await runAI<TaskCommentResponse>(prompts.processTaskComment, {
-        task: JSON.stringify({
-          title: task.title,
-          priority: task.priority,
-          category: task.category,
-          estimatedTime: task.estimatedTime,
-          subtasks: task.subtasks,
-          note: task.note,
-        }),
-        comment: text,
-      });
+      const result = await runAI(
+        prompts.processTaskComment,
+        {
+          task: JSON.stringify({
+            title: task.title,
+            priority: task.priority,
+            category: task.category,
+            estimatedTime: task.estimatedTime,
+            subtasks: task.subtasks,
+            note: task.note,
+          }),
+          comment: text,
+        },
+        parseTaskCommentResponse,
+      );
       const newComment = {
         id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
         ts: Date.now(),
@@ -715,27 +733,6 @@ function Field({
       {children}
     </div>
   );
-}
-
-interface TaskAnalysis {
-  priority?: TaskPriority;
-  category?: TaskCategory;
-  estimatedTime?: TaskEstimate | null;
-  subtasks?: string[];
-  recurrence?: TaskRecurrence | null;
-  dueAt?: number | null;
-  note?: string | null;
-}
-
-interface TriageChange {
-  id: string;
-  priority: TaskPriority;
-  reason: string;
-}
-
-interface TaskCommentResponse {
-  reply: string;
-  patch?: Partial<Task>;
 }
 
 function applyAnalysis(analysis: TaskAnalysis): Partial<Task> {
