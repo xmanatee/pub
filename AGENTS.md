@@ -4,7 +4,7 @@ Pub is a full-stack TypeScript system for adaptive interfaces powered by AI
 agents. The repo spans a web app, CLI, relay infrastructure, and an embedded
 live app experience.
 
-This launch root is part of the mono workspace. Before broad work, read and follow `../../AGENTS.md`.
+Before broad work, read parent `AGENTS.md` files up to the mono root; nearest scoped instructions apply last.
 
 ## Operating Principles
 
