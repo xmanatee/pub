@@ -4,6 +4,24 @@ set -euo pipefail
 prompt="${1:-}"
 workspace="${PUB_PROJECT_ROOT:-$PWD}"
 
+if [[ -z "${PUB_AGENT_SOCKET:-}" && -n "${PUB_DAEMON_SOCKET:-}" ]]; then
+  export PUB_AGENT_SOCKET="$PUB_DAEMON_SOCKET"
+fi
+
+# This script is launched by the Pub daemon. Child `pub` CLI calls must behave
+# like client commands, not recursively enter daemon mode.
+unset PUB_DAEMON_MODE
+unset PUB_DAEMON_LAUNCHER_MODE
+unset PUB_DAEMON_BRIDGE_SETTINGS
+unset PUB_DAEMON_TUNNEL_CONFIG
+unset PUB_DAEMON_API_BASE_URL
+unset PUB_DAEMON_API_KEY
+unset PUB_DAEMON_SOCKET
+unset PUB_DAEMON_INFO
+unset PUB_DAEMON_LOG
+unset PUB_DAEMON_AGENT_NAME
+export PUB_SKIP_UPDATE_CHECK=1
+
 if [[ "$prompt" == *"[pub preflight] Connectivity probe."* ]]; then
   command -v codex >/dev/null
   command -v pub >/dev/null
@@ -33,9 +51,10 @@ fi
 run_new_session() {
   codex exec \
     --json \
+    --ignore-user-config \
     --cd "$workspace" \
     --skip-git-repo-check \
-    --sandbox workspace-write \
+    --dangerously-bypass-approvals-and-sandbox \
     --output-last-message "$last_message" \
     "$prompt" >"$codex_log" 2>&1 </dev/null
 
@@ -49,7 +68,9 @@ run_resumed_session() {
     cd "$workspace"
     codex exec resume \
       --json \
+      --ignore-user-config \
       --skip-git-repo-check \
+      --dangerously-bypass-approvals-and-sandbox \
       --output-last-message "$last_message" \
       "$session_id" \
       "$prompt"
