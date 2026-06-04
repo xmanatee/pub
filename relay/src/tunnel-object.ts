@@ -59,7 +59,7 @@ export class TunnelObject implements DurableObject {
     }
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1], ["daemon"]);
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    return createWebSocketUpgradeResponse(pair[0], request);
   }
 
   private handleBrowserWsUpgrade(request: Request): Response {
@@ -71,7 +71,7 @@ export class TunnelObject implements DurableObject {
     }
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1], ["browser"]);
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    return createWebSocketUpgradeResponse(pair[0], request);
   }
 
   private handleProxyWsUpgrade(request: Request, url: URL): Response {
@@ -95,7 +95,7 @@ export class TunnelObject implements DurableObject {
 
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1], [`proxy-ws`, `proxy-ws:${id}`]);
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    return createWebSocketUpgradeResponse(pair[0], request);
   }
 
   private async handleHttpProxy(request: Request, url: URL): Promise<Response> {
@@ -294,6 +294,24 @@ export class TunnelObject implements DurableObject {
 export function getTunnelProxyPath(url: URL): string {
   const pathParts = url.pathname.split("/");
   return `/${pathParts.slice(3).join("/")}${url.search}`;
+}
+
+export function getSelectedWebSocketSubprotocol(request: Request): string | null {
+  const value = request.headers.get("Sec-WebSocket-Protocol");
+  if (!value) return null;
+  return (
+    value
+      .split(",")
+      .map((protocol) => protocol.trim())
+      .find((protocol) => protocol.length > 0) ?? null
+  );
+}
+
+function createWebSocketUpgradeResponse(webSocket: WebSocket, request: Request): Response {
+  const headers = new Headers();
+  const protocol = getSelectedWebSocketSubprotocol(request);
+  if (protocol) headers.set("Sec-WebSocket-Protocol", protocol);
+  return new Response(null, { status: 101, webSocket, headers });
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getTunnelProxyPath } from "./src/tunnel-object";
+import { getSelectedWebSocketSubprotocol, getTunnelProxyPath } from "./src/tunnel-object";
 
 describe("getTunnelProxyPath", () => {
   it("preserves the query string for proxied websocket requests", () => {
@@ -14,5 +14,21 @@ describe("getTunnelProxyPath", () => {
     );
 
     expect(getTunnelProxyPath(url)).toBe("/src/App.tsx?import&token=vite-hmr-token");
+  });
+});
+
+describe("getSelectedWebSocketSubprotocol", () => {
+  it("selects the first requested websocket subprotocol", () => {
+    const request = new Request("https://relay.example/t/session-id/", {
+      headers: { "Sec-WebSocket-Protocol": "vite-hmr, other" },
+    });
+
+    expect(getSelectedWebSocketSubprotocol(request)).toBe("vite-hmr");
+  });
+
+  it("returns null when no websocket subprotocol is requested", () => {
+    expect(
+      getSelectedWebSocketSubprotocol(new Request("https://relay.example/t/session-id/")),
+    ).toBe(null);
   });
 });
