@@ -1,8 +1,18 @@
-/**
- * Briefing — all data via daemon-routed commands (shell/exec/agent).
- * Nothing runs inside the super-app.
- */
 import type { CommandFunctionSpec } from "~/core/types";
+
+export interface WeatherHour {
+  time: string;
+  temperatureC: number;
+  description: string;
+  chanceOfRain: number;
+}
+
+export interface WeatherForecastDay {
+  date: string;
+  minC: number;
+  maxC: number;
+  description: string;
+}
 
 export interface WeatherResult {
   location: string;
@@ -11,8 +21,8 @@ export interface WeatherResult {
   description: string;
   humidity: number;
   windKph: number;
-  hourly: { time: string; temperatureC: number; description: string; chanceOfRain: number }[];
-  forecast: { date: string; minC: number; maxC: number; description: string }[];
+  hourly: WeatherHour[];
+  forecast: WeatherForecastDay[];
 }
 
 export interface CalendarEvent {
@@ -20,8 +30,12 @@ export interface CalendarEvent {
   summary: string;
   start: string;
   end: string;
-  location?: string;
-  link?: string;
+  location: string | null;
+  link: string | null;
+}
+
+export interface CalendarTodayResult {
+  events: CalendarEvent[];
 }
 
 export interface GmailMessage {
@@ -34,6 +48,10 @@ export interface GmailMessage {
   labels: string[];
 }
 
+export interface GmailUnreadResult {
+  messages: GmailMessage[];
+}
+
 export interface HnStory {
   id: number;
   title: string;
@@ -42,6 +60,10 @@ export interface HnStory {
   by: string;
   comments: number;
   time: number;
+}
+
+export interface NewsHnResult {
+  stories: HnStory[];
 }
 
 export const weatherCurrent: CommandFunctionSpec = {
@@ -107,3 +129,166 @@ export const newsHn: CommandFunctionSpec = {
       "comments: (.descendants // 0), time: (.time // 0)}]}'",
   },
 };
+
+type JsonRecord = Record<string, unknown>;
+
+function readRecord(value: unknown, path: string): JsonRecord {
+  if (typeof value === "object" && value !== null && !Array.isArray(value))
+    return value as JsonRecord;
+  throw new Error(`${path} must be an object`);
+}
+
+function readArray(record: JsonRecord, key: string, path: string): unknown[] {
+  const value = record[key];
+  if (Array.isArray(value)) return value;
+  throw new Error(`${path}.${key} must be an array`);
+}
+
+function readString(record: JsonRecord, key: string, path: string): string {
+  const value = record[key];
+  if (typeof value === "string") return value;
+  throw new Error(`${path}.${key} must be a string`);
+}
+
+function readNullableString(record: JsonRecord, key: string, path: string): string | null {
+  const value = record[key];
+  if (typeof value === "string" || value === null) return value;
+  throw new Error(`${path}.${key} must be a string or null`);
+}
+
+function readNumber(record: JsonRecord, key: string, path: string): number {
+  const value = record[key];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  throw new Error(`${path}.${key} must be a finite number`);
+}
+
+function readBoolean(record: JsonRecord, key: string, path: string): boolean {
+  const value = record[key];
+  if (typeof value === "boolean") return value;
+  throw new Error(`${path}.${key} must be a boolean`);
+}
+
+function readStringArray(record: JsonRecord, key: string, path: string): string[] {
+  return readArray(record, key, path).map((value, index) => {
+    if (typeof value === "string") return value;
+    throw new Error(`${path}.${key}[${index}] must be a string`);
+  });
+}
+
+function readWeatherTime(record: JsonRecord, key: string, path: string): string {
+  const value = readString(record, key, path);
+  const padded = value.padStart(4, "0");
+  const hour = Number(padded.slice(0, 2));
+  const minute = Number(padded.slice(2));
+  if (/^\d{1,4}$/.test(value) && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+    return value;
+  }
+  throw new Error(`${path}.${key} must be a weather time`);
+}
+
+function parseWeatherHour(value: unknown, path: string): WeatherHour {
+  const record = readRecord(value, path);
+  return {
+    time: readWeatherTime(record, "time", path),
+    temperatureC: readNumber(record, "temperatureC", path),
+    description: readString(record, "description", path),
+    chanceOfRain: readNumber(record, "chanceOfRain", path),
+  };
+}
+
+function parseWeatherForecastDay(value: unknown, path: string): WeatherForecastDay {
+  const record = readRecord(value, path);
+  return {
+    date: readString(record, "date", path),
+    minC: readNumber(record, "minC", path),
+    maxC: readNumber(record, "maxC", path),
+    description: readString(record, "description", path),
+  };
+}
+
+export function parseWeatherResult(value: unknown): WeatherResult {
+  const path = "briefing.weather";
+  const record = readRecord(value, path);
+  return {
+    location: readString(record, "location", path),
+    temperatureC: readNumber(record, "temperatureC", path),
+    feelsLikeC: readNumber(record, "feelsLikeC", path),
+    description: readString(record, "description", path),
+    humidity: readNumber(record, "humidity", path),
+    windKph: readNumber(record, "windKph", path),
+    hourly: readArray(record, "hourly", path).map((hour, index) =>
+      parseWeatherHour(hour, `${path}.hourly[${index}]`),
+    ),
+    forecast: readArray(record, "forecast", path).map((day, index) =>
+      parseWeatherForecastDay(day, `${path}.forecast[${index}]`),
+    ),
+  };
+}
+
+function parseCalendarEvent(value: unknown, path: string): CalendarEvent {
+  const record = readRecord(value, path);
+  return {
+    id: readString(record, "id", path),
+    summary: readString(record, "summary", path),
+    start: readString(record, "start", path),
+    end: readString(record, "end", path),
+    location: readNullableString(record, "location", path),
+    link: readNullableString(record, "link", path),
+  };
+}
+
+export function parseCalendarTodayResult(value: unknown): CalendarTodayResult {
+  const path = "briefing.calendar.today";
+  const record = readRecord(value, path);
+  return {
+    events: readArray(record, "events", path).map((event, index) =>
+      parseCalendarEvent(event, `${path}.events[${index}]`),
+    ),
+  };
+}
+
+function parseGmailMessage(value: unknown, path: string): GmailMessage {
+  const record = readRecord(value, path);
+  return {
+    id: readString(record, "id", path),
+    threadId: readString(record, "threadId", path),
+    from: readString(record, "from", path),
+    subject: readString(record, "subject", path),
+    date: readString(record, "date", path),
+    unread: readBoolean(record, "unread", path),
+    labels: readStringArray(record, "labels", path),
+  };
+}
+
+export function parseGmailUnreadResult(value: unknown): GmailUnreadResult {
+  const path = "briefing.gmail.unread";
+  const record = readRecord(value, path);
+  return {
+    messages: readArray(record, "messages", path).map((message, index) =>
+      parseGmailMessage(message, `${path}.messages[${index}]`),
+    ),
+  };
+}
+
+function parseHnStory(value: unknown, path: string): HnStory {
+  const record = readRecord(value, path);
+  return {
+    id: readNumber(record, "id", path),
+    title: readString(record, "title", path),
+    url: readNullableString(record, "url", path),
+    score: readNumber(record, "score", path),
+    by: readString(record, "by", path),
+    comments: readNumber(record, "comments", path),
+    time: readNumber(record, "time", path),
+  };
+}
+
+export function parseNewsHnResult(value: unknown): NewsHnResult {
+  const path = "briefing.news.hn";
+  const record = readRecord(value, path);
+  return {
+    stories: readArray(record, "stories", path).map((story, index) =>
+      parseHnStory(story, `${path}.stories[${index}]`),
+    ),
+  };
+}

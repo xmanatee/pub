@@ -4,38 +4,11 @@ import * as aiPrompts from "~/core/ai/prompts";
 import { runAI } from "~/core/ai/runner";
 import { type AsyncState, invoke, useAsync } from "~/core/pub";
 import { PageHeader } from "~/core/shell/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/core/ui/card";
-import { ScrollArea } from "~/core/ui/scroll-area";
+import { CardDescription } from "~/core/ui/card";
 import { SkeletonList } from "~/core/ui/skeleton-list";
-import type { CalendarEvent, GmailMessage, HnStory, WeatherResult } from "./commands";
+import { AgentPanel } from "./agent-panel";
 import * as cmd from "./commands";
-
-function PanelShell({
-  icon,
-  title,
-  action,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="flex-row items-center gap-2 space-y-0 pb-3">
-        <div className="text-muted-foreground">{icon}</div>
-        <CardTitle className="flex-1 text-sm font-medium">{title}</CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-full">
-          <div className="space-y-2 px-5 pb-5">{children}</div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
-  );
-}
+import { PanelShell } from "./panel-shell";
 
 function render<T>(state: AsyncState<T>, ok: (data: T) => React.ReactNode, rows = 3) {
   if (state.status === "loading") return <SkeletonList count={rows} itemClassName="h-10" />;
@@ -67,64 +40,17 @@ function useGreeting(): string | null {
   return "Good evening";
 }
 
-function AgentPanel({
-  title,
-  icon,
-  run,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  run: () => Promise<string>;
-}) {
-  type State =
-    | { status: "idle" }
-    | { status: "loading" }
-    | { status: "loaded"; text: string }
-    | { status: "error"; error: string };
-  const [state, setState] = React.useState<State>({ status: "idle" });
-
-  const trigger = () => {
-    setState({ status: "loading" });
-    run()
-      .then((text) => setState({ status: "loaded", text }))
-      .catch((err) =>
-        setState({ status: "error", error: err instanceof Error ? err.message : String(err) }),
-      );
-  };
-
-  return (
-    <PanelShell
-      icon={icon}
-      title={title}
-      action={
-        <button
-          type="button"
-          onClick={trigger}
-          aria-label={`Generate ${title}`}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Sparkles className="size-3.5" />
-        </button>
-      }
-    >
-      {state.status === "idle" ? (
-        <p className="text-xs text-muted-foreground">Tap ✨ to generate.</p>
-      ) : state.status === "loading" ? (
-        <SkeletonList count={3} itemClassName="h-4" />
-      ) : state.status === "error" ? (
-        <p className="text-xs text-destructive">{state.error}</p>
-      ) : (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{state.text}</p>
-      )}
-    </PanelShell>
-  );
-}
-
 export function BriefingPage() {
-  const weather = useAsync(() => invoke<WeatherResult>(cmd.weatherCurrent), []);
-  const events = useAsync(() => invoke<{ events: CalendarEvent[] }>(cmd.calendarToday), []);
-  const gmail = useAsync(() => invoke<{ messages: GmailMessage[] }>(cmd.gmailUnread), []);
-  const hn = useAsync(() => invoke<{ stories: HnStory[] }>(cmd.newsHn), []);
+  const weather = useAsync(
+    async () => cmd.parseWeatherResult(await invoke(cmd.weatherCurrent)),
+    [],
+  );
+  const events = useAsync(
+    async () => cmd.parseCalendarTodayResult(await invoke(cmd.calendarToday)),
+    [],
+  );
+  const gmail = useAsync(async () => cmd.parseGmailUnreadResult(await invoke(cmd.gmailUnread)), []);
+  const hn = useAsync(async () => cmd.parseNewsHnResult(await invoke(cmd.newsHn)), []);
   const clock = useLiveClock();
   const greeting = useGreeting();
 
@@ -298,8 +224,5 @@ export function BriefingPage() {
 function formatWeatherHour(raw: string): string {
   const padded = raw.padStart(4, "0");
   const hour = Number(padded.slice(0, 2));
-  if (!Number.isFinite(hour)) return raw;
-  return new Date(2000, 0, 1, hour).toLocaleTimeString([], {
-    hour: "numeric",
-  });
+  return new Date(2000, 0, 1, hour).toLocaleTimeString([], { hour: "numeric" });
 }
