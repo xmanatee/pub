@@ -3,6 +3,7 @@ import type {
   HttpResponseChunkMessage,
   HttpResponseMessage,
   HttpResponseStartMessage,
+  WsCloseMessage,
   WsDataMessage,
   WsOpenMessage,
 } from "@shared/tunnel-protocol-core";
@@ -31,10 +32,6 @@ export class TunnelObject implements DurableObject {
 
   private getBrowserWs(): WebSocket | null {
     return this.state.getWebSockets("browser")[0] ?? null;
-  }
-
-  private getProxyWsSockets(): WebSocket[] {
-    return [...this.proxyWsSockets.values(), ...this.state.getWebSockets("proxy-ws")];
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -115,15 +112,11 @@ export class TunnelObject implements DurableObject {
         );
       }
     });
-    browserWs.addEventListener("close", () => {
-      this.proxyWsSockets.delete(id);
-      this.getDaemonWs()?.send(encodeTunnelMessage({ type: "ws-close", id }));
+    browserWs.addEventListener("close", (event) => {
+      this.closeBrowserProxyWs(id, event.code, event.reason);
     });
     browserWs.addEventListener("error", () => {
-      this.proxyWsSockets.delete(id);
-      this.getDaemonWs()?.send(
-        encodeTunnelMessage({ type: "ws-close", id, code: 1011, reason: "Relay WebSocket error" }),
-      );
+      this.closeBrowserProxyWs(id, 1011, "Relay WebSocket error");
     });
     return createWebSocketUpgradeResponse(pair[0], request);
   }
@@ -195,7 +188,11 @@ export class TunnelObject implements DurableObject {
     const role = this.getWsRole(ws);
     if (role === "daemon") {
       this.failAllPendingRequests("Tunnel disconnected");
-      for (const proxyWs of this.getProxyWsSockets()) {
+      for (const proxyWs of this.proxyWsSockets.values()) {
+        proxyWs.close(1001, "Tunnel disconnected");
+      }
+      this.proxyWsSockets.clear();
+      for (const proxyWs of this.state.getWebSockets("proxy-ws")) {
         proxyWs.close(1001, "Tunnel disconnected");
       }
     } else if (role === "proxy-ws") {
@@ -249,6 +246,14 @@ export class TunnelObject implements DurableObject {
     const ws = this.findProxyWsById(id);
     this.proxyWsSockets.delete(id);
     ws?.close(code ?? 1000, reason);
+  }
+
+  private closeBrowserProxyWs(id: string, code?: number, reason?: string): void {
+    if (!this.proxyWsSockets.delete(id)) return;
+    const msg: WsCloseMessage = { type: "ws-close", id };
+    if (code !== undefined) msg.code = code;
+    if (reason !== undefined) msg.reason = reason;
+    this.getDaemonWs()?.send(encodeTunnelMessage(msg));
   }
 
   private findProxyWsById(id: string): WebSocket | null {
