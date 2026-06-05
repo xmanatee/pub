@@ -7,7 +7,12 @@ import type {
   WsDataMessage,
   WsOpenMessage,
 } from "@shared/tunnel-protocol-core";
-import { encodeTunnelMessage, parseDaemonToRelayMessage } from "@shared/tunnel-protocol-core";
+import {
+  encodeTunnelMessage,
+  normalizeWebSocketCloseFrame,
+  parseDaemonToRelayMessage,
+  TUNNEL_ABNORMAL_WS_CLOSE_CODE,
+} from "@shared/tunnel-protocol-core";
 
 const PROXY_TIMEOUT_MS = 30_000;
 
@@ -178,7 +183,11 @@ export class TunnelObject implements DurableObject {
       this.failAllPendingRequests("Tunnel disconnected");
       for (const proxyWs of this.state.getWebSockets("proxy-ws")) {
         this.suppressProxyWsCloseMessage(proxyWs);
-        proxyWs.close(1001, "Tunnel disconnected");
+        const close = normalizeWebSocketCloseFrame({
+          code: TUNNEL_ABNORMAL_WS_CLOSE_CODE,
+          reason: "Tunnel disconnected",
+        });
+        proxyWs.close(close.code, close.reason);
       }
     } else if (role === "proxy-ws") {
       const id = this.getProxyWsId(ws);
@@ -193,12 +202,17 @@ export class TunnelObject implements DurableObject {
     if (role === "proxy-ws") {
       const id = this.getProxyWsId(ws);
       if (id) {
-        this.notifyDaemonProxyWsClosed(ws, id, 1011, "Relay WebSocket error");
+        this.notifyDaemonProxyWsClosed(
+          ws,
+          id,
+          TUNNEL_ABNORMAL_WS_CLOSE_CODE,
+          "Relay WebSocket error",
+        );
       }
       return;
     }
 
-    await this.webSocketClose(ws, 1011, "Relay WebSocket error", false);
+    await this.webSocketClose(ws, TUNNEL_ABNORMAL_WS_CLOSE_CODE, "Relay WebSocket error", false);
   }
 
   private handleDaemonMessage(raw: string): void {
@@ -240,7 +254,8 @@ export class TunnelObject implements DurableObject {
     const ws = this.findProxyWsById(id);
     if (!ws) return;
     this.suppressProxyWsCloseMessage(ws);
-    ws.close(code ?? 1000, reason);
+    const close = normalizeWebSocketCloseFrame({ code, reason });
+    ws.close(close.code, close.reason);
   }
 
   private notifyDaemonProxyWsClosed(
@@ -254,9 +269,9 @@ export class TunnelObject implements DurableObject {
 
     ws.serializeAttachment({ ...attachment, closeMessageSent: true });
 
-    const msg: WsCloseMessage = { type: "ws-close", id };
-    if (code !== undefined) msg.code = code;
-    if (reason !== undefined) msg.reason = reason;
+    const close = normalizeWebSocketCloseFrame({ code, reason });
+    const msg: WsCloseMessage = { type: "ws-close", id, code: close.code };
+    if (close.reason !== undefined) msg.reason = close.reason;
     this.getDaemonWs()?.send(encodeTunnelMessage(msg));
   }
 

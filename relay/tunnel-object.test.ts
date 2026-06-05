@@ -113,7 +113,7 @@ describe("TunnelObject proxied websocket close handling", () => {
     );
     await object.webSocketClose(asWebSocket(proxy), 1001, "Tunnel closed", true);
 
-    expect(proxy.closeCalls).toEqual([{ code: 1001, reason: "Tunnel closed" }]);
+    expect(proxy.closeCalls).toEqual([{ code: 4000, reason: "Tunnel closed" }]);
     expect(daemon.sent).toEqual([]);
   });
 
@@ -127,8 +127,40 @@ describe("TunnelObject proxied websocket close handling", () => {
     expect(parseRelayToDaemonMessage(String(daemon.sent[0]))).toEqual({
       type: "ws-close",
       id: "ws-1",
-      code: 1011,
+      code: 4000,
       reason: "Relay WebSocket error",
     });
+  });
+
+  it("uses browser-safe close codes when closing proxies after daemon errors", async () => {
+    const { proxy, object, daemon } = createProxyCloseHarness();
+
+    await object.webSocketError(asWebSocket(daemon), new Error("daemon failed"));
+
+    expect(proxy.closeCalls).toEqual([{ code: 4000, reason: "Tunnel disconnected" }]);
+  });
+
+  it("normalizes reserved browser close codes before forwarding to the daemon", async () => {
+    const { daemon, proxy, object } = createProxyCloseHarness();
+
+    await object.webSocketClose(asWebSocket(proxy), 1006, "abnormal", false);
+
+    expect(parseRelayToDaemonMessage(String(daemon.sent[0]))).toEqual({
+      type: "ws-close",
+      id: "ws-1",
+      code: 4000,
+      reason: "abnormal",
+    });
+  });
+
+  it("normalizes reserved daemon close codes before closing the browser websocket", async () => {
+    const { daemon, proxy, object } = createProxyCloseHarness();
+
+    await object.webSocketMessage(
+      asWebSocket(daemon),
+      encodeTunnelMessage({ type: "ws-close", id: "ws-1", code: 1006, reason: "abnormal" }),
+    );
+
+    expect(proxy.closeCalls).toEqual([{ code: 4000, reason: "abnormal" }]);
   });
 });

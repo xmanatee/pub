@@ -7,7 +7,7 @@ homepage: https://pub.blue
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.13"
+  version: "5.2.14"
   openclaw:
     homepage: https://pub.blue
     primaryEnv: PUB_API_KEY
@@ -28,7 +28,7 @@ Use this skill when the user asks about creating adaptive interfaces, publishing
 
 ## Required CLI Version
 
-Use **pub CLI 0.11.20+**.
+Use **pub CLI 0.11.21+**.
 
 Source: <https://github.com/xmanatee/pub> (MIT license)
 

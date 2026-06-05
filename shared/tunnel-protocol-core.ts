@@ -3,6 +3,9 @@ import { parseBridgeMessage } from "./bridge-protocol-core";
 import { readRecord, readString } from "./protocol-runtime-core";
 
 export const DEFAULT_RELAY_URL = "https://pub-relay.mishaplots.workers.dev";
+export const TUNNEL_ABNORMAL_WS_CLOSE_CODE = 4000;
+const DEFAULT_WS_CLOSE_CODE = 1000;
+const MAX_WS_CLOSE_REASON_BYTES = 123;
 
 export type HttpRequestMessage = {
   type: "http-request";
@@ -93,6 +96,40 @@ export type DaemonToRelayMessage =
 
 export function encodeTunnelMessage(msg: RelayToDaemonMessage | DaemonToRelayMessage): string {
   return JSON.stringify(msg);
+}
+
+export function isWireSafeWebSocketCloseCode(code: number): boolean {
+  if (!Number.isInteger(code)) return false;
+  if (code >= 3000 && code <= 4999) return true;
+  return code === DEFAULT_WS_CLOSE_CODE;
+}
+
+export function normalizeWebSocketCloseFrame(input: { code?: number; reason?: string }): {
+  code: number;
+  reason?: string;
+} {
+  const code =
+    input.code === undefined
+      ? DEFAULT_WS_CLOSE_CODE
+      : isWireSafeWebSocketCloseCode(input.code)
+        ? input.code
+        : TUNNEL_ABNORMAL_WS_CLOSE_CODE;
+  const reason = normalizeWebSocketCloseReason(input.reason);
+  return reason === undefined ? { code } : { code, reason };
+}
+
+function normalizeWebSocketCloseReason(reason: string | undefined): string | undefined {
+  if (reason === undefined || reason.length === 0) return undefined;
+  const encoder = new TextEncoder();
+  if (encoder.encode(reason).byteLength <= MAX_WS_CLOSE_REASON_BYTES) return reason;
+
+  let truncated = "";
+  for (const char of reason) {
+    const next = `${truncated}${char}`;
+    if (encoder.encode(next).byteLength > MAX_WS_CLOSE_REASON_BYTES) break;
+    truncated = next;
+  }
+  return truncated.length > 0 ? truncated : undefined;
 }
 
 export function decodeTunnelMessage(raw: string): Record<string, unknown> | null {

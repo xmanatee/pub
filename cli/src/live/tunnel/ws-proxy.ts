@@ -4,6 +4,10 @@ import type {
   WsDataMessage,
   WsOpenMessage,
 } from "../../../../shared/tunnel-protocol-core";
+import {
+  normalizeWebSocketCloseFrame,
+  TUNNEL_ABNORMAL_WS_CLOSE_CODE,
+} from "../../../../shared/tunnel-protocol-core";
 import { uint8ToBase64 } from "./encoding.js";
 
 export interface WsProxy {
@@ -31,6 +35,11 @@ export function createWsProxy(
   basePath?: string,
 ): WsProxy {
   const connections = new Map<string, WebSocket>();
+  const sendClose = (id: string, close: ReturnType<typeof normalizeWebSocketCloseFrame>): void => {
+    const msg: DaemonToRelayMessage = { type: "ws-close", id, code: close.code };
+    if (close.reason !== undefined) msg.reason = close.reason;
+    send(msg);
+  };
 
   return {
     handleOpen(msg) {
@@ -64,12 +73,17 @@ export function createWsProxy(
 
       ws.onclose = (event: CloseEvent) => {
         connections.delete(msg.id);
-        send({ type: "ws-close", id: msg.id, code: event.code, reason: event.reason });
+        const close = normalizeWebSocketCloseFrame({ code: event.code, reason: event.reason });
+        sendClose(msg.id, close);
       };
 
       ws.onerror = () => {
         connections.delete(msg.id);
-        send({ type: "ws-close", id: msg.id, code: 1011, reason: "Local WebSocket error" });
+        const close = normalizeWebSocketCloseFrame({
+          code: TUNNEL_ABNORMAL_WS_CLOSE_CODE,
+          reason: "Local WebSocket error",
+        });
+        sendClose(msg.id, close);
       };
     },
 
@@ -89,12 +103,17 @@ export function createWsProxy(
       const ws = connections.get(msg.id);
       if (!ws) return;
       connections.delete(msg.id);
-      ws.close(msg.code ?? 1000, msg.reason);
+      const close = normalizeWebSocketCloseFrame({ code: msg.code, reason: msg.reason });
+      ws.close(close.code, close.reason);
     },
 
     closeAll() {
       for (const [id, ws] of connections) {
-        ws.close(1001, "Tunnel closing");
+        const close = normalizeWebSocketCloseFrame({
+          code: TUNNEL_ABNORMAL_WS_CLOSE_CODE,
+          reason: "Tunnel closing",
+        });
+        ws.close(close.code, close.reason);
         connections.delete(id);
       }
     },
