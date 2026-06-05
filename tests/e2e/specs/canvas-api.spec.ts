@@ -11,8 +11,13 @@ import {
   AGENT_COMMAND_MODES,
   activeModes,
   createBridgeTestConfig,
+  DETACHED_AGENT_COMMAND_MODES,
 } from "../fixtures/bridge-configs";
-import { clearBridgeRules, setupBridgeDefaultRules } from "../fixtures/bridge-test-helpers";
+import {
+  addBridgeEchoRule,
+  clearBridgeRules,
+  setupBridgeDefaultRules,
+} from "../fixtures/bridge-test-helpers";
 import { injectAuth } from "../fixtures/browser-auth";
 import { CliFixture } from "../fixtures/cli";
 import { clearAll, getState, seedUser } from "../fixtures/convex";
@@ -47,6 +52,61 @@ const AGENT_COMMAND_HTML = `<!DOCTYPE html>
           "kind": "agent",
           "prompt": "Reply with only this JSON: {\\"color\\":\\"{{color}}\\",\\"count\\":{{count}}}",
           "mode": "main",
+          "output": "json"
+        }
+      }
+    ]
+  }
+  </script>
+  <script>
+    document.getElementById('run-text').addEventListener('click', function() {
+      document.getElementById('text-result').textContent = 'running';
+      pub.command('echoAgent', { word: 'pineapple' }).then(function(r) {
+        document.getElementById('text-result').textContent = 'text:' + r;
+      }).catch(function(e) {
+        document.getElementById('text-result').textContent = 'error:' + e.message;
+      });
+    });
+    document.getElementById('run-json').addEventListener('click', function() {
+      document.getElementById('json-result').textContent = 'running';
+      pub.command('analyzeAgent', { color: 'red', count: 3 }).then(function(r) {
+        document.getElementById('json-result').textContent = 'json:' + JSON.stringify(r);
+      }).catch(function(e) {
+        document.getElementById('json-result').textContent = 'error:' + e.message;
+      });
+    });
+  </script>
+</body>
+</html>`;
+
+const DETACHED_AGENT_COMMAND_HTML = `<!DOCTYPE html>
+<html>
+<head><title>Detached Agent Command Test</title></head>
+<body>
+  <button id="run-text" type="button">Run Text</button>
+  <div id="text-result">idle</div>
+  <button id="run-json" type="button">Run JSON</button>
+  <div id="json-result">idle</div>
+  <script type="application/pub-command-manifest+json">
+  {
+    "manifestId": "detached-agent-cmd-e2e",
+    "functions": [
+      {
+        "name": "echoAgent",
+        "returns": "text",
+        "executor": {
+          "kind": "agent",
+          "prompt": "Reply with exactly the word: {{word}}",
+          "mode": "detached"
+        }
+      },
+      {
+        "name": "analyzeAgent",
+        "returns": "json",
+        "executor": {
+          "kind": "agent",
+          "prompt": "Reply with only this JSON: {\\"color\\":\\"{{color}}\\",\\"count\\":{{count}}}",
+          "mode": "detached",
           "output": "json"
         }
       }
@@ -126,6 +186,79 @@ for (const mode of activeModes(AGENT_COMMAND_MODES)) {
 
       await injectAuth(page, user);
       await page.goto("/p/agent-json-cmd");
+
+      await waitForConnection(page);
+
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#run-json")).toBeVisible({ timeout: 10_000 });
+      await canvasFrame.locator("#run-json").click();
+
+      await expect(canvasFrame.locator("#json-result")).toHaveText(
+        'json:{"color":"red","count":3}',
+        { timeout: 30_000 },
+      );
+    });
+  });
+}
+
+for (const mode of activeModes(DETACHED_AGENT_COMMAND_MODES)) {
+  test.describe(`[${mode}] detached agent commands`, () => {
+    let cli: CliFixture;
+
+    test.beforeEach(async () => {
+      clearAll();
+      await setupBridgeDefaultRules(mode);
+    });
+
+    test.afterEach(async () => {
+      cli?.cleanup();
+      await clearBridgeRules(mode);
+    });
+
+    test("agent command: text return via detached bridge", async ({ page }) => {
+      const user = seedUser("Detached Agent Text Cmd User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
+
+      await api.createPub({
+        slug: "detached-agent-text-cmd",
+        content: DETACHED_AGENT_COMMAND_HTML,
+      });
+      await addBridgeEchoRule(mode, "Reply with exactly the word:", "pineapple");
+
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("detached-agent-text-bot");
+
+      await injectAuth(page, user);
+      await page.goto("/p/detached-agent-text-cmd");
+
+      await waitForConnection(page);
+
+      const canvasFrame = page.frameLocator("iframe").first();
+      await expect(canvasFrame.locator("#run-text")).toBeVisible({ timeout: 10_000 });
+      await canvasFrame.locator("#run-text").click();
+
+      await expect(canvasFrame.locator("#text-result")).toHaveText("text:pineapple", {
+        timeout: 30_000,
+      });
+    });
+
+    test("agent command: JSON return via detached bridge", async ({ page }) => {
+      const user = seedUser("Detached Agent JSON Cmd User");
+      const { convexProxyUrl } = getState();
+      const api = new ApiClient({ user });
+
+      await api.createPub({
+        slug: "detached-agent-json-cmd",
+        content: DETACHED_AGENT_COMMAND_HTML,
+      });
+      await addBridgeEchoRule(mode, "Reply with only this JSON:", '{"color":"red","count":3}');
+
+      cli = new CliFixture(user, convexProxyUrl, createBridgeTestConfig(mode));
+      await cli.startDaemon("detached-agent-json-bot");
+
+      await injectAuth(page, user);
+      await page.goto("/p/detached-agent-json-cmd");
 
       await waitForConnection(page);
 

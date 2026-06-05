@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { listEvents, parseCalendarEvent, parseCalendarListResult } from "./commands";
+import {
+  createEvent,
+  deleteEvent,
+  listEvents,
+  parseCalendarEvent,
+  parseCalendarFreeBusyResult,
+  parseCalendarListResult,
+  updateEvent,
+} from "./commands";
 
 describe("calendar command result parsers", () => {
   it("runs shell commands with strict pipeline failure handling", () => {
@@ -63,6 +71,53 @@ describe("calendar command result parsers", () => {
       location: null,
       link: "https://calendar.google.com/event?eid=event-2",
       attendees: ["grace@example.com"],
+    });
+  });
+
+  it("uses current gog calendar create, update, and delete arguments", () => {
+    expect(createEvent.executor?.kind).toBe("exec");
+    expect(updateEvent.executor?.kind).toBe("exec");
+    expect(deleteEvent.executor?.kind).toBe("exec");
+    if (
+      createEvent.executor?.kind !== "exec" ||
+      updateEvent.executor?.kind !== "exec" ||
+      deleteEvent.executor?.kind !== "exec"
+    ) {
+      throw new Error("calendar mutations must use exec");
+    }
+
+    expect(createEvent.executor.args).toContain("primary");
+    expect(createEvent.executor.args).toContain("--from");
+    expect(createEvent.executor.args).toContain("--to");
+    expect(createEvent.executor.args).toContain("--attendees");
+    expect(createEvent.executor.args).not.toContain("--start");
+    expect(createEvent.executor.args).not.toContain("--end");
+    expect(updateEvent.executor.args).toEqual(
+      expect.arrayContaining(["primary", "{{id}}", "--from", "--to", "--attendees"]),
+    );
+    expect(deleteEvent.executor.args).toEqual(["-y", "calendar", "delete", "primary", "{{id}}"]);
+  });
+
+  it("parses free/busy output with empty calendars and busy slots", () => {
+    expect(
+      parseCalendarFreeBusyResult({
+        calendars: {
+          primary: {},
+          work: {
+            busy: [{ start: "2026-06-04T09:00:00Z", end: "2026-06-04T10:00:00Z" }],
+            errors: [{ domain: "calendar", reason: "notFound" }],
+          },
+        },
+      }),
+    ).toEqual({
+      calendars: [
+        { id: "primary", busy: [], errors: [] },
+        {
+          id: "work",
+          busy: [{ start: "2026-06-04T09:00:00Z", end: "2026-06-04T10:00:00Z" }],
+          errors: ["notFound"],
+        },
+      ],
     });
   });
 

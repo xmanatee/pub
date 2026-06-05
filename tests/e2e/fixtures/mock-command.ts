@@ -28,6 +28,10 @@ function writeRules(rules: CommandRule[]): void {
   writeFileSync(RULES_FILE, JSON.stringify(rules, null, 2));
 }
 
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 /** Add a rule: when prompt contains `match`, execute `commands`. */
 export function addCommandRule(match: string, commands: string[]): void {
   const rules = readRules();
@@ -46,7 +50,7 @@ export function clearCommandRules(): void {
 
 /** Command echo: when prompt contains X, print Y to stdout (bridge forwards to chat). */
 export function addCommandEchoRule(match: string, reply: string): void {
-  addCommandRule(match, [`echo "${reply}"`]);
+  addCommandRule(match, [`echo ${shellQuote(reply)}`]);
 }
 
 /** Command canvas update: when prompt contains X, write HTML and send via canvas channel. */

@@ -1,11 +1,15 @@
 import {
   Archive,
+  CalendarPlus,
+  CheckSquare,
   FileText,
   Keyboard,
   Loader2,
   Mail as MailIcon,
+  MessageSquare,
   Send,
   Star,
+  StickyNote,
   Trash2,
 } from "lucide-react";
 import * as React from "react";
@@ -14,7 +18,8 @@ import * as prompts from "~/core/ai/prompts";
 import { runAI } from "~/core/ai/runner";
 import { useConfirm } from "~/core/hooks/use-confirm";
 import { useTryToast } from "~/core/hooks/use-toast";
-import { useIncomingTarget } from "~/core/navigation/use-target-navigation";
+import type { ServiceAction } from "~/core/navigation/registry";
+import { useDispatchTarget, useIncomingTarget } from "~/core/navigation/use-target-navigation";
 import { useAsync } from "~/core/pub";
 import { ListDetail, type ListDetailItemsState } from "~/core/shell/list-detail";
 import { PageHeader } from "~/core/shell/page-header";
@@ -103,11 +108,28 @@ export function MailPage() {
     return { status: "loaded", items: state.value };
   }, [state]);
 
+  React.useEffect(() => {
+    if (state.status !== "loaded") return;
+    if (state.value.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    setSelectedId((current) =>
+      current && state.value.some((message) => message.id === current)
+        ? current
+        : state.value[0].id,
+    );
+  }, [state]);
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title="Mail"
-        description={`Query: ${query}`}
+        description={
+          state.status === "loaded"
+            ? `${state.value.length} messages · ${query}`
+            : `Gmail · ${query}`
+        }
         onRefresh={reload}
         actions={
           <>
@@ -172,7 +194,7 @@ export function MailPage() {
             onRetry={reload}
             emptyTitle="No mail"
             emptyDescription="Nothing matches this query."
-            renderRow={(m) => <Row message={m} />}
+            renderRow={(m, active) => <Row message={m} active={active} />}
             renderDetail={(m) => (
               <MessageDetail
                 message={m}
@@ -211,9 +233,9 @@ export function MailPage() {
   );
 }
 
-function Row({ message: m }: { message: MailMessage }) {
+function Row({ message: m, active }: { message: MailMessage; active: boolean }) {
   return (
-    <div className="px-3 py-2">
+    <div className={`px-3 py-2.5 ${active ? "text-accent-foreground" : ""}`}>
       <div className="flex items-baseline gap-2">
         <div className={`flex-1 truncate text-sm ${m.unread ? "font-semibold" : ""}`}>{m.from}</div>
         <div className="shrink-0 text-xs text-muted-foreground">{m.date}</div>
@@ -221,7 +243,18 @@ function Row({ message: m }: { message: MailMessage }) {
       <div className={`mt-0.5 truncate text-sm ${m.unread ? "" : "text-muted-foreground"}`}>
         {m.subject}
       </div>
-      <div className="mt-0.5 truncate text-xs text-muted-foreground">{m.snippet}</div>
+      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{m.snippet}</div>
+      {m.labels.includes("IMPORTANT") || m.labels.includes("STARRED") ? (
+        <div className="mt-2 flex gap-1">
+          {m.labels
+            .filter((label) => label === "IMPORTANT" || label === "STARRED")
+            .map((label) => (
+              <Badge key={label} variant={label === "IMPORTANT" ? "warning" : "default"}>
+                {label}
+              </Badge>
+            ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -239,7 +272,24 @@ function MessageDetail({
   onStar: () => void;
   onDocument: (text: string) => void;
 }) {
+  const dispatch = useDispatchTarget();
   const detail = useAsync(() => mailApi.read(message.id), [message.id]);
+  const sourceText = `From: ${message.from}\nSubject: ${message.subject}\n\n${
+    detail.state.status === "loaded" ? detail.state.value.body : message.snippet
+  }`;
+  const route = (action: ServiceAction) => {
+    dispatch(action, {
+      sourceServiceId: "mail",
+      sourceItemId: message.id,
+      excerpt: action === "create-task" ? `Follow up: ${message.subject}` : sourceText,
+      fields: {
+        to: emailAddressFromHeader(message.from),
+        attendees: emailAddressFromHeader(message.from),
+        subject: message.subject,
+        title: message.subject,
+      },
+    });
+  };
 
   return (
     <ScrollArea className="h-full">
@@ -257,7 +307,22 @@ function MessageDetail({
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => route("draft-email")}>
+            <MailIcon className="size-3.5" /> Reply
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => route("create-task")}>
+            <CheckSquare className="size-3.5" /> Task
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => route("create-event")}>
+            <CalendarPlus className="size-3.5" /> Event
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => route("create-note")}>
+            <StickyNote className="size-3.5" /> Note
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => route("draft-telegram")}>
+            <MessageSquare className="size-3.5" /> Message
+          </Button>
           <Button variant="outline" size="sm" onClick={onArchive}>
             <Archive className="size-3.5" /> Archive
           </Button>
@@ -301,15 +366,20 @@ function MessageDetail({
         <AIActionPanel
           sourceServiceId="mail"
           sourceItemId={message.id}
-          text={`From: ${message.from}\nSubject: ${message.subject}\n\n${
-            detail.state.status === "loaded" ? detail.state.value.body : message.snippet
-          }`}
-          fields={{ to: message.from }}
-          allow={["draft-email", "create-event", "create-task", "create-note"]}
+          text={sourceText}
+          fields={{
+            to: emailAddressFromHeader(message.from),
+            attendees: emailAddressFromHeader(message.from),
+          }}
+          allow={["draft-email", "create-event", "create-task", "create-note", "draft-telegram"]}
         />
       </div>
     </ScrollArea>
   );
+}
+
+function emailAddressFromHeader(header: string): string {
+  return header.match(/<([^>]+)>/)?.[1] ?? header;
 }
 
 function TriageView({
@@ -397,7 +467,7 @@ function TriageView({
               onDoubleClick={() => onOpen(m.id)}
               className={`block w-full rounded-md border bg-card p-4 text-left transition-colors ${
                 i === idx ? "border-primary ring-1 ring-primary" : "hover:bg-accent/40"
-              } ${m.labels.includes("IMPORTANT") || m.labels.includes("STARRED") ? "border-l-4 border-l-warning" : ""}`}
+              } ${m.labels.includes("IMPORTANT") || m.labels.includes("STARRED") ? "bg-primary/5 ring-1 ring-primary/30" : ""}`}
             >
               <div className="flex items-baseline justify-between gap-3">
                 <div className="truncate text-sm font-semibold">{m.subject || "(no subject)"}</div>
@@ -514,18 +584,26 @@ function ComposeDialog({
     <ComposeShell open={open} onClose={onClose}>
       <div className="space-y-3">
         <Input
-          placeholder="To"
+          aria-label="To"
+          name="to"
+          type="email"
+          inputMode="email"
+          placeholder="To…"
           value={draft.to}
           onChange={(e) => onChange({ ...draft, to: e.target.value })}
         />
         <Input
-          placeholder="Subject"
+          aria-label="Subject"
+          name="subject"
+          placeholder="Subject…"
           value={draft.subject}
           onChange={(e) => onChange({ ...draft, subject: e.target.value })}
         />
         <Textarea
+          aria-label="Body"
+          name="body"
           rows={10}
-          placeholder="Body"
+          placeholder="Body…"
           value={draft.body}
           onChange={(e) => onChange({ ...draft, body: e.target.value })}
         />

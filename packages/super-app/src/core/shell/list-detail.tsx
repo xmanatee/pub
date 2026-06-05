@@ -1,8 +1,3 @@
-/**
- * Two-pane layout: a scrollable list on the left, a detail pane on the right.
- * Each feature passes its row + detail renderers; this owns selection, empty
- * states, scrolling, and search wiring.
- */
 import { Search } from "lucide-react";
 import * as React from "react";
 import { cn } from "~/core/cn";
@@ -67,6 +62,7 @@ export function ListDetail<T extends { id: string }>({
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
+                aria-label={searchPlaceholder ?? "Search"}
                 value={searchValue ?? ""}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder ?? "Search…"}
@@ -88,6 +84,7 @@ export function ListDetail<T extends { id: string }>({
                 <button
                   key={item.id}
                   type="button"
+                  aria-pressed={selectedId === item.id}
                   onClick={() => onSelect(item.id)}
                   className={cn(
                     "block w-full rounded-md text-left",

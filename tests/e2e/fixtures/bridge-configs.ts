@@ -111,8 +111,15 @@ export const CHAT_ROUNDTRIP_MODES: BridgeMode[] = [
   "claude-channel",
 ];
 
-/** Bridges that support `invokeAgentCommand` (agent-kind commands). */
+/** Bridges that support `invokeAgentCommand` (main-session agent-kind commands). */
 export const AGENT_COMMAND_MODES: BridgeMode[] = ["openclaw", "claude-code", "claude-sdk"];
+
+/** Bridges that support independent detached agent-kind commands. */
+export const DETACHED_AGENT_COMMAND_MODES: BridgeMode[] = [
+  "claude-code",
+  "claude-sdk",
+  "openclaw-like",
+];
 
 /**
  * Active bridge modes for the current test run.

@@ -55,6 +55,7 @@ export interface GmailMessage {
   from: string;
   subject: string;
   date: string;
+  snippet: string;
   unread: boolean;
   labels: string[];
 }
@@ -112,7 +113,7 @@ export const gmailUnread: CommandFunctionSpec = {
   executor: strictShell(
     "gog -j gmail search 'is:unread in:inbox' --max 20 | " +
       'jq \'{messages: [.threads[] | {id, threadId: .id, from, subject: (.subject // "(no subject)"),' +
-      ' date, unread: (.labels|index("UNREAD")!=null), labels}]}\'',
+      ' date, snippet: (.snippet // ""), unread: (.labels|index("UNREAD")!=null), labels}]}\'',
   ),
 };
 
@@ -213,6 +214,7 @@ function parseGmailMessage(value: unknown, path: string): GmailMessage {
     from: readString(record, "from", path),
     subject: readString(record, "subject", path),
     date: readString(record, "date", path),
+    snippet: readString(record, "snippet", path),
     unread: readBoolean(record, "unread", path),
     labels: readStringArray(record, "labels", path),
   };

@@ -19,6 +19,7 @@ import {
   Settings,
   StickyNote,
   Sunrise,
+  UserRound,
 } from "lucide-react";
 
 export interface ServiceDef {
@@ -62,6 +63,13 @@ export const SERVICES: ServiceDef[] = [
     icon: Mail,
     description: "Gmail inbox: read, archive, draft replies",
     accepts: ["draft-email"],
+  },
+  {
+    id: "contacts",
+    label: "Contacts",
+    route: "/contacts",
+    icon: UserRound,
+    description: "Google Contacts: people, channels, and cross-app follow-ups",
   },
   {
     id: "calendar",

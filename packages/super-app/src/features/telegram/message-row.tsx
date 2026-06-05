@@ -124,7 +124,7 @@ export function MessageRow({
       )}
     >
       {replyTarget ? (
-        <div className="telegram-message-width mb-0.5 rounded-md border-l-2 border-primary/60 bg-muted/50 px-2 py-1 text-xs">
+        <div className="telegram-message-width mb-0.5 rounded-md border border-primary/25 bg-muted/60 px-2 py-1 text-xs">
           <div className="truncate opacity-70">↩ {replyTarget.from ?? "reply"}</div>
           <div className="truncate opacity-80">{replyTarget.text || replyTarget.mediaType}</div>
         </div>

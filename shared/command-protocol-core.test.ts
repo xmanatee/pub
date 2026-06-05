@@ -73,6 +73,28 @@ describe("command-protocol-core", () => {
     });
   });
 
+  it("parses openclaw-like as an explicit agent provider", () => {
+    const [fn] = parseCommandFunctionList([
+      {
+        name: "draft",
+        returns: "text",
+        executor: {
+          kind: "agent",
+          provider: "openclaw-like",
+          mode: "detached",
+          prompt: "Draft a reply",
+          output: "text",
+        },
+      },
+    ]);
+
+    expect(fn?.executor).toMatchObject({
+      kind: "agent",
+      provider: "openclaw-like",
+      mode: "detached",
+    });
+  });
+
   it("defaults agent executor mode to detached when omitted", () => {
     const [fn] = parseCommandFunctionList([
       {

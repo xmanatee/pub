@@ -256,7 +256,12 @@ function parseAgentProfileValue(raw: string, key: string): CommandAgentProfile {
 
 function parseDetachedAgentProviderValue(raw: string, key: string): DetachedAgentProvider {
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "claude-code" || normalized === "claude-sdk" || normalized === "openclaw") {
+  if (
+    normalized === "claude-code" ||
+    normalized === "claude-sdk" ||
+    normalized === "openclaw" ||
+    normalized === "openclaw-like"
+  ) {
     return normalized;
   }
   throw new Error(`Invalid detached agent provider for ${key}: ${raw}`);

@@ -14,7 +14,12 @@ export const COMMAND_MANIFEST_MIME = "application/pub-command-manifest+json";
 export const DEFAULT_COMMAND_TIMEOUT_MS = 15_000;
 
 export type CommandReturnType = "void" | "text" | "json";
-export type CommandAgentProvider = "auto" | "claude-code" | "claude-sdk" | "openclaw";
+export type CommandAgentProvider =
+  | "auto"
+  | "claude-code"
+  | "claude-sdk"
+  | "openclaw"
+  | "openclaw-like";
 export type CommandAgentMode = "main" | "detached";
 export type CommandAgentProfile = "fast" | "default" | "deep";
 
@@ -108,7 +113,8 @@ function readAgentProvider(input: unknown): CommandAgentProvider | undefined {
     input === "auto" ||
     input === "claude-code" ||
     input === "claude-sdk" ||
-    input === "openclaw"
+    input === "openclaw" ||
+    input === "openclaw-like"
   ) {
     return input;
   }

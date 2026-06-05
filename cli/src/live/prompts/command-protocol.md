@@ -51,6 +51,7 @@ Verify with `which <tool>` before depending on it.
    - `mode`: `"detached"` (default — independent, parallel-safe) or `"main"` (uses session context and tools)
    - `output`: `"text"` (default — agent response returned as string) or `"json"` (agent response parsed as JSON before returning to canvas). Match this to the function's `returns` type.
    - Optional: `provider`, `profile` (`"fast"` / `"default"` / `"deep"`), `model`
+   - Supported detached providers are `claude-code`, `claude-sdk`, `openclaw`, and `openclaw-like`; omit `provider` to use the active local bridge when it is available.
 
 5. Host file access via `/__pub_files__/` URLs (standard HTTP semantics):
    - **Read session files**: `<img src="/__pub_files__/_/chart.png">`, `fetch("/__pub_files__/_/data.json")`

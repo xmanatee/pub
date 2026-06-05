@@ -11,6 +11,7 @@ import {
   Inbox as InboxIcon,
   Loader2,
   Mail as MailIcon,
+  PenLine,
   SlidersHorizontal,
 } from "lucide-react";
 import * as React from "react";
@@ -18,15 +19,19 @@ import * as prompts from "~/core/ai/prompts";
 import { runAI } from "~/core/ai/runner";
 import { fmtTime } from "~/core/fmt";
 import { useTryToast } from "~/core/hooks/use-toast";
+import type { ServiceAction } from "~/core/navigation/registry";
+import { useDispatchTarget } from "~/core/navigation/use-target-navigation";
 import { invoke, useAsync } from "~/core/pub";
 import { PageHeader } from "~/core/shell/page-header";
 import { Badge } from "~/core/ui/badge";
 import { Button } from "~/core/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/core/ui/card";
 import { ScrollArea } from "~/core/ui/scroll-area";
+import { Select } from "~/core/ui/select";
 import { Skeleton } from "~/core/ui/skeleton";
 import { Switch } from "~/core/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "~/core/ui/tabs";
+import { Textarea } from "~/core/ui/textarea";
 import { calendarApi } from "~/features/calendar/client";
 import { mailApi } from "~/features/mail/client";
 import { tasksApi } from "~/features/tasks/client";
@@ -43,10 +48,13 @@ interface AttentionItem {
 
 export function InboxPage() {
   const navigate = useNavigate();
+  const dispatch = useDispatchTarget();
   const tryToast = useTryToast();
   const [digest, setDigest] = React.useState<string | null>(null);
   const [briefing, setBriefing] = React.useState(false);
   const [mode, setMode] = React.useState<"attention" | "deadlines">("attention");
+  const [capture, setCapture] = React.useState("");
+  const [captureAction, setCaptureAction] = React.useState<ServiceAction>("create-task");
 
   const mail = useAsync(() => mailApi.list("in:inbox is:unread", 12).then((r) => r.messages), []);
   const tasks = useAsync(() => tasksApi.list().then((r) => r.entries), []);
@@ -131,6 +139,20 @@ export function InboxPage() {
     else if (item.serviceId === "tasks") navigate({ to: "/tasks" });
   };
 
+  const sendCapture = () => {
+    const text = capture.trim();
+    if (!text) return;
+    dispatch(captureAction, {
+      sourceServiceId: "inbox",
+      excerpt: text,
+      fields: {
+        title: text.slice(0, 80),
+        subject: text.slice(0, 80),
+      },
+    });
+    setCapture("");
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -157,6 +179,13 @@ export function InboxPage() {
       {mode === "deadlines" ? null : (
         <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-4 p-6">
+            <UniversalCapture
+              text={capture}
+              action={captureAction}
+              onTextChange={setCapture}
+              onActionChange={setCaptureAction}
+              onSubmit={sendCapture}
+            />
             {digest ? (
               <Card>
                 <CardHeader className="pb-2">
@@ -205,6 +234,61 @@ export function InboxPage() {
         </ScrollArea>
       )}
     </div>
+  );
+}
+
+const CAPTURE_ACTIONS: Array<{ action: ServiceAction; label: string }> = [
+  { action: "create-task", label: "Task" },
+  { action: "create-note", label: "Note" },
+  { action: "create-event", label: "Event" },
+  { action: "draft-email", label: "Email draft" },
+  { action: "draft-telegram", label: "Message draft" },
+];
+
+function UniversalCapture({
+  text,
+  action,
+  onTextChange,
+  onActionChange,
+  onSubmit,
+}: {
+  text: string;
+  action: ServiceAction;
+  onTextChange: (value: string) => void;
+  onActionChange: (value: ServiceAction) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="space-y-3 py-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <PenLine className="size-4 text-primary" />
+          Capture
+        </div>
+        <div className="universal-capture-grid">
+          <Textarea
+            value={text}
+            onChange={(event) => onTextChange(event.target.value)}
+            rows={2}
+            placeholder="Write anything and route it..."
+            className="min-h-16 resize-none"
+          />
+          <Select
+            value={action}
+            onChange={(event) => onActionChange(event.target.value as ServiceAction)}
+          >
+            {CAPTURE_ACTIONS.map((item) => (
+              <option key={item.action} value={item.action}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+          <Button onClick={onSubmit} disabled={!text.trim()}>
+            Send
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -10,7 +10,7 @@ export const DEFAULT_COMMAND_MAX_CONCURRENT = 6;
 export const DEFAULT_COMMAND_AGENT_PROFILE = "default";
 
 export type CommandAgentProfile = "fast" | "default" | "deep";
-export type DetachedAgentProvider = "claude-code" | "claude-sdk" | "openclaw";
+export type DetachedAgentProvider = "claude-code" | "claude-sdk" | "openclaw" | "openclaw-like";
 
 export type PubCoreConfig = {
   apiKey?: string;

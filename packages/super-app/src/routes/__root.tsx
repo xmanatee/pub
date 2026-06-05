@@ -34,9 +34,9 @@ function RootComponent() {
                 <PromptRoot>
                   <TargetNavigationProvider>
                     <CommandPaletteProvider>
-                      <div className="flex h-dvh w-screen overflow-hidden bg-background text-foreground">
+                      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground md:flex-row">
                         <Sidebar />
-                        <main className="flex-1 min-w-0 overflow-hidden">
+                        <main className="min-h-0 flex-1 min-w-0 overflow-hidden">
                           <Outlet />
                         </main>
                       </div>

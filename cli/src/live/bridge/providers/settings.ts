@@ -59,7 +59,13 @@ function detachedAgentProviderValueOrEnv(
 ): DetachedAgentProvider | undefined {
   const raw = trimToUndefined(env[envKey]);
   if (raw === undefined) return value;
-  if (raw === "claude-code" || raw === "claude-sdk" || raw === "openclaw") return raw;
+  if (
+    raw === "claude-code" ||
+    raw === "claude-sdk" ||
+    raw === "openclaw" ||
+    raw === "openclaw-like"
+  )
+    return raw;
   throw new Error(`Invalid detached agent provider value for ${envKey}: ${raw}`);
 }
 

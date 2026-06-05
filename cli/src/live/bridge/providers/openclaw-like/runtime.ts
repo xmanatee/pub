@@ -5,6 +5,7 @@ import { formatExecFailure } from "../exec-failure.js";
 const execFileAsync = promisify(execFile);
 
 const DELIVER_TIMEOUT_MS = 120_000;
+const DELIVER_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 function isDaemonEnvKey(key: string): boolean {
   return key.startsWith("PUB_DAEMON_");
@@ -37,11 +38,14 @@ export async function deliverMessageToCommand(
   params: { command: string; text: string },
   env: NodeJS.ProcessEnv = process.env,
   settings: DeliverySettings,
+  options: { timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal } = {},
 ): Promise<string> {
   try {
     const result = await execFileAsync(params.command, [params.text], {
       cwd: settings.workspaceDir,
-      timeout: DELIVER_TIMEOUT_MS,
+      maxBuffer: options.maxOutputBytes ?? DELIVER_MAX_OUTPUT_BYTES,
+      signal: options.signal,
+      timeout: options.timeoutMs ?? DELIVER_TIMEOUT_MS,
       env: buildOpenClawLikeCommandEnv(env),
     });
     return result.stdout.trim();

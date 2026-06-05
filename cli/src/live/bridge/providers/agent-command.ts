@@ -11,6 +11,7 @@ import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
 import { readSdkAssistantText } from "./claude-sdk/event-reader.js";
 import { buildSdkSessionOptionsFromSettings } from "./claude-sdk/index.js";
 import { loadClaudeSdk } from "./claude-sdk/runtime.js";
+import { deliverMessageToCommand } from "./openclaw-like/runtime.js";
 
 type AgentCommandProvider = Exclude<CommandAgentProvider, "auto">;
 type DetachedAgentProvider = AgentCommandProvider;
@@ -127,6 +128,23 @@ function hasOpenClawCommandRuntime(bridgeSettings: BridgeSettings): boolean {
   return Boolean(bridgeSettings.openclawPath?.trim() && bridgeSettings.sessionId?.trim());
 }
 
+function hasOpenClawLikeCommandRuntime(bridgeSettings: BridgeSettings): boolean {
+  return Boolean(bridgeSettings.openclawLikeCommand?.trim());
+}
+
+function getOpenClawLikeCommandRuntime(bridgeSettings: BridgeSettings): {
+  command: string;
+  workspaceDir: string;
+} {
+  const command = bridgeSettings.openclawLikeCommand?.trim();
+  if (!command) {
+    throw new Error(
+      "OpenClaw-like runtime is not configured for canvas agent commands. Set `openclawLike.command` or `PUB_OPENCLAW_LIKE_COMMAND`.",
+    );
+  }
+  return { command, workspaceDir: bridgeSettings.workspaceDir };
+}
+
 export function resolveMainAgentCommandProvider(params: {
   bridgeSettings: BridgeSettings;
   provider?: CommandAgentProvider;
@@ -168,6 +186,10 @@ function resolveDetachedAgentCommandProvider(params: {
       "AGENT_DETACHED_UNSUPPORTED: detached OpenClaw agent commands are not supported.",
     );
   }
+  if (requested === "openclaw-like") {
+    getOpenClawLikeCommandRuntime(params.bridgeSettings);
+    return "openclaw-like";
+  }
 
   const configured = params.bridgeSettings.commandAgentDetachedProvider;
   if (configured === "claude-sdk" && hasClaudeSdkCommandRuntime(params.bridgeSettings)) {
@@ -180,6 +202,9 @@ function resolveDetachedAgentCommandProvider(params: {
     throw new Error(
       "AGENT_DETACHED_UNSUPPORTED: detached OpenClaw agent commands are not supported.",
     );
+  }
+  if (configured === "openclaw-like" && hasOpenClawLikeCommandRuntime(params.bridgeSettings)) {
+    return "openclaw-like";
   }
 
   if (
@@ -194,11 +219,18 @@ function resolveDetachedAgentCommandProvider(params: {
   ) {
     return "claude-code";
   }
+  if (
+    params.bridgeSettings.mode === "openclaw-like" &&
+    hasOpenClawLikeCommandRuntime(params.bridgeSettings)
+  ) {
+    return "openclaw-like";
+  }
   if (hasClaudeSdkCommandRuntime(params.bridgeSettings)) return "claude-sdk";
   if (hasClaudeCommandRuntime(params.bridgeSettings)) return "claude-code";
+  if (hasOpenClawLikeCommandRuntime(params.bridgeSettings)) return "openclaw-like";
   if (hasOpenClawCommandRuntime(params.bridgeSettings)) {
     throw new Error(
-      "AGENT_DETACHED_UNSUPPORTED: only Claude providers currently support detached agent commands.",
+      "AGENT_DETACHED_UNSUPPORTED: detached OpenClaw agent commands are not supported. Use claude-code, claude-sdk, or openclaw-like.",
     );
   }
 
@@ -228,6 +260,14 @@ export function resolveDetachedAgentModel(params: {
     if (profile === "fast") return params.bridgeSettings.claudeCodeCommandModelFast?.trim();
     if (profile === "deep") return params.bridgeSettings.claudeCodeCommandModelDeep?.trim();
     return params.bridgeSettings.claudeCodeCommandModelDefault?.trim();
+  }
+  if (params.provider === "openclaw-like") {
+    if (params.model?.trim()) {
+      throw new Error(
+        "AGENT_MODEL_OVERRIDE_INVALID: openclaw-like detached agent commands cannot override the model.",
+      );
+    }
+    return undefined;
   }
   if (profile === "fast") return params.bridgeSettings.claudeSdkCommandModelFast?.trim();
   if (profile === "deep") return params.bridgeSettings.claudeSdkCommandModelDeep?.trim();
@@ -433,6 +473,47 @@ async function executeDetachedClaudeSdkAgentCommand(params: {
   return parseAgentOutput(outputText, params.output);
 }
 
+function buildOpenClawLikeDetachedPrompt(prompt: string, output: "text" | "json"): string {
+  const outputInstruction =
+    output === "json"
+      ? "Return only valid JSON. Do not include markdown fences, commentary, tool output, or chat framing."
+      : "Return only the requested text. Do not include tool output, status updates, or chat framing.";
+  return [
+    "[Pub detached agent command]",
+    "",
+    "You are running a one-shot command for a local app surface, not a live chat session.",
+    outputInstruction,
+    "",
+    "Task:",
+    prompt,
+  ].join("\n");
+}
+
+async function executeDetachedOpenClawLikeAgentCommand(params: {
+  prompt: string;
+  timeoutMs: number;
+  output: "text" | "json";
+  maxOutputBytes: number;
+  signal: AbortSignal;
+  bridgeSettings: BridgeSettings;
+}): Promise<unknown> {
+  const runtime = getOpenClawLikeCommandRuntime(params.bridgeSettings);
+  const outputText = await deliverMessageToCommand(
+    {
+      command: runtime.command,
+      text: buildOpenClawLikeDetachedPrompt(params.prompt, params.output),
+    },
+    process.env,
+    { workspaceDir: runtime.workspaceDir },
+    {
+      maxOutputBytes: params.maxOutputBytes,
+      signal: params.signal,
+      timeoutMs: params.timeoutMs,
+    },
+  );
+  return parseAgentOutput(outputText, params.output);
+}
+
 export function resolveDetachedAgentCommand(params: {
   bridgeSettings: BridgeSettings;
   spec: CommandAgentSpec;
@@ -513,6 +594,17 @@ export async function executeAgentCommand(params: {
       signal: params.signal,
       bridgeSettings: params.bridgeSettings,
       model: detached.model,
+    });
+  }
+
+  if (detached.provider === "openclaw-like") {
+    return await executeDetachedOpenClawLikeAgentCommand({
+      prompt: params.prompt,
+      timeoutMs: params.timeoutMs,
+      output: params.output,
+      maxOutputBytes: params.maxOutputBytes,
+      signal: params.signal,
+      bridgeSettings: params.bridgeSettings,
     });
   }
 

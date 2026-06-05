@@ -23,6 +23,21 @@ export interface CalendarListResult {
   events: CalendarEvent[];
 }
 
+export interface CalendarBusySlot {
+  start: string;
+  end: string;
+}
+
+export interface CalendarFreeBusyCalendar {
+  id: string;
+  busy: CalendarBusySlot[];
+  errors: string[];
+}
+
+export interface CalendarFreeBusyResult {
+  calendars: CalendarFreeBusyCalendar[];
+}
+
 export const listEvents: CommandFunctionSpec = {
   name: "calendar.list",
   returns: "json",
@@ -44,16 +59,19 @@ export const createEvent: CommandFunctionSpec = {
       "-j",
       "calendar",
       "create",
+      "primary",
       "--summary",
       "{{summary}}",
-      "--start",
+      "--from",
       "{{start}}",
-      "--end",
+      "--to",
       "{{end}}",
       "--description",
       "{{description}}",
       "--location",
       "{{location}}",
+      "--attendees",
+      "{{attendees}}",
     ],
   },
 };
@@ -68,18 +86,20 @@ export const updateEvent: CommandFunctionSpec = {
       "-j",
       "calendar",
       "update",
-      "--id",
+      "primary",
       "{{id}}",
       "--summary",
       "{{summary}}",
-      "--start",
+      "--from",
       "{{start}}",
-      "--end",
+      "--to",
       "{{end}}",
       "--description",
       "{{description}}",
       "--location",
       "{{location}}",
+      "--attendees",
+      "{{attendees}}",
     ],
   },
 };
@@ -90,7 +110,17 @@ export const deleteEvent: CommandFunctionSpec = {
   executor: {
     kind: "exec",
     command: "gog",
-    args: ["calendar", "delete", "--id", "{{id}}"],
+    args: ["-y", "calendar", "delete", "primary", "{{id}}"],
+  },
+};
+
+export const freeBusy: CommandFunctionSpec = {
+  name: "calendar.freeBusy",
+  returns: "json",
+  executor: {
+    kind: "exec",
+    command: "gog",
+    args: ["-j", "calendar", "freebusy", "{{calendarIds}}", "--from", "{{from}}", "--to", "{{to}}"],
   },
 };
 
@@ -148,5 +178,48 @@ export function parseCalendarListResult(value: unknown): CalendarListResult {
     events: readArray(record, "events", path).map((event, index) =>
       parseCalendarEvent(event, `${path}.events[${index}]`),
     ),
+  };
+}
+
+function readOptionalRecord(record: JsonRecord, key: string, path: string): JsonRecord | null {
+  const value = record[key];
+  if (value === undefined || value === null) return null;
+  return readRecordValue(value, `${path}.${key}`);
+}
+
+function readOptionalArray(record: JsonRecord, key: string, path: string): unknown[] {
+  const value = record[key];
+  if (value === undefined || value === null) return [];
+  return readArray(record, key, path);
+}
+
+export function parseCalendarFreeBusyResult(value: unknown): CalendarFreeBusyResult {
+  const path = "calendar.freeBusy";
+  const record = readRecordValue(value, path);
+  const calendars = readOptionalRecord(record, "calendars", path);
+  if (!calendars) return { calendars: [] };
+
+  return {
+    calendars: Object.entries(calendars).map(([id, calendar]) => {
+      const calendarRecord = readRecordValue(calendar, `${path}.calendars.${id}`);
+      return {
+        id,
+        busy: readOptionalArray(calendarRecord, "busy", `${path}.calendars.${id}`).map(
+          (slot, index) => {
+            const slotRecord = readRecordValue(slot, `${path}.calendars.${id}.busy[${index}]`);
+            return {
+              start: readString(slotRecord, "start", `${path}.calendars.${id}.busy[${index}]`),
+              end: readString(slotRecord, "end", `${path}.calendars.${id}.busy[${index}]`),
+            };
+          },
+        ),
+        errors: readOptionalArray(calendarRecord, "errors", `${path}.calendars.${id}`).map(
+          (error, index) => {
+            const errorRecord = readRecordValue(error, `${path}.calendars.${id}.errors[${index}]`);
+            return readString(errorRecord, "reason", `${path}.calendars.${id}.errors[${index}]`);
+          },
+        ),
+      };
+    }),
   };
 }

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { listInbox, parseMailListResult, parseMailMessageDetail, readMessage } from "./commands";
+import {
+  archiveMessage,
+  listInbox,
+  markAsRead,
+  parseMailListResult,
+  parseMailMessageDetail,
+  readMessage,
+  starMessage,
+  trashMessage,
+} from "./commands";
 
 describe("mail command result parsers", () => {
   it("runs shell commands with strict pipeline failure handling", () => {
@@ -9,6 +18,36 @@ describe("mail command result parsers", () => {
       expect(command.executor.shell).toBe("/bin/bash");
       expect(command.executor.script).toMatch(/^set -euo pipefail; /);
     }
+  });
+
+  it("uses the current gog message command contract", () => {
+    expect(readMessage.executor?.kind).toBe("shell");
+    if (readMessage.executor?.kind !== "shell") throw new Error("mail.read must use shell");
+    expect(readMessage.executor.script).toContain("gog -j gmail get {{id}}");
+    expect(readMessage.executor.script).not.toContain("--id {{id}}");
+    expect(readMessage.executor.script).toContain("id: .message.id");
+    expect(readMessage.executor.script).toContain("from: .headers.from");
+    expect(readMessage.executor.script).toContain("labels: .message.labelIds");
+    expect(archiveMessage.executor).toMatchObject({
+      kind: "exec",
+      command: "gog",
+      args: ["gmail", "archive", "{{id}}"],
+    });
+    expect(trashMessage.executor).toMatchObject({
+      kind: "exec",
+      command: "gog",
+      args: ["gmail", "trash", "{{id}}"],
+    });
+    expect(markAsRead.executor).toMatchObject({
+      kind: "exec",
+      command: "gog",
+      args: ["gmail", "mark-read", "{{id}}"],
+    });
+    expect(starMessage.executor).toMatchObject({
+      kind: "exec",
+      command: "gog",
+      args: ["gmail", "messages", "modify", "{{id}}", "--add", "STARRED"],
+    });
   });
 
   it("parses inbox list output", () => {

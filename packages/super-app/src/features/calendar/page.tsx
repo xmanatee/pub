@@ -2,6 +2,7 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Loader2,
   MapPin,
   Trash2,
@@ -14,7 +15,7 @@ import { runAI } from "~/core/ai/runner";
 import { useConfirm } from "~/core/hooks/use-confirm";
 import { useTryToast } from "~/core/hooks/use-toast";
 import { useIncomingTarget } from "~/core/navigation/use-target-navigation";
-import { useAsync } from "~/core/pub";
+import { type AsyncState, useAsync } from "~/core/pub";
 import { PageHeader } from "~/core/shell/page-header";
 import { Button } from "~/core/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/core/ui/card";
@@ -26,7 +27,7 @@ import { Tabs, TabsList, TabsTrigger } from "~/core/ui/tabs";
 import { Textarea } from "~/core/ui/textarea";
 import { parseComposeEventDraft } from "./ai-results";
 import { calendarApi, type EventInput } from "./client";
-import type { CalendarEvent } from "./commands";
+import type { CalendarEvent, CalendarFreeBusyResult } from "./commands";
 
 type ViewKind = "day" | "week" | "month" | "fluid";
 
@@ -106,11 +107,16 @@ export function CalendarPage() {
   const [view, setView] = React.useState<ViewKind>("week");
   const [anchor, setAnchor] = React.useState<Date>(() => new Date());
   const [editing, setEditing] = React.useState<(EventInput & { id: string | null }) | null>(null);
+  const [showAvailability, setShowAvailability] = React.useState(false);
 
   const range = rangeFor(view, anchor);
   const label = useRangeLabel(view, range.from);
   const { state, reload } = useAsync(
     () => calendarApi.list(range.from.toISOString(), range.to.toISOString()).then((r) => r.events),
+    [range.from.getTime(), range.to.getTime()],
+  );
+  const availability = useAsync(
+    () => calendarApi.freeBusy(range.from.toISOString(), range.to.toISOString()),
     [range.from.getTime(), range.to.getTime()],
   );
 
@@ -127,6 +133,7 @@ export function CalendarPage() {
           end: draft.endDate,
           description: draft.description,
           location: draft.location,
+          attendees: ctx.fields?.attendees ?? ctx.fields?.to ?? "",
         }),
       )
       .catch((err) => tryToast(() => Promise.reject(err), { errorTitle: "Couldn't draft event" }));
@@ -146,21 +153,31 @@ export function CalendarPage() {
         description={label ?? undefined}
         onRefresh={reload}
         actions={
-          <Button
-            size="sm"
-            onClick={() =>
-              setEditing({
-                id: null,
-                summary: "",
-                start: new Date().toISOString(),
-                end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-                description: "",
-                location: "",
-              })
-            }
-          >
-            <CalendarPlus className="size-3.5" /> New event
-          </Button>
+          <>
+            <Button
+              variant={showAvailability ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowAvailability((value) => !value)}
+            >
+              <Clock className="size-3.5" /> Availability
+            </Button>
+            <Button
+              size="sm"
+              onClick={() =>
+                setEditing({
+                  id: null,
+                  summary: "",
+                  start: new Date().toISOString(),
+                  end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                  description: "",
+                  location: "",
+                  attendees: "",
+                })
+              }
+            >
+              <CalendarPlus className="size-3.5" /> New event
+            </Button>
+          </>
         }
       />
       <div className="flex shrink-0 items-center justify-between gap-2 border-b px-6 py-2">
@@ -195,6 +212,7 @@ export function CalendarPage() {
         </Tabs>
       </div>
       <div className="flex-1 min-h-0">
+        {showAvailability ? <AvailabilityPanel state={availability.state} /> : null}
         {state.status === "loading" ? (
           <SkeletonList count={6} itemClassName="h-12" className="space-y-2 p-6" />
         ) : state.status === "error" ? (
@@ -220,6 +238,7 @@ export function CalendarPage() {
                         end: event.end,
                         description: event.description ?? "",
                         location: event.location ?? "",
+                        attendees: event.attendees.join(","),
                       })
                     }
                     onDelete={onDelete}
@@ -484,6 +503,7 @@ function EventEditor({
     end: initial.end,
     description: initial.description ?? "",
     location: initial.location ?? "",
+    attendees: initial.attendees ?? "",
   });
   const [busy, setBusy] = React.useState(false);
 
@@ -532,6 +552,11 @@ function EventEditor({
             value={draft.location ?? ""}
             onChange={(e) => setDraft({ ...draft, location: e.target.value })}
           />
+          <Input
+            placeholder="Attendees, comma-separated emails"
+            value={draft.attendees ?? ""}
+            onChange={(e) => setDraft({ ...draft, attendees: e.target.value })}
+          />
           <Textarea
             rows={4}
             placeholder="Description"
@@ -550,6 +575,61 @@ function EventEditor({
       </DialogContent>
     </Dialog>
   );
+}
+
+function AvailabilityPanel({ state }: { state: AsyncState<CalendarFreeBusyResult> }) {
+  return (
+    <div className="border-b bg-muted/25 px-6 py-3">
+      {state.status === "loading" ? (
+        <SkeletonList count={2} itemClassName="h-8" />
+      ) : state.status === "error" ? (
+        <p className="text-sm text-destructive">{state.error}</p>
+      ) : state.value.calendars.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No calendar availability returned.</p>
+      ) : (
+        <div className="space-y-2">
+          {state.value.calendars.map((calendar) => (
+            <div
+              key={calendar.id}
+              className="flex flex-col gap-2 rounded-md border bg-card p-3 text-sm md:flex-row md:items-start"
+            >
+              <div className="min-w-36 font-medium">{calendar.id}</div>
+              <div className="min-w-0 flex-1">
+                {calendar.errors.length > 0 ? (
+                  <div className="text-destructive">{calendar.errors.join(", ")}</div>
+                ) : calendar.busy.length === 0 ? (
+                  <div className="text-muted-foreground">Free across this range.</div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {calendar.busy.map((slot) => (
+                      <span
+                        key={`${slot.start}:${slot.end}`}
+                        className="rounded-md bg-muted px-2 py-1 text-xs tabular-nums text-muted-foreground"
+                      >
+                        {formatAvailabilitySlot(slot.start, slot.end)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatAvailabilitySlot(start: string, end: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  return `${startDate.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  })} ${startDate.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  })} - ${endDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function DateTimeField({

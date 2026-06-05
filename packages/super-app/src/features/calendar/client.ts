@@ -8,6 +8,7 @@ export interface EventInput {
   end: string;
   description?: string;
   location?: string;
+  attendees?: string;
 }
 
 export const calendarApi = {
@@ -21,6 +22,7 @@ export const calendarApi = {
         end: input.end,
         description: input.description ?? "",
         location: input.location ?? "",
+        attendees: input.attendees ?? "",
       }),
       "calendar.create",
     ),
@@ -33,8 +35,15 @@ export const calendarApi = {
         end: input.end,
         description: input.description ?? "",
         location: input.location ?? "",
+        attendees: input.attendees ?? "",
       }),
       "calendar.update",
     ),
   delete: (id: string): Promise<void> => invoke(cmd.deleteEvent, { id }),
+  freeBusy: (
+    from: string,
+    to: string,
+    calendarIds = "primary",
+  ): Promise<cmd.CalendarFreeBusyResult> =>
+    invoke(cmd.freeBusy, { from, to, calendarIds }).then(cmd.parseCalendarFreeBusyResult),
 };

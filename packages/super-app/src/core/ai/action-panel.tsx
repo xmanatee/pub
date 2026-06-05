@@ -27,7 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/core/ui/card";
 import { Separator } from "~/core/ui/separator";
 import { Textarea } from "~/core/ui/textarea";
 import * as prompts from "./prompts";
-import { runAI } from "./runner";
+import { formatAIError, runAI } from "./runner";
 import { rankActions } from "./signal-scoring";
 
 export interface ActionPanelProps {
@@ -88,7 +88,7 @@ export function AIActionPanel({
     } catch (err) {
       push({
         title: "AI request failed",
-        description: err instanceof Error ? err.message : String(err),
+        description: formatAIError(err),
         variant: "destructive",
       });
     } finally {

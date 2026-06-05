@@ -99,10 +99,11 @@ test.describe
       await page.goto(url);
 
       const main = page.getByRole("main");
+      await expect(main.getByText("Command Center")).toBeVisible({ timeout: 20_000 });
       await expect(main.getByText("Weather")).toBeVisible({ timeout: 20_000 });
-      await expect(main.getByText("Today")).toBeVisible();
-      await expect(main.getByText("Inbox")).toBeVisible();
-      await expect(main.getByText("Top Stories")).toBeVisible();
+      await expect(main.getByText("Calendar")).toBeVisible();
+      await expect(main.getByText("Unread mail")).toBeVisible();
+      await expect(main.getByText("Top stories")).toBeVisible();
       expect(pageErrors).toEqual([]);
     });
   });

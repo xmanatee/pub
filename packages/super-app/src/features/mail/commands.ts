@@ -44,23 +44,24 @@ export const readMessage: CommandFunctionSpec = {
   name: "mail.read",
   returns: "json",
   executor: strictShell(
-    "gog -j gmail get --id {{id}} | " +
-      'jq \'{id, threadId, from, to, subject: (.subject // "(no subject)"), date, ' +
-      'snippet: (.snippet // ""), unread: (.labels|index("UNREAD")!=null), labels, ' +
-      'body: (.bodyText // .body // ""), bodyHtml: (.bodyHtml // null)}\'',
+    "gog -j gmail get {{id}} | " +
+      "jq '{id: .message.id, threadId: .message.threadId, from: .headers.from, to: .headers.to, " +
+      'subject: (.headers.subject // "(no subject)"), date: .headers.date, ' +
+      'snippet: (.message.snippet // ""), unread: (.message.labelIds|index("UNREAD")!=null), ' +
+      'labels: .message.labelIds, body: (.body // ""), bodyHtml: null}\'',
   ),
 };
 
 export const archiveMessage: CommandFunctionSpec = {
   name: "mail.archive",
   returns: "void",
-  executor: { kind: "exec", command: "gog", args: ["gmail", "archive", "--id", "{{id}}"] },
+  executor: { kind: "exec", command: "gog", args: ["gmail", "archive", "{{id}}"] },
 };
 
 export const trashMessage: CommandFunctionSpec = {
   name: "mail.trash",
   returns: "void",
-  executor: { kind: "exec", command: "gog", args: ["gmail", "trash", "--id", "{{id}}"] },
+  executor: { kind: "exec", command: "gog", args: ["gmail", "trash", "{{id}}"] },
 };
 
 export const markAsRead: CommandFunctionSpec = {
@@ -69,14 +70,18 @@ export const markAsRead: CommandFunctionSpec = {
   executor: {
     kind: "exec",
     command: "gog",
-    args: ["gmail", "modify", "--id", "{{id}}", "--remove-label", "UNREAD"],
+    args: ["gmail", "mark-read", "{{id}}"],
   },
 };
 
 export const starMessage: CommandFunctionSpec = {
   name: "mail.star",
   returns: "void",
-  executor: { kind: "exec", command: "gog", args: ["gmail", "star", "--id", "{{id}}"] },
+  executor: {
+    kind: "exec",
+    command: "gog",
+    args: ["gmail", "messages", "modify", "{{id}}", "--add", "STARRED"],
+  },
 };
 
 export const sendDraft: CommandFunctionSpec = {
