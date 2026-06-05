@@ -6,7 +6,7 @@
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
-const base = process.argv[2] || "http://localhost:5173";
+const inputBase = process.argv[2] || "http://localhost:5173";
 const store = (name) => `${process.env.HOME}/.pub-super-app/${name}.json`;
 
 async function readStore(name) {
@@ -27,24 +27,20 @@ page.on("console", (m) => {
   if (m.type() === "error") errors.push(m.text().slice(0, 200));
 });
 
-// Notes: create → verify in store → delete → verify gone
-await page.goto(`${base}/notes`, { waitUntil: "domcontentloaded" });
-await page.waitForTimeout(1000);
-await page.fill('input[placeholder="Title"]', `${tag}-note`);
-await page.fill('textarea[placeholder="Write…"]', "body");
-await page.click("button:has-text('Create')");
-await page.waitForTimeout(1500);
-const notesAfterCreate = await readStore("notes");
-const note = notesAfterCreate.find((n) => n.title === `${tag}-note`);
+const appBase = await resolveAppBase(page, inputBase);
 
-// Tasks: create → toggle → verify → delete
-await page.goto(`${base}/tasks`, { waitUntil: "domcontentloaded" });
-await page.waitForTimeout(1000);
-await page.fill('input[placeholder="Add a task…"]', `${tag}-task`);
-await page.click('button[type="submit"]');
-await page.waitForTimeout(1500);
-const tasksAfterCreate = await readStore("tasks");
-const task = tasksAfterCreate.find((t) => t.title === `${tag}-task`);
+// Notes: create -> edit through autosave -> verify the server-backed store.
+await gotoRoute(page, appBase, "/notes");
+await page.getByRole("button", { name: /^New$/ }).click();
+await page.getByPlaceholder("Title").fill(`${tag}-note`);
+await page.getByPlaceholder(/^Write/).fill("body");
+const note = await waitForStoreEntry("notes", (n) => n.title === `${tag}-note` && n.body === "body");
+
+// Tasks: create through the current command input -> verify the server-backed store.
+await gotoRoute(page, appBase, "/tasks");
+await page.getByPlaceholder(/^What needs to be done/).fill(`${tag}-task`);
+await page.locator('form button[type="submit"]').click();
+const task = await waitForStoreEntry("tasks", (t) => t.title === `${tag}-task`);
 
 await browser.close();
 
@@ -78,3 +74,37 @@ async function cleanup(name, matcher) {
 }
 
 if (!report.note.ok || !report.task.ok || report.pageErrors.length > 0) process.exit(1);
+
+async function resolveAppBase(page, base) {
+  await page.goto(base, { waitUntil: "domcontentloaded", timeout: 20000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  return withTrailingSlash(page.url());
+}
+
+async function gotoRoute(page, appBase, route) {
+  await page.goto(routeUrl(appBase, route), { waitUntil: "domcontentloaded", timeout: 20000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+}
+
+function routeUrl(appBase, route) {
+  if (route === "/") return appBase;
+  return new URL(route.slice(1), appBase).toString();
+}
+
+function withTrailingSlash(value) {
+  const url = new URL(value);
+  if (!url.pathname.endsWith("/")) url.pathname = `${url.pathname}/`;
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+async function waitForStoreEntry(name, matcher) {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const entry = (await readStore(name)).find(matcher);
+    if (entry) return entry;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return null;
+}
