@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { TableNames } from "./_generated/dataModel";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { deletePubOwnedRowsByUser, deleteUserOwnedRows } from "./account";
 import { duplicatePubCore } from "./pubs";
 import { AUTH_TABLES, PUB_OWNED_TABLES, USER_OWNED_TABLES } from "./user_data";
@@ -21,7 +21,7 @@ const CLEARABLE_TABLES: TableNames[] = [
   "users",
 ];
 
-export const clearAll = internalMutation({
+export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
     assertTestEnv();
@@ -34,7 +34,7 @@ export const clearAll = internalMutation({
   },
 });
 
-export const seedUser = internalMutation({
+export const seedUser = mutation({
   args: { name: v.optional(v.string()) },
   handler: async (ctx, { name }) => {
     assertTestEnv();
@@ -69,7 +69,7 @@ export const seedUser = internalMutation({
   },
 });
 
-export const seedExtraApiKey = internalMutation({
+export const seedExtraApiKey = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     assertTestEnv();
@@ -86,7 +86,7 @@ export const seedExtraApiKey = internalMutation({
   },
 });
 
-export const seedPubs = internalMutation({
+export const seedPubs = mutation({
   args: {
     userId: v.id("users"),
     count: v.number(),
@@ -108,7 +108,7 @@ export const seedPubs = internalMutation({
   },
 });
 
-export const deleteUserAccount = internalMutation({
+export const deleteUserAccount = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     assertTestEnv();
@@ -118,7 +118,7 @@ export const deleteUserAccount = internalMutation({
   },
 });
 
-export const duplicatePub = internalMutation({
+export const duplicatePub = mutation({
   args: { userId: v.id("users"), pubId: v.id("pubs") },
   handler: async (ctx, { userId, pubId }) => {
     assertTestEnv();
@@ -126,7 +126,7 @@ export const duplicatePub = internalMutation({
   },
 });
 
-export const getFirstTunnelToken = internalQuery({
+export const getFirstTunnelToken = query({
   args: {},
   handler: async (ctx) => {
     assertTestEnv();
@@ -135,7 +135,7 @@ export const getFirstTunnelToken = internalQuery({
   },
 });
 
-export const getUserDataCounts = internalQuery({
+export const getUserDataCounts = query({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     assertTestEnv();

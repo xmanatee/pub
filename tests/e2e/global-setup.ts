@@ -14,10 +14,15 @@
  */
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildCli } from "./fixtures/cli";
 import { type E2EState, seedUser, writeState } from "./fixtures/convex";
 import { generateAuthKeys } from "./helpers/generate-auth-keys";
 import { waitForUrl } from "./helpers/wait-for";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = resolve(__dirname, "../..");
 
 function resolveAdminKey(): string {
   if (process.env.ADMIN_KEY) return process.env.ADMIN_KEY;
@@ -30,6 +35,39 @@ function resolveAdminKey(): string {
 
   throw new Error(
     "ADMIN_KEY not found. Set ADMIN_KEY env var or provide /shared/admin-key file (Docker mode).",
+  );
+}
+
+function isFunctionRegistryUnavailable(error: unknown): boolean {
+  const output = String(error);
+  return output.includes("No functions found") || output.includes("Could not find function");
+}
+
+async function waitForConvexFunctions(adminKey: string, convexUrl: string): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  let lastError: unknown = null;
+
+  while (Date.now() < deadline) {
+    try {
+      execSync(
+        `npx convex run "testing:getFirstTunnelToken" --admin-key "${adminKey}" --url "${convexUrl}"`,
+        {
+          cwd: APP_ROOT,
+          encoding: "utf-8",
+          stdio: "pipe",
+          timeout: 15_000,
+        },
+      );
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isFunctionRegistryUnavailable(error)) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error(
+    `Timed out waiting for deployed Convex functions. Last error: ${String(lastError)}`,
   );
 }
 
@@ -84,7 +122,13 @@ export default async function globalSetup() {
     const result = spawnSync(
       "npx",
       ["convex", "env", "set", key, "--admin-key", adminKey, "--url", convexUrl],
-      { input: value, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] },
+      {
+        cwd: APP_ROOT,
+        input: value,
+        encoding: "utf-8",
+        timeout: 15_000,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
     );
     if (result.status !== 0 && !result.stderr?.includes("already set")) {
       console.warn(`[e2e] Warning: failed to set ${key}: ${result.stderr}`);
@@ -99,7 +143,13 @@ export default async function globalSetup() {
     const result = spawnSync(
       "npx",
       ["convex", "env", "set", key, "--admin-key", adminKey, "--url", convexUrl],
-      { input: value, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] },
+      {
+        cwd: APP_ROOT,
+        input: value,
+        encoding: "utf-8",
+        timeout: 15_000,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
     );
     if (result.status !== 0) {
       console.warn(`[e2e] Warning: failed to set ${key}: ${result.stderr}`);
@@ -109,11 +159,13 @@ export default async function globalSetup() {
   // Deploy Convex functions
   console.log("[e2e] Deploying Convex functions...");
   execSync(`npx convex deploy --admin-key "${adminKey}" --url "${convexUrl}" -y`, {
+    cwd: APP_ROOT,
     encoding: "utf-8",
     stdio: "inherit",
     timeout: 120_000,
     env: { ...process.env, IS_TEST: "true" },
   });
+  await waitForConvexFunctions(adminKey, convexUrl);
 
   // Build CLI binary (no-op in Docker — prebuilt at /usr/local/bin/pub)
   console.log("[e2e] Building CLI...");

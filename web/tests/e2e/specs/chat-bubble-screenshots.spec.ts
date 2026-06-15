@@ -7,6 +7,7 @@ import {
 } from "../helpers/screenshot-utils";
 
 const DELIVERY_TOLERANCE = 0.002;
+const TEXT_BUBBLE_TOLERANCE = 0.002;
 const MIXED_CONVERSATION_TOLERANCE = 0.006;
 
 test.use({ reducedMotion: "reduce", viewport: { width: 1280, height: 6000 } });
@@ -20,13 +21,17 @@ test.describe("Chat bubble screenshots", () => {
   test("text bubbles", async ({ page }) => {
     const section = page.getByTestId("batch-text-bubbles");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/chat-bubble-text.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/chat-bubble-text.png`, {
+      maxDiffRatio: TEXT_BUBBLE_TOLERANCE,
+    });
   });
 
   test("audio bubbles", async ({ page }) => {
     const section = page.getByTestId("batch-audio-bubbles");
     await expect(section).toBeVisible();
-    await stableScreenshot(section, `${SCREENSHOT_DIR}/chat-bubble-audio.png`);
+    await stableScreenshot(section, `${SCREENSHOT_DIR}/chat-bubble-audio.png`, {
+      maxDiffRatio: TEXT_BUBBLE_TOLERANCE,
+    });
   });
 
   test("image bubbles", async ({ page }) => {

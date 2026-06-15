@@ -28,7 +28,7 @@ Use this skill when the user asks about creating adaptive interfaces, publishing
 
 ## Required CLI Version
 
-Use **pub CLI 0.11.23+**.
+Use **the latest pub CLI release**.
 
 Source: <https://github.com/xmanatee/pub> (MIT license)
 

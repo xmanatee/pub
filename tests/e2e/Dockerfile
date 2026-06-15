@@ -36,8 +36,10 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 FROM ghcr.io/openclaw/openclaw@sha256:b86307b257ff42a81353b0d6b3963ccd09bbd9eb1916077d1833a967763c5bc7 AS openclaw-source
 
 # Stage 2: Test runner (Vite + proxy + CLI + OpenClaw + mock LLM + Playwright — all in one)
-FROM mcr.microsoft.com/playwright:v1.60.0-noble AS test-runner
+FROM node:22-slim AS test-runner
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -46,6 +48,10 @@ COPY cli/package.json ./cli/
 COPY relay/package.json ./relay/
 COPY packages/super-app/package.json ./packages/super-app/
 RUN pnpm install --frozen-lockfile
+
+# Install Playwright browser and its Debian runtime dependencies before copying
+# source so ordinary code changes do not invalidate the large browser layer.
+RUN pnpm --filter pub-web exec playwright install --with-deps chromium
 
 COPY . .
 
@@ -75,9 +81,6 @@ COPY tests/e2e/openclaw-config/agents/ /home/node/.openclaw/agents/
 
 # Install Claude Code CLI (for claude-code and claude-sdk bridge testing)
 RUN npm install -g @anthropic-ai/claude-code
-
-# Install Playwright browser
-RUN npx playwright install chromium
 
 # Entrypoint starts mock LLM, Vite, proxy, reads admin key, then runs Playwright
 COPY tests/e2e/docker-entrypoint.sh /docker-entrypoint.sh

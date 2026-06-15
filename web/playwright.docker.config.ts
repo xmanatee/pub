@@ -10,6 +10,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 1,
+  globalSetup: "../tests/e2e/global-setup.ts",
+  globalTeardown: "../tests/e2e/global-teardown.ts",
   reporter: [
     [
       "html",

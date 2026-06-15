@@ -63,7 +63,6 @@ function validateUiPrimitiveSurface() {
 }
 
 function validateSkillProtocol() {
-  const cliVersion = readJson("cli/package.json").version;
   const clawVersion = readJson("skills/pub/claw.json").version;
   const skill = readFileSync(join(root, "skills/pub/SKILL.md"), "utf8");
   const skillVersion = skill.match(/^\s*version:\s*"([^"]+)"/m)?.[1];
@@ -75,8 +74,11 @@ function validateSkillProtocol() {
       } does not match claw.json ${clawVersion}.`,
     );
   }
-  if (!skill.includes(`Use **pub CLI ${cliVersion}+**.`)) {
-    fail(`skills/pub/SKILL.md Required CLI Version must match cli/package.json (${cliVersion}+).`);
+  if (!skill.includes("Use **the latest pub CLI release**.")) {
+    fail("skills/pub/SKILL.md must tell agents to use the latest pub CLI release.");
+  }
+  if (/pub CLI \d+\.\d+\.\d+\+?/.test(skill)) {
+    fail("skills/pub/SKILL.md must not pin a pub CLI version.");
   }
   if (!skill.includes("Bridge-owned chat")) {
     fail("skills/pub/SKILL.md must document bridge-owned chat delivery.");

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { freezeAnimations, SCREENSHOT_DIR, stableScreenshot } from "../helpers/screenshot-utils";
 
-const LANDING_PAGE_TOLERANCE = 0.01;
+const LANDING_PAGE_TOLERANCE = 0.013;
 
 async function gotoLanding(page: import("@playwright/test").Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });

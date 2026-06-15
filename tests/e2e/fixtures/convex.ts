@@ -5,7 +5,8 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface E2EState {
   adminKey: string;
@@ -24,6 +25,8 @@ export interface TestUser {
 }
 
 const STATE_FILE = join(tmpdir(), "pub-e2e-state.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = resolve(__dirname, "../../..");
 
 let cachedState: E2EState | null = null;
 
@@ -43,6 +46,7 @@ export function writeState(state: E2EState): void {
 export function runConvexCommand(args: string): string {
   const { adminKey, convexUrl } = getState();
   return execSync(`npx convex ${args} --admin-key "${adminKey}" --url "${convexUrl}"`, {
+    cwd: APP_ROOT,
     encoding: "utf-8",
     timeout: 30_000,
   }).trim();
