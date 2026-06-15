@@ -1,8 +1,3 @@
-/**
- * Tiny JSON-array store used by tracker / notes / tasks. Lives in
- * `~/.pub-super-app/<file>.json`. Exposes a single factory consumed by each
- * feature's `server.ts` — no copy-paste of load/save logic.
- */
 import { expandHome } from "./paths";
 
 export interface StoreEntry {

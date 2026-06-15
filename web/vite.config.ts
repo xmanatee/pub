@@ -75,7 +75,6 @@ export default defineConfig({
           ],
           telegram: ["@telegram-apps/sdk-react"],
           icons: ["lucide-react", "@icons-pack/react-simple-icons"],
-          eruda: ["eruda"],
         },
       },
     },

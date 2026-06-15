@@ -14,7 +14,7 @@ vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => () => ({}),
 }));
 
-import { GuestLayout } from "./_guest";
+import { GuestLayout } from "~/features/auth/page/guest-layout";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;

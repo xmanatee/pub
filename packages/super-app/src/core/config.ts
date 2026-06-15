@@ -1,69 +1,26 @@
-/**
- * Per-feature runtime config. Features declare their own shape and read it
- * via `getFeatureConfig(name)`. Backing file: `~/.pub-super-app/config.json`.
- * This keeps credentials off environment variables and out of the build —
- * adding a new feature is purely a code change.
- *
- * Example:
- *   {
- *     "telegram": { "apiId": 1234567, "apiHash": "..." },
- *     "whatsapp": { "token": "..." }
- *   }
- */
 import { createServerFn } from "@tanstack/react-start";
-import { expandHome } from "./paths";
 import type { JsonValue } from "./types";
 
 export const CONFIG_PATH = "~/.pub-super-app/config.json";
 
-async function loadConfig(): Promise<Record<string, JsonValue>> {
-  const { readFile } = await import("node:fs/promises");
-  try {
-    const raw = await readFile(expandHome(CONFIG_PATH), "utf8");
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, JsonValue>)
-      : {};
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return {};
-    throw err;
-  }
-}
-
-export async function readFeatureConfig(name: string): Promise<JsonValue | null> {
-  const doc = await loadConfig();
-  return doc[name] ?? null;
-}
-
-async function writeDoc(doc: Record<string, JsonValue>): Promise<void> {
-  const [{ mkdir, writeFile }, { dirname }] = await Promise.all([
-    import("node:fs/promises"),
-    import("node:path"),
-  ]);
-  const file = expandHome(CONFIG_PATH);
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify(doc, null, 2));
-}
-
 export const getFeatureConfig = createServerFn({ method: "GET" })
   .inputValidator((input: { name: string }) => input)
   .handler(async ({ data }): Promise<JsonValue | null> => {
+    const { readFeatureConfig } = await import("./config.server");
     return readFeatureConfig(data.name);
   });
 
 export const setFeatureConfig = createServerFn({ method: "POST" })
   .inputValidator((input: { name: string; value: JsonValue | null }) => input)
   .handler(async ({ data }): Promise<{ ok: true }> => {
-    const doc = await loadConfig();
-    if (data.value === null) delete doc[data.name];
-    else doc[data.name] = data.value;
-    await writeDoc(doc);
+    const { writeFeatureConfig } = await import("./config.server");
+    await writeFeatureConfig(data.name, data.value);
     return { ok: true };
   });
 
 export const listFeatureConfigKeys = createServerFn({ method: "GET" }).handler(
   async (): Promise<string[]> => {
-    const doc = await loadConfig();
-    return Object.keys(doc).sort();
+    const { listConfigKeys } = await import("./config.server");
+    return listConfigKeys();
   },
 );

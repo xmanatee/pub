@@ -101,7 +101,7 @@ export function SettingsPanel() {
                 <div>
                   <div className="text-sm font-medium">Developer mode</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Enable Eruda and keep rich error logs visible in the Mini App.
+                    Keep detailed pub errors and source controls visible while debugging.
                   </div>
                 </div>
                 <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />

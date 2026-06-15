@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createJsonStore } from "~/core/json-store";
+import { createJsonStore } from "~/core/json-store.server";
 import type { Note } from "./commands";
 import { renderMarkdownToSafeHtml } from "./markdown";
 

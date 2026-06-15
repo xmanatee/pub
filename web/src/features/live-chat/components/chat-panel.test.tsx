@@ -9,7 +9,7 @@ import {
 } from "~/features/pub/contexts/live-session-context";
 import { ChatPanel } from "./chat-panel";
 
-// Mock developer-mode to avoid eruda side-effects
+// Mock developer-mode to keep diagnostics out of this component test.
 vi.mock("~/lib/developer-mode", () => ({
   isDeveloperModeEnabled: vi.fn(() => false),
   setDeveloperModeEnabled: vi.fn(),

@@ -1,4 +1,3 @@
-import eruda from "eruda";
 import { hasWindow } from "./has-window";
 
 const STORAGE_KEY = "pub.developer-mode";
@@ -10,8 +9,6 @@ declare global {
   }
 }
 
-let erudaMounted = false;
-
 function emitDeveloperModeChange(enabled: boolean) {
   if (!hasWindow()) return;
   window.dispatchEvent(
@@ -19,20 +16,6 @@ function emitDeveloperModeChange(enabled: boolean) {
       detail: { enabled },
     }),
   );
-}
-
-function applyDeveloperMode(enabled: boolean) {
-  if (!hasWindow()) return;
-  if (enabled === erudaMounted) return;
-
-  if (enabled) {
-    eruda.init();
-    erudaMounted = true;
-    return;
-  }
-
-  eruda.destroy();
-  erudaMounted = false;
 }
 
 export function isDeveloperModeEnabled(): boolean {
@@ -47,7 +30,6 @@ export function setDeveloperModeEnabled(enabled: boolean): void {
   } else {
     window.localStorage.removeItem(STORAGE_KEY);
   }
-  applyDeveloperMode(enabled);
   emitDeveloperModeChange(enabled);
 }
 
@@ -89,6 +71,4 @@ export function initDeveloperMode(): void {
       console.error("[app:unhandledrejection]", event.reason);
     });
   }
-
-  applyDeveloperMode(isDeveloperModeEnabled());
 }

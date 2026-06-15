@@ -26,8 +26,8 @@ export interface DevServer {
  * child's pid. We never kill by single pid: dev servers fork helpers (esbuild
  * workers, Vite plugin workers) that would otherwise be orphaned.
  *
- * ESRCH (group already gone) is the success case for a "kill if alive"
- * caller and is swallowed; all other errors propagate.
+ * ESRCH means the process group is already gone, which satisfies "kill if
+ * alive"; all other errors propagate.
  */
 export function killProcessGroup(pid: number, signal: NodeJS.Signals): void {
   if (process.platform === "win32") {

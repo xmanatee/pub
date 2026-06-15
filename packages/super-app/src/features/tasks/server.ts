@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createJsonStore } from "~/core/json-store";
+import { createJsonStore } from "~/core/json-store.server";
 import type { Task } from "./commands";
 
 const store = createJsonStore<Task>("~/.pub-super-app/tasks.json");

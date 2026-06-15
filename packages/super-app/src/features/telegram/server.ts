@@ -7,7 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { Api, TelegramClient } from "telegram";
 import { CustomFile } from "telegram/client/uploads";
 import { StringSession } from "telegram/sessions";
-import { readFeatureConfig } from "~/core/config";
+import { readFeatureConfig } from "~/core/config.server";
 import { expandHome } from "~/core/paths";
 import type {
   TelegramAuthState,

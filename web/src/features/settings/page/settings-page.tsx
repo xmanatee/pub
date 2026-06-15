@@ -220,9 +220,9 @@ export function SettingsPage() {
           <CardContent>
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
-                <p className="text-sm">Enable in-app debug console (Eruda)</p>
+                <p className="text-sm">Show developer diagnostics</p>
                 <p className="text-xs text-muted-foreground">
-                  Shows a mobile console in Telegram Mini App and keeps global error logs visible.
+                  Keeps detailed pub errors and source controls visible while debugging.
                 </p>
               </div>
               <Switch checked={developerModeEnabled} onCheckedChange={setDeveloperModeEnabled} />

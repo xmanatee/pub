@@ -25,6 +25,7 @@ import {
   isRateLimitError,
 } from "./shared.js";
 import { createSignalingController } from "./signaling.js";
+import { prepareDaemonSocketForListen } from "./socket.js";
 import { createDaemonState, setDaemonConnectionState, setDaemonExecutorState } from "./state.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -258,27 +259,10 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
   });
 
-  if (fs.existsSync(socketPath)) {
-    let stale = true;
-    try {
-      const raw = fs.readFileSync(infoPath, "utf-8");
-      const info = JSON.parse(raw) as { pid: number };
-      process.kill(info.pid, 0);
-      stale = false;
-    } catch (error) {
-      lifecycle.debugLog("stale socket check failed (assuming stale)", error);
-    }
-
-    if (stale) {
-      try {
-        fs.unlinkSync(socketPath);
-      } catch (error) {
-        lifecycle.debugLog("failed to remove stale daemon socket", error);
-      }
-    } else {
-      throw new Error(`Daemon already running (socket: ${socketPath})`);
-    }
-  }
+  await prepareDaemonSocketForListen({
+    socketPath,
+    debugLog: lifecycle.debugLog,
+  });
 
   async function handlePresenceOwnershipConflict(error: unknown): Promise<void> {
     lifecycle.markError("presence ownership lost", error, { alwaysLog: true });

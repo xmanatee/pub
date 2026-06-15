@@ -271,9 +271,6 @@ importers:
       convex:
         specifier: ^1.40.0
         version: 1.40.0(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)
-      eruda:
-        specifier: ^3.4.3
-        version: 3.4.3
       lucide-react:
         specifier: ^0.469.0
         version: 0.469.0(react@19.2.7)
@@ -3290,9 +3287,6 @@ packages:
 
   error-stack-parser-es@1.0.5:
     resolution: {integrity: sha512-5qucVt2XcuGMcEGgWI7i+yZpmpByQ8J1lHhcL7PwqCwu9FPP3VUXzT4ltHe5i2z9dePwEHcDVOAfSnHsOlCXRA==}
-
-  eruda@3.4.3:
-    resolution: {integrity: sha512-J2TsF4dXSspOXev5bJ6mljv0dRrxj21wklrDzbvPmYaEmVoC+2psylyRi70nUPFh1mTQfIBsSusUtAMZtUN+/w==}
 
   es-define-property@1.0.1:
     resolution: {integrity: sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g==}
@@ -7281,8 +7275,6 @@ snapshots:
   error-kid@0.0.7: {}
 
   error-stack-parser-es@1.0.5: {}
-
-  eruda@3.4.3: {}
 
   es-define-property@1.0.1: {}
 
