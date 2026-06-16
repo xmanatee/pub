@@ -34,25 +34,7 @@ function readCoreConfig(root: Record<string, unknown>): PubCoreConfig | undefine
 
 function readBridgeConfig(root: Record<string, unknown>): PubBridgeConfig | undefined {
   const bridge = asRecord(root.bridge);
-  if (!bridge) return undefined;
-
-  const migrated = { ...bridge };
-  const legacyOpenClawLikeCommand =
-    typeof migrated.openclawLikeCommand === "string"
-      ? migrated.openclawLikeCommand.trim()
-      : undefined;
-  if (legacyOpenClawLikeCommand && !migrated.openclawLikeProfiles) {
-    migrated.openclawLikeProfiles = {
-      default: {
-        label: "Default",
-        command: legacyOpenClawLikeCommand,
-      },
-    };
-    migrated.openclawLikeDefaultProfile ??= "default";
-  }
-  delete migrated.openclawLikeCommand;
-
-  return migrated as unknown as PubBridgeConfig;
+  return bridge ? (bridge as unknown as PubBridgeConfig) : undefined;
 }
 
 function readTelegramConfig(root: Record<string, unknown>): PubTelegramConfig | undefined {

@@ -28,3 +28,12 @@ export function resolveSelectedHost(
 
   return null;
 }
+
+export function resolveDefaultLiveProfileId(
+  profiles: LiveAgentProfileOption[] | undefined,
+): string | undefined {
+  return (
+    profiles?.find((profile) => profile.id === "default")?.id ??
+    profiles?.find((profile) => profile.id === "balanced")?.id
+  );
+}

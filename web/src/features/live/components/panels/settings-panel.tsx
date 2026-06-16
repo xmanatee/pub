@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
+import { resolveDefaultLiveProfileId } from "~/features/live/model/agent-selection";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { isFullscreenSupported } from "~/hooks/use-fullscreen";
 import { cn } from "~/lib/utils";
@@ -225,11 +226,9 @@ function LiveProfileCard({
   onSelectProfile: (profileId: string) => void;
 }) {
   const selectedProfileIsAvailable = profiles.some((profile) => profile.id === selectedProfileId);
-  const defaultProfileId =
-    profiles.find((profile) => profile.id === "default")?.id ??
-    profiles.find((profile) => profile.id === "balanced")?.id ??
-    null;
-  const activeProfileId = selectedProfileIsAvailable ? selectedProfileId : defaultProfileId;
+  const activeProfileId = selectedProfileIsAvailable
+    ? selectedProfileId
+    : (resolveDefaultLiveProfileId(profiles) ?? null);
 
   return (
     <Card className="border-border/50">

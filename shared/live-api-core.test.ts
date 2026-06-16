@@ -12,7 +12,7 @@ describe("live-api-core", () => {
         agentCandidates: [],
         browserCandidates: ["c1"],
         createdAt: 1,
-        liveProfileId: "codex-fast",
+        liveProfileId: "fast",
       }),
     ).toEqual({
       slug: "demo",
@@ -22,7 +22,7 @@ describe("live-api-core", () => {
       agentCandidates: [],
       browserCandidates: ["c1"],
       createdAt: 1,
-      liveProfileId: "codex-fast",
+      liveProfileId: "fast",
     });
   });
 

@@ -222,7 +222,7 @@ describe("useLiveSessionModel", () => {
       {
         hostId: "presence-1",
         agentName: "Agent",
-        liveProfiles: [{ id: "codex-fast", label: "Codex Fast" }],
+        liveProfiles: [{ id: "fast", label: "Fast" }],
       },
     ];
 
@@ -233,7 +233,7 @@ describe("useLiveSessionModel", () => {
     await act(async () => {
       root?.render(
         <HookHarness
-          liveProfilesByAgent={{ Agent: "codex-fast" }}
+          liveProfilesByAgent={{ Agent: "fast" }}
           onChange={(value) => states.push(value)}
         />,
       );
@@ -247,7 +247,43 @@ describe("useLiveSessionModel", () => {
       browserOffer: "offer-a",
       browserSessionId: "session-a",
       hostId: "presence-1",
-      liveProfileId: "codex-fast",
+      liveProfileId: "fast",
+      slug: "demo",
+    });
+  });
+
+  it("sends the advertised default live profile when no preference is stored", async () => {
+    const states: Array<ReturnType<typeof useLiveSessionModel>> = [];
+
+    queryState.live = null;
+    queryState.availableAgents = [
+      {
+        hostId: "presence-1",
+        agentName: "Agent",
+        liveProfiles: [
+          { id: "default", label: "Default" },
+          { id: "fast", label: "Fast" },
+        ],
+      },
+    ];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<HookHarness onChange={(value) => states.push(value)} />);
+    });
+
+    await act(async () => {
+      await states.at(-1)?.storeBrowserOffer({ slug: "demo", offer: "offer-a" });
+    });
+
+    expect(mutationMock).toHaveBeenCalledWith({
+      browserOffer: "offer-a",
+      browserSessionId: "session-a",
+      hostId: "presence-1",
+      liveProfileId: "default",
       slug: "demo",
     });
   });

@@ -3,7 +3,10 @@ import type { Id } from "@backend/_generated/dataModel";
 import type { LiveAgentProfileOption } from "@shared/live-agent-profile";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { resolveSelectedHost } from "~/features/live/model/agent-selection";
+import {
+  resolveDefaultLiveProfileId,
+  resolveSelectedHost,
+} from "~/features/live/model/agent-selection";
 import type { SessionState } from "~/features/live/types/live-types";
 
 /**
@@ -67,10 +70,10 @@ function resolveSelectedLiveProfileId(
   const agent = availableAgents.find((entry) => entry.hostId === selectedHostId);
   if (!agent) return undefined;
   const profileId = liveProfilesByAgent[agent.agentName];
-  if (!profileId) return undefined;
+  if (!profileId) return resolveDefaultLiveProfileId(agent.liveProfiles);
   return (agent.liveProfiles ?? []).some((profile) => profile.id === profileId)
     ? profileId
-    : undefined;
+    : resolveDefaultLiveProfileId(agent.liveProfiles);
 }
 
 export function useLiveSessionModel(

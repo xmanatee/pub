@@ -85,37 +85,6 @@ describe("config", () => {
     });
   });
 
-  it("migrates legacy openclaw-like command config to a default profile", () => {
-    const dir = makeHomeConfigDir();
-    fs.writeFileSync(
-      path.join(dir, "config.json"),
-      `${JSON.stringify(
-        {
-          bridge: {
-            mode: "openclaw-like",
-            openclawLikeCommand: "/usr/local/bin/pub-codex-bridge",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-      "utf-8",
-    );
-
-    expect(readPubConfig()).toEqual({
-      bridge: {
-        mode: "openclaw-like",
-        openclawLikeProfiles: {
-          default: {
-            label: "Default",
-            command: "/usr/local/bin/pub-codex-bridge",
-          },
-        },
-        openclawLikeDefaultProfile: "default",
-      },
-    });
-  });
-
   it("uses default base URL when no env var is set", () => {
     makeHomeConfigDir();
     writePubConfig({ core: { apiKey: "pub_test" } });
