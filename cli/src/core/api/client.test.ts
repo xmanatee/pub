@@ -198,12 +198,20 @@ describe("PubApiClient", () => {
         }),
       );
 
-      await client.goOnline({ daemonSessionId: "daemon-1", agentName: "Agent One" });
+      await client.goOnline({
+        daemonSessionId: "daemon-1",
+        agentName: "Agent One",
+        liveProfiles: [{ id: "fast", label: "Fast" }],
+      });
       expect(fetch).toHaveBeenCalledWith(
         new URL("/api/v1/agent/online", baseUrl),
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ daemonSessionId: "daemon-1", agentName: "Agent One" }),
+          body: JSON.stringify({
+            daemonSessionId: "daemon-1",
+            agentName: "Agent One",
+            liveProfiles: [{ id: "fast", label: "Fast" }],
+          }),
         }),
       );
     });
@@ -274,7 +282,7 @@ describe("PubApiClient", () => {
         agentCandidates: [],
         browserCandidates: [],
         createdAt: 1000,
-        modelProfile: "balanced",
+        liveProfileId: "fast",
       };
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

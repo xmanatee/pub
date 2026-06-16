@@ -1,7 +1,6 @@
 import { ConvexClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { type LiveInfo, parseLiveInfo } from "../../../../shared/live-api-core";
-import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { PubApiClient } from "../../core/api/client.js";
 import { decideSignalingUpdate } from "../transport/signaling.js";
 
@@ -27,7 +26,7 @@ interface SignalingControllerParams {
   getLastAppliedBrowserOffer: () => string | null;
   getLastBrowserCandidateCount: () => number;
   setLastBrowserCandidateCount: (count: number) => void;
-  onRecover: (slug: string, browserOffer: string, modelProfile?: LiveModelProfile) => Promise<void>;
+  onRecover: (slug: string, browserOffer: string, liveProfileId?: string) => Promise<void>;
   onApplyBrowserCandidates: (candidatePayloads: string[]) => Promise<void>;
   onClearLive: () => Promise<void>;
   onReconnect: () => Promise<void>;
@@ -108,7 +107,7 @@ export function createSignalingController(params: SignalingControllerParams): Si
 
     if (decision.type === "recover") {
       debugLog(`[profile] signaling: new browserOffer for "${decision.slug}"`);
-      await onRecover(decision.slug, decision.browserOffer, live?.modelProfile);
+      await onRecover(decision.slug, decision.browserOffer, live?.liveProfileId);
       return;
     }
 

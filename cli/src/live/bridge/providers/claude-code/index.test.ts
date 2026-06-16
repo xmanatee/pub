@@ -73,13 +73,13 @@ describe("buildClaudeArgs", () => {
     expect(args).not.toContain("--allowedTools");
   });
 
-  it("maps live model profiles to Claude model aliases", () => {
+  it("maps live profile ids to Claude model aliases", () => {
     const args = buildClaudeArgsFromSettings(
       "test",
       null,
       {
         claudeCodeMaxTurns: 4,
-        liveModelProfile: "thorough",
+        liveProfileId: "thorough",
       },
       undefined,
     );

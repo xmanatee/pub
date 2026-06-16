@@ -10,6 +10,11 @@ export {
   unsetPubConfigValue,
 } from "./mutate.js";
 export {
+  normalizeOpenClawLikeProfiles,
+  parseOpenClawLikeProfilesValue,
+  resolveOpenClawLikeDefaultProfile,
+} from "./openclaw-like-profiles.js";
+export {
   getConfigVarsBySection,
   SUPPORTED_CONFIG_KEYS,
 } from "./registry.js";
@@ -30,6 +35,8 @@ export type {
   DetachedAgentProvider,
   OpenClawBridgeSettings,
   OpenClawLikeBridgeSettings,
+  OpenClawLikeProfileConfig,
+  OpenClawLikeProfilesConfig,
   PubBridgeConfig,
   PubConfig,
   PubTelegramConfig,

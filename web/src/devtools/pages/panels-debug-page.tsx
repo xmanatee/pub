@@ -55,9 +55,9 @@ function TmaWrapper({ children }: { children: React.ReactNode }) {
 
 const MULTI_AGENT_OVERRIDES = {
   availableAgents: [
-    { hostId: "h1" as never, agentName: "Claude" },
-    { hostId: "h2" as never, agentName: "GPT" },
-    { hostId: "h3" as never, agentName: "Gemini" },
+    { hostId: "h1" as never, agentName: "Claude", liveProfiles: [] },
+    { hostId: "h2" as never, agentName: "GPT", liveProfiles: [] },
+    { hostId: "h3" as never, agentName: "Gemini", liveProfiles: [] },
   ],
   selectedHostId: "h1" as never,
   agentName: "Claude",

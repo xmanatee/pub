@@ -64,10 +64,6 @@ vi.mock("~/features/live/hooks/use-live-preferences", () => ({
   }),
 }));
 
-vi.mock("~/features/settings/components/live-model-settings-card", () => ({
-  LiveModelSettingsCard: () => null,
-}));
-
 vi.mock("~/lib/analytics", () => ({
   resetIdentity: vi.fn(),
   trackSignOut: vi.fn(),

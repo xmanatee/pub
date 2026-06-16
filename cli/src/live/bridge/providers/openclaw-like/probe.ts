@@ -2,24 +2,57 @@ import { existsSync } from "node:fs";
 import type {
   BridgeSettings,
   OpenClawLikeBridgeSettings,
+  OpenClawLikeProfilesConfig,
   PubBridgeConfig,
 } from "../../../../core/config/index.js";
+import {
+  normalizeOpenClawLikeProfiles,
+  parseOpenClawLikeProfilesValue,
+  resolveOpenClawLikeDefaultProfile,
+} from "../../../../core/config/openclaw-like-profiles.js";
 import { runAgentWritePongProbe } from "../../../runtime/bridge-write-probe.js";
-import { deliverMessageToCommand } from "./runtime.js";
-
-function getStrictOpenClawLikeCommand(bridgeConfig: OpenClawLikeBridgeSettings): string {
-  return bridgeConfig.openclawLikeCommand;
-}
+import {
+  deliverMessageToCommand,
+  type OpenClawLikeCommandInvocation,
+  resolveOpenClawLikeProfileInvocation,
+} from "./runtime.js";
 
 function getStrictOpenClawLikeWorkspaceDir(bridgeConfig: OpenClawLikeBridgeSettings): string {
   return bridgeConfig.workspaceDir;
 }
 
-function resolveOpenClawLikeCommand(
+function parseProfilesEnv(raw: string | undefined): OpenClawLikeProfilesConfig | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  return parseOpenClawLikeProfilesValue(trimmed, "PUB_OPENCLAW_LIKE_PROFILES");
+}
+
+function resolveOpenClawLikeInvocation(
   bridgeConfig?: PubBridgeConfig | BridgeSettings,
   env: NodeJS.ProcessEnv = process.env,
-): string | undefined {
-  return env.PUB_OPENCLAW_LIKE_COMMAND?.trim() || bridgeConfig?.openclawLikeCommand?.trim();
+): OpenClawLikeCommandInvocation | undefined {
+  const profiles =
+    parseProfilesEnv(env.PUB_OPENCLAW_LIKE_PROFILES) ??
+    (bridgeConfig?.openclawLikeProfiles
+      ? normalizeOpenClawLikeProfiles(bridgeConfig.openclawLikeProfiles)
+      : undefined);
+  if (!profiles) return undefined;
+  const defaultProfile = resolveOpenClawLikeDefaultProfile(
+    env.PUB_OPENCLAW_LIKE_DEFAULT_PROFILE ?? bridgeConfig?.openclawLikeDefaultProfile,
+    profiles,
+  );
+  if (!defaultProfile) return undefined;
+
+  return resolveOpenClawLikeProfileInvocation(
+    {
+      ...(bridgeConfig as OpenClawLikeBridgeSettings),
+      mode: "openclaw-like",
+      openclawLikeProfiles: profiles,
+      openclawLikeDefaultProfile: defaultProfile,
+      workspaceDir: resolveOpenClawLikeWorkspaceDir(env),
+    },
+    defaultProfile,
+  );
 }
 
 function resolveOpenClawLikeWorkspaceDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -75,17 +108,17 @@ export async function runOpenClawLikeBridgeStartupProbe(
   env: NodeJS.ProcessEnv = process.env,
   bridgeConfig?: PubBridgeConfig | BridgeSettings,
   options?: { strictConfig: boolean },
-): Promise<{ command: string; cwd: string }> {
+): Promise<{ command: string; cwd: string; profileId: string }> {
   const strictConfig = options?.strictConfig === true;
-  const command =
+  const invocation =
     strictConfig && bridgeConfig
-      ? getStrictOpenClawLikeCommand(bridgeConfig as OpenClawLikeBridgeSettings)
-      : resolveOpenClawLikeCommand(bridgeConfig, env);
-  if (!command) {
-    throw new Error("openclawLike.command is not configured.");
+      ? resolveOpenClawLikeProfileInvocation(bridgeConfig as OpenClawLikeBridgeSettings)
+      : resolveOpenClawLikeInvocation(bridgeConfig, env);
+  if (!invocation) {
+    throw new Error("openclawLike.profiles and openclawLike.defaultProfile are not configured.");
   }
-  if (!existsSync(command)) {
-    throw new Error(`openclaw-like command not found on disk: ${command}`);
+  if (!existsSync(invocation.command)) {
+    throw new Error(`openclaw-like command not found on disk: ${invocation.command}`);
   }
 
   const workspaceDir =
@@ -101,7 +134,8 @@ export async function runOpenClawLikeBridgeStartupProbe(
         const socketPath = probeEnv.PUB_AGENT_SOCKET ?? "";
         await deliverMessageToCommand(
           {
-            command,
+            command: invocation.command,
+            args: invocation.args,
             text: [
               "[pub preflight] Connectivity probe.",
               "Run this exact command now:",
@@ -115,8 +149,12 @@ export async function runOpenClawLikeBridgeStartupProbe(
       },
     });
   } catch (error) {
-    throw formatOpenClawLikeProbeFailure({ command, workspaceDir, error });
+    throw formatOpenClawLikeProbeFailure({
+      command: invocation.command,
+      workspaceDir,
+      error,
+    });
   }
 
-  return { command, cwd: workspaceDir };
+  return { command: invocation.command, cwd: workspaceDir, profileId: invocation.profileId };
 }

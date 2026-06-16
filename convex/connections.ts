@@ -1,8 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import { v } from "convex/values";
+import { isLiveAgentProfileId } from "../shared/live-agent-profile";
 import type { LiveInfo } from "../shared/live-api-core";
-import { type LiveModelProfile, resolveLiveModelProfile } from "../shared/live-model-profile";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { isFreshHost, listFreshOnlineHosts } from "./presence";
@@ -28,25 +28,15 @@ async function getConnectionByActiveSlug(db: GenericDatabaseReader<DataModel>, s
     .first();
 }
 
-async function getModelProfileForUser(
-  db: GenericDatabaseReader<DataModel>,
-  userId: Id<"users">,
-): Promise<LiveModelProfile> {
-  const user = await db.get(userId);
-  return resolveLiveModelProfile(user?.liveModelProfile);
-}
-
-function mapConnectionInfo(
-  conn: {
-    activeSlug?: string;
-    browserOffer?: string;
-    agentAnswer?: string;
-    agentCandidates: string[];
-    browserCandidates: string[];
-    createdAt: number;
-  },
-  modelProfile: LiveModelProfile,
-): LiveInfo {
+function mapConnectionInfo(conn: {
+  activeSlug?: string;
+  browserOffer?: string;
+  agentAnswer?: string;
+  agentCandidates: string[];
+  browserCandidates: string[];
+  liveProfileId?: string;
+  createdAt: number;
+}): LiveInfo {
   return {
     slug: conn.activeSlug ?? "",
     browserOffer: conn.browserOffer,
@@ -54,7 +44,7 @@ function mapConnectionInfo(
     browserCandidates: conn.browserCandidates,
     agentCandidates: conn.agentCandidates,
     createdAt: conn.createdAt,
-    modelProfile,
+    liveProfileId: conn.liveProfileId,
   };
 }
 
@@ -139,8 +129,7 @@ export const getConnectionForHost = internalQuery({
       .first();
     if (!conn || conn.userId !== userId) return null;
 
-    const modelProfile = await getModelProfileForUser(ctx.db, userId);
-    return mapConnectionInfo(conn, modelProfile);
+    return mapConnectionInfo(conn);
   },
 });
 
@@ -169,8 +158,7 @@ export const getConnectionForAgent = query({
       .first();
     if (!conn) return null;
 
-    const modelProfile = await getModelProfileForUser(ctx.db, key.userId);
-    return mapConnectionInfo(conn, modelProfile);
+    return mapConnectionInfo(conn);
   },
 });
 
@@ -197,10 +185,14 @@ export const requestConnection = mutation({
     browserSessionId: v.string(),
     browserOffer: v.string(),
     hostId: v.id("hosts"),
+    liveProfileId: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, browserSessionId, browserOffer, hostId }) => {
+  handler: async (ctx, { slug, browserSessionId, browserOffer, hostId, liveProfileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    if (liveProfileId !== undefined && !isLiveAgentProfileId(liveProfileId)) {
+      throw new Error("Invalid live profile");
+    }
 
     const pub = await ctx.db
       .query("pubs")
@@ -241,6 +233,7 @@ export const requestConnection = mutation({
       agentAnswer: undefined,
       agentCandidates: [],
       browserCandidates: [],
+      liveProfileId,
       createdAt: now,
     };
 

@@ -11,7 +11,11 @@ import { buildClaudeArgsFromSettings } from "./claude-code/index.js";
 import { readSdkAssistantText } from "./claude-sdk/event-reader.js";
 import { buildSdkSessionOptionsFromSettings } from "./claude-sdk/index.js";
 import { loadClaudeSdk } from "./claude-sdk/runtime.js";
-import { deliverMessageToCommand } from "./openclaw-like/runtime.js";
+import {
+  deliverMessageToCommand,
+  type OpenClawLikeCommandInvocation,
+  resolveOpenClawLikeProfileInvocation,
+} from "./openclaw-like/runtime.js";
 
 type AgentCommandProvider = Exclude<CommandAgentProvider, "auto">;
 type DetachedAgentProvider = AgentCommandProvider;
@@ -129,20 +133,35 @@ function hasOpenClawCommandRuntime(bridgeSettings: BridgeSettings): boolean {
 }
 
 function hasOpenClawLikeCommandRuntime(bridgeSettings: BridgeSettings): boolean {
-  return Boolean(bridgeSettings.openclawLikeCommand?.trim());
+  return Boolean(
+    bridgeSettings.openclawLikeProfiles &&
+      Object.keys(bridgeSettings.openclawLikeProfiles).length > 0 &&
+      bridgeSettings.openclawLikeDefaultProfile?.trim(),
+  );
 }
 
-function getOpenClawLikeCommandRuntime(bridgeSettings: BridgeSettings): {
-  command: string;
-  workspaceDir: string;
-} {
-  const command = bridgeSettings.openclawLikeCommand?.trim();
-  if (!command) {
+function getOpenClawLikeCommandRuntime(
+  bridgeSettings: BridgeSettings,
+  requestedProfile?: CommandAgentProfile,
+): OpenClawLikeCommandInvocation & { workspaceDir: string } {
+  const profiles = bridgeSettings.openclawLikeProfiles;
+  const defaultProfile = bridgeSettings.openclawLikeDefaultProfile?.trim();
+  if (!profiles || !defaultProfile) {
     throw new Error(
-      "OpenClaw-like runtime is not configured for canvas agent commands. Set `openclawLike.command` or `PUB_OPENCLAW_LIKE_COMMAND`.",
+      "OpenClaw-like runtime is not configured for canvas agent commands. Set `openclawLike.profiles` and `openclawLike.defaultProfile`.",
     );
   }
-  return { command, workspaceDir: bridgeSettings.workspaceDir };
+  const profileId = requestedProfile === "default" ? undefined : requestedProfile;
+  const invocation = resolveOpenClawLikeProfileInvocation(
+    {
+      ...bridgeSettings,
+      mode: "openclaw-like",
+      openclawLikeProfiles: profiles,
+      openclawLikeDefaultProfile: defaultProfile,
+    },
+    profileId,
+  );
+  return { ...invocation, workspaceDir: bridgeSettings.workspaceDir };
 }
 
 export function resolveMainAgentCommandProvider(params: {
@@ -253,6 +272,11 @@ export function resolveDetachedAgentModel(params: {
   model?: string;
 }): string | undefined {
   const explicitModel = params.model?.trim();
+  if (params.provider === "openclaw-like" && explicitModel) {
+    throw new Error(
+      "AGENT_MODEL_OVERRIDE_INVALID: openclaw-like detached agent commands cannot override the model.",
+    );
+  }
   if (explicitModel) return explicitModel;
 
   const profile = resolveDetachedProfile(params.bridgeSettings, params.profile);
@@ -261,14 +285,7 @@ export function resolveDetachedAgentModel(params: {
     if (profile === "deep") return params.bridgeSettings.claudeCodeCommandModelDeep?.trim();
     return params.bridgeSettings.claudeCodeCommandModelDefault?.trim();
   }
-  if (params.provider === "openclaw-like") {
-    if (params.model?.trim()) {
-      throw new Error(
-        "AGENT_MODEL_OVERRIDE_INVALID: openclaw-like detached agent commands cannot override the model.",
-      );
-    }
-    return undefined;
-  }
+  if (params.provider === "openclaw-like") return undefined;
   if (profile === "fast") return params.bridgeSettings.claudeSdkCommandModelFast?.trim();
   if (profile === "deep") return params.bridgeSettings.claudeSdkCommandModelDeep?.trim();
   return params.bridgeSettings.claudeSdkCommandModelDefault?.trim();
@@ -496,11 +513,13 @@ async function executeDetachedOpenClawLikeAgentCommand(params: {
   maxOutputBytes: number;
   signal: AbortSignal;
   bridgeSettings: BridgeSettings;
+  profile: CommandAgentProfile;
 }): Promise<unknown> {
-  const runtime = getOpenClawLikeCommandRuntime(params.bridgeSettings);
+  const runtime = getOpenClawLikeCommandRuntime(params.bridgeSettings, params.profile);
   const outputText = await deliverMessageToCommand(
     {
       command: runtime.command,
+      args: runtime.args,
       text: buildOpenClawLikeDetachedPrompt(params.prompt, params.output),
     },
     process.env,
@@ -605,6 +624,7 @@ export async function executeAgentCommand(params: {
       maxOutputBytes: params.maxOutputBytes,
       signal: params.signal,
       bridgeSettings: params.bridgeSettings,
+      profile: detached.profile,
     });
   }
 

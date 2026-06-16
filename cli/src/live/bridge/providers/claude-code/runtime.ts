@@ -1,11 +1,10 @@
 import { spawn } from "node:child_process";
-import type { LiveModelProfile } from "../../../../../../shared/live-model-profile.js";
-import { resolveClaudeLiveModel } from "../claude-live-model.js";
+import { resolveClaudeLiveModelIfConfigured } from "../claude-live-model.js";
 import { shouldSkipClaudePermissionsPrompt } from "./permissions.js";
 
 interface ClaudeArgsSettings {
   claudeCodeMaxTurns?: number;
-  liveModelProfile?: LiveModelProfile;
+  liveProfileId?: string;
 }
 
 export function runClaudeCodePreflight(
@@ -44,10 +43,7 @@ export function buildClaudeArgsFromSettings(
   }
   if (sessionId) args.push("--resume", sessionId);
   const model =
-    opts?.model?.trim() ||
-    (bridgeSettings.liveModelProfile
-      ? resolveClaudeLiveModel(bridgeSettings.liveModelProfile)
-      : undefined);
+    opts?.model?.trim() || resolveClaudeLiveModelIfConfigured(bridgeSettings.liveProfileId);
   if (model) args.push("--model", model);
   const maxTurns = opts?.maxTurns ?? bridgeSettings.claudeCodeMaxTurns;
   if (maxTurns !== undefined) args.push("--max-turns", String(maxTurns));

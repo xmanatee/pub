@@ -1,11 +1,16 @@
 import { BRIDGE_MODES, type BridgeMode } from "../../live/bridge/providers/types.js";
 import { parsePositiveInteger } from "../utils/number.js";
 import {
+  parseOpenClawLikeProfilesValue,
+  resolveOpenClawLikeDefaultProfile,
+} from "./openclaw-like-profiles.js";
+import {
   type CommandAgentProfile,
   DEFAULT_BASE_URL,
   DEFAULT_COMMAND_AGENT_PROFILE,
   DEFAULT_RELAY_URL,
   type DetachedAgentProvider,
+  type OpenClawLikeProfilesConfig,
   type PubBridgeConfig,
   type PubConfig,
   type PubTelegramConfig,
@@ -24,7 +29,8 @@ export type ConfigValueType =
   | "integer"
   | "bridge-mode"
   | "agent-profile"
-  | "detached-agent-provider";
+  | "detached-agent-provider"
+  | "openclaw-like-profiles";
 export type ConfigDisplayMode = "value" | "set-only";
 
 export type ConfigVarDefinition = {
@@ -134,9 +140,13 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     description: "Claude max turns override.",
     env: ["CLAUDE_CODE_MAX_TURNS"],
   }),
-  bridgeVar("openclawLike.command", "openclawLikeCommand", "string", {
-    description: "Command path for openclaw-like bridge delivery.",
-    env: ["PUB_OPENCLAW_LIKE_COMMAND"],
+  bridgeVar("openclawLike.profiles", "openclawLikeProfiles", "openclaw-like-profiles", {
+    description: "JSON map of openclaw-like live profile command definitions.",
+    env: ["PUB_OPENCLAW_LIKE_PROFILES"],
+  }),
+  bridgeVar("openclawLike.defaultProfile", "openclawLikeDefaultProfile", "string", {
+    description: "Default openclaw-like live profile id.",
+    env: ["PUB_OPENCLAW_LIKE_DEFAULT_PROFILE"],
   }),
   bridgeVar("claude-channel.socketPath", "channelSocketPath", "string", {
     description: "Unix socket path for the claude-channel relay.",
@@ -286,13 +296,26 @@ export function isMutableConfigVar(definition: ConfigVarDefinition): boolean {
 export function coerceConfigVarInput(
   definition: ConfigVarDefinition,
   raw: string,
-): string | number | boolean | BridgeMode | CommandAgentProfile | DetachedAgentProvider {
+):
+  | string
+  | number
+  | boolean
+  | BridgeMode
+  | CommandAgentProfile
+  | DetachedAgentProvider
+  | OpenClawLikeProfilesConfig {
   if (definition.type === "integer") return parsePositiveInteger(raw, definition.key);
   if (definition.type === "boolean") return parseBooleanValue(raw, definition.key);
   if (definition.type === "bridge-mode") return parseBridgeModeValue(raw, definition.key);
   if (definition.type === "agent-profile") return parseAgentProfileValue(raw, definition.key);
   if (definition.type === "detached-agent-provider") {
     return parseDetachedAgentProviderValue(raw, definition.key);
+  }
+  if (definition.type === "openclaw-like-profiles") {
+    return parseOpenClawLikeProfilesValue(raw, definition.key);
+  }
+  if (definition.key === "openclawLike.defaultProfile") {
+    return resolveOpenClawLikeDefaultProfile(raw, undefined, definition.key) ?? raw.trim();
   }
   return raw.trim();
 }
@@ -302,7 +325,14 @@ export function readEnvOverride(
   env: NodeJS.ProcessEnv = process.env,
 ): {
   key: string;
-  value: string | number | boolean | BridgeMode | CommandAgentProfile | DetachedAgentProvider;
+  value:
+    | string
+    | number
+    | boolean
+    | BridgeMode
+    | CommandAgentProfile
+    | DetachedAgentProvider
+    | OpenClawLikeProfilesConfig;
 } | null {
   if (!definition.env || definition.env.length === 0) return null;
 

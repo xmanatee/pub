@@ -5,6 +5,7 @@ import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-pr
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { exitProcess } from "../../core/process/exit.js";
+import { getLiveAgentProfileOptions } from "../bridge/providers/live-profiles.js";
 import { createLiveCommandHandler } from "../command/handler.js";
 import { latestCliVersionPath } from "../runtime/daemon-files.js";
 import { type DevServer, killProcessGroup } from "../server/manager.js";
@@ -35,6 +36,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
   const state = createDaemonState();
   const startTime = Date.now();
   const daemonSessionId = randomUUID();
+  const liveProfiles = getLiveAgentProfileOptions(config.bridgeSettings);
   const verboseEnabled = config.bridgeSettings.verbose === true;
   const versionFilePath = latestCliVersionPath();
 
@@ -61,6 +63,9 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       workspaceDir: session.workspaceCanvasDir,
       attachmentDir: session.attachmentDir,
       artifactsDir: session.artifactsDir,
+      ...(session.kind === "pub" && state.signalingLiveProfileId
+        ? { liveProfileId: state.signalingLiveProfileId }
+        : {}),
     };
   }
 
@@ -274,7 +279,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     lifecycle.debugLog("re-registering presence");
 
     try {
-      await apiClient.goOnline({ daemonSessionId, agentName });
+      await apiClient.goOnline({ daemonSessionId, agentName, liveProfiles });
     } catch (error) {
       if (isPresenceOwnershipConflictError(error)) {
         await handlePresenceOwnershipConflict(error);
@@ -297,7 +302,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     lifecycle.debugLog("presence re-registered successfully");
   }
 
-  await apiClient.goOnline({ daemonSessionId, agentName });
+  await apiClient.goOnline({ daemonSessionId, agentName, liveProfiles });
   state.heartbeatTimer = setInterval(async () => {
     if (state.stopped) return;
     const generation = presenceGeneration;

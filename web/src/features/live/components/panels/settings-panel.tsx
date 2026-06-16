@@ -1,4 +1,5 @@
 import type { Id } from "@backend/_generated/dataModel";
+import type { LiveAgentProfileOption } from "@shared/live-agent-profile";
 import { Star } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -19,18 +20,25 @@ export function SettingsPanel() {
     developerModeEnabled,
     files,
     hasCanvasContent,
+    liveProfilesByAgent,
     messages,
     selectedHostId,
     setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
     setDeveloperModeEnabled,
+    setLiveProfileForAgent,
     setSelectedHostId,
     setVoiceModeEnabled,
     voiceModeEnabled,
   } = useLiveSession();
 
   const canSwitchAgent = availableAgents.length > 1;
+  const selectedAgent = selectedHostId
+    ? availableAgents.find((agent) => agent.hostId === selectedHostId)
+    : availableAgents.length === 1
+      ? availableAgents[0]
+      : null;
 
   return (
     <div
@@ -44,6 +52,17 @@ export function SettingsPanel() {
           selectedHostId={selectedHostId}
           onSelect={setSelectedHostId}
           onSetDefault={setDefaultAgentName}
+        />
+      )}
+
+      {selectedAgent && (selectedAgent.liveProfiles ?? []).length > 0 && (
+        <LiveProfileCard
+          agentName={selectedAgent.agentName}
+          profiles={selectedAgent.liveProfiles ?? []}
+          selectedProfileId={liveProfilesByAgent[selectedAgent.agentName] ?? null}
+          onSelectProfile={(profileId) =>
+            setLiveProfileForAgent(selectedAgent.agentName, profileId)
+          }
         />
       )}
 
@@ -141,7 +160,11 @@ function AgentCard({
   onSelect,
   onSetDefault,
 }: {
-  availableAgents: Array<{ hostId: Id<"hosts">; agentName: string }>;
+  availableAgents: Array<{
+    hostId: Id<"hosts">;
+    agentName: string;
+    liveProfiles?: LiveAgentProfileOption[];
+  }>;
   defaultAgentName: string | null;
   selectedHostId: Id<"hosts"> | null;
   onSelect: (hostId: Id<"hosts"> | null) => void;
@@ -185,6 +208,60 @@ function AgentCard({
                 />
               </button>
             </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function LiveProfileCard({
+  agentName,
+  profiles,
+  selectedProfileId,
+  onSelectProfile,
+}: {
+  agentName: string;
+  profiles: LiveAgentProfileOption[];
+  selectedProfileId: string | null;
+  onSelectProfile: (profileId: string | null) => void;
+}) {
+  const selectedProfileIsAvailable = profiles.some((profile) => profile.id === selectedProfileId);
+  const activeProfileId = selectedProfileIsAvailable ? selectedProfileId : null;
+
+  return (
+    <Card>
+      <CardHeader className="px-4 py-3">
+        <CardTitle className="text-sm">Profile</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 px-2 pb-3">
+        <button
+          type="button"
+          className={`w-full rounded-lg px-2 py-2 text-left text-sm ${activeProfileId === null ? "bg-accent" : ""}`}
+          onClick={() => onSelectProfile(null)}
+          disabled={activeProfileId === null}
+        >
+          <span className="font-medium">Daemon default</span>
+          <span className="block text-xs text-muted-foreground">
+            Use the default profile configured for {agentName}.
+          </span>
+        </button>
+
+        {profiles.map((profile) => {
+          const isCurrent = activeProfileId === profile.id;
+          return (
+            <button
+              key={profile.id}
+              type="button"
+              className={`w-full rounded-lg px-2 py-2 text-left text-sm ${isCurrent ? "bg-accent" : ""}`}
+              onClick={() => onSelectProfile(profile.id)}
+              disabled={isCurrent}
+            >
+              <span className="font-medium">{profile.label}</span>
+              {profile.description && (
+                <span className="block text-xs text-muted-foreground">{profile.description}</span>
+              )}
+            </button>
           );
         })}
       </CardContent>

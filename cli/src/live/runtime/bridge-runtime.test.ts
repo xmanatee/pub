@@ -76,7 +76,10 @@ describe("bridge-runtime", () => {
       "openclaw-like",
       {
         claudeCodePath: "/usr/local/bin/claude",
-        openclawLikeCommand: "/tmp/openclaw-like-command",
+        openclawLikeProfiles: {
+          default: { label: "Default", command: "/tmp/openclaw-like-command" },
+        },
+        openclawLikeDefaultProfile: "default",
         openclawPath: "/usr/local/bin/openclaw",
         sessionId: "session-2",
       },
@@ -92,6 +95,7 @@ describe("bridge-runtime", () => {
     expect(bridgeSettings.claudeCodePath).toBe("/usr/local/bin/claude");
     expect(bridgeSettings.openclawPath).toBe("/usr/local/bin/openclaw");
     expect(bridgeSettings.sessionId).toBe("session-2");
+    expect(bridgeSettings.openclawLikeProfiles?.default.command).toBe("/tmp/openclaw-like-command");
   });
 
   it("reads detached agent command profile and model overrides from env", () => {

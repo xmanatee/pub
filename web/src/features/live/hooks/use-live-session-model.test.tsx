@@ -8,6 +8,7 @@ const queryState = vi.hoisted(() => ({
     | Array<{
         agentName: string;
         hostId: string;
+        liveProfiles?: Array<{ id: string; label: string }>;
       }>
     | undefined,
   live: undefined as
@@ -59,12 +60,14 @@ function HookHarness({
   defaultAgentName = null,
   onChange,
   slug = "demo",
+  liveProfilesByAgent = {},
 }: {
   defaultAgentName?: string | null;
+  liveProfilesByAgent?: Record<string, string>;
   onChange: (value: ReturnType<typeof useLiveSessionModel>) => void;
   slug?: string;
 }) {
-  const value = useLiveSessionModel(slug, defaultAgentName);
+  const value = useLiveSessionModel(slug, defaultAgentName, liveProfilesByAgent);
 
   useEffect(() => {
     onChange(value);
@@ -208,6 +211,44 @@ describe("useLiveSessionModel", () => {
       browserSessionId: "session-a",
       hostId: "presence-1",
       slug: "pub-b",
+    });
+  });
+
+  it("sends the selected live profile id for the selected agent", async () => {
+    const states: Array<ReturnType<typeof useLiveSessionModel>> = [];
+
+    queryState.live = null;
+    queryState.availableAgents = [
+      {
+        hostId: "presence-1",
+        agentName: "Agent",
+        liveProfiles: [{ id: "codex-fast", label: "Codex Fast" }],
+      },
+    ];
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <HookHarness
+          liveProfilesByAgent={{ Agent: "codex-fast" }}
+          onChange={(value) => states.push(value)}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await states.at(-1)?.storeBrowserOffer({ slug: "demo", offer: "offer-a" });
+    });
+
+    expect(mutationMock).toHaveBeenCalledWith({
+      browserOffer: "offer-a",
+      browserSessionId: "session-a",
+      hostId: "presence-1",
+      liveProfileId: "codex-fast",
+      slug: "demo",
     });
   });
 });

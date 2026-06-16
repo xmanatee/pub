@@ -1,8 +1,10 @@
 import type { Id } from "@backend/_generated/dataModel";
+import type { LiveAgentProfileOption } from "@shared/live-agent-profile";
 
 export interface AgentInfo {
   hostId: Id<"hosts">;
   agentName: string;
+  liveProfiles?: LiveAgentProfileOption[];
 }
 
 export function resolveSelectedHost(

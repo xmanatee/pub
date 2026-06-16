@@ -12,7 +12,7 @@ describe("live-api-core", () => {
         agentCandidates: [],
         browserCandidates: ["c1"],
         createdAt: 1,
-        modelProfile: "thorough",
+        liveProfileId: "codex-fast",
       }),
     ).toEqual({
       slug: "demo",
@@ -22,7 +22,7 @@ describe("live-api-core", () => {
       agentCandidates: [],
       browserCandidates: ["c1"],
       createdAt: 1,
-      modelProfile: "thorough",
+      liveProfileId: "codex-fast",
     });
   });
 
@@ -31,12 +31,20 @@ describe("live-api-core", () => {
   });
 
   it("parses presence bodies", () => {
-    expect(parseAgentPresenceBody({ daemonSessionId: " daemon-1 ", agentName: " Agent " })).toEqual(
-      {
-        ok: true,
-        value: { daemonSessionId: "daemon-1", agentName: "Agent" },
+    expect(
+      parseAgentPresenceBody({
+        daemonSessionId: " daemon-1 ",
+        agentName: " Agent ",
+        liveProfiles: [{ id: "fast", label: "Fast", description: "Quick" }],
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        daemonSessionId: "daemon-1",
+        agentName: "Agent",
+        liveProfiles: [{ id: "fast", label: "Fast", description: "Quick" }],
       },
-    );
+    });
   });
 
   it("validates signal bodies", () => {

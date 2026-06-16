@@ -17,9 +17,6 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     isDeveloper: v.optional(v.boolean()),
     isSubscribed: v.optional(v.boolean()),
-    liveModelProfile: v.optional(
-      v.union(v.literal("fast"), v.literal("balanced"), v.literal("thorough")),
-    ),
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
@@ -85,6 +82,15 @@ export default defineSchema({
     agentName: v.optional(v.string()),
     daemonSessionId: v.string(),
     status: v.union(v.literal("online"), v.literal("offline")),
+    liveProfiles: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          label: v.string(),
+          description: v.optional(v.string()),
+        }),
+      ),
+    ),
     lastHeartbeatAt: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -103,6 +109,7 @@ export default defineSchema({
     agentCandidates: v.array(v.string()),
     browserCandidates: v.array(v.string()),
     activeSlug: v.optional(v.string()),
+    liveProfileId: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])

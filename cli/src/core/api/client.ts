@@ -1,4 +1,8 @@
-import { type LiveInfo, parseLiveInfo } from "../../../../shared/live-api-core";
+import {
+  type AgentPresenceBody,
+  type LiveInfo,
+  parseLiveInfo,
+} from "../../../../shared/live-api-core";
 import { type IceServer, normalizeIceServers } from "../../../../shared/webrtc-transport-core";
 
 interface CreateResult {
@@ -182,7 +186,7 @@ export class PubApiClient {
 
   // -- Agent presence -------------------------------------------------------
 
-  async goOnline(opts: { daemonSessionId: string; agentName?: string }): Promise<void> {
+  async goOnline(opts: AgentPresenceBody): Promise<void> {
     await this.request("/api/v1/agent/online", {
       method: "POST",
       body: JSON.stringify(opts),

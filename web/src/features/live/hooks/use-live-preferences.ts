@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
   autoFullscreen: "pub:live:auto-fullscreen",
   autoOpenCanvas: "pub:live:auto-open-canvas",
   defaultAgentName: "pub:live:default-agent",
+  liveProfilesByAgent: "pub:live:profiles-by-agent",
   voiceModeEnabled: "pub:live:voice-mode-enabled",
 } as const;
 
@@ -27,6 +28,25 @@ export function readStoredString(key: string, getItem: GetItem = defaultGetItem)
   return getItem(key) ?? null;
 }
 
+function readStoredStringRecord(
+  key: string,
+  getItem: GetItem = defaultGetItem,
+): Record<string, string> {
+  const raw = getItem(key);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
 export function useLivePreferences() {
   const [autoFullscreen, setAutoFullscreen] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.autoFullscreen, true),
@@ -39,6 +59,9 @@ export function useLivePreferences() {
   );
   const [defaultAgentName, setDefaultAgentName] = useState(() =>
     readStoredString(STORAGE_KEYS.defaultAgentName),
+  );
+  const [liveProfilesByAgent, setLiveProfilesByAgent] = useState(() =>
+    readStoredStringRecord(STORAGE_KEYS.liveProfilesByAgent),
   );
 
   useEffect(() => {
@@ -61,13 +84,31 @@ export function useLivePreferences() {
     }
   }, [defaultAgentName]);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      STORAGE_KEYS.liveProfilesByAgent,
+      JSON.stringify(liveProfilesByAgent),
+    );
+  }, [liveProfilesByAgent]);
+
+  function setLiveProfileForAgent(agentName: string, profileId: string | null) {
+    setLiveProfilesByAgent((current) => {
+      const next = { ...current };
+      if (profileId === null) delete next[agentName];
+      else next[agentName] = profileId;
+      return next;
+    });
+  }
+
   return {
     autoFullscreen,
     autoOpenCanvas,
     defaultAgentName,
+    liveProfilesByAgent,
     setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
+    setLiveProfileForAgent,
     voiceModeEnabled,
     setVoiceModeEnabled,
   };

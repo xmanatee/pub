@@ -5,7 +5,6 @@ import {
   CONTROL_CHANNEL,
   makeErrorMessage,
 } from "../../../../shared/bridge-protocol-core";
-import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import {
   canSendAgentTraffic,
   isLiveConnectionReady,
@@ -41,7 +40,7 @@ const MAX_BRIDGE_BUFFER_SIZE = 200;
  *  reconciles `state.activeSession` to match this intent, and decides whether
  *  to reattach (matching active session, runner alive) or restart. */
 export type SessionIntent =
-  | { kind: "pub"; slug: string; modelProfile: LiveModelProfile | null }
+  | { kind: "pub"; slug: string; liveProfileId: string | null }
   | { kind: "tunnel"; workspaceDir: string };
 
 function intentMatchesSession(intent: SessionIntent, session: ActiveSession): boolean {
@@ -249,8 +248,8 @@ export function createBridgeManager(params: {
       attachmentDir: session.attachmentDir,
       artifactsDir: session.artifactsDir,
     };
-    if (session.kind === "pub" && state.signalingModelProfile) {
-      return { ...base, liveModelProfile: state.signalingModelProfile };
+    if (session.kind === "pub" && state.signalingLiveProfileId) {
+      return { ...base, liveProfileId: state.signalingLiveProfileId };
     }
     return base;
   }

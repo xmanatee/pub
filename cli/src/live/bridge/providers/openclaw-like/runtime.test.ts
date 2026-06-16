@@ -85,7 +85,8 @@ for (const key of keys) {
 }
 fs.writeFileSync(process.env.PUB_ENV_OUTPUT, JSON.stringify({
   cwd: process.cwd(),
-  prompt: process.argv[2] ?? "",
+  args: process.argv.slice(2),
+  prompt: process.argv.at(-1) ?? "",
   env,
 }));
 process.stdout.write("ok\\n");
@@ -94,7 +95,7 @@ process.stdout.write("ok\\n");
     );
 
     const reply = await deliverMessageToCommand(
-      { command, text: "show me solar system" },
+      { command, args: ["--model", "fast-model"], text: "show me solar system" },
       {
         PATH: process.env.PATH,
         PUB_ENV_OUTPUT: outputPath,
@@ -111,8 +112,10 @@ process.stdout.write("ok\\n");
       cwd: string;
       prompt: string;
       env: Record<string, string | null>;
+      args: string[];
     };
     expect(fs.realpathSync(captured.cwd)).toBe(fs.realpathSync(dir));
+    expect(captured.args).toEqual(["--model", "fast-model", "show me solar system"]);
     expect(captured.prompt).toBe("show me solar system");
     expect(captured.env.PUB_AGENT_SOCKET).toBe("/tmp/daemon.sock");
     expect(captured.env.PUB_DAEMON_MODE).toBeNull();

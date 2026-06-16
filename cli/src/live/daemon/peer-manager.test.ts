@@ -124,14 +124,14 @@ describe("peer-manager state transitions", () => {
     const { mockPeer, ensureAgentReady, flushQueuedAcks, startPingPong, state } =
       createTestPeerManager();
     state.signalingSlug = "demo-slug";
-    state.signalingModelProfile = "fast";
+    state.signalingLiveProfileId = "fast";
     mockPeer.emitStateChange("connected");
     expect(flushQueuedAcks).toHaveBeenCalled();
     expect(startPingPong).toHaveBeenCalled();
     expect(ensureAgentReady).toHaveBeenCalledWith({
       kind: "pub",
       slug: "demo-slug",
-      modelProfile: "fast",
+      liveProfileId: "fast",
     });
   });
 

@@ -1,5 +1,4 @@
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
-import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type {
   LiveAgentActivity,
   LiveAgentState,
@@ -72,10 +71,10 @@ export type DaemonState = {
    *  sessions never set this. Changes immediately when a new browser offer
    *  arrives, before the bridge has been retargeted. */
   signalingSlug: string | null;
-  /** Model profile carried by the most recent pub-flow signaling snapshot.
+  /** Live profile id carried by the most recent pub-flow signaling snapshot.
    *  Threaded into the bridge runner config when the pub bridge starts.
    *  Pub-flow only. */
-  signalingModelProfile: LiveModelProfile | null;
+  signalingLiveProfileId: string | null;
   lastAppliedBrowserOffer: string | null;
   lastBrowserCandidateCount: number;
   lastSentCandidateCount: number;
@@ -119,7 +118,7 @@ export function createDaemonState(): DaemonState {
     bridgeInboundBuffer: [],
     recovering: false,
     signalingSlug: null,
-    signalingModelProfile: null,
+    signalingLiveProfileId: null,
     lastAppliedBrowserOffer: null,
     lastBrowserCandidateCount: 0,
     lastSentCandidateCount: 0,

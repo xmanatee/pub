@@ -1,6 +1,6 @@
 import * as sdk from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeBridgeSettings } from "../../../../core/config/index.js";
-import { resolveClaudeLiveModel } from "../claude-live-model.js";
+import { resolveClaudeLiveModelIfConfigured } from "../claude-live-model.js";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
@@ -24,9 +24,7 @@ export function buildSdkSessionOptionsFromSettings(
   baseEnv: NodeJS.ProcessEnv = process.env,
   opts?: { model?: string },
 ) {
-  const liveModel = bridgeSettings.liveModelProfile
-    ? resolveClaudeLiveModel(bridgeSettings.liveModelProfile)
-    : undefined;
+  const liveModel = resolveClaudeLiveModelIfConfigured(bridgeSettings.liveProfileId);
   return {
     model: opts?.model?.trim() || liveModel || DEFAULT_MODEL,
     claudePath: bridgeSettings.claudeCodePath,

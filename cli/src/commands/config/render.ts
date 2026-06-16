@@ -16,6 +16,7 @@ function formatFieldValue(value: unknown, definition: ConfigVarDefinition): stri
   if (definition.displayAs === "set-only") return "(set)";
   if (definition.secret && typeof value === "string") return maskSecret(value);
   if (definition.type === "boolean") return value ? "true" : "false";
+  if (definition.type === "openclaw-like-profiles") return JSON.stringify(value);
   return String(value);
 }
 

@@ -88,9 +88,11 @@ export function usePubLiveModel({
     autoFullscreen,
     autoOpenCanvas,
     defaultAgentName,
+    liveProfilesByAgent,
     setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
+    setLiveProfileForAgent,
     setVoiceModeEnabled,
     voiceModeEnabled,
   } = useLivePreferences();
@@ -114,7 +116,7 @@ export function usePubLiveModel({
     storeBrowserCandidates,
     storeBrowserOffer,
     takeoverLive,
-  } = useLiveSessionModel(slug, defaultAgentName);
+  } = useLiveSessionModel(slug, defaultAgentName, liveProfilesByAgent);
 
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
 
@@ -693,6 +695,7 @@ export function usePubLiveModel({
     executorState: runtimeState.executorState,
     lastTakeoverAt,
     live,
+    liveProfilesByAgent,
     messages,
     messagesEndRef,
     onCanvasBridgeMessage,
@@ -712,6 +715,7 @@ export function usePubLiveModel({
     setAutoFullscreen,
     setAutoOpenCanvas,
     setDefaultAgentName,
+    setLiveProfileForAgent,
     toggleControlBar,
     setDeveloperModeEnabled,
     setSelectedHostId: handleSelectedHostId,

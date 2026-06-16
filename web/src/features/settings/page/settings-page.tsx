@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
-import { LiveModelSettingsCard } from "~/features/settings/components/live-model-settings-card";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { isFullscreenSupported } from "~/hooks/use-fullscreen";
 import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
@@ -190,8 +189,6 @@ export function SettingsPage() {
           )}
         </CardContent>
       </Card>
-
-      <LiveModelSettingsCard />
 
       {isFullscreenSupported() && (
         <Card className="border-border/50">

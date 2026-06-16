@@ -88,6 +88,61 @@ describe("setPubConfigValue", () => {
     expect(config.bridge?.mode).toBe("claude-sdk");
   });
 
+  it("sets openclaw-like profiles from JSON", () => {
+    const config = makeConfig();
+    setPubConfigValue(
+      config,
+      "openclawLike.profiles",
+      JSON.stringify({
+        fast: {
+          label: "Fast",
+          description: "Quick profile",
+          command: "/usr/local/bin/codex",
+          args: ["--model", "gpt-5.5"],
+        },
+      }),
+    );
+    setPubConfigValue(config, "openclawLike.defaultProfile", "fast");
+
+    expect(config.bridge?.openclawLikeProfiles).toEqual({
+      fast: {
+        label: "Fast",
+        description: "Quick profile",
+        command: "/usr/local/bin/codex",
+        args: ["--model", "gpt-5.5"],
+      },
+    });
+    expect(config.bridge?.openclawLikeDefaultProfile).toBe("fast");
+  });
+
+  it("rejects invalid openclaw-like profile JSON", () => {
+    const config = makeConfig();
+    expect(() => setPubConfigValue(config, "openclawLike.profiles", "{}")).toThrow(
+      "must be a non-empty object",
+    );
+    expect(() =>
+      setPubConfigValue(
+        config,
+        "openclawLike.profiles",
+        JSON.stringify({ "Bad Id": { label: "Bad", command: "/bin/echo" } }),
+      ),
+    ).toThrow("invalid profile id");
+    expect(() =>
+      setPubConfigValue(
+        config,
+        "openclawLike.profiles",
+        JSON.stringify({ fast: { label: "Fast" } }),
+      ),
+    ).toThrow("command is required");
+    expect(() =>
+      setPubConfigValue(
+        config,
+        "openclawLike.profiles",
+        JSON.stringify({ fast: { label: "Fast", command: "/bin/echo", args: ["ok", 1] } }),
+      ),
+    ).toThrow("args must be an array of strings");
+  });
+
   it("sets bridge.mode to claude-channel", () => {
     const config = makeConfig();
     setPubConfigValue(config, "bridge.mode", "claude-channel");
@@ -147,13 +202,16 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(29);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(30);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");
     expect(SUPPORTED_CONFIG_KEYS).toContain("sentryDsn");
     expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.verbose");
     expect(SUPPORTED_CONFIG_KEYS).toContain("command.agent.defaultProfile");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("openclawLike.profiles");
+    expect(SUPPORTED_CONFIG_KEYS).toContain("openclawLike.defaultProfile");
+    expect(SUPPORTED_CONFIG_KEYS).not.toContain("openclawLike.command");
     expect(SUPPORTED_CONFIG_KEYS).toContain("claude-sdk.commandModelFast");
     expect(SUPPORTED_CONFIG_KEYS).toContain("telegram.botToken");
     expect(SUPPORTED_CONFIG_KEYS).toContain("claude-channel.socketPath");

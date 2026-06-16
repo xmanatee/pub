@@ -124,6 +124,7 @@ Notes:
 - Standalone binary installs fall back to `claude-code` when the Claude Agent SDK package is not locally importable.
 - `bridge.mode=claude-sdk` requires `@anthropic-ai/claude-agent-sdk` to be available in the local JS environment.
 - `bridge.mode=claude-channel` expects a running relay socket. Start it with `pub channel-server` and override the socket path with `claude-channel.socketPath` or `PUB_CHANNEL_SOCKET_PATH` when needed.
+- `bridge.mode=openclaw-like` uses named command profiles from `openclawLike.profiles` and `openclawLike.defaultProfile`; profile args are passed before the final prompt.
 - Canvas command-manifest `agent` executors require a local agent runtime:
   `provider: "claude-code"` needs `claude-code.path` or `CLAUDE_CODE_PATH`;
   `provider: "openclaw"` needs `openclaw.path` and `openclaw.sessionId` or matching env vars.

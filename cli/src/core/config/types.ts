@@ -1,4 +1,3 @@
-import type { LiveModelProfile } from "../../../../shared/live-model-profile.js";
 import type { BridgeMode } from "../../live/bridge/providers/types.js";
 
 export { DEFAULT_COMMAND_TIMEOUT_MS } from "../../../../shared/command-protocol-core.js";
@@ -11,6 +10,15 @@ export const DEFAULT_COMMAND_AGENT_PROFILE = "default";
 
 export type CommandAgentProfile = "fast" | "default" | "deep";
 export type DetachedAgentProvider = "claude-code" | "claude-sdk" | "openclaw" | "openclaw-like";
+
+export type OpenClawLikeProfileConfig = {
+  label: string;
+  description?: string;
+  command: string;
+  args?: string[];
+};
+
+export type OpenClawLikeProfilesConfig = Record<string, OpenClawLikeProfileConfig>;
 
 export type PubCoreConfig = {
   apiKey?: string;
@@ -38,7 +46,8 @@ export type PubBridgeConfig = {
   claudeSdkCommandModelDefault?: string;
   claudeSdkCommandModelFast?: string;
   claudeSdkCommandModelDeep?: string;
-  openclawLikeCommand?: string;
+  openclawLikeProfiles?: OpenClawLikeProfilesConfig;
+  openclawLikeDefaultProfile?: string;
   channelSocketPath?: string;
 };
 
@@ -84,9 +93,10 @@ interface BridgeSettingsBase {
   claudeSdkCommandModelDefault?: string;
   claudeSdkCommandModelFast?: string;
   claudeSdkCommandModelDeep?: string;
-  openclawLikeCommand?: string;
+  openclawLikeProfiles?: OpenClawLikeProfilesConfig;
+  openclawLikeDefaultProfile?: string;
   channelSocketPath?: string;
-  liveModelProfile?: LiveModelProfile;
+  liveProfileId?: string;
 }
 
 export type OpenClawBridgeSettings = BridgeSettingsBase & {
@@ -106,7 +116,8 @@ export type ClaudeChannelBridgeSettings = BridgeSettingsBase & {
 
 export type OpenClawLikeBridgeSettings = BridgeSettingsBase & {
   mode: "openclaw-like";
-  openclawLikeCommand: string;
+  openclawLikeProfiles: OpenClawLikeProfilesConfig;
+  openclawLikeDefaultProfile: string;
 };
 
 export type BridgeSettings =

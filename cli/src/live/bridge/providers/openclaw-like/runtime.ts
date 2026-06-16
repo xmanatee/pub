@@ -1,5 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type {
+  OpenClawLikeBridgeSettings,
+  OpenClawLikeProfileConfig,
+} from "../../../../core/config/index.js";
 import { formatExecFailure } from "../exec-failure.js";
 
 const execFileAsync = promisify(execFile);
@@ -34,14 +38,40 @@ interface DeliverySettings {
   workspaceDir: string;
 }
 
+export type OpenClawLikeCommandInvocation = {
+  profileId: string;
+  command: string;
+  args: string[];
+};
+
+export function resolveOpenClawLikeProfileInvocation(
+  bridgeSettings: OpenClawLikeBridgeSettings,
+  requestedProfileId?: string | null,
+): OpenClawLikeCommandInvocation {
+  const profileId = requestedProfileId?.trim() || bridgeSettings.openclawLikeDefaultProfile;
+  const profile: OpenClawLikeProfileConfig | undefined =
+    bridgeSettings.openclawLikeProfiles[profileId];
+  if (!profile) {
+    const available = Object.keys(bridgeSettings.openclawLikeProfiles).sort().join(", ");
+    throw new Error(
+      `Unknown openclaw-like live profile "${profileId}". Available profiles: ${available || "(none)"}.`,
+    );
+  }
+  return {
+    profileId,
+    command: profile.command,
+    args: profile.args ?? [],
+  };
+}
+
 export async function deliverMessageToCommand(
-  params: { command: string; text: string },
+  params: { command: string; args?: string[]; text: string },
   env: NodeJS.ProcessEnv = process.env,
   settings: DeliverySettings,
   options: { timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal } = {},
 ): Promise<string> {
   try {
-    const result = await execFileAsync(params.command, [params.text], {
+    const result = await execFileAsync(params.command, [...(params.args ?? []), params.text], {
       cwd: settings.workspaceDir,
       maxBuffer: options.maxOutputBytes ?? DELIVER_MAX_OUTPUT_BYTES,
       signal: options.signal,

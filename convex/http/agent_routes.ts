@@ -1,5 +1,9 @@
 import { httpRouter } from "convex/server";
-import { parseAgentPresenceBody, parseAgentSignalBody } from "../../shared/live-api-core";
+import {
+  type AgentPresenceBody,
+  parseAgentPresenceBody,
+  parseAgentSignalBody,
+} from "../../shared/live-api-core";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { httpAction } from "../_generated/server";
@@ -25,9 +29,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
     throw error;
   }
 
-  async function readPresenceBody(
-    request: Request,
-  ): Promise<{ daemonSessionId: string; agentName?: string } | Response> {
+  async function readPresenceBody(request: Request): Promise<AgentPresenceBody | Response> {
     try {
       const parsed = parseAgentPresenceBody(await request.json());
       if (!parsed.ok) return errorResponse(parsed.error, 400);
@@ -58,6 +60,7 @@ export function registerAgentRoutes(http: ReturnType<typeof httpRouter>): void {
               apiKeyId: auth.apiKeyId,
               daemonSessionId: body.daemonSessionId,
               agentName: body.agentName,
+              liveProfiles: body.liveProfiles,
             });
           } catch (error) {
             rethrowPresenceApiError(error);

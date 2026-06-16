@@ -1,5 +1,6 @@
 import { api } from "@backend/_generated/api";
 import type { Id } from "@backend/_generated/dataModel";
+import type { LiveAgentProfileOption } from "@shared/live-agent-profile";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveSelectedHost } from "~/features/live/model/agent-selection";
@@ -51,7 +52,32 @@ function useRetainedQueryValue<T>(value: T | undefined, resetKey: string): T | u
   return value ?? retainedRef.current;
 }
 
-export function useLiveSessionModel(slug: string, defaultAgentName: string | null) {
+type AvailableAgent = {
+  hostId: Id<"hosts">;
+  agentName: string;
+  liveProfiles?: LiveAgentProfileOption[];
+};
+
+function resolveSelectedLiveProfileId(
+  availableAgents: AvailableAgent[] | undefined,
+  selectedHostId: Id<"hosts"> | null,
+  liveProfilesByAgent: Record<string, string>,
+): string | undefined {
+  if (!availableAgents || selectedHostId === null) return undefined;
+  const agent = availableAgents.find((entry) => entry.hostId === selectedHostId);
+  if (!agent) return undefined;
+  const profileId = liveProfilesByAgent[agent.agentName];
+  if (!profileId) return undefined;
+  return (agent.liveProfiles ?? []).some((profile) => profile.id === profileId)
+    ? profileId
+    : undefined;
+}
+
+export function useLiveSessionModel(
+  slug: string,
+  defaultAgentName: string | null,
+  liveProfilesByAgent: Record<string, string> = {},
+) {
   const liveQuery = useQuery(api.connections.getConnectionBySlug, { slug });
   const availableAgentsQuery = useQuery(api.presence.listAvailableForSlug, { slug });
   const live = useRetainedQueryValue(liveQuery, slug);
@@ -95,12 +121,19 @@ export function useLiveSessionModel(slug: string, defaultAgentName: string | nul
     async (input: { slug: string; offer: string }) => {
       if (!selectedHostId) throw new Error("No agent selected");
       try {
-        const result = await requestConnectionMutation({
+        const liveProfileId = resolveSelectedLiveProfileId(
+          availableAgents,
+          selectedHostId,
+          liveProfilesByAgent,
+        );
+        const request = {
           slug: input.slug,
           browserSessionId,
           browserOffer: input.offer,
           hostId: selectedHostId,
-        });
+          ...(liveProfileId ? { liveProfileId } : {}),
+        };
+        const result = await requestConnectionMutation(request);
         setSessionError(null);
         return result;
       } catch (error) {
@@ -108,7 +141,13 @@ export function useLiveSessionModel(slug: string, defaultAgentName: string | nul
         throw error;
       }
     },
-    [browserSessionId, requestConnectionMutation, selectedHostId],
+    [
+      availableAgents,
+      browserSessionId,
+      liveProfilesByAgent,
+      requestConnectionMutation,
+      selectedHostId,
+    ],
   );
 
   const storeBrowserCandidates = useCallback(

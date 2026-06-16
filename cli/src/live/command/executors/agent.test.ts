@@ -87,7 +87,10 @@ describe("agent command executor helpers", () => {
         bridgeSettings: {
           ...baseBridgeSettings,
           mode: "openclaw-like",
-          openclawLikeCommand: "/usr/local/bin/codex-bridge",
+          openclawLikeProfiles: {
+            default: { label: "Default", command: "/usr/local/bin/codex-bridge" },
+          },
+          openclawLikeDefaultProfile: "default",
         },
         spec: {
           kind: "agent",
@@ -113,7 +116,9 @@ describe("agent command executor helpers", () => {
       [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
-        `printf '%s' "$1" > ${JSON.stringify(promptFile)}`,
+        '[[ "$1" == "--model" ]]',
+        '[[ "$2" == "fast-model" ]]',
+        `printf '%s' "$3" > ${JSON.stringify(promptFile)}`,
         `printf '%s' '{"answer":"ok"}'`,
       ].join("\n"),
     );
@@ -128,12 +133,17 @@ describe("agent command executor helpers", () => {
       bridgeSettings: {
         ...baseBridgeSettings,
         mode: "openclaw-like",
-        openclawLikeCommand: command,
+        openclawLikeProfiles: {
+          fast: { label: "Fast", command, args: ["--model", "fast-model"] },
+          default: { label: "Default", command },
+        },
+        openclawLikeDefaultProfile: "default",
       },
       spec: {
         kind: "agent",
         prompt: "Return an answer.",
         mode: "detached",
+        profile: "fast",
       },
     });
 

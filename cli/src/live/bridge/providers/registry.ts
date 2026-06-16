@@ -236,6 +236,7 @@ const BRIDGE_PROVIDERS: BridgeProvider[] = [
       const runtime = await runOpenClawLikeBridgeStartupProbe(env, bridgeConfig, options);
       return {
         detailLines: [
+          `openclaw-like profile: ${runtime.profileId}`,
           `openclaw-like command: ${runtime.command}`,
           `openclaw-like cwd: ${runtime.cwd}`,
           'openclaw-like communication via `pub write "pong"`: OK',

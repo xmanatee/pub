@@ -72,17 +72,26 @@ export function createBridgeTestConfig(mode: BridgeMode): BridgeTestConfig {
         },
       };
 
-    case "openclaw-like":
+    case "openclaw-like": {
+      const profiles = {
+        default: {
+          label: "Default",
+          command: MOCK_COMMAND_PATH,
+        },
+      };
       return {
         mode,
         configExtra: {
-          openclawLikeCommand: MOCK_COMMAND_PATH,
+          openclawLikeProfiles: profiles,
+          openclawLikeDefaultProfile: "default",
         },
         envExtra: {
-          PUB_OPENCLAW_LIKE_COMMAND: MOCK_COMMAND_PATH,
+          PUB_OPENCLAW_LIKE_PROFILES: JSON.stringify(profiles),
+          PUB_OPENCLAW_LIKE_DEFAULT_PROFILE: "default",
           MOCK_COMMAND_RULES_FILE,
         },
       };
+    }
   }
 }
 

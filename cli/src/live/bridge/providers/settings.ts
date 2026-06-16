@@ -7,8 +7,14 @@ import {
   DEFAULT_COMMAND_MAX_OUTPUT_BYTES,
   DEFAULT_COMMAND_TIMEOUT_MS,
   type DetachedAgentProvider,
+  type OpenClawLikeProfilesConfig,
   type PubBridgeConfig,
 } from "../../../core/config/index.js";
+import {
+  normalizeOpenClawLikeProfiles,
+  parseOpenClawLikeProfilesValue,
+  resolveOpenClawLikeDefaultProfile,
+} from "../../../core/config/openclaw-like-profiles.js";
 import { resolvePubPaths } from "../../../core/paths.js";
 import type { BridgeMode } from "./types.js";
 
@@ -31,6 +37,16 @@ function stringValueOrEnv(
   env: NodeJS.ProcessEnv,
 ): string | undefined {
   return trimToUndefined(env[envKey]) ?? trimToUndefined(value);
+}
+
+function openClawLikeProfilesValueOrEnv(
+  value: OpenClawLikeProfilesConfig | undefined,
+  envKey: string,
+  env: NodeJS.ProcessEnv,
+): OpenClawLikeProfilesConfig | undefined {
+  const raw = trimToUndefined(env[envKey]);
+  if (raw !== undefined) return parseOpenClawLikeProfilesValue(raw, envKey);
+  return value === undefined ? undefined : normalizeOpenClawLikeProfiles(value);
 }
 
 function integerValueOrEnv(
@@ -83,6 +99,17 @@ function requireString(value: string | undefined, label: string): string {
     throw new Error(`${label} is not configured. Run \`pub config --auto\` or set it explicitly.`);
   }
   return trimmed;
+}
+
+function requireOpenClawLikeProfiles(
+  value: OpenClawLikeProfilesConfig | undefined,
+): OpenClawLikeProfilesConfig {
+  if (!value || Object.keys(value).length === 0) {
+    throw new Error(
+      "openclawLike.profiles is not configured. Set it to a JSON object of profile command definitions.",
+    );
+  }
+  return value;
 }
 
 export function buildBridgeProcessEnv(): NodeJS.ProcessEnv {
@@ -167,9 +194,14 @@ export function buildBridgeSettings(
       "CLAUDE_SDK_COMMAND_MODEL_DEEP",
       env,
     ),
-    openclawLikeCommand: stringValueOrEnv(
-      bridgeConfig.openclawLikeCommand,
-      "PUB_OPENCLAW_LIKE_COMMAND",
+    openclawLikeProfiles: openClawLikeProfilesValueOrEnv(
+      bridgeConfig.openclawLikeProfiles,
+      "PUB_OPENCLAW_LIKE_PROFILES",
+      env,
+    ),
+    openclawLikeDefaultProfile: stringValueOrEnv(
+      bridgeConfig.openclawLikeDefaultProfile,
+      "PUB_OPENCLAW_LIKE_DEFAULT_PROFILE",
       env,
     ),
     channelSocketPath: stringValueOrEnv(
@@ -196,10 +228,20 @@ export function buildBridgeSettings(
   }
 
   if (mode === "openclaw-like") {
+    const openclawLikeProfiles = requireOpenClawLikeProfiles(base.openclawLikeProfiles);
+    const openclawLikeDefaultProfile = resolveOpenClawLikeDefaultProfile(
+      requireString(base.openclawLikeDefaultProfile, "openclawLike.defaultProfile"),
+      openclawLikeProfiles,
+      "openclawLike.defaultProfile",
+    );
+    if (!openclawLikeDefaultProfile) {
+      throw new Error("openclawLike.defaultProfile is not configured.");
+    }
     return {
       ...base,
       mode,
-      openclawLikeCommand: requireString(base.openclawLikeCommand, "openclawLike.command"),
+      openclawLikeProfiles,
+      openclawLikeDefaultProfile,
     };
   }
 

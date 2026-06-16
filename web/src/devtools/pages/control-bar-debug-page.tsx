@@ -67,7 +67,7 @@ function StaticControlBar({
   initialInput,
 }: {
   agentName?: string;
-  availableAgents?: Array<{ hostId: Id<"hosts">; agentName: string }>;
+  availableAgents?: Array<{ hostId: Id<"hosts">; agentName: string; liveProfiles?: [] }>;
   blobState?: LiveBlobState;
   controlBarState?: LiveControlBarState;
   chatPreview?: string;
@@ -82,7 +82,10 @@ function StaticControlBar({
 
   const value = createMockLiveSession({
     agentName,
-    availableAgents: availableAgents ?? [],
+    availableAgents: (availableAgents ?? []).map((agent) => ({
+      ...agent,
+      liveProfiles: agent.liveProfiles ?? [],
+    })),
     defaultAgentName: defaultAgentName ?? null,
     preview: chatPreview ? { text: chatPreview, source: "agent", severity: undefined } : null,
     controlBarCollapsed: collapsed,

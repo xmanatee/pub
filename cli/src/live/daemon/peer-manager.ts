@@ -1,4 +1,3 @@
-import type { LiveModelProfile } from "../../../../shared/live-model-profile";
 import type { LiveConnectionState } from "../../../../shared/live-runtime-state-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import type { IceServer } from "../../../../shared/webrtc-transport-core";
@@ -91,7 +90,7 @@ export function createPeerManager(params: {
         void ensureAgentReady({
           kind: "pub",
           slug,
-          modelProfile: state.signalingModelProfile,
+          liveProfileId: state.signalingLiveProfileId,
         }).catch((error) => {
           markError("failed to ensure agent ready after peer connected", error);
         });
@@ -164,7 +163,7 @@ export function createPeerManager(params: {
     setDaemonAgentActivity(state, "idle");
     setDaemonAgentState(state, "idle");
     clearAgentPreparation();
-    state.signalingModelProfile = null;
+    state.signalingLiveProfileId = null;
     failPendingAcks();
     stopPingPong();
     state.lastAppliedBrowserOffer = null;
@@ -217,7 +216,7 @@ export function createPeerManager(params: {
   async function handleIncomingLive(
     slug: string,
     browserOffer: string,
-    modelProfile?: LiveModelProfile,
+    liveProfileId?: string,
   ): Promise<void> {
     if (state.recovering) return;
     state.recovering = true;
@@ -226,7 +225,7 @@ export function createPeerManager(params: {
       const recoveryBody = async () => {
         const t0 = Date.now();
         debugLog(
-          `incoming live slug=${slug}${modelProfile ? ` modelProfile=${modelProfile}` : ""}`,
+          `incoming live slug=${slug}${liveProfileId ? ` liveProfileId=${liveProfileId}` : ""}`,
         );
         await clearActiveLiveSession("incoming-live-recovery");
         debugLog(`[profile] cleared old session in ${Date.now() - t0}ms`);
@@ -243,7 +242,7 @@ export function createPeerManager(params: {
         debugLog(`[profile] answer created in ${Date.now() - tAnswer}ms`);
         state.lastAppliedBrowserOffer = browserOffer;
         state.signalingSlug = slug;
-        state.signalingModelProfile = modelProfile ?? null;
+        state.signalingLiveProfileId = liveProfileId ?? null;
         commandHandlerBeginManifestLoad();
 
         const tSignal = Date.now();

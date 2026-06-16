@@ -86,6 +86,9 @@ function validateSkillProtocol() {
   if (!skill.includes('pub write "Working on it"')) {
     fail("skills/pub/SKILL.md must document progress updates through chat.");
   }
+  if (!skill.includes("openclawLike.profiles")) {
+    fail("skills/pub/SKILL.md must document openclaw-like profile configuration.");
+  }
   if (skill.includes("Do not use `pub write` for chat messages.")) {
     fail("skills/pub/SKILL.md must not forbid progress updates through chat.");
   }

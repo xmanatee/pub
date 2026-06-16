@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-prompt="${1:-}"
+if (($# > 0)); then
+  prompt="${!#}"
+  codex_args=("${@:1:$#-1}")
+else
+  prompt=""
+  codex_args=()
+fi
 workspace="${PUB_PROJECT_ROOT:-$PWD}"
 
 if [[ -z "${PUB_AGENT_SOCKET:-}" && -n "${PUB_DAEMON_SOCKET:-}" ]]; then
@@ -50,6 +56,7 @@ fi
 
 run_new_session() {
   codex exec \
+    "${codex_args[@]}" \
     --json \
     --ignore-user-config \
     --cd "$workspace" \
@@ -66,12 +73,14 @@ run_resumed_session() {
   session_id="$(cat "$session_file")"
   (
     cd "$workspace"
-    codex exec resume \
+    codex exec \
+      "${codex_args[@]}" \
       --json \
       --ignore-user-config \
       --skip-git-repo-check \
       --dangerously-bypass-approvals-and-sandbox \
       --output-last-message "$last_message" \
+      resume \
       "$session_id" \
       "$prompt"
   ) >"$codex_log" 2>&1 </dev/null

@@ -6,7 +6,7 @@ import {
   type BridgeStatus,
   prependSystemPrompt,
 } from "../../shared.js";
-import { deliverMessageToCommand } from "./runtime.js";
+import { deliverMessageToCommand, resolveOpenClawLikeProfileInvocation } from "./runtime.js";
 
 export { runOpenClawLikeBridgeStartupProbe } from "./probe.js";
 
@@ -20,16 +20,23 @@ export async function createOpenClawLikeBridgeRunner(
   }
   const { debugLog, sessionBriefing } = config;
   const bridgeSettings = config.bridgeSettings;
-  const command = bridgeSettings.openclawLikeCommand;
+  const invocation = resolveOpenClawLikeProfileInvocation(
+    bridgeSettings,
+    bridgeSettings.liveProfileId,
+  );
 
   let stopped = false;
 
-  await deliverMessageToCommand({ command, text: sessionBriefing }, process.env, bridgeSettings);
-  debugLog("session briefing delivered");
+  await deliverMessageToCommand(
+    { command: invocation.command, args: invocation.args, text: sessionBriefing },
+    process.env,
+    bridgeSettings,
+  );
+  debugLog(`session briefing delivered profile=${invocation.profileId}`);
 
   async function deliver(prompt: string): Promise<void> {
     const reply = await deliverMessageToCommand(
-      { command, text: prependSystemPrompt(prompt) },
+      { command: invocation.command, args: invocation.args, text: prependSystemPrompt(prompt) },
       process.env,
       bridgeSettings,
     );

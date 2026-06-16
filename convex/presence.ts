@@ -1,11 +1,18 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import { v } from "convex/values";
+import type { LiveAgentProfileOption } from "../shared/live-agent-profile";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 
 export const HOST_STALENESS_THRESHOLD_MS = 90_000;
+
+const liveProfileValidator = v.object({
+  id: v.string(),
+  label: v.string(),
+  description: v.optional(v.string()),
+});
 
 export function isFreshHost(host: { lastHeartbeatAt: number }, now: number): boolean {
   return now - host.lastHeartbeatAt < HOST_STALENESS_THRESHOLD_MS;
@@ -30,6 +37,7 @@ export function listFreshOnlineHosts(
     status: "online" | "offline";
     lastHeartbeatAt: number;
     agentName?: string;
+    liveProfiles?: LiveAgentProfileOption[];
   }>,
   now: number,
 ) {
@@ -70,8 +78,9 @@ export const goOnline = internalMutation({
     apiKeyId: v.id("apiKeys"),
     daemonSessionId: v.string(),
     agentName: v.optional(v.string()),
+    liveProfiles: v.optional(v.array(liveProfileValidator)),
   },
-  handler: async (ctx, { userId, apiKeyId, daemonSessionId, agentName }) => {
+  handler: async (ctx, { userId, apiKeyId, daemonSessionId, agentName, liveProfiles }) => {
     const now = Date.now();
 
     // Scan all hosts for this key to detect conflicts and clean up stale entries
@@ -96,8 +105,10 @@ export const goOnline = internalMutation({
         lastHeartbeatAt: number;
         updatedAt: number;
         agentName?: string;
+        liveProfiles?: LiveAgentProfileOption[];
       } = { status: "online", lastHeartbeatAt: now, updatedAt: now };
       if (agentName !== undefined) patch.agentName = agentName;
+      if (liveProfiles !== undefined) patch.liveProfiles = liveProfiles;
       await ctx.db.patch(existing._id, patch);
       await ctx.scheduler.runAt(
         now + HOST_STALENESS_THRESHOLD_MS,
@@ -111,6 +122,7 @@ export const goOnline = internalMutation({
       userId,
       apiKeyId,
       agentName,
+      liveProfiles,
       daemonSessionId,
       status: "online",
       lastHeartbeatAt: now,
@@ -185,6 +197,7 @@ export const listAvailableForSlug = query({
     return listFreshOnlineHosts(hosts, Date.now()).map((host) => ({
       hostId: host._id,
       agentName: host.agentName ?? "Agent",
+      liveProfiles: host.liveProfiles ?? [],
     }));
   },
 });

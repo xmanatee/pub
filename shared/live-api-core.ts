@@ -1,4 +1,8 @@
-import { type LiveModelProfile, readLiveModelProfile } from "./live-model-profile";
+import {
+  type LiveAgentProfileOption,
+  readLiveAgentProfileOptions,
+  readLiveProfileId,
+} from "./live-agent-profile";
 import {
   readFiniteNumber,
   readNonEmptyString,
@@ -16,12 +20,13 @@ export type LiveInfo = {
   agentCandidates: string[];
   browserCandidates: string[];
   createdAt: number;
-  modelProfile?: LiveModelProfile;
+  liveProfileId?: string;
 };
 
 export type AgentPresenceBody = {
   daemonSessionId: string;
   agentName?: string;
+  liveProfiles?: LiveAgentProfileOption[];
 };
 
 export type AgentSignalBody = {
@@ -63,7 +68,7 @@ export function parseLiveInfo(input: unknown): LiveInfo | null {
     browserCandidates,
     agentCandidates,
     createdAt,
-    modelProfile: readLiveModelProfile(record.modelProfile),
+    liveProfileId: readLiveProfileId(record.liveProfileId),
   };
 }
 
@@ -78,11 +83,20 @@ export function parseAgentPresenceBody(input: unknown): ParseResult<AgentPresenc
     return { ok: false, error: "Missing daemonSessionId" };
   }
 
+  const liveProfiles =
+    record.liveProfiles === undefined
+      ? undefined
+      : readLiveAgentProfileOptions(record.liveProfiles);
+  if (record.liveProfiles !== undefined && !liveProfiles) {
+    return { ok: false, error: "Invalid liveProfiles" };
+  }
+
   return {
     ok: true,
     value: {
       daemonSessionId,
       agentName: readTrimmedString(record.agentName),
+      liveProfiles,
     },
   };
 }

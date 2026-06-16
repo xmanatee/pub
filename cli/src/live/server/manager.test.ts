@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type DevServer, startDevServer } from "./manager.js";
 
 const isPosix = process.platform !== "win32";
+const PID_FILE_TIMEOUT_MS = 5_000;
 let nextTestPort = 39_000 + (process.pid % 1_000) * 10;
 
 function isAlive(pid: number): boolean {
@@ -105,7 +106,9 @@ describe("startDevServer", () => {
     const dev = startDevServer({ devCommand: parentScript, devPort: port });
     suppressReadyRejection(dev);
     const childPidFile = path.join(scriptDir, "child.pid");
-    await waitFor(() => fs.existsSync(childPidFile), 2_000);
+    await expect(waitFor(() => fs.existsSync(childPidFile), PID_FILE_TIMEOUT_MS)).resolves.toBe(
+      true,
+    );
     const childPid = Number.parseInt(fs.readFileSync(childPidFile, "utf-8").trim(), 10);
     expect(Number.isInteger(childPid)).toBe(true);
     expect(isAlive(childPid)).toBe(true);
@@ -134,7 +137,9 @@ wait
 
       const dev = startDevServer({ devCommand: parentScript, devPort: port });
       suppressReadyRejection(dev);
-      await waitFor(() => fs.existsSync(grandchildPidFile), 2_000);
+      await expect(
+        waitFor(() => fs.existsSync(grandchildPidFile), PID_FILE_TIMEOUT_MS),
+      ).resolves.toBe(true);
       const grandchildPid = Number.parseInt(fs.readFileSync(grandchildPidFile, "utf-8").trim(), 10);
       expect(isAlive(grandchildPid)).toBe(true);
 

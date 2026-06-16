@@ -197,7 +197,7 @@ describe("ensureAgentReady — tunnel intent", () => {
       apiClientGet: () => new Promise(() => {}),
     });
 
-    const pubIntent: SessionIntent = { kind: "pub", slug: "pub-x", modelProfile: null };
+    const pubIntent: SessionIntent = { kind: "pub", slug: "pub-x", liveProfileId: null };
     const tunnelIntent: SessionIntent = { kind: "tunnel", workspaceDir: FAKE_TUNNEL_DIR };
 
     // Fire-and-forget pub prep — it hangs forever inside fetchPubSessionContent.

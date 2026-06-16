@@ -41,7 +41,7 @@ describe("buildSdkSessionOptions", () => {
     expect(opts.model).toBe("claude-sonnet-4-6");
   });
 
-  it("maps live model profiles to Claude model aliases", () => {
+  it("maps live profile ids to Claude model aliases", () => {
     const opts = buildSdkSessionOptionsFromSettings({
       mode: "claude-sdk",
       verbose: false,
@@ -53,7 +53,7 @@ describe("buildSdkSessionOptions", () => {
       commandMaxConcurrent: 6,
       commandAgentDefaultProfile: "default",
       claudeCodePath: "/usr/local/bin/claude",
-      liveModelProfile: "fast",
+      liveProfileId: "fast",
     });
 
     expect(opts.model).toBe("haiku");
