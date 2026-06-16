@@ -38,8 +38,16 @@ const SAMPLE_FILES: ReceivedFile[] = [
 ];
 
 const SAMPLE_LIVE_PROFILES = [
-  { id: "default", label: "Default", description: "Standard reasoning for everyday live sessions." },
-  { id: "dumb", label: "Dumb", description: "Low reasoning effort for cheaper, simpler live turns." },
+  {
+    id: "default",
+    label: "Default",
+    description: "Standard reasoning for everyday live sessions.",
+  },
+  {
+    id: "dumb",
+    label: "Dumb",
+    description: "Low reasoning effort for cheaper, simpler live turns.",
+  },
   {
     id: "fast",
     label: "Fast",

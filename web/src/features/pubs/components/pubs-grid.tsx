@@ -28,9 +28,9 @@ export function PubsGrid({
   pubs: PubGridItem[];
   liveSlugs: Set<string>;
   pending?: number;
-  onToggleVisibility: (id: Id<"pubs">) => void;
-  onDelete: (id: Id<"pubs">) => void;
-  onDuplicate?: (id: Id<"pubs">) => void;
+  onToggleVisibility: (pub: PubGridItem) => void;
+  onDelete: (pub: PubGridItem) => void;
+  onDuplicate?: (pub: PubGridItem) => void;
   developerMode?: boolean;
 }) {
   return (

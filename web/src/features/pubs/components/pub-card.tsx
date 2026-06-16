@@ -1,4 +1,3 @@
-import type { Id } from "@backend/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
 import {
   Code,
@@ -23,15 +22,15 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import type { PubGridItem } from "~/features/pubs/components/pubs-grid";
-import { trackPubDeleted, trackPubLinkCopied, trackVisibilityToggled } from "~/lib/analytics";
+import { trackPubLinkCopied } from "~/lib/analytics";
 import { telegramConfirm, telegramOpenLink } from "~/lib/telegram";
 
 interface PubCardProps {
   pub: PubGridItem;
   isLive?: boolean;
-  onToggleVisibility: (id: Id<"pubs">) => void;
-  onDelete: (id: Id<"pubs">) => void;
-  onDuplicate?: (id: Id<"pubs">) => void;
+  onToggleVisibility: (pub: PubGridItem) => void;
+  onDelete: (pub: PubGridItem) => void;
+  onDuplicate?: (pub: PubGridItem) => void;
   developerMode?: boolean;
 }
 
@@ -44,6 +43,11 @@ export function PubCard({
   developerMode,
 }: PubCardProps) {
   const pubUrl = `${window.location.origin}/p/${encodeURIComponent(pub.slug)}`;
+
+  async function handleDelete() {
+    if (!(await telegramConfirm("Delete this pub?"))) return;
+    onDelete(pub);
+  }
 
   return (
     <Card className="overflow-hidden border-border/50 transition-colors hover:border-primary/20 group">
@@ -116,7 +120,7 @@ export function PubCard({
                 </DropdownMenuItem>
               )}
               {developerMode && onDuplicate && (
-                <DropdownMenuItem onClick={() => onDuplicate(pub._id)}>
+                <DropdownMenuItem onClick={() => onDuplicate(pub)}>
                   <Copy />
                   Duplicate
                 </DropdownMenuItem>
@@ -124,11 +128,7 @@ export function PubCard({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  trackVisibilityToggled({
-                    slug: pub.slug,
-                    newVisibility: pub.isPublic ? "private" : "public",
-                  });
-                  onToggleVisibility(pub._id);
+                  onToggleVisibility(pub);
                 }}
               >
                 {pub.isPublic ? <Lock /> : <Globe />}
@@ -138,11 +138,7 @@ export function PubCard({
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => {
-                  void telegramConfirm("Delete this pub?").then((ok) => {
-                    if (!ok) return;
-                    trackPubDeleted({ slug: pub.slug });
-                    onDelete(pub._id);
-                  });
+                  void handleDelete();
                 }}
               >
                 <Trash2 />

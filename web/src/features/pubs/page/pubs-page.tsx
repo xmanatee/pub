@@ -7,11 +7,13 @@ import { PubCardGridSkeleton } from "~/components/pub-card-grid";
 import { Button } from "~/components/ui/button";
 import { OnboardingGuide } from "~/features/pubs/components/onboarding-guide";
 import { PubSortChips } from "~/features/pubs/components/pub-sort-chips";
-import { PubsGrid } from "~/features/pubs/components/pubs-grid";
+import { type PubGridItem, PubsGrid } from "~/features/pubs/components/pubs-grid";
 import { useStartLive } from "~/features/pubs/hooks/use-start-live";
 import { derivePubsPageState } from "~/features/pubs/lib/pubs-page-state";
 import type { PubSortKey } from "~/features/pubs/lib/sort-pubs";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
+import { trackError, trackPubDeleted, trackVisibilityToggled } from "~/lib/analytics";
+import { getErrorMessage } from "~/lib/utils";
 
 const PAGE_SIZE = 20;
 const LOAD_MORE_SKELETONS = 2;
@@ -31,6 +33,7 @@ export function PubsPage() {
   const duplicatePub = useMutation(api.pubs.duplicateByUser);
   const { developerModeEnabled } = useDeveloperMode();
   const keys = useQuery(api.apiKeys.list);
+  const [operationError, setOperationError] = React.useState<string | null>(null);
 
   const lives = useQuery(api.connections.listActiveConnections);
   const liveSlugs = React.useMemo<Set<string>>(
@@ -44,6 +47,60 @@ export function PubsPage() {
     apiKeysLoaded: keys !== undefined,
     hasApiKeys: (keys?.length ?? 0) > 0,
   });
+
+  const handleToggleVisibility = React.useCallback(
+    async (pub: PubGridItem) => {
+      const newVisibility = pub.isPublic ? "private" : "public";
+      setOperationError(null);
+      try {
+        await toggleVisibility({ id: pub._id });
+        trackVisibilityToggled({ slug: pub.slug, newVisibility });
+      } catch (error) {
+        const message = getErrorMessage(error, "Could not update pub visibility.");
+        trackError(error instanceof Error ? error : new Error(message), {
+          action: "toggle_pub_visibility",
+          slug: pub.slug,
+        });
+        setOperationError(message);
+      }
+    },
+    [toggleVisibility],
+  );
+
+  const handleDelete = React.useCallback(
+    async (pub: PubGridItem) => {
+      setOperationError(null);
+      try {
+        await deletePub({ id: pub._id });
+        trackPubDeleted({ slug: pub.slug });
+      } catch (error) {
+        const message = getErrorMessage(error, "Could not delete pub.");
+        trackError(error instanceof Error ? error : new Error(message), {
+          action: "delete_pub",
+          slug: pub.slug,
+        });
+        setOperationError(message);
+      }
+    },
+    [deletePub],
+  );
+
+  const handleDuplicate = React.useCallback(
+    async (pub: PubGridItem) => {
+      setOperationError(null);
+      try {
+        await duplicatePub({ id: pub._id });
+      } catch (error) {
+        const message = getErrorMessage(error, "Could not duplicate pub.");
+        trackError(error instanceof Error ? error : new Error(message), {
+          action: "duplicate_pub",
+          slug: pub.slug,
+        });
+        setOperationError(message);
+      }
+    },
+    [duplicatePub],
+  );
 
   if (state.kind === "onboarding") {
     return (
@@ -81,12 +138,14 @@ export function PubsPage() {
               pubs={state.pubs}
               liveSlugs={liveSlugs}
               pending={state.isLoadingMore ? LOAD_MORE_SKELETONS : 0}
-              onToggleVisibility={(id) => toggleVisibility({ id })}
-              onDelete={(id) => deletePub({ id })}
-              onDuplicate={(id) => {
-                duplicatePub({ id }).catch((error) => {
-                  console.error("Failed to duplicate pub", error);
-                });
+              onToggleVisibility={(pub) => {
+                void handleToggleVisibility(pub);
+              }}
+              onDelete={(pub) => {
+                void handleDelete(pub);
+              }}
+              onDuplicate={(pub) => {
+                void handleDuplicate(pub);
               }}
               developerMode={developerModeEnabled}
             />
@@ -105,6 +164,14 @@ export function PubsPage() {
   return (
     <div className="px-4 sm:px-6 py-8 space-y-4">
       <PubSortChips value={sortKey} onChange={setSortKey} />
+      {operationError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {operationError}
+        </p>
+      ) : null}
       {body}
       <div
         className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex items-center justify-end px-3"

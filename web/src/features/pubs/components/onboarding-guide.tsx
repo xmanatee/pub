@@ -5,7 +5,8 @@ import * as React from "react";
 import { CopyButton } from "~/components/copy-button";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { trackApiKeyCopied, trackApiKeyCreated } from "~/lib/analytics";
+import { trackApiKeyCopied, trackApiKeyCreated, trackError } from "~/lib/analytics";
+import { getErrorMessage } from "~/lib/utils";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
 
@@ -25,15 +26,23 @@ export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProp
 
   const [generatedKey, setGeneratedKey] = React.useState<string | null>(null);
   const [generating, setGenerating] = React.useState(false);
+  const [generationError, setGenerationError] = React.useState<string | null>(null);
 
   const hasKey = hasApiKeys || generatedKey !== null;
 
   async function handleGenerateKey() {
     setGenerating(true);
+    setGenerationError(null);
     try {
       const result = await createKey({ name: "my-agent" });
       trackApiKeyCreated({ name: "my-agent" });
       setGeneratedKey(result.key);
+    } catch (error) {
+      const message = getErrorMessage(error, "Could not create API key.");
+      trackError(error instanceof Error ? error : new Error(message), {
+        action: "create_onboarding_api_key",
+      });
+      setGenerationError(message);
     } finally {
       setGenerating(false);
     }
@@ -81,6 +90,11 @@ export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProp
                 <Key className="h-4 w-4 mr-1.5" aria-hidden="true" />
                 {generating ? "Generating..." : "Generate API key"}
               </Button>
+              {generationError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {generationError}
+                </p>
+              ) : null}
             </div>
           )}
 

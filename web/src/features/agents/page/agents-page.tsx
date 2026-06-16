@@ -8,8 +8,14 @@ import { EmptyStateCard } from "~/components/empty-state-card";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { trackApiKeyCopied, trackApiKeyCreated, trackApiKeyDeleted } from "~/lib/analytics";
+import {
+  trackApiKeyCopied,
+  trackApiKeyCreated,
+  trackApiKeyDeleted,
+  trackError,
+} from "~/lib/analytics";
 import { telegramConfirm } from "~/lib/telegram";
+import { getErrorMessage } from "~/lib/utils";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
 
@@ -20,16 +26,25 @@ export function AgentsPage() {
   const [newKeyName, setNewKeyName] = React.useState("");
   const [createdKey, setCreatedKey] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [operationError, setOperationError] = React.useState<string | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!newKeyName.trim()) return;
+    const name = newKeyName.trim();
+    if (!name) return;
     setLoading(true);
+    setOperationError(null);
     try {
-      const result = await createKey({ name: newKeyName.trim() });
-      trackApiKeyCreated({ name: newKeyName.trim() });
+      const result = await createKey({ name });
+      trackApiKeyCreated({ name });
       setCreatedKey(result.key);
       setNewKeyName("");
+    } catch (error) {
+      const message = getErrorMessage(error, "Could not create API key.");
+      trackError(error instanceof Error ? error : new Error(message), {
+        action: "create_api_key",
+      });
+      setOperationError(message);
     } finally {
       setLoading(false);
     }
@@ -38,8 +53,18 @@ export function AgentsPage() {
   async function handleDelete(id: Id<"apiKeys">) {
     if (!(await telegramConfirm("Delete this API key? This cannot be undone."))) return;
     const key = keys?.find((k) => k._id === id);
-    if (key) trackApiKeyDeleted({ name: key.name });
-    await deleteKey({ id });
+    setOperationError(null);
+    try {
+      await deleteKey({ id });
+      if (key) trackApiKeyDeleted({ name: key.name });
+    } catch (error) {
+      const message = getErrorMessage(error, "Could not delete API key.");
+      trackError(error instanceof Error ? error : new Error(message), {
+        action: "delete_api_key",
+        keyId: id,
+      });
+      setOperationError(message);
+    }
   }
 
   return (
@@ -68,6 +93,14 @@ export function AgentsPage() {
           Create key
         </Button>
       </form>
+      {operationError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {operationError}
+        </p>
+      ) : null}
 
       {createdKey && (
         <Card className="border-emerald-600/20 bg-emerald-50 dark:bg-emerald-950/20">
@@ -133,7 +166,7 @@ export function AgentsPage() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 text-destructive hover:text-destructive hover-reveal"
-                  onClick={() => handleDelete(k._id)}
+                  onClick={() => void handleDelete(k._id)}
                   aria-label="Delete key"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
