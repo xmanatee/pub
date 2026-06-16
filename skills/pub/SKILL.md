@@ -7,7 +7,7 @@ homepage: https://pub.blue
 compatibility: Standalone binary for macOS and Linux (arm64/x64).
 metadata:
   author: pub.blue
-  version: "5.2.16"
+  version: "5.2.17"
   openclaw:
     homepage: https://pub.blue
     primaryEnv: PUB_API_KEY
