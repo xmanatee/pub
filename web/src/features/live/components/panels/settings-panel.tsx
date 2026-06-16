@@ -2,11 +2,12 @@ import type { Id } from "@backend/_generated/dataModel";
 import type { LiveAgentProfileOption } from "@shared/live-agent-profile";
 import { Star } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { useLiveSession } from "~/features/pub/contexts/live-session-context";
 import { isFullscreenSupported } from "~/hooks/use-fullscreen";
+import { cn } from "~/lib/utils";
 
 export function SettingsPanel() {
   const {
@@ -57,7 +58,6 @@ export function SettingsPanel() {
 
       {selectedAgent && (selectedAgent.liveProfiles ?? []).length > 0 && (
         <LiveProfileCard
-          agentName={selectedAgent.agentName}
           profiles={selectedAgent.liveProfiles ?? []}
           selectedProfileId={liveProfilesByAgent[selectedAgent.agentName] ?? null}
           onSelectProfile={(profileId) =>
@@ -216,54 +216,62 @@ function AgentCard({
 }
 
 function LiveProfileCard({
-  agentName,
   profiles,
   selectedProfileId,
   onSelectProfile,
 }: {
-  agentName: string;
   profiles: LiveAgentProfileOption[];
   selectedProfileId: string | null;
-  onSelectProfile: (profileId: string | null) => void;
+  onSelectProfile: (profileId: string) => void;
 }) {
   const selectedProfileIsAvailable = profiles.some((profile) => profile.id === selectedProfileId);
-  const activeProfileId = selectedProfileIsAvailable ? selectedProfileId : null;
+  const defaultProfileId =
+    profiles.find((profile) => profile.id === "default")?.id ??
+    profiles.find((profile) => profile.id === "balanced")?.id ??
+    null;
+  const activeProfileId = selectedProfileIsAvailable ? selectedProfileId : defaultProfileId;
 
   return (
-    <Card>
-      <CardHeader className="px-4 py-3">
-        <CardTitle className="text-sm">Profile</CardTitle>
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">Profile</CardTitle>
+        <CardDescription>Used for new live sessions.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2 px-2 pb-3">
-        <button
-          type="button"
-          className={`w-full rounded-lg px-2 py-2 text-left text-sm ${activeProfileId === null ? "bg-accent" : ""}`}
-          onClick={() => onSelectProfile(null)}
-          disabled={activeProfileId === null}
-        >
-          <span className="font-medium">Daemon default</span>
-          <span className="block text-xs text-muted-foreground">
-            Use the default profile configured for {agentName}.
-          </span>
-        </button>
-
-        {profiles.map((profile) => {
-          const isCurrent = activeProfileId === profile.id;
-          return (
-            <button
-              key={profile.id}
-              type="button"
-              className={`w-full rounded-lg px-2 py-2 text-left text-sm ${isCurrent ? "bg-accent" : ""}`}
-              onClick={() => onSelectProfile(profile.id)}
-              disabled={isCurrent}
-            >
-              <span className="font-medium">{profile.label}</span>
-              {profile.description && (
-                <span className="block text-xs text-muted-foreground">{profile.description}</span>
-              )}
-            </button>
-          );
-        })}
+      <CardContent className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-3">
+          {profiles.map((profile) => {
+            const isCurrent = activeProfileId === profile.id;
+            return (
+              <button
+                key={profile.id}
+                type="button"
+                aria-pressed={isCurrent}
+                className={cn(
+                  "rounded-xl border px-4 py-3 text-left transition-colors",
+                  isCurrent
+                    ? "border-primary bg-primary/8 text-foreground"
+                    : "border-border/60 bg-card hover:border-primary/30 hover:bg-accent/40",
+                )}
+                onClick={() => onSelectProfile(profile.id)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium">{profile.label}</div>
+                  {isCurrent ? (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                      Current
+                    </span>
+                  ) : null}
+                </div>
+                {profile.description && (
+                  <p className="mt-2 text-xs text-muted-foreground">{profile.description}</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Changes apply on the next live connection. Existing sessions keep their current profile.
+        </p>
       </CardContent>
     </Card>
   );

@@ -37,6 +37,16 @@ const SAMPLE_FILES: ReceivedFile[] = [
   },
 ];
 
+const SAMPLE_LIVE_PROFILES = [
+  { id: "default", label: "Default", description: "Standard reasoning for everyday live sessions." },
+  { id: "dumb", label: "Dumb", description: "Low reasoning effort for cheaper, simpler live turns." },
+  {
+    id: "fast",
+    label: "Fast",
+    description: "Fast service tier for faster live responses with increased usage.",
+  },
+];
+
 function TmaWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -55,13 +65,13 @@ function TmaWrapper({ children }: { children: React.ReactNode }) {
 
 const MULTI_AGENT_OVERRIDES = {
   availableAgents: [
-    { hostId: "h1" as never, agentName: "Claude", liveProfiles: [] },
+    { hostId: "h1" as never, agentName: "Local", liveProfiles: SAMPLE_LIVE_PROFILES },
     { hostId: "h2" as never, agentName: "GPT", liveProfiles: [] },
     { hostId: "h3" as never, agentName: "Gemini", liveProfiles: [] },
   ],
   selectedHostId: "h1" as never,
-  agentName: "Claude",
-  defaultAgentName: "Claude",
+  agentName: "Local",
+  defaultAgentName: "Local",
 };
 
 export function PanelsDebugPage() {
