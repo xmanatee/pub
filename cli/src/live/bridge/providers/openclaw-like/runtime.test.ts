@@ -2,7 +2,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildOpenClawLikeCommandEnv, deliverMessageToCommand } from "./runtime.js";
+import {
+  buildOpenClawLikeCommandEnv,
+  DEFAULT_OPENCLAW_LIKE_DELIVERY_TIMEOUT_MS,
+  deliverMessageToCommand,
+} from "./runtime.js";
 
 const tempDirs: string[] = [];
 
@@ -54,6 +58,10 @@ describe("buildOpenClawLikeCommandEnv", () => {
 });
 
 describe("deliverMessageToCommand", () => {
+  it("allows long-running conversational agent work by default", () => {
+    expect(DEFAULT_OPENCLAW_LIKE_DELIVERY_TIMEOUT_MS).toBeGreaterThanOrEqual(5 * 60 * 1000);
+  });
+
   it("executes bridge commands with client-safe env from daemon mode", async () => {
     const dir = makeTempDir();
     const command = path.join(dir, "capture-env.mjs");

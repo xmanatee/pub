@@ -29,7 +29,7 @@ export async function runOpenClawPreflight(
   }
 }
 
-const OPENCLAW_DELIVER_TIMEOUT_MS = 120_000;
+const OPENCLAW_DELIVER_TIMEOUT_MS = 10 * 60 * 1000;
 
 export async function invokeOpenClawPrompt(params: {
   openclawPath: string;

@@ -15,6 +15,7 @@ import { buildSessionBriefing } from "./shared.js";
 const REQUIRED_BRIEFING_CAPABILITIES: ReadonlyArray<readonly [string, string]> = [
   // Communication
   ["reply naturally", "chat delivered via natural assistant text"],
+  ['pub write "Working on it"', "interim progress updates via pub write"],
   ["pub write -c canvas -f", "canvas updates via pub write"],
 
   // Source validation
@@ -38,6 +39,7 @@ const REQUIRED_BRIEFING_CAPABILITIES: ReadonlyArray<readonly [string, string]> =
 const REQUIRED_SYSTEM_PROMPT_CAPABILITIES: ReadonlyArray<readonly [string, string]> = [
   // Communication
   ["reply naturally", "chat delivered via natural assistant text"],
+  ['pub write "Working on it"', "interim progress updates via pub write"],
   ["pub write -c canvas -f", "canvas update syntax"],
 
   // Source validation

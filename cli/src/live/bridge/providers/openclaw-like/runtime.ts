@@ -4,7 +4,7 @@ import { formatExecFailure } from "../exec-failure.js";
 
 const execFileAsync = promisify(execFile);
 
-const DELIVER_TIMEOUT_MS = 120_000;
+export const DEFAULT_OPENCLAW_LIKE_DELIVERY_TIMEOUT_MS = 10 * 60 * 1000;
 const DELIVER_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 function isDaemonEnvKey(key: string): boolean {
@@ -45,7 +45,7 @@ export async function deliverMessageToCommand(
       cwd: settings.workspaceDir,
       maxBuffer: options.maxOutputBytes ?? DELIVER_MAX_OUTPUT_BYTES,
       signal: options.signal,
-      timeout: options.timeoutMs ?? DELIVER_TIMEOUT_MS,
+      timeout: options.timeoutMs ?? DEFAULT_OPENCLAW_LIKE_DELIVERY_TIMEOUT_MS,
       env: buildOpenClawLikeCommandEnv(env),
     });
     return result.stdout.trim();

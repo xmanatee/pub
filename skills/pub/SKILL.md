@@ -138,9 +138,12 @@ pub status
 3. Reply in chat:
 
 Bridge-owned chat is the live-session contract. Reply with normal assistant text; the bridge forwards that text to the chat channel.
-Do not use `pub write` for chat messages.
+For longer live-session work, regularly send concise, specific progress updates through chat while continuing:
+```bash
+pub write "Working on it"
+```
 
-Use `pub write` only for non-chat outputs:
+Use channel-specific `pub write` for canvas and other non-chat outputs:
 ```bash
 pub write -c canvas -f /tmp/view.html
 ```

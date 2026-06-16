@@ -83,8 +83,14 @@ function validateSkillProtocol() {
   if (!skill.includes("Bridge-owned chat")) {
     fail("skills/pub/SKILL.md must document bridge-owned chat delivery.");
   }
-  if (/pub write\s+"[^"]+"/.test(skill)) {
-    fail('skills/pub/SKILL.md must not teach `pub write "..."` for chat messages.');
+  if (!skill.includes('pub write "Working on it"')) {
+    fail("skills/pub/SKILL.md must document progress updates through chat.");
+  }
+  if (skill.includes("Do not use `pub write` for chat messages.")) {
+    fail("skills/pub/SKILL.md must not forbid progress updates through chat.");
+  }
+  if (skill.includes("Use `pub write` only for non-chat outputs")) {
+    fail("skills/pub/SKILL.md must not contradict progress updates through chat.");
   }
 }
 
