@@ -21,6 +21,8 @@ interface StartCommandOptions {
   agentName: string;
 }
 
+const DAEMON_START_READY_TIMEOUT_MS = 30_000;
+
 function tunnelSetting<T>(resolved: ResolvedPubSettings, key: string): T | undefined {
   return getResolvedSettingValue<T>(resolved, key)?.value;
 }
@@ -126,7 +128,7 @@ export function registerStartCommand(program: Command): void {
         child,
         infoPath,
         socketPath,
-        timeoutMs: 8_000,
+        timeoutMs: DAEMON_START_READY_TIMEOUT_MS,
         failOnChildExit: false,
       });
       if (!ready.ok) {
