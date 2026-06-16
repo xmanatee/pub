@@ -56,7 +56,7 @@ fi
 
 run_new_session() {
   codex exec \
-    "${codex_args[@]}" \
+    ${codex_args[@]+"${codex_args[@]}"} \
     --json \
     --ignore-user-config \
     --cd "$workspace" \
@@ -74,7 +74,7 @@ run_resumed_session() {
   (
     cd "$workspace"
     codex exec \
-      "${codex_args[@]}" \
+      ${codex_args[@]+"${codex_args[@]}"} \
       --json \
       --ignore-user-config \
       --skip-git-repo-check \
