@@ -1,17 +1,11 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SYSTEM_FILE_PREFIX } from "./constants.js";
+import { SYSTEM_FILES } from "../../../../shared/pub-system-files-core";
 
-const PUB_SDK_SOURCE = `// pub.blue SDK — do not edit
-export const command = (name, args, opts) => window.pub.command(name, args, opts);
-export const cancelCommand = (id, reason) => window.pub.cancelCommand(id, reason);
-export const commands = window.pub.commands;
-`;
-
-export const FROZEN_FILES: Record<string, string> = {
-  [`${SYSTEM_FILE_PREFIX}api.js`]: PUB_SDK_SOURCE,
-};
+export const FROZEN_FILES: Record<string, string> = Object.fromEntries(
+  Object.entries(SYSTEM_FILES).map(([path, file]) => [path, file.content]),
+);
 
 function sha256(content: string): string {
   return createHash("sha256").update(content).digest("hex");

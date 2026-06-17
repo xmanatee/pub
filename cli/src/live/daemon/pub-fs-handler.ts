@@ -19,6 +19,10 @@ import {
   makePubFsDoneMessage,
   makePubFsErrorMessage,
   makePubFsMetadataMessage,
+  PUB_FS_CANCEL_EVENT,
+  PUB_FS_DELETE_EVENT,
+  PUB_FS_READ_EVENT,
+  PUB_FS_WRITE_EVENT,
   parsePubFsCancelMessage,
   parsePubFsDeleteMessage,
   parsePubFsReadMessage,
@@ -319,16 +323,16 @@ export function createPubFsHandler(params: {
   return {
     async onMessage(message: BridgeMessage): Promise<void> {
       if (message.type === "event") {
-        if (message.data === "pub-fs.read") {
+        if (message.data === PUB_FS_READ_EVENT) {
           await handleRead(message);
           return;
         }
-        if (message.data === "pub-fs.write" || message.data === "pub-fs.delete") {
-          if (message.data === "pub-fs.write") await handleWrite(message);
+        if (message.data === PUB_FS_WRITE_EVENT || message.data === PUB_FS_DELETE_EVENT) {
+          if (message.data === PUB_FS_WRITE_EVENT) await handleWrite(message);
           else await handleDelete(message);
           return;
         }
-        if (message.data === "pub-fs.cancel") {
+        if (message.data === PUB_FS_CANCEL_EVENT) {
           const request = parsePubFsCancelMessage(message);
           if (request) cancelRead(request.requestId);
           return;

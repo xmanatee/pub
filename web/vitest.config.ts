@@ -7,6 +7,7 @@ export default defineConfig({
     include: ["**/*.test.ts", "**/*.test.tsx"],
     exclude: ["node_modules/**"],
     environment: "node",
+    setupFiles: ["src/test/setup.ts"],
     maxWorkers: 2,
     minWorkers: 1,
   },

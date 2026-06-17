@@ -1,6 +1,12 @@
 /** @vitest-environment jsdom */
 import { CHANNELS, generateMessageId } from "@shared/bridge-protocol-core";
-import { encodeTaggedChunk, makePubFsMetadataMessage } from "@shared/pub-fs-protocol-core";
+import {
+  encodeTaggedChunk,
+  makePubFsMetadataMessage,
+  PUB_FS_CANCEL_EVENT,
+  PUB_FS_DONE_EVENT,
+  PUB_FS_READ_EVENT,
+} from "@shared/pub-fs-protocol-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BrowserBridge, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { PubFsBridge } from "./pub-fs-bridge";
@@ -54,7 +60,7 @@ describe("PubFsBridge", () => {
     expect(sentChannel).toBe(CHANNELS.PUB_FS);
     expect(message).toMatchObject({
       type: "event",
-      data: "pub-fs.read",
+      data: PUB_FS_READ_EVENT,
       meta: {
         requestId: "req-1",
         path: "/tmp/test.txt",
@@ -241,7 +247,7 @@ describe("PubFsBridge", () => {
     await flushTasks();
 
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[1]).toMatchObject({ data: "pub-fs.read" });
+    expect(send.mock.calls[0]?.[1]).toMatchObject({ data: PUB_FS_READ_EVENT });
 
     // Simulate SW sending cancel on the MessagePort
     requestChannel.port2.postMessage({ type: "cancel" });
@@ -251,7 +257,7 @@ describe("PubFsBridge", () => {
     expect(send.mock.calls[1]?.[0]).toBe(CHANNELS.PUB_FS);
     expect(send.mock.calls[1]?.[1]).toMatchObject({
       type: "event",
-      data: "pub-fs.cancel",
+      data: PUB_FS_CANCEL_EVENT,
       meta: { requestId: "req-cancel-1" },
     });
   });
@@ -322,11 +328,10 @@ describe("PubFsBridge", () => {
     );
     await flushTasks();
 
-    // Complete the request with done
     const doneMsg = {
       id: "d1",
       type: "event" as const,
-      data: "pub-fs.done",
+      data: PUB_FS_DONE_EVENT,
       meta: { requestId: "req-done-1" },
     };
     bridge.handleChannelMessage({ channel: "pub-fs", message: doneMsg, timestamp: Date.now() });
@@ -334,7 +339,6 @@ describe("PubFsBridge", () => {
 
     expect(messages).toContainEqual({ type: "done" });
 
-    // Cancel after done should NOT forward to CLI (pending already cleaned up)
     const sendCountBefore = send.mock.calls.length;
     requestChannel.port2.postMessage({ type: "cancel" });
     await flushTasks();

@@ -1,6 +1,8 @@
-export const MAX_FILE_SIZE = 300 * 1024; // 300KB per file
+import { SYSTEM_FILE_PREFIX } from "../shared/pub-system-files-core";
+
+export const MAX_FILE_SIZE = 300 * 1024;
 export const MAX_FILES_PER_PUB = 50;
-export const MAX_TOTAL_PUB_SIZE = 1.5 * 1024 * 1024; // 1.5MB across all files
+export const MAX_TOTAL_PUB_SIZE = 1.5 * 1024 * 1024;
 export const MAX_TITLE_LENGTH = 256;
 export const MAX_DESCRIPTION_LENGTH = 200;
 export const MAX_THEME_COLOR_LENGTH = 32;
@@ -8,7 +10,7 @@ export const MAX_ICON_URL_LENGTH = 512;
 export const MAX_KEY_NAME_LENGTH = 128;
 export const MAX_PUBS = 10;
 export const MAX_PUBS_SUBSCRIBED = 200;
-export const SYSTEM_FILE_PREFIX = "_pub/";
+export { SYSTEM_FILE_PREFIX };
 
 export const SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 

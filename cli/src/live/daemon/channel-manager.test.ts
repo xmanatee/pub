@@ -8,6 +8,7 @@ import {
   makeAckMessage,
   makeTextMessage,
 } from "../../../../shared/bridge-protocol-core";
+import { PUB_FS_WRITE_EVENT } from "../../../../shared/pub-fs-protocol-core";
 import { createDaemonChannelManager } from "./channel-manager.js";
 import { createDaemonState, setDaemonConnectionState } from "./state.js";
 
@@ -177,7 +178,7 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
   it("preserves ordered pub-fs write delivery between header and binary chunks", async () => {
     const writeStarted = deferredPromise<void>();
     const onPubFsMessage = vi.fn<(msg: BridgeMessage) => Promise<void>>(async (msg) => {
-      if (msg.type === "event" && msg.data === "pub-fs.write") {
+      if (msg.type === "event" && msg.data === PUB_FS_WRITE_EVENT) {
         await writeStarted.promise;
       }
     });
@@ -198,7 +199,7 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
       JSON.stringify({
         id: "write-1",
         type: "event",
-        data: "pub-fs.write",
+        data: PUB_FS_WRITE_EVENT,
         meta: { requestId: "req-1", path: "/./tmp/file.txt", size: 3 },
       }),
     );
@@ -209,7 +210,7 @@ describe("createDaemonChannelManager pub-fs binary flow", () => {
     expect(onPubFsMessage.mock.calls[0]?.[0]).toMatchObject({
       id: "write-1",
       type: "event",
-      data: "pub-fs.write",
+      data: PUB_FS_WRITE_EVENT,
     });
 
     writeStarted.resolve();

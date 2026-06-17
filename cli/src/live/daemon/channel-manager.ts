@@ -14,6 +14,7 @@ import {
 } from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import { createMessageDedup } from "../../../../shared/message-dedup-core";
+import { PUB_FS_DELETE_EVENT, PUB_FS_WRITE_EVENT } from "../../../../shared/pub-fs-protocol-core";
 import { ORDERED_DATA_CHANNEL_OPTIONS } from "../../../../shared/webrtc-transport-core";
 import type { DataChannelLike } from "../transport/webrtc-adapter.js";
 import type { DaemonState } from "./state.js";
@@ -345,7 +346,7 @@ export function createDaemonChannelManager(params: {
           if (name === CHANNELS.PUB_FS) {
             if (
               msg.type === "event" &&
-              (msg.data === "pub-fs.write" || msg.data === "pub-fs.delete")
+              (msg.data === PUB_FS_WRITE_EVENT || msg.data === PUB_FS_DELETE_EVENT)
             ) {
               enqueuePubFsWriteLane(msg, "pub-fs message handler failed");
               return;

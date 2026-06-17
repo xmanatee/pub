@@ -11,6 +11,7 @@ import {
   readRecord,
   readString,
 } from "./protocol-runtime-core";
+import type { PubFsEvent } from "./pub-fs-events-core";
 
 /**
  * Bridge protocol — shared types for the pub.blue P2P bridge.
@@ -70,13 +71,7 @@ export type ControlEvent =
   | "command.invoke"
   | "command.result"
   | "command.cancel"
-  | "pub-fs.read"
-  | "pub-fs.write"
-  | "pub-fs.delete"
-  | "pub-fs.metadata"
-  | "pub-fs.error"
-  | "pub-fs.done"
-  | "pub-fs.cancel";
+  | PubFsEvent;
 
 export type StatusPayload = LiveRuntimeStateSnapshot & {
   channels?: string[];

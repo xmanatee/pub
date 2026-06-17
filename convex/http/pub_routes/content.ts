@@ -1,9 +1,10 @@
 import { httpRouter } from "convex/server";
+import { SYSTEM_FILE_PREFIX, SYSTEM_FILES } from "../../../shared/pub-system-files-core";
 import { internal } from "../../_generated/api";
 import type { Doc } from "../../_generated/dataModel";
 import { httpAction } from "../../_generated/server";
 import { rateLimiter } from "../../rateLimits";
-import { escapeXml, mimeFromPath, SYSTEM_FILE_PREFIX, truncate } from "../../utils";
+import { escapeXml, mimeFromPath, truncate } from "../../utils";
 import {
   buildSupplementalOgTags,
   contentSecurityHeaders,
@@ -14,16 +15,6 @@ import {
   parseSlugFromRequest,
   rateLimitResponse,
 } from "../shared";
-
-const PUB_SDK_SOURCE = `// pub.blue SDK — do not edit
-export const command = (name, args, opts) => window.pub.command(name, args, opts);
-export const cancelCommand = (id, reason) => window.pub.cancelCommand(id, reason);
-export const commands = window.pub.commands;
-`;
-
-const SYSTEM_FILES: Record<string, { content: string; mime: string }> = {
-  "_pub/api.js": { content: PUB_SDK_SOURCE, mime: "text/javascript; charset=utf-8" },
-};
 
 function serveSystemFile(filePath: string): Response | null {
   if (!filePath.startsWith(SYSTEM_FILE_PREFIX)) return null;
