@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn, getErrorMessage, toError } from "./utils";
+import { cn } from "./utils";
 
 describe("cn", () => {
   it("merges simple class names", () => {
@@ -40,32 +40,5 @@ describe("cn", () => {
 
   it("merges responsive Tailwind classes", () => {
     expect(cn("md:p-4", "md:p-2")).toBe("md:p-2");
-  });
-});
-
-describe("getErrorMessage", () => {
-  it("returns non-empty Error messages", () => {
-    expect(getErrorMessage(new Error("Nope"), "Fallback")).toBe("Nope");
-  });
-
-  it("returns non-empty string errors", () => {
-    expect(getErrorMessage("Nope", "Fallback")).toBe("Nope");
-  });
-
-  it("falls back for empty or unknown errors", () => {
-    expect(getErrorMessage(new Error("  "), "Fallback")).toBe("Fallback");
-    expect(getErrorMessage(null, "Fallback")).toBe("Fallback");
-  });
-});
-
-describe("toError", () => {
-  it("preserves Error objects with messages", () => {
-    const error = new Error("Nope");
-    expect(toError(error, "Fallback")).toBe(error);
-  });
-
-  it("wraps string and empty errors", () => {
-    expect(toError("Nope", "Fallback").message).toBe("Nope");
-    expect(toError(new Error("  "), "Fallback").message).toBe("Fallback");
   });
 });

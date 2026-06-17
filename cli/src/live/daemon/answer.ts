@@ -1,3 +1,4 @@
+import { toError } from "../../../../shared/error-core";
 import {
   encodeSessionDescription,
   parseSessionDescription,
@@ -47,7 +48,7 @@ export function createAnswer(
     const parsedOffer = parseSessionDescription(browserOffer, "Browser offer");
 
     void peer.setRemoteDescription(parsedOffer.sdp, parsedOffer.type).catch((error: unknown) => {
-      fail(error instanceof Error ? error : new Error(String(error)));
+      fail(toError(error, "Failed to set remote browser offer"));
     });
 
     timeout = setTimeout(() => {

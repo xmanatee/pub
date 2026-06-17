@@ -1,3 +1,4 @@
+import * as os from "node:os";
 import { describe, expect, it } from "vitest";
 import { resolveOpenClawHome, resolveOpenClawStateDir } from "./paths.js";
 
@@ -10,6 +11,18 @@ describe("openclaw/paths", () => {
     it("expands OPENCLAW_HOME=~/... using HOME", () => {
       const result = resolveOpenClawHome({ OPENCLAW_HOME: "~/sandbox", HOME: "/tmp/home-user" });
       expect(result).toBe("/tmp/home-user/sandbox");
+    });
+
+    it("ignores blank OPENCLAW_HOME", () => {
+      expect(resolveOpenClawHome({ OPENCLAW_HOME: "   " })).toBe(os.homedir());
+    });
+
+    it("uses HOME when OPENCLAW_HOME is not set", () => {
+      expect(resolveOpenClawHome({ HOME: "/tmp/pub-home" })).toBe("/tmp/pub-home");
+    });
+
+    it("uses os.homedir() when no home env is set", () => {
+      expect(resolveOpenClawHome({})).toBe(os.homedir());
     });
   });
 

@@ -1,3 +1,5 @@
+import { toError } from "./error-core";
+
 export type SessionDescriptionPayload = {
   sdp: string;
   type: string;
@@ -61,7 +63,7 @@ export function createAgentAnswerFromBrowserOffer(
       const parsedOffer = parseSessionDescription(browserOffer, "Browser offer");
       peer.setRemoteDescription(parsedOffer.sdp, parsedOffer.type);
     } catch (error) {
-      fail(error instanceof Error ? error : new Error(String(error)));
+      fail(toError(error, "Failed to set remote browser offer"));
       return;
     }
 
