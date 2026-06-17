@@ -16,6 +16,9 @@ export interface PubGridItem {
   viewCount: number;
 }
 
+type PubActionHandler = (pub: PubGridItem) => void | Promise<void>;
+type PubCopyLinkHandler = (pub: PubGridItem, pubUrl: string) => void | Promise<void>;
+
 export function PubsGrid({
   pubs,
   liveSlugs,
@@ -23,14 +26,16 @@ export function PubsGrid({
   onToggleVisibility,
   onDelete,
   onDuplicate,
+  onCopyLink,
   developerMode,
 }: {
   pubs: PubGridItem[];
   liveSlugs: Set<string>;
   pending?: number;
-  onToggleVisibility: (pub: PubGridItem) => void;
-  onDelete: (pub: PubGridItem) => void;
-  onDuplicate?: (pub: PubGridItem) => void;
+  onToggleVisibility: PubActionHandler;
+  onDelete: PubActionHandler;
+  onDuplicate?: PubActionHandler;
+  onCopyLink: PubCopyLinkHandler;
   developerMode?: boolean;
 }) {
   return (
@@ -43,6 +48,7 @@ export function PubsGrid({
           onToggleVisibility={onToggleVisibility}
           onDelete={onDelete}
           onDuplicate={onDuplicate}
+          onCopyLink={onCopyLink}
           developerMode={developerMode}
         />
       ))}

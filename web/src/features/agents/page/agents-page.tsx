@@ -15,7 +15,7 @@ import {
   trackError,
 } from "~/lib/analytics";
 import { telegramConfirm } from "~/lib/telegram";
-import { getErrorMessage } from "~/lib/utils";
+import { toError } from "~/lib/utils";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
 
@@ -40,11 +40,11 @@ export function AgentsPage() {
       setCreatedKey(result.key);
       setNewKeyName("");
     } catch (error) {
-      const message = getErrorMessage(error, "Could not create API key.");
-      trackError(error instanceof Error ? error : new Error(message), {
+      const actionError = toError(error, "Could not create API key.");
+      trackError(actionError, {
         action: "create_api_key",
       });
-      setOperationError(message);
+      setOperationError(actionError.message);
     } finally {
       setLoading(false);
     }
@@ -58,13 +58,18 @@ export function AgentsPage() {
       await deleteKey({ id });
       if (key) trackApiKeyDeleted({ name: key.name });
     } catch (error) {
-      const message = getErrorMessage(error, "Could not delete API key.");
-      trackError(error instanceof Error ? error : new Error(message), {
+      const actionError = toError(error, "Could not delete API key.");
+      trackError(actionError, {
         action: "delete_api_key",
         keyId: id,
       });
-      setOperationError(message);
+      setOperationError(actionError.message);
     }
+  }
+
+  function handleCopyError(action: string, error: Error) {
+    trackError(error, { action });
+    setOperationError(error.message);
   }
 
   return (
@@ -73,7 +78,12 @@ export function AgentsPage() {
         <Terminal className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span>Install CLI:</span>
         <code className="text-xs font-mono truncate flex-1">{INSTALL_COMMAND}</code>
-        <CopyButton text={INSTALL_COMMAND} label="Copy install command" />
+        <CopyButton
+          text={INSTALL_COMMAND}
+          label="Copy install command"
+          onCopy={() => setOperationError(null)}
+          onCopyError={(error) => handleCopyError("copy_install_command", error)}
+        />
       </div>
 
       <form onSubmit={handleCreate} className="flex gap-2">
@@ -117,7 +127,11 @@ export function AgentsPage() {
               <CopyButton
                 text={createdKey}
                 label="Copy API key"
-                onCopy={() => trackApiKeyCopied()}
+                onCopy={() => {
+                  setOperationError(null);
+                  trackApiKeyCopied();
+                }}
+                onCopyError={(error) => handleCopyError("copy_api_key", error)}
               />
             </div>
             <Button

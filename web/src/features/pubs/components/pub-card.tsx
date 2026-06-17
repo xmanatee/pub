@@ -22,15 +22,15 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import type { PubGridItem } from "~/features/pubs/components/pubs-grid";
-import { trackPubLinkCopied } from "~/lib/analytics";
 import { telegramConfirm, telegramOpenLink } from "~/lib/telegram";
 
 interface PubCardProps {
   pub: PubGridItem;
   isLive?: boolean;
-  onToggleVisibility: (pub: PubGridItem) => void;
-  onDelete: (pub: PubGridItem) => void;
-  onDuplicate?: (pub: PubGridItem) => void;
+  onToggleVisibility: (pub: PubGridItem) => void | Promise<void>;
+  onDelete: (pub: PubGridItem) => void | Promise<void>;
+  onDuplicate?: (pub: PubGridItem) => void | Promise<void>;
+  onCopyLink: (pub: PubGridItem, pubUrl: string) => void | Promise<void>;
   developerMode?: boolean;
 }
 
@@ -40,13 +40,14 @@ export function PubCard({
   onToggleVisibility,
   onDelete,
   onDuplicate,
+  onCopyLink,
   developerMode,
 }: PubCardProps) {
   const pubUrl = `${window.location.origin}/p/${encodeURIComponent(pub.slug)}`;
 
   async function handleDelete() {
     if (!(await telegramConfirm("Delete this pub?"))) return;
-    onDelete(pub);
+    await onDelete(pub);
   }
 
   return (
@@ -95,13 +96,8 @@ export function PubCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(pubUrl);
-                    trackPubLinkCopied({ slug: pub.slug });
-                  } catch (error) {
-                    console.error("Failed to copy", error);
-                  }
+                onClick={() => {
+                  void onCopyLink(pub, pubUrl);
                 }}
               >
                 <Copy />
@@ -120,7 +116,7 @@ export function PubCard({
                 </DropdownMenuItem>
               )}
               {developerMode && onDuplicate && (
-                <DropdownMenuItem onClick={() => onDuplicate(pub)}>
+                <DropdownMenuItem onClick={() => void onDuplicate(pub)}>
                   <Copy />
                   Duplicate
                 </DropdownMenuItem>
@@ -128,7 +124,7 @@ export function PubCard({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  onToggleVisibility(pub);
+                  void onToggleVisibility(pub);
                 }}
               >
                 {pub.isPublic ? <Lock /> : <Globe />}

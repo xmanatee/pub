@@ -5,6 +5,7 @@ import * as React from "react";
 import { trackError, trackSignIn, trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { getTelegramInitData, IN_TELEGRAM } from "~/lib/telegram";
+import { toError } from "~/lib/utils";
 
 const TELEGRAM_INIT_DATA_RETRY_MS = 250;
 const TELEGRAM_INIT_DATA_TIMEOUT_MS = 5000;
@@ -63,7 +64,7 @@ export function useTelegramAuth(): TelegramAuthState {
             setTelegramNotLinked(true);
             return;
           }
-          trackError(error instanceof Error ? error : new Error(String(error)), {
+          trackError(toError(error, "Telegram sign-in failed"), {
             provider: "telegram",
           });
           pushAuthDebug("telegram_signin_error", error);

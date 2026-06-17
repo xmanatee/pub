@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn, getErrorMessage } from "./utils";
+import { cn, getErrorMessage, toError } from "./utils";
 
 describe("cn", () => {
   it("merges simple class names", () => {
@@ -55,5 +55,17 @@ describe("getErrorMessage", () => {
   it("falls back for empty or unknown errors", () => {
     expect(getErrorMessage(new Error("  "), "Fallback")).toBe("Fallback");
     expect(getErrorMessage(null, "Fallback")).toBe("Fallback");
+  });
+});
+
+describe("toError", () => {
+  it("preserves Error objects with messages", () => {
+    const error = new Error("Nope");
+    expect(toError(error, "Fallback")).toBe(error);
+  });
+
+  it("wraps string and empty errors", () => {
+    expect(toError("Nope", "Fallback").message).toBe("Nope");
+    expect(toError(new Error("  "), "Fallback").message).toBe("Fallback");
   });
 });

@@ -6,6 +6,7 @@ import { fetchIceConfig } from "~/features/live/lib/fetch-ice-servers";
 import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
 import { trackError } from "~/lib/analytics";
+import { toError } from "~/lib/utils";
 
 const LOCAL_ICE_FLUSH_INTERVAL_MS = 100;
 
@@ -116,10 +117,9 @@ export function useLiveBridge({
             flushedCandidates.push(...next);
             await storeBrowserCandidatesRef.current({ slug, candidates: next });
           } catch (error) {
-            trackError(
-              error instanceof Error ? error : new Error("Failed to store local ICE candidates"),
-              { context: "live-bridge" },
-            );
+            trackError(toError(error, "Failed to store local ICE candidates"), {
+              context: "live-bridge",
+            });
             onSystemMessageRef.current?.({
               content: "Realtime signaling is unstable. Local connection updates are failing.",
               dedupeKey: "local-ice-store-failed",
@@ -141,16 +141,13 @@ export function useLiveBridge({
         }, 30_000);
       } catch (error) {
         if (disposed) return;
-        trackError(
-          error instanceof Error ? error : new Error("Failed to create live WebRTC offer"),
-          { context: "live-bridge" },
+        const bridgeError = toError(
+          error,
+          "Live connection setup failed before streaming could start.",
         );
-        const content =
-          error instanceof Error && error.message.trim().length > 0
-            ? error.message
-            : "Live connection setup failed before streaming could start.";
+        trackError(bridgeError, { context: "live-bridge" });
         onSystemMessageRef.current?.({
-          content,
+          content: bridgeError.message,
           dedupeKey: "bridge-offer-failed",
           severity: "error",
         });
@@ -197,7 +194,7 @@ export function useLiveBridge({
             profileMark("answer-applied");
           })
           .catch((error) => {
-            trackError(error instanceof Error ? error : new Error("Failed to apply agent answer"), {
+            trackError(toError(error, "Failed to apply agent answer"), {
               context: "live-bridge",
             });
             onSystemMessageRef.current?.({
@@ -215,10 +212,9 @@ export function useLiveBridge({
       if (nextCandidates.length > 0) {
         lastAgentCandidateCountRef.current = agentCandidates.length;
         void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
-          trackError(
-            error instanceof Error ? error : new Error("Failed to add remote ICE candidates"),
-            { context: "live-bridge" },
-          );
+          trackError(toError(error, "Failed to add remote ICE candidates"), {
+            context: "live-bridge",
+          });
           onSystemMessageRef.current?.({
             content: "Connection updates from the agent were rejected. Stream quality may degrade.",
             dedupeKey: "remote-ice-add-failed",

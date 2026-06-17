@@ -62,6 +62,7 @@ function SampleCards({ liveSlugs }: { liveSlugs: Set<string> }) {
           pub={pub}
           isLive={liveSlugs.has(pub.slug)}
           onToggleVisibility={noop}
+          onCopyLink={noop}
           onDelete={noop}
         />
       ))}

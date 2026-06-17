@@ -23,6 +23,7 @@ import { pushAuthDebug } from "~/lib/auth-debug";
 import { initPostHog } from "~/lib/posthog";
 import { IN_TELEGRAM } from "~/lib/telegram";
 import { useThemeSync } from "~/lib/theme";
+import { toError } from "~/lib/utils";
 
 initPostHog();
 
@@ -81,7 +82,7 @@ export function RootLayoutPage() {
     <PostHogProvider client={posthog}>
       <SentryErrorBoundary
         fallback={({ error }: { error: unknown }) => (
-          <RootRouteErrorPage error={error instanceof Error ? error : new Error(String(error))} />
+          <RootRouteErrorPage error={toError(error, "Unexpected root route error")} />
         )}
       >
         <TooltipProvider>

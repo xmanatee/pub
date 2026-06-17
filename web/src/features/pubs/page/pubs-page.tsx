@@ -12,8 +12,13 @@ import { useStartLive } from "~/features/pubs/hooks/use-start-live";
 import { derivePubsPageState } from "~/features/pubs/lib/pubs-page-state";
 import type { PubSortKey } from "~/features/pubs/lib/sort-pubs";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
-import { trackError, trackPubDeleted, trackVisibilityToggled } from "~/lib/analytics";
-import { getErrorMessage } from "~/lib/utils";
+import {
+  trackError,
+  trackPubDeleted,
+  trackPubLinkCopied,
+  trackVisibilityToggled,
+} from "~/lib/analytics";
+import { toError } from "~/lib/utils";
 
 const PAGE_SIZE = 20;
 const LOAD_MORE_SKELETONS = 2;
@@ -56,12 +61,12 @@ export function PubsPage() {
         await toggleVisibility({ id: pub._id });
         trackVisibilityToggled({ slug: pub.slug, newVisibility });
       } catch (error) {
-        const message = getErrorMessage(error, "Could not update pub visibility.");
-        trackError(error instanceof Error ? error : new Error(message), {
+        const actionError = toError(error, "Could not update pub visibility.");
+        trackError(actionError, {
           action: "toggle_pub_visibility",
           slug: pub.slug,
         });
-        setOperationError(message);
+        setOperationError(actionError.message);
       }
     },
     [toggleVisibility],
@@ -74,12 +79,12 @@ export function PubsPage() {
         await deletePub({ id: pub._id });
         trackPubDeleted({ slug: pub.slug });
       } catch (error) {
-        const message = getErrorMessage(error, "Could not delete pub.");
-        trackError(error instanceof Error ? error : new Error(message), {
+        const actionError = toError(error, "Could not delete pub.");
+        trackError(actionError, {
           action: "delete_pub",
           slug: pub.slug,
         });
-        setOperationError(message);
+        setOperationError(actionError.message);
       }
     },
     [deletePub],
@@ -91,16 +96,31 @@ export function PubsPage() {
       try {
         await duplicatePub({ id: pub._id });
       } catch (error) {
-        const message = getErrorMessage(error, "Could not duplicate pub.");
-        trackError(error instanceof Error ? error : new Error(message), {
+        const actionError = toError(error, "Could not duplicate pub.");
+        trackError(actionError, {
           action: "duplicate_pub",
           slug: pub.slug,
         });
-        setOperationError(message);
+        setOperationError(actionError.message);
       }
     },
     [duplicatePub],
   );
+
+  const handleCopyLink = React.useCallback(async (pub: PubGridItem, pubUrl: string) => {
+    setOperationError(null);
+    try {
+      await navigator.clipboard.writeText(pubUrl);
+      trackPubLinkCopied({ slug: pub.slug });
+    } catch (error) {
+      const actionError = toError(error, "Could not copy pub link.");
+      trackError(actionError, {
+        action: "copy_pub_link",
+        slug: pub.slug,
+      });
+      setOperationError(actionError.message);
+    }
+  }, []);
 
   if (state.kind === "onboarding") {
     return (
@@ -138,15 +158,10 @@ export function PubsPage() {
               pubs={state.pubs}
               liveSlugs={liveSlugs}
               pending={state.isLoadingMore ? LOAD_MORE_SKELETONS : 0}
-              onToggleVisibility={(pub) => {
-                void handleToggleVisibility(pub);
-              }}
-              onDelete={(pub) => {
-                void handleDelete(pub);
-              }}
-              onDuplicate={(pub) => {
-                void handleDuplicate(pub);
-              }}
+              onToggleVisibility={handleToggleVisibility}
+              onDelete={handleDelete}
+              onDuplicate={handleDuplicate}
+              onCopyLink={handleCopyLink}
               developerMode={developerModeEnabled}
             />
             {state.canLoadMore && (

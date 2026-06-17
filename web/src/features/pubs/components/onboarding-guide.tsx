@@ -6,7 +6,7 @@ import { CopyButton } from "~/components/copy-button";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { trackApiKeyCopied, trackApiKeyCreated, trackError } from "~/lib/analytics";
-import { getErrorMessage } from "~/lib/utils";
+import { toError } from "~/lib/utils";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
 
@@ -38,11 +38,11 @@ export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProp
       trackApiKeyCreated({ name: "my-agent" });
       setGeneratedKey(result.key);
     } catch (error) {
-      const message = getErrorMessage(error, "Could not create API key.");
-      trackError(error instanceof Error ? error : new Error(message), {
+      const actionError = toError(error, "Could not create API key.");
+      trackError(actionError, {
         action: "create_onboarding_api_key",
       });
-      setGenerationError(message);
+      setGenerationError(actionError.message);
     } finally {
       setGenerating(false);
     }
@@ -111,6 +111,7 @@ export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProp
                   text={generatedKey}
                   label="Copy API key"
                   onCopy={() => trackApiKeyCopied()}
+                  onCopyError={(error) => trackError(error, { action: "copy_onboarding_api_key" })}
                 />
               </div>
             </div>
@@ -204,7 +205,11 @@ function CommandBlock({ command }: { command: string }) {
     <div className="flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5">
       <Terminal className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <code className="text-sm font-mono text-white truncate flex-1">{command}</code>
-      <CopyButton text={command} label="Copy command" />
+      <CopyButton
+        text={command}
+        label="Copy command"
+        onCopyError={(error) => trackError(error, { action: "copy_onboarding_command" })}
+      />
     </div>
   );
 }
