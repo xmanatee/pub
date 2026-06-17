@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BridgeMessage } from "../../../../shared/bridge-protocol-core";
-import { makeEventMessage } from "../../../../shared/bridge-protocol-core";
-import { parseCommandResultMessage } from "../../../../shared/command-protocol-core";
+import {
+  makeCommandCancelMessage,
+  makeCommandInvokeMessage,
+  parseCommandResultMessage,
+} from "../../../../shared/command-protocol-core";
 import type { BridgeRunner } from "../bridge/shared.js";
 import { createLiveCommandHandler } from "./handler.js";
 
@@ -86,7 +89,7 @@ describe("createLiveCommandHandler", () => {
     );
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-echo",
         name: "echoValue",
@@ -137,7 +140,7 @@ describe("createLiveCommandHandler", () => {
     handler.beginManifestLoad();
 
     const pendingInvoke = handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-queued",
         name: "echoValue",
@@ -194,7 +197,7 @@ describe("createLiveCommandHandler", () => {
     );
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-missing",
         name: "missingExecutor",
@@ -227,7 +230,7 @@ describe("createLiveCommandHandler", () => {
     );
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-shell",
         name: "shellEcho",
@@ -258,7 +261,7 @@ describe("createLiveCommandHandler", () => {
     );
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-timeout",
         name: "slowEcho",
@@ -281,7 +284,7 @@ describe("createLiveCommandHandler", () => {
     const { handler, sentMessages } = buildHandler();
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-unknown",
         name: "doesNotExist",
@@ -317,7 +320,7 @@ describe("createLiveCommandHandler", () => {
     handler.bindFromHtml("");
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-cleared",
         name: "echoValue",
@@ -352,7 +355,7 @@ describe("createLiveCommandHandler", () => {
     );
 
     const invokePromise = handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-cancel",
         name: "slowInline",
@@ -362,7 +365,7 @@ describe("createLiveCommandHandler", () => {
     await sleep(80);
 
     await handler.onMessage(
-      makeEventMessage("command.cancel", {
+      makeCommandCancelMessage({
         v: 1,
         callId: "call-cancel",
         reason: "user_cancel",
@@ -409,7 +412,7 @@ describe("createLiveCommandHandler", () => {
     );
 
     await handler.onMessage(
-      makeEventMessage("command.invoke", {
+      makeCommandInvokeMessage({
         v: 1,
         callId: "call-main-agent",
         name: "askMainAgent",

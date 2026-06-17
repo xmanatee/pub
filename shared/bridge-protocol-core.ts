@@ -1,3 +1,4 @@
+import type { CommandEvent } from "./command-events-core";
 import type { LiveRuntimeStateSnapshot } from "./live-runtime-state-core";
 import {
   isLiveAgentActivity,
@@ -68,9 +69,7 @@ export type ControlEvent =
   | "ping"
   | "pong"
   | "ack"
-  | "command.invoke"
-  | "command.result"
-  | "command.cancel"
+  | CommandEvent
   | PubFsEvent;
 
 export type StatusPayload = LiveRuntimeStateSnapshot & {

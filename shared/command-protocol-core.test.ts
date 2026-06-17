@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { makeEventMessage } from "./bridge-protocol-core";
 import {
+  COMMAND_CANCEL_EVENT,
+  COMMAND_INVOKE_EVENT,
   COMMAND_MANIFEST_MAX_FUNCTIONS,
   COMMAND_PROTOCOL_VERSION,
+  COMMAND_RESULT_EVENT,
   extractManifestFromHtml,
   makeCommandCancelMessage,
   makeCommandInvokeMessage,
@@ -160,10 +163,14 @@ describe("command-protocol-core", () => {
   });
 
   it("returns null for malformed command invoke/result messages", () => {
-    expect(parseCommandInvokeMessage(makeEventMessage("command.invoke", { name: "x" }))).toBeNull();
-    expect(parseCommandResultMessage(makeEventMessage("command.result", { ok: true }))).toBeNull();
     expect(
-      parseCommandCancelMessage(makeEventMessage("command.cancel", { reason: "x" })),
+      parseCommandInvokeMessage(makeEventMessage(COMMAND_INVOKE_EVENT, { name: "x" })),
+    ).toBeNull();
+    expect(
+      parseCommandResultMessage(makeEventMessage(COMMAND_RESULT_EVENT, { ok: true })),
+    ).toBeNull();
+    expect(
+      parseCommandCancelMessage(makeEventMessage(COMMAND_CANCEL_EVENT, { reason: "x" })),
     ).toBeNull();
   });
 

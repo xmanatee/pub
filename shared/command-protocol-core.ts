@@ -1,5 +1,17 @@
 import { type BridgeMessage, makeEventMessage } from "./bridge-protocol-core";
 import {
+  COMMAND_CANCEL_EVENT,
+  COMMAND_INVOKE_EVENT,
+  COMMAND_RESULT_EVENT,
+} from "./command-events-core";
+
+export {
+  COMMAND_CANCEL_EVENT,
+  COMMAND_INVOKE_EVENT,
+  COMMAND_RESULT_EVENT,
+} from "./command-events-core";
+
+import {
   readFiniteNumber,
   readNonEmptyString,
   readRecord,
@@ -92,15 +104,15 @@ export type CommandCancelPayload = Record<string, unknown> & {
 };
 
 export function makeCommandInvokeMessage(payload: CommandInvokePayload): BridgeMessage {
-  return makeEventMessage("command.invoke", payload);
+  return makeEventMessage(COMMAND_INVOKE_EVENT, payload);
 }
 
 export function makeCommandResultMessage(payload: CommandResultPayload): BridgeMessage {
-  return makeEventMessage("command.result", payload);
+  return makeEventMessage(COMMAND_RESULT_EVENT, payload);
 }
 
 export function makeCommandCancelMessage(payload: CommandCancelPayload): BridgeMessage {
-  return makeEventMessage("command.cancel", payload);
+  return makeEventMessage(COMMAND_CANCEL_EVENT, payload);
 }
 
 function readReturnType(input: unknown): CommandReturnType | undefined {
@@ -235,7 +247,7 @@ export function parseCommandInvokePayload(input: unknown): CommandInvokePayload 
 }
 
 export function parseCommandInvokeMessage(msg: BridgeMessage): CommandInvokePayload | null {
-  if (msg.type !== "event" || msg.data !== "command.invoke") return null;
+  if (msg.type !== "event" || msg.data !== COMMAND_INVOKE_EVENT) return null;
   return parseCommandInvokePayload(parseMetaRecord(msg));
 }
 
@@ -264,7 +276,7 @@ export function parseCommandResultPayload(input: unknown): CommandResultPayload 
 }
 
 export function parseCommandResultMessage(msg: BridgeMessage): CommandResultPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.result") return null;
+  if (msg.type !== "event" || msg.data !== COMMAND_RESULT_EVENT) return null;
   return parseCommandResultPayload(parseMetaRecord(msg));
 }
 
@@ -281,7 +293,7 @@ export function parseCommandCancelPayload(input: unknown): CommandCancelPayload 
 }
 
 export function parseCommandCancelMessage(msg: BridgeMessage): CommandCancelPayload | null {
-  if (msg.type !== "event" || msg.data !== "command.cancel") return null;
+  if (msg.type !== "event" || msg.data !== COMMAND_CANCEL_EVENT) return null;
   return parseCommandCancelPayload(parseMetaRecord(msg));
 }
 

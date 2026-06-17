@@ -1,5 +1,8 @@
 import {
+  COMMAND_CANCEL_EVENT,
+  COMMAND_INVOKE_EVENT,
   COMMAND_PROTOCOL_VERSION,
+  COMMAND_RESULT_EVENT,
   DEFAULT_COMMAND_TIMEOUT_MS,
 } from "@shared/command-protocol-core";
 import {
@@ -9,6 +12,9 @@ import {
 
 const COMMAND_RESULT_GRACE_MS = 5_000;
 const COMMAND_RESULT_GUARD_MS = 5 * 60_000;
+const COMMAND_CANCEL_EVENT_LITERAL = JSON.stringify(COMMAND_CANCEL_EVENT);
+const COMMAND_INVOKE_EVENT_LITERAL = JSON.stringify(COMMAND_INVOKE_EVENT);
+const COMMAND_RESULT_EVENT_LITERAL = JSON.stringify(COMMAND_RESULT_EVENT);
 
 /**
  * Build the canvas bridge script that provides window.pub API inside the iframe.
@@ -35,24 +41,24 @@ function buildCanvasBridgeScript(): string {
     `function createPendingCall(callId,requestedTimeoutMs,defaultTimeoutMs,label){var guardTimeoutMs=getGuardTimeoutMs(requestedTimeoutMs,defaultTimeoutMs);var resultPromise=new Promise(function(resolve,reject){var timer=setTimeout(function(){clearPending(callId,false,"Timed out waiting for "+label+" after "+guardTimeoutMs+"ms");},guardTimeoutMs);pendingCalls[callId]={resolve:resolve,reject:reject,timer:timer};});return{guardTimeoutMs:guardTimeoutMs,resultPromise:resultPromise};}`,
     `function notify(payload,transfer){if(notifyFailed){return;}try{parent.postMessage(payload,"*",Array.isArray(transfer)?transfer:[]);}catch(error){notifyFailed=true;console.warn("pub canvas bridge postMessage failed",error);}}`,
     `function emit(type,payload,transfer){notify({source:"${CANVAS_TO_PARENT_SOURCE}",type:type,payload:payload&&typeof payload==="object"?payload:{}},transfer);}`,
-    `function invokeCommand(name,args,options){var callId=nextCallId();var requestedTimeoutMs=options&&typeof options.timeoutMs==="number"&&options.timeoutMs>0?options.timeoutMs:undefined;var pending=createPendingCall(callId,requestedTimeoutMs,${DEFAULT_COMMAND_TIMEOUT_MS},"command result");var payload={v:${COMMAND_PROTOCOL_VERSION},callId:callId,name:name,args:args&&typeof args==="object"?args:{}};if(requestedTimeoutMs!==undefined){payload.timeoutMs=requestedTimeoutMs;}emit("command.invoke",payload);return pending.resultPromise;}`,
-    `function cancelCommand(callId,reason){if(typeof callId!=="string"||callId.length===0){return;}emit("command.cancel",{v:${COMMAND_PROTOCOL_VERSION},callId:callId,reason:typeof reason==="string"?reason:undefined});}`,
+    `function invokeCommand(name,args,options){var callId=nextCallId();var requestedTimeoutMs=options&&typeof options.timeoutMs==="number"&&options.timeoutMs>0?options.timeoutMs:undefined;var pending=createPendingCall(callId,requestedTimeoutMs,${DEFAULT_COMMAND_TIMEOUT_MS},"command result");var payload={v:${COMMAND_PROTOCOL_VERSION},callId:callId,name:name,args:args&&typeof args==="object"?args:{}};if(requestedTimeoutMs!==undefined){payload.timeoutMs=requestedTimeoutMs;}emit(${COMMAND_INVOKE_EVENT_LITERAL},payload);return pending.resultPromise;}`,
+    `function cancelCommand(callId,reason){if(typeof callId!=="string"||callId.length===0){return;}emit(${COMMAND_CANCEL_EVENT_LITERAL},{v:${COMMAND_PROTOCOL_VERSION},callId:callId,reason:typeof reason==="string"?reason:undefined});}`,
     'function ensurePubApi(){var api=(window.pub&&typeof window.pub==="object")?window.pub:{};api.command=invokeCommand;api.cancelCommand=cancelCommand;api.commands=new Proxy({},{get:function(t,name){if(typeof name!=="string"){return undefined;}return function(args,options){return invokeCommand(name,args,{timeoutMs:options&&options.timeoutMs});};}});window.pub=api;}',
     "ensurePubApi();",
 
-    // Swap handler — window persists across document.write(), so remove the old one first.
-    `var handler=function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type==="command.result"){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}}};`,
+    // Swap handler because window persists across document.write().
+    `var handler=function(ev){var data=ev&&ev.data;if(!data||data.source!=="${PARENT_TO_CANVAS_SOURCE}"){return;}var payload=data.payload;if(!payload||typeof payload!=="object"){return;}if(data.type===${COMMAND_RESULT_EVENT_LITERAL}){if(payload.ok){clearPending(payload.callId,true,payload.value);}else{var commandErrorMessage=payload.error&&payload.error.message?payload.error.message:"Command failed";clearPending(payload.callId,false,commandErrorMessage);}}};`,
     'if(window.__pubBridgeHandler){window.removeEventListener("message",window.__pubBridgeHandler);}',
     'window.__pubBridgeHandler=handler;window.addEventListener("message",handler);',
 
     'window.onerror=function(message,source,lineno,colno,error){var resolvedMessage=error&&error.message?error.message:(typeof message==="string"&&message?message:"Script error");emit("error",{message:resolvedMessage,filename:typeof source==="string"?source:"",lineno:typeof lineno==="number"?lineno:0,colno:typeof colno==="number"?colno:0});return false;};',
     'window.onunhandledrejection=function(ev){var reason=ev&&ev.reason;var message=reason&&reason.message?reason.message:String(reason||"Unhandled promise rejection");emit("error",{message:message});};',
 
-    // Store the real console.error once — re-capturing would chain wrappers.
+    // Store the real console.error once; re-capturing would chain wrappers.
     "if(!window.__pubOrigConsoleError){window.__pubOrigConsoleError=console.error;}",
-    'var origConsoleError=window.__pubOrigConsoleError;console.error=function(){origConsoleError.apply(console,arguments);try{var parts=[];for(var i=0;i<arguments.length;i++){parts.push(arguments[i] instanceof Error?arguments[i].message:String(arguments[i]));}var msg=parts.join(" ");if(msg.length>0){emit("console-error",{message:msg});}}catch(e){}};',
+    'var origConsoleError=window.__pubOrigConsoleError;console.error=function(){origConsoleError.apply(console,arguments);try{var parts=[];for(var i=0;i<arguments.length;i++){parts.push(arguments[i] instanceof Error?arguments[i].message:String(arguments[i]));}var msg=parts.join(" ");if(msg.length>0){emit("console-error",{message:msg});}}catch(e){origConsoleError.call(console,"pub canvas console.error capture failed",e);}};',
 
-    // Re-register inject-content handler — document.write() destroys the one from sandbox/index.html.
+    // Re-register inject-content after document.write() removes the sandbox handler.
     // Uses the same swap pattern as __pubBridgeHandler to prevent duplicate listeners.
     `var injectHandler=function(ev){var d=ev&&ev.data;if(!d||d.source!=="${PARENT_TO_CANVAS_SOURCE}"||d.type!=="inject-content"||typeof d.html!=="string"){return;}document.open();document.write(d.html);document.close();};`,
     'if(window.__pubInjectHandler){window.removeEventListener("message",window.__pubInjectHandler);}',
@@ -84,7 +90,6 @@ function injectHead(html: string, script: string, contentBaseUrl: string | null)
   return `<!doctype html><html><head>${baseTag}${script}</head><body>${html}</body></html>`;
 }
 
-/** Inject the canvas bridge script (window.pub API) into agent HTML. */
 export function buildCanvasSrcDoc(
   html: string,
   options: { contentBaseUrl: string | null },

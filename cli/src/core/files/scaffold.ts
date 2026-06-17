@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { SYSTEM_API_MODULE_SPECIFIER } from "../../../../shared/pub-system-files-core";
 import { failCli } from "../errors/cli-error.js";
 import { FROZEN_FILES } from "./frozen.js";
 
@@ -18,7 +19,7 @@ const INDEX_HTML = `<!DOCTYPE html>
 </html>
 `;
 
-const MAIN_JS = `import { command, commands } from "./_pub/api.js";
+const MAIN_JS = `import { command, commands } from "${SYSTEM_API_MODULE_SPECIFIER}";
 
 const app = document.getElementById("app");
 app.innerHTML = "<h1>Hello from Pub</h1>";

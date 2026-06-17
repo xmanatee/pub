@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
-import { COMMAND_PROTOCOL_VERSION } from "@shared/command-protocol-core";
+import {
+  COMMAND_INVOKE_EVENT,
+  COMMAND_PROTOCOL_VERSION,
+  COMMAND_RESULT_EVENT,
+} from "@shared/command-protocol-core";
 import type { LiveRuntimeStateSnapshot } from "@shared/live-runtime-state-core";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BridgeMessage } from "~/features/live/lib/bridge-protocol";
+import type { CanvasBridgeCommandMessage } from "~/features/live/types/live-types";
 import { buildInterruptedCommandState, useCanvasCommands } from "./use-canvas-commands";
 
 function createMockChannelOps() {
@@ -17,10 +22,14 @@ function createMockChannelOps() {
   };
 }
 
-function makeInvokeMessage(name: string, callId: string, args: Record<string, unknown> = {}) {
+function makeInvokeMessage(
+  name: string,
+  callId: string,
+  args: Record<string, unknown> = {},
+): CanvasBridgeCommandMessage {
   return {
     source: "pub-canvas" as const,
-    type: "command.invoke" as const,
+    type: COMMAND_INVOKE_EVENT,
     payload: {
       v: COMMAND_PROTOCOL_VERSION,
       callId,
@@ -101,10 +110,6 @@ function createRuntimeState(
     ...overrides,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("buildInterruptedCommandState", () => {
   it("returns a failure result for every active command and keeps the latest summary", () => {
@@ -200,10 +205,6 @@ describe("useCanvasCommands", () => {
     });
   });
 
-  // --------------------------------------------------------------------------
-  // Command dispatch – happy path
-  // --------------------------------------------------------------------------
-
   it("dispatches commands immediately once the transport is connected", async () => {
     const r = setup();
     const ops = createMockChannelOps();
@@ -270,15 +271,10 @@ describe("useCanvasCommands", () => {
     });
   });
 
-  // --------------------------------------------------------------------------
-  // Queue-then-drain: the core startup flow
-  // --------------------------------------------------------------------------
-
   it("queues commands until the transport becomes connected", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
-    // Phase 1: transport is not connected yet
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({ connectionState: "idle" }),
@@ -292,7 +288,6 @@ describe("useCanvasCommands", () => {
     expect(latestHook?.command).toMatchObject({ phase: "idle" });
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
 
-    // Phase 2: transport connects; daemon owns executor readiness from here.
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -342,29 +337,22 @@ describe("useCanvasCommands", () => {
     expect(latestHook?.command.activeCount).toBe(2);
   });
 
-  // --------------------------------------------------------------------------
-  // Realistic startup sequence: closed → connecting → connected
-  // --------------------------------------------------------------------------
-
-  it("handles realistic startup: closed → connecting → connected with queued commands", async () => {
+  it("handles realistic startup from closed to connecting to connected with queued commands", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
-    // Step 1: bridge closed
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({ connectionState: "idle" }),
       liveMode: true,
     });
 
-    // Step 2: Canvas fires listEmails() immediately
     act(() => {
       latestHook?.onCanvasBridgeMessage(makeInvokeMessage("listEmails", "call-inbox"));
     });
 
     expect(latestHook?.command.phase).toBe("idle");
 
-    // Step 3: bridge starts connecting
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -377,7 +365,6 @@ describe("useCanvasCommands", () => {
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
     expect(latestHook?.command.phase).toBe("idle");
 
-    // Step 4: WebRTC connected; daemon can accept the invoke even if it is still loading.
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -394,10 +381,6 @@ describe("useCanvasCommands", () => {
       activeCallId: "call-inbox",
     });
   });
-
-  // --------------------------------------------------------------------------
-  // Failure drain: bridge fails after commands were queued
-  // --------------------------------------------------------------------------
 
   it("fails queued commands when connection state transitions to failed", async () => {
     const r = setup();
@@ -427,10 +410,6 @@ describe("useCanvasCommands", () => {
     expect(msg?.payload.ok).toBe(false);
     expect(msg?.payload.callId).toBe("call-1");
   });
-
-  // --------------------------------------------------------------------------
-  // Scope change during pending queue
-  // --------------------------------------------------------------------------
 
   it("clears pending queue when canvasScopeKey changes", async () => {
     const r = setup();
@@ -468,15 +447,10 @@ describe("useCanvasCommands", () => {
     expect(latestHook?.command.phase).toBe("idle");
   });
 
-  // --------------------------------------------------------------------------
-  // Session key change preserves pending queue
-  // --------------------------------------------------------------------------
-
   it("pending commands survive sessionKey change and drain when the transport connects", async () => {
     const r = setup();
     const ops = createMockChannelOps();
 
-    // Session A — queue a command while executor is not ready
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({ connectionState: "idle" }),
@@ -491,7 +465,6 @@ describe("useCanvasCommands", () => {
     expect(latestHook?.command.phase).toBe("idle");
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
 
-    // Session B — sessionKey changes (agent selected)
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({ connectionState: "idle" }),
@@ -499,10 +472,8 @@ describe("useCanvasCommands", () => {
       sessionKey: "slug:agent-1:0",
     });
 
-    // Command should still be pending, not dispatched yet
     expect(ops.sendWithAckOnChannel).not.toHaveBeenCalled();
 
-    // Transport connects — queued command should drain
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -525,7 +496,6 @@ describe("useCanvasCommands", () => {
     const r = setup();
     const ops = createMockChannelOps();
 
-    // Start with executor ready, dispatch one command (becomes active)
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -545,7 +515,6 @@ describe("useCanvasCommands", () => {
       activeCallId: "call-active",
     });
 
-    // Pause command dispatch: queue a second command while keeping the first active.
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -561,7 +530,6 @@ describe("useCanvasCommands", () => {
       latestHook?.onCanvasBridgeMessage(makeInvokeMessage("pending-cmd", "call-pending"));
     });
 
-    // Change sessionKey — active command should be interrupted
     await renderHarness(r, {
       ...ops,
       runtimeState: createRuntimeState({
@@ -573,14 +541,12 @@ describe("useCanvasCommands", () => {
       sessionKey: "slug:agent-2:0",
     });
 
-    // Active command was interrupted (failed)
     const interruptMsg = observedOutboundMessages.find(
-      (m) => m.type === "command.result" && m.payload.callId === "call-active",
+      (m) => m.type === COMMAND_RESULT_EVENT && m.payload.callId === "call-active",
     );
     expect(interruptMsg).toBeDefined();
     expect(interruptMsg?.payload.ok).toBe(false);
 
-    // Resume on new session — pending command drains
     ops.sendWithAckOnChannel.mockClear();
     await renderHarness(r, {
       ...ops,

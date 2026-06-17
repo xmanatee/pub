@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CONTROL_CHANNEL, makeStatusMessage } from "../../../../shared/bridge-protocol-core";
+import {
+  CHANNELS,
+  CONTROL_CHANNEL,
+  makeStatusMessage,
+} from "../../../../shared/bridge-protocol-core";
 import { isLiveConnectionReady } from "../../../../shared/live-runtime-state-core";
 import type { BridgeSettings } from "../../core/config/index.js";
 import { exitProcess } from "../../core/process/exit.js";
@@ -85,8 +89,8 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     },
     sendCommandMessage: async (msg) => {
       if (!isLiveConnectionReady(state.runtimeState)) return false;
-      return await channelManager.sendOutboundMessageWithAck("command", msg, {
-        context: 'command outbound on "command"',
+      return await channelManager.sendOutboundMessageWithAck(CHANNELS.COMMAND, msg, {
+        context: `command outbound on "${CHANNELS.COMMAND}"`,
         maxAttempts: 2,
       });
     },
@@ -129,14 +133,13 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
     onCommandMessage: async (msg) => await commandHandler.onMessage(msg),
     onPubFsMessage: async (msg) => pubFsHandler.onMessage(msg),
     onChannelClosed: (name) => {
-      if (name !== CONTROL_CHANNEL && name !== "command") return;
+      if (name !== CONTROL_CHANNEL && name !== CHANNELS.COMMAND) return;
       if (channelManager.hasOpenChannel(name)) return;
       lifecycle.markError(`critical datachannel "${name}" closed unexpectedly`);
       lifecycle.handleConnectionClosed(`channel-closed-${name}`);
     },
-    // Lazily resolved: bridgeManager is created below but channelManager and
-    // bridgeManager reference each other (channel→accept inbound; bridge→send
-    // outbound via channelManager). The closure here defers the lookup until
+    // Lazily resolved: bridgeManager is created below, but channelManager and
+    // bridgeManager reference each other. The closure defers the lookup until
     // the first inbound message arrives.
     getBridgeAcceptor: () => bridgeManager,
   });
@@ -436,7 +439,7 @@ export async function startDaemon(config: DaemonConfig): Promise<void> {
       }
 
       // First non-control channel opening is what proves a browser is on the
-      // other end of the tunnel — that's our cue to start the agent. The
+      // other end of the tunnel. That is our cue to start the agent. The
       // tunnel transport has no SDP/ICE state machine, so we synthesize the
       // "connected" runtime state here and hand the bridge a tunnel intent.
       // We pre-create the `_control` tunnel channel so the bridge can publish

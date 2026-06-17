@@ -4,6 +4,9 @@ import type {
   CommandResultPayload,
 } from "@shared/command-protocol-core";
 import {
+  COMMAND_CANCEL_EVENT,
+  COMMAND_INVOKE_EVENT,
+  COMMAND_RESULT_EVENT,
   parseCommandCancelPayload,
   parseCommandInvokePayload,
   parseCommandResultPayload,
@@ -39,13 +42,13 @@ export type CanvasBridgeReadyMessage = {
 
 export type CanvasBridgeInvokeMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
-  type: "command.invoke";
+  type: typeof COMMAND_INVOKE_EVENT;
   payload: CommandInvokePayload;
 };
 
 export type CanvasBridgeCancelMessage = {
   source: typeof CANVAS_TO_PARENT_SOURCE;
-  type: "command.cancel";
+  type: typeof COMMAND_CANCEL_EVENT;
   payload: CommandCancelPayload;
 };
 
@@ -66,7 +69,7 @@ export type CanvasBridgeInboundMessage =
 
 export type CanvasBridgeResultMessage = {
   source: typeof PARENT_TO_CANVAS_SOURCE;
-  type: "command.result";
+  type: typeof COMMAND_RESULT_EVENT;
   payload: CommandResultPayload;
 };
 
@@ -114,13 +117,13 @@ export function parseCanvasBridgeInboundMessage(input: unknown): CanvasBridgeInb
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload: { message } };
   }
 
-  if (type === "command.invoke") {
+  if (type === COMMAND_INVOKE_EVENT) {
     const payload = parseCommandInvokePayload(record.payload);
     if (!payload) return null;
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
   }
 
-  if (type === "command.cancel") {
+  if (type === COMMAND_CANCEL_EVENT) {
     const payload = parseCommandCancelPayload(record.payload);
     if (!payload) return null;
     return { source: CANVAS_TO_PARENT_SOURCE, type, payload };
@@ -134,13 +137,13 @@ export function parseCanvasBridgeOutboundMessage(
 ): CanvasBridgeOutboundMessage | null {
   const record = readRecord(input);
   if (!record || record.source !== PARENT_TO_CANVAS_SOURCE) return null;
-  if (record.type === "command.result") {
+  if (record.type === COMMAND_RESULT_EVENT) {
     const payload = parseCommandResultPayload(record.payload);
     if (!payload) return null;
 
     return {
       source: PARENT_TO_CANVAS_SOURCE,
-      type: "command.result",
+      type: COMMAND_RESULT_EVENT,
       payload,
     };
   }

@@ -2,7 +2,9 @@ import { type LiveRuntimeStateSnapshot } from "@shared/live-runtime-state-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type BridgeMessage, CHANNELS } from "~/features/live/lib/bridge-protocol";
 import {
+  COMMAND_CANCEL_EVENT,
   COMMAND_PROTOCOL_VERSION,
+  COMMAND_RESULT_EVENT,
   type CommandCancelPayload,
   type CommandInvokePayload,
   makeCommandCancelMessage,
@@ -90,7 +92,7 @@ export function buildInterruptedCommandState(
     },
     outboundMessages: activeCommands.map((activeCommand) => ({
       source: PARENT_TO_CANVAS_SOURCE,
-      type: "command.result",
+      type: COMMAND_RESULT_EVENT,
       payload: {
         v: COMMAND_PROTOCOL_VERSION,
         callId: activeCommand.callId,
@@ -263,7 +265,7 @@ export function useCanvasCommands({
       });
       enqueueOutboundCanvasMessage({
         source: PARENT_TO_CANVAS_SOURCE,
-        type: "command.result",
+        type: COMMAND_RESULT_EVENT,
         payload: {
           v: COMMAND_PROTOCOL_VERSION,
           callId: params.callId,
@@ -332,7 +334,7 @@ export function useCanvasCommands({
 
   const dispatchCommand = useCallback(
     (message: CanvasBridgeCommandMessage) => {
-      if (message.type === "command.cancel") {
+      if (message.type === COMMAND_CANCEL_EVENT) {
         const payload: CommandCancelPayload = message.payload;
         trackCommandCancel(payload.callId);
         void ensureChannel(CHANNELS.COMMAND)
@@ -479,7 +481,7 @@ export function useCanvasCommands({
       });
       enqueueOutboundCanvasMessage({
         source: PARENT_TO_CANVAS_SOURCE,
-        type: "command.result",
+        type: COMMAND_RESULT_EVENT,
         payload: result,
       });
     },

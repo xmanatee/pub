@@ -1,3 +1,4 @@
+import { COMMAND_INVOKE_EVENT, COMMAND_RESULT_EVENT } from "@shared/command-protocol-core";
 import { describe, expect, it } from "vitest";
 import { buildCanvasSrcDoc } from "~/features/live/utils/build-canvas-srcdoc";
 
@@ -36,8 +37,8 @@ describe("buildCanvasSrcDoc", () => {
     expect(output).toContain('emit("ready",{})');
     expect(output).toContain("api.command=invokeCommand");
     expect(output).toContain("api.cancelCommand=cancelCommand");
-    expect(output).toContain('emit("command.invoke"');
-    expect(output).toContain("command.result");
+    expect(output).toContain(`emit(${JSON.stringify(COMMAND_INVOKE_EVENT)}`);
+    expect(output).toContain(COMMAND_RESULT_EVENT);
     expect(output).toContain("getGuardTimeoutMs");
     expect(output).not.toContain("files.upload");
     expect(output).not.toContain("files.download");

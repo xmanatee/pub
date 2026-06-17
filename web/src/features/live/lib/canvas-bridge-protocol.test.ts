@@ -1,3 +1,4 @@
+import { COMMAND_INVOKE_EVENT, COMMAND_RESULT_EVENT } from "@shared/command-protocol-core";
 import { describe, expect, it } from "vitest";
 import {
   CANVAS_TO_PARENT_SOURCE,
@@ -25,7 +26,7 @@ describe("canvas-bridge-protocol", () => {
     expect(
       parseCanvasBridgeInboundMessage({
         source: CANVAS_TO_PARENT_SOURCE,
-        type: "command.invoke",
+        type: COMMAND_INVOKE_EVENT,
         payload: {
           v: 1,
           callId: "call-1",
@@ -36,7 +37,7 @@ describe("canvas-bridge-protocol", () => {
       }),
     ).toEqual({
       source: CANVAS_TO_PARENT_SOURCE,
-      type: "command.invoke",
+      type: COMMAND_INVOKE_EVENT,
       payload: {
         v: 1,
         callId: "call-1",
@@ -116,7 +117,7 @@ describe("canvas-bridge-protocol", () => {
     expect(
       parseCanvasBridgeOutboundMessage({
         source: PARENT_TO_CANVAS_SOURCE,
-        type: "command.result",
+        type: COMMAND_RESULT_EVENT,
         payload: {
           v: 1,
           callId: "call-2",
@@ -127,7 +128,7 @@ describe("canvas-bridge-protocol", () => {
       }),
     ).toEqual({
       source: PARENT_TO_CANVAS_SOURCE,
-      type: "command.result",
+      type: COMMAND_RESULT_EVENT,
       payload: {
         v: 1,
         callId: "call-2",
@@ -162,14 +163,14 @@ describe("canvas-bridge-protocol", () => {
     expect(
       parseCanvasBridgeInboundMessage({
         source: CANVAS_TO_PARENT_SOURCE,
-        type: "command.invoke",
+        type: COMMAND_INVOKE_EVENT,
         payload: { name: "missingCallId" },
       }),
     ).toBeNull();
     expect(
       parseCanvasBridgeOutboundMessage({
         source: PARENT_TO_CANVAS_SOURCE,
-        type: "command.result",
+        type: COMMAND_RESULT_EVENT,
         payload: { ok: true },
       }),
     ).toBeNull();
