@@ -1,7 +1,7 @@
 # Stage 1: Build CLI binary and generate Convex types
 FROM node:22-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+RUN corepack enable && corepack prepare pnpm@10.34.7 --activate
 RUN npm install -g bun
 
 WORKDIR /app
@@ -38,7 +38,7 @@ FROM ghcr.io/openclaw/openclaw@sha256:b86307b257ff42a81353b0d6b3963ccd09bbd9eb19
 # Stage 2: Test runner (Vite + proxy + CLI + OpenClaw + mock LLM + Playwright — all in one)
 FROM node:22-slim AS test-runner
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+RUN corepack enable && corepack prepare pnpm@10.34.7 --activate
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /app

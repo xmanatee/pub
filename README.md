@@ -67,10 +67,12 @@ pub write -c canvas -f ./interface.html
 
 ```bash
 pnpm dev          # Start web + Convex backend
-pnpm lint         # Biome check + TypeScript
+pnpm typecheck    # TypeScript across shared, web, super-app, CLI and relay
+pnpm lint         # Biome and architecture checks
 pnpm test         # Run tests
 pnpm build        # Production build
-pnpm check        # lint + test + build + knip
+pnpm check        # Fast lint, unit tests and unused-code checks used by CI
+pnpm check:all    # Complete local checks, build and Docker full-stack E2E
 ```
 
 ## Tech Stack

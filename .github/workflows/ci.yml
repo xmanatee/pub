@@ -1,132 +1,53 @@
-name: Pub CI
-
-on:
+name: CI
+'on':
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-  workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
+    branches:
+      - main
+  workflow_dispatch: null
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  web:
-    name: Web + Backend
-    runs-on: ubuntu-latest
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          version: 10.32.1
-      - uses: actions/setup-node@v6
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
         with:
-          node-version: 22
+          version: 10.34.7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Convex codegen
-        run: pnpm convex codegen
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - name: Convex deploy (dry-run)
-        run: pnpm convex deploy --dry-run -y --codegen disable
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - run: pnpm build:web
-      - run: pnpm build:super-app
-      - run: pnpm lint:root
-      - run: pnpm lint:web
-      - run: pnpm lint:super-app
-      - run: pnpm test:root
-      - run: pnpm test:web
-      - run: pnpm test:super-app
-      - run: pnpm test:ip-compat
-      - run: pnpm audit
-      - run: pnpm knip
-
-  e2e-fullstack:
-    name: Full-Stack E2E
-    runs-on: ubuntu-latest
-    needs: [web]
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.32.1
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Convex codegen
-        run: pnpm convex codegen
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - name: Build E2E images
-        run: docker compose -f tests/e2e/docker-compose.yml build
-      - name: Start E2E dependencies and generate admin key
-        run: |
-          docker compose -f tests/e2e/docker-compose.yml up -d --wait --wait-timeout 60 convex-backend turn-server
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3210/version > /dev/null && break
-            sleep 2
-          done
-          docker compose -f tests/e2e/docker-compose.yml up admin-key-gen
-      - name: Run full-stack E2E tests
-        run: docker compose -f tests/e2e/docker-compose.yml up --no-deps --abort-on-container-exit --exit-code-from test-runner test-runner
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report-fullstack
-          path: playwright-report/
-          retention-days: 7
-      - name: Cleanup Docker
-        if: always()
-        run: docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
-
-  relay:
-    name: Relay (Cloudflare Worker)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.32.1
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint:relay
-      - run: pnpm build:relay
-      - name: Deploy to Cloudflare
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: relay
-
-  cli:
-    name: CLI
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.32.1
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint:cli
-      - run: pnpm test:cli
-      - run: pnpm build:cli
+          bun-version: 1.3.11
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Convex types
+        run: pnpm exec convex codegen
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      - name: Validate backend deployment
+        run: pnpm exec convex deploy --dry-run -y --codegen disable
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      - name: Check
+        run: pnpm check
+      - name: Build
+        run: pnpm build
+        env:
+          PUB_CLI_BUILD_TARGETS: linux-x64
+      - name: Audit dependencies
+        run: pnpm audit
       - name: Smoke test
         working-directory: cli
         run: |
@@ -144,3 +65,27 @@ jobs:
             exit 1
           fi
           echo "$OUTPUT" | grep -q "Missing PUB_DAEMON_BRIDGE_SETTINGS"
+  publish-relay:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          version: 10.34.7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Deploy relay
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: relay

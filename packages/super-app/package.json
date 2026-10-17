@@ -1,15 +1,19 @@
 {
   "name": "pub-super-app",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
-    "format": "biome check --fix src",
+    "lint:fix": "biome check --fix src",
+    "format": "biome format --write src",
     "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "check:all": "pnpm check && pnpm build && pnpm smoke && pnpm smoke:interact",
     "smoke": "node scripts/smoke.mjs",
     "smoke:interact": "node scripts/smoke-interact.mjs"
   },

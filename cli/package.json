@@ -1,13 +1,21 @@
 {
   "name": "pub-cli",
   "version": "0.11.27",
+  "private": true,
   "description": "CLI for publishing and visualizing AI-agent output via pub.blue",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xmanatee/pub.git",
+    "directory": "cli"
+  },
   "type": "module",
   "scripts": {
+    "build": "bun run build-binary.ts",
+    "typecheck": "tsc --noEmit",
     "test": "node scripts/bundle-super-app.mjs && vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit",
-    "build": "bun run build-binary.ts"
+    "check": "pnpm typecheck && pnpm test",
+    "check:all": "pnpm check && pnpm build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.0",
@@ -22,10 +30,5 @@
     "@types/node": "^22.12.0",
     "typescript": "^5.7.2",
     "vitest": "^4.1.8"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/xmanatee/pub.git",
-    "directory": "cli"
   }
 }
