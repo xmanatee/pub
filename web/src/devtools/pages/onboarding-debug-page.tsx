@@ -113,7 +113,7 @@ function OnboardingState2KeyGenerated() {
             </p>
             <div className="flex items-center gap-2">
               <code className="text-sm bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1.5 rounded flex-1 break-all font-mono">
-                pub_abc123def456ghi789
+                YOUR_PUB_API_KEY
               </code>
             </div>
           </div>
@@ -123,7 +123,7 @@ function OnboardingState2KeyGenerated() {
           </div>
           <div className="rounded-lg border border-border/50 p-4 space-y-3">
             <p className="text-sm font-medium">Step 3: Configure your key</p>
-            <CommandBlock command="pub config --set apiKey=pub_abc123def456ghi789" />
+            <CommandBlock command="pub config --set apiKey=YOUR_PUB_API_KEY" />
           </div>
           <div className="rounded-lg border border-border/50 p-4 space-y-3">
             <p className="text-sm font-medium">Step 4: Detect your local agent</p>

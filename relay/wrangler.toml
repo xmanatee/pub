@@ -1,6 +1,10 @@
 name = "pub-relay"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+send_metrics = false
+
+[dependencies_instrumentation]
+enabled = false
 
 [durable_objects]
 bindings = [
