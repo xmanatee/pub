@@ -29,3 +29,6 @@ TODO.md
 tools/batch-gen/output/
 tools/batch-gen/.run.lock
 output/
+
+# Finder metadata
+.DS_Store
