@@ -6,7 +6,6 @@ dist-bin/
 .env.secrets
 .vercel
 
-packages/super-app/src/routeTree.gen.ts
 
 # super-app source tarball embedded in the CLI binary (built on demand)
 cli/assets/super-app-source.tar.gz
