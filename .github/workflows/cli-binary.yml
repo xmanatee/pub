@@ -76,3 +76,10 @@ jobs:
           tag_name: cli-v${{ needs.check.outputs.version }}
           files: cli/dist-bin/pub-*
           generate_release_notes: true
+          draft: true
+          make_latest: false
+      - name: Publish the complete immutable CLI release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: cli-v${{ needs.check.outputs.version }}
+        run: gh release edit "$RELEASE_TAG" --draft=false --latest

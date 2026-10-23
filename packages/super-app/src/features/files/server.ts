@@ -52,7 +52,7 @@ function guessMime(name: string): string {
 }
 
 export const listFiles = createServerFn({ method: "GET" })
-  .inputValidator((input: { path?: string }) => input)
+  .validator((input: { path?: string }) => input)
   .handler(async ({ data }): Promise<FsListResult> => {
     const { fs, path } = await loadNodeRuntime();
     const cwd = path.normalize(expandHome(data.path || "~"));
@@ -81,7 +81,7 @@ export const listFiles = createServerFn({ method: "GET" })
   });
 
 export const readFileContents = createServerFn({ method: "GET" })
-  .inputValidator((input: { path: string }) => input)
+  .validator((input: { path: string }) => input)
   .handler(async ({ data }): Promise<FsReadResult> => {
     const { fs, path } = await loadNodeRuntime();
     const full = path.normalize(expandHome(data.path));

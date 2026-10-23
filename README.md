@@ -98,3 +98,21 @@ See [AGENTS.md](AGENTS.md) for detailed architecture documentation.
 ## License
 
 [MIT](LICENSE)
+
+## Self-hosted web releases
+
+Use Node from `.nvmrc` and the pinned pnpm version. `pnpm deploy` checks and builds
+committed, pushed `main`, then publishes the web image privately and an immutable
+`release-web-<SHA>` manifest. Ansible serves `pub.blue` and `sandbox.pub.blue` on
+Jump. Convex and the Cloudflare relay retain their existing hosting.
+
+`check:web` covers frontend and shared/backend contracts used by that frontend;
+`check` retains the complete repository suite. Deployment preserves the existing
+whole-repository dependency audit. Convex bindings and the router tree are
+committed so frontend checks need no cloud credentials. Browser telemetry,
+recording, analytics and crash uploads are disabled.
+
+The CLI retains its independent binary release workflow and latest-release
+pointer; web publication never replaces it. Both native and web releases stage
+all assets in a draft before immutable publication. Old Vercel automatic web
+releases are disabled.

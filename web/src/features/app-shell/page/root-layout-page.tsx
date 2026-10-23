@@ -1,9 +1,5 @@
-import { api } from "@backend/_generated/api";
-import * as Sentry from "@sentry/react";
 import { Link, Outlet } from "@tanstack/react-router";
-import { useConvexAuth, useQuery } from "convex/react";
-import posthog from "posthog-js";
-import { PostHogProvider } from "posthog-js/react";
+import { useConvexAuth } from "convex/react";
 import * as React from "react";
 import { ControlBarProvider } from "~/components/control-bar/control-bar-controller";
 import { PubWordmark } from "~/components/pub-logo";
@@ -18,22 +14,13 @@ import {
 import { TelegramNotLinkedPage } from "~/features/auth/page/telegram-not-linked-page";
 import { useTelegramAuth } from "~/hooks/use-telegram-auth";
 import { useTelegramBackButton } from "~/hooks/use-telegram-back-button";
-import { identifyUser, resetIdentity, trackError } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
-import { initPostHog } from "~/lib/posthog";
 import { IN_TELEGRAM } from "~/lib/telegram";
 import { useThemeSync } from "~/lib/theme";
-import { toError } from "~/lib/utils";
 
-initPostHog();
-
-const SentryErrorBoundary = Sentry.ErrorBoundary as unknown as React.ComponentType<
-  React.PropsWithChildren<Sentry.ErrorBoundaryProps>
->;
-
-export function RootRouteErrorPage({ error }: { error: Error }) {
+export function RootRouteErrorPage({ error }: { error: unknown }) {
   React.useEffect(() => {
-    trackError(error);
+    console.error(error);
   }, [error]);
 
   return (
@@ -43,7 +30,7 @@ export function RootRouteErrorPage({ error }: { error: Error }) {
     >
       <h1 className="text-xl font-bold">Something went wrong</h1>
       <p className="text-muted-foreground text-center max-w-md">
-        An unexpected error occurred. The issue has been reported and we're looking into it.
+        An unexpected error occurred. Reload the page to try again.
       </p>
       <Button onClick={() => window.location.reload()}>Reload page</Button>
     </div>
@@ -51,7 +38,6 @@ export function RootRouteErrorPage({ error }: { error: Error }) {
 }
 
 export function RootLayoutPage() {
-  useIdentifyUser();
   useTelegramBackButton();
   useThemeSync();
   const { telegramPending, telegramNotLinked, createTelegramAccount } = useTelegramAuth();
@@ -79,39 +65,14 @@ export function RootLayoutPage() {
   }
 
   return (
-    <PostHogProvider client={posthog}>
-      <SentryErrorBoundary
-        fallback={({ error }: { error: unknown }) => (
-          <RootRouteErrorPage error={toError(error, "Unexpected root route error")} />
-        )}
-      >
-        <TooltipProvider>
-          <ControlBarProvider>
-            <AppLayout>
-              <Outlet />
-            </AppLayout>
-          </ControlBarProvider>
-        </TooltipProvider>
-      </SentryErrorBoundary>
-    </PostHogProvider>
+    <TooltipProvider>
+      <ControlBarProvider>
+        <AppLayout>
+          <Outlet />
+        </AppLayout>
+      </ControlBarProvider>
+    </TooltipProvider>
   );
-}
-
-function useIdentifyUser() {
-  const { isAuthenticated } = useConvexAuth();
-  const user = useQuery(api.users.currentUser, isAuthenticated ? {} : "skip");
-  const identifiedRef = React.useRef<string | null>(null);
-
-  React.useEffect(() => {
-    if (user?._id && identifiedRef.current !== user._id) {
-      identifiedRef.current = user._id;
-      identifyUser(user._id);
-    }
-    if (!isAuthenticated && identifiedRef.current) {
-      identifiedRef.current = null;
-      resetIdentity();
-    }
-  }, [user, isAuthenticated]);
 }
 
 type HeaderKind = "authenticated" | "guest" | "none";

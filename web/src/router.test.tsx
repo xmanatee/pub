@@ -22,8 +22,6 @@ vi.mock("convex/react", () => ({
   }),
 }));
 
-vi.mock("@sentry/react", () => ({ captureException: vi.fn() }));
-
 vi.mock("@tanstack/react-query", () => ({
   QueryClient: vi.fn(function QueryClientMock() {
     return {};
@@ -33,8 +31,6 @@ vi.mock("@tanstack/react-query", () => ({
   }),
   notifyManager: { setScheduler: vi.fn() },
 }));
-
-vi.mock("posthog-js", () => ({ default: { capture: vi.fn() } }));
 
 vi.mock("./routeTree.gen", () => ({ routeTree: {} }));
 

@@ -9,7 +9,7 @@ import { sanitizeHtml } from "~/core/sanitize";
 import type { MailMessageDetail } from "./commands";
 
 export const sanitizeMailHtml = createServerFn({ method: "POST" })
-  .inputValidator((input: { html: string }) => {
+  .validator((input: { html: string }) => {
     if (!input || typeof input !== "object" || typeof input.html !== "string") {
       throw new Error("mail.sanitizeHtml requires html");
     }

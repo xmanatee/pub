@@ -5,7 +5,6 @@ import * as React from "react";
 import { CopyButton } from "~/components/copy-button";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { trackApiKeyCopied, trackApiKeyCreated, trackError } from "~/lib/analytics";
 import { toError } from "~/lib/utils";
 
 const INSTALL_COMMAND = "curl -fsSL pub.blue/install.sh | bash";
@@ -35,13 +34,9 @@ export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProp
     setGenerationError(null);
     try {
       const result = await createKey({ name: "my-agent" });
-      trackApiKeyCreated({ name: "my-agent" });
       setGeneratedKey(result.key);
     } catch (error) {
       const actionError = toError(error, "Could not create API key.");
-      trackError(actionError, {
-        action: "create_onboarding_api_key",
-      });
       setGenerationError(actionError.message);
     } finally {
       setGenerating(false);
@@ -107,12 +102,7 @@ export function OnboardingGuide({ hasApiKeys, agentOnline }: OnboardingGuideProp
                 <code className="text-sm bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1.5 rounded flex-1 break-all font-mono">
                   {generatedKey}
                 </code>
-                <CopyButton
-                  text={generatedKey}
-                  label="Copy API key"
-                  onCopy={() => trackApiKeyCopied()}
-                  onCopyError={(error) => trackError(error, { action: "copy_onboarding_api_key" })}
-                />
+                <CopyButton text={generatedKey} label="Copy API key" />
               </div>
             </div>
           )}
@@ -205,11 +195,7 @@ function CommandBlock({ command }: { command: string }) {
     <div className="flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5">
       <Terminal className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <code className="text-sm font-mono text-white truncate flex-1">{command}</code>
-      <CopyButton
-        text={command}
-        label="Copy command"
-        onCopyError={(error) => trackError(error, { action: "copy_onboarding_command" })}
-      />
+      <CopyButton text={command} label="Copy command" />
     </div>
   );
 }

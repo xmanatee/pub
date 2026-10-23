@@ -12,12 +12,6 @@ import { useStartLive } from "~/features/pubs/hooks/use-start-live";
 import { derivePubsPageState } from "~/features/pubs/lib/pubs-page-state";
 import type { PubSortKey } from "~/features/pubs/lib/sort-pubs";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
-import {
-  trackError,
-  trackPubDeleted,
-  trackPubLinkCopied,
-  trackVisibilityToggled,
-} from "~/lib/analytics";
 import { toError } from "~/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -55,17 +49,11 @@ export function PubsPage() {
 
   const handleToggleVisibility = React.useCallback(
     async (pub: PubGridItem) => {
-      const newVisibility = pub.isPublic ? "private" : "public";
       setOperationError(null);
       try {
         await toggleVisibility({ id: pub._id });
-        trackVisibilityToggled({ slug: pub.slug, newVisibility });
       } catch (error) {
         const actionError = toError(error, "Could not update pub visibility.");
-        trackError(actionError, {
-          action: "toggle_pub_visibility",
-          slug: pub.slug,
-        });
         setOperationError(actionError.message);
       }
     },
@@ -77,13 +65,8 @@ export function PubsPage() {
       setOperationError(null);
       try {
         await deletePub({ id: pub._id });
-        trackPubDeleted({ slug: pub.slug });
       } catch (error) {
         const actionError = toError(error, "Could not delete pub.");
-        trackError(actionError, {
-          action: "delete_pub",
-          slug: pub.slug,
-        });
         setOperationError(actionError.message);
       }
     },
@@ -97,27 +80,18 @@ export function PubsPage() {
         await duplicatePub({ id: pub._id });
       } catch (error) {
         const actionError = toError(error, "Could not duplicate pub.");
-        trackError(actionError, {
-          action: "duplicate_pub",
-          slug: pub.slug,
-        });
         setOperationError(actionError.message);
       }
     },
     [duplicatePub],
   );
 
-  const handleCopyLink = React.useCallback(async (pub: PubGridItem, pubUrl: string) => {
+  const handleCopyLink = React.useCallback(async (_pub: PubGridItem, pubUrl: string) => {
     setOperationError(null);
     try {
       await navigator.clipboard.writeText(pubUrl);
-      trackPubLinkCopied({ slug: pub.slug });
     } catch (error) {
       const actionError = toError(error, "Could not copy pub link.");
-      trackError(actionError, {
-        action: "copy_pub_link",
-        slug: pub.slug,
-      });
       setOperationError(actionError.message);
     }
   }, []);

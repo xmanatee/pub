@@ -42,5 +42,6 @@
         "@shared/*": ["../../shared/*"]
       }
     }
-  }
+  },
+  "ignoreBinaries": ["python3"]
 }

@@ -1,0 +1,38 @@
+{
+  "repository": "xmanatee/pub",
+  "image": "ghcr.io/xmanatee/pub",
+  "channel": "web",
+  "allowPublicSource": true,
+  "check": "check:web",
+  "build": "build:web",
+  "dist": "web/dist",
+  "required": [
+    "web/dist/index.html",
+    "web/dist/sandbox/index.html",
+    "web/dist/sandbox/sw.js",
+    "web/dist/install.sh",
+    "nginx.conf"
+  ],
+  "beforeBuild": [["audit"]],
+  "environment": {
+    "VITE_CONVEX_URL": "https://silent-guanaco-514.convex.cloud",
+    "VITE_SANDBOX_ORIGIN": "https://sandbox.pub.blue"
+  },
+  "smoke": [
+    {
+      "path": "/",
+      "host": "pub.blue",
+      "file": "index.html"
+    },
+    {
+      "path": "/__canvas__/qualification",
+      "host": "sandbox.pub.blue",
+      "file": "sandbox/index.html"
+    },
+    {
+      "path": "/sw.js",
+      "host": "sandbox.pub.blue",
+      "file": "sandbox/sw.js"
+    }
+  ]
+}

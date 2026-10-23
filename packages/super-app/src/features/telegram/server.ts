@@ -264,7 +264,7 @@ export const telegramAuthState = createServerFn({ method: "GET" }).handler(
 );
 
 export const telegramSendCode = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.sendCode");
     return { phone: requiredString(data, "phone") };
   })
@@ -278,7 +278,7 @@ export const telegramSendCode = createServerFn({ method: "POST" })
   });
 
 export const telegramVerify = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.verify");
     return {
       phone: requiredString(data, "phone"),
@@ -310,7 +310,7 @@ export const telegramVerify = createServerFn({ method: "POST" })
   });
 
 export const telegramPassword = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.password");
     return { password: requiredString(data, "password") };
   })
@@ -345,7 +345,7 @@ export const telegramLogout = createServerFn({ method: "POST" }).handler(
 );
 
 export const telegramDialogs = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input ?? {}, "telegram.dialogs");
     return { limit: optionalNumber(data, "limit") ?? 50 };
   })
@@ -356,7 +356,7 @@ export const telegramDialogs = createServerFn({ method: "GET" })
   });
 
 export const telegramMessages = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.messages");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -371,7 +371,7 @@ export const telegramMessages = createServerFn({ method: "GET" })
   });
 
 export const telegramSearchMessages = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.searchMessages");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -387,7 +387,7 @@ export const telegramSearchMessages = createServerFn({ method: "GET" })
   });
 
 export const telegramPeer = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.peer");
     return { dialogId: requiredString(data, "dialogId") };
   })
@@ -441,7 +441,7 @@ export const telegramPeer = createServerFn({ method: "GET" })
   });
 
 export const telegramSend = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.send");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -457,7 +457,7 @@ export const telegramSend = createServerFn({ method: "POST" })
   });
 
 export const telegramSendFile = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.sendFile");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -480,7 +480,7 @@ export const telegramSendFile = createServerFn({ method: "POST" })
   });
 
 export const telegramEdit = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.edit");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -497,7 +497,7 @@ export const telegramEdit = createServerFn({ method: "POST" })
   });
 
 export const telegramDelete = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.delete");
     return { dialogId: requiredString(data, "dialogId"), ids: numberArray(data, "ids") };
   })
@@ -509,7 +509,7 @@ export const telegramDelete = createServerFn({ method: "POST" })
   });
 
 export const telegramForward = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.forward");
     return {
       fromDialogId: requiredString(data, "fromDialogId"),
@@ -526,7 +526,7 @@ export const telegramForward = createServerFn({ method: "POST" })
   });
 
 export const telegramReact = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.react");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -553,7 +553,7 @@ export const telegramReact = createServerFn({ method: "POST" })
   });
 
 export const telegramPin = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.pin");
     return { dialogId: requiredString(data, "dialogId"), id: optionalNumber(data, "id") };
   })
@@ -566,7 +566,7 @@ export const telegramPin = createServerFn({ method: "POST" })
   });
 
 export const telegramUnpin = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.unpin");
     return { dialogId: requiredString(data, "dialogId"), id: optionalNumber(data, "id") };
   })
@@ -579,7 +579,7 @@ export const telegramUnpin = createServerFn({ method: "POST" })
   });
 
 export const telegramMarkRead = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.markRead");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -594,7 +594,7 @@ export const telegramMarkRead = createServerFn({ method: "POST" })
   });
 
 export const telegramDownloadMedia = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.downloadMedia");
     return { dialogId: requiredString(data, "dialogId"), id: optionalNumber(data, "id") };
   })
@@ -620,7 +620,7 @@ export const telegramDownloadMedia = createServerFn({ method: "GET" })
   );
 
 export const telegramMute = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.mute");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -643,7 +643,7 @@ export const telegramMute = createServerFn({ method: "POST" })
   });
 
 export const telegramBlock = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.block");
     return { dialogId: requiredString(data, "dialogId") };
   })
@@ -655,7 +655,7 @@ export const telegramBlock = createServerFn({ method: "POST" })
   });
 
 export const telegramUnblock = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.unblock");
     return { dialogId: requiredString(data, "dialogId") };
   })
@@ -667,7 +667,7 @@ export const telegramUnblock = createServerFn({ method: "POST" })
   });
 
 export const telegramArchive = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.archive");
     return {
       dialogId: requiredString(data, "dialogId"),
@@ -691,7 +691,7 @@ export const telegramArchive = createServerFn({ method: "POST" })
   });
 
 export const telegramLeave = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     const data = asRecord(input, "telegram.leave");
     return { dialogId: requiredString(data, "dialogId") };
   })

@@ -9,6 +9,10 @@ name: CI
   workflow_dispatch: null
 permissions:
   contents: read
+env:
+  CI: 'true'
+  DO_NOT_TRACK: '1'
+  WRANGLER_SEND_METRICS: 'false'
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -25,17 +29,13 @@ jobs:
           version: 10.34.7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: pnpm
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
       - name: Install exact dependencies
         run: pnpm install --frozen-lockfile
-      - name: Generate Convex types
-        run: pnpm exec convex codegen
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       - name: Validate backend deployment
         run: pnpm exec convex deploy --dry-run -y --codegen disable
         env:
@@ -79,7 +79,7 @@ jobs:
           version: 10.34.7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: pnpm
       - name: Install exact dependencies
         run: pnpm install --frozen-lockfile

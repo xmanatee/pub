@@ -6,10 +6,12 @@ packages:
   - packages/super-app
 
 overrides:
-  "@opentelemetry/core": 2.8.0
+  # The MCP SDK accepts Hono 4.x; hold its patched request-validation release.
+  "hono@<4.13.11": 4.13.11
+  # The tracing SDK has not declared compatibility with the new API minor yet.
+  "@opentelemetry/api": 1.9.0
   dompurify: 3.4.9
   esbuild: 0.28.1
-  hono: 4.12.25
   ip: workspace:3.0.0-pub.0
   valibot: ^1.4.1
   ws: 8.21.0
@@ -17,7 +19,6 @@ overrides:
 strictDepBuilds: true
 
 onlyBuiltDependencies:
-  - "@sentry/cli"
   - esbuild
   - protobufjs
   - sharp

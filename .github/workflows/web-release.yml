@@ -1,0 +1,16 @@
+name: Web release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  release:
+    permissions:
+      contents: write
+      packages: write
+    uses: xmanatee/workflows/.github/workflows/publish-static.yml@d05eb5ecd80f75f31cb2c3af4aff939cd1e79b05
+    with:
+      publisher-ref: d05eb5ecd80f75f31cb2c3af4aff939cd1e79b05

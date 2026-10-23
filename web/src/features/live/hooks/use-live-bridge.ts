@@ -5,7 +5,6 @@ import { profileMark } from "~/features/live/lib/connection-profiler";
 import { fetchIceConfig } from "~/features/live/lib/fetch-ice-servers";
 import type { BridgeState, ChannelMessage } from "~/features/live/lib/webrtc-browser";
 import { BrowserBridge } from "~/features/live/lib/webrtc-browser";
-import { trackError } from "~/lib/analytics";
 import { toError } from "~/lib/utils";
 
 const LOCAL_ICE_FLUSH_INTERVAL_MS = 100;
@@ -117,9 +116,7 @@ export function useLiveBridge({
             flushedCandidates.push(...next);
             await storeBrowserCandidatesRef.current({ slug, candidates: next });
           } catch (error) {
-            trackError(toError(error, "Failed to store local ICE candidates"), {
-              context: "live-bridge",
-            });
+            console.error(error);
             onSystemMessageRef.current?.({
               content: "Realtime signaling is unstable. Local connection updates are failing.",
               dedupeKey: "local-ice-store-failed",
@@ -145,7 +142,7 @@ export function useLiveBridge({
           error,
           "Live connection setup failed before streaming could start.",
         );
-        trackError(bridgeError, { context: "live-bridge" });
+
         onSystemMessageRef.current?.({
           content: bridgeError.message,
           dedupeKey: "bridge-offer-failed",
@@ -194,9 +191,7 @@ export function useLiveBridge({
             profileMark("answer-applied");
           })
           .catch((error) => {
-            trackError(toError(error, "Failed to apply agent answer"), {
-              context: "live-bridge",
-            });
+            console.error(error);
             onSystemMessageRef.current?.({
               content:
                 "Live connection could not apply the remote answer. Reconnect and try again.",
@@ -212,9 +207,7 @@ export function useLiveBridge({
       if (nextCandidates.length > 0) {
         lastAgentCandidateCountRef.current = agentCandidates.length;
         void bridge.addRemoteCandidates(nextCandidates).catch((error) => {
-          trackError(toError(error, "Failed to add remote ICE candidates"), {
-            context: "live-bridge",
-          });
+          console.error(error);
           onSystemMessageRef.current?.({
             content: "Connection updates from the agent were rejected. Stream quality may degrade.",
             dedupeKey: "remote-ice-add-failed",

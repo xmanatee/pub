@@ -4,7 +4,7 @@ import type { CommandFunctionSpec, JsonValue } from "~/core/types";
 export type CommandResponse = { ok: true; value: JsonValue } | { ok: false; error: string };
 
 export const runCommandSpec = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (input: {
       spec: CommandFunctionSpec;
       args?: Record<string, unknown>;

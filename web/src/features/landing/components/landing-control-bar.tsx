@@ -8,7 +8,6 @@ import {
   type ControlBarLayerInput,
 } from "~/components/control-bar/control-bar-types";
 import { Button } from "~/components/ui/button";
-import { trackCtaClicked } from "~/lib/analytics";
 
 const LANDING_BAR_TONE = {
   backgroundSize: "180%",
@@ -34,7 +33,6 @@ export function LandingControlBar() {
             asChild
             variant="default"
             className="h-10 shrink-0 rounded-full px-4 text-xs font-semibold"
-            onClick={() => trackCtaClicked({ cta: "sign_in", location: "floating_control_bar" })}
           >
             <Link to="/login">Sign in</Link>
           </Button>

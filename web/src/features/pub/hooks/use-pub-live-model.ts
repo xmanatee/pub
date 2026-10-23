@@ -23,7 +23,6 @@ import {
 } from "~/features/pub/model/live-start-policy";
 import { derivePubViewState, isControlBarCollapsible } from "~/features/pub/model/pub-view-state";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
-import { trackPubViewed } from "~/lib/analytics";
 import { getConvexSiteUrl } from "~/lib/convex-url";
 
 type PubSnapshot =
@@ -62,7 +61,6 @@ export function usePubLiveModel({
   contentState,
 }: UsePubLiveModelOptions) {
   const navigate = useNavigate();
-  const recordPubView = useMutation(api.analytics.recordPubView);
   const createOwnerContentAccessToken = useMutation(
     api.pubAccessTokens.createOwnerContentAccessToken,
   );
@@ -160,7 +158,6 @@ export function usePubLiveModel({
   );
   const [liveRequestedOverride, setLiveRequestedOverride] = useState<boolean | null>(null);
   const liveRequested = liveRequestedOverride ?? defaultLiveRequested;
-  const trackedAnalytics = useRef(false);
   const notifiedStatusRef = useRef<string | null>(null);
   const lastSessionErrorRef = useRef<string | null>(null);
   const lastSlugRef = useRef<string | null>(null);
@@ -489,16 +486,6 @@ export function usePubLiveModel({
   }, [addSystemMessage, effectiveContentState, liveMode, pub]);
 
   useEffect(() => {
-    if (!pub || trackedAnalytics.current) return;
-    trackedAnalytics.current = true;
-    trackPubViewed({
-      slug: pub.slug,
-      isPublic: pub.isPublic,
-    });
-    void recordPubView({ slug: pub.slug });
-  }, [pub, recordPubView]);
-
-  useEffect(() => {
     if (lastSlugRef.current === null) {
       lastSlugRef.current = slug;
       return;
@@ -522,7 +509,6 @@ export function usePubLiveModel({
     setCanvasHtml(baseContentHtml ?? null);
     setCollapsePreference(resetLiveStartPolicy.defaultCollapsed);
     setLiveRequestedOverride(null);
-    trackedAnalytics.current = false;
     dismissPreview();
     clearMessages();
     clearFiles();

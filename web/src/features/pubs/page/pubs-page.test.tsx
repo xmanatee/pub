@@ -58,15 +58,6 @@ vi.mock("~/hooks/use-developer-mode", () => ({
   }),
 }));
 
-vi.mock("~/lib/analytics", () => ({
-  trackError: vi.fn(),
-  trackPubDeleted: vi.fn(),
-  trackPubLinkCopied: vi.fn(),
-  trackVisibilityToggled: vi.fn(),
-  trackApiKeyCopied: vi.fn(),
-  trackApiKeyCreated: vi.fn(),
-}));
-
 vi.mock("~/lib/telegram", () => ({
   telegramConfirm: vi.fn(),
   telegramOpenLink: vi.fn(),

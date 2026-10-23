@@ -12,6 +12,7 @@
     "build:relay": "pnpm --filter pub-relay build",
     "build:super-app": "pnpm --filter pub-super-app build",
     "build:web": "pnpm --filter pub-web build",
+    "deploy": "python3 .release/deploy.py",
     "preview": "pnpm --filter pub-web preview",
     "typecheck": "tsc --noEmit && pnpm -r --workspace-concurrency=1 --if-present typecheck",
     "lint": "pnpm lint:root && pnpm lint:web && pnpm lint:super-app",
@@ -22,33 +23,34 @@
     "format": "biome format --write .",
     "test": "pnpm test:root && pnpm test:web && pnpm test:super-app && pnpm test:cli && pnpm test:ip-compat",
     "test:watch": "pnpm --filter pub-web test:watch",
-    "test:e2e": "bash scripts/test-e2e.sh",
-    "test:cli": "pnpm --filter pub-cli test",
-    "test:e2e:web": "E2E_SUITE=web pnpm test:e2e",
-    "test:ip-compat": "pnpm --filter ip test",
     "test:root": "vitest run",
-    "test:super-app": "pnpm --filter pub-super-app test",
     "test:web": "pnpm --filter pub-web test",
+    "test:super-app": "pnpm --filter pub-super-app test",
+    "test:cli": "pnpm --filter pub-cli test",
+    "test:ip-compat": "pnpm --filter ip test",
+    "test:e2e": "bash scripts/test-e2e.sh",
+    "test:e2e:web": "E2E_SUITE=web pnpm test:e2e",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm knip",
+    "check:web": "tsc --noEmit && pnpm lint:root && pnpm --filter pub-web check && pnpm test:root && pnpm knip",
     "check:all": "pnpm check && pnpm build && pnpm audit && pnpm test:e2e",
     "deploy:convex": "convex deploy",
     "knip": "knip"
   },
   "dependencies": {
-    "@auth/core": "^0.37.0",
-    "@convex-dev/auth": "^0.0.93",
+    "@auth/core": "0.41.3",
+    "@convex-dev/auth": "0.0.96",
     "@convex-dev/rate-limiter": "^0.3.2",
-    "concurrently": "^10.0.3",
-    "convex": "^1.40.0"
+    "concurrently": "^10.0.6",
+    "convex": "^1.48.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
-    "@playwright/test": "^1.60.0",
-    "@types/ws": "^8.5.0",
-    "knip": "^6.15.0",
-    "typescript": "^5.7.2",
-    "vitest": "^4.1.8",
-    "ws": "^8.21.0"
+    "@playwright/test": "^1.64.1",
+    "@types/ws": "^8.18.2",
+    "knip": "6.15.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12",
+    "ws": "8.21.0"
   },
   "pnpm": {
     "auditConfig": {

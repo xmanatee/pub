@@ -12,13 +12,6 @@ import { Switch } from "~/components/ui/switch";
 import { useLivePreferences } from "~/features/live/hooks/use-live-preferences";
 import { useDeveloperMode } from "~/hooks/use-developer-mode";
 import { isFullscreenSupported } from "~/hooks/use-fullscreen";
-import { useTelemetryPreference } from "~/hooks/use-telemetry-preference";
-import {
-  resetIdentity,
-  trackAccountDeleted,
-  trackProviderDisconnected,
-  trackSignOut,
-} from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM, telegramOpenLink } from "~/lib/telegram";
 
@@ -47,7 +40,6 @@ export function SettingsPage() {
 
   const { autoFullscreen, setAutoFullscreen } = useLivePreferences();
   const { canUseDeveloperMode, developerModeEnabled, setDeveloperModeEnabled } = useDeveloperMode();
-  const { telemetryEnabled, setTelemetryEnabled } = useTelemetryPreference();
 
   async function handleCreateLink() {
     setLinkLoading(true);
@@ -68,15 +60,12 @@ export function SettingsPage() {
     setDisconnecting(provider);
     try {
       await disconnectProvider({ provider });
-      trackProviderDisconnected({ provider });
     } finally {
       setDisconnecting(null);
     }
   }
 
   async function handleSignOut() {
-    trackSignOut();
-    resetIdentity();
     await signOut();
     window.location.href = "/";
   }
@@ -84,8 +73,6 @@ export function SettingsPage() {
   async function handleDeleteAccount() {
     setDeleting(true);
     try {
-      trackAccountDeleted();
-      resetIdentity();
       await deleteAccount();
       window.location.href = "/";
     } catch (error) {
@@ -227,24 +214,6 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       )}
-
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Telemetry</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm">Send performance and error data</p>
-              <p className="text-xs text-muted-foreground">
-                Helps improve reliability and performance. No personal data is sent. Reload the page
-                after changing this setting.
-              </p>
-            </div>
-            <Switch checked={telemetryEnabled} onCheckedChange={setTelemetryEnabled} />
-          </div>
-        </CardContent>
-      </Card>
 
       {!IN_TELEGRAM && (
         <Card className="border-border/50">

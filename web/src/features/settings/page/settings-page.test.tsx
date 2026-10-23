@@ -50,25 +50,11 @@ vi.mock("~/hooks/use-developer-mode", () => ({
   }),
 }));
 
-vi.mock("~/hooks/use-telemetry-preference", () => ({
-  useTelemetryPreference: () => ({
-    telemetryEnabled: true,
-    setTelemetryEnabled: vi.fn(),
-  }),
-}));
-
 vi.mock("~/features/live/hooks/use-live-preferences", () => ({
   useLivePreferences: () => ({
     autoFullscreen: false,
     setAutoFullscreen: vi.fn(),
   }),
-}));
-
-vi.mock("~/lib/analytics", () => ({
-  resetIdentity: vi.fn(),
-  trackSignOut: vi.fn(),
-  trackProviderDisconnected: vi.fn(),
-  trackAccountDeleted: vi.fn(),
 }));
 
 vi.mock("~/lib/auth-debug", () => ({
@@ -141,7 +127,7 @@ describe("SettingsPage", () => {
     expect(window.location.pathname).toBe("/");
   });
 
-  it("renders Linked Accounts, Telemetry, and Danger Zone sections", async () => {
+  it("renders Linked Accounts and Danger Zone without telemetry controls", async () => {
     const currentRoot = root;
     const currentContainer = container;
     if (!currentRoot || !currentContainer) throw new Error("test root not initialized");
@@ -152,7 +138,7 @@ describe("SettingsPage", () => {
 
     const html = currentContainer.innerHTML;
     expect(html).toContain("Linked Accounts");
-    expect(html).toContain("Telemetry");
+    expect(html).not.toContain("Telemetry");
     expect(html).toContain("Danger Zone");
   });
 });

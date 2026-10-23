@@ -13,8 +13,6 @@ import {
   reduceAudioMachine,
   toBarMode,
 } from "~/features/live-control-bar/model/control-bar-audio-machine";
-import { trackError } from "~/lib/analytics";
-import { toError } from "~/lib/utils";
 
 export type { BarMode } from "~/features/live-control-bar/model/control-bar-audio-machine";
 
@@ -169,9 +167,7 @@ export function useControlBarAudio({
       try {
         recorder.stop();
       } catch (error) {
-        trackError(toError(error, "Failed to stop recording"), {
-          context: "control-bar-audio",
-        });
+        console.error(error);
         emitSystemMessage({
           content: "Recording failed to stop cleanly. Please try again.",
           dedupeKey: "recording-stop-failed",
@@ -232,9 +228,6 @@ export function useControlBarAudio({
           severity: "warning",
         });
       } else {
-        trackError(toError(error, "Failed to start recording"), {
-          context: "control-bar-audio",
-        });
         emitSystemMessage({
           content: "Recording could not start. Please try again.",
           dedupeKey: "recording-start-failed",
@@ -353,9 +346,6 @@ export function useControlBarAudio({
           severity: "warning",
         });
       } else {
-        trackError(toError(error, "Failed to start voice mode"), {
-          context: "control-bar-audio",
-        });
         emitSystemMessage({
           content: "Voice mode failed to start. Please try again.",
           dedupeKey: "voice-start-failed",

@@ -9,7 +9,7 @@ export const listTasks = createServerFn({ method: "GET" }).handler(async () => (
 }));
 
 export const createTask = createServerFn({ method: "POST" })
-  .inputValidator((input: { title: string }) => input)
+  .validator((input: { title: string }) => input)
   .handler(async ({ data }) => ({
     entry: await store.append({
       title: data.title,
@@ -29,11 +29,11 @@ export const createTask = createServerFn({ method: "POST" })
   }));
 
 export const updateTask = createServerFn({ method: "POST" })
-  .inputValidator((input: { id: string; patch: Partial<Task> }) => input)
+  .validator((input: { id: string; patch: Partial<Task> }) => input)
   .handler(async ({ data }) => ({ entry: await store.update(data.id, data.patch) }));
 
 export const deleteTask = createServerFn({ method: "POST" })
-  .inputValidator((input: { id: string }) => input)
+  .validator((input: { id: string }) => input)
   .handler(async ({ data }) => {
     await store.remove(data.id);
     return { id: data.id };

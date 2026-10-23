@@ -8,12 +8,6 @@ import { EmptyStateCard } from "~/components/empty-state-card";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import {
-  trackApiKeyCopied,
-  trackApiKeyCreated,
-  trackApiKeyDeleted,
-  trackError,
-} from "~/lib/analytics";
 import { telegramConfirm } from "~/lib/telegram";
 import { toError } from "~/lib/utils";
 
@@ -36,14 +30,10 @@ export function AgentsPage() {
     setOperationError(null);
     try {
       const result = await createKey({ name });
-      trackApiKeyCreated({ name });
       setCreatedKey(result.key);
       setNewKeyName("");
     } catch (error) {
       const actionError = toError(error, "Could not create API key.");
-      trackError(actionError, {
-        action: "create_api_key",
-      });
       setOperationError(actionError.message);
     } finally {
       setLoading(false);
@@ -52,23 +42,16 @@ export function AgentsPage() {
 
   async function handleDelete(id: Id<"apiKeys">) {
     if (!(await telegramConfirm("Delete this API key? This cannot be undone."))) return;
-    const key = keys?.find((k) => k._id === id);
     setOperationError(null);
     try {
       await deleteKey({ id });
-      if (key) trackApiKeyDeleted({ name: key.name });
     } catch (error) {
       const actionError = toError(error, "Could not delete API key.");
-      trackError(actionError, {
-        action: "delete_api_key",
-        keyId: id,
-      });
       setOperationError(actionError.message);
     }
   }
 
-  function handleCopyError(action: string, error: Error) {
-    trackError(error, { action });
+  function handleCopyError(error: Error) {
     setOperationError(error.message);
   }
 
@@ -82,7 +65,7 @@ export function AgentsPage() {
           text={INSTALL_COMMAND}
           label="Copy install command"
           onCopy={() => setOperationError(null)}
-          onCopyError={(error) => handleCopyError("copy_install_command", error)}
+          onCopyError={(error) => handleCopyError(error)}
         />
       </div>
 
@@ -129,9 +112,8 @@ export function AgentsPage() {
                 label="Copy API key"
                 onCopy={() => {
                   setOperationError(null);
-                  trackApiKeyCopied();
                 }}
-                onCopyError={(error) => handleCopyError("copy_api_key", error)}
+                onCopyError={(error) => handleCopyError(error)}
               />
             </div>
             <Button

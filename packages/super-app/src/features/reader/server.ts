@@ -38,7 +38,7 @@ function validateSimplifyInput(input: unknown): SimplifyInput {
 }
 
 export const simplify = createServerFn({ method: "POST" })
-  .inputValidator(validateSimplifyInput)
+  .validator(validateSimplifyInput)
   .handler(async ({ data }): Promise<ReaderResult> => {
     const { document } = parseHTML(data.html);
     const article = new Readability(document as unknown as Document).parse();

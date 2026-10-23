@@ -1,9 +1,7 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
-import * as Sentry from "@sentry/react";
 import { MutationCache, notifyManager, QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { ConvexReactClient } from "convex/react";
-import posthog from "posthog-js";
 import { getConvexUrl } from "./lib/convex-url";
 import { routeTree } from "./routeTree.gen";
 
@@ -20,13 +18,7 @@ export function getRouter() {
       },
     },
     mutationCache: new MutationCache({
-      onError: (error, _variables, _context, mutation) => {
-        const mutationKey = mutation.options.mutationKey
-          ? String(mutation.options.mutationKey)
-          : "unknown";
-        Sentry.captureException(error, {
-          tags: { type: "mutation_error", mutation: mutationKey },
-        });
+      onError: (error) => {
         console.error("Mutation error:", error.message);
       },
     }),
@@ -41,13 +33,6 @@ export function getRouter() {
       auth: undefined as never, // Provided at runtime by RouterProvider in main.tsx
     },
     scrollRestoration: true,
-  });
-
-  router.subscribe("onResolved", ({ toLocation }) => {
-    posthog.capture("$pageview", {
-      $current_url: toLocation.href,
-      path: toLocation.pathname,
-    });
   });
 
   return { router, queryClient, convexClient };

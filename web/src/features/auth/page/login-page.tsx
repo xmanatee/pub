@@ -4,7 +4,6 @@ import * as React from "react";
 import { PubLogo } from "~/components/pub-logo";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { trackSignInStarted } from "~/lib/analytics";
 import { pushAuthDebug } from "~/lib/auth-debug";
 import { IN_TELEGRAM } from "~/lib/telegram";
 
@@ -21,7 +20,6 @@ export function LoginPage() {
       isStartingSignInRef.current = true;
       setAuthError(null);
       setPendingProvider(provider);
-      trackSignInStarted(provider);
       pushAuthDebug("oauth_start", { provider, redirectTo: "/pubs" });
 
       try {
