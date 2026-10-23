@@ -5,12 +5,12 @@ permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 jobs:
   release:
     permissions:
       contents: write
       packages: write
-    uses: xmanatee/workflows/.github/workflows/publish-static.yml@242a883eb94e6538dd4999de0ca3e648997a8055
+    uses: xmanatee/workflows/.github/workflows/publish-static.yml@697f658a52c4449c43b3ea8aed9a979674494e71
     with:
       publisher-ref: 242a883eb94e6538dd4999de0ca3e648997a8055
