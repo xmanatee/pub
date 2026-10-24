@@ -10,6 +10,8 @@ overrides:
   "hono@<4.13.11": 4.13.11
   # The tracing SDK has not declared compatibility with the new API minor yet.
   "@opentelemetry/api": 1.9.0
+  # Wrangler's bundled Miniflare still pins an undici release with fixed advisories.
+  "undici@>=7.0.0 <7.30.1": 7.30.1
   dompurify: 3.4.9
   esbuild: 0.28.1
   ip: workspace:3.0.0-pub.0
