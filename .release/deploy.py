@@ -8,8 +8,8 @@ import subprocess
 import sys
 import tempfile
 
-REF = "242a883eb94e6538dd4999de0ca3e648997a8055"
-SHA256 = "d21944601c5dc7ec8beb3fcff5d925c520550737dfa686cfee5f57d2a03b6245"
+REF = "a7e68d5ca8db7ce350307d076a8de671ac6863fa"
+SHA256 = "fb48eaa19e5f392094957a6126db45102c4fe4e6ec080790fcd663d2856a83c4"
 root = Path(__file__).resolve().parent.parent
 cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "app-releases" / "publishers" / REF
 cache.mkdir(parents=True, exist_ok=True)
