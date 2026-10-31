@@ -2,7 +2,6 @@ import { PubApiClient } from "../core/api/client.js";
 import type { BridgeSettings, PubTunnelConfig } from "../core/config/index.js";
 import { errorMessage } from "../core/errors/cli-error.js";
 import { exitProcess } from "../core/process/exit.js";
-import { initSentryCli } from "../core/telemetry/sentry.js";
 import { startDaemon } from "../live/daemon/index.js";
 
 function parseEnvJson<T>(envKey: string, raw: string | undefined): T | undefined {
@@ -16,13 +15,7 @@ function parseEnvJson<T>(envKey: string, raw: string | undefined): T | undefined
 }
 
 export async function runDaemonFromEnv(): Promise<void> {
-  const sentryDsn = process.env.PUB_SENTRY_DSN;
   const cliVersion = process.env.PUB_CLI_VERSION;
-  const telemetryDisabled =
-    process.env.PUB_TELEMETRY === "false" || process.env.PUB_TELEMETRY === "0";
-  if (sentryDsn && !telemetryDisabled) {
-    initSentryCli({ dsn: sentryDsn, version: cliVersion });
-  }
 
   const baseUrl = process.env.PUB_DAEMON_API_BASE_URL;
   const apiKey = process.env.PUB_DAEMON_API_KEY;

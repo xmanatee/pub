@@ -202,11 +202,9 @@ describe("compactPubConfig", () => {
 
 describe("SUPPORTED_CONFIG_KEYS", () => {
   it("lists all mutable config keys", () => {
-    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(30);
+    expect(SUPPORTED_CONFIG_KEYS).toHaveLength(28);
     expect(SUPPORTED_CONFIG_KEYS).toContain("apiKey");
     expect(SUPPORTED_CONFIG_KEYS).toContain("baseUrl");
-    expect(SUPPORTED_CONFIG_KEYS).toContain("telemetry");
-    expect(SUPPORTED_CONFIG_KEYS).toContain("sentryDsn");
     expect(SUPPORTED_CONFIG_KEYS).toContain("bridge.verbose");
     expect(SUPPORTED_CONFIG_KEYS).toContain("command.agent.defaultProfile");
     expect(SUPPORTED_CONFIG_KEYS).toContain("openclawLike.profiles");

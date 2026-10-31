@@ -12,29 +12,18 @@ if (process.env.PUB_DAEMON_MODE === "1") {
   const { buildProgram } = await import("./app/program.js");
   const { CLI_VERSION } = await import("./core/version/version.js");
   const { getUpdateCheck } = await import("./core/version/version-check.js");
-  const { initCliTelemetry } = await import("./app/telemetry-init.js");
   const { exitProcess } = await import("./core/process/exit.js");
 
   const skipUpdateCheck = process.env.PUB_SKIP_UPDATE_CHECK === "1";
   const updateCheck = skipUpdateCheck ? null : await getUpdateCheck();
 
-  initCliTelemetry(CLI_VERSION);
-
   const program = buildProgram();
-
-  const { Sentry } = await import("./core/telemetry/sentry.js");
 
   program.hook("preAction", (_, actionCommand) => {
     if (updateCheck?.requiresUpgrade && actionCommand.name() !== "upgrade") {
       failCli(
         `pub v${CLI_VERSION} is outdated. v${updateCheck.latest} requires an upgrade.\nRun \`pub upgrade\` to update.`,
       );
-    }
-    const span = Sentry.getActiveSpan();
-    const root = span ? Sentry.getRootSpan(span) : undefined;
-    if (root) {
-      root.updateName(`cli ${actionCommand.name()}`);
-      root.setAttribute("cli.command", actionCommand.name());
     }
   });
 
@@ -50,9 +39,7 @@ if (process.env.PUB_DAEMON_MODE === "1") {
     }
   });
 
-  await Sentry.startSpan({ name: "cli", op: "cli.run" }, async () => {
-    await program.parseAsync(process.argv);
-  }).catch(async (error: unknown) => {
+  await program.parseAsync(process.argv).catch(async (error: unknown) => {
     const failure = toCliFailure(error);
     if (failure.message) {
       console.error(failure.message);

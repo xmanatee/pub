@@ -1,6 +1,3 @@
-import { closeSentry } from "../telemetry/sentry.js";
-
-export async function exitProcess(code: number): Promise<never> {
-  await closeSentry();
+export function exitProcess(code: number): Promise<never> {
   process.exit(code);
 }

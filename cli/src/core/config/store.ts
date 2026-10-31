@@ -25,8 +25,6 @@ function readCoreConfig(root: Record<string, unknown>): PubCoreConfig | undefine
   const normalized: PubCoreConfig = {
     apiKey: typeof core.apiKey === "string" ? core.apiKey : undefined,
     baseUrl: typeof core.baseUrl === "string" ? core.baseUrl : undefined,
-    telemetry: typeof core.telemetry === "boolean" ? core.telemetry : undefined,
-    sentryDsn: typeof core.sentryDsn === "string" ? core.sentryDsn : undefined,
   };
 
   return Object.values(normalized).some((value) => value !== undefined) ? normalized : undefined;

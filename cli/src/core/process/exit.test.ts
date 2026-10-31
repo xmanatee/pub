@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const ALLOWED_FILE = "core/process/exit.ts";
 
-// Daemon launcher is a short-lived spawner that never initializes Sentry.
+// Daemon launcher is a short-lived spawner.
 // Its single exit is a programmer-error guard, not a runtime failure path.
 const EXEMPTED_FILES = new Set(["app/live-daemon-launcher-entry.ts"]);
 

@@ -23,8 +23,6 @@ export type OpenClawLikeProfilesConfig = Record<string, OpenClawLikeProfileConfi
 export type PubCoreConfig = {
   apiKey?: string;
   baseUrl?: string;
-  telemetry?: boolean;
-  sentryDsn?: string;
 };
 
 export type PubBridgeConfig = {

@@ -98,8 +98,6 @@ export function registerStartCommand(program: Command): void {
 
       const { spawn } = await import("node:child_process");
       const daemonLogFd = fs.openSync(logPath, "a");
-      const sentryDsn = resolved.valuesByKey.sentryDsn;
-      const telemetry = resolved.valuesByKey.telemetry;
 
       const child = spawn(process.execPath, [], {
         detached: true,
@@ -115,8 +113,6 @@ export function registerStartCommand(program: Command): void {
           PUB_CLI_VERSION: CLI_VERSION,
           PUB_DAEMON_BRIDGE_SETTINGS: JSON.stringify(bridgeSettings),
           PUB_DAEMON_LOG: logPath,
-          ...(sentryDsn?.value ? { PUB_SENTRY_DSN: String(sentryDsn.value) } : {}),
-          ...(telemetry && telemetry.value === false ? { PUB_TELEMETRY: "false" } : {}),
           PUB_DAEMON_TUNNEL_CONFIG: JSON.stringify(tunnelConfig),
         },
       });

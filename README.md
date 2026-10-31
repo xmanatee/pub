@@ -81,7 +81,6 @@ pnpm check:all    # Complete local checks, build and Docker full-stack E2E
 - **Backend**: [Convex](https://convex.dev) (database, serverless functions, file serving)
 - **Auth**: GitHub & Google OAuth via `@convex-dev/auth`
 - **CLI**: Commander.js, distributed as standalone binary (`curl -fsSL pub.blue/install.sh | bash`)
-- **Observability**: Sentry (errors), PostHog (analytics)
 
 ## Project Structure
 

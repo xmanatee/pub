@@ -63,8 +63,6 @@ describe("config", () => {
           core: {
             apiKey: "pub_test",
             baseUrl: "https://custom.convex.site",
-            telemetry: false,
-            sentryDsn: "https://dsn.example/1",
           },
           bridge: { mode: "claude-code" },
         },
@@ -78,8 +76,6 @@ describe("config", () => {
       core: {
         apiKey: "pub_test",
         baseUrl: "https://custom.convex.site",
-        telemetry: false,
-        sentryDsn: "https://dsn.example/1",
       },
       bridge: { mode: "claude-code" },
     });
