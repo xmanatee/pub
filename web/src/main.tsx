@@ -1,3 +1,4 @@
+import "@fontsource-variable/inter";
 import "~/styles/app.css";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { QueryClientProvider } from "@tanstack/react-query";

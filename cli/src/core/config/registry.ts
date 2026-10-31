@@ -104,7 +104,7 @@ const CONFIG_VARS: ConfigVarDefinition[] = [
     type: "boolean",
     description: "Enable performance telemetry (Sentry tracing).",
     env: ["PUB_TELEMETRY"],
-    defaultValue: true,
+    defaultValue: false,
   }),
   declareConfigVar({
     key: "sentryDsn",

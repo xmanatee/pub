@@ -32,7 +32,7 @@
     "test:e2e:web": "E2E_SUITE=web pnpm test:e2e",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm knip",
     "check:web": "tsc --noEmit && pnpm lint:root && pnpm --filter pub-web check && pnpm test:root && pnpm knip",
-    "check:all": "pnpm check && pnpm build && pnpm audit && pnpm test:e2e",
+    "check:all": "python3 ../../tools/heavy -- sh -c 'pnpm check && pnpm build && pnpm audit && pnpm test:e2e'",
     "deploy:convex": "convex deploy",
     "knip": "knip"
   },

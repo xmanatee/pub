@@ -18,6 +18,8 @@ overrides:
   valibot: ^1.4.1
   ws: 8.21.0
 
+minimumReleaseAge: 10080
+
 strictDepBuilds: true
 
 onlyBuiltDependencies:
