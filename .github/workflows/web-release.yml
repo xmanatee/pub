@@ -11,6 +11,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: xmanatee/workflows/.github/workflows/publish-static.yml@697f658a52c4449c43b3ea8aed9a979674494e71
+    uses: xmanatee/workflows/.github/workflows/publish-static.yml@c45f6aca7e8b0f2c7cf4e22fcf59bfe1290f8e0a
     with:
-      publisher-ref: a7e68d5ca8db7ce350307d076a8de671ac6863fa
+      publisher-ref: c45f6aca7e8b0f2c7cf4e22fcf59bfe1290f8e0a
