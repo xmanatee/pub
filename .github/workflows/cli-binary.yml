@@ -7,6 +7,9 @@ name: CLI Binary Release
       - cli/package.json
 permissions:
   contents: read
+env:
+  CI: 'true'
+  DO_NOT_TRACK: '1'
 jobs:
   check:
     name: Check Version
@@ -53,6 +56,10 @@ jobs:
           echo '4b8862b2fefa2cd7fa8f88cb0310779619aeaa8c72d6aff22f019b470f2fa99a  /usr/local/bin/ldid' | sha256sum --check
           chmod +x /usr/local/bin/ldid
       - run: pnpm install --frozen-lockfile
+      - name: Check the CLI
+        run: pnpm check
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
       - run: pnpm build
       - name: Sign darwin binaries
         run: |
