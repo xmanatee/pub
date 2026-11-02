@@ -28,18 +28,18 @@ jobs:
           else
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           fi
-  release:
-    name: Build & Release
+  build:
+    name: Build Binaries
     needs: check
     if: needs.check.outputs.version
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     defaults:
       run:
         working-directory: cli
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
         with:
           version: 10.34.7
@@ -63,10 +63,75 @@ jobs:
       - run: pnpm build
       - name: Sign darwin binaries
         run: |
-          ldid -S dist-bin/pub-darwin-arm64
-          ldid -S dist-bin/pub-darwin-x64
+          ldid -S -Cadhoc dist-bin/pub-darwin-arm64
+          ldid -S -Cadhoc dist-bin/pub-darwin-x64
       - name: Smoke test the native CLI binary
         run: node scripts/smoke-binary.mjs dist-bin/pub-linux-x64
+      - name: Transfer Darwin release binaries for native qualification
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cli-darwin-binaries
+          path: cli/dist-bin/pub-darwin-*
+          if-no-files-found: error
+          retention-days: 1
+      - name: Transfer Linux release binaries for publication
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cli-linux-binaries
+          path: cli/dist-bin/pub-linux-*
+          if-no-files-found: error
+          retention-days: 1
+  qualify-darwin:
+    name: Qualify Darwin (${{ matrix.arch }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: cli-darwin-binaries
+          path: cli/dist-bin
+      - name: Verify and smoke test the native Darwin CLI
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          test "$(node -p process.arch)" = "$TARGET_ARCH"
+          BINARY="dist-bin/pub-darwin-$TARGET_ARCH"
+          chmod +x "$BINARY"
+          codesign --verify --strict "$BINARY"
+          node scripts/smoke-binary.mjs "$BINARY"
+  release:
+    name: Publish Qualified Binaries
+    needs: [check, build, qualify-darwin]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: cli-*-binaries
+          merge-multiple: true
+          path: cli/dist-bin
       - name: Tag and release
         run: |
           git tag "cli-v${{ needs.check.outputs.version }}"
