@@ -13,7 +13,7 @@
     "web/dist/install.sh",
     "nginx.conf"
   ],
-  "beforeBuild": [["audit"]],
+  "audit": ["audit"],
   "environment": {
     "VITE_CONVEX_URL": "https://silent-guanaco-514.convex.cloud",
     "VITE_SANDBOX_ORIGIN": "https://sandbox.pub.blue"

@@ -1,5 +1,9 @@
 name: Web release
 on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "27 5 * * *"
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,6 +15,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: xmanatee/workflows/.github/workflows/publish-static.yml@c45f6aca7e8b0f2c7cf4e22fcf59bfe1290f8e0a
+    uses: xmanatee/workflows/.github/workflows/publish-static.yml@a1373e5b1da6117f7ecef55fc6ff1e7522239b80
     with:
-      publisher-ref: c45f6aca7e8b0f2c7cf4e22fcf59bfe1290f8e0a
+      publisher-ref: a1373e5b1da6117f7ecef55fc6ff1e7522239b80
