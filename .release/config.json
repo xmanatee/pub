@@ -18,21 +18,24 @@
     "VITE_CONVEX_URL": "https://silent-guanaco-514.convex.cloud",
     "VITE_SANDBOX_ORIGIN": "https://sandbox.pub.blue"
   },
-  "smoke": [
+  "health": [
     {
-      "path": "/",
       "host": "pub.blue",
-      "file": "index.html"
+      "path": "/",
+      "file": "index.html",
+      "marker": "Adaptive interfaces, powered by your agent</title>"
     },
     {
+      "host": "sandbox.pub.blue",
       "path": "/__canvas__/qualification",
-      "host": "sandbox.pub.blue",
-      "file": "sandbox/index.html"
+      "file": "sandbox/index.html",
+      "marker": "<title>Pub Sandbox</title>"
     },
     {
-      "path": "/sw.js",
       "host": "sandbox.pub.blue",
-      "file": "sandbox/sw.js"
+      "path": "/sw.js",
+      "file": "sandbox/sw.js",
+      "marker": "Pub FS Service Worker"
     }
   ]
 }

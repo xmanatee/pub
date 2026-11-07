@@ -20,16 +20,18 @@ overrides:
 
 minimumReleaseAge: 10080
 
+auditConfig:
+  ignoreGhsas:
+    - GHSA-6cpc-mj5c-m9rq
+
 strictDepBuilds: true
 
-onlyBuiltDependencies:
-  - esbuild
-  - protobufjs
-  - sharp
-  - workerd
-
-ignoredBuiltDependencies:
-  - bufferutil
-  - core-js
-  - es5-ext
-  - utf-8-validate
+allowBuilds:
+  esbuild: true
+  protobufjs: true
+  sharp: true
+  workerd: true
+  bufferutil: false
+  core-js: false
+  es5-ext: false
+  utf-8-validate: false

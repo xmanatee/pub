@@ -2,7 +2,7 @@
   "name": "pub-root",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.34.7",
+  "packageManager": "pnpm@12.11.2",
   "scripts": {
     "dev": "convex dev --once && concurrently -r 'pnpm dev:web' 'pnpm dev:db'",
     "dev:db": "convex dev",
@@ -28,8 +28,8 @@
     "test:super-app": "pnpm --filter pub-super-app test",
     "test:cli": "pnpm --filter pub-cli test",
     "test:ip-compat": "pnpm --filter ip test",
-    "test:e2e": "bash scripts/test-e2e.sh",
-    "test:e2e:web": "E2E_SUITE=web pnpm test:e2e",
+    "test:e2e": "python3 ../../tools/heavy -- bash scripts/test-e2e.sh",
+    "test:e2e:web": "E2E_SUITE=web python3 ../../tools/heavy -- pnpm test:e2e",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm knip",
     "check:web": "tsc --noEmit && pnpm lint:root && pnpm --filter pub-web check && pnpm test:root && pnpm knip",
     "check:all": "python3 ../../tools/heavy -- sh -c 'pnpm check && pnpm build && pnpm audit && pnpm test:e2e'",
@@ -51,12 +51,5 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.12",
     "ws": "8.21.0"
-  },
-  "pnpm": {
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-6cpc-mj5c-m9rq"
-      ]
-    }
   }
 }
