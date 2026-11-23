@@ -7,8 +7,8 @@ import sys
 import tempfile
 import urllib.request
 
-REF = "ea8e5d6db6b7cd5638da30f3027a3783db9aedca"
-SHA256 = "53859b4dc2600dce68e42b964e1255a9a265affc45601552a152c493ab959353"
+REF = "762022752e2f79c894fe98a03fea350fe22f1c0d"
+SHA256 = "8fedb9e4ca31adc5e86c661340fd16c6f5f894baca22c54b0be967bd717b02d6"
 root = Path(__file__).resolve().parent.parent
 cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "app-releases" / "publishers" / REF
 cache.mkdir(parents=True, exist_ok=True)
